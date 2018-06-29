@@ -1,3 +1,5 @@
+#![recursion_limit = "128"]
+
 #[macro_use]
 extern crate lazy_static;
 extern crate futures;
@@ -10,7 +12,7 @@ use std::net::SocketAddr;
 
 use futures::Future;
 use tokio_io::IoFuture;
-use trust_dns_resolver::{IntoName, AsyncResolver, TryParseIp};
+use trust_dns_resolver::{AsyncResolver, IntoName, TryParseIp};
 
 // This is an example of registering a static global resolver into any system.
 //

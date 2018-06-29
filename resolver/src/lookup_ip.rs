@@ -27,7 +27,7 @@ use error::*;
 use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
-use name_server_pool::StandardConnection;
+use name_server_pool::{ConnectionHandle, StandardConnection};
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -72,7 +72,7 @@ impl<'i> Iterator for LookupIpIter<'i> {
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C = LookupEither<BasicAsyncResolver, StandardConnection>>
+pub struct LookupIpFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
 where
     C: DnsHandle<Error = ResolveError> + 'static,
 {

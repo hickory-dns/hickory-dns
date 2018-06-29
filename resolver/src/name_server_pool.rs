@@ -13,13 +13,16 @@ use std::time::Instant;
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
+use tokio;
 
+#[cfg(feature = "dns-over-https")]
+use trust_dns_https;
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
 use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
-use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::xfer::{self, DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 
 use async_resolver::BasicAsyncResolver;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
@@ -191,30 +194,34 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync {
 pub struct StandardConnection;
 
 impl ConnectionProvider for StandardConnection {
-    type ConnHandle = BasicAsyncResolver;
+    type ConnHandle = ConnectionHandle;
 
     fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr);
                 // TODO: need config for Signer...
-                DnsFuture::with_timeout(
+                let handle = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
-                )
+                );
+
+                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
             }
             Protocol::Tcp => {
                 let (stream, handle) =
                     TcpClientStream::with_timeout(config.socket_addr, options.timeout);
                 // TODO: need config for Signer...
-                DnsFuture::with_timeout(
+                let handle = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
-                )
+                );
+
+                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
             }
             #[cfg(feature = "dns-over-tls")]
             Protocol::Tls => {
@@ -222,12 +229,14 @@ impl ConnectionProvider for StandardConnection {
                     config.socket_addr,
                     config.tls_dns_name.clone().unwrap_or_default(),
                 );
-                DnsFuture::with_timeout(
+                let handle = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
-                )
+                );
+
+                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
             }
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => {
@@ -235,12 +244,18 @@ impl ConnectionProvider for StandardConnection {
                     config.socket_addr,
                     config.tls_dns_name.clone().unwrap_or_default(),
                 );
-                DnsFuture::with_timeout(
-                    stream,
-                    handle,
-                    options.timeout,
-                    NoopMessageFinalizer::new(),
-                )
+
+                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, https connection shutting down: {}", e);
+                }));
+
+                ConnectionHandle::Https(handle)
+                // DnsFuture::with_timeout(
+                //     stream,
+                //     handle,
+                //     options.timeout,
+                //     NoopMessageFinalizer::new(),
+                // )
             }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
@@ -252,16 +267,63 @@ impl ConnectionProvider for StandardConnection {
                     None,
                 );
                 // TODO: need config for Signer...
-                DnsFuture::with_timeout(
+                let handle = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
-                )
+                );
+
+                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
             }
         };
 
-        BasicAsyncResolver::new(dns_handle)
+        dns_handle
+    }
+}
+
+#[derive(Clone)]
+pub enum ConnectionHandle {
+    Boxed(BasicAsyncResolver),
+    #[cfg(feature = "dns-over-https")]
+    Https(xfer::BufSerialMessageStreamHandle<trust_dns_https::HttpsSerialResponse>),
+}
+
+impl DnsHandle for ConnectionHandle {
+    type Error = ResolveError;
+    type Response = ConnectionHandleResponse;
+
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
+        match self {
+            ConnectionHandle::Boxed(ref mut bx) => {
+                ConnectionHandleResponse::Boxed(bx.send(request))
+            }
+            #[cfg(feature = "dns-over-https")]
+            ConnectionHandle::Https(ref mut https) => {
+                ConnectionHandleResponse::Https(https.send(request))
+            }
+        }
+    }
+}
+
+pub enum ConnectionHandleResponse {
+    Boxed(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
+    #[cfg(feature = "dns-over-https")]
+    Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
+}
+
+impl Future for ConnectionHandleResponse {
+    type Item = DnsResponse;
+    type Error = ResolveError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self {
+            ConnectionHandleResponse::Boxed(ref mut bx) => bx.poll(),
+            #[cfg(feature = "dns-over-https")]
+            ConnectionHandleResponse::Https(ref mut https) => {
+                https.poll().map_err(ResolveError::from)
+            }
+        }
     }
 }
 
@@ -280,7 +342,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     pub fn new(
         config: NameServerConfig,
         options: ResolverOpts,
-    ) -> NameServer<BasicAsyncResolver, StandardConnection> {
+    ) -> NameServer<ConnectionHandle, StandardConnection> {
         let client = StandardConnection::new_connection(&config, &options);
 
         // TODO: setup EDNS
@@ -443,7 +505,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-fn mdns_nameserver(options: ResolverOpts) -> NameServer<BasicAsyncResolver, StandardConnection> {
+fn mdns_nameserver(options: ResolverOpts) -> NameServer<ConnectionHandle, StandardConnection> {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
@@ -470,8 +532,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
-    ) -> NameServerPool<BasicAsyncResolver, StandardConnection> {
-        let datagram_conns: Vec<NameServer<BasicAsyncResolver, StandardConnection>> = config
+    ) -> NameServerPool<ConnectionHandle, StandardConnection> {
+        let datagram_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -480,7 +542,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<BasicAsyncResolver, StandardConnection>> = config
+        let stream_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())

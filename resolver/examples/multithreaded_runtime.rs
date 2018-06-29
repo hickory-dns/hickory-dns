@@ -1,3 +1,5 @@
+#![recursion_limit = "128"]
+
 //! This example shows how to create a resolver that uses the tokio multithreaded runtime. This is how
 //! you might integrate the resolver into a more complex application.
 
@@ -10,7 +12,6 @@ use tokio::runtime::Runtime;
 use trust_dns_resolver::AsyncResolver;
 
 fn main() {
-
     // Set up the standard tokio runtime (multithreaded by default).
     let mut runtime = Runtime::new().expect("Failed to create runtime");
 

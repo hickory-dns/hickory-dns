@@ -28,7 +28,7 @@ use dns_lru::MAX_TTL;
 use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
-use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
+use name_server_pool::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
@@ -141,7 +141,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
 
 /// The Future returned from ResolverFuture when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C = LookupEither<BasicAsyncResolver, StandardConnection>>
+pub struct LookupFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
 where
     C: DnsHandle<Error = ResolveError> + 'static,
 {
