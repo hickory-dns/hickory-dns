@@ -1,17 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use futures::{
-    future,
-    sync::mpsc,
-    Async, Future, Poll, Stream
-};
-use trust_dns_proto::{
-    error::ProtoResult,
-    rr::{Name, RData, RecordType},
-    xfer::{ DnsRequestOptions, RetryDnsHandle,},
-};
+use futures::{future, sync::mpsc, Async, Future, Poll, Stream};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
+use trust_dns_proto::{
+    error::ProtoResult, rr::{Name, RData, RecordType}, xfer::{DnsRequestOptions, RetryDnsHandle},
+};
 
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
@@ -19,7 +13,7 @@ use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupFuture};
 use lookup_ip::LookupIpFuture;
 use lookup_state::CachingClient;
-use name_server_pool::{NameServerPool, StandardConnection};
+use name_server_pool::{ConnectionHandle, NameServerPool, StandardConnection};
 
 use super::{BasicAsyncResolver, Request};
 
@@ -39,9 +33,8 @@ pub(super) fn task(
     request_rx: mpsc::UnboundedReceiver<Request>,
 ) -> impl Future<Item = (), Error = ()> {
     future::lazy(move || {
-        let pool = NameServerPool::<BasicAsyncResolver, StandardConnection>::from_config(
-            &config, &options,
-        );
+        let pool =
+            NameServerPool::<ConnectionHandle, StandardConnection>::from_config(&config, &options);
         let either;
         let client = RetryDnsHandle::new(pool.clone(), options.attempts);
         if options.validate {
@@ -76,8 +69,7 @@ pub(super) fn task(
     })
 }
 
-type ClientCache =
-    CachingClient<LookupEither<BasicAsyncResolver, StandardConnection>>;
+type ClientCache = CachingClient<LookupEither<ConnectionHandle, StandardConnection>>;
 
 /// Background task that resolves DNS queries.
 struct Task {
@@ -89,7 +81,6 @@ struct Task {
 }
 
 impl Task {
-
     fn lookup(
         &self,
         name: Name,
@@ -100,11 +91,7 @@ impl Task {
         LookupFuture::lookup(names, record_type, options, self.client_cache.clone())
     }
 
-    fn lookup_ip(
-        &self,
-        maybe_name: ProtoResult<Name>,
-        maybe_ip: Option<RData>
-    ) -> LookupIpFuture {
+    fn lookup_ip(&self, maybe_name: ProtoResult<Name>, maybe_ip: Option<RData>) -> LookupIpFuture {
         let mut finally_ip_addr = None;
 
         // if host is a ip address, return directly.
@@ -212,20 +199,29 @@ impl Future for Task {
                     trace!("AsyncResolver dropped, shutting down background task.");
                     // Return `Ready` so the background future finishes, as no handles
                     // are using it any longer.
-                    return Ok(Async::Ready(()))
-                },
-                Some(Request::Lookup { name, record_type, options, tx, }) => {
+                    return Ok(Async::Ready(()));
+                }
+                Some(Request::Lookup {
+                    name,
+                    record_type,
+                    options,
+                    tx,
+                }) => {
                     let future = self.lookup(name, record_type, options);
                     // tx.send() will return an error if the oneshot was canceled, but
                     // we don't actually care, so just drop the future.
                     let _ = tx.send(future);
-                },
-                Some(Request::Ip { maybe_name, maybe_ip, tx }) => {
+                }
+                Some(Request::Ip {
+                    maybe_name,
+                    maybe_ip,
+                    tx,
+                }) => {
                     let future = self.lookup_ip(maybe_name, maybe_ip);
                     // tx.send() will return an error if the oneshot was canceled, but
                     // we don't actually care, so just drop the future.
                     let _ = tx.send(future);
-                },
+                }
             }
         }
     }

@@ -5,7 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
 use std::mem;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -24,7 +23,10 @@ use tokio_rustls::ClientConfigExt;
 use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
-use trust_dns_proto::xfer::{SerialMessage, SerialMessageSender};
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{
+    DnsHandle, DnsRequest, DnsResponse, SerialMessage, SerialMessageSender,
+};
 
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -53,8 +55,8 @@ impl SerialMessageSender for HttpsClientStream {
 pub struct HttpsSerialResponse(HttpsSerialResponseInner);
 
 impl Future for HttpsSerialResponse {
-    type Item = SerialMessage;
-    type Error = io::Error;
+    type Item = DnsResponse;
+    type Error = ProtoError;
 
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
@@ -104,7 +106,9 @@ impl Future for HttpsSerialResponse {
     ///    process.
     /// ```
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+        let serial_message = try_ready!(self.0.poll());
+        let message = serial_message.to_message()?;
+        Ok(Async::Ready(message.into()))
     }
 }
 
@@ -135,7 +139,7 @@ enum HttpsSerialResponseInner {
 
 impl Future for HttpsSerialResponseInner {
     type Item = SerialMessage;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -152,10 +156,7 @@ impl Future for HttpsSerialResponseInner {
                         Ok(Async::Ready(())) => (),
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Err(err) => {
-                            return Err(io::Error::new(
-                                io::ErrorKind::ConnectionAborted,
-                                format!("h2 send_request error: {}", err),
-                            ))
+                            return Err(ProtoError::from(format!("h2 send_request error: {}", err)))
                         }
                     }
 
@@ -183,21 +184,14 @@ impl Future for HttpsSerialResponseInner {
 
                     let mut parts = uri::Parts::default();
                     parts.scheme = Some(uri::Scheme::HTTPS);
-                    parts.authority =
-                        Some(uri::Authority::from_str(&name_server_name).map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::InvalidInput,
-                                format!("invalid authority: {}", e),
-                            )
-                        })?);
+                    parts.authority = Some(
+                        uri::Authority::from_str(&name_server_name)
+                            .map_err(|e| ProtoError::from(format!("invalid authority: {}", e)))?,
+                    );
                     parts.path_and_query = Some(uri::PathAndQuery::from_static("/dns-query"));
 
-                    let url = Uri::from_parts(parts).map_err(|e| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidInput,
-                            format!("uri parse error: {}", e),
-                        )
-                    })?;
+                    let url = Uri::from_parts(parts)
+                        .map_err(|e| ProtoError::from(format!("uri parse error: {}", e)))?;
                     let request = Request::post(url)
                         .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
                         .header(header::ACCEPT, ::ACCEPTS_DNS_BINARY)
@@ -205,32 +199,20 @@ impl Future for HttpsSerialResponseInner {
                         .version(Version::HTTP_2)
                         .body(());
 
-                    let request = request.map_err(|err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("bad http request: {}", err),
-                        )
-                    })?;
+                    let request = request
+                        .map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
 
                     debug!("request: {:#?}", request);
 
                     // Send the request
                     let (response_future, mut send_stream) =
                         h2.send_request(request, false).map_err(|err| {
-                            io::Error::new(
-                                io::ErrorKind::ConnectionAborted,
-                                format!("h2 send_request error: {}", err),
-                            )
+                            ProtoError::from(format!("h2 send_request error: {}", err))
                         })?;
 
                     send_stream
                         .send_data(Bytes::from(message.bytes()), true)
-                        .map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::BrokenPipe,
-                                format!("h2 send_data error: {}", e),
-                            )
-                        })?;
+                        .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
 
                     HttpsSerialResponseInner::Incoming {
                         response_future,
@@ -243,11 +225,9 @@ impl Future for HttpsSerialResponseInner {
                     name_server,
                     ..
                 } => {
-                    let response_stream =
-                        try_ready!(response_future.poll().map_err(|err| io::Error::new(
-                            io::ErrorKind::ConnectionAborted,
-                            format!("recieved a stream error: {}", err)
-                        )));
+                    let response_stream = try_ready!(response_future.poll().map_err(|err| {
+                        ProtoError::from(format!("recieved a stream error: {}", err))
+                    }));
 
                     // get the length of packet
                     let content_length: usize = response_stream
@@ -256,17 +236,17 @@ impl Future for HttpsSerialResponseInner {
                         .map_or(Ok(512), |h| {
                             h.to_str()
                                 .map_err(|err| {
-                                    io::Error::new(
-                                        io::ErrorKind::InvalidData,
-                                        format!("ContentLength header not a string: {}", err),
-                                    )
+                                    ProtoError::from(format!(
+                                        "ContentLength header not a string: {}",
+                                        err
+                                    ))
                                 })
                                 .and_then(|s| {
                                     usize::from_str(s).map_err(|err| {
-                                        io::Error::new(
-                                            io::ErrorKind::InvalidData,
-                                            format!("ContentLength header not a number: {}", err),
-                                        )
+                                        ProtoError::from(format!(
+                                            "ContentLength header not a number: {}",
+                                            err
+                                        ))
                                     })
                                 })
                         })?;
@@ -285,26 +265,21 @@ impl Future for HttpsSerialResponseInner {
                     name_server,
                 } => {
                     while let Some(partial_bytes) = try_ready!(
-                        response_stream.body_mut().poll().map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::InvalidData,
-                                format!("bad http request: {}", e),
-                            )
-                        })
+                        response_stream
+                            .body_mut()
+                            .poll()
+                            .map_err(|e| ProtoError::from(format!("bad http request: {}", e)))
                     ) {
                         response_bytes.extend(partial_bytes);
                     }
                     // assert the length
                     if let Some(content_length) = content_length {
                         if *content_length != response_bytes.len() {
-                            return Err(io::Error::new(
-                                io::ErrorKind::UnexpectedEof,
-                                format!(
-                                    "expected byte length: {}, got: {}",
-                                    content_length,
-                                    response_bytes.len()
-                                ),
-                            ));
+                            return Err(ProtoError::from(format!(
+                                "expected byte length: {}, got: {}",
+                                content_length,
+                                response_bytes.len()
+                            )));
                         }
                     }
 
@@ -320,25 +295,18 @@ impl Future for HttpsSerialResponseInner {
                             let content_type = response_stream
                                 .headers()
                                 .get(header::CONTENT_TYPE)
-                                .ok_or_else(|| {
-                                    io::Error::new(
-                                        io::ErrorKind::InvalidData,
-                                        "ContentLength header missing",
-                                    )
-                                })
+                                .ok_or_else(|| ProtoError::from("ContentLength header missing"))
                                 .and_then(|h| {
                                     h.to_str().map_err(|err| {
-                                        io::Error::new(
-                                            io::ErrorKind::InvalidData,
-                                            format!("ContentType header not a string: {}", err),
-                                        )
+                                        ProtoError::from(format!(
+                                            "ContentType header not a string: {}",
+                                            err
+                                        ))
                                     })
                                 })?;
 
                             if content_type != ::ACCEPTS_DNS_BINARY {
-                                return Err(io::Error::new(
-                                    io::ErrorKind::InvalidData,
-                                    format!(
+                                return Err(ProtoError::from(format!(
                                         "ContentType unsupported (must be 'application/dns-message'): {}",
                                         content_type
                                     ),
@@ -358,13 +326,10 @@ impl Future for HttpsSerialResponseInner {
                 } => {
                     let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
-                    return Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!(
-                            "http unsuccessful code: {}, message: {}",
-                            status_code, error_string
-                        ),
-                    ));
+                    return Err(ProtoError::from(format!(
+                        "http unsuccessful code: {}, message: {}",
+                        status_code, error_string
+                    )));
                 }
                 Complete(ref mut message) => {
                     return Ok(Async::Ready(
@@ -432,7 +397,7 @@ pub struct HttpsClientConnect(HttpsClientConnectState);
 
 impl Future for HttpsClientConnect {
     type Item = HttpsClientStream;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.poll()
@@ -470,7 +435,7 @@ enum HttpsClientConnectState {
 
 impl Future for HttpsClientConnectState {
     type Item = HttpsClientStream;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -522,11 +487,11 @@ impl Future for HttpsClientConnectState {
                     name_server,
                     handshake,
                 } => {
-                    let (send_request, connection) =
-                        try_ready!(handshake.poll().map_err(|e| io::Error::new(
-                            io::ErrorKind::ConnectionAborted,
-                            format!("h2 handshake error: {}", e)
-                        )));
+                    let (send_request, connection) = try_ready!(
+                        handshake
+                            .poll()
+                            .map_err(|e| ProtoError::from(format!("h2 handshake error: {}", e)))
+                    );
 
                     tokio_executor::spawn(
                         connection.map_err(|e| warn!("h2 connection failed: {}", e)),
@@ -547,6 +512,36 @@ impl Future for HttpsClientConnectState {
 
             mem::replace(self, next);
         }
+    }
+}
+
+impl DnsHandle for HttpsClientStream {
+    type Error = ProtoError;
+    type Response = HttpsSendResponse;
+
+    fn send<M: Into<DnsRequest>>(&mut self, request: M) -> Self::Response {
+        // FIXME: change signature to Result? or pass into the Future?
+        let dest = self.name_server;
+        let bytes = request.into().to_vec().expect("serial message failed");
+        let message: SerialMessage = SerialMessage::new(bytes, dest);
+        HttpsSendResponse(self.send_message(message))
+    }
+}
+
+pub struct HttpsSendResponse(HttpsSerialResponse);
+
+impl Future for HttpsSendResponse {
+    type Item = DnsResponse;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
+        // let serial_message = try_ready!(self.0.poll());
+
+        // let addr = serial_message.addr();
+        // let message = serial_message.to_message()?;
+
+        // Ok(Async::Ready(DnsResponse::from(message)))
     }
 }
 
@@ -607,12 +602,13 @@ mod tests {
         let mut to_send = SerialMessage::new(bytes, cloudflare);
 
         let sending = https.send_message(to_send);
-        let response: SerialMessage = runtime.block_on(sending).expect("send_message failed");
+        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
-        assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));
+        //assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));
 
-        let message = Message::read(&mut BinDecoder::new(response.bytes()))
-            .expect("failed to decode response");
+        // let message = Message::read(&mut BinDecoder::new(response.bytes()))
+        //     .expect("failed to decode response");
+        let message = response;
 
         let record = &message.answers()[0];
         let addr = if let RData::A(addr) = record.rdata() {

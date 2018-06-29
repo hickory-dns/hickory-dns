@@ -32,6 +32,6 @@ pub mod https_client_stream;
 
 //pub use self::https_client_connection::{HttpsClientConnection, HttpsClientConnectionBuilder};
 pub use self::https_client_stream::{
-    HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse,
+    HttpsClientStream, HttpsClientStreamBuilder, HttpsSendResponse, HttpsSerialResponse,
 };
 //pub use self::https_stream::{HttpsStream, HttpsStreamBuilder};

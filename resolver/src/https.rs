@@ -8,9 +8,12 @@ use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 
 use futures::{future, Future, Stream};
 
+use trust_dns_https::https_client_stream::{HttpsClientConnect, HttpsSendResponse};
 use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    BufSerialMessageStreamHandle, DnsStream, DnsStreamHandle, SerialMessage,
+    BasicDnsHandle, BufSerialMessageStreamHandle, DnsHandle, DnsResponse, DnsStream,
+    DnsStreamHandle, SerialMessage, SerialMessageStreamHandle,
 };
 use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
 
@@ -20,8 +23,10 @@ pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Item = DnsStream<HttpsClientStream, HttpsSerialResponse>, Error = io::Error> + Send>,
-    Box<DnsStreamHandle<Error = ResolveError> + Send>,
+    Box<
+        Future<Item = DnsStream<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError> + Send,
+    >,
+    BufSerialMessageStreamHandle<HttpsSerialResponse>,
 ) {
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
@@ -37,7 +42,7 @@ pub(crate) fn new_https_stream(
         DnsStream::connect(https_builder.build(socket_addr, dns_name), socket_addr);
     let handle = BufSerialMessageStreamHandle::new(socket_addr, handle);
 
-    (Box::new(stream), Box::new(handle))
+    (Box::new(stream), handle)
 }
 
 #[cfg(test)]
