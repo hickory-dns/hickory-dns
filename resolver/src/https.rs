@@ -1,23 +1,15 @@
 extern crate rustls;
 extern crate webpki_roots;
 
-use std::io;
 use std::net::SocketAddr;
 
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 
-use futures::{future, Future, Stream};
+use futures::Future;
 
-use trust_dns_https::https_client_stream::{HttpsClientConnect, HttpsSendResponse};
 use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{
-    BasicDnsHandle, BufSerialMessageStreamHandle, DnsHandle, DnsResponse, DnsStream,
-    DnsStreamHandle, SerialMessage, SerialMessageStreamHandle,
-};
-use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
-
-use error::*;
+use trust_dns_proto::xfer::{BufSerialMessageStreamHandle, DnsStream};
 
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,

@@ -226,6 +226,7 @@ impl Protocol {
         !self.is_datagram()
     }
 
+    /// Is this an encrypted protocol, i.e. TLS or HTTPS
     pub fn is_encrypted(&self) -> bool {
         match *self {
             Protocol::Udp => false,

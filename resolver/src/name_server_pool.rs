@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
+#[cfg(feature = "dns-over-https")]
 use tokio;
 
 #[cfg(feature = "dns-over-https")]
@@ -22,7 +23,9 @@ use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
 use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
-use trust_dns_proto::xfer::{self, DnsFuture, DnsHandle, DnsRequest, DnsResponse};
+#[cfg(feature = "dns-over-https")]
+use trust_dns_proto::xfer;
+use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 
 use async_resolver::BasicAsyncResolver;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};

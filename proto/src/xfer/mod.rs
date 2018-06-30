@@ -5,14 +5,13 @@
 //! TODO: this module needs some serious refactoring and normalization.
 
 use std::fmt::Debug;
-use std::io;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 
 use error::*;
 use futures::sync::mpsc::{SendError, UnboundedSender};
 use futures::sync::oneshot;
-use futures::{future, Async, Flatten, Future, IntoFuture, Poll};
+use futures::{Future, Poll};
 use op::Message;
 
 pub mod dns_future;
@@ -169,6 +168,7 @@ pub trait SerialMessageSender: Clone + Send {
     fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse;
 }
 
+/// Used for assiacting a name_server to a SerialMessageStreamHandle
 pub struct BufSerialMessageStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
@@ -181,6 +181,7 @@ impl<F> BufSerialMessageStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
+    /// Construct a new BufSerialMessageStreamHandle
     pub fn new(name_server: SocketAddr, sender: SerialMessageStreamHandle<F>) -> Self {
         BufSerialMessageStreamHandle {
             name_server,
@@ -269,11 +270,14 @@ where
     }
 }
 
+/// A Future that wraps a oneshot::Receiver and resolves to the final value
 pub enum OneshotDnsResponseReceiver<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
+    /// The receiver
     Receiver(oneshot::Receiver<F>),
+    /// The future once received
     Received(F),
 }
 

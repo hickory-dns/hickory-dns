@@ -7,22 +7,18 @@
 
 //! This module contains all the types for demuxing DNS oriented streams.
 
-use std::io;
 use std::net::SocketAddr;
 
 use futures::stream::{Peekable, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use futures::sync::oneshot;
-use futures::{Async, AsyncSink, Future, Poll, Sink};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::{Async, Future, Poll};
 
 use error::*;
-use op::Message;
 use xfer::{
-    DnsRequest, DnsResponse, OneshotSerialRequest, SerialMessage, SerialMessageSender,
+    DnsResponse, OneshotSerialRequest, SerialMessage, SerialMessageSender,
     SerialMessageStreamHandle,
 };
 
-/// TODO: move non-tcp stuff to another type called DNSStream
 /// A Stream used for sending data to and from a remote DNS endpoint (client or server).
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsStream<S, R>
@@ -122,16 +118,16 @@ where
                     let (serial_message, serial_response): (SerialMessage, _) =
                         serial_message.unwrap();
                     let peer = self.peer_addr;
-                    // let dst = serial_message.addr();
+                    let dst = serial_message.addr();
 
-                    // // This is an error if the destination is not our peer (this is TCP after all)
-                    // //  This will kill the connection...
-                    // if peer != dst {
-                    //     return Err(ProtoError::from(format!(
-                    //         "mismatched peer: {} and dst: {}",
-                    //         peer, dst
-                    //     )));
-                    // }
+                    // This is an error if the destination is not our peer (this is TCP after all)
+                    //  This will kill the connection...
+                    if peer != dst {
+                        return Err(ProtoError::from(format!(
+                            "mismatched peer: {} and dst: {}",
+                            peer, dst
+                        )));
+                    }
 
                     debug!(
                         "sending message len: {} to: {}",
@@ -142,7 +138,7 @@ where
                     match serial_response.send_response(self.io_stream.send_message(serial_message))
                     {
                         Ok(()) => (),
-                        Err(e) => {
+                        Err(_) => {
                             warn!("failed to associate send_message response to the sender");
                             return Err(
                                 "failed to associate send_message response to the sender".into()

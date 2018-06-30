@@ -21,7 +21,6 @@ use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
 
-use async_resolver::BasicAsyncResolver;
 use config::LookupIpStrategy;
 use error::*;
 use hosts::Hosts;

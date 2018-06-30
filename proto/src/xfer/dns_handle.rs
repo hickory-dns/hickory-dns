@@ -7,19 +7,16 @@
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 
-use std::io;
 use std::marker::PhantomData;
 
 use futures::sync::mpsc::UnboundedSender;
 use futures::sync::oneshot;
-use futures::{Async, Future, IntoFuture, Poll};
+use futures::{Future, IntoFuture};
 use rand;
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query};
-use xfer::{
-    ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage, SerialMessageSender,
-};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -126,6 +123,7 @@ where
 pub trait DnsHandle: Clone + Send {
     /// The associated error type returned by future send operations
     type Error: FromProtoError;
+    /// The associated response from the response future, this should resolve to the Response message
     type Response: Future<Item = DnsResponse, Error = Self::Error> + Send + 'static;
 
     /// Ony returns true if and only if this DNS handle is validating DNSSec.
