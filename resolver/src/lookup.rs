@@ -23,7 +23,6 @@ use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
-use async_resolver::BasicAsyncResolver;
 use dns_lru::MAX_TTL;
 use error::*;
 use lookup_ip::LookupIpIter;

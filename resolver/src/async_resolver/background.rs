@@ -15,7 +15,7 @@ use lookup_ip::LookupIpFuture;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionHandle, NameServerPool, StandardConnection};
 
-use super::{BasicAsyncResolver, Request};
+use super::Request;
 
 /// Returns a new future that will drive the background task.
 ///
