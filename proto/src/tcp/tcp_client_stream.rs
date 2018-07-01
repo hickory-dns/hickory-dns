@@ -15,7 +15,7 @@ use tokio_tcp::TcpStream as TokioTcpStream;
 
 use error::*;
 use tcp::TcpStream;
-use xfer::SerialMessage;
+use xfer::{DnsClientStream, SerialMessage};
 use BufDnsStreamHandle;
 use DnsStreamHandle;
 
@@ -84,7 +84,13 @@ impl<S> TcpClientStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite> Stream for TcpClientStream<S> {
+impl<S: AsyncRead + AsyncWrite + Send> DnsClientStream for TcpClientStream<S> {
+    fn name_server_addr(&self) -> SocketAddr {
+        self.tcp_stream.peer_addr()
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Send> Stream for TcpClientStream<S> {
     type Item = SerialMessage;
     type Error = io::Error;
 
@@ -213,7 +219,9 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
     for _ in 0..send_recv_times {
         // test once
-        sender.send(TEST_BYTES.to_vec()).expect("send failed");
+        sender
+            .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
+            .expect("send failed");
         let (buffer, stream_tmp) = io_loop
             .block_on(stream.into_future())
             .ok()

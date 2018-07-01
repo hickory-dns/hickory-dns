@@ -16,7 +16,7 @@ use rand;
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -49,7 +49,7 @@ pub trait DnsStreamHandle: 'static + Send {
     type Error: FromProtoError;
 
     /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error>;
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), Self::Error>;
 }
 
 impl<E> DnsStreamHandle for StreamHandle<E>
@@ -58,8 +58,8 @@ where
 {
     type Error = E;
 
-    fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error> {
-        UnboundedSender::unbounded_send(&self.sender, buffer)
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), Self::Error> {
+        UnboundedSender::unbounded_send(&self.sender, buffer.unwrap().0)
             .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
     }
 }

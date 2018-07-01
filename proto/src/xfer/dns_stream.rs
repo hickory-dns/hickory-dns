@@ -19,6 +19,7 @@ use xfer::{
     SerialMessageStreamHandle,
 };
 
+// TODO: rename this to MultiplexedAsyncDns
 /// A Stream used for sending data to and from a remote DNS endpoint (client or server).
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsStream<S, R>

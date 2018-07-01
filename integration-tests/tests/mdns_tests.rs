@@ -10,26 +10,28 @@ extern crate tokio;
 extern crate tokio_timer;
 extern crate trust_dns;
 extern crate trust_dns_integration;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::{Arc, Barrier};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Barrier};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use futures::{Future, Stream};
 use futures::future::Either;
+use futures::{Future, Stream};
 use tokio::runtime::current_thread::Runtime;
 use tokio_timer::Delay;
 
-use trust_dns::error::*;
 use trust_dns::client::{ClientFuture, ClientHandle};
-use trust_dns::multicast::{MdnsClientStream, MdnsStream};
+use trust_dns::error::*;
 use trust_dns::multicast::MdnsQueryType;
+use trust_dns::multicast::{MdnsClientStream, MdnsStream};
 use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RecordType};
 use trust_dns::serialize::binary::BinDecodable;
+use trust_dns_proto::xfer::SerialMessage;
 
 const MDNS_PORT: u16 = 5363;
 
@@ -81,7 +83,7 @@ fn mdns_responsder(
                 {
                     Either::A((data_src_stream_tmp, timeout_tmp)) => {
                         let (data_src, stream_tmp) = data_src_stream_tmp;
-                        let (data, src) = data_src.expect("no buffer received");
+                        let (data, src) = data_src.expect("no buffer received").unwrap();
 
                         stream = stream_tmp.into_future();
                         timeout = timeout_tmp;
@@ -91,7 +93,10 @@ fn mdns_responsder(
                         // we're just going to bounce this message back
 
                         mdns_handle
-                            .unbounded_send((message.to_vec().expect("message encode failed"), src))
+                            .unbounded_send(SerialMessage::new(
+                                message.to_vec().expect("message encode failed"),
+                                src,
+                            ))
                             .unwrap();
                     }
                     Either::B(((), data_src_stream_tmp)) => {
@@ -118,13 +123,7 @@ fn test_query_mdns_ipv4() {
     // Check that the server is ready before sending...
     let mut io_loop = Runtime::new().unwrap();
     //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = MdnsClientStream::new(
-        addr,
-        MdnsQueryType::OneShot,
-        None,
-        None,
-        None,
-    );
+    let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, None);
     let client = ClientFuture::new(stream, sender, None);
     let mut client = io_loop.block_on(client).unwrap();
 
@@ -148,13 +147,7 @@ fn test_query_mdns_ipv6() {
     let mut io_loop = Runtime::new().unwrap();
 
     // FIXME: ipv6 if is hardcoded...
-    let (stream, sender) = MdnsClientStream::new(
-        addr,
-        MdnsQueryType::OneShot,
-        None,
-        None,
-        Some(5),
-    );
+    let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, Some(5));
     let client = ClientFuture::new(stream, sender, None);
     let mut client = io_loop.block_on(client).unwrap();
 

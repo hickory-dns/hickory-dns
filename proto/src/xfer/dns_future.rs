@@ -26,7 +26,9 @@ use tokio_timer::Delay;
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
+use xfer::{
+    ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage,
+};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -106,7 +108,8 @@ impl<E: FromProtoError> ActiveRequest<E> {
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
-///  implementations.
+///  implementations. This should be used for underlying protocols that do not natively support
+///  multi-plexed sessions.
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsFuture<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
 where
@@ -127,7 +130,7 @@ where
 
 impl<S, E, MF> DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
+    S: DnsClientStream + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -169,9 +172,9 @@ where
             stream
                 .then(move |res| match res {
                     Ok(stream) => ClientStreamOrError::Future(DnsFuture {
-                        stream: stream,
-                        timeout_duration: timeout_duration,
-                        stream_handle: stream_handle,
+                        stream,
+                        timeout_duration,
+                        stream_handle,
                         new_receiver: rx.fuse().peekable(),
                         active_requests: HashMap::new(),
                         signer: signer,
@@ -247,7 +250,7 @@ where
 
 impl<S, E, MF> Future for DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
+    S: DnsClientStream + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -348,7 +351,9 @@ where
                     match request.unwrap().to_vec() {
                         Ok(buffer) => {
                             debug!("sending message id: {}", active_request.request_id());
-                            self.stream_handle.send(buffer)?;
+                            let serial_message =
+                                SerialMessage::new(buffer, self.stream.name_server_addr());
+                            self.stream_handle.send(serial_message)?;
 
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
@@ -473,7 +478,7 @@ where
 enum ClientStreamOrError<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
 where
     D: Send + 'static,
-    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
+    S: DnsClientStream + 'static,
     E: FromProtoError + Send,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -483,7 +488,7 @@ where
 
 impl<S, E, MF> Future for ClientStreamOrError<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
+    S: DnsClientStream + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {

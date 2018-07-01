@@ -14,8 +14,8 @@ use futures::stream::Stream;
 use futures::{future, Future};
 use rand;
 use trust_dns_proto::xfer::{
-    BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
-    DnsStreamHandle, SerialMessage,
+    BasicDnsHandle, DnsClientStream, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions,
+    DnsResponse, DnsStreamHandle, SerialMessage,
 };
 
 use client::ClientStreamHandle;
@@ -37,7 +37,7 @@ pub struct ClientFuture<S: Stream<Item = SerialMessage, Error = io::Error>> {
     phantom: PhantomData<S>,
 }
 
-impl<S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static> ClientFuture<S> {
+impl<S: DnsClientStream + 'static> ClientFuture<S> {
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments

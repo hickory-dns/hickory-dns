@@ -10,11 +10,12 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
 
-use BufDnsStreamHandle;
-use DnsStreamHandle;
 use error::*;
 use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use multicast::{MdnsQueryType, MdnsStream};
+use xfer::{DnsClientStream, SerialMessage};
+use BufDnsStreamHandle;
+use DnsStreamHandle;
 
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
@@ -35,13 +36,7 @@ impl MdnsClientStream {
     where
         E: FromProtoError + Send + 'static,
     {
-        Self::new::<E>(
-            *MDNS_IPV4,
-            mdns_query_type,
-            packet_ttl,
-            ipv4_if,
-            None,
-        )
+        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
@@ -56,13 +51,7 @@ impl MdnsClientStream {
     where
         E: FromProtoError + Send + 'static,
     {
-        Self::new::<E>(
-            *MDNS_IPV6,
-            mdns_query_type,
-            packet_ttl,
-            None,
-            ipv6_if,
-        )
+        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
     /// it is expected that the resolver wrapper will be responsible for creating and managing
@@ -86,18 +75,12 @@ impl MdnsClientStream {
     where
         E: FromProtoError + Send + 'static,
     {
-        let (stream_future, sender) = MdnsStream::new(
-            mdns_addr,
-            mdns_query_type,
-            packet_ttl,
-            ipv4_if,
-            ipv6_if,
-        );
+        let (stream_future, sender) =
+            MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
-        let new_future =
-            Box::new(stream_future.map(move |mdns_stream| MdnsClientStream {
-                mdns_stream: mdns_stream,
-            }));
+        let new_future = Box::new(stream_future.map(move |mdns_stream| MdnsClientStream {
+            mdns_stream: mdns_stream,
+        }));
 
         let sender = Box::new(BufDnsStreamHandle::new(mdns_addr, sender));
 
@@ -105,16 +88,22 @@ impl MdnsClientStream {
     }
 }
 
+impl DnsClientStream for MdnsClientStream {
+    fn name_server_addr(&self) -> SocketAddr {
+        self.mdns_stream.multicast_addr()
+    }
+}
+
 impl Stream for MdnsClientStream {
-    type Item = Vec<u8>;
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match try_ready!(self.mdns_stream.poll()) {
-            Some((buffer, _src_addr)) => {
+            Some(serial_message) => {
                 // TODO: for mDNS queries could come from anywhere. It's not clear that there is anything
                 //       we can validate in this case.
-                Ok(Async::Ready(Some(buffer)))
+                Ok(Async::Ready(Some(serial_message)))
             }
             None => Ok(Async::Ready(None)),
         }
