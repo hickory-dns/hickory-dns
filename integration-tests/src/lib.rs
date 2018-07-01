@@ -28,7 +28,7 @@ use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::error::FromProtoError;
-use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::xfer::{DnsClientStream, SerialMessage};
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
@@ -94,6 +94,12 @@ impl ResponseHandler for TestResponseHandler {
             .destructive_emit(&mut encoder)
             .expect("could not encode");
         Ok(())
+    }
+}
+
+impl DnsClientStream for TestClientStream {
+    fn name_server_addr(&self) -> SocketAddr {
+        SocketAddr::from(([127, 0, 0, 1], 1234))
     }
 }
 
@@ -168,6 +174,12 @@ impl NeverReturnsClientStream {
         }));
 
         (stream, message_sender)
+    }
+}
+
+impl DnsClientStream for NeverReturnsClientStream {
+    fn name_server_addr(&self) -> SocketAddr {
+        SocketAddr::from(([0, 0, 0, 0], 53))
     }
 }
 

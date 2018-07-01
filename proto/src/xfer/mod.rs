@@ -14,6 +14,7 @@ use futures::sync::oneshot;
 use futures::{Future, Poll};
 use op::Message;
 
+mod dns_client_stream;
 pub mod dns_future;
 pub mod dns_handle;
 pub mod dns_request;
@@ -24,6 +25,7 @@ pub mod retry_dns_handle;
 pub mod secure_dns_handle;
 mod serial_message;
 
+pub use self::dns_client_stream::DnsClientStream;
 pub use self::dns_future::DnsFuture;
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
@@ -107,12 +109,12 @@ where
 {
     type Error = E;
 
-    fn send(&mut self, buffer: Vec<u8>) -> Result<(), E> {
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), E> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
         sender
             .sender
-            .unbounded_send(SerialMessage::new(buffer, name_server))
+            .unbounded_send(SerialMessage::new(buffer.unwrap().0, name_server))
             .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
     }
 }
@@ -202,6 +204,20 @@ where
     }
 }
 
+macro_rules! try_oneshot {
+    ($expr:expr) => {{
+        use std::result::Result;
+
+        match $expr {
+            Result::Ok(val) => val,
+            Result::Err(err) => return OneshotDnsResponseReceiver::Err(Some(ProtoError::from(err))),
+        }
+    }};
+    ($expr:expr,) => {
+        $expr?
+    };
+}
+
 impl<F> DnsHandle for BufSerialMessageStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static,
@@ -211,14 +227,15 @@ where
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let name_server: SocketAddr = self.name_server;
-        // FIXME: need to do something with this error
-        let bytes: Vec<u8> = request.into().to_vec().expect("could not serialize");
+        let request: DnsRequest = request.into();
+        let bytes: Vec<u8> = try_oneshot!(request.to_vec());
         let serial_message = SerialMessage::new(bytes, name_server);
-        let (request, oneshot) = OneshotSerialRequest::oneshot(serial_message);
-        self.sender
-            .unbounded_send(request)
-            .expect("could not send!");
-        //.map_err(|e| format!("mpsc::SendError {}", e).into())?;
+        let (serial_request, oneshot) = OneshotSerialRequest::oneshot(serial_message);
+        try_oneshot!(
+            self.sender.unbounded_send(serial_request).map_err(|_| {
+                ProtoError::from(format!("could not send requesst: {}", request.id()))
+            })
+        );
 
         OneshotDnsResponseReceiver::Receiver(oneshot)
     }
@@ -249,19 +266,19 @@ where
         )
     }
 
-    fn unwrap(self) -> (SerialMessage, OneshotSerialResponse<F>) {
+    fn unwrap(self) -> (SerialMessage, OneshotDnsResponse<F>) {
         (
             self.serial_request,
-            OneshotSerialResponse(self.sender_for_response),
+            OneshotDnsResponse(self.sender_for_response),
         )
     }
 }
 
-struct OneshotSerialResponse<F>(oneshot::Sender<F>)
+struct OneshotDnsResponse<F>(oneshot::Sender<F>)
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send;
 
-impl<F> OneshotSerialResponse<F>
+impl<F> OneshotDnsResponse<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
@@ -279,6 +296,8 @@ where
     Receiver(oneshot::Receiver<F>),
     /// The future once received
     Received(F),
+    /// Error during the send operation
+    Err(Option<ProtoError>),
 }
 
 impl<F> Future for OneshotDnsResponseReceiver<F>
@@ -300,6 +319,11 @@ where
                     );
                 }
                 OneshotDnsResponseReceiver::Received(ref mut future) => return future.poll(),
+                OneshotDnsResponseReceiver::Err(err) => {
+                    return Err(err
+                        .take()
+                        .expect("futures should not be polled after complete"))
+                }
             }
 
             *self = OneshotDnsResponseReceiver::Received(future);

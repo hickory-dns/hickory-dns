@@ -15,15 +15,16 @@ use futures::sync::mpsc::unbounded;
 use futures::task;
 use futures::{Async, Future, Poll};
 use rand;
-use rand::distributions::{IndependentSample, Range};
+use rand::distributions::{Distribution, Range};
 use socket2::{self, Socket};
 use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
-use BufStreamHandle;
 use error::*;
 use multicast::MdnsQueryType;
 use udp::UdpStream;
+use xfer::SerialMessage;
+use BufStreamHandle;
 
 pub const MDNS_PORT: u16 = 5353;
 lazy_static! {
@@ -36,6 +37,8 @@ lazy_static! {
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct MdnsStream {
+    /// Multicast address used for mDNS queries
+    multicast_addr: SocketAddr,
     /// This is used for sending and (directly) receiving messages
     datagram: Option<UdpStream>,
     /// In one-shot multicast, this will not join the multicast group
@@ -55,13 +58,7 @@ impl MdnsStream {
     where
         E: FromProtoError + Send,
     {
-        Self::new::<E>(
-            *MDNS_IPV4,
-            mdns_query_type,
-            packet_ttl,
-            ipv4_if,
-            None,
-        )
+        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
@@ -76,13 +73,12 @@ impl MdnsStream {
     where
         E: FromProtoError + Send,
     {
-        Self::new::<E>(
-            *MDNS_IPV6,
-            mdns_query_type,
-            packet_ttl,
-            None,
-            ipv6_if,
-        )
+        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
+    }
+
+    /// Returns the address of the multicast network in use
+    pub fn multicast_addr(&self) -> SocketAddr {
+        self.multicast_addr
     }
 
     /// This method is available for specifying a custom Multicast address to use.
@@ -153,8 +149,7 @@ impl MdnsStream {
                 next_socket
                     .map(move |socket: Option<_>| {
                         socket.map(|socket| {
-                            UdpSocket::from_std(socket, &handle)
-                                .expect("bad handle?")
+                            UdpSocket::from_std(socket, &handle).expect("bad handle?")
                         })
                     })
                     .map(move |socket: Option<_>| {
@@ -162,13 +157,12 @@ impl MdnsStream {
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
                         let multicast: Option<UdpSocket> =
                             multicast_socket.map(|multicast_socket| {
-                                UdpSocket::from_std(
-                                    multicast_socket,
-                                    &handle_clone,
-                                ).expect("bad handle?")
+                                UdpSocket::from_std(multicast_socket, &handle_clone)
+                                    .expect("bad handle?")
                             });
 
                         MdnsStream {
+                            multicast_addr,
                             datagram,
                             multicast,
                         }
@@ -277,7 +271,7 @@ impl MdnsStream {
 }
 
 impl Stream for MdnsStream {
-    type Item = (Vec<u8>, SocketAddr);
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -298,7 +292,7 @@ impl Stream for MdnsStream {
             // TODO: should we drop this packet if it's not from the same src as dest?
             let (len, src) = try_ready!(multicast.poll_recv_from(&mut buf));
             // now return the multicast
-            return Ok(Async::Ready(Some((
+            return Ok(Async::Ready(Some(SerialMessage::new(
                 buf.iter().take(len).cloned().collect(),
                 src,
             ))));
@@ -378,7 +372,7 @@ impl Future for NextRandomUdpSocket {
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {
-                let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
+                let port = between.sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
 
                 // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
                 //  the MDNS_PORT is used to signal to remote processes that this is capable of recieving multicast packets
@@ -475,7 +469,9 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Runtime::new().unwrap();
-                let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
+                let mut timeout: Box<
+                    Future<Item = (), Error = tokio_timer::Error> + Send,
+                > = Box::new(future::lazy(|| {
                     Delay::new(Instant::now() + Duration::from_millis(100))
                 }));
 
@@ -500,7 +496,8 @@ pub mod tests {
                         return;
                     }
                     // wait for some bytes...
-                    match server_loop.block_on(future::lazy(|| server_stream.select2(timeout)))
+                    match server_loop
+                        .block_on(future::lazy(|| server_stream.select2(timeout)))
                         .ok()
                         .expect("server stream closed")
                     {
@@ -509,14 +506,15 @@ pub mod tests {
 
                             server_stream = stream_tmp.into_future();
                             timeout = timeout_tmp;
-                            let (buffer, addr) = buffer_and_addr.expect("no buffer received");
+                            let (buffer, addr) =
+                                buffer_and_addr.expect("no buffer received").unwrap();
 
                             assert_eq!(&buffer, test_bytes);
                             //println!("server got data! {}", addr);
 
                             // bounce them right back...
                             server_sender
-                                .unbounded_send((test_bytes.to_vec(), addr))
+                                .unbounded_send(SerialMessage::new(test_bytes.to_vec(), addr))
                                 .expect("could not send to client");
                         }
                         Either::B(((), buffer_and_addr_stream_tmp)) => {
@@ -528,7 +526,9 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    server_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(100))).unwrap();
+                    server_loop
+                        .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
+                        .unwrap();
                 }
             })
             .unwrap();
@@ -545,15 +545,15 @@ pub mod tests {
             Some(5),
         );
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
-            Delay::new(Instant::now() + Duration::from_millis(100))
-        }));
+        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
+            future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
+        );
         let mut successes = 0;
 
         for _ in 0..send_recv_times {
             // test once
             sender
-                .unbounded_send((test_bytes.to_vec(), mdns_addr))
+                .unbounded_send(SerialMessage::new(test_bytes.to_vec(), mdns_addr))
                 .unwrap();
 
             println!("client sending data!");
@@ -576,7 +576,7 @@ pub mod tests {
                     stream = stream_tmp.into_future();
                     timeout = timeout_tmp;
 
-                    let (buffer, _addr) = buffer_and_addr.expect("no buffer received");
+                    let (buffer, _addr) = buffer_and_addr.expect("no buffer received").unwrap();
                     println!("client got data!");
 
                     assert_eq!(&buffer, test_bytes);
@@ -630,7 +630,9 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut io_loop = Runtime::new().unwrap();
-                let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
+                let mut timeout: Box<
+                    Future<Item = (), Error = tokio_timer::Error> + Send,
+                > = Box::new(future::lazy(|| {
                     Delay::new(Instant::now() + Duration::from_millis(100))
                 }));
 
@@ -652,7 +654,8 @@ pub mod tests {
 
                 for _ in 0..(send_recv_times + 1) {
                     // wait for some bytes...
-                    match io_loop.block_on(future::lazy(|| server_stream.select2(timeout)))
+                    match io_loop
+                        .block_on(future::lazy(|| server_stream.select2(timeout)))
                         .ok()
                         .expect("server stream closed")
                     {
@@ -679,7 +682,9 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(100))).unwrap();
+                    io_loop
+                        .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
+                        .unwrap();
                 }
             })
             .unwrap();
@@ -695,14 +700,14 @@ pub mod tests {
             Some(5),
         );
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
-            Delay::new(Instant::now() + Duration::from_millis(100))
-        }));
+        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
+            future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
+        );
 
         for _ in 0..send_recv_times {
             // test once
             sender
-                .unbounded_send((test_bytes.to_vec(), mdns_addr))
+                .unbounded_send(SerialMessage::new(test_bytes.to_vec(), mdns_addr))
                 .unwrap();
 
             println!("client sending data!");

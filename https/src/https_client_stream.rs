@@ -536,12 +536,6 @@ impl Future for HttpsSendResponse {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.poll()
-        // let serial_message = try_ready!(self.0.poll());
-
-        // let addr = serial_message.addr();
-        // let message = serial_message.to_message()?;
-
-        // Ok(Async::Ready(DnsResponse::from(message)))
     }
 }
 
@@ -550,22 +544,16 @@ mod tests {
     extern crate env_logger;
     extern crate tokio;
 
+    use std::net::{Ipv4Addr, SocketAddr};
     use std::str::FromStr;
 
-    use std::io;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-
     use self::tokio::runtime::current_thread;
-    use futures::Future;
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     use webpki_roots;
 
-    use trust_dns_proto::error::*;
     use trust_dns_proto::op::{Message, Query};
-    use trust_dns_proto::rr::{Name, RData, Record, RecordType};
-    use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
-    use trust_dns_proto::DnsStreamHandle;
-    use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
+    use trust_dns_proto::rr::{Name, RData, RecordType};
+    use trust_dns_proto::serialize::binary::{BinEncodable, BinEncoder};
 
     use super::*;
 
@@ -599,7 +587,7 @@ mod tests {
         // tokio runtime stuff...
         let mut runtime = current_thread::Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
-        let mut to_send = SerialMessage::new(bytes, cloudflare);
+        let to_send = SerialMessage::new(bytes, cloudflare);
 
         let sending = https.send_message(to_send);
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");

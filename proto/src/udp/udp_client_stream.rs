@@ -12,7 +12,7 @@ use futures::{Async, Future, Poll, Stream};
 
 use error::*;
 use udp::UdpStream;
-use xfer::SerialMessage;
+use xfer::{DnsClientStream, SerialMessage};
 use BufDnsStreamHandle;
 use DnsStreamHandle;
 
@@ -51,6 +51,12 @@ impl UdpClientStream {
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
         (new_future, sender)
+    }
+}
+
+impl DnsClientStream for UdpClientStream {
+    fn name_server_addr(&self) -> SocketAddr {
+        self.name_server
     }
 }
 
@@ -159,7 +165,9 @@ fn udp_client_stream_test(server_addr: IpAddr) {
 
     for _ in 0..send_recv_times {
         // test once
-        sender.send(test_bytes.to_vec()).unwrap();
+        sender
+            .send(SerialMessage::new(test_bytes.to_vec(), server_addr))
+            .unwrap();
         let (buffer, stream_tmp) = io_loop.block_on(stream.into_future()).ok().unwrap();
         stream = stream_tmp;
         assert_eq!(buffer.expect("no buffer received").bytes(), test_bytes);

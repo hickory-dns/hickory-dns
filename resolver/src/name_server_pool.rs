@@ -253,12 +253,6 @@ impl ConnectionProvider for StandardConnection {
                 }));
 
                 ConnectionHandle::Https(handle)
-                // DnsFuture::with_timeout(
-                //     stream,
-                //     handle,
-                //     options.timeout,
-                //     NoopMessageFinalizer::new(),
-                // )
             }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
