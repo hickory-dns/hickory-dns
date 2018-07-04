@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! TLS protocol related components for DNS over TLS
+#![warn(missing_docs)]
 
 extern crate bytes;
 extern crate data_encoding;
@@ -27,11 +28,11 @@ extern crate webpki_roots;
 const ACCEPTS_DNS_BINARY: &str = "application/dns-message";
 
 //pub mod https_client_connection;
-pub mod https_client_stream;
+mod https_client_stream;
 //pub mod https_stream;
 
 //pub use self::https_client_connection::{HttpsClientConnection, HttpsClientConnectionBuilder};
 pub use self::https_client_stream::{
-    HttpsClientStream, HttpsClientStreamBuilder, HttpsSendResponse, HttpsSerialResponse,
+    HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse,
 };
 //pub use self::https_stream::{HttpsStream, HttpsStreamBuilder};

@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 use futures::{future, Async, Future, Poll};
 
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::rdata;
 use trust_dns_proto::rr::{Name, RData, RecordType};
@@ -106,20 +107,14 @@ impl<'a> Iterator for LookupIter<'a> {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<
-    C: DnsHandle<Error = ResolveError> + 'static,
-    P: ConnectionProvider<ConnHandle = C> + 'static,
-> {
+pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
     Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> DnsHandle
-    for LookupEither<C, P>
-{
-    type Error = ResolveError;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -142,7 +137,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
 #[doc(hidden)]
 pub struct LookupFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
 where
-    C: DnsHandle<Error = ResolveError> + 'static,
+    C: DnsHandle + 'static,
 {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
@@ -151,7 +146,7 @@ where
     query: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
+impl<C: DnsHandle + 'static> LookupFuture<C> {
     /// Perform a lookup from a name and type to a set of RDatas
     ///
     /// # Arguments
@@ -187,7 +182,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupFuture<C> {
+impl<C: DnsHandle + 'static> Future for LookupFuture<C> {
     type Item = Lookup;
     type Error = ResolveError;
 
@@ -390,6 +385,7 @@ pub mod tests {
 
     use futures::{future, Future};
 
+    use trust_dns_proto::error::{ProtoErrorKind, ProtoResult};
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, RData, Record, RecordType};
     use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions};
@@ -398,12 +394,11 @@ pub mod tests {
 
     #[derive(Clone)]
     pub struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<ResolveResult<DnsResponse>>>>,
+        messages: Arc<Mutex<Vec<ProtoResult<DnsResponse>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Error = ResolveError;
-        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+        type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::new(future::result(
@@ -412,7 +407,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> ResolveResult<DnsResponse> {
+    pub fn v4_message() -> ProtoResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -423,15 +418,15 @@ pub mod tests {
         Ok(message.into())
     }
 
-    pub fn empty() -> ResolveResult<DnsResponse> {
+    pub fn empty() -> ProtoResult<DnsResponse> {
         Ok(Message::new().into())
     }
 
-    pub fn error() -> ResolveResult<DnsResponse> {
-        Err(ResolveErrorKind::Io.into())
+    pub fn error() -> ProtoResult<DnsResponse> {
+        Err(ProtoErrorKind::Io.into())
     }
 
-    pub fn mock(messages: Vec<ResolveResult<DnsResponse>>) -> MockDnsHandle {
+    pub fn mock(messages: Vec<ProtoResult<DnsResponse>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

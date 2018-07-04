@@ -18,6 +18,7 @@ use tokio;
 
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https;
+use trust_dns_proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
 use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
@@ -25,11 +26,13 @@ use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
 #[cfg(feature = "dns-over-https")]
 use trust_dns_proto::xfer;
-use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::xfer::{
+    BufSerialMessageStreamHandle, DnsExchange, DnsFuture, DnsFutureSerialResponse, DnsHandle,
+    DnsRequest, DnsResponse,
+};
 
-use async_resolver::BasicAsyncResolver;
+//use async_resolver::BasicAsyncResolver;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
-use error::*;
 
 /// State of a connection with a remote NameServer.
 #[derive(Clone, Debug)]
@@ -142,7 +145,7 @@ impl NameServerStats {
         };
     }
 
-    fn next_failure(&mut self, error: ResolveError, when: Instant) {
+    fn next_failure(&mut self, error: ProtoError, when: Instant) {
         self.failures += 1;
         debug!("name_server connection failure: {}", error);
 
@@ -204,27 +207,39 @@ impl ConnectionProvider for StandardConnection {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr);
                 // TODO: need config for Signer...
-                let handle = DnsFuture::with_timeout(
+                let dns_conn = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 );
 
-                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
+                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, udp connection shutting down: {}", e);
+                }));
+
+                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                ConnectionHandle::UdpOrTcp(handle)
             }
             Protocol::Tcp => {
                 let (stream, handle) =
                     TcpClientStream::with_timeout(config.socket_addr, options.timeout);
                 // TODO: need config for Signer...
-                let handle = DnsFuture::with_timeout(
+                let dns_conn = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 );
 
-                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
+                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, tcp connection shutting down: {}", e);
+                }));
+
+                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                ConnectionHandle::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-tls")]
             Protocol::Tls => {
@@ -232,14 +247,20 @@ impl ConnectionProvider for StandardConnection {
                     config.socket_addr,
                     config.tls_dns_name.clone().unwrap_or_default(),
                 );
-                let handle = DnsFuture::with_timeout(
+                let dns_conn = DnsFuture::with_timeout(
                     stream,
-                    handle,
+                    Box::new(handle),
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 );
 
-                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
+                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, tcp connection shutting down: {}", e);
+                }));
+
+                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                ConnectionHandle::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => {
@@ -264,14 +285,20 @@ impl ConnectionProvider for StandardConnection {
                     None,
                 );
                 // TODO: need config for Signer...
-                let handle = DnsFuture::with_timeout(
+                let dns_conn = DnsFuture::with_timeout(
                     stream,
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 );
 
-                ConnectionHandle::Boxed(BasicAsyncResolver::new(handle))
+                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, udp connection shutting down: {}", e);
+                }));
+
+                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                ConnectionHandle::UdpOrTcp(handle)
             }
         };
 
@@ -281,19 +308,18 @@ impl ConnectionProvider for StandardConnection {
 
 #[derive(Clone)]
 pub enum ConnectionHandle {
-    Boxed(BasicAsyncResolver),
+    UdpOrTcp(xfer::BufSerialMessageStreamHandle<DnsFutureSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufSerialMessageStreamHandle<trust_dns_https::HttpsSerialResponse>),
 }
 
 impl DnsHandle for ConnectionHandle {
-    type Error = ResolveError;
     type Response = ConnectionHandleResponse;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
         match self {
-            ConnectionHandle::Boxed(ref mut bx) => {
-                ConnectionHandleResponse::Boxed(bx.send(request))
+            ConnectionHandle::UdpOrTcp(ref mut conn) => {
+                ConnectionHandleResponse::UdpOrTcp(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionHandle::Https(ref mut https) => {
@@ -304,22 +330,20 @@ impl DnsHandle for ConnectionHandle {
 }
 
 pub enum ConnectionHandleResponse {
-    Boxed(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
+    UdpOrTcp(xfer::OneshotDnsResponseReceiver<DnsFutureSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
 }
 
 impl Future for ConnectionHandleResponse {
     type Item = DnsResponse;
-    type Error = ResolveError;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self {
-            ConnectionHandleResponse::Boxed(ref mut bx) => bx.poll(),
+            ConnectionHandleResponse::UdpOrTcp(ref mut resp) => resp.poll(),
             #[cfg(feature = "dns-over-https")]
-            ConnectionHandleResponse::Https(ref mut https) => {
-                https.poll().map_err(ResolveError::from)
-            }
+            ConnectionHandleResponse::Https(ref mut https) => https.poll(),
         }
     }
 }
@@ -368,7 +392,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     }
 
     /// checks if the connection is failed, if so then reconnect.
-    fn try_reconnect(&mut self) -> ResolveResult<()> {
+    fn try_reconnect(&mut self) -> ProtoResult<()> {
         let error_opt: Option<(usize, usize)> = self
             .stats
             .lock()
@@ -379,9 +403,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
                     None
                 }
             })
-            .map_err(|e| {
-                ResolveErrorKind::Msg(format!("Error acquiring NameServerStats lock: {}", e).into())
-            })?;
+            .map_err(|e| ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e)))?;
 
         // if this is in a failure state
         if let Some((successes, failures)) = error_opt {
@@ -404,11 +426,10 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
 
 impl<C, P> DnsHandle for NameServer<C, P>
 where
-    C: DnsHandle<Error = ResolveError>,
+    C: DnsHandle,
     P: ConnectionProvider<ConnHandle = C>,
 {
-    type Error = ResolveError;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.client.is_verifying_dnssec()
@@ -440,7 +461,9 @@ where
                             stats.next_success(remote_edns);
                             Ok(response)
                         })
-                        .map_err(|e| format!("Error acquiring NameServerStats lock: {}", e).into());
+                        .map_err(|e| {
+                            ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
+                        });
 
                     future::result(response)
                 })
@@ -600,11 +623,10 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
 
 impl<C, P> DnsHandle for NameServerPool<C, P>
 where
-    C: DnsHandle<Error = ResolveError> + 'static,
+    C: DnsHandle + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Error = ResolveError;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
@@ -656,16 +678,16 @@ enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'st
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
-    DoSend(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
+    DoSend(Box<Future<Item = DnsResponse, Error = ProtoError> + Send>),
 }
 
 impl<C, P> Future for TrySend<C, P>
 where
-    C: DnsHandle<Error = ResolveError> + 'static,
+    C: DnsHandle + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
     type Item = DnsResponse;
-    type Error = ResolveError;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let future;
@@ -680,7 +702,7 @@ where
                 match conns {
                     Err(TryLockError::Poisoned(_)) => {
                         // TODO: what to do on poisoned errors? this is non-recoverable, right?
-                        return Err(ResolveErrorKind::Msg("Lock Poisoned".to_string()).into());
+                        return Err(ProtoError::from("Lock Poisoned"));
                     }
                     Err(TryLockError::WouldBlock) => {
                         // since there is nothing registered with Tokio, we need to yield...
@@ -703,9 +725,7 @@ where
                             (
                                 conns,
                                 request_loop,
-                                ResolveError::from(ResolveErrorKind::Message(
-                                    "No connections available",
-                                )),
+                                ProtoError::from("No connections available"),
                             ),
                             |(mut conns, request, err)| {
                                 let conn = conns.pop();
@@ -749,7 +769,7 @@ mod mdns {
     /// Returns true
     pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
     where
-        C: DnsHandle<Error = ResolveError> + 'static,
+        C: DnsHandle + 'static,
         P: ConnectionProvider<ConnHandle = C> + 'static,
     {
         if request
@@ -765,7 +785,7 @@ mod mdns {
 }
 
 pub enum Local {
-    ResolveFuture(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
+    ResolveFuture(Box<Future<Item = DnsResponse, Error = ProtoError> + Send>),
     NotMdns(DnsRequest),
 }
 
@@ -783,7 +803,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Box<Future<Item = DnsResponse, Error = ResolveError> + Send> {
+    fn take_future(self) -> Box<Future<Item = DnsResponse, Error = ProtoError> + Send> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
@@ -805,7 +825,7 @@ impl Local {
 
 impl Future for Local {
     type Item = DnsResponse;
-    type Error = ResolveError;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match *self {

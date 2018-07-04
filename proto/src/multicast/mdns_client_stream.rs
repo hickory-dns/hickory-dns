@@ -10,7 +10,6 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
 
-use error::*;
 use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use multicast::{MdnsQueryType, MdnsStream};
 use xfer::{DnsClientStream, SerialMessage};
@@ -25,33 +24,27 @@ pub struct MdnsClientStream {
 
 impl MdnsClientStream {
     /// associates the socket to the well-known ipv4 multicast addess
-    pub fn new_ipv4<E>(
+    pub fn new_ipv4(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = E> + Send>,
-    )
-    where
-        E: FromProtoError + Send + 'static,
-    {
-        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
+        Box<DnsStreamHandle + Send>,
+    ) {
+        Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
-    pub fn new_ipv6<E>(
+    pub fn new_ipv6(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = E> + Send>,
-    )
-    where
-        E: FromProtoError + Send + 'static,
-    {
-        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
+        Box<DnsStreamHandle + Send>,
+    ) {
+        Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
     /// it is expected that the resolver wrapper will be responsible for creating and managing
@@ -62,7 +55,7 @@ impl MdnsClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new<E>(
+    pub fn new(
         mdns_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -70,11 +63,8 @@ impl MdnsClientStream {
         ipv6_if: Option<u32>,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = E> + Send>,
-    )
-    where
-        E: FromProtoError + Send + 'static,
-    {
+        Box<DnsStreamHandle + Send>,
+    ) {
         let (stream_future, sender) =
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 

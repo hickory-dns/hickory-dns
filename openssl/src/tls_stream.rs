@@ -16,10 +16,9 @@ use openssl::ssl::{SslConnector, SslContextBuilder, SslMethod, SslOptions};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::{X509, X509Ref};
-use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_openssl::{SslConnectorExt, SslStream as TokioTlsStream};
+use tokio_tcp::TcpStream as TokioTcpStream;
 
-use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
 
@@ -72,7 +71,9 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 
         // only want to support current TLS versions, 1.2 or future
         openssl_ctx_builder.set_options(
-            SslOptions::NO_SSLV2 | SslOptions::NO_SSLV3 | SslOptions::NO_TLSV1
+            SslOptions::NO_SSLV2
+                | SslOptions::NO_SSLV3
+                | SslOptions::NO_TLSV1
                 | SslOptions::NO_TLSV1_1,
         );
 
@@ -112,13 +113,10 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_stream_from_existing_tls_stream<E>(
+pub fn tls_stream_from_existing_tls_stream(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle<E>)
-where
-    E: FromProtoError,
-{
+) -> (TlsStream, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
@@ -180,17 +178,14 @@ impl TlsStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<E>(
+    pub fn build(
         self,
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError,
-    {
+        BufStreamHandle,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
@@ -213,8 +208,8 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream =
-            Box::new(tcp.and_then(move |tcp_stream| {
+        let stream = Box::new(
+            tcp.and_then(move |tcp_stream| {
                 tls_connector
                     .connect_async(&dns_name, tcp_stream)
                     .map(move |s| {
@@ -231,7 +226,8 @@ impl TlsStreamBuilder {
                     io::ErrorKind::ConnectionRefused,
                     format!("tls error: {}", e),
                 )
-            }));
+            }),
+        );
 
         (stream, message_sender)
     }

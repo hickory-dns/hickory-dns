@@ -91,7 +91,7 @@ impl TcpStream<TokioTcpStream> {
         name_server: SocketAddr,
     ) -> (
         Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
+        BufStreamHandle,
     )
     where
         E: FromProtoError,
@@ -105,18 +105,15 @@ impl TcpStream<TokioTcpStream> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
-    pub fn with_timeout<E>(
+    pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
         Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError,
-    {
+        BufStreamHandle,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E>::new(message_sender);
+        let message_sender = BufStreamHandle::new(message_sender);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
@@ -154,12 +151,9 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     ///
     /// * `stream` - the established IO stream for communication
     /// * `peer_addr` - sources address of the stream
-    pub fn from_stream<E>(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle<E>)
-    where
-        E: FromProtoError,
-    {
+    pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E>::new(message_sender);
+        let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
 

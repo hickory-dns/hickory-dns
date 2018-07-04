@@ -16,7 +16,6 @@ use rand;
 use rand::distributions::{Distribution, Range};
 use tokio_udp;
 
-use error::*;
 use xfer::{BufStreamHandle, SerialMessage};
 
 /// A UDP stream of DNS binary packets
@@ -41,17 +40,14 @@ impl UdpStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new<E>(
+    pub fn new(
         name_server: SocketAddr,
     ) -> (
         Box<Future<Item = UdpStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError,
-    {
+        BufStreamHandle,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E>::new(message_sender);
+        let message_sender = BufStreamHandle::new(message_sender);
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -80,12 +76,9 @@ impl UdpStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound<E>(socket: tokio_udp::UdpSocket) -> (Self, BufStreamHandle<E>)
-    where
-        E: FromProtoError + 'static,
-    {
+    pub fn with_bound(socket: tokio_udp::UdpSocket) -> (Self, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E>::new(message_sender);
+        let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = UdpStream {
             socket: socket,
@@ -206,8 +199,7 @@ fn test_next_random_socket() {
     use tokio::runtime::current_thread::Runtime;
 
     let mut io_loop = Runtime::new().unwrap();
-    let (stream, _) =
-        UdpStream::new::<ProtoError>(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
+    let (stream, _) = UdpStream::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
     drop(
         io_loop
             .block_on(stream)
@@ -296,7 +288,7 @@ fn udp_stream_test(server_addr: IpAddr) {
     let socket = tokio_udp::UdpSocket::bind(
         &client_addr.to_socket_addrs().unwrap().next().unwrap(),
     ).expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::with_bound::<ProtoError>(socket);
+    let (mut stream, sender) = UdpStream::with_bound(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {

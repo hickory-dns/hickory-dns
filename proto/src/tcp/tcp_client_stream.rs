@@ -39,7 +39,7 @@ impl TcpClientStream<TokioTcpStream> {
         name_server: SocketAddr,
     ) -> (
         Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = E> + Send>,
+        Box<DnsStreamHandle + Send>,
     )
     where
         E: FromProtoError + Send + 'static,
@@ -53,16 +53,13 @@ impl TcpClientStream<TokioTcpStream> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
-    pub fn with_timeout<E>(
+    pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
         Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = E> + Send>,
-    )
-    where
-        E: FromProtoError + Send + 'static,
-    {
+        Box<DnsStreamHandle + Send>,
+    ) {
         let (stream_future, sender) = TcpStream::with_timeout(name_server, timeout);
 
         let new_future = Box::new(stream_future.map(move |tcp_stream| TcpClientStream {

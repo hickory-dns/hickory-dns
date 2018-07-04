@@ -14,16 +14,14 @@ use std::net::SocketAddr;
 use futures::Future;
 
 use trust_dns_openssl::{TlsClientStream, TlsClientStreamBuilder};
-use trust_dns_proto::DnsStreamHandle;
-
-use error::*;
+use trust_dns_proto::BufDnsStreamHandle;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
     Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
-    Box<DnsStreamHandle<Error = ResolveError> + Send>,
+    BufDnsStreamHandle,
 ) {
     let tls_builder = TlsClientStreamBuilder::new();
     tls_builder.build(socket_addr, dns_name)

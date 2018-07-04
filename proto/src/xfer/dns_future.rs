@@ -14,40 +14,40 @@ use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::stream::Stream;
 use futures::sync::oneshot;
 use futures::{task, Async, Future, Poll};
 use rand;
 use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
-use tokio_executor;
 use tokio_timer::Delay;
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
 use xfer::{
-    ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage,
+    ignore_send, DnsClientStream, DnsRequestOptions, DnsResponse, SerialMessage,
+    SerialMessageSender,
 };
-use {BasicDnsHandle, DnsStreamHandle};
+use DnsStreamHandle;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
-struct ActiveRequest<E: FromProtoError> {
+struct ActiveRequest {
     // the completion is the channel for a response to the original request
-    completion: oneshot::Sender<Result<DnsResponse, E>>,
+    completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
     request_options: DnsRequestOptions,
     // most requests pass a single Message response directly through to the completion
     //  this small vec will have no allocations, unless the requests is a DNS-SD request
     //  expecting more than one response
+    // TODO: change the completion above to a Stream, and don't hold messages...
     responses: SmallVec<[Message; 1]>,
     timeout: Delay,
 }
 
-impl<E: FromProtoError> ActiveRequest<E> {
+impl ActiveRequest {
     fn new(
-        completion: oneshot::Sender<Result<DnsResponse, E>>,
+        completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         request_options: DnsRequestOptions,
         timeout: Delay,
@@ -89,7 +89,7 @@ impl<E: FromProtoError> ActiveRequest<E> {
 
     /// Sends an error
     fn complete_with_error(self, error: ProtoError) {
-        ignore_send(self.completion.send(Err(E::from(error))));
+        ignore_send(self.completion.send(Err(error)));
     }
 
     /// sends any registered responses to thethe requestor
@@ -111,27 +111,22 @@ impl<E: FromProtoError> ActiveRequest<E> {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multi-plexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFuture<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
+pub struct DnsFuture<S, MF, D = Box<DnsStreamHandle>>
 where
     D: Send + 'static,
     S: Stream<Item = SerialMessage, Error = io::Error>,
-    E: FromProtoError,
     MF: MessageFinalizer,
 {
     stream: S,
     timeout_duration: Duration,
     stream_handle: D,
-    new_receiver: Peekable<
-        StreamFuse<UnboundedReceiver<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>>,
-    >,
-    active_requests: HashMap<u16, ActiveRequest<E>>,
+    active_requests: HashMap<u16, ActiveRequest>,
     signer: Option<Arc<MF>>,
 }
 
-impl<S, E, MF> DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
+impl<S, MF> DnsFuture<S, MF, Box<DnsStreamHandle>>
 where
     S: DnsClientStream + 'static,
-    E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     /// Spawns a new DnsFuture Stream. This uses a default timeout of 5 seconds for all requests.
@@ -144,9 +139,9 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
-        stream_handle: Box<DnsStreamHandle<Error = E>>,
+        stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<MF>>,
-    ) -> BasicDnsHandle<E> {
+    ) -> DnsFutureConnect<S, MF> {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
@@ -162,43 +157,24 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
-        stream_handle: Box<DnsStreamHandle<Error = E>>,
+        stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
-    ) -> BasicDnsHandle<E> {
-        let (sender, rx) = unbounded();
-
-        tokio_executor::spawn(
-            stream
-                .then(move |res| match res {
-                    Ok(stream) => ClientStreamOrError::Future(DnsFuture {
-                        stream,
-                        timeout_duration,
-                        stream_handle,
-                        new_receiver: rx.fuse().peekable(),
-                        active_requests: HashMap::new(),
-                        signer: signer,
-                    }),
-                    Err(stream_error) => ClientStreamOrError::Errored(ClientStreamErrored {
-                        error: E::from(stream_error.into()),
-                        new_receiver: rx.fuse().peekable(),
-                    }),
-                })
-                .map_err(|e| {
-                    error!("error in Proto: {}", e);
-                }),
-        );
-
-        BasicDnsHandle::new(sender)
+    ) -> DnsFutureConnect<S, MF> {
+        // TODO: remove box, see DnsExchange for Connect type
+        DnsFutureConnect {
+            stream,
+            stream_handle: Some(stream_handle),
+            timeout_duration,
+            signer: signer,
+        }
     }
 
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
     fn drop_cancelled(&mut self) {
         let mut canceled = HashMap::<u16, ProtoError>::new();
-        for (&id, ref mut active_req /*(ref mut req, ref mut timeout)*/) in
-            &mut self.active_requests
-        {
+        for (&id, ref mut active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
                 canceled.insert(id, ProtoError::from("requestor canceled"));
             }
@@ -246,145 +222,165 @@ where
         task::current().notify();
         Async::NotReady
     }
+
+    /// Closes all outstanding completes with a closed stream error
+    fn stream_closed_close_all(&mut self) {
+        let error = ProtoError::from("stream closed before response received");
+
+        for (_, mut active_request) in self.active_requests.drain() {
+            if active_request.responses.is_empty() {
+                // complete the request, it's failed...
+                active_request.complete_with_error(error.clone());
+            } else {
+                // this is a timeout waiting for multiple responses...
+                active_request.complete();
+            }
+        }
+    }
 }
 
-impl<S, E, MF> Future for DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
+/// A wrapper for a future DnsExchange connection
+#[must_use = "futures do nothing unless polled"]
+pub struct DnsFutureConnect<S, MF>
 where
-    S: DnsClientStream + 'static,
-    E: FromProtoError + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error>,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Item = ();
-    type Error = E;
+    stream: Box<Future<Item = S, Error = io::Error> + Send>,
+    stream_handle: Option<Box<DnsStreamHandle>>,
+    timeout_duration: Duration,
+    signer: Option<Arc<MF>>,
+}
 
-    fn poll(&mut self) -> Poll<(), Self::Error> {
-        self.drop_cancelled();
+impl<S, MF> Future for DnsFutureConnect<S, MF>
+where
+    // TODO: get rid of this box
+    S: Stream<Item = SerialMessage, Error = io::Error>,
+    MF: MessageFinalizer + Send + Sync + 'static,
+{
+    type Item = DnsFuture<S, MF, Box<DnsStreamHandle>>;
+    type Error = ProtoError;
 
-        // loop over new_receiver for all outbound requests
-        loop {
-            // get next query_id
-            let query_id: Option<u16> = match self.new_receiver.peek() {
-                Ok(Async::Ready(Some(_))) => {
-                    debug!("got message from receiver");
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let stream: S = try_ready!(self.stream.poll());
 
-                    // we have a new message to send
-                    match self.next_random_query_id() {
-                        Async::Ready(id) => Some(id),
-                        Async::NotReady => break,
-                    }
-                }
-                Ok(Async::Ready(None)) => {
-                    // We want to pop the nones off in the poll, to get rid of them.
-                    None
-                }
-                Ok(Async::NotReady) => {
-                    // we must break in the NotReady case as well, we don't want there to ever be a case where
-                    //  a message could arrive between peek and poll... i.e. a race condition where query_id
-                    //  would have been gotten
-                    break;
-                }
-                Err(()) => {
-                    warn!("receiver was shutdown?");
-                    break;
-                }
-            };
+        Ok(Async::Ready(DnsFuture {
+            stream,
+            timeout_duration: self.timeout_duration,
+            stream_handle: self
+                .stream_handle
+                .take()
+                .expect("must not poll after complete"),
+            active_requests: HashMap::new(),
+            signer: self.signer.clone(),
+        }))
+    }
+}
+impl<S, MF> SerialMessageSender for DnsFuture<S, MF>
+where
+    S: DnsClientStream + 'static,
+    MF: MessageFinalizer + Send + Sync + 'static,
+{
+    type SerialResponse = DnsFutureSerialResponse;
 
-            // finally pop the reciever
-            match self.new_receiver.poll() {
-                Ok(Async::Ready(Some((request, complete)))) => {
-                    let mut request: DnsRequest = request;
+    fn send_message(&mut self, request: SerialMessage) -> Self::SerialResponse {
+        // get next query_id
+        let query_id: u16 = match self.next_random_query_id() {
+            Async::Ready(id) => id,
+            Async::NotReady => {
+                return DnsFutureSerialResponseInner::Err(Some(ProtoError::from(
+                    "id space exhausted, consider filing an issue",
+                ))).into()
+            }
+        };
 
-                    // if there was a message, and the above succesion was succesful,
-                    //  register the new message, if not do not register, and set the complete to error.
-                    // getting a random query id, this mitigates potential cache poisoning.
-                    let query_id = query_id.expect("query_id should have been set above");
-                    request.set_id(query_id);
+        // FIXME: clearly send_message shouldn't be a serial message at this point, make it a DnsRequest+dst
+        let mut request = request
+            .to_message()
+            .expect("see FIXME above, don't be lazy... fix it!");
+        request.set_id(query_id);
 
-                    let now = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .map_err(|_| {
-                            ProtoErrorKind::Message("Current time is before the Unix epoch.").into()
-                        })?
-                        .as_secs();
-                    let now = now as u32; // XXX: truncates u64 to u32.
+        let now = match SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| ProtoErrorKind::Message("Current time is before the Unix epoch.").into())
+        {
+            Ok(now) => now.as_secs(),
+            Err(err) => return DnsFutureSerialResponseInner::Err(Some(err)).into(),
+        };
 
-                    // update messages need to be signed.
-                    if let OpCode::Update = request.op_code() {
-                        if let Some(ref signer) = self.signer {
-                            if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
-                                warn!("could not sign message: {}", e);
-                                ignore_send(complete.send(Err(e.into())));
-                                continue; // to the next message...
-                            }
-                        }
-                    }
+        let now = now as u32; // TODO: truncates u64 to u32, error on overflow?
 
-                    // store a Timeout for this message before sending
-                    let mut timeout = Delay::new(Instant::now() + self.timeout_duration);
-
-                    // make sure to register insterest in the Timeout
-                    match timeout.poll() {
-                        Ok(Async::Ready(_)) => {
-                            warn!("timeout fired before sending message!: {}", query_id);
-                            ignore_send(
-                                complete
-                                    .send(Err(E::from(ProtoError::from(ProtoErrorKind::Timeout)))),
-                            );
-                            continue; // to the next message
-                        }
-                        Ok(Async::NotReady) => (), // this is the exepcted state...
-                        Err(e) => {
-                            error!("could not register interest in Timeout: {}", e);
-                            ignore_send(complete.send(Err(E::from(e.into()))));
-                            continue; // to the next message
-                        }
-                    }
-
-                    // send the message
-                    let active_request = ActiveRequest::new(
-                        complete,
-                        request.id(),
-                        request.options().clone(),
-                        timeout,
-                    );
-
-                    match request.unwrap().to_vec() {
-                        Ok(buffer) => {
-                            debug!("sending message id: {}", active_request.request_id());
-                            let serial_message =
-                                SerialMessage::new(buffer, self.stream.name_server_addr());
-                            self.stream_handle.send(serial_message)?;
-
-                            // add to the map -after- the client send b/c we don't want to put it in the map if
-                            //  we ended up returning from the send.
-                            self.active_requests
-                                .insert(active_request.request_id(), active_request);
-                        }
-                        Err(e) => {
-                            debug!(
-                                "error message id: {} error: {}",
-                                active_request.request_id(),
-                                e
-                            );
-                            // complete with the error, don't add to the map of active requests
-                            active_request.complete_with_error(e);
-                        }
-                    }
-                }
-                Ok(_) => break,
-                Err(()) => {
-                    warn!("receiver was shutdown?");
-                    break;
+        // update messages need to be signed.
+        if let OpCode::Update = request.op_code() {
+            if let Some(ref signer) = self.signer {
+                if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
+                    debug!("could not sign message: {}", e);
+                    return DnsFutureSerialResponseInner::Err(Some(e.into())).into();
                 }
             }
         }
+
+        // store a Timeout for this message before sending
+        let timeout = Delay::new(Instant::now() + self.timeout_duration);
+
+        let (complete, receiver) = oneshot::channel();
+
+        // send the message
+        // FIXME: before merge to master, need options and DnsRequest
+        let active_request = ActiveRequest::new(
+            complete,
+            request.id(),
+            Default::default(), /*request.options().clone()*/
+            timeout,
+        );
+
+        match request.to_vec() {
+            Ok(buffer) => {
+                debug!("sending message id: {}", active_request.request_id());
+                let serial_message = SerialMessage::new(buffer, self.stream.name_server_addr());
+
+                // add to the map -after- the client send b/c we don't want to put it in the map if
+                //  we ended up returning an error from the send.
+                match self.stream_handle.send(serial_message) {
+                    Ok(()) => self
+                        .active_requests
+                        .insert(active_request.request_id(), active_request),
+                    Err(err) => return DnsFutureSerialResponseInner::Err(Some(err.into())).into(),
+                };
+            }
+            Err(e) => {
+                debug!(
+                    "error message id: {} error: {}",
+                    active_request.request_id(),
+                    e
+                );
+                // complete with the error, don't add to the map of active requests
+                return DnsFutureSerialResponseInner::Err(Some(e)).into();
+            }
+        }
+
+        DnsFutureSerialResponseInner::Completion(receiver).into()
+    }
+}
+
+impl<S, MF> Stream for DnsFuture<S, MF>
+where
+    S: DnsClientStream + 'static,
+    MF: MessageFinalizer + Send + Sync + 'static,
+{
+    type Item = ();
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        // Always drop the cancelled queries first
+        self.drop_cancelled();
 
         // Collect all inbound requests, max 100 at a time for QoS
         //   by having a max we will guarantee that the client can't be DOSed in this loop
         // TODO: make the QoS configurable
         let mut messages_received = 0;
         for i in 0..QOS_MAX_RECEIVE_MSGS {
-            match self.stream.poll().map_err(|e| E::from(e.into()))? {
+            match self.stream.poll()? {
                 Async::Ready(Some(buffer)) => {
                     messages_received = i;
 
@@ -413,22 +409,30 @@ where
                         Err(e) => debug!("error decoding message: {}", e),
                     }
                 }
-                Async::Ready(None) | Async::NotReady => break,
+                Async::Ready(None) => {
+                    debug!(
+                        "io_stream closed by other side: {}",
+                        self.stream.name_server_addr()
+                    );
+                    self.stream_closed_close_all();
+                }
+                Async::NotReady => break,
             }
         }
 
-        // Clean shutdown happens when all pending requests are done and the
-        // incoming channel has been closed (e.g. you'll never receive another
-        // request). Errors will return early...
-        let done = match self.new_receiver.peek() {
-            Ok(Async::Ready(None)) => true,
-            Ok(_) => false,
-            Err(_) => return Err(E::from(ProtoErrorKind::NoError.into())),
-        };
+        // // Clean shutdown happens when all pending requests are done and the
+        // // incoming channel has been closed (e.g. you'll never receive another
+        // // request). Errors will return early...
+        // let done = match self.new_receiver.peek() {
+        //     Ok(Async::Ready(None)) => true,
+        //     Ok(_) => false,
+        //     Err(_) => return Err(ProtoErrorKind::NoError.into()),
+        // };
 
-        if self.active_requests.is_empty() && done {
-            return Ok(().into()); // we are done
-        }
+        // // The
+        // if self.active_requests.is_empty() && done {
+        //     return Ok(Async::Ready(None)); // we are done
+        // }
 
         // If still active, then if the qos (for _ in 0..100 loop) limit
         // was hit then "yield". This'll make sure that the future is
@@ -442,63 +446,286 @@ where
     }
 }
 
-/// Always returns the specified io::Error to the remote Sender
-struct ClientStreamErrored<E>
-where
-    E: FromProtoError,
-{
-    error: E,
-    new_receiver: Peekable<
-        StreamFuse<UnboundedReceiver<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>>,
-    >,
+/// A future that resolves into a DnsResponse
+#[must_use = "futures do nothing unless polled"]
+pub struct DnsFutureSerialResponse(DnsFutureSerialResponseInner);
+
+impl Future for DnsFutureSerialResponse {
+    type Item = DnsResponse;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
+    }
 }
 
-impl<E> Future for ClientStreamErrored<E>
-where
-    E: FromProtoError,
-{
-    type Item = ();
-    type Error = E;
+impl From<DnsFutureSerialResponseInner> for DnsFutureSerialResponse {
+    fn from(inner: DnsFutureSerialResponseInner) -> Self {
+        DnsFutureSerialResponse(inner)
+    }
+}
 
-    fn poll(&mut self) -> Poll<(), Self::Error> {
-        match self.new_receiver.poll() {
-            Ok(Async::Ready(Some((_, complete)))) => {
-                // TODO: this error never seems to make it, the receiver closes early...
-                ignore_send(complete.send(Err(self.error.clone())));
+enum DnsFutureSerialResponseInner {
+    Completion(oneshot::Receiver<ProtoResult<DnsResponse>>),
+    Err(Option<ProtoError>),
+}
 
-                task::current().notify();
-                Ok(Async::NotReady)
+impl Future for DnsFutureSerialResponseInner {
+    type Item = DnsResponse;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self {
+            // The inner type of the completion might have been an error
+            //   we need to unwrap that, and translate to be the Future's error
+            DnsFutureSerialResponseInner::Completion(complete) => match try_ready!(
+                complete
+                    .poll()
+                    .map_err(|_| ProtoError::from("the completion was canceled"))
+            ) {
+                Ok(response) => Ok(Async::Ready(response)),
+                Err(err) => Err(err),
+            },
+            DnsFutureSerialResponseInner::Err(err) => {
+                Err(err.take().expect("cannot poll after complete"))
             }
-            Ok(Async::Ready(None)) => Ok(Async::Ready(())),
-            _ => Err(E::from(ProtoErrorKind::NoError.into())),
         }
     }
 }
+//                     debug!("got message from receiver");
 
-enum ClientStreamOrError<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
-where
-    D: Send + 'static,
-    S: DnsClientStream + 'static,
-    E: FromProtoError + Send,
-    MF: MessageFinalizer + Send + Sync + 'static,
-{
-    Future(DnsFuture<S, E, MF, D>),
-    Errored(ClientStreamErrored<E>),
-}
+//                     // we have a new message to send
+//                     match self.next_random_query_id() {
+//                         Async::Ready(id) => Some(id),
+//                         Async::NotReady => break,
+//                     }
+//                 }
+//                 Ok(Async::Ready(None)) => {
+//                     // We want to pop the nones off in the poll, to get rid of them.
+//                     None
+//                 }
+//                 Ok(Async::NotReady) => {
+//                     // we must break in the NotReady case as well, we don't want there to ever be a case where
+//                     //  a message could arrive between peek and poll... i.e. a race condition where query_id
+//                     //  would have been gotten
+//                     break;
+//                 }
+//                 Err(()) => {
+//                     warn!("receiver was shutdown?");
+//                     break;
+//                 }
+//             };
 
-impl<S, E, MF> Future for ClientStreamOrError<S, E, MF, Box<DnsStreamHandle<Error = E>>>
-where
-    S: DnsClientStream + 'static,
-    E: FromProtoError + Send + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
-{
-    type Item = ();
-    type Error = E;
+//             // finally pop the reciever
+//             match self.new_receiver.poll() {
+//                 Ok(Async::Ready(Some((request, complete)))) => {
+//                     let mut request: DnsRequest = request;
 
-    fn poll(&mut self) -> Poll<(), Self::Error> {
-        match *self {
-            ClientStreamOrError::Future(ref mut f) => f.poll(),
-            ClientStreamOrError::Errored(ref mut e) => e.poll(),
-        }
-    }
-}
+//                     // if there was a message, and the above succesion was succesful,
+//                     //  register the new message, if not do not register, and set the complete to error.
+//                     // getting a random query id, this mitigates potential cache poisoning.
+//                     let query_id = query_id.expect("query_id should have been set above");
+//                     request.set_id(query_id);
+
+//                     let now = SystemTime::now()
+//                         .duration_since(UNIX_EPOCH)
+//                         .map_err(|_| {
+//                             ProtoErrorKind::Message("Current time is before the Unix epoch.").into()
+//                         })?
+//                         .as_secs();
+//                     let now = now as u32; // XXX: truncates u64 to u32.
+
+//                     // update messages need to be signed.
+//                     if let OpCode::Update = request.op_code() {
+//                         if let Some(ref signer) = self.signer {
+//                             if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
+//                                 warn!("could not sign message: {}", e);
+//                                 ignore_send(complete.send(Err(e.into())));
+//                                 continue; // to the next message...
+//                             }
+//                         }
+//                     }
+
+//                     // store a Timeout for this message before sending
+//                     let mut timeout = Delay::new(Instant::now() + self.timeout_duration);
+
+//                     // make sure to register insterest in the Timeout
+//                     match timeout.poll() {
+//                         Ok(Async::Ready(_)) => {
+//                             warn!("timeout fired before sending message!: {}", query_id);
+//                             ignore_send(
+//                                 complete
+//                                     .send(Err(E::from(ProtoError::from(ProtoErrorKind::Timeout)))),
+//                             );
+//                             continue; // to the next message
+//                         }
+//                         Ok(Async::NotReady) => (), // this is the exepcted state...
+//                         Err(e) => {
+//                             error!("could not register interest in Timeout: {}", e);
+//                             ignore_send(complete.send(Err(E::from(e.into()))));
+//                             continue; // to the next message
+//                         }
+//                     }
+
+//                     // send the message
+//                     let active_request = ActiveRequest::new(
+//                         complete,
+//                         request.id(),
+//                         request.options().clone(),
+//                         timeout,
+//                     );
+
+//                     match request.unwrap().to_vec() {
+//                         Ok(buffer) => {
+//                             debug!("sending message id: {}", active_request.request_id());
+//                             let serial_message =
+//                                 SerialMessage::new(buffer, self.stream.name_server_addr());
+//                             self.stream_handle.send(serial_message)?;
+
+//                             // add to the map -after- the client send b/c we don't want to put it in the map if
+//                             //  we ended up returning from the send.
+//                             self.active_requests
+//                                 .insert(active_request.request_id(), active_request);
+//                         }
+//                         Err(e) => {
+//                             debug!(
+//                                 "error message id: {} error: {}",
+//                                 active_request.request_id(),
+//                                 e
+//                             );
+//                             // complete with the error, don't add to the map of active requests
+//                             active_request.complete_with_error(e);
+//                         }
+//                     }
+//                 }
+//                 Ok(_) => break,
+//                 Err(()) => {
+//                     warn!("receiver was shutdown?");
+//                     break;
+//                 }
+//             }
+//         }
+
+//         // Collect all inbound requests, max 100 at a time for QoS
+//         //   by having a max we will guarantee that the client can't be DOSed in this loop
+//         // TODO: make the QoS configurable
+//         let mut messages_received = 0;
+//         for i in 0..QOS_MAX_RECEIVE_MSGS {
+//             match self.stream.poll().map_err(|e| E::from(e.into()))? {
+//                 Async::Ready(Some(buffer)) => {
+//                     messages_received = i;
+
+//                     //   deserialize or log decode_error
+//                     match buffer.to_message() {
+//                         Ok(message) => match self.active_requests.entry(message.id()) {
+//                             Entry::Occupied(mut request_entry) => {
+//                                 // first add the response to the active_requests responses
+//                                 let complete = {
+//                                     let mut active_request = request_entry.get_mut();
+//                                     active_request.add_response(message);
+
+//                                     // determine if this is complete
+//                                     !active_request.request_options().expects_multiple_responses
+//                                 };
+
+//                                 // now check if the request is complete
+//                                 if complete {
+//                                     let mut active_request = request_entry.remove();
+//                                     active_request.complete();
+//                                 }
+//                             }
+//                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
+//                         },
+//                         // TODO: return src address for diagnostics
+//                         Err(e) => debug!("error decoding message: {}", e),
+//                     }
+//                 }
+//                 Async::Ready(None) | Async::NotReady => break,
+//             }
+//         }
+
+//         // Clean shutdown happens when all pending requests are done and the
+//         // incoming channel has been closed (e.g. you'll never receive another
+//         // request). Errors will return early...
+//         let done = match self.new_receiver.peek() {
+//             Ok(Async::Ready(None)) => true,
+//             Ok(_) => false,
+//             Err(_) => return Err(E::from(ProtoErrorKind::NoError.into())),
+//         };
+
+//         if self.active_requests.is_empty() && done {
+//             return Ok(().into()); // we are done
+//         }
+
+//         // If still active, then if the qos (for _ in 0..100 loop) limit
+//         // was hit then "yield". This'll make sure that the future is
+//         // woken up immediately on the next turn of the event loop.
+//         if messages_received == QOS_MAX_RECEIVE_MSGS {
+//             task::current().notify();
+//         }
+
+//         // Finally, return not ready to keep the 'driver task' alive.
+//         Ok(Async::NotReady)
+//     }
+// }
+
+// /// Always returns the specified io::Error to the remote Sender
+// struct ClientStreamErrored<E>
+// where
+//     E: FromProtoError,
+// {
+//     error: E,
+//     new_receiver: Peekable<
+//         StreamFuse<UnboundedReceiver<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>>,
+//     >,
+// }
+
+// impl<E> Future for ClientStreamErrored<E>
+// where
+//     E: FromProtoError,
+// {
+//     type Item = ();
+//     type Error = E;
+
+//     fn poll(&mut self) -> Poll<(), Self::Error> {
+//         match self.new_receiver.poll() {
+//             Ok(Async::Ready(Some((_, complete)))) => {
+//                 // TODO: this error never seems to make it, the receiver closes early...
+//                 ignore_send(complete.send(Err(self.error.clone())));
+
+//                 task::current().notify();
+//                 Ok(Async::NotReady)
+//             }
+//             Ok(Async::Ready(None)) => Ok(Async::Ready(())),
+//             _ => Err(E::from(ProtoErrorKind::NoError.into())),
+//         }
+//     }
+// }
+
+// enum ClientStreamOrError<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
+// where
+//     D: Send + 'static,
+//     S: DnsClientStream + 'static,
+//     E: FromProtoError + Send,
+//     MF: MessageFinalizer + Send + Sync + 'static,
+// {
+//     Future(DnsFuture<S, E, MF, D>),
+//     Errored(ClientStreamErrored<E>),
+// }
+
+// impl<S, E, MF> Future for ClientStreamOrError<S, E, MF, Box<DnsStreamHandle<Error = E>>>
+// where
+//     S: DnsClientStream + 'static,
+//     E: FromProtoError + Send + 'static,
+//     MF: MessageFinalizer + Send + Sync + 'static,
+// {
+//     type Item = ();
+//     type Error = E;
+
+//     fn poll(&mut self) -> Poll<(), Self::Error> {
+//         match *self {
+//             ClientStreamOrError::Future(ref mut f) => Future::poll(f),
+//             ClientStreamOrError::Errored(ref mut e) => e.poll(),
+//         }
+//     }
+// }

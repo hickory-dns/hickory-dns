@@ -9,7 +9,7 @@
 
 use futures::{Future, Poll};
 
-use error::FromProtoError;
+use error::ProtoError;
 use xfer::{DnsRequest, DnsResponse};
 use DnsHandle;
 
@@ -18,19 +18,12 @@ use DnsHandle;
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
-pub struct RetryDnsHandle<H: DnsHandle<Error = E>, E = <H as DnsHandle>::Error>
-where
-    E: FromProtoError + 'static,
-{
+pub struct RetryDnsHandle<H: DnsHandle> {
     handle: H,
     attempts: usize,
 }
 
-impl<H, E> RetryDnsHandle<H, E>
-where
-    H: DnsHandle<Error = E>,
-    E: FromProtoError + 'static,
-{
+impl<H: DnsHandle> RetryDnsHandle<H> {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
     /// # Arguments
@@ -42,13 +35,11 @@ where
     }
 }
 
-impl<H, E> DnsHandle for RetryDnsHandle<H>
+impl<H> DnsHandle for RetryDnsHandle<H>
 where
-    H: DnsHandle<Error = E> + 'static,
-    E: FromProtoError + 'static,
+    H: DnsHandle + 'static,
 {
-    type Error = <H as DnsHandle>::Error;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
@@ -74,13 +65,9 @@ struct RetrySendFuture<H: DnsHandle> {
     remaining_attempts: usize,
 }
 
-impl<H, E> Future for RetrySendFuture<H>
-where
-    H: DnsHandle<Error = E>,
-    E: FromProtoError,
-{
+impl<H: DnsHandle> Future for RetrySendFuture<H> {
     type Item = DnsResponse;
-    type Error = <H as DnsHandle>::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // loop over the future, on errors, spawn a new future
@@ -120,8 +107,7 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Error = ProtoError;
-        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+        type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let i = self.attempts.get();

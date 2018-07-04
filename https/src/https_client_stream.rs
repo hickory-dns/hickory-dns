@@ -24,14 +24,14 @@ use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{
-    DnsHandle, DnsRequest, DnsResponse, SerialMessage, SerialMessageSender,
-};
+use trust_dns_proto::xfer::{DnsResponse, SerialMessage, SerialMessageSender};
 
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
+/// A DNS client connection for DNS-over-HTTPS
 #[derive(Clone)]
+#[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
     // Corresponds to the dns-name of the HTTPS server
     name_server_name: Arc<String>,
@@ -52,6 +52,24 @@ impl SerialMessageSender for HttpsClientStream {
     }
 }
 
+impl Stream for HttpsClientStream {
+    type Item = ();
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        // just checking if the connection is ok
+        self.h2
+            .poll_ready()
+            .map(|readiness| match readiness {
+                Async::Ready(()) => Async::Ready(Some(())),
+                Async::NotReady => Async::NotReady,
+            })
+            .map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))
+    }
+}
+
+/// A future that will resolve to a DnsResponse upon completion
+#[must_use = "futures do nothing unless polled"]
 pub struct HttpsSerialResponse(HttpsSerialResponseInner);
 
 impl Future for HttpsSerialResponse {
@@ -343,12 +361,14 @@ impl Future for HttpsSerialResponseInner {
     }
 }
 
+/// A HTTPS connection builder for DNS-over-HTTPS
 #[derive(Clone)]
 pub struct HttpsClientStreamBuilder {
     client_config: ClientConfig,
 }
 
 impl HttpsClientStreamBuilder {
+    /// Return a new builder for DNS-over-HTTPS
     pub fn new() -> HttpsClientStreamBuilder {
         HttpsClientStreamBuilder {
             client_config: ClientConfig::new(),
@@ -512,30 +532,6 @@ impl Future for HttpsClientConnectState {
 
             mem::replace(self, next);
         }
-    }
-}
-
-impl DnsHandle for HttpsClientStream {
-    type Error = ProtoError;
-    type Response = HttpsSendResponse;
-
-    fn send<M: Into<DnsRequest>>(&mut self, request: M) -> Self::Response {
-        // FIXME: change signature to Result? or pass into the Future?
-        let dest = self.name_server;
-        let bytes = request.into().to_vec().expect("serial message failed");
-        let message: SerialMessage = SerialMessage::new(bytes, dest);
-        HttpsSendResponse(self.send_message(message))
-    }
-}
-
-pub struct HttpsSendResponse(HttpsSerialResponse);
-
-impl Future for HttpsSendResponse {
-    type Item = DnsResponse;
-    type Error = ProtoError;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
     }
 }
 
