@@ -17,17 +17,15 @@ use std::net::SocketAddr;
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;
 
-use trust_dns_proto::DnsStreamHandle;
+use trust_dns_proto::BufDnsStreamHandle;
 use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
-
-use error::*;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
     Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
-    Box<DnsStreamHandle<Error = ResolveError> + Send>,
+    BufDnsStreamHandle,
 ) {
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();

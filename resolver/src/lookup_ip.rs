@@ -73,7 +73,7 @@ impl<'i> Iterator for LookupIpIter<'i> {
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
 pub struct LookupIpFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
 where
-    C: DnsHandle<Error = ResolveError> + 'static,
+    C: DnsHandle + 'static,
 {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
@@ -84,7 +84,7 @@ where
     finally_ip_addr: Option<RData>,
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupIpFuture<C> {
+impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
     type Item = LookupIp;
     type Error = ResolveError;
 
@@ -142,7 +142,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupIpFuture<C> 
 
 impl<C> LookupIpFuture<C>
 where
-    C: DnsHandle<Error = ResolveError> + 'static,
+    C: DnsHandle + 'static,
 {
     /// Perform a lookup from a hostname to a set of IPs
     ///
@@ -202,7 +202,7 @@ where
     }
 }
 /// returns a new future for lookup
-fn strategic_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
+fn strategic_lookup<C: DnsHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
@@ -219,7 +219,7 @@ fn strategic_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// first lookups in hosts, then performs the query
-fn hosts_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
+fn hosts_lookup<C: DnsHandle + 'static>(
     query: Query,
     mut client: CachingClient<C>,
     options: DnsRequestOptions,
@@ -236,7 +236,7 @@ fn hosts_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// queries only for A records
-fn ipv4_only<C: DnsHandle<Error = ResolveError> + 'static>(
+fn ipv4_only<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
@@ -246,7 +246,7 @@ fn ipv4_only<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// queries only for AAAA records
-fn ipv6_only<C: DnsHandle<Error = ResolveError> + 'static>(
+fn ipv6_only<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
@@ -256,7 +256,7 @@ fn ipv6_only<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// queries only for A and AAAA in parallel
-fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
+fn ipv4_and_ipv6<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
@@ -300,7 +300,7 @@ fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// queries only for AAAA and on no results queries for A
-fn ipv6_then_ipv4<C: DnsHandle<Error = ResolveError> + 'static>(
+fn ipv6_then_ipv4<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
@@ -317,7 +317,7 @@ fn ipv6_then_ipv4<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// queries only for A and on no results queries for AAAA
-fn ipv4_then_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
+fn ipv4_then_ipv6<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
@@ -334,7 +334,7 @@ fn ipv4_then_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
 }
 
 /// queries only for first_type and on no results queries for second_type
-fn rt_then_swap<C: DnsHandle<Error = ResolveError> + 'static>(
+fn rt_then_swap<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     first_type: RecordType,
@@ -384,7 +384,7 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    //use trust_dns_proto::error::*;
+    use trust_dns_proto::error::{ProtoError, ProtoResult};
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, RData, Record, RecordType};
     use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
@@ -393,12 +393,11 @@ pub mod tests {
 
     #[derive(Clone)]
     pub struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<ResolveResult<DnsResponse>>>>,
+        messages: Arc<Mutex<Vec<ProtoResult<DnsResponse>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Error = ResolveError;
-        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+        type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::new(future::result(
@@ -407,7 +406,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> ResolveResult<DnsResponse> {
+    pub fn v4_message() -> ProtoResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -418,7 +417,7 @@ pub mod tests {
         Ok(message.into())
     }
 
-    pub fn v6_message() -> ResolveResult<DnsResponse> {
+    pub fn v6_message() -> ProtoResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -429,15 +428,15 @@ pub mod tests {
         Ok(message.into())
     }
 
-    pub fn empty() -> ResolveResult<DnsResponse> {
+    pub fn empty() -> ProtoResult<DnsResponse> {
         Ok(Message::new().into())
     }
 
-    pub fn error() -> ResolveResult<DnsResponse> {
-        Err(ResolveErrorKind::Message("forced test failure").into())
+    pub fn error() -> ProtoResult<DnsResponse> {
+        Err(ProtoError::from("forced test failure"))
     }
 
-    pub fn mock(messages: Vec<ResolveResult<DnsResponse>>) -> MockDnsHandle {
+    pub fn mock(messages: Vec<ProtoResult<DnsResponse>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

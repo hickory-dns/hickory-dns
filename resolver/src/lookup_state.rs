@@ -47,13 +47,13 @@ lazy_static! {
 //       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
 #[doc(hidden)]
-pub struct CachingClient<C: DnsHandle<Error = ResolveError>> {
+pub struct CachingClient<C: DnsHandle> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     lru: Arc<Mutex<DnsLru>>,
     client: C,
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
+impl<C: DnsHandle + 'static> CachingClient<C> {
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C) -> Self {
         Self::with_cache(
@@ -154,7 +154,7 @@ impl Future for FromCache {
 }
 
 /// This is the Future responsible for performing an actual query.
-struct QueryFuture<C: DnsHandle<Error = ResolveError> + 'static> {
+struct QueryFuture<C: DnsHandle + 'static> {
     message_future: <C as DnsHandle>::Response,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
@@ -178,7 +178,7 @@ enum Records {
     Chained { cached: Lookup, min_ttl: u32 },
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
+impl<C: DnsHandle + 'static> QueryFuture<C> {
     fn next_query(&mut self, query: Query, cname_ttl: u32, message: DnsResponse) -> Records {
         if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
             // TODO: This should return an error
@@ -338,7 +338,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryFuture<C> {
+impl<C: DnsHandle + 'static> Future for QueryFuture<C> {
     type Item = Records;
     type Error = ResolveError;
 
@@ -415,7 +415,7 @@ impl Future for InsertCache {
     }
 }
 
-enum QueryState<C: DnsHandle<Error = ResolveError> + 'static> {
+enum QueryState<C: DnsHandle + 'static> {
     /// In the FromCache state we evaluate cache entries for any results
     FromCache(FromCache, C),
     /// In the query state there is an active query that's been started, see Self::lookup()
@@ -433,7 +433,7 @@ enum QueryState<C: DnsHandle<Error = ResolveError> + 'static> {
     Error,
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
+impl<C: DnsHandle + 'static> QueryState<C> {
     pub(crate) fn lookup(
         query: Query,
         options: DnsRequestOptions,
@@ -560,7 +560,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryState<C> {
+impl<C: DnsHandle + 'static> Future for QueryState<C> {
     type Item = Lookup;
     type Error = ResolveError;
 
@@ -650,6 +650,7 @@ mod tests {
 
     use futures::future;
 
+    use trust_dns_proto::error::{ProtoError, ProtoResult};
     use trust_dns_proto::op::{Message, Query};
     use trust_dns_proto::rr::rdata::SRV;
     use trust_dns_proto::rr::{Name, Record};
@@ -723,7 +724,7 @@ mod tests {
         );
     }
 
-    pub fn cname_message() -> ResolveResult<DnsResponse> {
+    pub fn cname_message() -> ProtoResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
@@ -734,7 +735,7 @@ mod tests {
         Ok(message.into())
     }
 
-    pub fn srv_message() -> ResolveResult<DnsResponse> {
+    pub fn srv_message() -> ProtoResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),
@@ -918,10 +919,8 @@ mod tests {
         let client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
 
         let mut query_future = QueryFuture {
-            message_future: Box::new(future::err(
-                ResolveErrorKind::Message("no message_future in test").into(),
-            ))
-                as Box<Future<Item = DnsResponse, Error = ResolveError> + Send>,
+            message_future: Box::new(future::err(ProtoError::from("no message_future in test")))
+                as Box<Future<Item = DnsResponse, Error = ProtoError> + Send>,
             query: Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             cache: lru,
             dnssec: false,

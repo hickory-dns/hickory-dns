@@ -13,12 +13,11 @@ use futures::Future;
 #[cfg(feature = "mtls")]
 use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
-use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_openssl::SslStream as TokioTlsStream;
+use tokio_tcp::TcpStream as TokioTcpStream;
 
-use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::tcp::TcpClientStream;
-use trust_dns_proto::xfer::{BufDnsStreamHandle, DnsStreamHandle};
+use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use super::TlsStreamBuilder;
 
@@ -63,23 +62,20 @@ impl TlsClientStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<E>(
+    pub fn build(
         self,
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
         Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = E> + Send>,
-    )
-    where
-        E: FromProtoError + Send + 'static,
-    {
+        BufDnsStreamHandle,
+    ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
 
         let new_future =
             Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
 
-        let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
+        let sender = BufDnsStreamHandle::new(name_server, sender);
 
         (new_future, sender)
     }

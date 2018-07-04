@@ -19,10 +19,11 @@ use xfer::{
     SerialMessageStreamHandle,
 };
 
-// TODO: rename this to MultiplexedAsyncDns
-/// A Stream used for sending data to and from a remote DNS endpoint (client or server).
+/// This is a generic Exchange implemented over multiplexed DNS connection providers.
+///
+///
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsStream<S, R>
+pub struct DnsExchange<S, R>
 where
     S: SerialMessageSender<SerialResponse = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
@@ -32,7 +33,7 @@ where
     peer_addr: SocketAddr,
 }
 
-impl<S, R> DnsStream<S, R>
+impl<S, R> DnsExchange<S, R>
 where
     S: SerialMessageSender<SerialResponse = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
@@ -63,12 +64,10 @@ where
         peer_addr: SocketAddr,
         receiver: UnboundedReceiver<OneshotSerialRequest<R>>,
     ) -> Self {
-        DnsStream {
+        DnsExchange {
             io_stream: stream,
             outbound_messages: receiver.peekable(),
             peer_addr: peer_addr,
-            // to_send: None,
-            // is_sending: false,
         }
     }
 
@@ -78,13 +77,13 @@ where
     pub fn connect<F>(
         connect_future: F,
         peer_addr: SocketAddr,
-    ) -> (DnsStreamConnect<F, S, R>, SerialMessageStreamHandle<R>)
+    ) -> (DnsExchangeConnect<F, S, R>, SerialMessageStreamHandle<R>)
     where
         F: Future<Item = S, Error = ProtoError>,
     {
         let (message_sender, outbound_messages) = unbounded();
         (
-            DnsStreamConnect {
+            DnsExchangeConnect {
                 connect_future,
                 peer_addr,
                 outbound_messages: Some(outbound_messages),
@@ -95,7 +94,7 @@ where
     }
 }
 
-impl<S, R> Future for DnsStream<S, R>
+impl<S, R> Future for DnsExchange<S, R>
 where
     S: SerialMessageSender<SerialResponse = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
@@ -107,6 +106,17 @@ where
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.
         loop {
+            // poll the underlying stream, to drive it...
+            match try_ready!(self.io_stream.poll()) {
+                // the underlying stream is complete
+                Some(()) => (),
+                // underlying stream is complete.
+                None => {
+                    debug!("io_stream is done, shutting down");
+                    return Ok(Async::Ready(()));
+                }
+            }
+
             // then see if there is more to send
             match self
                 .outbound_messages
@@ -161,8 +171,8 @@ where
     }
 }
 
-/// A wrapper for a future DnsStream connection
-pub struct DnsStreamConnect<F, S, R>
+/// A wrapper for a future DnsExchange connection
+pub struct DnsExchangeConnect<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
     S: SerialMessageSender<SerialResponse = R>,
@@ -173,20 +183,20 @@ where
     outbound_messages: Option<UnboundedReceiver<OneshotSerialRequest<R>>>,
 }
 
-impl<F, S, R> Future for DnsStreamConnect<F, S, R>
+impl<F, S, R> Future for DnsExchangeConnect<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
     S: SerialMessageSender<SerialResponse = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    type Item = DnsStream<S, R>;
+    type Item = DnsExchange<S, R>;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let stream: S = try_ready!(self.connect_future.poll());
 
         debug!("connection established: {}", self.peer_addr);
-        Ok(Async::Ready(DnsStream::from_stream_with_receiver(
+        Ok(Async::Ready(DnsExchange::from_stream_with_receiver(
             stream,
             self.peer_addr,
             self.outbound_messages

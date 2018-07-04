@@ -16,7 +16,6 @@ use tokio_rustls::{ClientConfigExt, TlsStream as TokioTlsStream};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use webpki::{DNSName, DNSNameRef};
 
-use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
 
@@ -25,13 +24,10 @@ pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream, ClientSession>>;
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<E>(
+pub fn tls_from_stream(
     stream: TokioTlsStream<TokioTcpStream, ClientSession>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle<E>)
-where
-    E: FromProtoError,
-{
+) -> (TlsStream, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
@@ -99,17 +95,14 @@ impl TlsStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<E>(
+    pub fn build(
         self,
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError,
-    {
+        BufStreamHandle,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 

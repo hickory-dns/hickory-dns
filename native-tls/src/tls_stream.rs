@@ -17,7 +17,6 @@ use native_tls::{Certificate, Pkcs12, TlsConnector};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
 
-use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
 
@@ -66,13 +65,10 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsCon
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<E>(
+pub fn tls_from_stream(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle<E>)
-where
-    E: FromProtoError,
-{
+) -> (TlsStream, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
@@ -134,17 +130,14 @@ impl TlsStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<E>(
+    pub fn build(
         self,
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError,
-    {
+        BufStreamHandle,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
@@ -167,8 +160,8 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream =
-            Box::new(tcp.and_then(move |tcp_stream| {
+        let stream = Box::new(
+            tcp.and_then(move |tcp_stream| {
                 tls_connector
                     .connect_async(&dns_name, tcp_stream)
                     .map(move |s| {
@@ -185,7 +178,8 @@ impl TlsStreamBuilder {
                     io::ErrorKind::ConnectionRefused,
                     format!("tls error: {}", e),
                 )
-            }));
+            }),
+        );
 
         (stream, message_sender)
     }

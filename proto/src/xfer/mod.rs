@@ -5,32 +5,30 @@
 //! TODO: this module needs some serious refactoring and normalization.
 
 use std::fmt::Debug;
-use std::marker::PhantomData;
+use std::io;
 use std::net::SocketAddr;
 
 use error::*;
 use futures::sync::mpsc::{SendError, UnboundedSender};
 use futures::sync::oneshot;
-use futures::{Future, Poll};
+use futures::{Future, Poll, Stream};
 use op::Message;
 
-mod dns_client_stream;
+mod dns_exchange;
 pub mod dns_future;
 pub mod dns_handle;
 pub mod dns_request;
 pub mod dns_response;
-mod dns_stream;
 pub mod retry_dns_handle;
 #[cfg(feature = "dnssec")]
 pub mod secure_dns_handle;
 mod serial_message;
 
-pub use self::dns_client_stream::DnsClientStream;
-pub use self::dns_future::DnsFuture;
+pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect};
+pub use self::dns_future::{DnsFuture, DnsFutureSerialResponse};
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
-pub use self::dns_stream::{DnsStream, DnsStreamConnect};
 pub use self::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use self::secure_dns_handle::SecureDnsHandle;
@@ -43,27 +41,23 @@ fn ignore_send<M, E: Debug>(result: Result<M, E>) {
     }
 }
 
+/// A non-multiplexed stream of Serialized DNS messages
+pub trait DnsClientStream: Stream<Item = SerialMessage, Error = io::Error> + Send {
+    /// The remote name server address
+    fn name_server_addr(&self) -> SocketAddr;
+}
+
 // TODO: change to Sink
 /// A sender to which serialized DNS Messages can be sent
 #[derive(Clone)]
-pub struct BufStreamHandle<E>
-where
-    E: FromProtoError,
-{
+pub struct BufStreamHandle {
     sender: UnboundedSender<SerialMessage>,
-    phantom: PhantomData<E>,
 }
 
-impl<E> BufStreamHandle<E>
-where
-    E: FromProtoError,
-{
+impl BufStreamHandle {
     /// Constructs a new BufStreamHandle with the associated ProtoError
     pub fn new(sender: UnboundedSender<SerialMessage>) -> Self {
-        BufStreamHandle {
-            sender,
-            phantom: PhantomData::<E>,
-        }
+        BufStreamHandle { sender }
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
@@ -77,25 +71,19 @@ where
 pub type MessageStreamHandle = UnboundedSender<Message>;
 
 /// A buffering stream bound to a `SocketAddr`
-pub struct BufDnsStreamHandle<E>
-where
-    E: FromProtoError,
-{
+pub struct BufDnsStreamHandle {
     name_server: SocketAddr,
-    sender: BufStreamHandle<E>,
+    sender: BufStreamHandle,
 }
 
-impl<E> BufDnsStreamHandle<E>
-where
-    E: FromProtoError,
-{
+impl BufDnsStreamHandle {
     /// Constructs a new Buffered Stream Handle, used for sending data to the DNS peer.
     ///
     /// # Arguments
     ///
     /// * `name_server` - the address of the DNS server
     /// * `sender` - the handle being used to send data to the server
-    pub fn new(name_server: SocketAddr, sender: BufStreamHandle<E>) -> Self {
+    pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
         BufDnsStreamHandle {
             name_server: name_server,
             sender: sender,
@@ -103,19 +91,14 @@ where
     }
 }
 
-impl<E> DnsStreamHandle for BufDnsStreamHandle<E>
-where
-    E: FromProtoError,
-{
-    type Error = E;
-
-    fn send(&mut self, buffer: SerialMessage) -> Result<(), E> {
+impl DnsStreamHandle for BufDnsStreamHandle {
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
         sender
             .sender
             .unbounded_send(SerialMessage::new(buffer.unwrap().0, name_server))
-            .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
+            .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }
 
@@ -158,7 +141,11 @@ where
 }
 
 /// Types that implement this are capable of sending a serialized DNS message on a stream
-pub trait SerialMessageSender: Clone + Send {
+///
+/// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
+///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
+///   done, and should be shutdown.
+pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Send {
     /// A future that resolves to a response serial message
     type SerialResponse: Future<Item = DnsResponse, Error = ProtoError> + Send;
 
@@ -222,7 +209,6 @@ impl<F> DnsHandle for BufSerialMessageStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static,
 {
-    type Error = ProtoError;
     type Response = OneshotDnsResponseReceiver<F>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {

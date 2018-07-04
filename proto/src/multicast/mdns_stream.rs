@@ -20,7 +20,6 @@ use socket2::{self, Socket};
 use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
-use error::*;
 use multicast::MdnsQueryType;
 use udp::UdpStream;
 use xfer::SerialMessage;
@@ -47,33 +46,27 @@ pub struct MdnsStream {
 
 impl MdnsStream {
     /// associates the socket to the well-known ipv4 multicast addess
-    pub fn new_ipv4<E>(
+    pub fn new_ipv4(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
         Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError + Send,
-    {
-        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
+        BufStreamHandle,
+    ) {
+        Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
-    pub fn new_ipv6<E>(
+    pub fn new_ipv6(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
         Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError + Send,
-    {
-        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
+        BufStreamHandle,
+    ) {
+        Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
     /// Returns the address of the multicast network in use
@@ -102,7 +95,7 @@ impl MdnsStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new<E>(
+    pub fn new(
         multicast_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -110,13 +103,10 @@ impl MdnsStream {
         ipv6_if: Option<u32>,
     ) -> (
         Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
-        BufStreamHandle<E>,
-    )
-    where
-        E: FromProtoError + Send,
-    {
+        BufStreamHandle,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E>::new(message_sender);
+        let message_sender = BufStreamHandle::new(message_sender);
 
         let multicast_socket = match Self::join_multicast(&multicast_addr, mdns_query_type) {
             Ok(socket) => socket,
@@ -426,7 +416,7 @@ pub mod tests {
         // env_logger::init();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (stream, _) = MdnsStream::new::<ProtoError>(
+        let (stream, _) = MdnsStream::new(
             SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT),
             MdnsQueryType::OneShot,
             Some(1),
@@ -477,7 +467,7 @@ pub mod tests {
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-                let (server_stream_future, server_sender) = MdnsStream::new::<ProtoError>(
+                let (server_stream_future, server_sender) = MdnsStream::new(
                     mdns_addr,
                     MdnsQueryType::OneShotJoin,
                     Some(1),
@@ -537,13 +527,8 @@ pub mod tests {
         let mut io_loop = Runtime::new().unwrap();
 
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-        let (stream, sender) = MdnsStream::new::<ProtoError>(
-            mdns_addr,
-            MdnsQueryType::OneShot,
-            Some(1),
-            None,
-            Some(5),
-        );
+        let (stream, sender) =
+            MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
         let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
             future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
@@ -638,13 +623,8 @@ pub mod tests {
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-                let (server_stream_future, _server_sender) = MdnsStream::new::<ProtoError>(
-                    mdns_addr,
-                    mdns_query_type,
-                    Some(1),
-                    None,
-                    Some(5),
-                );
+                let (server_stream_future, _server_sender) =
+                    MdnsStream::new(mdns_addr, mdns_query_type, Some(1), None, Some(5));
 
                 // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
                 let mut server_stream = io_loop
@@ -692,13 +672,8 @@ pub mod tests {
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Runtime::new().unwrap();
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-        let (stream, sender) = MdnsStream::new::<ProtoError>(
-            mdns_addr,
-            MdnsQueryType::OneShot,
-            Some(1),
-            None,
-            Some(5),
-        );
+        let (stream, sender) =
+            MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
         let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
             future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),

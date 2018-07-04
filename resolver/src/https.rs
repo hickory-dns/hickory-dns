@@ -9,14 +9,14 @@ use futures::Future;
 
 use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{BufSerialMessageStreamHandle, DnsStream};
+use trust_dns_proto::xfer::{BufSerialMessageStreamHandle, DnsExchange};
 
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
     Box<
-        Future<Item = DnsStream<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError> + Send,
+        Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError> + Send,
     >,
     BufSerialMessageStreamHandle<HttpsSerialResponse>,
 ) {
@@ -31,7 +31,7 @@ pub(crate) fn new_https_stream(
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
     let (stream, handle) =
-        DnsStream::connect(https_builder.build(socket_addr, dns_name), socket_addr);
+        DnsExchange::connect(https_builder.build(socket_addr, dns_name), socket_addr);
     let handle = BufSerialMessageStreamHandle::new(socket_addr, handle);
 
     (Box::new(stream), handle)

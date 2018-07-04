@@ -16,9 +16,7 @@ use futures::{
 use trust_dns_proto::error::ProtoResult;
 use trust_dns_proto::rr::domain::TryParseIp;
 use trust_dns_proto::rr::{IntoName, Name, RData, RecordType};
-use trust_dns_proto::xfer::{
-    BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
-};
+use trust_dns_proto::xfer::DnsRequestOptions;
 
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::{self, DnsLru};
@@ -27,36 +25,6 @@ use lookup::{self, LookupFuture};
 use lookup_ip::LookupIpFuture;
 
 mod background;
-
-/// Root Handle to communicate with the AsyncResolver
-///
-/// This can be used directly to perform queries. See [`trust_dns_proto::SecureClientHandle`] for
-///  a DNSSEc chain validator.
-#[derive(Clone)]
-pub struct BasicAsyncResolver {
-    message_sender: BasicDnsHandle<ResolveError>,
-}
-
-impl BasicAsyncResolver {
-    pub(crate) fn new(dns_handle: BasicDnsHandle<ResolveError>) -> Self {
-        BasicAsyncResolver {
-            message_sender: dns_handle,
-        }
-    }
-}
-
-impl DnsHandle for BasicAsyncResolver {
-    type Error = ResolveError;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
-
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
-        Box::new(
-            self.message_sender
-                .send(request)
-                .map_err(ResolveError::from),
-        )
-    }
-}
 
 /// A handle for resolving DNS records.
 ///

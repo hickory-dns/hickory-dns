@@ -7,8 +7,6 @@
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 
-use std::marker::PhantomData;
-
 use futures::sync::mpsc::UnboundedSender;
 use futures::sync::oneshot;
 use futures::{Future, IntoFuture};
@@ -22,45 +20,27 @@ use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessag
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 
 /// The StreamHandle is the general interface for communicating with the DnsFuture
-pub struct StreamHandle<E>
-where
-    E: FromProtoError,
-{
+pub struct StreamHandle {
     sender: UnboundedSender<Vec<u8>>,
-    phantom: PhantomData<E>,
 }
 
-impl<E> StreamHandle<E>
-where
-    E: FromProtoError,
-{
+impl StreamHandle {
     /// Constructs a new StreamHandle for wrapping the sender
     pub fn new(sender: UnboundedSender<Vec<u8>>) -> Self {
-        StreamHandle {
-            sender,
-            phantom: PhantomData::<E>,
-        }
+        StreamHandle { sender }
     }
 }
 
 /// Implementations of Sinks for sending DNS messages
 pub trait DnsStreamHandle: 'static + Send {
-    /// The Error type to be returned if there is an error
-    type Error: FromProtoError;
-
     /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: SerialMessage) -> Result<(), Self::Error>;
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError>;
 }
 
-impl<E> DnsStreamHandle for StreamHandle<E>
-where
-    E: FromProtoError,
-{
-    type Error = E;
-
-    fn send(&mut self, buffer: SerialMessage) -> Result<(), Self::Error> {
+impl DnsStreamHandle for StreamHandle {
+    fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
         UnboundedSender::unbounded_send(&self.sender, buffer.unwrap().0)
-            .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
+            .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }
 
@@ -69,30 +49,29 @@ where
 /// This can be used directly to perform queries. See `trust_dns::client::SecureDnsHandle` for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
-pub struct BasicDnsHandle<E: FromProtoError> {
-    message_sender: UnboundedSender<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>,
+pub struct BasicDnsHandle {
+    message_sender: UnboundedSender<(DnsRequest, oneshot::Sender<Result<DnsResponse, ProtoError>>)>,
 }
 
-impl<E: FromProtoError> BasicDnsHandle<E> {
+impl BasicDnsHandle {
     /// Returns a new BasicDnsHandle wrapping the `message_sender`
     pub fn new(
-        message_sender: UnboundedSender<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>,
+        message_sender: UnboundedSender<(
+            DnsRequest,
+            oneshot::Sender<Result<DnsResponse, ProtoError>>,
+        )>,
     ) -> Self {
         BasicDnsHandle { message_sender }
     }
 }
 
-impl<E> DnsHandle for BasicDnsHandle<E>
-where
-    E: FromProtoError + 'static,
-{
-    type Error = E;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+impl DnsHandle for BasicDnsHandle {
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    ) -> Box<Future<Item = DnsResponse, Error = ProtoError> + Send> {
         let request = request.into();
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
@@ -102,9 +81,10 @@ where
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
-                ignore_send(complete.send(Err(E::from(
-                    format!("error sending to channel: {}", e).into(),
-                ))));
+                ignore_send(complete.send(Err(ProtoError::from(format!(
+                    "error sending to channel: {}",
+                    e
+                )))));
                 receiver
             }
         };
@@ -121,10 +101,8 @@ where
 
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: Clone + Send {
-    /// The associated error type returned by future send operations
-    type Error: FromProtoError;
     /// The associated response from the response future, this should resolve to the Response message
-    type Response: Future<Item = DnsResponse, Error = Self::Error> + Send + 'static;
+    type Response: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static;
 
     /// Ony returns true if and only if this DNS handle is validating DNSSec.
     ///
