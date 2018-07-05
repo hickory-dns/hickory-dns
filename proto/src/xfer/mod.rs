@@ -4,7 +4,7 @@
 //!
 //! TODO: this module needs some serious refactoring and normalization.
 
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::io;
 use std::net::SocketAddr;
 
@@ -42,7 +42,9 @@ fn ignore_send<M, E: Debug>(result: Result<M, E>) {
 }
 
 /// A non-multiplexed stream of Serialized DNS messages
-pub trait DnsClientStream: Stream<Item = SerialMessage, Error = io::Error> + Send {
+pub trait DnsClientStream:
+    Stream<Item = SerialMessage, Error = io::Error> + Display + Send
+{
     /// The remote name server address
     fn name_server_addr(&self) -> SocketAddr;
 }
@@ -145,7 +147,7 @@ where
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
-pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Send {
+pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Display + Send {
     /// A future that resolves to a response serial message
     type SerialResponse: Future<Item = DnsResponse, Error = ProtoError> + Send;
 
@@ -155,6 +157,14 @@ pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Send {
     ///
     /// A future which will resolve to a SerialMessage response
     fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse;
+
+    /// Allows the upstream user to inform the underling stream that it should shutdown.
+    ///
+    /// After this is called, the next time `poll` is called on the stream it would be correct to return `Ok(Async::Ready(()))`. This is not required though, if there are say outstanding requests that are not yet comlete, then it would be correct to first wait for those results.
+    fn shutdown(&mut self);
+
+    /// Returns true if the stream has been shutdown with `shutdown`
+    fn is_shutdown(&self) -> bool;
 }
 
 /// Used for assiacting a name_server to a SerialMessageStreamHandle
@@ -217,6 +227,8 @@ where
         let bytes: Vec<u8> = try_oneshot!(request.to_vec());
         let serial_message = SerialMessage::new(bytes, name_server);
         let (serial_request, oneshot) = OneshotSerialRequest::oneshot(serial_message);
+
+        debug!("enqueueing message: {:?}", request.queries());
         try_oneshot!(
             self.sender.unbounded_send(serial_request).map_err(|_| {
                 ProtoError::from(format!("could not send requesst: {}", request.id()))

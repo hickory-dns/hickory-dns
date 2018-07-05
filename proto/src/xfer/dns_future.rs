@@ -10,6 +10,7 @@
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::fmt::{self, Display};
 use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -114,7 +115,7 @@ impl ActiveRequest {
 pub struct DnsFuture<S, MF, D = Box<DnsStreamHandle>>
 where
     D: Send + 'static,
-    S: Stream<Item = SerialMessage, Error = io::Error>,
+    S: DnsClientStream + 'static,
     MF: MessageFinalizer,
 {
     stream: S,
@@ -122,6 +123,7 @@ where
     stream_handle: D,
     active_requests: HashMap<u16, ActiveRequest>,
     signer: Option<Arc<MF>>,
+    is_shutdown: bool,
 }
 
 impl<S, MF> DnsFuture<S, MF, Box<DnsStreamHandle>>
@@ -225,6 +227,13 @@ where
 
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self) {
+        if !self.active_requests.is_empty() {
+            warn!(
+                "stream closed before response received: {}",
+                self.stream.name_server_addr()
+            );
+        }
+
         let error = ProtoError::from("stream closed before response received");
 
         for (_, mut active_request) in self.active_requests.drain() {
@@ -254,8 +263,7 @@ where
 
 impl<S, MF> Future for DnsFutureConnect<S, MF>
 where
-    // TODO: get rid of this box
-    S: Stream<Item = SerialMessage, Error = io::Error>,
+    S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     type Item = DnsFuture<S, MF, Box<DnsStreamHandle>>;
@@ -273,9 +281,21 @@ where
                 .expect("must not poll after complete"),
             active_requests: HashMap::new(),
             signer: self.signer.clone(),
+            is_shutdown: false,
         }))
     }
 }
+
+impl<S, MF> Display for DnsFuture<S, MF>
+where
+    S: DnsClientStream + 'static,
+    MF: MessageFinalizer + Send + Sync + 'static,
+{
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(formatter, "{}", self.stream)
+    }
+}
+
 impl<S, MF> SerialMessageSender for DnsFuture<S, MF>
 where
     S: DnsClientStream + 'static,
@@ -284,6 +304,10 @@ where
     type SerialResponse = DnsFutureSerialResponse;
 
     fn send_message(&mut self, request: SerialMessage) -> Self::SerialResponse {
+        if self.is_shutdown {
+            panic!("can not send messages after stream is shutdown")
+        }
+
         // get next query_id
         let query_id: u16 = match self.next_random_query_id() {
             Async::Ready(id) => id,
@@ -361,6 +385,14 @@ where
 
         DnsFutureSerialResponseInner::Completion(receiver).into()
     }
+
+    fn shutdown(&mut self) {
+        self.is_shutdown = true;
+    }
+
+    fn is_shutdown(&self) -> bool {
+        self.is_shutdown
+    }
 }
 
 impl<S, MF> Stream for DnsFuture<S, MF>
@@ -374,6 +406,11 @@ where
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         // Always drop the cancelled queries first
         self.drop_cancelled();
+
+        if self.is_shutdown && self.active_requests.is_empty() {
+            debug!("stream is done: {}", self);
+            return Ok(Async::Ready(None));
+        }
 
         // Collect all inbound requests, max 100 at a time for QoS
         //   by having a max we will guarantee that the client can't be DOSed in this loop
@@ -410,11 +447,9 @@ where
                     }
                 }
                 Async::Ready(None) => {
-                    debug!(
-                        "io_stream closed by other side: {}",
-                        self.stream.name_server_addr()
-                    );
+                    debug!("io_stream closed by other side: {}", self.stream);
                     self.stream_closed_close_all();
+                    return Ok(Async::Ready(None));
                 }
                 Async::NotReady => break,
             }

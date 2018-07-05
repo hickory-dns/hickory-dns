@@ -23,9 +23,10 @@ cfg_if! {
     }
 }
 
-#[cfg(not(feature = "dns-over-openssl"))]
+#[cfg(any(feature = "dns-over-native-tls", feature = "dns-over-rustls"))]
 #[cfg(test)]
 mod tests {
+    extern crate env_logger;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     use tokio::runtime::current_thread::Runtime;
@@ -34,6 +35,7 @@ mod tests {
     use AsyncResolver;
 
     fn tls_test(config: ResolverConfig) {
+        env_logger::try_init().ok();
         let mut io_loop = Runtime::new().unwrap();
 
         let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());

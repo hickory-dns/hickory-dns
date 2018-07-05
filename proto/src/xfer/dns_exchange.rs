@@ -107,14 +107,24 @@ where
         //  makes this self throttling.
         loop {
             // poll the underlying stream, to drive it...
-            match try_ready!(self.io_stream.poll()) {
-                // the underlying stream is complete
-                Some(()) => (),
+            match self.io_stream.poll() {
+                // The stream is ready
+                Ok(Async::Ready(Some(()))) => (),
+                Ok(Async::NotReady) => {
+                    if self.io_stream.is_shutdown() {
+                        // the io_stream is in a shutdown state, we are only waiting for final results...
+                        return Ok(Async::NotReady);
+                    }
+
+                    // NotReady and not shutdown, see if there are more messages to send
+                    ()
+                }
                 // underlying stream is complete.
-                None => {
+                Ok(Async::Ready(None)) => {
                     debug!("io_stream is done, shutting down");
                     return Ok(Async::Ready(()));
                 }
+                Err(err) => return Err(err),
             }
 
             // then see if there is more to send
@@ -141,9 +151,10 @@ where
                     }
 
                     debug!(
-                        "sending message len: {} to: {}",
+                        "sending message len: {} to: {} over: {}",
                         serial_message.bytes().len(),
-                        serial_message.addr()
+                        serial_message.addr(),
+                        self.io_stream
                     );
 
                     match serial_response.send_response(self.io_stream.send_message(serial_message))
@@ -160,9 +171,11 @@ where
                 // On not ready, this is our time to return...
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(None) => {
-                    debug!("all handles closed, shutting down: {}", self.peer_addr);
+                    //debug!("all handles closed, shutting down: {}", self.io_stream);
                     // if there is nothing that can use this connection to send messages, then this is done...
-                    return Ok(Async::Ready(()));
+                    self.io_stream.shutdown();
+
+                    // now we'll await the stream to shutdown... see io_stream poll above
                 }
             }
 
@@ -195,7 +208,7 @@ where
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let stream: S = try_ready!(self.connect_future.poll());
 
-        debug!("connection established: {}", self.peer_addr);
+        debug!("connection established: {}", stream);
         Ok(Async::Ready(DnsExchange::from_stream_with_receiver(
             stream,
             self.peer_addr,

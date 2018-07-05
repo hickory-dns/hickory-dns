@@ -370,6 +370,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    extern crate env_logger;
     extern crate tokio;
 
     use failure::Fail;
@@ -377,6 +378,7 @@ mod tests {
     use std::str::FromStr;
 
     use self::tokio::runtime::current_thread::Runtime;
+    use trust_dns_proto::xfer::DnsRequest;
 
     use config::{LookupIpStrategy, NameServerConfig};
 
@@ -446,6 +448,8 @@ mod tests {
 
     #[test]
     fn test_ip_lookup() {
+        env_logger::try_init().ok();
+
         let mut io_loop = Runtime::new().unwrap();
         let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
 
@@ -744,6 +748,8 @@ mod tests {
 
     #[test]
     fn test_domain_search() {
+        env_logger::try_init().ok();
+
         // domain is good now, shoudl be combined with the name to form www.example.com
         let domain = Name::from_str("example.com.").unwrap();
         let search = vec![
@@ -781,6 +787,8 @@ mod tests {
 
     #[test]
     fn test_search_list() {
+        env_logger::try_init().ok();
+
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             // let's skip one search domain to test the loop...

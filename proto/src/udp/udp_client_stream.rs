@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt::{self, Display};
 use std::io;
 use std::net::SocketAddr;
 
@@ -47,6 +48,12 @@ impl UdpClientStream {
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
         (new_future, sender)
+    }
+}
+
+impl Display for UdpClientStream {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(formatter, "UDP({})", self.name_server)
     }
 }
 

@@ -13,7 +13,6 @@ use std::time::Instant;
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
-#[cfg(feature = "dns-over-https")]
 use tokio;
 
 #[cfg(feature = "dns-over-https")]
@@ -24,10 +23,8 @@ use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
 use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
-#[cfg(feature = "dns-over-https")]
-use trust_dns_proto::xfer;
 use trust_dns_proto::xfer::{
-    BufSerialMessageStreamHandle, DnsExchange, DnsFuture, DnsFutureSerialResponse, DnsHandle,
+    self, BufSerialMessageStreamHandle, DnsExchange, DnsFuture, DnsFutureSerialResponse, DnsHandle,
     DnsRequest, DnsResponse,
 };
 
@@ -841,6 +838,8 @@ impl Future for Local {
 
 #[cfg(test)]
 mod tests {
+    extern crate env_logger;
+
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::time::Duration;
 
@@ -897,6 +896,8 @@ mod tests {
 
     #[test]
     fn test_name_server() {
+        env_logger::try_init().ok();
+
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
