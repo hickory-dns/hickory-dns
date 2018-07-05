@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt::{self, Display};
 use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -78,6 +79,12 @@ impl<S> TcpClientStream<S> {
         TcpClientStream {
             tcp_stream: tcp_stream,
         }
+    }
+}
+
+impl<S: AsyncRead + AsyncWrite + Send> Display for TcpClientStream<S> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(formatter, "TCP({})", self.tcp_stream.peer_addr())
     }
 }
 

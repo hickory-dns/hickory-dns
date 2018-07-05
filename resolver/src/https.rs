@@ -16,7 +16,8 @@ pub(crate) fn new_https_stream(
     dns_name: String,
 ) -> (
     Box<
-        Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError> + Send,
+        Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError>
+            + Send,
     >,
     BufSerialMessageStreamHandle<HttpsSerialResponse>,
 ) {
@@ -48,7 +49,7 @@ mod tests {
     use AsyncResolver;
 
     fn https_test(config: ResolverConfig) {
-        env_logger::init();
+        env_logger::try_init().ok();
         let mut io_loop = Runtime::new().unwrap();
 
         let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());

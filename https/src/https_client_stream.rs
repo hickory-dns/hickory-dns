@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt::{self, Display};
 use std::mem;
 use std::net::SocketAddr;
 use std::str::FromStr;
@@ -37,18 +38,41 @@ pub struct HttpsClientStream {
     name_server_name: Arc<String>,
     name_server: SocketAddr,
     h2: SendRequest<Bytes>,
+    is_shutdown: bool,
+}
+
+impl Display for HttpsClientStream {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            formatter,
+            "HTTPS({},{})",
+            self.name_server, self.name_server_name
+        )
+    }
 }
 
 impl SerialMessageSender for HttpsClientStream {
     type SerialResponse = HttpsSerialResponse;
 
     fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse {
+        if self.is_shutdown {
+            panic!("can not send messages after stream is shutdown")
+        }
+
         HttpsSerialResponse(HttpsSerialResponseInner::StartSend {
             h2: self.h2.clone(),
             message,
             name_server_name: Arc::clone(&self.name_server_name),
             name_server: self.name_server,
         })
+    }
+
+    fn shutdown(&mut self) {
+        self.is_shutdown = true;
+    }
+
+    fn is_shutdown(&self) -> bool {
+        self.is_shutdown
     }
 }
 
@@ -57,6 +81,10 @@ impl Stream for HttpsClientStream {
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        if self.is_shutdown {
+            return Ok(Async::Ready(None));
+        }
+
         // just checking if the connection is ok
         self.h2
             .poll_ready()
@@ -521,6 +549,7 @@ impl Future for HttpsClientConnectState {
                         name_server_name: Arc::clone(&name_server_name),
                         name_server: *name_server,
                         h2: send_request,
+                        is_shutdown: false,
                     }))
                 }
                 HttpsClientConnectState::Connected(conn) => {
@@ -555,7 +584,7 @@ mod tests {
 
     #[test]
     fn test_https_cloudflare() {
-        self::env_logger::init();
+        self::env_logger::try_init().ok();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
         let mut request = Message::new();

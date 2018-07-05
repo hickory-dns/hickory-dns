@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt::{self, Display};
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
@@ -75,6 +76,12 @@ impl MdnsClientStream {
         let sender = Box::new(BufDnsStreamHandle::new(mdns_addr, sender));
 
         (new_future, sender)
+    }
+}
+
+impl Display for MdnsClientStream {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(formatter, "mDNS({})", self.mdns_stream.multicast_addr())
     }
 }
 
