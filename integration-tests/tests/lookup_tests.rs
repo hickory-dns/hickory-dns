@@ -9,14 +9,13 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use futures::{future, Future};
+use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::DnsFuture;
+use trust_dns_proto::xfer::{BufSerialMessageStreamHandle, DnsExchange, DnsFuture};
 use trust_dns_resolver::config::LookupIpStrategy;
-use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
@@ -35,22 +34,22 @@ fn test_lookup() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = future::lazy(|| {
-        future::ok(DnsFuture::new(
-            stream,
-            Box::new(sender),
-            NoopMessageFinalizer::new(),
-        ))
-    });
+    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let socket_addr = SocketAddr::from(([0, 0, 0, 0], 53));
 
-    let lookup = client.and_then(|client| {
-        LookupFuture::lookup(
-            vec![Name::from_str("www.example.com.").unwrap()],
-            RecordType::A,
-            Default::default(),
-            CachingClient::new(0, client),
-        )
-    });
+    let (stream, handle) = DnsExchange::connect(dns_conn, socket_addr);
+    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
+        println!("error, udp connection shutting down: {}", e);
+    }));
+
+    let client = BufSerialMessageStreamHandle::new(socket_addr, handle);
+
+    let lookup = LookupFuture::lookup(
+        vec![Name::from_str("www.example.com.").unwrap()],
+        RecordType::A,
+        Default::default(),
+        CachingClient::new(0, client),
+    );
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -67,13 +66,15 @@ fn test_lookup_hosts() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = future::lazy(|| {
-        future::ok(DnsFuture::new(
-            stream,
-            Box::new(sender),
-            NoopMessageFinalizer::new(),
-        ))
-    });
+    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let socket_addr = SocketAddr::from(([0, 0, 0, 0], 53));
+
+    let (stream, handle) = DnsExchange::connect(dns_conn, socket_addr);
+    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
+        println!("error, udp connection shutting down: {}", e);
+    }));
+
+    let client = BufSerialMessageStreamHandle::new(socket_addr, handle);
 
     let mut hosts = Hosts::default();
 
@@ -83,16 +84,14 @@ fn test_lookup_hosts() {
         Lookup::new_with_max_ttl(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
     );
 
-    let lookup = client.and_then(|client| {
-        LookupIpFuture::lookup(
-            vec![Name::from_str("www.example.com.").unwrap()],
-            LookupIpStrategy::default(),
-            CachingClient::new(0, client),
-            Default::default(),
-            Some(Arc::new(hosts)),
-            None,
-        )
-    });
+    let lookup = LookupIpFuture::lookup(
+        vec![Name::from_str("www.example.com.").unwrap()],
+        LookupIpStrategy::default(),
+        CachingClient::new(0, client),
+        Default::default(),
+        Some(Arc::new(hosts)),
+        None,
+    );
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
@@ -122,24 +121,24 @@ fn test_lookup_ipv4_like() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = future::lazy(|| {
-        future::ok(DnsFuture::new(
-            stream,
-            Box::new(sender),
-            NoopMessageFinalizer::new(),
-        ))
-    });
+    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let socket_addr = SocketAddr::from(([0, 0, 0, 0], 53));
 
-    let lookup = client.and_then(|client| {
-        LookupIpFuture::lookup(
-            vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
-            LookupIpStrategy::default(),
-            CachingClient::new(0, client),
-            Default::default(),
-            Some(Arc::new(Hosts::default())),
-            Some(RData::A(Ipv4Addr::new(1, 2, 3, 4))),
-        )
-    });
+    let (stream, handle) = DnsExchange::connect(dns_conn, socket_addr);
+    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
+        println!("error, udp connection shutting down: {}", e);
+    }));
+
+    let client = BufSerialMessageStreamHandle::new(socket_addr, handle);
+
+    let lookup = LookupIpFuture::lookup(
+        vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
+        LookupIpStrategy::default(),
+        CachingClient::new(0, client),
+        Default::default(),
+        Some(Arc::new(Hosts::default())),
+        Some(RData::A(Ipv4Addr::new(1, 2, 3, 4))),
+    );
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -156,24 +155,24 @@ fn test_lookup_ipv4_like_fall_through() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = future::lazy(|| {
-        future::ok(DnsFuture::new(
-            stream,
-            Box::new(sender),
-            NoopMessageFinalizer::new(),
-        ))
-    });
+    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let socket_addr = SocketAddr::from(([0, 0, 0, 0], 53));
 
-    let lookup = client.and_then(|client| {
-        LookupIpFuture::lookup(
-            vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
-            LookupIpStrategy::default(),
-            CachingClient::new(0, client),
-            Default::default(),
-            Some(Arc::new(Hosts::default())),
-            Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))),
-        )
-    });
+    let (stream, handle) = DnsExchange::connect(dns_conn, socket_addr);
+    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
+        println!("error, udp connection shutting down: {}", e);
+    }));
+
+    let client = BufSerialMessageStreamHandle::new(socket_addr, handle);
+
+    let lookup = LookupIpFuture::lookup(
+        vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
+        LookupIpStrategy::default(),
+        CachingClient::new(0, client),
+        Default::default(),
+        Some(Arc::new(Hosts::default())),
+        Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))),
+    );
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -190,7 +189,7 @@ fn test_mock_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
-    let client = MockClientHandle::<ResolveError>::mock(vec![message.map(Into::into)]);
+    let client = MockClientHandle::mock(vec![message.map(Into::into)]);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],

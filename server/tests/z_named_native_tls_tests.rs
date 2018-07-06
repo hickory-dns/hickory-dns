@@ -56,9 +56,8 @@ fn test_example_tls_toml_startup() {
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
-        let (stream, sender) =
-            tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::new(stream, sender, None);
+        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
+        let client = ClientFuture::new(stream, Box::new(sender), None);
         let mut client = io_loop.block_on(client).unwrap();
 
         // ipv4 should succeed
@@ -72,9 +71,8 @@ fn test_example_tls_toml_startup() {
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
-        let (stream, sender) =
-            tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::new(stream, sender, None);
+        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
+        let client = ClientFuture::new(stream, Box::new(sender), None);
         let mut client = io_loop.block_on(client).unwrap();
 
         // ipv6 should succeed

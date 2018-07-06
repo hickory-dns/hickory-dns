@@ -184,6 +184,7 @@ where
             // check for timeouts...
             match active_req.poll_timeout() {
                 Ok(Async::Ready(_)) => {
+                    debug!("request timed out: {}", id);
                     canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
                 }
                 Ok(Async::NotReady) => (),
@@ -386,6 +387,10 @@ where
         DnsFutureSerialResponseInner::Completion(receiver).into()
     }
 
+    fn error_response(error: ProtoError) -> Self::SerialResponse {
+        DnsFutureSerialResponseInner::Err(Some(error)).into()
+    }
+
     fn shutdown(&mut self) {
         self.is_shutdown = true;
     }
@@ -484,6 +489,13 @@ where
 /// A future that resolves into a DnsResponse
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsFutureSerialResponse(DnsFutureSerialResponseInner);
+
+impl DnsFutureSerialResponse {
+    /// Returns a new future with the oneshot completion
+    pub fn completion(complete: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
+        DnsFutureSerialResponseInner::Completion(complete).into()
+    }
+}
 
 impl Future for DnsFutureSerialResponse {
     type Item = DnsResponse;

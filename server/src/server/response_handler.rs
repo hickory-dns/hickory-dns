@@ -8,7 +8,6 @@
 use std::io;
 use std::net::SocketAddr;
 
-use trust_dns::error::ClientError;
 use trust_dns::serialize::binary::BinEncoder;
 use trust_dns::BufStreamHandle;
 use trust_dns_proto::xfer::SerialMessage;
@@ -27,12 +26,12 @@ pub trait ResponseHandler {
 ///  associated destination.
 pub struct ResponseHandle {
     dst: SocketAddr,
-    stream_handle: BufStreamHandle<ClientError>,
+    stream_handle: BufStreamHandle,
 }
 
 impl ResponseHandle {
     /// Returns a new `ResponseHandle` for sending a response message
-    pub fn new(dst: SocketAddr, stream_handle: BufStreamHandle<ClientError>) -> Self {
+    pub fn new(dst: SocketAddr, stream_handle: BufStreamHandle) -> Self {
         ResponseHandle { dst, stream_handle }
     }
 }

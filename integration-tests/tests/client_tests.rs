@@ -19,7 +19,7 @@ use openssl::rsa::Rsa;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
-use trust_dns::error::{ClientError, ClientErrorKind, ClientResult};
+use trust_dns::error::{ClientErrorKind, ClientResult};
 use trust_dns::op::*;
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::*;
@@ -50,7 +50,7 @@ impl ClientConnection for TestClientConnection {
         &self,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error> + Send + 'static>,
-        Box<DnsStreamHandle<Error = ClientError> + Send + 'static>,
+        Box<DnsStreamHandle>,
     )> {
         let (stream, handle) = TestClientStream::new(self.catalog.clone());
         Ok((stream, Box::new(handle)))

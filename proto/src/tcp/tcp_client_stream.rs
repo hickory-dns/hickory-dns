@@ -14,7 +14,6 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 
-use error::*;
 use tcp::TcpStream;
 use xfer::{DnsClientStream, SerialMessage};
 use BufDnsStreamHandle;
@@ -36,15 +35,12 @@ impl TcpClientStream<TokioTcpStream> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
-    pub fn new<E>(
+    pub fn new(
         name_server: SocketAddr,
     ) -> (
         Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error> + Send>,
         Box<DnsStreamHandle + Send>,
-    )
-    where
-        E: FromProtoError + Send + 'static,
-    {
+    ) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -217,7 +213,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::new::<ProtoError>(server_addr);
+    let (stream, mut sender) = TcpClientStream::new(server_addr);
 
     let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 

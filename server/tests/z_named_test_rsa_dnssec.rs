@@ -11,17 +11,17 @@ mod server_harness;
 
 use std::env;
 use std::fs::File;
-use std::path::Path;
 use std::io::*;
 use std::net::*;
+use std::path::Path;
 
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
 use trust_dns::error::ClientError;
-use trust_dns::tcp::TcpClientStream;
 use trust_dns::rr::dnssec::*;
+use trust_dns::tcp::TcpClientStream;
 
 use server_harness::*;
 
@@ -56,7 +56,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     trust_anchor
 }
 
-fn standard_conn(port: u16) -> Box<Future<Item=BasicClientHandle, Error=ClientError> + Send> {
+fn standard_conn(port: u16) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
         .unwrap()

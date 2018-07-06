@@ -158,6 +158,9 @@ pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Display +
     /// A future which will resolve to a SerialMessage response
     fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse;
 
+    /// Constructs an error response
+    fn error_response(error: ProtoError) -> Self::SerialResponse;
+
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
     /// After this is called, the next time `poll` is called on the stream it would be correct to return `Ok(Async::Ready(()))`. This is not required though, if there are say outstanding requests that are not yet comlete, then it would be correct to first wait for those results.
@@ -229,11 +232,10 @@ where
         let (serial_request, oneshot) = OneshotSerialRequest::oneshot(serial_message);
 
         debug!("enqueueing message: {:?}", request.queries());
-        try_oneshot!(
-            self.sender.unbounded_send(serial_request).map_err(|_| {
-                ProtoError::from(format!("could not send requesst: {}", request.id()))
-            })
-        );
+        try_oneshot!(self.sender.unbounded_send(serial_request).map_err(|_| {
+            debug!("unable to enqueue message");
+            ProtoError::from(format!("could not send request"))
+        }));
 
         OneshotDnsResponseReceiver::Receiver(oneshot)
     }

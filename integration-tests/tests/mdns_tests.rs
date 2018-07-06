@@ -25,7 +25,6 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_timer::Delay;
 
 use trust_dns::client::{ClientFuture, ClientHandle};
-use trust_dns::error::*;
 use trust_dns::multicast::MdnsQueryType;
 use trust_dns::multicast::{MdnsClientStream, MdnsStream};
 use trust_dns::op::Message;
@@ -59,7 +58,7 @@ fn mdns_responsder(
             let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
             // FIXME: ipv6 if is hardcoded, need a different strategy
-            let (mdns_stream, mdns_handle) = MdnsStream::new::<ClientError>(
+            let (mdns_stream, mdns_handle) = MdnsStream::new(
                 mdns_addr,
                 MdnsQueryType::OneShotJoin,
                 Some(1),

@@ -12,27 +12,27 @@ use tokio::runtime::current_thread::Runtime;
 use trust_dns::op::Query;
 use trust_dns::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
+use trust_dns_proto::error::{ProtoError, ProtoResult};
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use trust_dns_resolver::config::*;
-use trust_dns_resolver::error::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
 
 #[derive(Clone)]
 struct MockConnProvider {}
 
 impl ConnectionProvider for MockConnProvider {
-    type ConnHandle = MockClientHandle<ResolveError>;
+    type ConnHandle = MockClientHandle;
 
     fn new_connection(_: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
         MockClientHandle::mock(vec![])
     }
 }
 
-type MockedNameServer = NameServer<MockClientHandle<ResolveError>, MockConnProvider>;
-type MockedNameServerPool = NameServerPool<MockClientHandle<ResolveError>, MockConnProvider>;
+type MockedNameServer = NameServer<MockClientHandle, MockConnProvider>;
+type MockedNameServerPool = NameServerPool<MockClientHandle, MockConnProvider>;
 
 #[cfg(test)]
-fn mock_nameserver(messages: Vec<ResolveResult<DnsResponse>>) -> MockedNameServer {
+fn mock_nameserver(messages: Vec<ProtoResult<DnsResponse>>) -> MockedNameServer {
     let client = MockClientHandle::mock(messages);
 
     NameServer::from_conn(
@@ -82,7 +82,7 @@ fn test_datagram() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(DnsRequest::from(request.into()));
 
     let response = reactor.block_on(future).unwrap();
@@ -112,7 +112,7 @@ fn test_datagram_stream_upgrade() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
     let response = reactor.block_on(future).unwrap();
@@ -128,7 +128,7 @@ fn test_datagram_fails_to_stream() {
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let udp_message: Result<DnsResponse, _> =
-        Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
+        Err(ProtoError::from(format!("Forced Testing Error")));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
@@ -140,7 +140,7 @@ fn test_datagram_fails_to_stream() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
     let response = reactor.block_on(future).unwrap();
@@ -156,9 +156,9 @@ fn test_local_mdns() {
     let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
 
     let tcp_message: Result<DnsResponse, _> =
-        Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
+        Err(ProtoError::from(format!("Forced Testing Error")));
     let udp_message: Result<DnsResponse, _> =
-        Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
+        Err(ProtoError::from(format!("Forced Testing Error")));
     let mdns_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
@@ -176,7 +176,7 @@ fn test_local_mdns() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
     let response = reactor.block_on(future).unwrap();

@@ -120,6 +120,7 @@ impl TcpStream<TokioTcpStream> {
         let tcp = TokioTcpStream::connect(&name_server);
         let stream = Deadline::new(tcp, Instant::now() + timeout)
             .map_err(move |e| {
+                debug!("timed out connecting to: {}", name_server);
                 e.into_inner().unwrap_or_else(|| {
                     io::Error::new(
                         io::ErrorKind::TimedOut,
@@ -127,15 +128,18 @@ impl TcpStream<TokioTcpStream> {
                     )
                 })
             })
-            .map(move |tcp_stream| TcpStream {
-                socket: tcp_stream,
-                outbound_messages: outbound_messages.fuse().peekable(),
-                send_state: None,
-                read_state: ReadTcpState::LenBytes {
-                    pos: 0,
-                    bytes: [0u8; 2],
-                },
-                peer_addr: name_server,
+            .map(move |tcp_stream| {
+                debug!("TCP connection established to: {}", name_server);
+                TcpStream {
+                    socket: tcp_stream,
+                    outbound_messages: outbound_messages.fuse().peekable(),
+                    send_state: None,
+                    read_state: ReadTcpState::LenBytes {
+                        pos: 0,
+                        bytes: [0u8; 2],
+                    },
+                    peer_addr: name_server,
+                }
             });
 
         (Box::new(stream), message_sender)

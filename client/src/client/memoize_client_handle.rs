@@ -8,11 +8,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use client::rc_future::{rc_future, RcFuture};
 use client::ClientHandle;
-use error::*;
 use op::Query;
 
 // TODO: move to proto
@@ -45,8 +45,7 @@ impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    type Error = ClientError;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
@@ -54,7 +53,7 @@ where
 
         if let Some(rc_future) = self.active_queries.lock().expect("poisoned").get(&query) {
             // FIXME check TTLs?
-            return Box::new(rc_future.clone().map_err(ClientError::from));
+            return Box::new(rc_future.clone());
         }
 
         // check if there are active queries
@@ -62,7 +61,7 @@ where
             let map = self.active_queries.lock().expect("poisoned");
             let request = map.get(&query);
             if request.is_some() {
-                return Box::new(request.unwrap().clone().map_err(ClientError::from));
+                return Box::new(request.unwrap().clone());
             }
         }
 
@@ -77,11 +76,11 @@ where
 #[cfg(test)]
 mod test {
     use client::*;
-    use error::*;
     use futures::*;
     use op::*;
     use rr::*;
     use std::cell::Cell;
+    use trust_dns_proto::error::ProtoError;
     use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     #[derive(Clone)]
@@ -90,8 +89,7 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Error = ClientError;
-        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+        type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let mut message = Message::new();

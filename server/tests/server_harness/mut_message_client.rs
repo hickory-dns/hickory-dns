@@ -1,10 +1,7 @@
-use futures::future::*;
-
 use trust_dns::client::*;
-use trust_dns::error::*;
 use trust_dns::rr::dnssec::*;
 use trust_dns::rr::rdata::opt::EdnsOption;
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
 
 #[derive(Clone)]
 pub struct MutMessageHandle<C: ClientHandle> {
@@ -24,7 +21,6 @@ impl<C: ClientHandle> MutMessageHandle<C> {
 }
 
 impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
-    type Error = ClientError;
     type Response = <C as DnsHandle>::Response;
 
     fn is_verifying_dnssec(&self) -> bool {

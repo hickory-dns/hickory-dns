@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate env_logger;
 extern crate futures;
 extern crate log;
 extern crate openssl;
@@ -156,8 +157,12 @@ fn test_notify() {
 
     let name = Name::from_str("ping.example.com").unwrap();
 
-    let message =
-        io_loop.block_on(client.notify(name.clone(), DNSClass::IN, RecordType::A, None::<RecordSet>));
+    let message = io_loop.block_on(client.notify(
+        name.clone(),
+        DNSClass::IN,
+        RecordType::A,
+        None::<RecordSet>,
+    ));
     assert!(message.is_ok());
     let message = message.unwrap();
     assert_eq!(
@@ -517,9 +522,11 @@ fn test_compare_and_swap_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let mut new = RecordSet::with_ttl(current.name().clone(), current.record_type(), current.ttl());
-    let new1 = new.new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 10)))
+    let new1 = new
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 10)))
         .clone();
-    let new2 = new.new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 11)))
+    let new2 = new
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 11)))
         .clone();
     let new = new;
 
@@ -786,6 +793,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Runtime) {
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .unwrap_err();
 
+    println!("got error: {:?}", err);
     assert_eq!(err.kind(), &ClientErrorKind::Timeout);
 
     io_loop
@@ -817,6 +825,7 @@ fn test_timeout_query_nonet() {
 
 #[test]
 fn test_timeout_query_udp() {
+    env_logger::try_init().ok();
     let mut io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
@@ -835,6 +844,7 @@ fn test_timeout_query_udp() {
 
 #[test]
 fn test_timeout_query_tcp() {
+    env_logger::try_init().ok();
     let mut io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use

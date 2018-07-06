@@ -22,8 +22,8 @@ use futures::Future;
 use tokio_tcp::TcpStream;
 use trust_dns_proto::DnsStreamHandle;
 
-use error::*;
 use client::ClientConnection;
+use error::*;
 use tcp::TcpClientStream;
 
 /// Tcp client connection
@@ -71,12 +71,10 @@ impl ClientConnection for TcpClientConnection {
 
     fn new_stream(
         &self,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-            Box<DnsStreamHandle<Error = ClientError> + Send>,
-        ),
-    > {
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle>,
+    )> {
         let (tcp_client_stream, handle) =
             TcpClientStream::<TcpStream>::with_timeout(self.name_server, self.timeout);
 

@@ -35,6 +35,6 @@ pub trait ClientConnection: Sized {
         &self,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = ClientError> + Send>,
+        Box<DnsStreamHandle>,
     )>;
 }

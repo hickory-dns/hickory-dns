@@ -212,6 +212,7 @@ impl ConnectionProvider for StandardConnection {
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                // TODO: instead of spawning here, return the stream as a "Background" type...
                 tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, udp connection shutting down: {}", e);
                 }));
