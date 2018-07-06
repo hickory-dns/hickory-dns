@@ -5,30 +5,29 @@ use futures::{future, Future};
 
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RData, Record, RecordType};
-use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 #[derive(Clone)]
-pub struct MockClientHandle<E: FromProtoError> {
-    messages: Arc<Mutex<Vec<Result<DnsResponse, E>>>>,
+pub struct MockClientHandle {
+    messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
 }
 
-impl<E: FromProtoError> MockClientHandle<E> {
+impl MockClientHandle {
     /// constructs a new MockClient which returns each Message one after the other
-    pub fn mock(messages: Vec<Result<DnsResponse, E>>) -> Self {
+    pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> Self {
         MockClientHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
     }
 }
 
-impl<E: FromProtoError + 'static> DnsHandle for MockClientHandle<E> {
-    type Error = E;
-    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+impl DnsHandle for MockClientHandle {
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         Box::new(future::result(
-            self.messages.lock().unwrap().pop().unwrap_or(empty::<E>()),
+            self.messages.lock().unwrap().pop().unwrap_or(empty()),
         ))
     }
 }
@@ -41,12 +40,12 @@ pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
     Record::from_rdata(name, 86400, RecordType::A, RData::A(ip))
 }
 
-pub fn message<E: FromProtoError>(
+pub fn message(
     query: Query,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
-) -> Result<Message, E> {
+) -> Result<Message, ProtoError> {
     let mut message = Message::new();
     message.add_query(query);
     message.insert_answers(answers);
@@ -55,10 +54,10 @@ pub fn message<E: FromProtoError>(
     Ok(message)
 }
 
-pub fn empty<E: FromProtoError>() -> Result<DnsResponse, E> {
+pub fn empty() -> Result<DnsResponse, ProtoError> {
     Ok(Message::new().into())
 }
 
-pub fn error<E: FromProtoError>(error: E) -> Result<DnsResponse, E> {
+pub fn error(error: ProtoError) -> Result<DnsResponse, ProtoError> {
     Err(error)
 }

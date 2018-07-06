@@ -50,14 +50,14 @@ impl ClientConnection for TlsClientConnection {
         &self,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle<Error = ClientError> + Send>,
+        Box<DnsStreamHandle>,
     )> {
-        let (tls_client_stream, handle) =
-            self.builder
-                .clone()
-                .build(self.name_server, self.dns_name.clone());
+        let (tls_client_stream, handle) = self
+            .builder
+            .clone()
+            .build(self.name_server, self.dns_name.clone());
 
-        Ok((tls_client_stream, handle))
+        Ok((tls_client_stream, Box::new(handle)))
     }
 }
 

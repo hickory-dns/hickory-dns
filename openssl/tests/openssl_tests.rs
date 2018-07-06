@@ -36,7 +36,6 @@ use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
 
-use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::SerialMessage;
 
 use trust_dns_openssl::TlsStreamBuilder;

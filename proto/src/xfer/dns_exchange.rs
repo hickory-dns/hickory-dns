@@ -83,12 +83,7 @@ where
     {
         let (message_sender, outbound_messages) = unbounded();
         (
-            DnsExchangeConnect {
-                connect_future,
-                peer_addr,
-                outbound_messages: Some(outbound_messages),
-            },
-            // FIXME: change the SerialMessageStreamHandle to use OneshotSerialRequest
+            DnsExchangeConnect::connect(connect_future, peer_addr, outbound_messages),
             SerialMessageStreamHandle::<R>::new(message_sender),
         )
     }
@@ -144,6 +139,7 @@ where
                     // This is an error if the destination is not our peer (this is TCP after all)
                     //  This will kill the connection...
                     if peer != dst {
+                        debug!("mismatched peer: {} and dst: {}", peer, dst);
                         return Err(ProtoError::from(format!(
                             "mismatched peer: {} and dst: {}",
                             peer, dst
@@ -185,15 +181,29 @@ where
 }
 
 /// A wrapper for a future DnsExchange connection
-pub struct DnsExchangeConnect<F, S, R>
+pub struct DnsExchangeConnect<F, S, R>(DnsExchangeConnectInner<F, S, R>)
+where
+    F: Future<Item = S, Error = ProtoError>,
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = DnsResponse, Error = ProtoError> + Send;
+
+impl<F, S, R> DnsExchangeConnect<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
     S: SerialMessageSender<SerialResponse = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    connect_future: F,
-    peer_addr: SocketAddr,
-    outbound_messages: Option<UnboundedReceiver<OneshotSerialRequest<R>>>,
+    fn connect(
+        connect_future: F,
+        peer_addr: SocketAddr,
+        outbound_messages: UnboundedReceiver<OneshotSerialRequest<R>>,
+    ) -> Self {
+        DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
+            connect_future,
+            peer_addr,
+            outbound_messages: Some(outbound_messages),
+        })
+    }
 }
 
 impl<F, S, R> Future for DnsExchangeConnect<F, S, R>
@@ -206,15 +216,87 @@ where
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let stream: S = try_ready!(self.connect_future.poll());
+        self.0.poll()
+    }
+}
 
-        debug!("connection established: {}", stream);
-        Ok(Async::Ready(DnsExchange::from_stream_with_receiver(
-            stream,
-            self.peer_addr,
-            self.outbound_messages
-                .take()
-                .expect("cannot poll once complete"),
-        )))
+enum DnsExchangeConnectInner<F, S, R>
+where
+    F: Future<Item = S, Error = ProtoError>,
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = DnsResponse, Error = ProtoError> + Send,
+{
+    Connecting {
+        connect_future: F,
+        peer_addr: SocketAddr,
+        outbound_messages: Option<UnboundedReceiver<OneshotSerialRequest<R>>>,
+    },
+    FailAll {
+        error: ProtoError,
+        outbound_messages: UnboundedReceiver<OneshotSerialRequest<R>>,
+    },
+}
+
+impl<F, S, R> Future for DnsExchangeConnectInner<F, S, R>
+where
+    F: Future<Item = S, Error = ProtoError>,
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = DnsResponse, Error = ProtoError> + Send,
+{
+    type Item = DnsExchange<S, R>;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        loop {
+            let next;
+            match self {
+                DnsExchangeConnectInner::Connecting {
+                    ref mut connect_future,
+                    peer_addr,
+                    ref mut outbound_messages,
+                } => {
+                    match connect_future.poll() {
+                        Ok(Async::Ready(stream)) => {
+                            debug!("connection established: {}", stream);
+                            return Ok(Async::Ready(DnsExchange::from_stream_with_receiver(
+                                stream,
+                                *peer_addr,
+                                outbound_messages
+                                    .take()
+                                    .expect("cannot poll after complete"),
+                            )));
+                        }
+                        Ok(Async::NotReady) => return Ok(Async::NotReady),
+                        Err(error) => {
+                            debug!("stream errored while connecting: {}", error);
+                            next = DnsExchangeConnectInner::FailAll {
+                                error,
+                                outbound_messages: outbound_messages
+                                    .take()
+                                    .expect("cannot poll after complete"),
+                            }
+                        }
+                    };
+                }
+                DnsExchangeConnectInner::FailAll {
+                    error,
+                    ref mut outbound_messages,
+                } => {
+                    while let Some(outbound_message) = match outbound_messages.poll() {
+                        Ok(Async::Ready(opt)) => opt,
+                        Ok(Async::NotReady) => return Ok(Async::NotReady),
+                        Err(_) => None,
+                    } {
+                        let response = S::error_response(error.clone());
+                        // ignoring errors... best effort send...
+                        outbound_message.unwrap().1.send_response(response).ok();
+                    }
+
+                    return Err(error.clone());
+                }
+            }
+
+            *self = next;
+        }
     }
 }

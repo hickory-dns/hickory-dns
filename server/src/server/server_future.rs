@@ -16,7 +16,6 @@ use tokio_reactor::Handle;
 use tokio_tcp;
 use tokio_udp;
 
-use trust_dns::error::*;
 use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
 use trust_dns::tcp::TcpStream;
 use trust_dns::udp::UdpStream;
@@ -272,7 +271,7 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
 
     fn handle_request(
         message: SerialMessage,
-        stream_handle: BufStreamHandle<ClientError>,
+        stream_handle: BufStreamHandle,
         handler: Arc<Mutex<T>>,
     ) -> io::Result<()> {
         let src_addr = message.addr();

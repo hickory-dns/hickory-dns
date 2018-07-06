@@ -22,7 +22,6 @@ use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::SerialMessage;
 
 #[allow(unused)]

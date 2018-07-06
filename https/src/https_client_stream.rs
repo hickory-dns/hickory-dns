@@ -67,6 +67,10 @@ impl SerialMessageSender for HttpsClientStream {
         })
     }
 
+    fn error_response(error: ProtoError) -> Self::SerialResponse {
+        HttpsSerialResponse(HttpsSerialResponseInner::Errored(Some(error)))
+    }
+
     fn shutdown(&mut self) {
         self.is_shutdown = true;
     }
@@ -181,6 +185,7 @@ enum HttpsSerialResponseInner {
         status_code: StatusCode,
     },
     Complete(Option<SerialMessage>),
+    Errored(Option<ProtoError>),
 }
 
 impl Future for HttpsSerialResponseInner {
@@ -381,6 +386,9 @@ impl Future for HttpsSerialResponseInner {
                     return Ok(Async::Ready(
                         message.take().expect("cannot poll after complete"),
                     ))
+                }
+                Errored(ref mut error) => {
+                    return Err(error.take().expect("cannot poll after complete"))
                 }
             };
 

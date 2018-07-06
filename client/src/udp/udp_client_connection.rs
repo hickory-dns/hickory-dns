@@ -20,8 +20,8 @@ use std::net::SocketAddr;
 use futures::Future;
 use trust_dns_proto::DnsStreamHandle;
 
-use error::*;
 use client::ClientConnection;
+use error::*;
 use udp::UdpClientStream;
 
 /// UDP based DNS Client connection
@@ -51,12 +51,10 @@ impl ClientConnection for UdpClientConnection {
 
     fn new_stream(
         &self,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-            Box<DnsStreamHandle<Error = ClientError> + Send>,
-        ),
-    > {
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle>,
+    )> {
         let (udp_client_stream, handle) = UdpClientStream::new(self.name_server);
 
         Ok((udp_client_stream, handle))
