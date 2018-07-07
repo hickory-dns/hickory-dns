@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures::sync::mpsc::unbounded;
-use futures::Future;
+use futures::{Future, IntoFuture};
 use rustls::{Certificate, ClientConfig, ClientSession};
 use tokio_rustls::{ClientConfigExt, TlsStream as TokioTlsStream};
 use tokio_tcp::TcpStream as TokioTcpStream;
@@ -118,7 +118,7 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TlsStream, Error = io::Error>> = Box::new(
+        let stream: Box<Future<Item = TlsStream, Error = io::Error> + Send> = Box::new(
             tcp.and_then(move |tcp_stream| {
                 let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from);
 
