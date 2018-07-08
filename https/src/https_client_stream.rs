@@ -25,7 +25,7 @@ use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsRequest, DnsResponse, SerialMessage, SerialMessageSender};
+use trust_dns_proto::xfer::{DnsRequest, DnsResponse, SerialMessage, DnsRequestSender};
 
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -51,7 +51,7 @@ impl Display for HttpsClientStream {
     }
 }
 
-impl SerialMessageSender for HttpsClientStream {
+impl DnsRequestSender for HttpsClientStream {
     type SerialResponse = HttpsSerialResponse;
 
     fn send_message(&mut self, message: DnsRequest) -> Self::SerialResponse {

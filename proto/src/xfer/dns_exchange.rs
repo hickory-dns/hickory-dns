@@ -13,16 +13,16 @@ use futures::{Async, Future, Poll};
 
 use error::*;
 use xfer::{
-    DnsRequest, DnsResponse, OneshotSerialRequest, SerialMessageSender, SerialMessageStreamHandle,
+    DnsRequest, DnsRequestSender, DnsResponse, OneshotSerialRequest, SerialMessageStreamHandle,
 };
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
-/// The underlying `SerialMessageSender` is expected to multiplex any I/O connections. DnsExchange assumes that the underlying stream is responsible for this.
+/// The underlying `DnsRequestSender` is expected to multiplex any I/O connections. DnsExchange assumes that the underlying stream is responsible for this.
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsExchange<S, R>
 where
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     io_stream: S,
@@ -31,7 +31,7 @@ where
 
 impl<S, R> DnsExchange<S, R>
 where
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     /// Initializes a TcpStream with an existing tokio_tcp::TcpStream.
@@ -80,7 +80,7 @@ where
 
 impl<S, R> Future for DnsExchange<S, R>
 where
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     type Item = ();
@@ -155,13 +155,13 @@ where
 pub struct DnsExchangeConnect<F, S, R>(DnsExchangeConnectInner<F, S, R>)
 where
     F: Future<Item = S, Error = ProtoError>,
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send;
 
 impl<F, S, R> DnsExchangeConnect<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     fn connect(
@@ -178,7 +178,7 @@ where
 impl<F, S, R> Future for DnsExchangeConnect<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     type Item = DnsExchange<S, R>;
@@ -192,7 +192,7 @@ where
 enum DnsExchangeConnectInner<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     Connecting {
@@ -208,7 +208,7 @@ where
 impl<F, S, R> Future for DnsExchangeConnectInner<F, S, R>
 where
     F: Future<Item = S, Error = ProtoError>,
-    S: SerialMessageSender<SerialResponse = R>,
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     type Item = DnsExchange<S, R>;
