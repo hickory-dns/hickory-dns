@@ -19,7 +19,7 @@ use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessag
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 
-/// The StreamHandle is the general interface for communicating with the DnsFuture
+/// The StreamHandle is the general interface for communicating with the DnsMultiplexer
 pub struct StreamHandle {
     sender: UnboundedSender<Vec<u8>>,
 }
@@ -44,7 +44,7 @@ impl DnsStreamHandle for StreamHandle {
     }
 }
 
-/// Root DnsHandle implementaton returned by DnsFuture
+/// Root DnsHandle implementaton returned by DnsMultiplexer
 ///
 /// This can be used directly to perform queries. See `trust_dns::client::SecureDnsHandle` for
 ///  a DNSSEc chain validator.

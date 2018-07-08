@@ -21,7 +21,7 @@ use DnsStreamHandle;
 
 /// Tcp client stream
 ///
-/// Use with `trust_dns::client::DnsFuture` impls
+/// Use with `trust_dns::client::DnsMultiplexer` impls
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpClientStream<S> {
     tcp_stream: TcpStream<S>,
