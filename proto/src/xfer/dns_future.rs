@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! `DnsFuture` and associated types implement the state machines for sending DNS messages while using the underlying streams.
+//! `DnsMultiplexer` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
@@ -112,7 +112,7 @@ impl ActiveRequest {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multi-plexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFuture<S, MF, D = Box<DnsStreamHandle>>
+pub struct DnsMultiplexer<S, MF, D = Box<DnsStreamHandle>>
 where
     D: Send + 'static,
     S: DnsClientStream + 'static,
@@ -126,12 +126,12 @@ where
     is_shutdown: bool,
 }
 
-impl<S, MF> DnsFuture<S, MF, Box<DnsStreamHandle>>
+impl<S, MF> DnsMultiplexer<S, MF, Box<DnsStreamHandle>>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    /// Spawns a new DnsFuture Stream. This uses a default timeout of 5 seconds for all requests.
+    /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
     ///
@@ -143,11 +143,11 @@ where
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<MF>>,
-    ) -> DnsFutureConnect<S, MF> {
+    ) -> DnsMultiplexerConnect<S, MF> {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
-    /// Spawns a new DnsFuture Stream.
+    /// Spawns a new DnsMultiplexer Stream.
     ///
     /// # Arguments
     ///
@@ -162,9 +162,9 @@ where
         stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
-    ) -> DnsFutureConnect<S, MF> {
+    ) -> DnsMultiplexerConnect<S, MF> {
         // TODO: remove box, see DnsExchange for Connect type
-        DnsFutureConnect {
+        DnsMultiplexerConnect {
             stream,
             stream_handle: Some(stream_handle),
             timeout_duration,
@@ -251,7 +251,7 @@ where
 
 /// A wrapper for a future DnsExchange connection
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFutureConnect<S, MF>
+pub struct DnsMultiplexerConnect<S, MF>
 where
     S: Stream<Item = SerialMessage, Error = io::Error>,
     MF: MessageFinalizer + Send + Sync + 'static,
@@ -262,18 +262,18 @@ where
     signer: Option<Arc<MF>>,
 }
 
-impl<S, MF> Future for DnsFutureConnect<S, MF>
+impl<S, MF> Future for DnsMultiplexerConnect<S, MF>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Item = DnsFuture<S, MF, Box<DnsStreamHandle>>;
+    type Item = DnsMultiplexer<S, MF, Box<DnsStreamHandle>>;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let stream: S = try_ready!(self.stream.poll());
 
-        Ok(Async::Ready(DnsFuture {
+        Ok(Async::Ready(DnsMultiplexer {
             stream,
             timeout_duration: self.timeout_duration,
             stream_handle: self
@@ -287,7 +287,7 @@ where
     }
 }
 
-impl<S, MF> Display for DnsFuture<S, MF>
+impl<S, MF> Display for DnsMultiplexer<S, MF>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
@@ -297,12 +297,12 @@ where
     }
 }
 
-impl<S, MF> DnsRequestSender for DnsFuture<S, MF>
+impl<S, MF> DnsRequestSender for DnsMultiplexer<S, MF>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type DnsResponseFuture = DnsFutureSerialResponse;
+    type DnsResponseFuture = DnsMultiplexerSerialResponse;
 
     fn send_message(&mut self, request: DnsRequest) -> Self::DnsResponseFuture {
         if self.is_shutdown {
@@ -313,7 +313,7 @@ where
         let query_id: u16 = match self.next_random_query_id() {
             Async::Ready(id) => id,
             Async::NotReady => {
-                return DnsFutureSerialResponseInner::Err(Some(ProtoError::from(
+                return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(
                     "id space exhausted, consider filing an issue",
                 ))).into()
             }
@@ -327,7 +327,7 @@ where
             .map_err(|_| ProtoErrorKind::Message("Current time is before the Unix epoch.").into())
         {
             Ok(now) => now.as_secs(),
-            Err(err) => return DnsFutureSerialResponseInner::Err(Some(err)).into(),
+            Err(err) => return DnsMultiplexerSerialResponseInner::Err(Some(err)).into(),
         };
 
         // TODO: truncates u64 to u32, error on overflow?
@@ -338,7 +338,7 @@ where
             if let Some(ref signer) = self.signer {
                 if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return DnsFutureSerialResponseInner::Err(Some(e.into())).into();
+                    return DnsMultiplexerSerialResponseInner::Err(Some(e.into())).into();
                 }
             }
         }
@@ -362,7 +362,9 @@ where
                     Ok(()) => self
                         .active_requests
                         .insert(active_request.request_id(), active_request),
-                    Err(err) => return DnsFutureSerialResponseInner::Err(Some(err.into())).into(),
+                    Err(err) => {
+                        return DnsMultiplexerSerialResponseInner::Err(Some(err.into())).into()
+                    }
                 };
             }
             Err(e) => {
@@ -372,15 +374,15 @@ where
                     e
                 );
                 // complete with the error, don't add to the map of active requests
-                return DnsFutureSerialResponseInner::Err(Some(e)).into();
+                return DnsMultiplexerSerialResponseInner::Err(Some(e)).into();
             }
         }
 
-        DnsFutureSerialResponseInner::Completion(receiver).into()
+        DnsMultiplexerSerialResponseInner::Completion(receiver).into()
     }
 
     fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
-        DnsFutureSerialResponseInner::Err(Some(error)).into()
+        DnsMultiplexerSerialResponseInner::Err(Some(error)).into()
     }
 
     fn shutdown(&mut self) {
@@ -392,7 +394,7 @@ where
     }
 }
 
-impl<S, MF> Stream for DnsFuture<S, MF>
+impl<S, MF> Stream for DnsMultiplexer<S, MF>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
@@ -480,16 +482,16 @@ where
 
 /// A future that resolves into a DnsResponse
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFutureSerialResponse(DnsFutureSerialResponseInner);
+pub struct DnsMultiplexerSerialResponse(DnsMultiplexerSerialResponseInner);
 
-impl DnsFutureSerialResponse {
+impl DnsMultiplexerSerialResponse {
     /// Returns a new future with the oneshot completion
     pub fn completion(complete: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsFutureSerialResponseInner::Completion(complete).into()
+        DnsMultiplexerSerialResponseInner::Completion(complete).into()
     }
 }
 
-impl Future for DnsFutureSerialResponse {
+impl Future for DnsMultiplexerSerialResponse {
     type Item = DnsResponse;
     type Error = ProtoError;
 
@@ -498,18 +500,18 @@ impl Future for DnsFutureSerialResponse {
     }
 }
 
-impl From<DnsFutureSerialResponseInner> for DnsFutureSerialResponse {
-    fn from(inner: DnsFutureSerialResponseInner) -> Self {
-        DnsFutureSerialResponse(inner)
+impl From<DnsMultiplexerSerialResponseInner> for DnsMultiplexerSerialResponse {
+    fn from(inner: DnsMultiplexerSerialResponseInner) -> Self {
+        DnsMultiplexerSerialResponse(inner)
     }
 }
 
-enum DnsFutureSerialResponseInner {
+enum DnsMultiplexerSerialResponseInner {
     Completion(oneshot::Receiver<ProtoResult<DnsResponse>>),
     Err(Option<ProtoError>),
 }
 
-impl Future for DnsFutureSerialResponseInner {
+impl Future for DnsMultiplexerSerialResponseInner {
     type Item = DnsResponse;
     type Error = ProtoError;
 
@@ -517,7 +519,7 @@ impl Future for DnsFutureSerialResponseInner {
         match self {
             // The inner type of the completion might have been an error
             //   we need to unwrap that, and translate to be the Future's error
-            DnsFutureSerialResponseInner::Completion(complete) => match try_ready!(
+            DnsMultiplexerSerialResponseInner::Completion(complete) => match try_ready!(
                 complete
                     .poll()
                     .map_err(|_| ProtoError::from("the completion was canceled"))
@@ -525,7 +527,7 @@ impl Future for DnsFutureSerialResponseInner {
                 Ok(response) => Ok(Async::Ready(response)),
                 Err(err) => Err(err),
             },
-            DnsFutureSerialResponseInner::Err(err) => {
+            DnsMultiplexerSerialResponseInner::Err(err) => {
                 Err(err.take().expect("cannot poll after complete"))
             }
         }
@@ -748,7 +750,7 @@ impl Future for DnsFutureSerialResponseInner {
 //     E: FromProtoError + Send,
 //     MF: MessageFinalizer + Send + Sync + 'static,
 // {
-//     Future(DnsFuture<S, E, MF, D>),
+//     Future(DnsMultiplexer<S, E, MF, D>),
 //     Errored(ClientStreamErrored<E>),
 // }
 

@@ -1,6 +1,6 @@
 //! DNS high level transit implimentations.
 //!
-//! Primarily there are two types in this module of interest, the `DnsFuture` type and the `DnsHandle` type. `DnsFuture` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsFuture` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsReqeustOptions`, to the delivery of messages via a `DnsFuture`.
+//! Primarily there are two types in this module of interest, the `DnsMultiplexer` type and the `DnsHandle` type. `DnsMultiplexer` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsMultiplexer` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsReqeustOptions`, to the delivery of messages via a `DnsMultiplexer`.
 //!
 //! TODO: this module needs some serious refactoring and normalization.
 
@@ -25,7 +25,7 @@ pub mod secure_dns_handle;
 mod serial_message;
 
 pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect};
-pub use self::dns_future::{DnsFuture, DnsFutureSerialResponse};
+pub use self::dns_future::{DnsMultiplexer, DnsMultiplexerSerialResponse};
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;

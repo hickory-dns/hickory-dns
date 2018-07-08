@@ -14,7 +14,7 @@ use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsFuture};
+use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsMultiplexer};
 use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
@@ -34,7 +34,7 @@ fn test_lookup() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
     io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
@@ -65,7 +65,7 @@ fn test_lookup_hosts() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
     io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
@@ -119,7 +119,7 @@ fn test_lookup_ipv4_like() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
     io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
@@ -152,7 +152,7 @@ fn test_lookup_ipv4_like_fall_through() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
     io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {

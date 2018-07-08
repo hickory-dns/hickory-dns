@@ -16,8 +16,8 @@ use rand;
 use tokio;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsFuture, DnsFutureSerialResponse,
-    DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, DnsStreamHandle,
+    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsHandle, DnsMultiplexer,
+    DnsMultiplexerSerialResponse, DnsRequest, DnsRequestOptions, DnsResponse, DnsStreamHandle,
     OneshotDnsResponseReceiver, SerialMessage,
 };
 
@@ -74,7 +74,7 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
     ) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
         Box::new(future::lazy(move || {
             let dns_conn =
-                DnsFuture::with_timeout(stream, stream_handle, timeout_duration, finalizer);
+                DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, finalizer);
 
             let (stream, handle) = DnsExchange::connect(dns_conn);
             // TODO: instead of spawning here, return the stream as a "Background" type...
@@ -95,11 +95,11 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicClientHandle {
-    message_sender: BufDnsRequestStreamHandle<DnsFutureSerialResponse>,
+    message_sender: BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>,
 }
 
 impl DnsHandle for BasicClientHandle {
-    type Response = OneshotDnsResponseReceiver<DnsFutureSerialResponse>;
+    type Response = OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         self.message_sender.send(request)

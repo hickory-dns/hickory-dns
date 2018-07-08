@@ -24,8 +24,8 @@ use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
 use trust_dns_proto::xfer::{
-    self, BufDnsRequestStreamHandle, DnsExchange, DnsFuture, DnsFutureSerialResponse, DnsHandle,
-    DnsRequest, DnsResponse,
+    self, BufDnsRequestStreamHandle, DnsExchange, DnsHandle, DnsMultiplexer,
+    DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
 
 //use async_resolver::BasicAsyncResolver;
@@ -204,7 +204,7 @@ impl ConnectionProvider for StandardConnection {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr);
                 // TODO: need config for Signer...
-                let dns_conn = DnsFuture::with_timeout(
+                let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     handle,
                     options.timeout,
@@ -224,7 +224,7 @@ impl ConnectionProvider for StandardConnection {
                 let (stream, handle) =
                     TcpClientStream::with_timeout(config.socket_addr, options.timeout);
                 // TODO: need config for Signer...
-                let dns_conn = DnsFuture::with_timeout(
+                let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     handle,
                     options.timeout,
@@ -245,7 +245,7 @@ impl ConnectionProvider for StandardConnection {
                     config.socket_addr,
                     config.tls_dns_name.clone().unwrap_or_default(),
                 );
-                let dns_conn = DnsFuture::with_timeout(
+                let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     Box::new(handle),
                     options.timeout,
@@ -283,7 +283,7 @@ impl ConnectionProvider for StandardConnection {
                     None,
                 );
                 // TODO: need config for Signer...
-                let dns_conn = DnsFuture::with_timeout(
+                let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     handle,
                     options.timeout,
@@ -306,7 +306,7 @@ impl ConnectionProvider for StandardConnection {
 
 #[derive(Clone)]
 pub enum ConnectionHandle {
-    UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsFutureSerialResponse>),
+    UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
 }
@@ -328,7 +328,7 @@ impl DnsHandle for ConnectionHandle {
 }
 
 pub enum ConnectionHandleResponse {
-    UdpOrTcp(xfer::OneshotDnsResponseReceiver<DnsFutureSerialResponse>),
+    UdpOrTcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
 }
