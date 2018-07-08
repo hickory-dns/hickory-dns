@@ -12,6 +12,7 @@ cargo test --manifest-path util/Cargo.toml --no-default-features
 cargo test --manifest-path native-tls/Cargo.toml --no-default-features
 cargo test --manifest-path openssl/Cargo.toml --no-default-features
 cargo test --manifest-path rustls/Cargo.toml --no-default-features
+cargo test --manifest-path https/Cargo.toml --no-default-features
 cargo test --manifest-path resolver/Cargo.toml --no-default-features
 cargo test --manifest-path server/Cargo.toml --no-default-features
 cargo test --manifest-path integration-tests/Cargo.toml --no-default-features

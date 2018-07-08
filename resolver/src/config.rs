@@ -183,6 +183,9 @@ pub enum Protocol {
     /// Tls for DNS over TLS
     #[cfg(feature = "dns-over-tls")]
     Tls,
+    /// Https for DNS over HTTPS
+    #[cfg(feature = "dns-over-https")]
+    Https,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
     Mdns,
@@ -196,6 +199,8 @@ impl Protocol {
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]
             Protocol::Tls => false,
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => false,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => true,
         }

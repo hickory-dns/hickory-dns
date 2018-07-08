@@ -2,12 +2,13 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio;
-extern crate tokio_timer;
 extern crate tokio_tcp;
+extern crate tokio_timer;
 extern crate tokio_udp;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_openssl;
+extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
@@ -26,8 +27,8 @@ use futures::{future, Future, Stream};
 use openssl::pkcs12::Pkcs12;
 use rustls::Certificate;
 use tokio::runtime::current_thread::Runtime;
-use tokio_timer::Delay;
 use tokio_tcp::TcpListener;
+use tokio_timer::Delay;
 use tokio_udp::UdpSocket;
 
 use trust_dns::client::*;
@@ -35,6 +36,7 @@ use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
+use trust_dns_proto::xfer::SerialMessage;
 
 use trust_dns_server::authority::*;
 use trust_dns_server::ServerFuture;
@@ -199,7 +201,7 @@ fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> T
 
 fn client_thread_www<C: ClientConnection>(conn: C)
 where
-    C::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    C::MessageStream: Stream<Item = SerialMessage, Error = io::Error> + 'static,
 {
     let name = Name::from_str("www.example.com").unwrap();
     let client = SyncClient::new(conn);
@@ -255,14 +257,16 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
 
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
-    io_loop.block_on::<Box<Future<Item=(), Error=()> + Send>>(
-        Box::new(future::lazy(|| {
+    io_loop
+        .block_on::<Box<Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
             future::ok(server.register_socket(udp_socket))
-        }))
-    ).unwrap();
+        })))
+        .unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(10))).unwrap();
+        io_loop
+            .block_on(Delay::new(Instant::now() + Duration::from_millis(10)))
+            .unwrap();
     }
 }
 
@@ -270,14 +274,16 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     let catalog = new_catalog();
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
-    io_loop.block_on::<Box<Future<Item=(), Error=io::Error> + Send>>(
-        Box::new(future::lazy(|| {
-            future::result(server.register_listener(tcp_listener, Duration::from_secs(30)))
-        }))
-    ).expect("tcp registration failed");
+    io_loop
+        .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
+            || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
+        )))
+        .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(10))).unwrap();
+        io_loop
+            .block_on(Delay::new(Instant::now() + Duration::from_millis(10)))
+            .unwrap();
     }
 }
 
@@ -289,17 +295,25 @@ fn server_thread_tls(
     let catalog = new_catalog();
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
-    io_loop.block_on::<Box<Future<Item=(), Error=io::Error> + Send>>(
-        Box::new(future::lazy(|| {
-            let pkcs12 = Pkcs12::from_der(&pkcs12_der)
-                .expect("bad pkcs12 der")
-                .parse("mypass")
-                .expect("Pkcs12::from_der");
-            future::result(server.register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12))
-        }))
-    ).expect("tcp registration failed");
+    io_loop
+        .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
+            || {
+                let pkcs12 = Pkcs12::from_der(&pkcs12_der)
+                    .expect("bad pkcs12 der")
+                    .parse("mypass")
+                    .expect("Pkcs12::from_der");
+                future::result(server.register_tls_listener(
+                    tls_listener,
+                    Duration::from_secs(30),
+                    pkcs12,
+                ))
+            },
+        )))
+        .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(10))).unwrap();
+        io_loop
+            .block_on(Delay::new(Instant::now() + Duration::from_millis(10)))
+            .unwrap();
     }
 }
