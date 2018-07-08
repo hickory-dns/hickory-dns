@@ -14,7 +14,7 @@ use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer::{BufSerialMessageStreamHandle, DnsExchange, DnsFuture};
+use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsFuture};
 use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
@@ -41,7 +41,7 @@ fn test_lookup() {
         println!("error, udp connection shutting down: {}", e);
     }));
 
-    let client = BufSerialMessageStreamHandle::new(handle);
+    let client = BufDnsRequestStreamHandle::new(handle);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -72,7 +72,7 @@ fn test_lookup_hosts() {
         println!("error, udp connection shutting down: {}", e);
     }));
 
-    let client = BufSerialMessageStreamHandle::new(handle);
+    let client = BufDnsRequestStreamHandle::new(handle);
 
     let mut hosts = Hosts::default();
 
@@ -126,7 +126,7 @@ fn test_lookup_ipv4_like() {
         println!("error, udp connection shutting down: {}", e);
     }));
 
-    let client = BufSerialMessageStreamHandle::new(handle);
+    let client = BufDnsRequestStreamHandle::new(handle);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
@@ -159,7 +159,7 @@ fn test_lookup_ipv4_like_fall_through() {
         println!("error, udp connection shutting down: {}", e);
     }));
 
-    let client = BufSerialMessageStreamHandle::new(handle);
+    let client = BufDnsRequestStreamHandle::new(handle);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],

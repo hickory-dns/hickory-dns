@@ -9,7 +9,7 @@ use futures::Future;
 
 use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{BufSerialMessageStreamHandle, DnsExchange};
+use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
 
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
@@ -19,7 +19,7 @@ pub(crate) fn new_https_stream(
         Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError>
             + Send,
     >,
-    BufSerialMessageStreamHandle<HttpsSerialResponse>,
+    BufDnsRequestStreamHandle<HttpsSerialResponse>,
 ) {
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
@@ -32,7 +32,7 @@ pub(crate) fn new_https_stream(
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
     let (stream, handle) = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
-    let handle = BufSerialMessageStreamHandle::new(handle);
+    let handle = BufDnsRequestStreamHandle::new(handle);
 
     (Box::new(stream), handle)
 }
