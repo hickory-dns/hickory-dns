@@ -26,8 +26,8 @@ use tokio_timer::Delay;
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
 use xfer::{
-    ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage,
-    SerialMessageSender,
+    ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
+    SerialMessage,
 };
 use DnsStreamHandle;
 
@@ -297,14 +297,14 @@ where
     }
 }
 
-impl<S, MF> SerialMessageSender for DnsFuture<S, MF>
+impl<S, MF> DnsRequestSender for DnsFuture<S, MF>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type SerialResponse = DnsFutureSerialResponse;
+    type DnsResponseFuture = DnsFutureSerialResponse;
 
-    fn send_message(&mut self, request: DnsRequest) -> Self::SerialResponse {
+    fn send_message(&mut self, request: DnsRequest) -> Self::DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -379,7 +379,7 @@ where
         DnsFutureSerialResponseInner::Completion(receiver).into()
     }
 
-    fn error_response(error: ProtoError) -> Self::SerialResponse {
+    fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
         DnsFutureSerialResponseInner::Err(Some(error)).into()
     }
 

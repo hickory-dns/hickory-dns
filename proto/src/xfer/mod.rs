@@ -147,21 +147,19 @@ where
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
-// FIXME: change name to DnsRequestSender
-pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Display + Send {
+pub trait DnsRequestSender: Stream<Item = (), Error = ProtoError> + Display + Send {
     /// A future that resolves to a response serial message
-    // FIXME: change name to DnsResponseFuture
-    type SerialResponse: Future<Item = DnsResponse, Error = ProtoError> + Send;
+    type DnsResponseFuture: Future<Item = DnsResponse, Error = ProtoError> + Send;
 
     /// Send a message, and return a future of the response
     ///
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message(&mut self, message: DnsRequest) -> Self::SerialResponse;
+    fn send_message(&mut self, message: DnsRequest) -> Self::DnsResponseFuture;
 
     /// Constructs an error response
-    fn error_response(error: ProtoError) -> Self::SerialResponse;
+    fn error_response(error: ProtoError) -> Self::DnsResponseFuture;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
