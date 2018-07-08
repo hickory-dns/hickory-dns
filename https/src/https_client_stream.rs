@@ -23,6 +23,7 @@ use tokio_executor;
 use tokio_rustls::ClientConfigExt;
 use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
+use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
@@ -498,6 +499,7 @@ enum HttpsClientConnectState {
         name_server: SocketAddr,
     },
     Connected(Option<HttpsClientStream>),
+    Errored(Option<ProtoError>),
 }
 
 impl Future for HttpsClientConnectState {
@@ -526,11 +528,19 @@ impl Future for HttpsClientConnectState {
                         .expect("programming error, tls should not be None here");
                     let dns_name = tls.dns_name;
                     let name_server_name = Arc::clone(&dns_name);
-                    let tls = tls.client_config.connect_async(&dns_name, tcp);
-                    HttpsClientConnectState::TlsConnecting {
-                        name_server_name,
-                        name_server: *name_server,
-                        tls,
+
+                    match DNSNameRef::try_from_ascii_str(&dns_name) {
+                        Ok(dns_name) => {
+                            let tls = tls.client_config.connect_async(dns_name, tcp);
+                            HttpsClientConnectState::TlsConnecting {
+                                name_server_name,
+                                name_server: *name_server,
+                                tls,
+                            }
+                        }
+                        Err(_) => HttpsClientConnectState::Errored(Some(ProtoError::from(
+                            format!("bad dns_name: {}", dns_name),
+                        ))),
                     }
                 }
                 HttpsClientConnectState::TlsConnecting {
@@ -575,6 +585,9 @@ impl Future for HttpsClientConnectState {
                     return Ok(Async::Ready(
                         conn.take().expect("cannot poll after complete"),
                     ))
+                }
+                HttpsClientConnectState::Errored(err) => {
+                    return Err(err.take().expect("cannot poll after complete"))
                 }
             };
 
