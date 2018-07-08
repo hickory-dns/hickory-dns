@@ -13,7 +13,7 @@ use futures::{Async, Future, Poll};
 
 use error::*;
 use xfer::{
-    DnsRequest, DnsRequestSender, DnsResponse, OneshotSerialRequest, SerialMessageStreamHandle,
+    DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest, SerialMessageStreamHandle,
 };
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
@@ -26,7 +26,7 @@ where
     R: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     io_stream: S,
-    outbound_messages: Peekable<UnboundedReceiver<OneshotSerialRequest<R>>>,
+    outbound_messages: Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>,
 }
 
 impl<S, R> DnsExchange<S, R>
@@ -53,7 +53,7 @@ where
     /// Wrapps a stream where a sender and receiver have already been established
     pub fn from_stream_with_receiver(
         stream: S,
-        receiver: UnboundedReceiver<OneshotSerialRequest<R>>,
+        receiver: UnboundedReceiver<OneshotDnsRequest<R>>,
     ) -> Self {
         DnsExchange {
             io_stream: stream,
@@ -166,7 +166,7 @@ where
 {
     fn connect(
         connect_future: F,
-        outbound_messages: UnboundedReceiver<OneshotSerialRequest<R>>,
+        outbound_messages: UnboundedReceiver<OneshotDnsRequest<R>>,
     ) -> Self {
         DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
             connect_future,
@@ -197,11 +197,11 @@ where
 {
     Connecting {
         connect_future: F,
-        outbound_messages: Option<UnboundedReceiver<OneshotSerialRequest<R>>>,
+        outbound_messages: Option<UnboundedReceiver<OneshotDnsRequest<R>>>,
     },
     FailAll {
         error: ProtoError,
-        outbound_messages: UnboundedReceiver<OneshotSerialRequest<R>>,
+        outbound_messages: UnboundedReceiver<OneshotDnsRequest<R>>,
     },
 }
 
