@@ -10,10 +10,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures::sync::mpsc::unbounded;
-use futures::Future;
+use futures::{Future, IntoFuture};
 use rustls::{Certificate, ClientConfig, ClientSession};
-use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_rustls::{ClientConfigExt, TlsStream as TokioTlsStream};
+use tokio_tcp::TcpStream as TokioTcpStream;
+use webpki::{DNSName, DNSNameRef};
 
 use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::tcp::TcpStream;
@@ -117,25 +118,39 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream =
-            Box::new(tcp.and_then(move |tcp_stream| {
-                tls_connector
-                    .connect_async(&dns_name, tcp_stream)
-                    .map(move |s| {
-                        TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
+        let stream: Box<Future<Item = TlsStream, Error = io::Error> + Send> = Box::new(
+            tcp.and_then(move |tcp_stream| {
+                let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from);
+
+                dns_name
+                    .map_err(|_| {
+                        io::Error::new(io::ErrorKind::InvalidInput, format!("bad dns_name"))
                     })
-                    .map_err(|e| {
-                        io::Error::new(
-                            io::ErrorKind::ConnectionRefused,
-                            format!("tls error: {}", e),
-                        )
+                    .into_future()
+                    .and_then(move |dns_name| {
+                        tls_connector
+                            .connect_async(dns_name.as_ref(), tcp_stream)
+                            .map(move |s| {
+                                TcpStream::from_stream_with_receiver(
+                                    s,
+                                    name_server,
+                                    outbound_messages,
+                                )
+                            })
+                            .map_err(|e| {
+                                io::Error::new(
+                                    io::ErrorKind::ConnectionRefused,
+                                    format!("tls error: {}", e),
+                                )
+                            })
                     })
             }).map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::ConnectionRefused,
                     format!("tls error: {}", e),
                 )
-            }));
+            }),
+        );
 
         (stream, message_sender)
     }
