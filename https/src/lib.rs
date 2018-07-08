@@ -23,6 +23,7 @@ extern crate tokio_rustls;
 extern crate tokio_tcp;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
+extern crate webpki;
 extern crate webpki_roots;
 
 const ACCEPTS_DNS_BINARY: &str = "application/dns-message";
