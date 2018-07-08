@@ -16,7 +16,7 @@ use rand;
 use tokio;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    BufSerialMessageStreamHandle, DnsClientStream, DnsExchange, DnsFuture, DnsFutureSerialResponse,
+    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsFuture, DnsFutureSerialResponse,
     DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, DnsStreamHandle,
     OneshotDnsResponseReceiver, SerialMessage,
 };
@@ -83,7 +83,7 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
             }));
 
             future::ok(BasicClientHandle {
-                message_sender: BufSerialMessageStreamHandle::new(handle),
+                message_sender: BufDnsRequestStreamHandle::new(handle),
             })
         }))
     }
@@ -95,7 +95,7 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicClientHandle {
-    message_sender: BufSerialMessageStreamHandle<DnsFutureSerialResponse>,
+    message_sender: BufDnsRequestStreamHandle<DnsFutureSerialResponse>,
 }
 
 impl DnsHandle for BasicClientHandle {

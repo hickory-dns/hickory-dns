@@ -106,20 +106,20 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 
 // TODO: expose the Sink trait for this?
 /// A sender to which serialized DNS Messages can be sent
-pub struct SerialMessageStreamHandle<F>
+pub struct DnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     sender: UnboundedSender<OneshotDnsRequest<F>>,
 }
 
-impl<F> SerialMessageStreamHandle<F>
+impl<F> DnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     /// Constructs a new BufStreamHandle with the associated ProtoError
     pub fn new(sender: UnboundedSender<OneshotDnsRequest<F>>) -> Self {
-        SerialMessageStreamHandle { sender }
+        DnsRequestStreamHandle { sender }
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
@@ -131,12 +131,12 @@ where
     }
 }
 
-impl<F> Clone for SerialMessageStreamHandle<F>
+impl<F> Clone for DnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     fn clone(&self) -> Self {
-        SerialMessageStreamHandle {
+        DnsRequestStreamHandle {
             sender: self.sender.clone(),
         }
     }
@@ -170,30 +170,30 @@ pub trait DnsRequestSender: Stream<Item = (), Error = ProtoError> + Display + Se
     fn is_shutdown(&self) -> bool;
 }
 
-/// Used for assiacting a name_server to a SerialMessageStreamHandle
-pub struct BufSerialMessageStreamHandle<F>
+/// Used for assiacting a name_server to a DnsRequestStreamHandle
+pub struct BufDnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    sender: SerialMessageStreamHandle<F>,
+    sender: DnsRequestStreamHandle<F>,
 }
 
-impl<F> BufSerialMessageStreamHandle<F>
+impl<F> BufDnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    /// Construct a new BufSerialMessageStreamHandle
-    pub fn new(sender: SerialMessageStreamHandle<F>) -> Self {
-        BufSerialMessageStreamHandle { sender }
+    /// Construct a new BufDnsRequestStreamHandle
+    pub fn new(sender: DnsRequestStreamHandle<F>) -> Self {
+        BufDnsRequestStreamHandle { sender }
     }
 }
 
-impl<F> Clone for BufSerialMessageStreamHandle<F>
+impl<F> Clone for BufDnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     fn clone(&self) -> Self {
-        BufSerialMessageStreamHandle {
+        BufDnsRequestStreamHandle {
             sender: self.sender.clone(),
         }
     }
@@ -213,7 +213,7 @@ macro_rules! try_oneshot {
     };
 }
 
-impl<F> DnsHandle for BufSerialMessageStreamHandle<F>
+impl<F> DnsHandle for BufDnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static,
 {

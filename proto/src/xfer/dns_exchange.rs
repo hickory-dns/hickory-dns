@@ -12,9 +12,7 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::{Async, Future, Poll};
 
 use error::*;
-use xfer::{
-    DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest, SerialMessageStreamHandle,
-};
+use xfer::{DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, OneshotDnsRequest};
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
@@ -41,9 +39,9 @@ where
     /// # Arguments
     ///
     /// * `stream` - the established IO stream for communication
-    pub fn from_stream(stream: S) -> (Self, SerialMessageStreamHandle<R>) {
+    pub fn from_stream(stream: S) -> (Self, DnsRequestStreamHandle<R>) {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = SerialMessageStreamHandle::<R>::new(message_sender);
+        let message_sender = DnsRequestStreamHandle::<R>::new(message_sender);
 
         let stream = Self::from_stream_with_receiver(stream, outbound_messages);
 
@@ -64,16 +62,14 @@ where
     /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
     /// The connect_future should be lazy.
-    pub fn connect<F>(
-        connect_future: F,
-    ) -> (DnsExchangeConnect<F, S, R>, SerialMessageStreamHandle<R>)
+    pub fn connect<F>(connect_future: F) -> (DnsExchangeConnect<F, S, R>, DnsRequestStreamHandle<R>)
     where
         F: Future<Item = S, Error = ProtoError>,
     {
         let (message_sender, outbound_messages) = unbounded();
         (
             DnsExchangeConnect::connect(connect_future, outbound_messages),
-            SerialMessageStreamHandle::<R>::new(message_sender),
+            DnsRequestStreamHandle::<R>::new(message_sender),
         )
     }
 }

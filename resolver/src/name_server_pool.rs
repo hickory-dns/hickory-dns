@@ -24,7 +24,7 @@ use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
 use trust_dns_proto::xfer::{
-    self, BufSerialMessageStreamHandle, DnsExchange, DnsFuture, DnsFutureSerialResponse, DnsHandle,
+    self, BufDnsRequestStreamHandle, DnsExchange, DnsFuture, DnsFutureSerialResponse, DnsHandle,
     DnsRequest, DnsResponse,
 };
 
@@ -217,7 +217,7 @@ impl ConnectionProvider for StandardConnection {
                     error!("error, udp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(handle);
+                let handle = BufDnsRequestStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
             Protocol::Tcp => {
@@ -236,7 +236,7 @@ impl ConnectionProvider for StandardConnection {
                     error!("error, tcp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(handle);
+                let handle = BufDnsRequestStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-tls")]
@@ -257,7 +257,7 @@ impl ConnectionProvider for StandardConnection {
                     error!("error, tcp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(handle);
+                let handle = BufDnsRequestStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-https")]
@@ -295,7 +295,7 @@ impl ConnectionProvider for StandardConnection {
                     error!("error, udp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(handle);
+                let handle = BufDnsRequestStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
         };
@@ -306,9 +306,9 @@ impl ConnectionProvider for StandardConnection {
 
 #[derive(Clone)]
 pub enum ConnectionHandle {
-    UdpOrTcp(xfer::BufSerialMessageStreamHandle<DnsFutureSerialResponse>),
+    UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsFutureSerialResponse>),
     #[cfg(feature = "dns-over-https")]
-    Https(xfer::BufSerialMessageStreamHandle<trust_dns_https::HttpsSerialResponse>),
+    Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
 }
 
 impl DnsHandle for ConnectionHandle {
