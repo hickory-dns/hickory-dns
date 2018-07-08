@@ -26,7 +26,7 @@ use tokio_timer::Delay;
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
 use xfer::{
-    ignore_send, DnsClientStream, DnsRequestOptions, DnsResponse, SerialMessage,
+    ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage,
     SerialMessageSender,
 };
 use DnsStreamHandle;
@@ -304,7 +304,7 @@ where
 {
     type SerialResponse = DnsFutureSerialResponse;
 
-    fn send_message(&mut self, request: SerialMessage) -> Self::SerialResponse {
+    fn send_message(&mut self, request: DnsRequest) -> Self::SerialResponse {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -319,10 +319,7 @@ where
             }
         };
 
-        // FIXME: clearly send_message shouldn't be a serial message at this point, make it a DnsRequest+dst
-        let mut request = request
-            .to_message()
-            .expect("see FIXME above, don't be lazy... fix it!");
+        let (mut request, request_options) = request.unwrap();
         request.set_id(query_id);
 
         let now = match SystemTime::now()
@@ -333,7 +330,8 @@ where
             Err(err) => return DnsFutureSerialResponseInner::Err(Some(err)).into(),
         };
 
-        let now = now as u32; // TODO: truncates u64 to u32, error on overflow?
+        // TODO: truncates u64 to u32, error on overflow?
+        let now = now as u32;
 
         // update messages need to be signed.
         if let OpCode::Update = request.op_code() {
@@ -351,13 +349,7 @@ where
         let (complete, receiver) = oneshot::channel();
 
         // send the message
-        // FIXME: before merge to master, need options and DnsRequest
-        let active_request = ActiveRequest::new(
-            complete,
-            request.id(),
-            Default::default(), /*request.options().clone()*/
-            timeout,
-        );
+        let active_request = ActiveRequest::new(complete, request.id(), request_options, timeout);
 
         match request.to_vec() {
             Ok(buffer) => {

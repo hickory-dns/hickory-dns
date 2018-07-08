@@ -25,7 +25,7 @@ use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsResponse, SerialMessage, SerialMessageSender};
+use trust_dns_proto::xfer::{DnsRequest, DnsResponse, SerialMessage, SerialMessageSender};
 
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -54,10 +54,18 @@ impl Display for HttpsClientStream {
 impl SerialMessageSender for HttpsClientStream {
     type SerialResponse = HttpsSerialResponse;
 
-    fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse {
+    fn send_message(&mut self, message: DnsRequest) -> Self::SerialResponse {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
+
+        let bytes = match message.to_vec() {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                return HttpsSerialResponse(HttpsSerialResponseInner::Errored(Some(err.into())))
+            }
+        };
+        let message = SerialMessage::new(bytes, self.name_server);
 
         HttpsSerialResponse(HttpsSerialResponseInner::StartSend {
             h2: self.h2.clone(),
@@ -586,7 +594,6 @@ mod tests {
 
     use trust_dns_proto::op::{Message, Query};
     use trust_dns_proto::rr::{Name, RData, RecordType};
-    use trust_dns_proto::serialize::binary::{BinEncodable, BinEncoder};
 
     use super::*;
 
@@ -599,11 +606,7 @@ mod tests {
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
 
-        let mut bytes = Vec::<u8>::new();
-        {
-            let mut encoder = BinEncoder::new(&mut bytes);
-            request.emit(&mut encoder).expect("failed to encode");
-        }
+        let request = DnsRequest::new(request, Default::default());
 
         // using the mozilla default root store
         let mut root_store = RootCertStore::empty();
@@ -620,9 +623,8 @@ mod tests {
         // tokio runtime stuff...
         let mut runtime = current_thread::Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
-        let to_send = SerialMessage::new(bytes, cloudflare);
 
-        let sending = https.send_message(to_send);
+        let sending = https.send_message(request);
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
         //assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));

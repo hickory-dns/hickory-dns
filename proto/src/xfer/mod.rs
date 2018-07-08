@@ -147,8 +147,10 @@ where
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
+// FIXME: change name to DnsRequestSender
 pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Display + Send {
     /// A future that resolves to a response serial message
+    // FIXME: change name to DnsResponseFuture
     type SerialResponse: Future<Item = DnsResponse, Error = ProtoError> + Send;
 
     /// Send a message, and return a future of the response
@@ -156,7 +158,7 @@ pub trait SerialMessageSender: Stream<Item = (), Error = ProtoError> + Display +
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse;
+    fn send_message(&mut self, message: DnsRequest) -> Self::SerialResponse;
 
     /// Constructs an error response
     fn error_response(error: ProtoError) -> Self::SerialResponse;
@@ -175,7 +177,6 @@ pub struct BufSerialMessageStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    name_server: SocketAddr,
     sender: SerialMessageStreamHandle<F>,
 }
 
@@ -184,11 +185,8 @@ where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     /// Construct a new BufSerialMessageStreamHandle
-    pub fn new(name_server: SocketAddr, sender: SerialMessageStreamHandle<F>) -> Self {
-        BufSerialMessageStreamHandle {
-            name_server,
-            sender,
-        }
+    pub fn new(sender: SerialMessageStreamHandle<F>) -> Self {
+        BufSerialMessageStreamHandle { sender }
     }
 }
 
@@ -198,7 +196,6 @@ where
 {
     fn clone(&self) -> Self {
         BufSerialMessageStreamHandle {
-            name_server: self.name_server.clone(),
             sender: self.sender.clone(),
         }
     }
@@ -225,14 +222,11 @@ where
     type Response = OneshotDnsResponseReceiver<F>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
-        let name_server: SocketAddr = self.name_server;
         let request: DnsRequest = request.into();
-        let bytes: Vec<u8> = try_oneshot!(request.to_vec());
-        let serial_message = SerialMessage::new(bytes, name_server);
-        let (serial_request, oneshot) = OneshotSerialRequest::oneshot(serial_message);
-
         debug!("enqueueing message: {:?}", request.queries());
-        try_oneshot!(self.sender.unbounded_send(serial_request).map_err(|_| {
+
+        let (request, oneshot) = OneshotSerialRequest::oneshot(request);
+        try_oneshot!(self.sender.unbounded_send(request).map_err(|_| {
             debug!("unable to enqueue message");
             ProtoError::from(format!("could not send request"))
         }));
@@ -241,12 +235,14 @@ where
     }
 }
 
+// FIXME: rename to OneshotDnsRequest
 /// A OneshotSerialRequest createa a channel for a response to message
 pub struct OneshotSerialRequest<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    serial_request: SerialMessage,
+    // FIXME: change name to dns_request
+    serial_request: DnsRequest,
     sender_for_response: oneshot::Sender<F>,
 }
 
@@ -254,7 +250,7 @@ impl<F> OneshotSerialRequest<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    fn oneshot(serial_request: SerialMessage) -> (OneshotSerialRequest<F>, oneshot::Receiver<F>) {
+    fn oneshot(serial_request: DnsRequest) -> (OneshotSerialRequest<F>, oneshot::Receiver<F>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
         (
@@ -266,7 +262,7 @@ where
         )
     }
 
-    fn unwrap(self) -> (SerialMessage, OneshotDnsResponse<F>) {
+    fn unwrap(self) -> (DnsRequest, OneshotDnsResponse<F>) {
         (
             self.serial_request,
             OneshotDnsResponse(self.sender_for_response),

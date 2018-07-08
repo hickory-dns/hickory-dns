@@ -211,13 +211,13 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 );
 
-                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                let (stream, handle) = DnsExchange::connect(dns_conn);
                 // TODO: instead of spawning here, return the stream as a "Background" type...
                 tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, udp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                let handle = BufSerialMessageStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
             Protocol::Tcp => {
@@ -231,12 +231,12 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 );
 
-                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                let (stream, handle) = DnsExchange::connect(dns_conn);
                 tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, tcp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                let handle = BufSerialMessageStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-tls")]
@@ -252,12 +252,12 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 );
 
-                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                let (stream, handle) = DnsExchange::connect(dns_conn);
                 tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, tcp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                let handle = BufSerialMessageStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-https")]
@@ -290,12 +290,12 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 );
 
-                let (stream, handle) = DnsExchange::connect(dns_conn, config.socket_addr);
+                let (stream, handle) = DnsExchange::connect(dns_conn);
                 tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, udp connection shutting down: {}", e);
                 }));
 
-                let handle = BufSerialMessageStreamHandle::new(config.socket_addr, handle);
+                let handle = BufSerialMessageStreamHandle::new(handle);
                 ConnectionHandle::UdpOrTcp(handle)
             }
         };

@@ -7,7 +7,6 @@
 
 use std::io;
 use std::marker::PhantomData;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -77,16 +76,14 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
             let dns_conn =
                 DnsFuture::with_timeout(stream, stream_handle, timeout_duration, finalizer);
 
-            // FIXME: this needs some fixing...
-            let socket_addr = SocketAddr::from(([0, 0, 0, 0], 53));
-            let (stream, handle) = DnsExchange::connect(dns_conn, socket_addr);
+            let (stream, handle) = DnsExchange::connect(dns_conn);
             // TODO: instead of spawning here, return the stream as a "Background" type...
             tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
                 error!("error, connection shutting down: {}", e);
             }));
 
             future::ok(BasicClientHandle {
-                message_sender: BufSerialMessageStreamHandle::new(socket_addr, handle),
+                message_sender: BufSerialMessageStreamHandle::new(handle),
             })
         }))
     }
@@ -109,11 +106,7 @@ impl DnsHandle for BasicClientHandle {
     }
 }
 
-impl<T> ClientHandle for T
-where
-    T: DnsHandle,
-{
-}
+impl<T> ClientHandle for T where T: DnsHandle {}
 
 /// A trait for implementing high level functions of DNS.
 pub trait ClientHandle: Clone + DnsHandle + Send {

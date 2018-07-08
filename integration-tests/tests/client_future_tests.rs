@@ -811,6 +811,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Runtime) {
 
 #[test]
 fn test_timeout_query_nonet() {
+    env_logger::try_init().ok();
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = ClientFuture::with_timeout(
