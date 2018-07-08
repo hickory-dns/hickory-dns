@@ -25,7 +25,7 @@ use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsRequest, DnsResponse, SerialMessage, DnsRequestSender};
+use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -52,12 +52,15 @@ impl Display for HttpsClientStream {
 }
 
 impl DnsRequestSender for HttpsClientStream {
-    type SerialResponse = HttpsSerialResponse;
+    type DnsResponseFuture = HttpsSerialResponse;
 
-    fn send_message(&mut self, message: DnsRequest) -> Self::SerialResponse {
+    fn send_message(&mut self, mut message: DnsRequest) -> Self::DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
+
+        // per the RFC, a zero id allows for the HTTP packet to be cached better
+        message.set_id(0);
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
@@ -75,7 +78,7 @@ impl DnsRequestSender for HttpsClientStream {
         })
     }
 
-    fn error_response(error: ProtoError) -> Self::SerialResponse {
+    fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
         HttpsSerialResponse(HttpsSerialResponseInner::Errored(Some(error)))
     }
 

@@ -110,7 +110,7 @@ pub struct SerialMessageStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    sender: UnboundedSender<OneshotSerialRequest<F>>,
+    sender: UnboundedSender<OneshotDnsRequest<F>>,
 }
 
 impl<F> SerialMessageStreamHandle<F>
@@ -118,15 +118,15 @@ where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
     /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: UnboundedSender<OneshotSerialRequest<F>>) -> Self {
+    pub fn new(sender: UnboundedSender<OneshotDnsRequest<F>>) -> Self {
         SerialMessageStreamHandle { sender }
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
     pub fn unbounded_send(
         &self,
-        msg: OneshotSerialRequest<F>,
-    ) -> Result<(), SendError<OneshotSerialRequest<F>>> {
+        msg: OneshotDnsRequest<F>,
+    ) -> Result<(), SendError<OneshotDnsRequest<F>>> {
         self.sender.unbounded_send(msg)
     }
 }
@@ -223,7 +223,7 @@ where
         let request: DnsRequest = request.into();
         debug!("enqueueing message: {:?}", request.queries());
 
-        let (request, oneshot) = OneshotSerialRequest::oneshot(request);
+        let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         try_oneshot!(self.sender.unbounded_send(request).map_err(|_| {
             debug!("unable to enqueue message");
             ProtoError::from(format!("could not send request"))
@@ -233,27 +233,26 @@ where
     }
 }
 
-// FIXME: rename to OneshotDnsRequest
-/// A OneshotSerialRequest createa a channel for a response to message
-pub struct OneshotSerialRequest<F>
+// TODO: this future should return the origin message in the response on errors
+/// A OneshotDnsRequest createa a channel for a response to message
+pub struct OneshotDnsRequest<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    // FIXME: change name to dns_request
-    serial_request: DnsRequest,
+    dns_request: DnsRequest,
     sender_for_response: oneshot::Sender<F>,
 }
 
-impl<F> OneshotSerialRequest<F>
+impl<F> OneshotDnsRequest<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
-    fn oneshot(serial_request: DnsRequest) -> (OneshotSerialRequest<F>, oneshot::Receiver<F>) {
+    fn oneshot(dns_request: DnsRequest) -> (OneshotDnsRequest<F>, oneshot::Receiver<F>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
         (
-            OneshotSerialRequest {
-                serial_request,
+            OneshotDnsRequest {
+                dns_request,
                 sender_for_response,
             },
             receiver,
@@ -262,7 +261,7 @@ where
 
     fn unwrap(self) -> (DnsRequest, OneshotDnsResponse<F>) {
         (
-            self.serial_request,
+            self.dns_request,
             OneshotDnsResponse(self.sender_for_response),
         )
     }
