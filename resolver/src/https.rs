@@ -31,9 +31,8 @@ pub(crate) fn new_https_stream(
     client_config.versions = versions;
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    let (stream, handle) =
-        DnsExchange::connect(https_builder.build(socket_addr, dns_name), socket_addr);
-    let handle = BufSerialMessageStreamHandle::new(socket_addr, handle);
+    let (stream, handle) = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
+    let handle = BufSerialMessageStreamHandle::new(handle);
 
     (Box::new(stream), handle)
 }

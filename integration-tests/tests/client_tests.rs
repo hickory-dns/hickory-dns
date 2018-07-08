@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate env_logger;
 extern crate futures;
 extern crate openssl;
 extern crate trust_dns;
@@ -195,6 +196,7 @@ where
 
 #[test]
 fn test_timeout_query_nonet() {
+    env_logger::try_init().ok();
     // TODO: need to add timeout length to SyncClient
     let client = SyncClient::new(NeverReturnsClientConnection::new().unwrap());
     test_timeout_query(client);
