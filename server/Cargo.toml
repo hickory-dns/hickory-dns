@@ -93,6 +93,6 @@ trust-dns-proto = { version = "^0.4", path = "../proto" }
 trust-dns-openssl = { version = "^0.3", path = "../openssl", optional = true }
 
 [dev-dependencies]
-native-tls = "^0.1"
+native-tls = "^0.2"
 trust-dns-native-tls = { version = "^0.3", path = "../native-tls" }
 tokio-tls = "^0.1"
