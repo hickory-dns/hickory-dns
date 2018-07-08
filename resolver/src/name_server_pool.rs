@@ -21,9 +21,9 @@ use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
 use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 
+use async_resolver::BasicAsyncResolver;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
-use async_resolver::BasicAsyncResolver;
 
 /// State of a connection with a remote NameServer.
 #[derive(Clone, Debug)]
@@ -229,7 +229,19 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 )
             }
-            // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr),
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => {
+                let (stream, handle) = ::https::new_https_stream(
+                    config.socket_addr,
+                    config.tls_dns_name.clone().unwrap_or_default(),
+                );
+                DnsFuture::with_timeout(
+                    stream,
+                    handle,
+                    options.timeout,
+                    NoopMessageFinalizer::new(),
+                )
+            }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
                 let (stream, handle) = MdnsClientStream::new(
@@ -298,7 +310,8 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
 
     /// checks if the connection is failed, if so then reconnect.
     fn try_reconnect(&mut self) -> ResolveResult<()> {
-        let error_opt: Option<(usize, usize)> = self.stats
+        let error_opt: Option<(usize, usize)> = self
+            .stats
             .lock()
             .map(|stats| {
                 if let NameServerState::Failed { .. } = stats.state {
@@ -406,10 +419,12 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
         self.stats
             .lock()
             .expect("poisoned lock in NameServer::cmp")
-            .cmp(&other
+            .cmp(
+                &other
                       .stats
                       .lock() // TODO: hmm... deadlock potential? switch to try_lock?
-                      .expect("poisoned lock in NameServer::cmp"))
+                      .expect("poisoned lock in NameServer::cmp"),
+            )
     }
 }
 

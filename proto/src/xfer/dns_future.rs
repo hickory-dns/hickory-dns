@@ -25,7 +25,7 @@ use tokio_timer::Delay;
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -107,25 +107,25 @@ impl<E: FromProtoError> ActiveRequest<E> {
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFuture<S, E, MF>
+pub struct DnsFuture<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error>,
+    D: Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error>,
     E: FromProtoError,
     MF: MessageFinalizer,
 {
     stream: S,
     timeout_duration: Duration,
-    // TODO: genericize and remove this Box
-    stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
+    stream_handle: D,
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
     active_requests: HashMap<u16, ActiveRequest<E>>,
     signer: Option<Arc<MF>>,
 }
 
-impl<S, E, MF> DnsFuture<S, E, MF>
+impl<S, E, MF> DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -139,7 +139,7 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
-        stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
+        stream_handle: Box<DnsStreamHandle<Error = E>>,
         signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
@@ -157,7 +157,7 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
-        stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
+        stream_handle: Box<DnsStreamHandle<Error = E>>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
@@ -243,9 +243,9 @@ where
     }
 }
 
-impl<S, E, MF> Future for DnsFuture<S, E, MF>
+impl<S, E, MF> Future for DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -382,7 +382,7 @@ where
                     messages_received = i;
 
                     //   deserialize or log decode_error
-                    match Message::from_vec(&buffer) {
+                    match buffer.to_message() {
                         Ok(message) => match self.active_requests.entry(message.id()) {
                             Entry::Occupied(mut request_entry) => {
                                 // first add the response to the active_requests responses
@@ -467,19 +467,20 @@ where
     }
 }
 
-enum ClientStreamOrError<S, E, MF>
+enum ClientStreamOrError<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    D: Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    Future(DnsFuture<S, E, MF>),
+    Future(DnsFuture<S, E, MF, D>),
     Errored(ClientStreamErrored<E>),
 }
 
-impl<S, E, MF> Future for ClientStreamOrError<S, E, MF>
+impl<S, E, MF> Future for ClientStreamOrError<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {

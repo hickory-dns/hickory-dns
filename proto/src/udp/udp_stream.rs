@@ -17,14 +17,14 @@ use rand::distributions::{Distribution, Range};
 use tokio_udp;
 
 use error::*;
-use BufStreamHandle;
+use xfer::{BufStreamHandle, SerialMessage};
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
     // FIXME: change UdpStream to always select a new Socket for every request
     socket: tokio_udp::UdpSocket,
-    outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
+    outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
 }
 
 impl UdpStream {
@@ -98,7 +98,7 @@ impl UdpStream {
     #[allow(unused)]
     pub(crate) fn from_parts(
         socket: tokio_udp::UdpSocket,
-        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>,
+        outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
             socket: socket,
@@ -120,7 +120,7 @@ impl UdpStream {
 }
 
 impl Stream for UdpStream {
-    type Item = (Vec<u8>, SocketAddr);
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -128,13 +128,13 @@ impl Stream for UdpStream {
         //  makes this self throttling.
         loop {
             // first try to send
-            if let Async::Ready(Some(&(ref buffer, addr))) = self
+            if let Async::Ready(Some(ref message)) = self
                 .outbound_messages
                 .peek()
                 .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
             {
                 // will return if the socket will block
-                try_ready!(self.socket.poll_send_to(buffer, &addr));
+                try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));
             }
 
             // now pop the request and check if we should break or continue.
@@ -159,7 +159,7 @@ impl Stream for UdpStream {
 
         // TODO: should we drop this packet if it's not from the same src as dest?
         let (len, src) = try_ready!(self.socket.poll_recv_from(&mut buf));
-        Ok(Async::Ready(Some((
+        Ok(Async::Ready(Some(SerialMessage::new(
             buf.iter().take(len).cloned().collect(),
             src,
         ))))
@@ -302,13 +302,13 @@ fn udp_stream_test(server_addr: IpAddr) {
     for _ in 0..send_recv_times {
         // test once
         sender
-            .unbounded_send((test_bytes.to_vec(), server_addr))
+            .unbounded_send(SerialMessage::new(test_bytes.to_vec(), server_addr))
             .unwrap();
         let (buffer_and_addr, stream_tmp) = io_loop.block_on(stream.into_future()).ok().unwrap();
         stream = stream_tmp;
-        let (buffer, addr) = buffer_and_addr.expect("no buffer received");
-        assert_eq!(&buffer, test_bytes);
-        assert_eq!(addr, server_addr);
+        let message = buffer_and_addr.expect("no buffer received");
+        assert_eq!(message.bytes(), test_bytes);
+        assert_eq!(message.addr(), server_addr);
     }
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

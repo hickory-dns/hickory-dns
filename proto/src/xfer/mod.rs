@@ -1,30 +1,38 @@
 //! DNS high level transit implimentations.
 //!
 //! Primarily there are two types in this module of interest, the `DnsFuture` type and the `DnsHandle` type. `DnsFuture` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsFuture` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsReqeustOptions`, to the delivery of messages via a `DnsFuture`.
+//!
+//! TODO: this module needs some serious refactoring and normalization.
 
 use std::fmt::Debug;
+use std::io;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 
 use error::*;
 use futures::sync::mpsc::{SendError, UnboundedSender};
+use futures::Future;
 use op::Message;
 
 pub mod dns_future;
 pub mod dns_handle;
 pub mod dns_request;
 pub mod dns_response;
+mod dns_stream;
 pub mod retry_dns_handle;
 #[cfg(feature = "dnssec")]
 pub mod secure_dns_handle;
+mod serial_message;
 
 pub use self::dns_future::DnsFuture;
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
+pub use self::dns_stream::{DnsStream, DnsStreamConnect};
 pub use self::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use self::secure_dns_handle::SecureDnsHandle;
+pub use self::serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, E: Debug>(result: Result<M, E>) {
@@ -40,7 +48,7 @@ pub struct BufStreamHandle<E>
 where
     E: FromProtoError,
 {
-    sender: UnboundedSender<(Vec<u8>, SocketAddr)>,
+    sender: UnboundedSender<SerialMessage>,
     phantom: PhantomData<E>,
 }
 
@@ -49,7 +57,7 @@ where
     E: FromProtoError,
 {
     /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: UnboundedSender<(Vec<u8>, SocketAddr)>) -> Self {
+    pub fn new(sender: UnboundedSender<SerialMessage>) -> Self {
         BufStreamHandle {
             sender,
             phantom: PhantomData::<E>,
@@ -57,10 +65,7 @@ where
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
-    pub fn unbounded_send(
-        &self,
-        msg: (Vec<u8>, SocketAddr),
-    ) -> Result<(), SendError<(Vec<u8>, SocketAddr)>> {
+    pub fn unbounded_send(&self, msg: SerialMessage) -> Result<(), SendError<SerialMessage>> {
         self.sender.unbounded_send(msg)
     }
 }
@@ -107,7 +112,84 @@ where
         let sender: &mut _ = &mut self.sender;
         sender
             .sender
-            .unbounded_send((buffer, name_server))
+            .unbounded_send(SerialMessage::new(buffer, name_server))
+            .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
+    }
+}
+
+// TODO: expose the Sink trait for this?
+/// A sender to which serialized DNS Messages can be sent
+#[derive(Clone)]
+pub struct SerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    sender: UnboundedSender<SerialMessage>,
+    phantom: PhantomData<E>,
+}
+
+impl<E> SerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    /// Constructs a new BufStreamHandle with the associated ProtoError
+    pub fn new(sender: UnboundedSender<SerialMessage>) -> Self {
+        SerialMessageStreamHandle {
+            sender,
+            phantom: PhantomData::<E>,
+        }
+    }
+
+    /// see [`futures::sync::mpsc::UnboundedSender`]
+    pub fn unbounded_send(&self, msg: SerialMessage) -> Result<(), SendError<SerialMessage>> {
+        self.sender.unbounded_send(msg)
+    }
+}
+
+// FIXME: change io::Error to FromProtoError
+/// Types that implement this are capable of sending a serialized DNS message on a stream
+pub trait SerialMessageSender {
+    /// A future that resolves to a response serial message
+    type SerialResponse: Future<Item = SerialMessage, Error = io::Error> + Send;
+
+    /// Send a message, and return a future of the response
+    ///
+    /// # Return
+    ///
+    /// A future which will resolve to a SerialMessage response
+    fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse;
+}
+
+pub struct BufSerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    name_server: SocketAddr,
+    sender: SerialMessageStreamHandle<E>,
+}
+
+impl<E> BufSerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    pub fn new(name_server: SocketAddr, sender: SerialMessageStreamHandle<E>) -> Self {
+        BufSerialMessageStreamHandle {
+            name_server: name_server,
+            sender: sender,
+        }
+    }
+}
+
+impl<E> DnsStreamHandle for BufSerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    type Error = E;
+
+    fn send(&mut self, buffer: Vec<u8>) -> Result<(), E> {
+        let name_server: SocketAddr = self.name_server;
+        self.sender
+            .unbounded_send(SerialMessage::new(buffer, name_server))
             .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
     }
 }

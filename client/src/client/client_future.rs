@@ -15,7 +15,7 @@ use futures::{future, Future};
 use rand;
 use trust_dns_proto::xfer::{
     BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
-    DnsStreamHandle,
+    DnsStreamHandle, SerialMessage,
 };
 
 use client::ClientStreamHandle;
@@ -33,11 +33,11 @@ const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 hea
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct ClientFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
+pub struct ClientFuture<S: Stream<Item = SerialMessage, Error = io::Error>> {
     phantom: PhantomData<S>,
 }
 
-impl<S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static> ClientFuture<S> {
+impl<S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static> ClientFuture<S> {
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments

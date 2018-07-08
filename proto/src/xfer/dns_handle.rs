@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -45,7 +45,7 @@ where
 }
 
 /// Implementations of Sinks for sending DNS messages
-pub trait DnsStreamHandle {
+pub trait DnsStreamHandle: 'static + Send {
     /// The Error type to be returned if there is an error
     type Error: FromProtoError;
 

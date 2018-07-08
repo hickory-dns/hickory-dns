@@ -78,6 +78,21 @@ impl ResolverConfig {
         }
     }
 
+    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
+    ///
+    /// Please see: https://www.cloudflare.com/dns/
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    #[cfg(feature = "dns-over-https")]
+    pub fn cloudflare_https() -> Self {
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::cloudflare_https(),
+        }
+    }
+
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
     /// Please see: https://www.quad9.net/faq/
@@ -183,6 +198,9 @@ pub enum Protocol {
     /// Tls for DNS over TLS
     #[cfg(feature = "dns-over-tls")]
     Tls,
+    /// Https for DNS over HTTPS
+    #[cfg(feature = "dns-over-https")]
+    Https,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
     Mdns,
@@ -196,6 +214,8 @@ impl Protocol {
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]
             Protocol::Tls => false,
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => false,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => true,
         }
@@ -204,6 +224,19 @@ impl Protocol {
     /// Returns true if this is a stream oriented protocol, e.g. TCP
     pub fn is_stream(&self) -> bool {
         !self.is_datagram()
+    }
+
+    pub fn is_encrypted(&self) -> bool {
+        match *self {
+            Protocol::Udp => false,
+            Protocol::Tcp => false,
+            #[cfg(feature = "dns-over-tls")]
+            Protocol::Tls => true,
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => true,
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => false,
+        }
     }
 }
 
@@ -237,7 +270,10 @@ impl NameServerConfigGroup {
         NameServerConfigGroup(Vec::with_capacity(capacity))
     }
 
-    fn from_ips_clear(ips: &[IpAddr], port: u16) -> Self {
+    /// Configure a NameServer address and port
+    ///
+    /// This will create UDP and TCP connections, using the same port.
+    pub fn from_ips_clear(ips: &[IpAddr], port: u16) -> Self {
         let mut name_servers = Self::with_capacity(ips.len());
 
         for ip in ips {
@@ -259,14 +295,21 @@ impl NameServerConfigGroup {
         name_servers
     }
 
-    #[cfg(feature = "dns-over-tls")]
-    fn from_ips_tls(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
+    #[cfg(any(feature = "dns-over-tls", feature = "dns-over-https"))]
+    fn from_ips_encrypted(
+        ips: &[IpAddr],
+        port: u16,
+        tls_dns_name: String,
+        protocol: Protocol,
+    ) -> Self {
+        assert!(protocol.is_encrypted());
+
         let mut name_servers = Self::with_capacity(ips.len());
 
         for ip in ips {
             let config = NameServerConfig {
                 socket_addr: SocketAddr::new(ip.clone(), port),
-                protocol: Protocol::Tls,
+                protocol,
                 tls_dns_name: Some(tls_dns_name.clone()),
             };
 
@@ -274,6 +317,22 @@ impl NameServerConfigGroup {
         }
 
         name_servers
+    }
+
+    /// Configure a NameServer address and port for DNS-over-TLS
+    ///
+    /// This will create a TLS connections.
+    #[cfg(feature = "dns-over-tls")]
+    pub fn from_ips_tls(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
+        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Tls)
+    }
+
+    /// Configure a NameServer address and port for DNS-over-HTTPS
+    ///
+    /// This will create a HTTPS connections.
+    #[cfg(feature = "dns-over-https")]
+    pub fn from_ips_https(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
+        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Https)
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
@@ -319,6 +378,23 @@ impl NameServerConfigGroup {
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
             ],
             853,
+            "cloudflare-dns.com".to_string(),
+        )
+    }
+
+    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
+    ///
+    /// Please see: https://www.cloudflare.com/dns/
+    #[cfg(feature = "dns-over-https")]
+    pub fn cloudflare_https() -> Self {
+        Self::from_ips_https(
+            &[
+                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+            ],
+            443,
             "cloudflare-dns.com".to_string(),
         )
     }
