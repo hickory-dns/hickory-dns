@@ -15,8 +15,8 @@ use futures::{Future, Poll, Stream};
 use op::Message;
 
 mod dns_exchange;
-pub mod dns_future;
 pub mod dns_handle;
+pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
 pub mod retry_dns_handle;
@@ -25,8 +25,8 @@ pub mod secure_dns_handle;
 mod serial_message;
 
 pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect};
-pub use self::dns_future::{DnsMultiplexer, DnsMultiplexerSerialResponse};
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerSerialResponse};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
 pub use self::retry_dns_handle::RetryDnsHandle;
