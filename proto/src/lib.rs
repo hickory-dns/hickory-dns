@@ -56,9 +56,9 @@ pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
-pub use xfer::dns_future::DnsMultiplexer;
-#[doc(hidden)]
 pub use xfer::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+#[doc(hidden)]
+pub use xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
 pub use xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
