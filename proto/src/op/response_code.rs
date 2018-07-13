@@ -56,7 +56,6 @@ use std::fmt::{Display, Formatter};
 ///                                 information to the particular requester,
 ///                                 or a name server may not wish to perform
 ///                                 a particular operation (e.g., zone
-///
 ///                                 transfer) for particular data.
 ///
 ///                 6-15            Reserved for future use.
