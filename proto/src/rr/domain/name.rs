@@ -817,7 +817,7 @@ impl From<Ipv6Addr> for Name {
         labels.push("ip6".as_bytes().into_label().expect("simple name should never fail"));
         labels.push("arpa".as_bytes().into_label().expect("simple name should never fail"));
 
-        Self::from_labels(labels).expect("a translation of Ipv4Addr should never fail")
+        Self::from_labels(labels).expect("a translation of Ipv6Addr should never fail")
     }
 }
 
