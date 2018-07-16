@@ -275,6 +275,7 @@ extern crate tokio_tls;
 extern crate trust_dns_proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;
+extern crate serde;
 
 pub mod client;
 pub mod error;
