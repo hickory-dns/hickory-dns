@@ -7,6 +7,7 @@
 
 //! domain name, aka labels, implementaton
 
+use std::str::FromStr;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt;
@@ -16,6 +17,7 @@ use std::ops::Index;
 use rr::{Name, Label};
 use serialize::binary::*;
 use trust_dns_proto::error::*;
+use serde::{Serializer, Serialize, de, Deserializer, Deserialize};
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]
@@ -258,5 +260,33 @@ impl<'r> BinDecodable<'r> for LowerName {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<LowerName> {
         let name = Name::read(decoder)?;
         Ok(LowerName(name.to_lowercase()))
+    }
+}
+
+impl FromStr for LowerName {
+    type Err = ProtoError;
+
+    fn from_str(name: &str) -> Result<Self, Self::Err> {
+        Name::from_str(name)
+            .map(LowerName::from)
+    }
+}
+
+impl Serialize for LowerName {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for LowerName {
+    fn deserialize<D>(deserializer: D) -> Result<LowerName, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        FromStr::from_str(&s).map_err(de::Error::custom)
     }
 }
