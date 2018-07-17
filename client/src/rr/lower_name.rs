@@ -15,9 +15,10 @@ use std::hash::{Hash, Hasher};
 use std::ops::Index;
 
 use rr::{Name, Label};
+#[cfg(feature = "serde-config")]
+use serde::{Serializer, Serialize, de, Deserializer, Deserialize};
 use serialize::binary::*;
 use trust_dns_proto::error::*;
-use serde::{Serializer, Serialize, de, Deserializer, Deserialize};
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]
@@ -272,6 +273,7 @@ impl FromStr for LowerName {
     }
 }
 
+#[cfg(feature = "serde-config")]
 impl Serialize for LowerName {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -281,6 +283,7 @@ impl Serialize for LowerName {
     }
 }
 
+#[cfg(feature = "serde-config")]
 impl<'de> Deserialize<'de> for LowerName {
     fn deserialize<D>(deserializer: D) -> Result<LowerName, D::Error>
     where

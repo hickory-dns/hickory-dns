@@ -266,6 +266,8 @@ extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
+#[cfg(feature = "serde-config")]
+extern crate serde;
 extern crate tokio;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
@@ -275,7 +277,6 @@ extern crate tokio_tls;
 extern crate trust_dns_proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;
-extern crate serde;
 
 pub mod client;
 pub mod error;
