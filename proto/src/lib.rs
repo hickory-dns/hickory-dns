@@ -30,6 +30,8 @@ extern crate openssl;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
+#[cfg(feature = "serde-config")]
+extern crate serde;
 extern crate smallvec;
 extern crate socket2;
 #[cfg(test)]

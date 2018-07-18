@@ -48,7 +48,7 @@ dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
-config-serde = ["serde", "serde_derive"]
+serde-config = ["serde", "serde_derive", "trust-dns-proto/serde-config"]
 
 mdns = ["trust-dns-proto/mdns"]
 
