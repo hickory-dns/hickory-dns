@@ -18,6 +18,8 @@ use std::str::FromStr;
 
 use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use rr::domain::usage::{LOCALHOST as LOCALHOST_usage};
+#[cfg(feature = "serde-config")]
+use serde::{Serializer, Serialize, de, Deserializer, Deserialize};
 use serialize::binary::*;
 use error::*;
 
@@ -1031,6 +1033,27 @@ impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
+    }
+}
+
+#[cfg(feature = "serde-config")]
+impl Serialize for Name {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[cfg(feature = "serde-config")]
+impl<'de> Deserialize<'de> for Name {
+    fn deserialize<D>(deserializer: D) -> Result<Name, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        FromStr::from_str(&s).map_err(de::Error::custom)
     }
 }
 
