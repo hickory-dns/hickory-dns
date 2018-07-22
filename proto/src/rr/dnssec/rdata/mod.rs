@@ -28,9 +28,9 @@ pub mod nsec3param;
 pub mod sig;
 
 use error::*;
-use serialize::binary::*;
-use rr::rdata::NULL;
 use rr::rdata::null;
+use rr::rdata::NULL;
+use serialize::binary::*;
 
 pub use self::dnskey::DNSKEY;
 pub use self::ds::DS;
