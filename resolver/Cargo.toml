@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-resolver"
-version = "0.9.0"
+version = "0.10.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -69,11 +69,11 @@ serde = { version = "1.0", optional = true }
 serde_derive = { version = "1.0", optional = true }
 smallvec = "^0.6"
 tokio = "^0.1.6"
-trust-dns-https = { version = "0.1", path = "../https", optional = true }
-trust-dns-native-tls = { version = "^0.3", path = "../native-tls", optional = true }
-trust-dns-openssl = { version = "^0.3", path = "../openssl", optional = true }
-trust-dns-proto = { version = "^0.4", path = "../proto" }
-trust-dns-rustls = { version = "^0.3", path = "../rustls", optional = true }
+trust-dns-https = { version = "0.1.0-alpha", path = "../https", optional = true }
+trust-dns-native-tls = { version = "0.4.0-alpha", path = "../native-tls", optional = true }
+trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl", optional = true }
+trust-dns-proto = { version = "0.5.0-alpha", path = "../proto" }
+trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls", optional = true }
 webpki-roots = { version = "^0.14", optional = true }
 
 [target.'cfg(windows)'.dependencies]
