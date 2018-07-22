@@ -1,32 +1,16 @@
 #!/bin/bash -e
 
+set -x
+
 trust_dns_dir=$(dirname $0)/..
 cd ${trust_dns_dir:?}
 
-for i in client server; do
-  pushd $i
-  echo "$0: updating cargo on $i"
-  cargo update
-  popd
-done
+packages_ordered="proto openssl native-tls rustls https client resolver server"
 
-for i in client server; do
-  pushd $i
-  echo "$0: building cargo on $i"
-  cargo build
-  popd
-done
+## dry-run
+cargo check
 
-for i in client server; do
-  pushd $i
-  echo "$0: testing cargo on $i"
-  cargo test
-  popd
-done
-
-for i in client server; do
-  pushd $i
-  echo "$0: publishing cargo on $i"
-  cargo publish
-  popd
+for p in ${packages_ordered:?} ; do
+    cargo publish --verbose --locked --dry-run --manifest-path ${p:?}/Cargo.toml
+    cargo publish --verbose --locked --manifest-path ${p:?}/Cargo.toml     
 done
