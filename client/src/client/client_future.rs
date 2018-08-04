@@ -62,10 +62,10 @@ impl<S: DnsClientStream + 'static>
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
-        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer.clone());
+        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer);
         let (exchange, handle) = DnsExchange::connect(mp);
 
-        Self::from_exchange_with_timeout(exchange, handle, Duration::from_secs(5), signer)
+        Self::from_exchange_with_timeout(exchange, handle, Duration::from_secs(5))
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -85,10 +85,10 @@ impl<S: DnsClientStream + 'static>
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
-        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer.clone());
+        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer);
         let (exchange, handle) = DnsExchange::connect(mp);
 
-        Self::from_exchange_with_timeout(exchange, handle, timeout_duration, signer)
+        Self::from_exchange_with_timeout(exchange, handle, timeout_duration)
     }
 }
 
@@ -109,9 +109,8 @@ where
     pub fn from_exchange(
         stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
         stream_handle: DnsRequestStreamHandle<Response>,
-        signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<Response>) {
-        Self::from_exchange_with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
+        Self::from_exchange_with_timeout(stream, stream_handle, Duration::from_secs(5))
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -128,7 +127,6 @@ where
         stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
         stream_handle: DnsRequestStreamHandle<Response>,
         _timeout_duration: Duration,
-        _finalizer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<Response>) {
         (
             Self {

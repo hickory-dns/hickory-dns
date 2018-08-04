@@ -8,19 +8,17 @@ extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
-use std::io;
 use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time;
 
 use chrono::Duration;
-use futures::Future;
 use openssl::rsa::Rsa;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
-use trust_dns::error::{ClientErrorKind, ClientResult};
+use trust_dns::error::ClientErrorKind;
 use trust_dns::op::*;
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::*;
@@ -29,7 +27,10 @@ use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
-use trust_dns_proto::xfer::{DnsStreamHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender, DnsExchange, DnsExchangeConnect, DnsRequestStreamHandle};
+use trust_dns_proto::xfer::{
+    DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
+    DnsRequestStreamHandle,
+};
 use trust_dns_server::authority::Catalog;
 
 pub struct TestClientConnection {
@@ -51,13 +52,14 @@ impl ClientConnection for TestClientConnection {
 
     fn new_stream(
         &self,
+        signer: Option<Arc<Signer>>,
     ) -> (
         DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
         DnsRequestStreamHandle<Self::Response>,
     ) {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
 
-        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), None);
+        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer);
         DnsExchange::connect(mp)
     }
 }

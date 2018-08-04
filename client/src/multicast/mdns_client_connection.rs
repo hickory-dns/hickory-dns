@@ -59,6 +59,7 @@ impl ClientConnection for MdnsClientConnection {
 
     fn new_stream(
         &self,
+        signer: Option<Arc<Signer>>,
     ) -> (
         DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
         DnsRequestStreamHandle<Self::Response>,
@@ -71,8 +72,7 @@ impl ClientConnection for MdnsClientConnection {
             self.ipv6_if,
         );
 
-        // FIXME: what is the Signer here?
-        let mp = DnsMultiplexer::new(Box::new(mdns_client_stream), handle, None::<Arc<Signer>>);
+        let mp = DnsMultiplexer::new(Box::new(mdns_client_stream), handle, signer);
         DnsExchange::connect(mp)
     }
 }

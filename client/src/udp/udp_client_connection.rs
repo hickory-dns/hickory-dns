@@ -49,13 +49,13 @@ impl ClientConnection for UdpClientConnection {
 
     fn new_stream(
         &self,
+        signer: Option<Arc<Signer>>,
     ) -> (
         DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
         DnsRequestStreamHandle<Self::Response>,
     ) {
         let (udp_client_stream, handle) = UdpClientStream::new(self.name_server);
-        // FIXME: what is the Signer here?
-        let mp = DnsMultiplexer::new(Box::new(udp_client_stream), handle, None::<Arc<Signer>>);
+        let mp = DnsMultiplexer::new(Box::new(udp_client_stream), handle, signer);
         DnsExchange::connect(mp)
     }
 }

@@ -30,10 +30,10 @@ use trust_dns::rr::dnssec::Signer;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    DnsClientStream, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest,
-    DnsRequestSender, SerialMessage, DnsRequestStreamHandle, DnsResponse, DnsExchange,
+    DnsClientStream, DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect,
+    DnsRequestSender, DnsRequestStreamHandle, SerialMessage,
 };
-use trust_dns_proto::{DnsStreamHandle, StreamHandle};
+use trust_dns_proto::StreamHandle;
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
@@ -118,9 +118,11 @@ impl Stream for TestClientStream {
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match self.outbound_messages.poll().map_err(|_| {
-            ProtoError::from("Server stopping due to interruption")
-        })? {
+        match self
+            .outbound_messages
+            .poll()
+            .map_err(|_| ProtoError::from("Server stopping due to interruption"))?
+        {
             // already handled above, here to make sure the poll() pops the next message
             Async::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
@@ -240,13 +242,14 @@ impl ClientConnection for NeverReturnsClientConnection {
 
     fn new_stream(
         &self,
+        signer: Option<Arc<Signer>>,
     ) -> (
         DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
         DnsRequestStreamHandle<Self::Response>,
     ) {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
-        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), None);
+        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer);
         DnsExchange::connect(mp)
     }
 }
