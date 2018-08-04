@@ -29,7 +29,7 @@ use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
-use trust_dns_proto::DnsStreamHandle;
+use trust_dns_proto::xfer::{DnsStreamHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender, DnsExchange, DnsExchangeConnect, DnsRequestStreamHandle};
 use trust_dns_server::authority::Catalog;
 
 pub struct TestClientConnection {
@@ -45,16 +45,20 @@ impl TestClientConnection {
 }
 
 impl ClientConnection for TestClientConnection {
-    type MessageStream = TestClientStream;
+    type Sender = DnsMultiplexer<TestClientStream, Signer>;
+    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
+    type SenderFuture = DnsMultiplexerConnect<TestClientStream, Signer>;
 
     fn new_stream(
         &self,
-    ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send + 'static>,
-        Box<DnsStreamHandle>,
-    )> {
-        let (stream, handle) = TestClientStream::new(self.catalog.clone());
-        Ok((stream, Box::new(handle)))
+    ) -> (
+        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
+        DnsRequestStreamHandle<Self::Response>,
+    ) {
+        let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
+
+        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), None);
+        DnsExchange::connect(mp)
     }
 }
 

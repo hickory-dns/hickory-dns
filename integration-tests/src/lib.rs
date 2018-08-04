@@ -26,8 +26,13 @@ use tokio_timer::Delay;
 use trust_dns::client::ClientConnection;
 use trust_dns::error::ClientResult;
 use trust_dns::op::*;
+use trust_dns::rr::dnssec::Signer;
 use trust_dns::serialize::binary::*;
-use trust_dns_proto::xfer::{DnsClientStream, SerialMessage};
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{
+    DnsClientStream, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest,
+    DnsRequestSender, SerialMessage, DnsRequestStreamHandle, DnsResponse, DnsExchange,
+};
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
@@ -48,7 +53,7 @@ impl TestClientStream {
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
-        Box<Future<Item = Self, Error = io::Error> + Send>,
+        Box<Future<Item = Self, Error = ProtoError> + Send>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -110,14 +115,11 @@ impl DnsClientStream for TestClientStream {
 
 impl Stream for TestClientStream {
     type Item = SerialMessage;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match self.outbound_messages.poll().map_err(|_| {
-            io::Error::new(
-                io::ErrorKind::Interrupted,
-                "Server stopping due to interruption",
-            )
+            ProtoError::from("Server stopping due to interruption")
         })? {
             // already handled above, here to make sure the poll() pops the next message
             Async::Ready(Some(bytes)) => {
@@ -167,7 +169,7 @@ pub struct NeverReturnsClientStream {
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
     pub fn new() -> (
-        Box<Future<Item = Self, Error = io::Error> + Send>,
+        Box<Future<Item = Self, Error = ProtoError> + Send>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -196,7 +198,7 @@ impl DnsClientStream for NeverReturnsClientStream {
 
 impl Stream for NeverReturnsClientStream {
     type Item = SerialMessage;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         println!("still not returning");
@@ -232,16 +234,19 @@ impl NeverReturnsClientConnection {
 }
 
 impl ClientConnection for NeverReturnsClientConnection {
-    type MessageStream = NeverReturnsClientStream;
+    type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
+    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
+    type SenderFuture = DnsMultiplexerConnect<NeverReturnsClientStream, Signer>;
 
     fn new_stream(
         &self,
-    ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle>,
-    )> {
+    ) -> (
+        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
+        DnsRequestStreamHandle<Self::Response>,
+    ) {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
-        Ok((client_stream, Box::new(handle)))
+        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), None);
+        DnsExchange::connect(mp)
     }
 }

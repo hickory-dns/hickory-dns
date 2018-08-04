@@ -253,6 +253,7 @@ extern crate data_encoding;
 extern crate data_encoding_macro;
 #[macro_use]
 extern crate failure;
+#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate lazy_static;
@@ -266,6 +267,8 @@ extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
+#[cfg(feature = "dns-over-https")]
+extern crate rustls;
 #[cfg(feature = "serde-config")]
 extern crate serde;
 extern crate tokio;
@@ -274,9 +277,13 @@ extern crate tokio_openssl;
 extern crate tokio_tcp;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
+#[cfg(feature = "dns-over-https")]
+extern crate trust_dns_https;
 extern crate trust_dns_proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;
+#[cfg(feature = "dns-over-https")]
+extern crate webpki;
 
 pub mod client;
 pub mod error;
@@ -287,6 +294,16 @@ pub mod rr;
 pub mod serialize;
 pub mod tcp;
 pub mod udp;
+
+// TODO: consider removing tcp/udp/https modules...
+#[cfg(feature = "dns-over-https")]
+mod https_client_connection;
+
+/// The https module which contains all https related connection types
+#[cfg(feature = "dns-over-https")]
+pub mod https {
+    pub use super::https_client_connection::HttpsClientConnection;
+}
 
 /// A sender to which serialized DNS Messages can be sent
 #[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]

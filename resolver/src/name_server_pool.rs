@@ -225,7 +225,7 @@ impl ConnectionProvider for StandardConnection {
                     TcpClientStream::with_timeout(config.socket_addr, options.timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
+                    Box::new(stream),
                     handle,
                     options.timeout,
                     NoopMessageFinalizer::new(),

@@ -16,6 +16,7 @@ use openssl::x509::X509;
 use tokio_openssl::SslStream as TokioTlsStream;
 use tokio_tcp::TcpStream as TokioTcpStream;
 
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
@@ -67,13 +68,16 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
+        Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
 
-        let new_future =
-            Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
+        let new_future = Box::new(
+            stream_future
+                .map(move |tls_stream| TcpClientStream::from_stream(tls_stream))
+                .map_err(ProtoError::from),
+        );
 
         let sender = BufDnsStreamHandle::new(name_server, sender);
 

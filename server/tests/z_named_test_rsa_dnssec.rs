@@ -4,6 +4,7 @@
 extern crate futures;
 extern crate log;
 extern crate tokio;
+extern crate tokio_tcp;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 
@@ -14,14 +15,20 @@ use std::fs::File;
 use std::io::*;
 use std::net::*;
 use std::path::Path;
+use std::sync::Arc;
 
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
+use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns::client::*;
 use trust_dns::error::ClientError;
 use trust_dns::rr::dnssec::*;
 use trust_dns::tcp::TcpClientStream;
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{
+    DnsExchange, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
+};
 
 use server_harness::*;
 
@@ -56,14 +63,23 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     trust_anchor
 }
 
-fn standard_conn(port: u16) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
+fn standard_conn(
+    port: u16,
+) -> (
+    ClientFuture<
+        DnsMultiplexerConnect<TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexerSerialResponse,
+    >,
+    BasicClientHandle<impl Future<Item = DnsResponse, Error = ProtoError>>,
+) {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    ClientFuture::new(stream, sender, None)
+    ClientFuture::new(Box::new(stream), sender, None)
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
@@ -78,17 +94,17 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present
-        let client = standard_conn(port);
-        let client = io_loop.block_on(client).unwrap();
+        let (bg, client) = standard_conn(port);
+        io_loop.spawn(bg);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let client = standard_conn(port);
-        let client = io_loop.block_on(client).unwrap();
+        let (bg, client) = standard_conn(port);
+        io_loop.spawn(bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
-        let client = standard_conn(port);
-        let client = io_loop.block_on(client).unwrap();
+        let (bg, client) = standard_conn(port);
+        io_loop.spawn(bg);
         let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);

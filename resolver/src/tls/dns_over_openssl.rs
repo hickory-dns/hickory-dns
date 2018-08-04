@@ -8,19 +8,19 @@
 #![cfg(feature = "dns-over-openssl")]
 #![allow(dead_code)]
 
-use std::io;
 use std::net::SocketAddr;
 
 use futures::Future;
 
 use trust_dns_openssl::{TlsClientStream, TlsClientStreamBuilder};
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::BufDnsStreamHandle;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
+    Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
     BufDnsStreamHandle,
 ) {
     let tls_builder = TlsClientStreamBuilder::new();

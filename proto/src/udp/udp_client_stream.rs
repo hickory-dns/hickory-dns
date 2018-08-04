@@ -6,11 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-use std::io;
 use std::net::SocketAddr;
 
 use futures::{Async, Future, Poll, Stream};
 
+use error::ProtoError;
 use udp::UdpStream;
 use xfer::{DnsClientStream, SerialMessage};
 use BufDnsStreamHandle;
@@ -35,15 +35,19 @@ impl UdpClientStream {
     pub fn new(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = UdpClientStream, Error = io::Error> + Send>,
+        Box<Future<Item = UdpClientStream, Error = ProtoError> + Send>,
         Box<DnsStreamHandle + Send>,
     ) {
         let (stream_future, sender) = UdpStream::new(name_server);
 
-        let new_future = Box::new(stream_future.map(move |udp_stream| UdpClientStream {
-            name_server: name_server,
-            udp_stream: udp_stream,
-        }));
+        let new_future = Box::new(
+            stream_future
+                .map(move |udp_stream| UdpClientStream {
+                    name_server: name_server,
+                    udp_stream: udp_stream,
+                })
+                .map_err(ProtoError::from),
+        );
 
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
@@ -65,10 +69,10 @@ impl DnsClientStream for UdpClientStream {
 
 impl Stream for UdpClientStream {
     type Item = SerialMessage;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match try_ready!(self.udp_stream.poll()) {
+        match try_ready!(self.udp_stream.poll().map_err(ProtoError::from)) {
             Some(message) => {
                 if message.addr() != self.name_server {
                     debug!(

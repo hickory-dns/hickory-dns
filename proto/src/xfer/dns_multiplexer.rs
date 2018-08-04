@@ -11,7 +11,6 @@ use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
-use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -140,7 +139,8 @@ where
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
-        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        // TODO: unbox this
+        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<S, MF> {
@@ -158,7 +158,7 @@ where
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
-        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
@@ -253,10 +253,10 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsMultiplexerConnect<S, MF>
 where
-    S: Stream<Item = SerialMessage, Error = io::Error>,
+    S: Stream<Item = SerialMessage, Error = ProtoError>,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    stream: Box<Future<Item = S, Error = io::Error> + Send>,
+    stream: Box<Future<Item = S, Error = ProtoError> + Send>,
     stream_handle: Option<Box<DnsStreamHandle>>,
     timeout_duration: Duration,
     signer: Option<Arc<MF>>,

@@ -7,15 +7,17 @@
 
 //! MDNS based DNS client connection for Client impls
 
-use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 
-use futures::Future;
-use trust_dns_proto::DnsStreamHandle;
+use trust_dns_proto::multicast::{MDNS_IPV4, MDNS_IPV6, MdnsClientStream, MdnsQueryType};
+use trust_dns_proto::xfer::{
+    DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
+    DnsRequestStreamHandle,
+};
 
 use client::ClientConnection;
-use error::*;
-use multicast::{MDNS_IPV4, MDNS_IPV6, MdnsClientStream, MdnsQueryType};
+use rr::dnssec::Signer;
 
 /// MDNS based DNS Client connection
 ///
@@ -51,14 +53,16 @@ impl MdnsClientConnection {
 }
 
 impl ClientConnection for MdnsClientConnection {
-    type MessageStream = MdnsClientStream;
+    type Sender = DnsMultiplexer<MdnsClientStream, Signer>;
+    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
+    type SenderFuture = DnsMultiplexerConnect<MdnsClientStream, Signer>;
 
     fn new_stream(
         &self,
-    ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle>,
-    )> {
+    ) -> (
+        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
+        DnsRequestStreamHandle<Self::Response>,
+    ) {
         let (mdns_client_stream, handle) = MdnsClientStream::new(
             self.multicast_addr,
             MdnsQueryType::OneShot,
@@ -67,6 +71,8 @@ impl ClientConnection for MdnsClientConnection {
             self.ipv6_if,
         );
 
-        Ok((mdns_client_stream, handle))
+        // FIXME: what is the Signer here?
+        let mp = DnsMultiplexer::new(Box::new(mdns_client_stream), handle, None::<Arc<Signer>>);
+        DnsExchange::connect(mp)
     }
 }

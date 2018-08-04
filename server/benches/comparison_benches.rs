@@ -7,8 +7,8 @@ extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
-use std::fs::DirBuilder;
 use std::env;
+use std::fs::DirBuilder;
 use std::mem;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
@@ -24,8 +24,8 @@ use trust_dns::client::*;
 use trust_dns::error::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
-use trust_dns::udp::*;
 use trust_dns::tcp::*;
+use trust_dns::udp::*;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -108,7 +108,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 /// Runs the bench tesk using the specified client
 fn bench(
     b: &mut Bencher,
-    client: &mut futures::Future<Item = BasicClientHandle, Error = ClientError>
+    client: &mut futures::Future<Item = BasicClientHandle, Error = ClientError>,
 ) {
     let mut io_loop = Runtime::new().unwrap();
     let mut client = io_loop.block_on(client).unwrap();
@@ -137,7 +137,6 @@ fn bench(
         response.unwrap();
     });
 }
-
 
 #[bench]
 fn trust_dns_udp_bench(b: &mut Bencher) {

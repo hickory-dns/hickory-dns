@@ -11,12 +11,12 @@
 extern crate rustls;
 extern crate webpki_roots;
 
-use std::io;
 use std::net::SocketAddr;
 
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;
 
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::BufDnsStreamHandle;
 use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
 
@@ -24,7 +24,7 @@ pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
+    Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
     BufDnsStreamHandle,
 ) {
     // using the mozilla default root store
@@ -37,5 +37,6 @@ pub(crate) fn new_tls_stream(
     client_config.versions = versions;
 
     let tls_builder = TlsClientStreamBuilder::with_client_config(client_config);
-    tls_builder.build(socket_addr, dns_name)
+    let (stream, handle) = tls_builder.build(socket_addr, dns_name);
+    (Box::new(stream), handle)
 }

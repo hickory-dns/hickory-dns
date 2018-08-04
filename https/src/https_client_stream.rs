@@ -461,6 +461,7 @@ impl HttpsClientStreamBuilder {
     }
 }
 
+/// A future that resolves to an HttpsClientStream
 pub struct HttpsClientConnect(HttpsClientConnectState);
 
 impl Future for HttpsClientConnect {

@@ -5,20 +5,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::stream::Stream;
-use futures::{future, Future, Poll};
+use futures::{Future, Poll};
 use rand;
-use tokio;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsHandle, DnsMultiplexer,
-    DnsMultiplexerSerialResponse, DnsRequest, DnsRequestOptions, DnsResponse, DnsStreamHandle,
-    OneshotDnsResponseReceiver, SerialMessage,
+    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
+    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
+    DnsRequestOptions, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, DnsStreamHandle,
+    OneshotDnsResponseReceiver,
 };
 
 use error::*;
@@ -35,11 +32,22 @@ const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 hea
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct ClientFuture<S: Stream<Item = SerialMessage, Error = io::Error>> {
-    phantom: PhantomData<S>,
+pub struct ClientFuture<SenderFuture, Sender, Response>
+where
+    SenderFuture: Future<Item = Sender, Error = ProtoError> + 'static + Send,
+    Sender: DnsRequestSender<DnsResponseFuture = Response> + 'static,
+    Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
+    inner: InnerClientFuture<SenderFuture, Sender, Response>,
 }
 
-impl<S: DnsClientStream + 'static> ClientFuture<S> {
+impl<S: DnsClientStream + 'static>
+    ClientFuture<
+        DnsMultiplexerConnect<S, Signer>,
+        DnsMultiplexer<S, Signer, Box<DnsStreamHandle>>,
+        DnsMultiplexerSerialResponse,
+    >
+{
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -48,12 +56,16 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
     ///              (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
+    #[allow(deprecated)]
     pub fn new(
-        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
-    ) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
-        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
+    ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
+        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer.clone());
+        let (exchange, handle) = DnsExchange::connect(mp);
+
+        Self::from_exchange_with_timeout(exchange, handle, Duration::from_secs(5), signer)
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -66,26 +78,115 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `finalizer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
+    #[deprecated]
     pub fn with_timeout(
-        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
-        finalizer: Option<Arc<Signer>>,
-    ) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
-        Box::new(future::lazy(move || {
-            let dns_conn =
-                DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, finalizer);
+        signer: Option<Arc<Signer>>,
+    ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
+        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer.clone());
+        let (exchange, handle) = DnsExchange::connect(mp);
 
-            let (stream, handle) = DnsExchange::connect(dns_conn);
-            // TODO: instead of spawning here, return the stream as a "Background" type...
-            tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
-                error!("error, connection shutting down: {}", e);
-            }));
+        Self::from_exchange_with_timeout(exchange, handle, timeout_duration, signer)
+    }
+}
 
-            future::ok(BasicClientHandle {
-                message_sender: BufDnsRequestStreamHandle::new(handle),
-            })
-        }))
+impl<SenderFuture, Sender, Response> ClientFuture<SenderFuture, Sender, Response>
+where
+    SenderFuture: Future<Item = Sender, Error = ProtoError> + Send,
+    Sender: DnsRequestSender<DnsResponseFuture = Response>,
+    Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
+{
+    /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
+    ///
+    /// # Arguments
+    ///
+    /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
+    ///              (see TcpClientStream or UdpClientStream)
+    /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
+    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
+    pub fn from_exchange(
+        stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
+        stream_handle: DnsRequestStreamHandle<Response>,
+        signer: Option<Arc<Signer>>,
+    ) -> (Self, BasicClientHandle<Response>) {
+        Self::from_exchange_with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
+    }
+
+    /// Spawns a new ClientFuture Stream.
+    ///
+    /// # Arguments
+    ///
+    /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
+    ///              (see TcpClientStream or UdpClientStream)
+    /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
+    ///                        wait for a response before canceling the request.
+    /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
+    /// * `finalizer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
+    pub fn from_exchange_with_timeout(
+        stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
+        stream_handle: DnsRequestStreamHandle<Response>,
+        _timeout_duration: Duration,
+        _finalizer: Option<Arc<Signer>>,
+    ) -> (Self, BasicClientHandle<Response>) {
+        (
+            Self {
+                inner: InnerClientFuture::DnsExchangeConnect(stream),
+            },
+            BasicClientHandle {
+                message_sender: BufDnsRequestStreamHandle::new(stream_handle),
+            },
+        )
+    }
+}
+
+impl<SenderFuture, Sender, Response> Future for ClientFuture<SenderFuture, Sender, Response>
+where
+    SenderFuture: Future<Item = Sender, Error = ProtoError> + Send,
+    Sender: DnsRequestSender<DnsResponseFuture = Response>,
+    Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
+{
+    type Item = ();
+    type Error = ();
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.inner
+            .poll()
+            .map_err(|e| warn!("poll errored in background ClientFuture: {}", e))
+    }
+}
+
+enum InnerClientFuture<SenderFuture, Sender, Response>
+where
+    SenderFuture: Future<Item = Sender, Error = ProtoError> + 'static + Send,
+    Sender: DnsRequestSender<DnsResponseFuture = Response>,
+    Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
+    DnsExchangeConnect(DnsExchangeConnect<SenderFuture, Sender, Response>),
+    DnsExchange(DnsExchange<Sender, Response>),
+}
+
+impl<SenderFuture, Sender, Response> Future for InnerClientFuture<SenderFuture, Sender, Response>
+where
+    SenderFuture: Future<Item = Sender, Error = ProtoError> + Send,
+    Sender: DnsRequestSender<DnsResponseFuture = Response>,
+    Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
+{
+    type Item = ();
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        loop {
+            // we're either awaiting the connection, or we're always returning the exchange's result
+            let next = match self {
+                InnerClientFuture::DnsExchangeConnect(connect) => try_ready!(connect.poll()),
+                InnerClientFuture::DnsExchange(exchange) => return exchange.poll(),
+            };
+
+            // asign the next and final state
+            *self = InnerClientFuture::DnsExchange(next);
+        }
     }
 }
 
@@ -93,23 +194,39 @@ impl<S: DnsClientStream + 'static> ClientFuture<S> {
 ///
 /// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
 ///  a DNSSEc chain validator.
-#[derive(Clone)]
-pub struct BasicClientHandle {
-    message_sender: BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>,
+pub struct BasicClientHandle<Resp>
+where
+    Resp: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
+    message_sender: BufDnsRequestStreamHandle<Resp>,
 }
 
-impl DnsHandle for BasicClientHandle {
-    type Response = OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>;
+impl<Resp> DnsHandle for BasicClientHandle<Resp>
+where
+    Resp: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
+    type Response = OneshotDnsResponseReceiver<Resp>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         self.message_sender.send(request)
     }
 }
 
+impl<Resp> Clone for BasicClientHandle<Resp>
+where
+    Resp: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
+    fn clone(&self) -> Self {
+        Self {
+            message_sender: self.message_sender.clone(),
+        }
+    }
+}
+
 impl<T> ClientHandle for T where T: DnsHandle {}
 
 /// A trait for implementing high level functions of DNS.
-pub trait ClientHandle: Clone + DnsHandle + Send {
+pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to

@@ -100,9 +100,9 @@ impl DnsHandle for BasicDnsHandle {
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait DnsHandle: Clone + Send {
+pub trait DnsHandle: 'static + Clone + Send {
     /// The associated response from the response future, this should resolve to the Response message
-    type Response: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static;
+    type Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send;
 
     /// Ony returns true if and only if this DNS handle is validating DNSSec.
     ///
