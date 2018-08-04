@@ -1,28 +1,24 @@
-// Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! UDP based DNS client connection for Client impls
 
-use std::io;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
-use futures::Future;
-use trust_dns_proto::DnsStreamHandle;
+use trust_dns_proto::udp::UdpClientStream;
+use trust_dns_proto::xfer::{
+    DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
+    DnsRequestStreamHandle,
+};
 
 use client::ClientConnection;
 use error::*;
-use udp::UdpClientStream;
+use rr::dnssec::Signer;
 
 /// UDP based DNS Client connection
 ///
@@ -47,16 +43,19 @@ impl UdpClientConnection {
 }
 
 impl ClientConnection for UdpClientConnection {
-    type MessageStream = UdpClientStream;
+    type Sender = DnsMultiplexer<UdpClientStream, Signer>;
+    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
+    type SenderFuture = DnsMultiplexerConnect<UdpClientStream, Signer>;
 
     fn new_stream(
         &self,
-    ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle>,
-    )> {
+    ) -> (
+        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
+        DnsRequestStreamHandle<Self::Response>,
+    ) {
         let (udp_client_stream, handle) = UdpClientStream::new(self.name_server);
-
-        Ok((udp_client_stream, handle))
+        // FIXME: what is the Signer here?
+        let mp = DnsMultiplexer::new(Box::new(udp_client_stream), handle, None::<Arc<Signer>>);
+        DnsExchange::connect(mp)
     }
 }

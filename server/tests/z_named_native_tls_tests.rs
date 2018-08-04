@@ -44,8 +44,8 @@ fn test_example_tls_toml_startup() {
             "{}/tests/named_test_configs/sec/example.cert",
             server_path
         )).expect("failed to open cert")
-            .read_to_end(&mut cert_der)
-            .expect("failed to read cert");
+        .read_to_end(&mut cert_der)
+        .expect("failed to read cert");
 
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = ("127.0.0.1", tls_port)
@@ -57,10 +57,10 @@ fn test_example_tls_toml_startup() {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::new(stream, Box::new(sender), None);
-        let mut client = io_loop.block_on(client).unwrap();
+        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
 
         // ipv4 should succeed
+        io_loop.spawn(bg);
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = ("127.0.0.1", tls_port)
@@ -72,8 +72,8 @@ fn test_example_tls_toml_startup() {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::new(stream, Box::new(sender), None);
-        let mut client = io_loop.block_on(client).unwrap();
+        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+        io_loop.spawn(bg);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);

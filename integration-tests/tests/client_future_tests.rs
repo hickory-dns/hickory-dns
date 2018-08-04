@@ -6,6 +6,7 @@ extern crate openssl;
 extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_integration;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::net::*;
@@ -25,6 +26,10 @@ use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{
+    DnsExchange, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
+};
 use trust_dns_server::authority::Catalog;
 
 use trust_dns_integration::authority::create_example;
@@ -38,8 +43,8 @@ fn test_query_nonet() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), None);
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+    io_loop.spawn(bg);
 
     io_loop.block_on(test_query(&mut client)).unwrap();
     io_loop.block_on(test_query(&mut client)).unwrap();
@@ -51,8 +56,8 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client)).unwrap();
@@ -69,8 +74,8 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client)).unwrap();
@@ -83,8 +88,8 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+    io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client)).unwrap();
@@ -101,8 +106,8 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+    io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client)).unwrap();
@@ -110,7 +115,10 @@ fn test_query_tcp_ipv6() {
 }
 
 #[cfg(test)]
-fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = ()>> {
+fn test_query<R>(client: &mut BasicClientHandle<R>) -> Box<Future<Item = (), Error = ()>>
+where
+    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     Box::new(
@@ -137,8 +145,7 @@ fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = (
                 } else {
                     assert!(false);
                 }
-            })
-            .map_err(|e| {
+            }).map_err(|e| {
                 assert!(false, "query failed: {}", e);
             }),
     )
@@ -152,8 +159,8 @@ fn test_notify() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), None);
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+    io_loop.spawn(bg);
 
     let name = Name::from_str("ping.example.com").unwrap();
 
@@ -176,7 +183,17 @@ fn test_notify() {
 //
 
 /// create a client with a sig0 section
-fn create_sig0_ready_client(io_loop: &mut Runtime) -> (BasicClientHandle, Name) {
+fn create_sig0_ready_client(
+    io_loop: &mut Runtime,
+) -> (
+    ClientFuture<
+        DnsMultiplexerConnect<TestClientStream, Signer>,
+        DnsMultiplexer<TestClientStream, Signer>,
+        DnsMultiplexerSerialResponse,
+    >,
+    BasicClientHandle<impl Future<Item = DnsResponse, Error = ProtoError>>,
+    Name,
+) {
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
@@ -202,16 +219,17 @@ fn create_sig0_ready_client(io_loop: &mut Runtime) -> (BasicClientHandle, Name) 
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone().into(), authority);
 
+    let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), Some(Arc::new(signer)));
+    let (bg, client) = ClientFuture::new(stream, Box::new(sender), Some(signer));
 
-    (io_loop.block_on(client).unwrap(), origin.into())
+    (bg, client, origin.into())
 }
 
 #[test]
 fn test_create() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut record = Record::with(
@@ -222,6 +240,7 @@ fn test_create() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");
@@ -253,7 +272,7 @@ fn test_create() {
 #[test]
 fn test_create_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut record = Record::with(
@@ -272,6 +291,7 @@ fn test_create_multi() {
     rrset.insert(record2.clone(), 0);
     let rrset = rrset;
 
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(rrset.clone(), origin.clone()))
         .expect("create failed");
@@ -305,7 +325,7 @@ fn test_create_multi() {
 #[test]
 fn test_append() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -317,6 +337,7 @@ fn test_append() {
     let record = record;
 
     // first check the must_exist option
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("append failed");
@@ -371,7 +392,7 @@ fn test_append() {
 #[test]
 fn test_append_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -382,6 +403,7 @@ fn test_append_multi() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("append failed");
@@ -443,7 +465,7 @@ fn test_append_multi() {
 #[test]
 fn test_compare_and_swap() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut record = Record::with(
@@ -454,6 +476,7 @@ fn test_compare_and_swap() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");
@@ -499,7 +522,7 @@ fn test_compare_and_swap() {
 #[test]
 fn test_compare_and_swap_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -516,6 +539,7 @@ fn test_compare_and_swap_multi() {
         .clone();
     let current = current;
 
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(current.clone(), origin.clone()))
         .expect("create failed");
@@ -567,7 +591,7 @@ fn test_compare_and_swap_multi() {
 #[test]
 fn test_delete_by_rdata() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record1 = Record::with(
@@ -578,6 +602,7 @@ fn test_delete_by_rdata() {
     record1.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_by_rdata(record1.clone(), origin.clone()))
         .expect("delete failed");
@@ -607,8 +632,7 @@ fn test_delete_by_rdata() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        ))
-        .expect("query failed");
+        )).expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
     assert!(result.answers().iter().any(|rr| *rr == record1));
@@ -617,7 +641,7 @@ fn test_delete_by_rdata() {
 #[test]
 fn test_delete_by_rdata_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -641,6 +665,7 @@ fn test_delete_by_rdata_multi() {
     let rrset = rrset;
 
     // first check the must_exist option
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_by_rdata(rrset.clone(), origin.clone()))
         .expect("delete failed");
@@ -679,8 +704,7 @@ fn test_delete_by_rdata_multi() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        ))
-        .expect("query failed");
+        )).expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
     assert!(!result.answers().iter().any(|rr| *rr == record1));
@@ -692,7 +716,7 @@ fn test_delete_by_rdata_multi() {
 #[test]
 fn test_delete_rrset() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -703,6 +727,7 @@ fn test_delete_rrset() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_rrset(record.clone(), origin.clone()))
         .expect("delete failed");
@@ -737,7 +762,7 @@ fn test_delete_rrset() {
 #[test]
 fn test_delete_all() {
     let mut io_loop = Runtime::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -748,6 +773,7 @@ fn test_delete_all() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
+    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
         .expect("delete failed");
@@ -786,7 +812,10 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Runtime) {
+fn test_timeout_query<R>(mut client: BasicClientHandle<R>, mut io_loop: Runtime)
+where
+    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+{
     let name = Name::from_str("www.example.com").unwrap();
 
     let err = io_loop
@@ -814,13 +843,14 @@ fn test_timeout_query_nonet() {
     env_logger::try_init().ok();
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
-    let client = ClientFuture::with_timeout(
+    let (bg, client) = ClientFuture::with_timeout(
         stream,
         Box::new(sender),
         std::time::Duration::from_millis(1),
         None,
     );
-    let client = io_loop.block_on(client).unwrap();
+
+    io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
 }
 
@@ -837,9 +867,9 @@ fn test_timeout_query_udp() {
         .unwrap();
 
     let (stream, sender) = UdpClientStream::new(addr);
-    let client =
+    let (bg, client) =
         ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
-    let client = io_loop.block_on(client).unwrap();
+    io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
 }
 
@@ -856,8 +886,12 @@ fn test_timeout_query_tcp() {
         .unwrap();
 
     let (stream, sender) = TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
-    let client =
-        ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
-    let client = io_loop.block_on(client).unwrap();
+    let (bg, client) = ClientFuture::with_timeout(
+        Box::new(stream),
+        sender,
+        std::time::Duration::from_millis(1),
+        None,
+    );
+    io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
 }

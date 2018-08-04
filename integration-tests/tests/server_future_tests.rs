@@ -36,7 +36,8 @@ use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
-use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{DnsRequestSender, SerialMessage};
 
 use trust_dns_server::authority::*;
 use trust_dns_server::ServerFuture;
@@ -201,7 +202,9 @@ fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> T
 
 fn client_thread_www<C: ClientConnection>(conn: C)
 where
-    C::MessageStream: Stream<Item = SerialMessage, Error = io::Error> + 'static,
+    C::Sender: DnsRequestSender<DnsResponseFuture = C::Response>,
+    C::Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    C::SenderFuture: Future<Item = C::Sender, Error = ProtoError> + 'static + Send,
 {
     let name = Name::from_str("www.example.com").unwrap();
     let client = SyncClient::new(conn);

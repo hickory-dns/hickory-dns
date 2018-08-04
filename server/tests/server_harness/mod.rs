@@ -11,8 +11,10 @@ use std::sync::*;
 use std::thread;
 use std::time::*;
 
+use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::DnsResponse;
 
 use trust_dns::client::*;
@@ -190,9 +192,9 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
-pub fn query_all_dnssec(
+pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
     io_loop: &mut Runtime,
-    client: BasicClientHandle,
+    client: BasicClientHandle<R>,
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
@@ -248,18 +250,18 @@ pub fn query_all_dnssec(
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_with_rfc6975(
+pub fn query_all_dnssec_with_rfc6975<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
     io_loop: &mut Runtime,
-    client: BasicClientHandle,
+    client: BasicClientHandle<R>,
     algorithm: Algorithm,
 ) {
     query_all_dnssec(io_loop, client, algorithm, true)
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_wo_rfc6975(
+pub fn query_all_dnssec_wo_rfc6975<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
     io_loop: &mut Runtime,
-    client: BasicClientHandle,
+    client: BasicClientHandle<R>,
     algorithm: Algorithm,
 ) {
     query_all_dnssec(io_loop, client, algorithm, false)

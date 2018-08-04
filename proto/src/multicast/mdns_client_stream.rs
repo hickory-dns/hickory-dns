@@ -6,11 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
 
+use error::ProtoError;
 use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use multicast::{MdnsQueryType, MdnsStream};
 use xfer::{DnsClientStream, SerialMessage};
@@ -30,7 +30,7 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
+        Box<Future<Item = MdnsClientStream, Error = ProtoError> + Send>,
         Box<DnsStreamHandle + Send>,
     ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
@@ -42,7 +42,7 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
+        Box<Future<Item = MdnsClientStream, Error = ProtoError> + Send>,
         Box<DnsStreamHandle + Send>,
     ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
@@ -63,15 +63,19 @@ impl MdnsClientStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
+        Box<Future<Item = MdnsClientStream, Error = ProtoError> + Send>,
         Box<DnsStreamHandle + Send>,
     ) {
         let (stream_future, sender) =
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
-        let new_future = Box::new(stream_future.map(move |mdns_stream| MdnsClientStream {
-            mdns_stream: mdns_stream,
-        }));
+        let new_future = Box::new(
+            stream_future
+                .map(move |mdns_stream| MdnsClientStream {
+                    mdns_stream: mdns_stream,
+                })
+                .map_err(ProtoError::from),
+        );
 
         let sender = Box::new(BufDnsStreamHandle::new(mdns_addr, sender));
 
@@ -93,10 +97,10 @@ impl DnsClientStream for MdnsClientStream {
 
 impl Stream for MdnsClientStream {
     type Item = SerialMessage;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match try_ready!(self.mdns_stream.poll()) {
+        match try_ready!(self.mdns_stream.poll().map_err(ProtoError::from)) {
             Some(serial_message) => {
                 // TODO: for mDNS queries could come from anywhere. It's not clear that there is anything
                 //       we can validate in this case.

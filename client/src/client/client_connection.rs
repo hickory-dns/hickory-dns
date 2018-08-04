@@ -14,27 +14,29 @@
 
 //! Trait for client connections
 
-use std::io;
-
 use futures::Future;
 
-use trust_dns_proto::xfer::DnsClientStream;
-use trust_dns_proto::DnsStreamHandle;
-
-use error::*;
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{
+    DnsExchangeConnect, DnsRequestSender, DnsRequestStreamHandle, DnsResponse,
+};
 
 /// Trait for client connections
-pub trait ClientConnection: Sized {
-    /// The associated DNS Message stream type.
-    type MessageStream: DnsClientStream + 'static;
+pub trait ClientConnection: 'static + Sized + Send {
+    /// The associated DNS RequestSender type.
+    type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
+    /// Response type of the RequestSender
+    type Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send;
+    /// A future that resolves to the RequestSender
+    type SenderFuture: Future<Item = Self::Sender, Error = ProtoError> + 'static + Send;
 
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
     fn new_stream(
         &self,
-    ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
-        Box<DnsStreamHandle>,
-    )>;
+    ) -> (
+        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
+        DnsRequestStreamHandle<Self::Response>,
+    );
 }

@@ -1,23 +1,31 @@
+extern crate futures;
 extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_integration;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle,
-                        SecureClientHandle};
+use trust_dns::client::{
+    BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
+};
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::TrustAnchor;
+use trust_dns::rr::dnssec::{Signer, TrustAnchor};
 use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{
+    DnsExchange, DnsMultiplexer, DnsMultiplexerSerialResponse, DnsRequestSender, DnsResponse,
+};
 use trust_dns_server::authority::Catalog;
 
 use trust_dns_integration::authority::create_secure_example;
@@ -189,7 +197,10 @@ where
 
 fn with_nonet<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Runtime),
+    F: Fn(
+        SecureClientHandle<MemoizeClientHandle<BasicClientHandle<DnsMultiplexerSerialResponse>>>,
+        Runtime,
+    ),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -205,8 +216,7 @@ where
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let authority = create_secure_example();
 
@@ -230,11 +240,11 @@ where
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), None);
-    let client = io_loop.block_on(client).unwrap();
+    let (bg, client) = ClientFuture::new(stream, Box::new(sender), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
+    io_loop.spawn(bg);
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
@@ -242,7 +252,10 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Runtime),
+    F: Fn(
+        SecureClientHandle<MemoizeClientHandle<BasicClientHandle<DnsMultiplexerSerialResponse>>>,
+        Runtime,
+    ),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -258,17 +271,16 @@ where
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
-    let client = io_loop.block_on(client).unwrap();
+    let (bg, client) = ClientFuture::new(stream, sender, None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
+    io_loop.spawn(bg);
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
@@ -276,7 +288,10 @@ where
 
 fn with_tcp<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Runtime),
+    F: Fn(
+        SecureClientHandle<MemoizeClientHandle<BasicClientHandle<DnsMultiplexerSerialResponse>>>,
+        Runtime,
+    ),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -292,17 +307,16 @@ where
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
-    let client = io_loop.block_on(client).unwrap();
+    let (bg, client) = ClientFuture::new(Box::new(stream), sender, None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
+    io_loop.spawn(bg);
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
