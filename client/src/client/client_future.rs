@@ -56,16 +56,12 @@ impl<S: DnsClientStream + 'static>
     ///              (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    #[allow(deprecated)]
     pub fn new(
         stream: Box<Future<Item = S, Error = ProtoError> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
-        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer);
-        let (exchange, handle) = DnsExchange::connect(mp);
-
-        Self::from_exchange_with_timeout(exchange, handle, Duration::from_secs(5))
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -77,18 +73,18 @@ impl<S: DnsClientStream + 'static>
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    /// * `finalizer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    #[deprecated]
+    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: Box<Future<Item = S, Error = ProtoError> + Send>,
         stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
-        let mp = DnsMultiplexer::new(Box::new(stream), stream_handle, signer);
+        let mp =
+            DnsMultiplexer::with_timeout(Box::new(stream), stream_handle, timeout_duration, signer);
         let (exchange, handle) = DnsExchange::connect(mp);
 
-        Self::from_exchange_with_timeout(exchange, handle, timeout_duration)
+        Self::from_exchange_with_timeout(exchange, handle)
     }
 }
 
@@ -105,12 +101,11 @@ where
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///              (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn from_exchange(
         stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
         stream_handle: DnsRequestStreamHandle<Response>,
     ) -> (Self, BasicClientHandle<Response>) {
-        Self::from_exchange_with_timeout(stream, stream_handle, Duration::from_secs(5))
+        Self::from_exchange_with_timeout(stream, stream_handle)
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -119,14 +114,10 @@ where
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///              (see TcpClientStream or UdpClientStream)
-    /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
-    ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    /// * `finalizer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn from_exchange_with_timeout(
         stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
         stream_handle: DnsRequestStreamHandle<Response>,
-        _timeout_duration: Duration,
     ) -> (Self, BasicClientHandle<Response>) {
         (
             Self {

@@ -9,23 +9,19 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::{
     BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
 };
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::{Signer, TrustAnchor};
+use trust_dns::rr::dnssec::TrustAnchor;
 use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{
-    DnsExchange, DnsMultiplexer, DnsMultiplexerSerialResponse, DnsRequestSender, DnsResponse,
-};
+use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
 use trust_dns_server::authority::Catalog;
 
 use trust_dns_integration::authority::create_secure_example;

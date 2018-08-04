@@ -229,11 +229,15 @@
 //! // We need a connection, TCP and UDP are supported by DNS servers
 //! let (stream, handle) = UdpClientStream::new(([8,8,8,8], 53).into());
 //!
-//! // Create a new client
-//! let client = ClientFuture::new(stream, handle, None);
+//! // Create a new client, the bg is a background future which handles
+//! //   the multiplexing of the DNS requests to the server.
+//! //   the client is a handle to an unbounded queue for sending requests via the
+//! //   background. The background must be scheduled to run before the client can
+//! //   send any dns requests
+//! let (bg, mut client) = ClientFuture::new(stream, handle, None);
 //!
-//! // Generally you'll want to chain futures, for these examples we're blocking until the complete
-//! let mut client = runtime.block_on(client).unwrap();
+//! // run the background task
+//! runtime.spawn(bg);
 //!
 //! // Create a query future
 //! let query = client.query(Name::from_str("www.example.com.").unwrap(), DNSClass::IN, RecordType::A);

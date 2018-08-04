@@ -28,7 +28,7 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    DnsExchange, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
+    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
 };
 use trust_dns_server::authority::Catalog;
 
@@ -184,7 +184,7 @@ fn test_notify() {
 
 /// create a client with a sig0 section
 fn create_sig0_ready_client(
-    io_loop: &mut Runtime,
+    _io_loop: &mut Runtime,
 ) -> (
     ClientFuture<
         DnsMultiplexerConnect<TestClientStream, Signer>,

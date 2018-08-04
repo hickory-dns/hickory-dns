@@ -28,10 +28,9 @@ use trust_dns::client::{ClientFuture, ClientHandle};
 use trust_dns::multicast::MdnsQueryType;
 use trust_dns::multicast::{MdnsClientStream, MdnsStream};
 use trust_dns::op::Message;
-use trust_dns::rr::dnssec::Signer;
 use trust_dns::rr::{DNSClass, Name, RecordType};
 use trust_dns::serialize::binary::BinDecodable;
-use trust_dns_proto::xfer::{DnsExchange, DnsMultiplexer, SerialMessage};
+use trust_dns_proto::xfer::SerialMessage;
 
 const MDNS_PORT: u16 = 5363;
 
