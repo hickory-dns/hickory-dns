@@ -69,14 +69,14 @@ impl ClientConnection for TcpClientConnection {
 
     fn new_stream(
         &self,
+        signer: Option<Arc<Signer>>,
     ) -> (
         DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
         DnsRequestStreamHandle<Self::Response>,
     ) {
         let (tcp_client_stream, handle) =
             TcpClientStream::<TcpStream>::with_timeout(self.name_server, self.timeout);
-        // FIXME: what is the Signer here?
-        let mp = DnsMultiplexer::new(Box::new(tcp_client_stream), handle, None::<Arc<Signer>>);
+        let mp = DnsMultiplexer::new(Box::new(tcp_client_stream), handle, signer);
         DnsExchange::connect(mp)
     }
 }

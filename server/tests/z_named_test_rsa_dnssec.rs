@@ -15,19 +15,17 @@ use std::fs::File;
 use std::io::*;
 use std::net::*;
 use std::path::Path;
-use std::sync::Arc;
 
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns::client::*;
-use trust_dns::error::ClientError;
 use trust_dns::rr::dnssec::*;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    DnsExchange, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
+    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
 };
 
 use server_harness::*;

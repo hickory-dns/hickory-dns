@@ -8,11 +8,9 @@
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
-use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use futures::Future;
 use rustls::Certificate;
 
 use trust_dns::client::ClientConnection;
@@ -20,7 +18,7 @@ use trust_dns::error::*;
 use trust_dns::rr::dnssec::Signer;
 use trust_dns_proto::xfer::{
     DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
-    DnsRequestStreamHandle, DnsStreamHandle,
+    DnsRequestStreamHandle,
 };
 
 use trust_dns_rustls::TlsClientStream;
@@ -48,6 +46,7 @@ impl ClientConnection for TlsClientConnection {
 
     fn new_stream(
         &self,
+        signer: Option<Arc<Signer>>,
     ) -> (
         DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
         DnsRequestStreamHandle<Self::Response>,
@@ -57,12 +56,7 @@ impl ClientConnection for TlsClientConnection {
             .clone()
             .build(self.name_server, self.dns_name.clone());
 
-        // FIXME: what is the Signer here?
-        let mp = DnsMultiplexer::new(
-            Box::new(tls_client_stream),
-            Box::new(handle),
-            None::<Arc<Signer>>,
-        );
+        let mp = DnsMultiplexer::new(Box::new(tls_client_stream), Box::new(handle), signer);
         DnsExchange::connect(mp)
     }
 }
