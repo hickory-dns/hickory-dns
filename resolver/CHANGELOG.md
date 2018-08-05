@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.9.1
+
+### Fixes
+
+- Fixes the MAX TTL being outside the bounds of 32bit systems, reduces max to 1 day #528
+
 ## 0.9
 
 ### Added
