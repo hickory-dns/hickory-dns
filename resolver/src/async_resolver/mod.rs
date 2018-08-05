@@ -11,7 +11,9 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use futures::{
-    self, future, sync::{mpsc, oneshot}, Future, Poll,
+    self, future,
+    sync::{mpsc, oneshot},
+    Future, Poll,
 };
 use trust_dns_proto::error::ProtoResult;
 use trust_dns_proto::rr::domain::TryParseIp;
@@ -549,6 +551,7 @@ mod tests {
 
     #[test]
     #[ignore] // these appear to not work on travis
+    #[allow(deprecated)]
     fn test_sec_lookup_fails() {
         let mut io_loop = Runtime::new().unwrap();
         let (resolver, bg) = AsyncResolver::new(
