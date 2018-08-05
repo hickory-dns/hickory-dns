@@ -549,6 +549,7 @@ mod tests {
         }
     }
 
+    #[allow(deprecated)]
     #[test]
     #[ignore] // these appear to not work on travis
     #[allow(deprecated)]
