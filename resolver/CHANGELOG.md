@@ -11,6 +11,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background @hawkw #487
 - *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` @hawkw #487
 
+## 0.9.1
+
+### Fixes
+
+- Fixes the MAX TTL being outside the bounds of 32bit systems, reduces max to 1 day #528
+
 ## 0.9
 
 ### Added
