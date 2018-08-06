@@ -28,6 +28,7 @@ use lookup_ip::LookupIpFuture;
 
 mod background;
 
+// TODO: Consider renaming to ResolverAsync
 /// A handle for resolving DNS records.
 ///
 /// Creating a `AsyncResolver` returns a new handle and a future that should

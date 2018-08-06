@@ -27,6 +27,7 @@ use rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordType};
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 
+// TODO: ClientFuture to ClientAsync or AsyncClient?
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol

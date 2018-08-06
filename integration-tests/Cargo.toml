@@ -53,6 +53,8 @@ dnssec = []
 # enables experimental the mDNS (multicast) feature
 mdns = ["trust-dns/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
 
+dns-over-https = ["trust-dns/dns-over-https", "trust-dns-resolver/dns-over-https", "webpki-roots"]
+
 # TODO: need to make server support rustls and native-tls
 # dns-over-native-tls = ["dns-over-tls",  "trust-dns-resolver/dns-over-native-tls", "trust-dns-server/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "trust-dns-resolver/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
@@ -74,9 +76,10 @@ tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
 tokio-udp = "^0.1"
 trust-dns = { version = "0.15.0-alpha", path = "../client" }
+trust-dns-https = { version = "0.1.0-alpha", path = "../https" }
 trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl" }
 trust-dns-proto = { version = "0.5.0-alpha", path = "../proto" }
 trust-dns-resolver = { version = "0.10.0-alpha", path = "../resolver" }
 trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls" }
 trust-dns-server = { version = "0.15.0-alpha", path = "../server" }
-
+webpki-roots = { version = "^0.15", optional = true }
