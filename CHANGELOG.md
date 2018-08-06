@@ -7,7 +7,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
-- *Breaking* Overhauled all ClientFuture implementations to align with new DnsExchange and DnsMultiplexer components in proto. 
+- *breaking* Overhauled all `ClientFuture` implementations to align with new `DnsExchange` and `DnsMultiplexer` components in proto.
+- *breaking* `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
+- *breaking* `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
 
 ## 0.14.0
 

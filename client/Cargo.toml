@@ -40,7 +40,9 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-dns-over-https = ["trust-dns-https"]
+# TODO: the rustls and openssl crates are not deps... should we change that to make them easier to use?
+#  or change this to also be external?
+dns-over-https = ["trust-dns-https", "rustls", "webpki"]
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "ring", "trust-dns-proto/dnssec-ring", "untrusted"]
 dnssec = []

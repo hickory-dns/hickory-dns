@@ -3,11 +3,17 @@ extern crate env_logger;
 extern crate futures;
 extern crate log;
 extern crate openssl;
+#[cfg(feature = "dns-over-https")]
+extern crate rustls;
 extern crate tokio;
 extern crate trust_dns;
+#[cfg(feature = "dns-over-https")]
+extern crate trust_dns_https;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
+#[cfg(feature = "dns-over-https")]
+extern crate webpki_roots;
 
 use std::net::*;
 use std::str::FromStr;
@@ -51,7 +57,6 @@ fn test_query_nonet() {
 }
 
 #[test]
-#[ignore]
 fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
@@ -83,7 +88,6 @@ fn test_query_udp_ipv6() {
 }
 
 #[test]
-#[ignore]
 fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
@@ -107,6 +111,37 @@ fn test_query_tcp_ipv6() {
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
     let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+    io_loop.spawn(bg);
+
+    // TODO: timeouts on these requests so that the test doesn't hang
+    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client)).unwrap();
+}
+
+#[test]
+#[cfg(feature = "dns-over-https")]
+fn test_query_https() {
+    use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+    use trust_dns_https::HttpsClientStreamBuilder;
+    use trust_dns_proto::xfer::DnsExchange;
+
+    let mut io_loop = Runtime::new().unwrap();
+    let addr: SocketAddr = ("1.1.1.1", 443).to_socket_addrs().unwrap().next().unwrap();
+
+    // using the mozilla default root store
+    let mut root_store = RootCertStore::empty();
+    root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
+    let versions = vec![ProtocolVersion::TLSv1_2];
+
+    let mut client_config = ClientConfig::new();
+    client_config.root_store = root_store;
+    client_config.versions = versions;
+
+    let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    let (stream, handle) =
+        DnsExchange::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+
+    let (bg, mut client) = ClientFuture::from_exchange(stream, handle);
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
