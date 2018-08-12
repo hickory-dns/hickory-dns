@@ -95,6 +95,7 @@ where
     Sender: DnsRequestSender<DnsResponseFuture = Response>,
     Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
 {
+    // FIXME: change this to take the multiplexed connection, and create the exchange internally...
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments

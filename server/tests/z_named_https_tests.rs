@@ -6,14 +6,16 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "dns-over-tls")]
+#![cfg(feature = "dns-over-https")]
 
 extern crate chrono;
 extern crate futures;
 extern crate log;
 extern crate native_tls;
+extern crate rustls;
 extern crate tokio;
 extern crate trust_dns;
+extern crate trust_dns_https;
 extern crate trust_dns_native_tls;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -25,16 +27,17 @@ use std::fs::File;
 use std::io::*;
 use std::net::*;
 
-use native_tls::Certificate;
+use rustls::internal::msgs::codec::Codec;
+use rustls::Certificate;
 use tokio::runtime::current_thread::Runtime;
-
 use trust_dns::client::*;
-use trust_dns_native_tls::TlsClientStreamBuilder;
+use trust_dns_https::HttpsClientStreamBuilder;
+use trust_dns_proto::xfer::DnsExchange;
 
 use server_harness::{named_test_harness, query_a};
 
 #[test]
-fn test_example_tls_toml_startup() {
+fn test_example_https_toml_startup() {
     named_test_harness("dns_over_tls.toml", move |_, tls_port| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
@@ -53,11 +56,13 @@ fn test_example_tls_toml_startup() {
             .unwrap()
             .next()
             .unwrap();
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
+
+        let mut tls_conn_builder = HttpsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
-        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+        let mp = tls_conn_builder.build(addr, "ns.example.com".to_string());
+        let (exchange, handle) = DnsExchange::connect(mp);
+        let (bg, mut client) = ClientFuture::from_exchange(exchange, handle);
 
         // ipv4 should succeed
         io_loop.spawn(bg);
@@ -68,11 +73,12 @@ fn test_example_tls_toml_startup() {
             .unwrap()
             .next()
             .unwrap();
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
+        let mut tls_conn_builder = HttpsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
-        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+        let mp = tls_conn_builder.build(addr, "ns.example.com".to_string());
+        let (exchange, handle) = DnsExchange::connect(mp);
+        let (bg, mut client) = ClientFuture::from_exchange(exchange, handle);
         io_loop.spawn(bg);
 
         // ipv6 should succeed
@@ -83,5 +89,5 @@ fn test_example_tls_toml_startup() {
 }
 
 fn to_trust_anchor(cert_der: &[u8]) -> Certificate {
-    Certificate::from_der(cert_der).unwrap()
+    Certificate::read_bytes(cert_der).unwrap()
 }
