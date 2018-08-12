@@ -46,6 +46,9 @@ dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
+# TODO: Need to figure out how to be consistent with ring/openssl usage...
+dns-over-https = ["dns-over-openssl", "trust-dns/dns-over-https"]
+
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tls"]
 dns-over-tls = []
@@ -89,6 +92,7 @@ tokio-timer = "^0.2"
 tokio-udp = "^0.1"
 toml = "^0.4"
 trust-dns = { version = "0.15.0-alpha", path = "../client" }
+trust-dns-https = { version = "0.1.0-alpha", path = "../https" }
 trust-dns-proto = { version = "0.5.0-alpha", path = "../proto" }
 trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl", optional = true }
 
@@ -96,3 +100,4 @@ trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl", optional = t
 native-tls = "^0.1"
 trust-dns-native-tls = { version = "0.4.0-alpha", path = "../native-tls" }
 tokio-tls = "^0.1"
+rustls = { version = "0.13" }

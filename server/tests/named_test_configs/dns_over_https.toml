@@ -1,0 +1,8 @@
+listen_addrs_ipv4 = ["0.0.0.0"]
+
+tls_cert = { path = "sec/example.p12", password = "mypass" }
+
+[[zones]]
+zone = "example.com"
+zone_type = "Master"
+file = "example.com.zone"
