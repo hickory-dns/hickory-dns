@@ -25,9 +25,9 @@ pub enum ErrorKind {
     #[fail(display = "wrong insert count: {} expect: {}", got, expect)]
     WrongInsertCount {
         /// The number of inserted records
-        got: i32,
+        got: usize,
         /// The number of records expected to be inserted
-        expect: i32,
+        expect: usize,
     },
 
     // foreign
