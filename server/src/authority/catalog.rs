@@ -59,7 +59,7 @@ fn send_response<R: ResponseHandler + 'static>(
         response.set_edns(resp_edns);
     }
 
-    response_handle.send(response)
+    response_handle.send_response(response)
 }
 
 impl RequestHandler for Catalog {
@@ -104,7 +104,7 @@ impl RequestHandler for Catalog {
                 response.edns(resp_edns);
 
                 // TODO: should ResponseHandle consume self?
-                return response_handle.send(response.build(response_header));
+                return response_handle.send_response(response.build(response_header));
             }
 
             response_edns = Some(resp_edns);
@@ -125,7 +125,7 @@ impl RequestHandler for Catalog {
                 c @ _ => {
                     error!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    return response_handle.send(response.error_msg(
+                    return response_handle.send_response(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
                         ResponseCode::NotImp,
@@ -139,7 +139,7 @@ impl RequestHandler for Catalog {
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
 
-                return response_handle.send(response.error_msg(
+                return response_handle.send_response(response.error_msg(
                     request_message.id(),
                     request_message.op_code(),
                     ResponseCode::FormErr,
@@ -345,20 +345,20 @@ impl Catalog {
                 response_header.set_op_code(OpCode::Query);
                 response_header.set_message_type(MessageType::Response);
 
-                let (is_dnssec, supported_algorithms) = request.edns().map_or(
-                    (false, SupportedAlgorithms::new()),
-                    |edns| {
-                        let supported_algorithms =
-                            if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
-                                algs
-                            } else {
-                                debug!("no DAU in request, used default SupportAlgorithms");
-                                Default::default()
-                            };
+                let (is_dnssec, supported_algorithms) =
+                    request
+                        .edns()
+                        .map_or((false, SupportedAlgorithms::new()), |edns| {
+                            let supported_algorithms =
+                                if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
+                                    algs
+                                } else {
+                                    debug!("no DAU in request, used default SupportAlgorithms");
+                                    Default::default()
+                                };
 
-                        (edns.dnssec_ok(), supported_algorithms)
-                    },
-                );
+                            (edns.dnssec_ok(), supported_algorithms)
+                        });
 
                 // log algorithms being requested
                 if is_dnssec {
@@ -440,14 +440,13 @@ impl Catalog {
 
     /// Recursively searches the catalog for a matching authority
     pub fn find(&self, name: &LowerName) -> Option<&RwLock<Authority>> {
-        self.authorities.get(name)
-            .or_else(|| {
-                let name = name.base_name();
-                if !name.is_root() {
-                    self.find(&name)
-                } else {
-                    None
-                }
-            })
+        self.authorities.get(name).or_else(|| {
+            let name = name.base_name();
+            if !name.is_root() {
+                self.find(&name)
+            } else {
+                None
+            }
+        })
     }
 }

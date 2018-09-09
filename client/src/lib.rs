@@ -271,7 +271,7 @@ extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 extern crate rustls;
 #[cfg(feature = "serde-config")]
 extern crate serde;

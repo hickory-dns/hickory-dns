@@ -1,27 +1,19 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! `Server` component for hosting a domain name servers operations.
 
-mod server_future;
-mod timeout_stream;
+mod https_handler;
 mod request_handler;
 mod response_handler;
+mod server_future;
+mod timeout_stream;
 
+pub use self::request_handler::{Request, RequestHandler};
 pub use self::response_handler::{ResponseHandle, ResponseHandler};
 pub use self::server_future::ServerFuture;
 pub use self::timeout_stream::TimeoutStream;
-pub use self::request_handler::{Request, RequestHandler};

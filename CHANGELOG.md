@@ -5,11 +5,17 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.15.0
 
+### Added
+
+- feature `dns-over-rustls` to `trust-dns-server`
+- feature `dns-over-https-rustls`, `dns-over-https-openssl` *experimental*
+
 ### Changed
 
 - *breaking* Overhauled all `ClientFuture` implementations to align with new `DnsExchange` and `DnsMultiplexer` components in proto.
 - *breaking* `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
 - *breaking* `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
+- feature `tls` renamed to `dns-over-openssl`
 
 ## 0.14.0
 

@@ -28,9 +28,9 @@ use toml;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-use trust_dns::rr::Name;
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
+use trust_dns::rr::Name;
 use trust_dns_proto::error::ProtoResult;
 
 use authority::ZoneType;
@@ -39,6 +39,7 @@ use error::{ConfigError, ConfigResult};
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
 static DEFAULT_TLS_PORT: u16 = 853;
+static DEFAULT_HTTPS_PORT: u16 = 443;
 static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
 /// Server configuration
@@ -54,6 +55,8 @@ pub struct Config {
     listen_port: Option<u16>,
     /// Secure port to listen on
     tls_listen_port: Option<u16>,
+    /// HTTPS port to listen on
+    https_listen_port: Option<u16>,
     /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
     /// Level at which to log, default is INFO
@@ -63,7 +66,7 @@ pub struct Config {
     /// List of configurations for zones
     #[serde(default)]
     zones: Vec<ZoneConfig>,
-    /// Certificate to associate to TLS connections
+    /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
     tls_cert: Option<TlsCertConfig>,
 }
 
@@ -83,6 +86,7 @@ impl Config {
             .map(|s| s.parse().unwrap())
             .collect()
     }
+
     /// set of listening ipv6 addresses (for TCP and UDP)
     pub fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> {
         self.listen_addrs_ipv6
@@ -90,14 +94,22 @@ impl Config {
             .map(|s| s.parse().unwrap())
             .collect()
     }
+
     /// port on which to listen for connections on specified addresses
     pub fn get_listen_port(&self) -> u16 {
         self.listen_port.unwrap_or(DEFAULT_PORT)
     }
+
     /// port on which to listen for TLS connections
     pub fn get_tls_listen_port(&self) -> u16 {
         self.tls_listen_port.unwrap_or(DEFAULT_TLS_PORT)
     }
+
+    /// port on which to listen for HTTPS connections
+    pub fn get_https_listen_port(&self) -> u16 {
+        self.https_listen_port.unwrap_or(DEFAULT_HTTPS_PORT)
+    }
+
     /// default timeout for all TCP connections before forceably shutdown
     pub fn get_tcp_request_timeout(&self) -> Duration {
         Duration::from_secs(
@@ -106,7 +118,6 @@ impl Config {
         )
     }
 
-    // TODO: also support env_logger
     /// specify the log level which should be used, ["Trace", "Debug", "Info", "Warn", "Error"]
     pub fn get_log_level(&self) -> log::Level {
         if let Some(ref level_str) = self.log_level {
@@ -122,16 +133,19 @@ impl Config {
             log::Level::Info
         }
     }
+
     /// the path for all zone configurations, defaults to `/var/named`
     pub fn get_directory(&self) -> &Path {
         self.directory
             .as_ref()
             .map_or(Path::new(DEFAULT_PATH), |s| Path::new(s))
     }
+
     /// the set of zones which should be loaded
     pub fn get_zones(&self) -> &[ZoneConfig] {
         &self.zones
     }
+
     /// the tls certificate to use for accepting tls connections
     pub fn get_tls_cert(&self) -> Option<&TlsCertConfig> {
         self.tls_cert.as_ref()

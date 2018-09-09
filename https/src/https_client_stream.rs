@@ -23,13 +23,17 @@ use tokio_executor;
 use tokio_rustls::ClientConfigExt;
 use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
+use typed_headers::{
+    mime::Mime, Accept, ContentLength, ContentType, HeaderMapExt, Quality, QualityItem,
+};
 use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 
+use HttpsError;
+
 const ALPN_H2: &str = "h2";
-const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 /// A DNS client connection for DNS-over-HTTPS
 #[derive(Clone)]
@@ -80,7 +84,7 @@ impl DnsRequestSender for HttpsClientStream {
     }
 
     fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
-        HttpsSerialResponse(HttpsSerialResponseInner::Errored(Some(error)))
+        HttpsSerialResponse(HttpsSerialResponseInner::Errored(Some(error.into())))
     }
 
     fn shutdown(&mut self) {
@@ -107,8 +111,7 @@ impl Stream for HttpsClientStream {
             .map(|readiness| match readiness {
                 Async::Ready(()) => Async::Ready(Some(())),
                 Async::NotReady => Async::NotReady,
-            })
-            .map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))
+            }).map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))
     }
 }
 
@@ -118,6 +121,7 @@ pub struct HttpsSerialResponse(HttpsSerialResponseInner);
 
 impl Future for HttpsSerialResponse {
     type Item = DnsResponse;
+    // FIXME: make changes to allow this to be a crate specific error type
     type Error = ProtoError;
 
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
@@ -168,7 +172,11 @@ impl Future for HttpsSerialResponse {
     ///    process.
     /// ```
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let serial_message = try_ready!(self.0.poll());
+        let serial_message = try_ready!(
+            self.0
+                .poll()
+                .map_err(|e| ProtoError::from(format!("https error: {}", e)))
+        );
         let message = serial_message.to_message()?;
         Ok(Async::Ready(message.into()))
     }
@@ -197,12 +205,12 @@ enum HttpsSerialResponseInner {
         status_code: StatusCode,
     },
     Complete(Option<SerialMessage>),
-    Errored(Option<ProtoError>),
+    Errored(Option<HttpsError>),
 }
 
 impl Future for HttpsSerialResponseInner {
     type Item = SerialMessage;
-    type Error = ProtoError;
+    type Error = HttpsError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
@@ -219,48 +227,15 @@ impl Future for HttpsSerialResponseInner {
                         Ok(Async::Ready(())) => (),
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Err(err) => {
-                            return Err(ProtoError::from(format!("h2 send_request error: {}", err)))
+                            // TODO: make specific error
+                            return Err(HttpsError::from(format!("h2 send_request error: {}", err)));
                         }
-                    }
+                    };
 
                     // build up the http request
 
-                    // https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
-                    // The URI Template defined in this document is processed without any
-                    // variables when the HTTP method is POST.  When the HTTP method is GET
-                    // the single variable "dns" is defined as the content of the DNS
-                    // request (as described in Section 7), encoded with base64url
-                    // [RFC4648].
-                    // let (message, _) = message.unwrap();
-
-                    // TODO: this is basically the GET version, but it is more expesive than POST
-                    //   perhaps add an option if people want better HTTP caching options.
-
-                    // let query = BASE64URL_NOPAD.encode(&message);
-                    // let url = format!("/dns-query?dns={}", query);
-                    // let request = Request::get(&url)
-                    //     .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
-                    //     .header(header::HOST, &self.name_server_name as &str)
-                    //     .header("authority", &self.name_server_name as &str)
-                    //     .header(header::USER_AGENT, USER_AGENT)
-                    //     .body(());
-
-                    let mut parts = uri::Parts::default();
-                    parts.scheme = Some(uri::Scheme::HTTPS);
-                    parts.authority = Some(
-                        uri::Authority::from_str(&name_server_name)
-                            .map_err(|e| ProtoError::from(format!("invalid authority: {}", e)))?,
-                    );
-                    parts.path_and_query = Some(uri::PathAndQuery::from_static("/dns-query"));
-
-                    let url = Uri::from_parts(parts)
-                        .map_err(|e| ProtoError::from(format!("uri parse error: {}", e)))?;
-                    let request = Request::post(url)
-                        .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
-                        .header(header::ACCEPT, ::ACCEPTS_DNS_BINARY)
-                        .header(header::USER_AGENT, USER_AGENT)
-                        .version(Version::HTTP_2)
-                        .body(());
+                    let bytes = Bytes::from(message.bytes());
+                    let request = ::request::new(&name_server_name, bytes.len());
 
                     let request = request
                         .map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
@@ -274,7 +249,7 @@ impl Future for HttpsSerialResponseInner {
                         })?;
 
                     send_stream
-                        .send_data(Bytes::from(message.bytes()), true)
+                        .send_data(bytes, true)
                         .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
 
                     HttpsSerialResponseInner::Incoming {
@@ -288,36 +263,23 @@ impl Future for HttpsSerialResponseInner {
                     name_server,
                     ..
                 } => {
-                    let response_stream = try_ready!(response_future.poll().map_err(|err| {
-                        ProtoError::from(format!("recieved a stream error: {}", err))
-                    }));
+                    let response_stream =
+                        try_ready!(response_future.poll().map_err(|err| ProtoError::from(
+                            format!("recieved a stream error: {}", err)
+                        )));
+
+                    debug!("got response: {:#?}", response_stream);
 
                     // get the length of packet
-                    let content_length: usize = response_stream
+                    let content_length: Option<usize> = response_stream
                         .headers()
-                        .get(header::CONTENT_LENGTH)
-                        .map_or(Ok(512), |h| {
-                            h.to_str()
-                                .map_err(|err| {
-                                    ProtoError::from(format!(
-                                        "ContentLength header not a string: {}",
-                                        err
-                                    ))
-                                })
-                                .and_then(|s| {
-                                    usize::from_str(s).map_err(|err| {
-                                        ProtoError::from(format!(
-                                            "ContentLength header not a number: {}",
-                                            err
-                                        ))
-                                    })
-                                })
-                        })?;
+                        .typed_get()?
+                        .map(|c: ContentLength| *c as usize);
 
                     Receiving {
                         response_stream,
-                        response_bytes: Bytes::with_capacity(content_length),
-                        content_length: Some(content_length),
+                        response_bytes: Bytes::with_capacity(content_length.unwrap_or(512)),
+                        content_length: content_length,
                         name_server: *name_server,
                     }
                 }
@@ -333,12 +295,22 @@ impl Future for HttpsSerialResponseInner {
                             .poll()
                             .map_err(|e| ProtoError::from(format!("bad http request: {}", e)))
                     ) {
+                        debug!("got bytes: {}", partial_bytes.len());
                         response_bytes.extend(partial_bytes);
+
+                        // assert the length
+                        if let Some(content_length) = content_length {
+                            if response_bytes.len() >= *content_length {
+                                break;
+                            }
+                        }
                     }
+
                     // assert the length
                     if let Some(content_length) = content_length {
-                        if *content_length != response_bytes.len() {
-                            return Err(ProtoError::from(format!(
+                        if response_bytes.len() != *content_length {
+                            // TODO: make explicit error type
+                            return Err(HttpsError::from(format!(
                                 "expected byte length: {}, got: {}",
                                 content_length,
                                 response_bytes.len()
@@ -355,25 +327,26 @@ impl Future for HttpsSerialResponseInner {
                     } else {
                         // verify content type
                         {
+                            // in the case that the ContentType is not specified, we assume it's the standard DNS format
                             let content_type = response_stream
                                 .headers()
                                 .get(header::CONTENT_TYPE)
-                                .ok_or_else(|| ProtoError::from("ContentLength header missing"))
-                                .and_then(|h| {
+                                .map(|h| {
                                     h.to_str().map_err(|err| {
-                                        ProtoError::from(format!(
+                                        // TODO: make explicit error type
+                                        HttpsError::from(format!(
                                             "ContentType header not a string: {}",
                                             err
                                         ))
                                     })
-                                })?;
+                                }).unwrap_or(Ok(::MIME_APPLICATION_DNS))?;
 
-                            if content_type != ::ACCEPTS_DNS_BINARY {
-                                return Err(ProtoError::from(format!(
-                                        "ContentType unsupported (must be 'application/dns-message'): {}",
-                                        content_type
-                                    ),
-                                ));
+                            if content_type != ::MIME_APPLICATION_DNS {
+                                return Err(HttpsError::from(format!(
+                                    "ContentType unsupported (must be '{}'): '{}'",
+                                    ::MIME_APPLICATION_DNS,
+                                    content_type
+                                )));
                             }
                         };
 
@@ -389,7 +362,8 @@ impl Future for HttpsSerialResponseInner {
                 } => {
                     let error_string = String::from_utf8_lossy(response_bytes.as_ref());
 
-                    return Err(ProtoError::from(format!(
+                    // TODO: make explicit error type
+                    return Err(HttpsError::from(format!(
                         "http unsuccessful code: {}, message: {}",
                         status_code, error_string
                     )));
@@ -511,6 +485,7 @@ impl Future for HttpsClientConnectState {
         loop {
             let next = match self {
                 HttpsClientConnectState::ConnectTcp { name_server, tls } => {
+                    debug!("tcp connecting to: {}", name_server);
                     let connect = TokioTcpStream::connect(&name_server);
                     HttpsClientConnectState::TcpConnecting {
                         connect,
@@ -524,6 +499,7 @@ impl Future for HttpsClientConnectState {
                     tls,
                 } => {
                     let tcp = try_ready!(connect.poll());
+                    debug!("tcp connection established to: {}", name_server);
                     let tls = tls
                         .take()
                         .expect("programming error, tls should not be None here");
@@ -550,6 +526,7 @@ impl Future for HttpsClientConnectState {
                     tls,
                 } => {
                     let tls = try_ready!(tls.poll());
+                    debug!("tls connection established to: {}", name_server);
                     let mut handshake = h2::client::Builder::new();
                     handshake.enable_push(false);
 
@@ -571,6 +548,7 @@ impl Future for HttpsClientConnectState {
                             .map_err(|e| ProtoError::from(format!("h2 handshake error: {}", e)))
                     );
 
+                    debug!("h2 connection established to: {}", name_server);
                     tokio_executor::spawn(
                         connection.map_err(|e| warn!("h2 connection failed: {}", e)),
                     );

@@ -38,7 +38,7 @@ use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_toml_startup() {
-    named_test_harness("example.toml", |port, _| {
+    named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::new(addr);
@@ -59,7 +59,7 @@ fn test_example_toml_startup() {
 
 #[test]
 fn test_ipv4_only_toml_startup() {
-    named_test_harness("ipv4_only.toml", |port, _| {
+    named_test_harness("ipv4_only.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::new(addr);
@@ -117,7 +117,7 @@ fn test_ipv4_only_toml_startup() {
 #[ignore]
 #[test]
 fn test_ipv4_and_ipv6_toml_startup() {
-    named_test_harness("ipv4_and_ipv6.toml", |port, _| {
+    named_test_harness("ipv4_and_ipv6.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::new(addr);
@@ -143,7 +143,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
 #[test]
 fn test_nodata_where_name_exists() {
-    named_test_harness("example.toml", |port, _| {
+    named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::new(addr);
@@ -165,7 +165,7 @@ fn test_nodata_where_name_exists() {
 
 #[test]
 fn test_nxdomain_where_no_name_exists() {
-    named_test_harness("example.toml", |port, _| {
+    named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::new(addr);
@@ -193,7 +193,7 @@ fn test_example_tls_toml_startup() {
     use std::io::*;
     use trust_dns_openssl::TlsClientStreamBuilder;
 
-    named_test_harness("dns_over_tls.toml", move |_, tls_port| {
+    named_test_harness("dns_over_tls.toml", move |_, tls_port, _| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         println!("using server src path: {}", server_path);
@@ -234,7 +234,7 @@ fn test_example_tls_toml_startup() {
 
 #[test]
 fn test_server_continues_on_bad_data_udp() {
-    named_test_harness("example.toml", |port, _| {
+    named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = UdpClientStream::new(addr);
@@ -264,7 +264,7 @@ fn test_server_continues_on_bad_data_udp() {
 
 #[test]
 fn test_server_continues_on_bad_data_tcp() {
-    named_test_harness("example.toml", |port, _| {
+    named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::new(addr);

@@ -28,10 +28,10 @@ use self::mut_message_client::MutMessageHandle;
 #[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
-    F: FnOnce(u16, u16) -> R + UnwindSafe,
+    F: FnOnce(u16, u16, u16) -> R + UnwindSafe,
 {
     // find a random port to listen on
-    let (test_port, test_tls_port) = {
+    let (test_port, test_tls_port, test_https_port) = {
         let server = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
         let server_addr = server.local_addr().unwrap();
         let test_port = server_addr.port();
@@ -40,8 +40,14 @@ where
         let server_addr = server.local_addr().unwrap();
         let test_tls_port = server_addr.port();
 
+        let server = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+        let server_addr = server.local_addr().unwrap();
+        let test_https_port = server_addr.port();
+
         assert!(test_port != test_tls_port);
-        (test_port, test_tls_port)
+        assert!(test_port != test_https_port);
+        assert!(test_tls_port != test_https_port);
+        (test_port, test_tls_port, test_https_port)
     };
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
@@ -49,17 +55,19 @@ where
 
     let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
         .stdout(Stdio::piped())
-        .arg("-d")
+        .env(
+            "RUST_LOG",
+            "ht=trace,trust_dns_https=debug,trust_dns_proto=debug",
+        ).arg("-d")
         .arg(&format!(
             "--config={}/tests/named_test_configs/{}",
             server_path, toml
-        ))
-        .arg(&format!(
+        )).arg(&format!(
             "--zonedir={}/tests/named_test_configs",
             server_path
-        ))
-        .arg(&format!("--port={}", test_port))
+        )).arg(&format!("--port={}", test_port))
         .arg(&format!("--tls-port={}", test_tls_port))
+        .arg(&format!("--https-port={}", test_https_port))
         .spawn()
         .expect("failed to start named");
 
@@ -94,8 +102,7 @@ where
 
             kill_named();
             panic!("timeout");
-        })
-        .expect("could not start thread killer");
+        }).expect("could not start thread killer");
 
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
@@ -148,12 +155,11 @@ where
                     stdout().write_all(output.as_bytes()).unwrap();
                 }
             }
-        })
-        .expect("no thread available");
+        }).expect("no thread available");
 
     println!("running test...");
 
-    let result = catch_unwind(move || test(test_port, test_tls_port));
+    let result = catch_unwind(move || test(test_port, test_tls_port, test_https_port));
 
     println!("test completed");
     succeeded.store(true, atomic::Ordering::Relaxed);
@@ -168,7 +174,7 @@ pub fn query_message<C: ClientHandle>(
     name: Name,
     record_type: RecordType,
 ) -> DnsResponse {
-    println!("sending request");
+    println!("sending request: {} for: {}", name, record_type);
     let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, record_type));
     println!("got response: {:#?}", response);
     response.expect("request failed")
@@ -222,8 +228,7 @@ pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send
             } else {
                 panic!("wrong RDATA")
             }
-        })
-        .find(|d| d.algorithm() == algorithm);
+        }).find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
     let response = query_message(
@@ -243,8 +248,7 @@ pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send
             } else {
                 panic!("wrong RDATA")
             }
-        })
-        .filter(|rrsig| rrsig.algorithm() == algorithm)
+        }).filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }

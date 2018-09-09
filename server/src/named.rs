@@ -37,43 +37,48 @@ extern crate clap;
 extern crate futures;
 #[macro_use]
 extern crate log;
+#[cfg(feature = "dns-over-rustls")]
+extern crate rustls;
 extern crate tokio;
 extern crate tokio_tcp;
 extern crate tokio_udp;
 extern crate trust_dns;
+#[cfg(feature = "dns-over-openssl")]
+extern crate trust_dns_openssl;
+#[cfg(feature = "dns-over-rustls")]
+extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
-#[cfg(feature = "tls")]
-extern crate trust_dns_openssl;
-
-use std::fs::File;
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::io::{self, Read};
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
 use clap::{Arg, ArgMatches};
-use futures::{Future, future};
+use futures::{future, Future};
+#[cfg(feature = "dns-over-rustls")]
+use rustls::{Certificate, PrivateKey};
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpListener;
 use tokio_udp::UdpSocket;
 
 use trust_dns::error::ParseResult;
-use trust_dns::serialize::txt::{Lexer, Parser};
-use trust_dns::rr::Name;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::dnssec::{KeyPair, Signer, Private};
+use trust_dns::rr::dnssec::{KeyPair, Private, Signer};
+use trust_dns::rr::Name;
+use trust_dns::serialize::txt::{Lexer, Parser};
 
+#[cfg(feature = "dns-over-openssl")]
+use trust_dns_openssl::tls_server::*;
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
-use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
-use trust_dns_server::logger;
 #[cfg(feature = "dnssec")]
 use trust_dns_server::config::KeyConfig;
+use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
+use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
-#[cfg(feature = "tls")]
-use trust_dns_openssl::tls_server::*;
 
 fn parse_zone_file(
     file: File,
@@ -111,9 +116,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     // load the zone
     let mut authority = if zone_config.is_update_allowed() && journal_path.exists() {
         info!("recovering zone from journal: {:?}", journal_path);
-        let journal = Journal::from_file(&journal_path).map_err(|e| {
-            format!("error opening journal: {:?}: {}", journal_path, e)
-        })?;
+        let journal = Journal::from_file(&journal_path)
+            .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
 
         let mut authority = Authority::new(
             zone_name.clone(),
@@ -133,9 +137,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     } else if zone_path.exists() {
         info!("loading zone file: {:?}", zone_path);
 
-        let zone_file = File::open(&zone_path).map_err(|e| {
-            format!("error opening zone file: {:?}: {}", zone_path, e)
-        })?;
+        let zone_file = File::open(&zone_path)
+            .map_err(|e| format!("error opening zone file: {:?}: {}", zone_path, e))?;
 
         let mut authority = parse_zone_file(
             zone_file,
@@ -148,16 +151,15 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
         // if dynamic update is enabled, enable the journal
         if zone_config.is_update_allowed() {
             info!("enabling journal: {:?}", journal_path);
-            let journal = Journal::from_file(&journal_path).map_err(|e| {
-                format!("error creating journal {:?}: {}", journal_path, e)
-            })?;
+            let journal = Journal::from_file(&journal_path)
+                .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e))?;
 
             authority.set_journal(journal);
 
             // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
-            authority.persist_to_journal().map_err(|e| {
-                format!("error persisting to journal {:?}: {}", journal_path, e)
-            })?;
+            authority
+                .persist_to_journal()
+                .map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e))?;
         }
 
         info!("zone file loaded: {}", zone_name);
@@ -241,14 +243,12 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let key: KeyPair<Private> = {
         info!("reading key: {:?}", key_path);
 
-        let mut file = File::open(&key_path).map_err(|e| {
-            format!("error opening private key file: {:?}: {}", key_path, e)
-        })?;
+        let mut file = File::open(&key_path)
+            .map_err(|e| format!("error opening private key file: {:?}: {}", key_path, e))?;
 
         let mut key_bytes = Vec::with_capacity(256);
-        file.read_to_end(&mut key_bytes).map_err(|e| {
-            format!("could not read key from: {:?}: {}", key_path, e)
-        })?;
+        file.read_to_end(&mut key_bytes)
+            .map_err(|e| format!("could not read key from: {:?}: {}", key_path, e))?;
 
         format
             .decode_key(&key_bytes, key_config.password(), algorithm)
@@ -262,7 +262,8 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
 
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized
-    let dnskey = key.to_dnskey(algorithm)
+    let dnskey = key
+        .to_dnskey(algorithm)
         .map_err(|e| format!("error converting to dnskey: {}", e))?;
     Ok(Signer::dnssec(
         dnskey.clone(),
@@ -272,13 +273,31 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     ))
 }
 
-#[cfg(feature = "tls")]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
 
     info!("reading TLS certificate from: {:?}", path);
     read_cert(&path, password)
+}
+
+#[cfg(feature = "dns-over-rustls")]
+fn load_cert(
+    zone_dir: &Path,
+    tls_cert_config: &TlsCertConfig,
+) -> Result<(Certificate, PrivateKey), String> {
+    use trust_dns_rustls::tls_server::read_cert;
+
+    // FIXME: this can't be hard-coded...
+    let cert_path = "/Users/benjaminfry/Development/rust/trust-dns/server/tests/named_test_configs/sec/example.cert";
+    let private_key_path = "/Users/benjaminfry/Development/rust/trust-dns/server/tests/named_test_configs/sec/example.key";
+
+    read_cert(Path::new(cert_path), Path::new(private_key_path))
+        .map_err(|e| format!("error reading cert: {}", e))
 }
 
 // argument name constants for the CLI options
@@ -288,6 +307,7 @@ const CONFIG_ARG: &str = "config";
 const ZONEDIR_ARG: &str = "zonedir";
 const PORT_ARG: &str = "port";
 const TLS_PORT_ARG: &str = "tls-port";
+const HTTPS_PORT_ARG: &str = "https-port";
 
 /// Args struct for all options
 struct Args {
@@ -297,6 +317,7 @@ struct Args {
     pub flag_zonedir: Option<String>,
     pub flag_port: Option<u16>,
     pub flag_tls_port: Option<u16>,
+    pub flag_https_port: Option<u16>,
 }
 
 impl<'a> From<ArgMatches<'a>> for Args {
@@ -312,9 +333,12 @@ impl<'a> From<ArgMatches<'a>> for Args {
             flag_port: matches
                 .value_of(PORT_ARG)
                 .map(|s| u16::from_str_radix(s, 10).expect("bad port argument")),
-            flag_tls_port: matches.value_of(TLS_PORT_ARG).map(|s| {
-                u16::from_str_radix(s, 10).expect("bad tls-port argument")
-            }),
+            flag_tls_port: matches
+                .value_of(TLS_PORT_ARG)
+                .map(|s| u16::from_str_radix(s, 10).expect("bad tls-port argument")),
+            flag_https_port: matches
+                .value_of(HTTPS_PORT_ARG)
+                .map(|s| u16::from_str_radix(s, 10).expect("bad https-port argument")),
         }
     }
 }
@@ -330,47 +354,46 @@ pub fn main() {
                 .short("q")
                 .help("Disable INFO messages, WARN and ERROR will remain")
                 .conflicts_with(DEBUG_ARG),
-        )
-        .arg(
+        ).arg(
             Arg::with_name(DEBUG_ARG)
                 .long(DEBUG_ARG)
                 .short("d")
                 .help("Turn on DEBUG messages (default is only INFO)")
                 .conflicts_with(QUIET_ARG),
-        )
-        .arg(
+        ).arg(
             Arg::with_name(CONFIG_ARG)
                 .long(CONFIG_ARG)
                 .short("c")
                 .help("Path to configuration file")
                 .value_name("FILE")
                 .default_value("/etc/named.toml"),
-        )
-        .arg(
+        ).arg(
             Arg::with_name(ZONEDIR_ARG)
                 .long(ZONEDIR_ARG)
                 .short("z")
                 .help("Path to the root directory for all zone files, see also config toml")
                 .value_name("DIR"),
-        )
-        .arg(
+        ).arg(
             Arg::with_name(PORT_ARG)
                 .long(PORT_ARG)
                 .short("p")
                 .help("Listening port for DNS queries, overrides any value in config file")
                 .value_name(PORT_ARG),
-        )
-        .arg(
+        ).arg(
             Arg::with_name(TLS_PORT_ARG)
                 .long(TLS_PORT_ARG)
                 .help("Listening port for DNS over TLS queries, overrides any value in config file")
                 .value_name(TLS_PORT_ARG),
-        )
-        .get_matches();
+        ).arg(
+            Arg::with_name(HTTPS_PORT_ARG)
+                .long(HTTPS_PORT_ARG)
+                .help(
+                    "Listening port for DNS over HTTPS queries, overrides any value in config file",
+                ).value_name(HTTPS_PORT_ARG),
+        ).get_matches();
 
     let args: Args = args.into();
 
-    // FIXME: add env_logger support
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     if args.flag_quiet {
         logger::quiet();
@@ -398,7 +421,8 @@ pub fn main() {
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
-        let zone_name = zone.get_zone()
+        let zone_name = zone
+            .get_zone()
             .expect(&format!("bad zone name in {:?}", config_path));
 
         match load_zone(zone_dir, zone) {
@@ -428,15 +452,11 @@ pub fn main() {
         .collect();
     let udp_sockets: Vec<UdpSocket> = sockaddrs
         .iter()
-        .map(|x| {
-            UdpSocket::bind(x).expect(&format!("could not bind to udp: {}", x))
-        })
+        .map(|x| UdpSocket::bind(x).expect(&format!("could not bind to udp: {}", x)))
         .collect();
     let tcp_listeners: Vec<TcpListener> = sockaddrs
         .iter()
-        .map(|x| {
-            TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x))
-        })
+        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x)))
         .collect();
 
     let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
@@ -444,59 +464,73 @@ pub fn main() {
     // now, run the server, based on the config
     let mut server = ServerFuture::new(catalog);
 
-    let server_future : Box<Future<Item=(), Error=()> + Send> = Box::new(future::lazy(move ||{
-        // load all the listeners
-        for udp_socket in udp_sockets {
-            info!("listening for UDP on {:?}", udp_socket);
-            server.register_socket(udp_socket);
-        }
+    let server_future: Box<Future<Item = (), Error = ()> + Send> =
+        Box::new(future::lazy(move || {
+            // load all the listeners
+            for udp_socket in udp_sockets {
+                info!("listening for UDP on {:?}", udp_socket);
+                server.register_socket(udp_socket);
+            }
 
-        // and TCP as necessary
-        for tcp_listener in tcp_listeners {
-            info!("listening for TCP on {:?}", tcp_listener);
-            server
-                .register_listener(tcp_listener, tcp_request_timeout)
-                .expect("could not register TCP listener");
-        }
+            // and TCP as necessary
+            for tcp_listener in tcp_listeners {
+                info!("listening for TCP on {:?}", tcp_listener);
+                server
+                    .register_listener(tcp_listener, tcp_request_timeout)
+                    .expect("could not register TCP listener");
+            }
 
-        let tls_cert_config = config.get_tls_cert().clone();
+            let tls_cert_config = config.get_tls_cert().clone();
 
-        // and TLS as necessary
-        if let Some(tls_cert_config) = tls_cert_config {
-            config_tls(
-                &args,
-                &mut server,
-                &config,
-                tls_cert_config,
-                zone_dir,
-                &listen_addrs,
-            );
-        }
+            // and TLS as necessary
+            // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
+            if let Some(tls_cert_config) = tls_cert_config {
+                // setup TLS listeners
+                config_tls(
+                    &args,
+                    &mut server,
+                    &config,
+                    tls_cert_config.clone(),
+                    zone_dir,
+                    &listen_addrs,
+                );
 
-        // config complete, starting!
-        banner();
-        info!("awaiting connections...");
+                // setup HTTPS listeners
+                config_https(
+                    &args,
+                    &mut server,
+                    &config,
+                    tls_cert_config.clone(),
+                    zone_dir,
+                    &listen_addrs,
+                );
+            }
 
-        /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
-        /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
-        ///  request handling. It would generally be the case that n <= m.
-        info!("Server starting up");
-        future::empty()
-    }));
+            // config complete, starting!
+            banner();
+            info!("awaiting connections...");
 
-    if let Err(e) = io_loop.block_on(server_future.map_err(|_| io::Error::new(
-        io::ErrorKind::Interrupted,
-        "Server stopping due to interruption",
-    ))) {
+            /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
+            /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
+            ///  request handling. It would generally be the case that n <= m.
+            info!("Server starting up");
+            future::empty()
+        }));
+
+    if let Err(e) = io_loop.block_on(server_future.map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::Interrupted,
+            "Server stopping due to interruption",
+        )
+    })) {
         error!("failed to listen: {}", e);
     }
-
 
     // we're exiting for some reason...
     info!("Trust-DNS {} stopping", trust_dns::version());
 }
 
-#[cfg(not(feature = "tls"))]
+#[cfg(not(feature = "dns-over-tls"))]
 fn config_tls(
     _args: &Args,
     _server: &mut ServerFuture<Catalog>,
@@ -508,7 +542,7 @@ fn config_tls(
     panic!("TLS not enabled");
 }
 
-#[cfg(feature = "tls")]
+#[cfg(feature = "dns-over-tls")]
 fn config_tls(
     args: &Args,
     server: &mut ServerFuture<Catalog>,
@@ -517,23 +551,75 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
-    let tls_listen_port: u16 = args.flag_tls_port
-        .unwrap_or_else(|| config.get_tls_listen_port());
-    let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
+    // FIXME: uncomment this...
+    // let tls_listen_port: u16 = args
+    //     .flag_tls_port
+    //     .unwrap_or_else(|| config.get_tls_listen_port());
+    // let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
+    //     .iter()
+    //     .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
+    //     .collect();
+    // let tls_listeners: Vec<TcpListener> = tls_sockaddrs
+    //     .iter()
+    //     .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
+    //     .collect();
+    // if tls_listeners.is_empty() {
+    //     warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
+    // }
+
+    // for tls_listener in tls_listeners {
+    //     info!(
+    //         "loading cert for DNS over TLS: {:?}",
+    //         tls_cert_config.get_path()
+    //     );
+    //     // TODO: see about modifying native_tls to impl Clone for Pkcs12
+    //     let tls_cert =
+    //         load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+
+    //     info!("listening for TLS on {:?}", tls_listener);
+    //     server
+    //         .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
+    //         .expect("could not register TLS listener");
+    // }
+}
+
+#[cfg(not(feature = "dns-over-https"))]
+fn config_https(
+    _args: &Args,
+    _server: &mut ServerFuture<Catalog>,
+    _config: &Config,
+    _tls_cert_config: &TlsCertConfig,
+    _zone_dir: &Path,
+    _listen_addrs: &[IpAddr],
+) {
+    panic!("TLS not enabled");
+}
+
+#[cfg(feature = "dns-over-https")]
+fn config_https(
+    args: &Args,
+    server: &mut ServerFuture<Catalog>,
+    config: &Config,
+    tls_cert_config: &TlsCertConfig,
+    zone_dir: &Path,
+    listen_addrs: &[IpAddr],
+) {
+    let https_listen_port: u16 = args
+        .flag_https_port
+        .unwrap_or_else(|| config.get_https_listen_port());
+    let https_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
-        .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
+        .flat_map(|x| (*x, https_listen_port).to_socket_addrs().unwrap())
         .collect();
-    let tls_listeners: Vec<TcpListener> = tls_sockaddrs
+    let https_listeners: Vec<TcpListener> = https_sockaddrs
         .iter()
-        .map(|x| {
-            TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x))
-        })
+        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
         .collect();
-    if tls_listeners.is_empty() {
-        warn!("a tls certificate was specified, but no TCP addresses configured to listen on");
+    if https_listeners.is_empty() {
+        warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
     }
 
-    for tls_listener in tls_listeners {
+    for https_listener in https_listeners {
         info!(
             "loading cert for DNS over TLS: {:?}",
             tls_cert_config.get_path()
@@ -542,9 +628,10 @@ fn config_tls(
         let tls_cert =
             load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
-        info!("listening for TLS on {:?}", tls_listener);
+        info!("listening for HTTPS on {:?}", https_listener);
         server
-            .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
+        // FIXME: need to passthrough the DNS authority name
+            .register_https_listener(https_listener, config.get_tcp_request_timeout(), tls_cert, "ns.example.com".to_string())
             .expect("could not register TLS listener");
     }
 }

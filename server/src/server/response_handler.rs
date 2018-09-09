@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -16,10 +16,13 @@ use authority::MessageResponse;
 
 /// A handler for send a response to a client
 pub trait ResponseHandler {
+    // TODO: add associated error type
+    //type Error;
+
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send(self, response: MessageResponse) -> io::Result<()>;
+    fn send_response(self, response: MessageResponse) -> io::Result<()>;
 }
 
 /// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
@@ -40,7 +43,7 @@ impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send(self, response: MessageResponse) -> io::Result<()> {
+    fn send_response(self, response: MessageResponse) -> io::Result<()> {
         info!(
             "response: {} response_code: {}",
             response.header().id(),

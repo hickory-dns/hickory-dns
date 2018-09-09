@@ -42,7 +42,8 @@ dns-over-rustls = ["dns-over-tls", "rustls", "trust-dns-rustls", "webpki-roots"]
 dns-over-tls = []
 
 # This requires some TLS library, currently only rustls is supported
-dns-over-https = ["trust-dns-https", "dns-over-rustls"]
+dns-over-https-rustls = ["trust-dns-https", "dns-over-rustls", "dns-over-https"]
+dns-over-https = []
 
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]

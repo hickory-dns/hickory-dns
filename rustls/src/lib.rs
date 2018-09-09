@@ -26,6 +26,7 @@ extern crate trust_dns_proto;
 extern crate webpki;
 
 pub mod tls_client_stream;
+pub mod tls_server;
 pub mod tls_stream;
 
 pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};

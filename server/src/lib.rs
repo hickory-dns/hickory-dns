@@ -27,6 +27,7 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
+extern crate bytes;
 extern crate chrono;
 extern crate env_logger;
 #[macro_use]
@@ -38,19 +39,31 @@ extern crate rusqlite;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(feature = "dns-over-https")]
+extern crate h2;
+#[cfg(feature = "dns-over-https")]
+extern crate http;
+#[cfg(feature = "dns-over-rustls")]
+extern crate rustls;
 extern crate time;
 extern crate tokio;
 extern crate tokio_executor;
+extern crate tokio_io;
 extern crate tokio_reactor;
+#[cfg(feature = "dns-over-rustls")]
+extern crate tokio_rustls;
 extern crate tokio_tcp;
 extern crate tokio_timer;
 extern crate tokio_udp;
 extern crate toml;
 extern crate trust_dns;
-extern crate trust_dns_proto;
-
-#[cfg(feature = "tls")]
+#[cfg(feature = "dns-over-https")]
+extern crate trust_dns_https;
+#[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
+extern crate trust_dns_proto;
+#[cfg(feature = "dns-over-rustls")]
+extern crate trust_dns_rustls;
 
 pub mod authority;
 pub mod config;
