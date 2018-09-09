@@ -7,6 +7,7 @@
 
 //! `Server` component for hosting a domain name servers operations.
 
+#[cfg(feature = "dns-over-https")]
 mod https_handler;
 mod request_handler;
 mod response_handler;

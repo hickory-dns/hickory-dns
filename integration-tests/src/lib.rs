@@ -91,7 +91,7 @@ impl TestResponseHandler {
 }
 
 impl ResponseHandler for TestResponseHandler {
-    fn send(self, response: MessageResponse) -> io::Result<()> {
+    fn send_response(self, response: MessageResponse) -> io::Result<()> {
         let buf = &mut self.buf.lock().unwrap();
         let mut encoder = BinEncoder::new(buf);
         response

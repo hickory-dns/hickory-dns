@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use futures::{Async, Future, Poll, Stream};
-use h2::RecvStream;
+use h2;
 use http::{Method, Request};
 use typed_headers::{ContentLength, HeaderMapExt};
 
@@ -19,7 +19,10 @@ use trust_dns_proto::op::Message;
 use {HttpsError, HttpsResult};
 
 // TODO: change RecvStream to Generic over Stream of Bytes
-pub fn message_from(this_server_name: Arc<String>, request: Request<RecvStream>) -> HttpsToMessage {
+pub fn message_from<R>(this_server_name: Arc<String>, request: Request<R>) -> HttpsToMessage<R>
+where
+    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send + Debug,
+{
     debug!("Received request: {:#?}", request);
 
     let this_server_name: &String = this_server_name.borrow();
@@ -50,21 +53,24 @@ pub fn message_from(this_server_name: Arc<String>, request: Request<RecvStream>)
     }
 }
 
-pub struct HttpsToMessage(HttpsToMessageInner);
+pub struct HttpsToMessage<R>(HttpsToMessageInner<R>);
 
-impl From<HttpsToMessageInner> for HttpsToMessage {
-    fn from(inner: HttpsToMessageInner) -> Self {
+impl<R> From<HttpsToMessageInner<R>> for HttpsToMessage<R> {
+    fn from(inner: HttpsToMessageInner<R>) -> Self {
         HttpsToMessage(inner)
     }
 }
 
-impl From<MessageFromPost> for HttpsToMessage {
-    fn from(inner: MessageFromPost) -> Self {
+impl<R> From<MessageFromPost<R>> for HttpsToMessage<R> {
+    fn from(inner: MessageFromPost<R>) -> Self {
         HttpsToMessage(HttpsToMessageInner::FromPost(inner))
     }
 }
 
-impl Future for HttpsToMessage {
+impl<R> Future for HttpsToMessage<R>
+where
+    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send,
+{
     type Item = Bytes;
     type Error = HttpsError;
 
@@ -73,12 +79,15 @@ impl Future for HttpsToMessage {
     }
 }
 
-enum HttpsToMessageInner {
-    FromPost(MessageFromPost),
+enum HttpsToMessageInner<R> {
+    FromPost(MessageFromPost<R>),
     Error(Option<HttpsError>),
 }
 
-impl Future for HttpsToMessageInner {
+impl<R> Future for HttpsToMessageInner<R>
+where
+    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send,
+{
     type Item = Bytes;
     type Error = HttpsError;
 
@@ -92,7 +101,7 @@ impl Future for HttpsToMessageInner {
     }
 }
 
-fn message_from_post(request: Request<RecvStream>, length: Option<usize>) -> MessageFromPost {
+fn message_from_post<R>(request: Request<R>, length: Option<usize>) -> MessageFromPost<R> {
     let body = request.into_body();
     MessageFromPost {
         stream: body,
@@ -100,12 +109,15 @@ fn message_from_post(request: Request<RecvStream>, length: Option<usize>) -> Mes
     }
 }
 
-struct MessageFromPost {
-    stream: RecvStream,
+struct MessageFromPost<R> {
+    stream: R,
     length: Option<usize>,
 }
 
-impl Future for MessageFromPost {
+impl<R> Future for MessageFromPost<R>
+where
+    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send,
+{
     type Item = Bytes;
     type Error = HttpsError;
 
@@ -139,8 +151,42 @@ impl Future for MessageFromPost {
 
 #[cfg(test)]
 mod tests {
+    use request;
+
+    use super::*;
+
+    #[derive(Debug)]
+    struct TestBytesStream(Vec<Result<Bytes, h2::Error>>);
+
+    impl Stream for TestBytesStream {
+        type Item = Bytes;
+        type Error = h2::Error;
+
+        fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+            match self.0.pop() {
+                Some(Ok(bytes)) => Ok(Async::Ready(Some(bytes))),
+                Some(Err(err)) => Err(err),
+                None => Ok(Async::Ready(None)),
+            }
+        }
+    }
+
     #[test]
     fn test_from_post() {
-        panic!("need test")
+        let message = Message::new();
+        let msg_bytes = message.to_vec().unwrap();
+        let len = msg_bytes.len();
+        let stream = TestBytesStream(vec![Ok(Bytes::from(msg_bytes))]);
+        let request = request::new("ns.example.com", len).unwrap();
+        let request = request.map(|()| stream);
+
+        let mut from_post = message_from(Arc::new("ns.example.com".to_string()), request);
+        let bytes = match from_post.poll() {
+            Ok(Async::Ready(bytes)) => bytes,
+            e @ _ => panic!("{:#?}", e),
+        };
+
+        let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
+        assert_eq!(message, msg_from_post);
     }
 }
