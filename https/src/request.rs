@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_new_verify() {
-        let request = new("ns.example.com").expect("error converting to http");
+        let request = new("ns.example.com", 512).expect("error converting to http");
         let decoded_msg = verify("ns.example.com", &request);
     }
 }
