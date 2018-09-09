@@ -119,7 +119,7 @@ where
                     // if there is no peer, this connection should die...
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.unwrap();
 
-                    debug!("sending message via: {}", self.io_stream);
+                    info!("sending message via: {}", self.io_stream);
 
                     match serial_response.send_response(self.io_stream.send_message(dns_request)) {
                         Ok(()) => (),
@@ -230,7 +230,7 @@ where
                         }
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Err(error) => {
-                            debug!("stream errored while connecting: {}", error);
+                            debug!("stream errored while connecting: {:?}", error);
                             next = DnsExchangeConnectInner::FailAll {
                                 error,
                                 outbound_messages: outbound_messages

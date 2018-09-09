@@ -11,7 +11,7 @@ use op::Query;
 use rr::{DNSClass, LowerName, RecordType};
 use serialize::binary::*;
 
-/// Identical to [`trust_dns::op::Query`], except that the Name is guaranteed to be in lower case form 
+/// Identical to [`trust_dns::op::Query`], except that the Name is guaranteed to be in lower case form
 #[derive(Clone, Debug, PartialEq)]
 pub struct LowerQuery {
     name: LowerName,

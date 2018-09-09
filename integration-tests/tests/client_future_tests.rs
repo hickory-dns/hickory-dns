@@ -3,7 +3,7 @@ extern crate env_logger;
 extern crate futures;
 extern crate log;
 extern crate openssl;
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 extern crate rustls;
 extern crate tokio;
 extern crate trust_dns;
@@ -12,7 +12,7 @@ extern crate trust_dns_https;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 extern crate webpki_roots;
 
 use std::net::*;
@@ -119,7 +119,7 @@ fn test_query_tcp_ipv6() {
 }
 
 #[test]
-#[cfg(feature = "dns-over-https")]
+#[cfg(feature = "dns-over-https-rustls")]
 fn test_query_https() {
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     use trust_dns_https::HttpsClientStreamBuilder;

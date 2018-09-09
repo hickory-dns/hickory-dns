@@ -10,8 +10,9 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 
+use openssl::dh::Dh;
 use openssl::pkcs12::*;
-use openssl::ssl::{SslAcceptor, SslMethod, SslOptions};
+use openssl::ssl::{self, SslAcceptor, SslMethod, SslMode, SslOptions, SslVerifyMode};
 
 pub use openssl::pkcs12::ParsedPkcs12;
 pub use tokio_openssl::SslAcceptorExt;
@@ -40,6 +41,14 @@ pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
 
     builder.set_private_key(&pkcs12.pkey)?;
     builder.set_certificate(&pkcs12.cert)?;
+    builder.set_verify(SslVerifyMode::NONE);
+    builder.set_options(
+        SslOptions::NO_COMPRESSION
+            | SslOptions::NO_SSLV2
+            | SslOptions::NO_SSLV3
+            | SslOptions::NO_TLSV1
+            | SslOptions::NO_TLSV1_1,
+    );
 
     if let Some(ref chain) = pkcs12.chain {
         for cert in chain {
@@ -47,15 +56,8 @@ pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
         }
     }
 
-    // mut block
-    {
-        let ssl_context_bldr = &mut builder;
-
-        ssl_context_bldr.set_options(
-            SslOptions::NO_SSLV2 | SslOptions::NO_SSLV3 | SslOptions::NO_TLSV1
-                | SslOptions::NO_TLSV1_1,
-        );
-    }
+    // validate our certificate and private key match
+    builder.check_private_key()?;
 
     Ok(builder.build())
 }

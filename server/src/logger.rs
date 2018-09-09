@@ -8,15 +8,21 @@
 //! Default logger configuration for the project
 
 use std::env;
-use std::io::{self, Write};
 use std::fmt::Display;
+use std::io::{self, Write};
 
 use chrono::Utc;
 use env_logger;
 use env_logger::fmt::Formatter;
 use log;
 
-fn format<L, M, LN, A>(fmt: &mut Formatter, level: L, module: M, line: LN, args: A) -> io::Result<()>
+fn format<L, M, LN, A>(
+    fmt: &mut Formatter,
+    level: L,
+    module: M,
+    line: LN,
+    args: A,
+) -> io::Result<()>
 where
     L: Display,
     M: Display,

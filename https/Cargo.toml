@@ -46,6 +46,7 @@ path = "src/lib.rs"
 [dependencies]
 bytes = "0.4"
 data-encoding = "2.1.0"
+failure = "0.1"
 futures = "0.1.17"
 h2 = "0.1"
 http = "0.1"
@@ -58,6 +59,7 @@ tokio-tcp = "0.1"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.5.0-alpha", path = "../proto", default-features = false }
 trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls", default-features = false }
+typed-headers = "0.1"
 webpki-roots = { version = "0.15" }
 webpki = "^0.18.0"
 
