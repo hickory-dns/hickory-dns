@@ -366,6 +366,7 @@ fn test_nsec_query_type() {
 //   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
 // }
 
+#[cfg(feature = "dnssec")]
 #[allow(deprecated)]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     let mut authority = create_example();
@@ -406,6 +407,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     (client, origin.into())
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_create() {
     let catalog = Catalog::new();
@@ -447,6 +449,7 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_append() {
     let catalog = Catalog::new();
@@ -529,6 +532,7 @@ fn test_append() {
     assert_eq!(result.answers().len(), 2);
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_compare_and_swap() {
     let catalog = Catalog::new();
@@ -598,6 +602,7 @@ fn test_compare_and_swap() {
     );
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_delete_by_rdata() {
     let catalog = Catalog::new();
@@ -653,6 +658,7 @@ fn test_delete_by_rdata() {
     );
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_delete_rrset() {
     let catalog = Catalog::new();
@@ -698,6 +704,7 @@ fn test_delete_rrset() {
     assert_eq!(result.answers().len(), 0);
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_delete_all() {
     let catalog = Catalog::new();

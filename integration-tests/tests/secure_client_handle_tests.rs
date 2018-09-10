@@ -1,3 +1,5 @@
+#![cfg(feature = "dnssec")]
+
 extern crate futures;
 extern crate tokio;
 extern crate trust_dns;
