@@ -144,7 +144,7 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 // TODO: move all this to future based clients
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dns-over-tls")]
 #[test]
 
 fn test_server_www_tls() {
@@ -288,7 +288,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     }
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(feature = "dns-over-tls")]
 fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
