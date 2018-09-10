@@ -17,7 +17,9 @@ use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
 use trust_dns_server::authority::*;
 
-use trust_dns_integration::authority::{create_example, create_secure_example};
+use trust_dns_integration::authority::create_example;
+#[cfg(feature = "dnssec")]
+use trust_dns_integration::authority::create_secure_example;
 
 #[test]
 fn test_search() {
@@ -73,8 +75,7 @@ fn test_authority() {
                 RecordType::NS,
                 false,
                 SupportedAlgorithms::new()
-            )
-            .is_totally_empty()
+            ).is_totally_empty()
     );
 
     let mut lookup: Vec<_> = authority.ns(false, SupportedAlgorithms::new()).collect();
@@ -108,8 +109,7 @@ fn test_authority() {
                 RecordType::TXT,
                 false,
                 SupportedAlgorithms::new()
-            )
-            .is_totally_empty()
+            ).is_totally_empty()
     );
 
     let mut lookup: Vec<_> = authority
@@ -118,8 +118,7 @@ fn test_authority() {
             RecordType::TXT,
             false,
             SupportedAlgorithms::new(),
-        )
-        .collect();
+        ).collect();
     lookup.sort();
 
     assert_eq!(
@@ -133,8 +132,7 @@ fn test_authority() {
                 "$Id: example.com 4415 2015-08-24 \
                  20:12:23Z davids $"
                     .to_string(),
-            ])))
-            .clone()
+            ]))).clone()
     );
 
     assert_eq!(
@@ -144,8 +142,7 @@ fn test_authority() {
                 RecordType::A,
                 false,
                 SupportedAlgorithms::new()
-            )
-            .next()
+            ).next()
             .unwrap(),
         Record::new()
             .set_name(authority.origin().clone().into())
@@ -157,6 +154,7 @@ fn test_authority() {
     );
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_authorize() {
     let authority: Authority = create_example();
@@ -216,8 +214,7 @@ fn test_prerequisites() {
                 .set_dns_class(DNSClass::ANY)
                 .set_rr_type(RecordType::ANY)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert_eq!(
         authority.verify_prerequisites(&[Record::new()
@@ -239,8 +236,7 @@ fn test_prerequisites() {
                 .set_dns_class(DNSClass::ANY)
                 .set_rr_type(RecordType::A)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert_eq!(
         authority.verify_prerequisites(&[Record::new()
@@ -262,8 +258,7 @@ fn test_prerequisites() {
                 .set_dns_class(DNSClass::NONE)
                 .set_rr_type(RecordType::ANY)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert_eq!(
         authority.verify_prerequisites(&[Record::new()
@@ -285,8 +280,7 @@ fn test_prerequisites() {
                 .set_dns_class(DNSClass::NONE)
                 .set_rr_type(RecordType::A)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert_eq!(
         authority.verify_prerequisites(&[Record::new()
@@ -308,8 +302,7 @@ fn test_prerequisites() {
                 .set_dns_class(DNSClass::IN)
                 .set_rr_type(RecordType::A)
                 .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     // wrong class
     assert_eq!(
@@ -402,8 +395,7 @@ fn test_pre_scan() {
                 .set_rr_type(RecordType::A)
                 .set_dns_class(DNSClass::IN)
                 .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert!(
         authority
@@ -413,8 +405,7 @@ fn test_pre_scan() {
                 .set_rr_type(RecordType::A)
                 .set_dns_class(DNSClass::IN)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
 
     assert_eq!(
@@ -465,8 +456,7 @@ fn test_pre_scan() {
                 .set_rr_type(RecordType::ANY)
                 .set_dns_class(DNSClass::ANY)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert!(
         authority
@@ -476,8 +466,7 @@ fn test_pre_scan() {
                 .set_rr_type(RecordType::A)
                 .set_dns_class(DNSClass::ANY)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
 
     assert_eq!(
@@ -528,8 +517,7 @@ fn test_pre_scan() {
                 .set_rr_type(RecordType::A)
                 .set_dns_class(DNSClass::NONE)
                 .set_rdata(RData::NULL(NULL::new()))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
     assert!(
         authority
@@ -539,8 +527,7 @@ fn test_pre_scan() {
                 .set_rr_type(RecordType::A)
                 .set_dns_class(DNSClass::NONE)
                 .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
-                .clone()])
-            .is_ok()
+                .clone()]).is_ok()
     );
 
     assert_eq!(
@@ -586,8 +573,7 @@ fn test_update() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
     ];
 
     original_vec.sort();
@@ -600,8 +586,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            )
-            .collect();
+            ).collect();
         www_rrset.sort();
 
         assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
@@ -614,8 +599,7 @@ fn test_update() {
                     RecordType::ANY,
                     false,
                     SupportedAlgorithms::new()
-                )
-                .is_totally_empty()
+                ).is_totally_empty()
         );
     }
 
@@ -640,8 +624,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new()
-            )
-            .collect::<Vec<_>>(),
+            ).collect::<Vec<_>>(),
         add_record.iter().collect::<Vec<&Record>>()
     );
     assert_eq!(serial + 1, authority.serial());
@@ -667,8 +650,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            )
-            .collect();
+            ).collect();
         www_rrset.sort();
 
         let mut plus_10 = original_vec.clone();
@@ -709,8 +691,7 @@ fn test_update() {
                     RecordType::ANY,
                     false,
                     SupportedAlgorithms::new()
-                )
-                .is_totally_empty()
+                ).is_totally_empty()
         );
     }
 
@@ -735,8 +716,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            )
-            .collect();
+            ).collect();
         www_rrset.sort();
 
         assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
@@ -772,8 +752,7 @@ fn test_update() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
     ];
     removed_a_vec.sort();
 
@@ -784,8 +763,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            )
-            .collect();
+            ).collect();
         www_rrset.sort();
 
         assert_eq!(www_rrset, removed_a_vec.iter().collect::<Vec<&Record>>());
@@ -813,12 +791,12 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new()
-            )
-            .is_totally_empty()
+            ).is_totally_empty()
     );
     assert_eq!(serial + 6, authority.serial());
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_zone_signing() {
     let authority: Authority = create_secure_example();
@@ -874,6 +852,7 @@ fn test_zone_signing() {
     }
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_get_nsec() {
     let name = Name::from_str("zzz.example.com").unwrap();
@@ -920,8 +899,7 @@ fn test_journal() {
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        )
-        .collect();
+        ).collect();
     assert!(new_rrset.iter().all(|r| *r == &new_record));
     let lower_delete_name = LowerName::from(delete_name.clone());
 
@@ -952,8 +930,7 @@ fn test_journal() {
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        )
-        .collect();
+        ).collect();
     assert!(new_rrset.iter().all(|r| *r == &new_record));
 
     let delete_rrset = authority.lookup(
