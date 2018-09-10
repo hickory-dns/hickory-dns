@@ -13,7 +13,7 @@ extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
-#[cfg(feature = "tls")]
+#[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
 
 mod server_harness;
@@ -31,7 +31,7 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
 // TODO: Needed for when TLS tests are added back
-// #[cfg(feature = "tls")]
+// #[cfg(feature = "dns-over-openssl")]
 // use trust_dns_openssl::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
@@ -185,7 +185,7 @@ fn test_nxdomain_where_no_name_exists() {
     })
 }
 
-#[cfg(feature = "tls")]
+#[cfg(feature = "dns-over-openssl")]
 #[test]
 fn test_example_tls_toml_startup() {
     use std::env;

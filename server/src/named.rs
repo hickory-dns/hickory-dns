@@ -496,6 +496,7 @@ pub fn main() {
                 );
 
                 // setup HTTPS listeners
+                #[cfg(feature = "dns-over-https")]
                 config_https(
                     &args,
                     &mut server,
@@ -551,36 +552,35 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
-    // FIXME: uncomment this...
-    // let tls_listen_port: u16 = args
-    //     .flag_tls_port
-    //     .unwrap_or_else(|| config.get_tls_listen_port());
-    // let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
-    //     .iter()
-    //     .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
-    //     .collect();
-    // let tls_listeners: Vec<TcpListener> = tls_sockaddrs
-    //     .iter()
-    //     .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
-    //     .collect();
-    // if tls_listeners.is_empty() {
-    //     warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
-    // }
+    let tls_listen_port: u16 = args
+        .flag_tls_port
+        .unwrap_or_else(|| config.get_tls_listen_port());
+    let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
+        .iter()
+        .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
+        .collect();
+    let tls_listeners: Vec<TcpListener> = tls_sockaddrs
+        .iter()
+        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
+        .collect();
+    if tls_listeners.is_empty() {
+        warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
+    }
 
-    // for tls_listener in tls_listeners {
-    //     info!(
-    //         "loading cert for DNS over TLS: {:?}",
-    //         tls_cert_config.get_path()
-    //     );
-    //     // TODO: see about modifying native_tls to impl Clone for Pkcs12
-    //     let tls_cert =
-    //         load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+    for tls_listener in tls_listeners {
+        info!(
+            "loading cert for DNS over TLS: {:?}",
+            tls_cert_config.get_path()
+        );
+        // TODO: see about modifying native_tls to impl Clone for Pkcs12
+        let tls_cert =
+            load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
-    //     info!("listening for TLS on {:?}", tls_listener);
-    //     server
-    //         .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
-    //         .expect("could not register TLS listener");
-    // }
+        info!("listening for TLS on {:?}", tls_listener);
+        server
+            .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
+            .expect("could not register TLS listener");
+    }
 }
 
 #[cfg(not(feature = "dns-over-https"))]
@@ -592,7 +592,7 @@ fn config_https(
     _zone_dir: &Path,
     _listen_addrs: &[IpAddr],
 ) {
-    panic!("TLS not enabled");
+    panic!("HTTPS not enabled");
 }
 
 #[cfg(feature = "dns-over-https")]
