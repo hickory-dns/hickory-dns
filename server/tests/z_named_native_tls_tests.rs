@@ -6,7 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "dns-over-tls")]
+#![cfg(feature = "dns-over-openssl")]
+// TODO: enable this test for rustls as well using below config
+// #![cfg(feature = "dns-over-tls")]
 
 extern crate chrono;
 extern crate futures;

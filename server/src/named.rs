@@ -486,6 +486,8 @@ pub fn main() {
             // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
             if let Some(tls_cert_config) = tls_cert_config {
                 // setup TLS listeners
+                // TODO: support rustls
+                #[cfg(feature = "dns-over-openssl")]
                 config_tls(
                     &args,
                     &mut server,
@@ -543,7 +545,7 @@ fn config_tls(
     panic!("TLS not enabled");
 }
 
-#[cfg(feature = "dns-over-tls")]
+#[cfg(feature = "dns-over-openssl")]
 fn config_tls(
     args: &Args,
     server: &mut ServerFuture<Catalog>,
