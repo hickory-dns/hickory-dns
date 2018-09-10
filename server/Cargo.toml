@@ -41,19 +41,19 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["dns-over-openssl", "dnssec-openssl"]
+default = []
 dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-rustls", "trust-dns/dns-over-https-rustls", "dns-over-https"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns/dns-over-https-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "trust-dns-openssl"]
-dns-over-rustls = ["dns-over-tls", "trust-dns-rustls", "rustls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns/dns-over-rustls"]
 dns-over-tls = []
 
 # This is a deprecated feature...

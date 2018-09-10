@@ -20,12 +20,12 @@ use tokio::runtime::current_thread::Runtime;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsRequestSender, DnsResponse};
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use client::SecureClientHandle;
 use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
 use error::*;
 use rr::dnssec::Signer;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::dnssec::TrustAnchor;
 use rr::{DNSClass, IntoRecordSet, Name, Record, RecordType};
 

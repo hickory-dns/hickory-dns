@@ -185,53 +185,6 @@ fn test_nxdomain_where_no_name_exists() {
     })
 }
 
-#[cfg(feature = "dns-over-openssl")]
-#[test]
-fn test_example_tls_toml_startup() {
-    use std::env;
-    use std::fs::File;
-    use std::io::*;
-    use trust_dns_openssl::TlsClientStreamBuilder;
-
-    named_test_harness("dns_over_tls.toml", move |_, tls_port, _| {
-        let mut cert_der = vec![];
-        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
-        println!("using server src path: {}", server_path);
-
-        File::open(&format!(
-            "{}/tests/named_test_configs/sec/example.cert",
-            server_path
-        )).expect("failed to open cert")
-        .read_to_end(&mut cert_der)
-        .expect("failed to read cert");
-
-        let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), tls_port);
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
-        tls_conn_builder.add_ca_der(&cert_der).unwrap();
-        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), Box::new(sender), None);
-
-        io_loop.spawn(bg);
-
-        // ipv4 should succeed
-        query_a(&mut io_loop, &mut client);
-
-        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), tls_port);
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
-        tls_conn_builder.add_ca_der(&cert_der).unwrap();
-        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), Box::new(sender), None);
-
-        io_loop.spawn(bg);
-
-        // ipv6 should succeed
-        query_a(&mut io_loop, &mut client);
-
-        assert!(true);
-    })
-}
-
 #[test]
 fn test_server_continues_on_bad_data_udp() {
     named_test_harness("example.toml", |port, _, _| {

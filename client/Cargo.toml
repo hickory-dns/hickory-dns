@@ -42,12 +42,16 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 [features]
 # TODO: the rustls and openssl crates are not deps... should we change that to make them easier to use?
 #  or change this to also be external?
-dns-over-https-rustls = ["trust-dns-https", "rustls", "webpki", "dns-over-https"]
-dns-over-https-openssl = ["trust-dns-https", "openssl", "dns-over-https"]
-dns-over-https = []
+dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls"]
+dns-over-https = ["trust-dns-https"]
+
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "webpki"]
+dns-over-tls = []
 
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl"]
-dnssec-ring = ["dnssec", "ring", "trust-dns-proto/dnssec-ring", "untrusted"]
+dnssec-ring = ["dnssec", "ring", "untrusted", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 serde-config = ["serde"]

@@ -15,6 +15,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *breaking* Overhauled all `ClientFuture` implementations to align with new `DnsExchange` and `DnsMultiplexer` components in proto.
 - *breaking* `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
 - *breaking* `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
+- *breaking* all default features, removed: "dns-over-openssl", "dnssec-openssl". Use --features=dns-over-openssl,dnssec-openssl to enable
 - feature `tls` renamed to `dns-over-openssl`
 
 ## 0.14.0
