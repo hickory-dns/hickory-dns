@@ -35,6 +35,8 @@ use trust_dns_native_tls::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 
+// FIXME: reenable when dns-over-rustls support is done
+#[cfg(not(feature = "dns-over-rustls"))]
 #[test]
 fn test_example_tls_toml_startup() {
     named_test_harness("dns_over_tls.toml", move |_, tls_port, _| {

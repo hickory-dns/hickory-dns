@@ -59,7 +59,7 @@ dns-over-https = []
 # TODO: need to make server support rustls and native-tls
 # dns-over-native-tls = ["dns-over-tls",  "trust-dns-resolver/dns-over-native-tls", "trust-dns-server/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "trust-dns-resolver/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
-# dns-over-rustls = ["dns-over-tls", "trust-dns-resolver/dns-over-rustls", "trust-dns-server/dns-over-rustls"]
+dns-over-rustls = ["dns-over-tls", "trust-dns-resolver/dns-over-rustls", "trust-dns-server/dns-over-rustls"]
 dns-over-tls = []
 
 [dependencies]
@@ -83,5 +83,5 @@ trust-dns-proto = { version = "0.5.0-alpha", path = "../proto" }
 trust-dns-resolver = { version = "0.10.0-alpha", path = "../resolver" }
 trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.15.0-alpha", path = "../server", features = ["dnssec-openssl"] }
+trust-dns-server = { version = "0.15.0-alpha", path = "../server" }
 webpki-roots = { version = "^0.15", optional = true }
