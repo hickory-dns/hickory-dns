@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use futures::{Future, Stream};
 
-#[cfg(feature = "dns-over-https-rustls")]
+#[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio_executor;
 use tokio_reactor::Handle;
@@ -175,7 +175,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(feature = "dns-over-openssl")]
+    #[cfg(all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    ))]
     pub fn register_tls_listener(
         &self,
         listener: tokio_tcp::TcpListener,
@@ -255,7 +258,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(feature = "dns-over-openssl")]
+    #[cfg(all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    ))]
     pub fn register_tls_listener_std(
         &self,
         listener: std::net::TcpListener,
@@ -267,6 +273,32 @@ impl<T: RequestHandler> ServerFuture<T> {
             timeout,
             pkcs12,
         )
+    }
+
+    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
+    /// IPv6 or an IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "dns-over-rustls")]
+    pub fn register_tls_listener(
+        &self,
+        listener: tokio_tcp::TcpListener,
+        timeout: Duration,
+        certificate_and_key: (Certificate, PrivateKey),
+    ) -> io::Result<()> {
+        warn!("dns-over-tls with rustls currently not supported");
+        #[cfg(feature = "dns-over-openssl")]
+        warn!("until dns-over-rustls is fully supported, both dns-over-openssl and dns-over-rustls should not be enabled when dns-over-tls is desired (this is ok for https)");
+        Ok(())
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
