@@ -16,6 +16,7 @@ extern crate h2;
 extern crate http;
 #[macro_use]
 extern crate log;
+#[macro_use]
 extern crate failure;
 extern crate rustls;
 extern crate tokio_executor;
