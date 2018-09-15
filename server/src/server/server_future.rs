@@ -175,10 +175,12 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    ))]
+    #[cfg(
+        all(
+            feature = "dns-over-openssl",
+            not(feature = "dns-over-rustls")
+        )
+    )]
     pub fn register_tls_listener(
         &self,
         listener: tokio_tcp::TcpListener,
@@ -258,10 +260,12 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    ))]
+    #[cfg(
+        all(
+            feature = "dns-over-openssl",
+            not(feature = "dns-over-rustls")
+        )
+    )]
     pub fn register_tls_listener_std(
         &self,
         listener: std::net::TcpListener,
@@ -295,9 +299,74 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Certificate, PrivateKey),
     ) -> io::Result<()> {
-        warn!("dns-over-tls with rustls currently not supported");
-        #[cfg(feature = "dns-over-openssl")]
-        warn!("until dns-over-rustls is fully supported, both dns-over-openssl and dns-over-rustls should not be enabled when dns-over-tls is desired (this is ok for https)");
+        use futures::{future, Stream};
+        use rustls::ServerConfig;
+        use tokio_rustls::ServerConfigExt;
+
+        use trust_dns_rustls::{tls_from_stream, tls_server, TlsStream};
+        let handler = self.handler.clone();
+
+        debug!("registered tcp: {:?}", listener);
+
+        let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
+            .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("error creating TLS acceptor: {}", e),
+            )
+        })?;
+        let tls_acceptor: Arc<ServerConfig> = Arc::new(tls_acceptor);
+
+        // for each incoming request...
+        tokio_executor::spawn(future::lazy(move || {
+            listener
+                .incoming()
+                .for_each(move |tcp_stream| {
+                    let src_addr = tcp_stream.peer_addr().unwrap();
+                    debug!("accepted request from: {}", src_addr);
+                    let handler = handler.clone();
+
+                    // TODO: need to consider timeout of total connect...
+                    // take the created stream...
+                    tls_acceptor
+                        .accept_async(tcp_stream)
+                        .map_err(|e| {
+                            io::Error::new(
+                                io::ErrorKind::ConnectionRefused,
+                                format!("tls error: {}", e),
+                            )
+                        }).and_then(move |tls_stream| {
+                            let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
+                            let timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                            //let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                            let handler = handler.clone();
+
+                            // and spawn to the io_loop
+                            tokio_executor::spawn(
+                                timeout_stream
+                                    .for_each(move |message| {
+                                        self::handle_raw_request(
+                                            message,
+                                            handler.clone(),
+                                            stream_handle.clone(),
+                                        )
+                                    }).map_err(move |e| {
+                                        debug!(
+                                            "error in TLS request_stream src: {:?} error: {}",
+                                            src_addr, e
+                                        )
+                                    }),
+                            );
+
+                            Ok(())
+                        })
+                    // FIXME: need to map this error to Ok, otherwise this is a DOS potential
+                    // .map_err(move |e| {
+                    //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
+                    // })
+                }).map_err(|e| panic!("error in inbound https_stream: {}", e))
+        }));
+
         Ok(())
     }
 
@@ -314,10 +383,12 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-https-openssl",
-        not(feature = "dns-over-https-rustls")
-    ))]
+    #[cfg(
+        all(
+            feature = "dns-over-https-openssl",
+            not(feature = "dns-over-https-rustls")
+        )
+    )]
     pub fn register_https_listener(
         &self,
         listener: tokio_tcp::TcpListener,
