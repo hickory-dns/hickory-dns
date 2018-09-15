@@ -273,10 +273,12 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     ))
 }
 
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(
+    all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    )
+)]
 fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
@@ -293,6 +295,7 @@ fn load_cert(
     use trust_dns_rustls::tls_server::read_cert;
 
     // FIXME: this can't be hard-coded...
+    warn!("loading hardcoded paths");
     let cert_path = "/Users/benjaminfry/Development/rust/trust-dns/server/tests/named_test_configs/sec/example.cert";
     let private_key_path = "/Users/benjaminfry/Development/rust/trust-dns/server/tests/named_test_configs/sec/example.key";
 
@@ -464,8 +467,8 @@ pub fn main() {
     // now, run the server, based on the config
     let mut server = ServerFuture::new(catalog);
 
-    let server_future: Box<Future<Item = (), Error = ()> + Send> =
-        Box::new(future::lazy(move || {
+    let server_future: Box<Future<Item = (), Error = ()> + Send> = Box::new(future::lazy(
+        move || {
             // load all the listeners
             for udp_socket in udp_sockets {
                 info!("listening for UDP on {:?}", udp_socket);
@@ -518,7 +521,8 @@ pub fn main() {
             ///  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
             future::empty()
-        }));
+        },
+    ));
 
     if let Err(e) = io_loop.block_on(server_future.map_err(|_| {
         io::Error::new(
