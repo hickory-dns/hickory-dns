@@ -19,7 +19,7 @@ use webpki::{DNSName, DNSNameRef};
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
 
-pub type TlsStream<S: Session> = TcpStream<TokioTlsStream<TokioTcpStream, S>>;
+pub type TlsStream<S> = TcpStream<TokioTlsStream<TokioTcpStream, S>>;
 
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///

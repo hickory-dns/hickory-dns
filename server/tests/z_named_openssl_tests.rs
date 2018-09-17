@@ -7,6 +7,7 @@
 
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-openssl")]
+#![cfg(not(feature = "dns-over-rustls"))]
 // TODO: enable this test for rustls as well using below config
 // #![cfg(feature = "dns-over-tls")]
 
@@ -35,11 +36,18 @@ use trust_dns_native_tls::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 
-// FIXME: reenable when dns-over-rustls support is done
-#[cfg(not(feature = "dns-over-rustls"))]
 #[test]
 fn test_example_tls_toml_startup() {
-    named_test_harness("dns_over_tls.toml", move |_, tls_port, _| {
+    test_startup("dns_over_tls.toml")
+}
+
+#[test]
+fn test_example_tls_rustls_and_openssl_toml_startup() {
+    test_startup("dns_over_tls_rustls_and_openssl.toml")
+}
+
+fn test_startup(toml: &'static str) {
+    named_test_harness(toml, move |_, tls_port, _| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         println!("using server src path: {}", server_path);

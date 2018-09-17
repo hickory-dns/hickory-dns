@@ -24,6 +24,8 @@ extern crate tokio_rustls;
 extern crate tokio_tcp;
 extern crate trust_dns_proto;
 extern crate webpki;
+#[macro_use]
+extern crate log;
 
 pub mod tls_client_stream;
 pub mod tls_server;

@@ -7,52 +7,65 @@
 
 use std::fs::File;
 use std::io;
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::Path;
 
+use rustls::internal::pemfile::{certs, pkcs8_private_keys};
 use rustls::{self, Certificate, PrivateKey, ProtocolVersion, ServerConfig};
 
-use trust_dns_proto::error::ProtoResult;
+use trust_dns_proto::error::{ProtoError, ProtoResult};
 
 /// Read the certificate from the specified path.
 ///
 /// If the password is specified, then it will be used to decode the Certificate
-pub fn read_cert(
-    cert_path: &Path,
-    private_key_path: &Path,
-) -> ProtoResult<(Certificate, PrivateKey)> {
+pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<Certificate>> {
     let mut cert_file = File::open(&cert_path)
         .map_err(|e| format!("error opening cert file: {:?}: {}", cert_path, e))?;
 
-    let mut cert_bytes = vec![];
-    cert_file
-        .read_to_end(&mut cert_bytes)
-        .map_err(|e| format!("could not read cert from: {:?}: {}", cert_path, e))?;
-    drop(cert_file);
+    let mut reader = BufReader::new(&mut cert_file);
+    certs(&mut reader).map_err(|()| {
+        ProtoError::from(format!(
+            "failed to read certs from: {}",
+            cert_path.display()
+        ))
+    })
+}
 
-    let mut key_file = File::open(&private_key_path).map_err(|e| {
-        format!(
-            "error opening private_key file: {:?}: {}",
-            private_key_path, e
-        )
-    })?;
+/// Reads a private key from a pkcs8 formatted, and possibly encoded file
+pub fn read_key_from_pkcs8(path: &Path) -> ProtoResult<PrivateKey> {
+    let mut file = BufReader::new(File::open(path)?);
 
-    let mut key_bytes = vec![];
-    key_file.read_to_end(&mut key_bytes).map_err(|e| {
-        format!(
-            "could not read private_key from: {:?}: {}",
-            private_key_path, e
-        )
-    })?;
+    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(&mut file)
+        .map_err(|()| ProtoError::from(format!("failed to read keys from: {}", path.display())))?;
+    match keys.len() {
+        0 => return Err(format!("no keys available in: {}", path.display()).into()),
+        1 => (),
+        _ => warn!(
+            "ignoring other than the first key in file: {}",
+            path.display()
+        ),
+    }
 
-    Ok((Certificate(cert_bytes), PrivateKey(key_bytes)))
+    Ok(keys.swap_remove(0))
+}
+
+/// Reads a private key from a der formatted file
+pub fn read_key_from_der(path: &Path) -> ProtoResult<PrivateKey> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+
+    Ok(PrivateKey(buf))
 }
 
 /// Construct the new Acceptor with the associated pkcs12 data
-pub fn new_acceptor(cert: Certificate, key: PrivateKey) -> Result<ServerConfig, rustls::TLSError> {
+pub fn new_acceptor(
+    cert: Vec<Certificate>,
+    key: PrivateKey,
+) -> Result<ServerConfig, rustls::TLSError> {
     let mut config = ServerConfig::new(rustls::NoClientAuth::new());
     config.set_protocols(&["h2".to_string()]);
-    config.set_single_cert(vec![cert], key)?;
+    config.set_single_cert(cert, key)?;
 
     Ok(config)
 }

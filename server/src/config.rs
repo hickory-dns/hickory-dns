@@ -355,11 +355,46 @@ impl KeyConfig {
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct KeyConfig {}
 
+/// Certificate format of the file being read
+#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum CertType {
+    /// Pkcs12 formatted certifcates and private key (requries OpenSSL)
+    Pkcs12,
+    /// PEM formatted Certificate chain
+    Pem,
+}
+
+impl Default for CertType {
+    fn default() -> Self {
+        CertType::Pkcs12
+    }
+}
+
+/// Format of the private key file to read
+#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum PrivateKeyType {
+    /// PKCS8 formatted key file, allows for a password (requires Rustls)
+    Pkcs8,
+    /// DER formatted key, raw and unencrypted
+    Der,
+}
+
+impl Default for PrivateKeyType {
+    fn default() -> Self {
+        PrivateKeyType::Der
+    }
+}
+
 /// Configuration for a TLS certificate
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct TlsCertConfig {
     path: String,
+    cert_type: Option<CertType>,
     password: Option<String>,
+    private_key: Option<String>,
+    private_key_type: Option<PrivateKeyType>,
 }
 
 impl TlsCertConfig {
@@ -367,8 +402,24 @@ impl TlsCertConfig {
     pub fn get_path(&self) -> &Path {
         Path::new(&self.path)
     }
+
+    /// Returns the format type of the certificate file
+    pub fn get_cert_type(&self) -> CertType {
+        self.cert_type.unwrap_or_default()
+    }
+
     /// optional password for open the pkcs12, none assumes no password
     pub fn get_password(&self) -> Option<&str> {
         self.password.as_ref().map(|s| s.as_str())
+    }
+
+    /// returns the path to the private key, as associated with the certificate
+    pub fn get_private_key(&self) -> Option<&Path> {
+        self.private_key.as_ref().map(|s| s.as_str()).map(Path::new)
+    }
+
+    /// returns the path to the private key
+    pub fn get_private_key_type(&self) -> PrivateKeyType {
+        self.private_key_type.unwrap_or_default()
     }
 }

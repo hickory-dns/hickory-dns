@@ -45,6 +45,7 @@ path = "src/lib.rs"
 
 [dependencies]
 futures = "^0.1.17"
+log = "^0.4.1"
 rustls = "^0.13.0"
 tokio-rustls = "^0.7"
 tokio-tcp = "^0.1"

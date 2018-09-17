@@ -297,7 +297,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         &self,
         listener: tokio_tcp::TcpListener,
         timeout: Duration,
-        certificate_and_key: (Certificate, PrivateKey),
+        certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
         use futures::{future, Stream};
         use rustls::ServerConfig;
@@ -416,7 +416,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         &self,
         listener: tokio_tcp::TcpListener,
         timeout: Duration,
-        certificate_and_key: (Certificate, PrivateKey),
+        certificate_and_key: (Vec<Certificate>, PrivateKey),
         dns_hostname: String,
     ) -> io::Result<()> {
         use futures::{future, Stream};
