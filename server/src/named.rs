@@ -76,7 +76,7 @@ use trust_dns_openssl::tls_server::*;
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 #[cfg(feature = "dnssec")]
 use trust_dns_server::config::KeyConfig;
-use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
+use trust_dns_server::config::{self, Config, TlsCertConfig, ZoneConfig};
 use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
 
@@ -291,16 +291,46 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedP
 fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
-) -> Result<(Certificate, PrivateKey), String> {
-    use trust_dns_rustls::tls_server::read_cert;
+) -> Result<(Vec<Certificate>, PrivateKey), String> {
+    use trust_dns_rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
 
-    // FIXME: this can't be hard-coded...
-    warn!("loading hardcoded paths");
-    let cert_path = "/Users/benjaminfry/Development/rust/trust-dns/server/tests/named_test_configs/sec/example.cert";
-    let private_key_path = "/Users/benjaminfry/Development/rust/trust-dns/server/tests/named_test_configs/sec/example.key";
+    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
+    let cert_type = tls_cert_config.get_cert_type();
+    let password = tls_cert_config.get_password();
+    let private_key_path = tls_cert_config
+        .get_private_key()
+        .map(|p| zone_dir.to_owned().join(p));
+    let private_key_type = tls_cert_config.get_private_key_type();
 
-    read_cert(Path::new(cert_path), Path::new(private_key_path))
-        .map_err(|e| format!("error reading cert: {}", e))
+    let cert = match cert_type {
+        config::CertType::Pem => {
+            info!("loading PEM certificate chain from: {}", path.display());
+            read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
+        }
+        config::CertType::Pkcs12 => {
+            return Err(format!(
+                "PKCS12 is not supported with Rustls for certificate, use PEM encoding"
+            ))
+        }
+    };
+
+    let key = match (private_key_path, private_key_type) {
+        (Some(private_key_path), config::PrivateKeyType::Pkcs8) => {
+            info!("loading PKCS8 key from: {}", private_key_path.display());
+            read_key_from_pkcs8(&private_key_path)?
+        }
+        (Some(private_key_path), config::PrivateKeyType::Der) => {
+            info!("loading DER key from: {}", private_key_path.display());
+            read_key_from_der(&private_key_path)?
+        }
+        (None, _) => {
+            return Err(format!(
+                "No private key associated with specified certificate"
+            ))
+        }
+    };
+
+    Ok((cert, key))
 }
 
 // argument name constants for the CLI options

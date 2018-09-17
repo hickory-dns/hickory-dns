@@ -48,11 +48,18 @@ pub enum ProtoErrorKind {
     DomainNameTooLong(usize),
 
     /// EDNS resource record label is not the root label, although required
-    #[fail(display = "edns resource record label must be the root label (.): {}", _0)]
+    #[fail(
+        display = "edns resource record label must be the root label (.): {}",
+        _0
+    )]
     EdnsNameNotRoot(::rr::Name),
 
     /// The length of rdata read was not as expected
-    #[fail(display = "incorrect rdata length read: {} expected: {}", read, len)]
+    #[fail(
+        display = "incorrect rdata length read: {} expected: {}",
+        read,
+        len
+    )]
     IncorrectRDataLengthRead {
         /// The amount of read data
         read: usize,
@@ -81,7 +88,10 @@ pub enum ProtoErrorKind {
     NoError,
 
     /// Not all records were able to be written
-    #[fail(display = "not all records could be written, wrote: {}", count)]
+    #[fail(
+        display = "not all records could be written, wrote: {}",
+        count
+    )]
     NotAllRecordsWritten {
         /// Number of records that were written before the error
         count: usize,
@@ -313,6 +323,12 @@ impl From<ProtoError> for io::Error {
     }
 }
 
+impl From<ProtoError> for String {
+    fn from(e: ProtoError) -> Self {
+        e.to_string()
+    }
+}
+
 impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
         use self::ProtoErrorKind::*;
@@ -361,8 +377,4 @@ impl Clone for ProtoErrorKind {
 /// as well as Clone + Send
 pub trait FromProtoError: From<ProtoError> + Fail + Clone {}
 
-impl<E> FromProtoError for E
-where
-    E: From<ProtoError> + Fail + Clone,
-{
-}
+impl<E> FromProtoError for E where E: From<ProtoError> + Fail + Clone {}

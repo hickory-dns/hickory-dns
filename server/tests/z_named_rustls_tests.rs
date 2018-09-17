@@ -35,51 +35,54 @@ use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_tls_toml_startup() {
-    named_test_harness("dns_over_tls.toml", move |_, tls_port, _| {
-        let mut cert_der = vec![];
-        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
-        println!("using server src path: {}", server_path);
+    named_test_harness(
+        "dns_over_tls_rustls_and_openssl.toml",
+        move |_, tls_port, _| {
+            let mut cert_der = vec![];
+            let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
+            println!("using server src path: {}", server_path);
 
-        File::open(&format!(
-            "{}/tests/named_test_configs/sec/example.cert",
-            server_path
-        )).expect("failed to open cert")
-        .read_to_end(&mut cert_der)
-        .expect("failed to read cert");
+            File::open(&format!(
+                "{}/tests/named_test_configs/sec/example.cert",
+                server_path
+            )).expect("failed to open cert")
+            .read_to_end(&mut cert_der)
+            .expect("failed to read cert");
 
-        let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", tls_port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
-        let cert = to_trust_anchor(&cert_der);
-        tls_conn_builder.add_ca(cert);
-        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+            let mut io_loop = Runtime::new().unwrap();
+            let addr: SocketAddr = ("127.0.0.1", tls_port)
+                .to_socket_addrs()
+                .unwrap()
+                .next()
+                .unwrap();
+            let mut tls_conn_builder = TlsClientStreamBuilder::new();
+            let cert = to_trust_anchor(&cert_der);
+            tls_conn_builder.add_ca(cert);
+            let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
+            let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
 
-        // ipv4 should succeed
-        io_loop.spawn(bg);
-        query_a(&mut io_loop, &mut client);
+            // ipv4 should succeed
+            io_loop.spawn(bg);
+            query_a(&mut io_loop, &mut client);
 
-        let addr: SocketAddr = ("127.0.0.1", tls_port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
-        let cert = to_trust_anchor(&cert_der);
-        tls_conn_builder.add_ca(cert);
-        let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-        io_loop.spawn(bg);
+            let addr: SocketAddr = ("127.0.0.1", tls_port)
+                .to_socket_addrs()
+                .unwrap()
+                .next()
+                .unwrap();
+            let mut tls_conn_builder = TlsClientStreamBuilder::new();
+            let cert = to_trust_anchor(&cert_der);
+            tls_conn_builder.add_ca(cert);
+            let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
+            let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+            io_loop.spawn(bg);
 
-        // ipv6 should succeed
-        query_a(&mut io_loop, &mut client);
+            // ipv6 should succeed
+            query_a(&mut io_loop, &mut client);
 
-        assert!(true);
-    })
+            assert!(true);
+        },
+    )
 }
 
 fn to_trust_anchor(cert_der: &[u8]) -> Certificate {
