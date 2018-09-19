@@ -11,36 +11,136 @@ use std::io::Read;
 use std::path::Path;
 
 use openssl::dh::Dh;
-use openssl::pkcs12::*;
 use openssl::ssl::{self, SslAcceptor, SslMethod, SslMode, SslOptions, SslVerifyMode};
+use trust_dns_proto::error::{ProtoError, ProtoResult};
 
-pub use openssl::pkcs12::ParsedPkcs12;
+pub use openssl::pkcs12::{ParsedPkcs12, Pkcs12};
+pub use openssl::pkey::{PKey, Private};
+pub use openssl::stack::Stack;
+pub use openssl::x509::X509;
 pub use tokio_openssl::SslAcceptorExt;
 
 /// Read the certificate from the specified path.
 ///
 /// If the password is specified, then it will be used to decode the Certificate
-pub fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String> {
-    let mut file = File::open(&path)
-        .map_err(|e| format!("error opening pkcs12 cert file: {:?}: {}", path, e))?;
+pub fn read_cert_pkcs12(
+    path: &Path,
+    password: Option<&str>,
+) -> ProtoResult<((X509, Option<Stack<X509>>), PKey<Private>)> {
+    let mut file = File::open(&path).map_err(|e| {
+        ProtoError::from(format!(
+            "error opening pkcs12 cert file: {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
+
+    let mut pkcs12_bytes = vec![];
+    file.read_to_end(&mut pkcs12_bytes).map_err(|e| {
+        ProtoError::from(format!(
+            "could not read pkcs12 from: {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
+    let pkcs12 = Pkcs12::from_der(&pkcs12_bytes).map_err(|e| {
+        ProtoError::from(format!(
+            "badly formated pkcs12 from: {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
+    let parsed = pkcs12.parse(password.unwrap_or("")).map_err(|e| {
+        ProtoError::from(format!(
+            "failed to open pkcs12 from: {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
+
+    Ok(((parsed.cert, parsed.chain), parsed.pkey))
+}
+
+/// Read the certificate from the specified path.
+///
+/// If the password is specified, then it will be used to decode the Certificate
+pub fn read_cert_pem(path: &Path) -> ProtoResult<(X509, Option<Stack<X509>>)> {
+    let mut file = File::open(&path).map_err(|e| {
+        ProtoError::from(format!(
+            "error opening cert file: {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
 
     let mut key_bytes = vec![];
-    file.read_to_end(&mut key_bytes)
-        .map_err(|e| format!("could not read pkcs12 key from: {:?}: {}", path, e))?;
-    let pkcs12 = Pkcs12::from_der(&key_bytes)
-        .map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e))?;
-    pkcs12
-        .parse(password.unwrap_or(""))
-        .map_err(|e| format!("failed to open pkcs12 from: {:?}: {}", path, e))
+    file.read_to_end(&mut key_bytes).map_err(|e| {
+        ProtoError::from(format!(
+            "could not read cert key from: {}: {}",
+            path.display(),
+            e
+        ))
+    })?;
+
+    let cert_chain = X509::stack_from_pem(&key_bytes)?;
+    let cert_count = cert_chain.len();
+    let mut iter = cert_chain.into_iter();
+
+    let cert = match iter.next() {
+        None => {
+            return Err(ProtoError::from(format!(
+                "no certs read from file: {}",
+                path.display()
+            )))
+        }
+        Some(cert) => cert,
+    };
+
+    if cert_count < 1 {
+        Ok((cert, None))
+    } else {
+        let mut stack = Stack::<X509>::new()?;
+        for c in iter {
+            stack.push(c)?;
+        }
+        Ok((cert, Some(stack)))
+    }
+}
+
+/// Reads a private key from a pkcs8 formatted, and possibly encoded file
+pub fn read_key_from_pkcs8(path: &Path, password: Option<&str>) -> ProtoResult<PKey<Private>> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+
+    match password.map(|p| p.as_bytes()) {
+        Some(password) => {
+            PKey::private_key_from_pkcs8_passphrase(&buf, password).map_err(Into::into)
+        }
+        None => PKey::private_key_from_pkcs8_passphrase(&buf, &[0_u8; 0]).map_err(Into::into),
+    }
+}
+
+/// Reads a private key from a der formatted file
+pub fn read_key_from_der(path: &Path) -> ProtoResult<PKey<Private>> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+
+    PKey::private_key_from_der(&buf).map_err(Into::into)
 }
 
 /// Construct the new Acceptor with the associated pkcs12 data
-pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
+pub fn new_acceptor(
+    cert: X509,
+    chain: Option<Stack<X509>>,
+    key: PKey<Private>,
+) -> io::Result<SslAcceptor> {
     // TODO: make an internal error type with conversions
     let mut builder = SslAcceptor::mozilla_modern(SslMethod::tls())?;
 
-    builder.set_private_key(&pkcs12.pkey)?;
-    builder.set_certificate(&pkcs12.cert)?;
+    builder.set_private_key(&key)?;
+    builder.set_certificate(&cert)?;
     builder.set_verify(SslVerifyMode::NONE);
     builder.set_options(
         SslOptions::NO_COMPRESSION
@@ -50,7 +150,7 @@ pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
             | SslOptions::NO_TLSV1_1,
     );
 
-    if let Some(ref chain) = pkcs12.chain {
+    if let Some(ref chain) = chain {
         for cert in chain {
             builder.add_extra_chain_cert(cert.to_owned())?;
         }
