@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! The `named` binary for running a DNS server
 //!
@@ -279,12 +270,56 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         not(feature = "dns-over-rustls")
     )
 )]
-fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedPkcs12, String> {
-    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
-    let password = tls_cert_config.get_password();
+fn load_cert(
+    zone_dir: &Path,
+    tls_cert_config: &TlsCertConfig,
+) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
+    use trust_dns_openssl::tls_server::{read_cert_pem, read_cert_pkcs12, read_key_from_der};
 
-    info!("reading TLS certificate from: {:?}", path);
-    read_cert(&path, password)
+    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
+    let cert_type = tls_cert_config.get_cert_type();
+    let password = tls_cert_config.get_password();
+    let private_key_path = tls_cert_config
+        .get_private_key()
+        .map(|p| zone_dir.to_owned().join(p));
+    let private_key_type = tls_cert_config.get_private_key_type();
+
+    // if it's pkcs12, we'll be collecting the key and certs from that, otherwise continue processing
+    let (cert, cert_chain) = match cert_type {
+        config::CertType::Pem => {
+            info!("loading TLS PEM certificate from: {:?}", path);
+            read_cert_pem(&path)?
+        }
+        config::CertType::Pkcs12 => {
+            if private_key_path.is_some() {
+                warn!(
+                    "ignoring specified key, using the one in the PKCS12 file: {}",
+                    path.display()
+                );
+            }
+            info!("loading TLS PKCS12 certificate from: {:?}", path);
+            return read_cert_pkcs12(&path, password).map_err(Into::into);
+        }
+    };
+
+    // it wasn't plcs12, we need to load the key separately
+    let key = match (private_key_path, private_key_type) {
+        (Some(private_key_path), config::PrivateKeyType::Pkcs8) => {
+            info!("loading TLS PKCS8 key from: {}", private_key_path.display());
+            read_key_from_pkcs8(&private_key_path, password)?
+        }
+        (Some(private_key_path), config::PrivateKeyType::Der) => {
+            info!("loading TLS DER key from: {}", private_key_path.display());
+            read_key_from_der(&private_key_path)?
+        }
+        (None, _) => {
+            return Err(format!(
+                "No private key associated with specified certificate"
+            ))
+        }
+    };
+
+    Ok(((cert, cert_chain), key))
 }
 
 #[cfg(feature = "dns-over-rustls")]
@@ -304,7 +339,7 @@ fn load_cert(
 
     let cert = match cert_type {
         config::CertType::Pem => {
-            info!("loading PEM certificate chain from: {}", path.display());
+            info!("loading TLS PEM certificate chain from: {}", path.display());
             read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
         }
         config::CertType::Pkcs12 => {
@@ -316,11 +351,15 @@ fn load_cert(
 
     let key = match (private_key_path, private_key_type) {
         (Some(private_key_path), config::PrivateKeyType::Pkcs8) => {
-            info!("loading PKCS8 key from: {}", private_key_path.display());
+            info!("loading TLS PKCS8 key from: {}", private_key_path.display());
+            if password.is_some() {
+                warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
+            }
+
             read_key_from_pkcs8(&private_key_path)?
         }
         (Some(private_key_path), config::PrivateKeyType::Der) => {
-            info!("loading DER key from: {}", private_key_path.display());
+            info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }
         (None, _) => {
@@ -608,7 +647,7 @@ fn config_tls(
             "loading cert for DNS over TLS: {:?}",
             tls_cert_config.get_path()
         );
-        // TODO: see about modifying native_tls to impl Clone for Pkcs12
+
         let tls_cert =
             load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 

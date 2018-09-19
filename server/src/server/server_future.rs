@@ -185,14 +185,15 @@ impl<T: RequestHandler> ServerFuture<T> {
         &self,
         listener: tokio_tcp::TcpListener,
         timeout: Duration,
-        pkcs12: ParsedPkcs12,
+        certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
         use futures::future;
 
+        let ((cert, chain), key) = certificate_and_key;
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
-        let tls_acceptor = tls_server::new_acceptor(&pkcs12)?;
+        let tls_acceptor = tls_server::new_acceptor(cert, chain, key)?;
 
         // for each incoming request...
         tokio_executor::spawn(future::lazy(move || {
@@ -270,12 +271,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         &self,
         listener: std::net::TcpListener,
         timeout: Duration,
-        pkcs12: ParsedPkcs12,
+        certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
         self.register_tls_listener(
             tokio_tcp::TcpListener::from_std(listener, &Handle::current())?,
             timeout,
-            pkcs12,
+            certificate_and_key,
         )
     }
 
