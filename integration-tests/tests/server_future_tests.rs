@@ -144,10 +144,12 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 // TODO: move all this to future based clients
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(
+    all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    )
+)]
 #[test]
 
 fn test_server_www_tls() {
@@ -292,10 +294,12 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
 }
 
 // FIXME: need a rustls option
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(
+    all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    )
+)]
 fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
@@ -311,6 +315,7 @@ fn server_thread_tls(
                     .expect("bad pkcs12 der")
                     .parse("mypass")
                     .expect("Pkcs12::from_der");
+                let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
                 future::result(server.register_tls_listener(
                     tls_listener,
                     Duration::from_secs(30),

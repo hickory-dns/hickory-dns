@@ -9,15 +9,12 @@
 
 use std::str::FromStr;
 
-use http::{header, uri, Response, StatusCode, Uri, Version};
-use typed_headers::{
-    mime::Mime, Accept, ContentLength, ContentType, HeaderMapExt, Quality, QualityItem,
-};
+use http::{Response, StatusCode, Version};
+use typed_headers::{mime::Mime, ContentLength, ContentType, HeaderMapExt};
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::op::Message;
 
-use {HttpsError, HttpsResult};
+use HttpsResult;
 
 /// Create a new Response for an http/2 dns-message request
 ///

@@ -6,12 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fs::File;
-use std::io;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
 use rustls::internal::pemfile::{certs, pkcs8_private_keys};
-use rustls::{self, Certificate, PrivateKey, ProtocolVersion, ServerConfig};
+use rustls::{self, Certificate, PrivateKey, ServerConfig};
 
 use trust_dns_proto::error::{ProtoError, ProtoResult};
 

@@ -16,8 +16,10 @@ use std::time;
 use chrono::Duration;
 use openssl::rsa::Rsa;
 
+#[cfg(feature = "dnssec")]
+use trust_dns::client::SecureSyncClient;
 #[allow(deprecated)]
-use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
+use trust_dns::client::{Client, ClientConnection, SyncClient};
 use trust_dns::error::ClientErrorKind;
 use trust_dns::op::*;
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
@@ -135,6 +137,7 @@ where
 #[test]
 #[ignore]
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_secure_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
@@ -146,6 +149,7 @@ fn test_secure_query_example_udp() {
 #[test]
 #[ignore]
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_secure_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -155,6 +159,7 @@ fn test_secure_query_example_tcp() {
 }
 
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_secure_query_example<CC>(client: SecureSyncClient<CC>)
 where
     CC: ClientConnection,
@@ -281,6 +286,7 @@ fn test_timeout_query_tcp() {
 #[test]
 #[ignore]
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_nsec_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
@@ -291,6 +297,7 @@ fn test_nsec_query_example_udp() {
 #[test]
 #[ignore]
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_nsec_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -299,6 +306,7 @@ fn test_nsec_query_example_tcp() {
 }
 
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_nsec_query_example<CC>(client: SecureSyncClient<CC>)
 where
     CC: ClientConnection,
@@ -315,6 +323,7 @@ where
 #[test]
 #[ignore]
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn test_nsec_query_type() {
     let name = Name::from_str("www.example.com").unwrap();
 
@@ -366,8 +375,8 @@ fn test_nsec_query_type() {
 //   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
 // }
 
-#[cfg(feature = "dnssec")]
 #[allow(deprecated)]
+#[cfg(feature = "dnssec")]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);

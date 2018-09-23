@@ -10,8 +10,7 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 
-use openssl::dh::Dh;
-use openssl::ssl::{self, SslAcceptor, SslMethod, SslMode, SslOptions, SslVerifyMode};
+use openssl::ssl::{SslAcceptor, SslMethod, SslOptions, SslVerifyMode};
 use trust_dns_proto::error::{ProtoError, ProtoResult};
 
 pub use openssl::pkcs12::{ParsedPkcs12, Pkcs12};

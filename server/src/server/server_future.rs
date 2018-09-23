@@ -5,7 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std;
-use std::borrow::Borrow;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -20,18 +19,20 @@ use tokio_reactor::Handle;
 use tokio_tcp;
 use tokio_udp;
 
-#[cfg(feature = "dns-over-openssl")]
+#[cfg(
+    all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    )
+)]
 use trust_dns_openssl::tls_server::*;
-#[cfg(feature = "dns-over-openssl")]
-use trust_dns_openssl::{tls_server, TlsStream};
-use trust_dns_proto::op::Message;
 use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder};
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::udp::UdpStream;
 use trust_dns_proto::xfer::SerialMessage;
 use trust_dns_proto::BufStreamHandle;
 
-use authority::{MessageRequest, MessageResponse};
+use authority::MessageRequest;
 use server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
 
 // TODO, would be nice to have a Slab for buffers here...
@@ -118,7 +119,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                     tokio_executor::spawn(
                         timeout_stream
                             .for_each(move |message| {
-                                let src_addr = message.addr();
                                 self::handle_raw_request(
                                     message,
                                     handler.clone(),
@@ -188,6 +188,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
         use futures::future;
+        use trust_dns_openssl::{tls_server, TlsStream};
 
         let ((cert, chain), key) = certificate_and_key;
         let handler = self.handler.clone();
@@ -303,8 +304,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         use futures::{future, Stream};
         use rustls::ServerConfig;
         use tokio_rustls::ServerConfigExt;
+        use trust_dns_rustls::{tls_from_stream, tls_server};
 
-        use trust_dns_rustls::{tls_from_stream, tls_server, TlsStream};
         let handler = self.handler.clone();
 
         debug!("registered tcp: {:?}", listener);
@@ -416,18 +417,16 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn register_https_listener(
         &self,
         listener: tokio_tcp::TcpListener,
-        timeout: Duration,
+        // TODO: need to set a timeout between requests.
+        _timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
         dns_hostname: String,
     ) -> io::Result<()> {
         use futures::{future, Stream};
-        use h2::server;
-        use http::{Response, StatusCode};
         use rustls::ServerConfig;
         use tokio_rustls::ServerConfigExt;
 
         use server::https_handler::h2_handler;
-        use trust_dns_https::https_server;
         use trust_dns_rustls::tls_server;
 
         let dns_hostname = Arc::new(dns_hostname);

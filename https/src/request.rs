@@ -9,15 +9,14 @@
 
 use std::str::FromStr;
 
-use http::{header, uri, Method, Request, Response, StatusCode, Uri, Version};
+use http::{header, uri, Method, Request, Uri, Version};
 use typed_headers::{
     mime::Mime, Accept, ContentLength, ContentType, HeaderMapExt, Quality, QualityItem,
 };
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::op::Message;
 
-use {HttpsError, HttpsResult};
+use HttpsResult;
 
 /// Create a new Reqeust for an http/2 dns-message request
 ///
@@ -140,13 +139,11 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use trust_dns_proto::op::*;
-
     use super::*;
 
     #[test]
     fn test_new_verify() {
         let request = new("ns.example.com", 512).expect("error converting to http");
-        let decoded_msg = verify("ns.example.com", &request);
+        assert!(verify("ns.example.com", &request).is_ok());
     }
 }
