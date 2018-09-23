@@ -9,16 +9,11 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use bytes::Bytes;
 use futures::{Future, Stream};
-use h2::{server, server::Connection};
-use http::{Response, StatusCode};
-use rustls::ServerConfig;
+use h2::server;
 use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_rustls::ServerConfigExt;
 use trust_dns_https::https_server;
 use trust_dns_proto::serialize::binary::BinDecodable;
-use trust_dns_rustls::tls_server;
 
 use authority::MessageResponse;
 use server::request_handler::RequestHandler;
@@ -71,8 +66,6 @@ struct HttpsResponseHandle(::h2::server::SendResponse<::bytes::Bytes>);
 impl ResponseHandler for HttpsResponseHandle {
     fn send_response(mut self, response: MessageResponse) -> io::Result<()> {
         use bytes::Bytes;
-
-        use h2::server::SendResponse;
 
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;

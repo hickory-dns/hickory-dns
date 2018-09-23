@@ -8,7 +8,6 @@
 use std::fmt::{self, Display};
 use std::mem;
 use std::net::SocketAddr;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
@@ -16,16 +15,13 @@ use futures::{Async, Future, Poll, Stream};
 use h2::client::{Handshake, SendRequest};
 use h2::{self, RecvStream};
 use http::header;
-use http::uri;
-use http::{Request, Response, StatusCode, Uri, Version};
+use http::{Response, StatusCode};
 use rustls::{Certificate, ClientConfig, ClientSession};
 use tokio_executor;
 use tokio_rustls::ClientConfigExt;
 use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
-use typed_headers::{
-    mime::Mime, Accept, ContentLength, ContentType, HeaderMapExt, Quality, QualityItem,
-};
+use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;

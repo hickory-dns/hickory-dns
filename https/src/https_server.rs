@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! HTTPS related server items
+
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -15,10 +17,12 @@ use h2;
 use http::{Method, Request};
 use typed_headers::{ContentLength, HeaderMapExt};
 
-use trust_dns_proto::op::Message;
-use {HttpsError, HttpsResult};
+use HttpsError;
 
-// TODO: change RecvStream to Generic over Stream of Bytes
+/// Given an HTTP request, return a future that will result in the next sequence of bytes.
+///
+/// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
+///   perform a conversion to a Message, only collects all the bytes.
 pub fn message_from<R>(this_server_name: Arc<String>, request: Request<R>) -> HttpsToMessage<R>
 where
     R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send + Debug,
@@ -53,6 +57,8 @@ where
     }
 }
 
+/// A Future result of the bytes of a DNS message
+#[must_use = "futures do nothing unless polled"]
 pub struct HttpsToMessage<R>(HttpsToMessageInner<R>);
 
 impl<R> From<HttpsToMessageInner<R>> for HttpsToMessage<R> {
@@ -123,7 +129,7 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
-            let mut bytes = match self.stream.poll() {
+            let bytes = match self.stream.poll() {
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 Ok(Async::Ready(Some(bytes))) => bytes,
                 Ok(Async::Ready(None)) => return Err("not all bytes received".into()),
@@ -152,6 +158,7 @@ where
 #[cfg(test)]
 mod tests {
     use request;
+    use trust_dns_proto::op::Message;
 
     use super::*;
 

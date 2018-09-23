@@ -71,22 +71,8 @@ fn test_example_https_toml_startup() {
         io_loop.spawn(bg);
         query_a(&mut io_loop, &mut client);
 
-        // FIXME: second call should succeed
-        // let addr: SocketAddr = ("127.0.0.1", https_port)
-        //     .to_socket_addrs()
-        //     .unwrap()
-        //     .next()
-        //     .unwrap();
-        // let mut https_conn_builder = HttpsClientStreamBuilder::new();
-        // let cert = to_trust_anchor(&cert_der);
-        // https_conn_builder.add_ca(cert);
-        // let mp = https_conn_builder.build(addr, "ns.example.com".to_string());
-        // let (exchange, handle) = DnsExchange::connect(mp);
-        // let (bg, mut client) = ClientFuture::from_exchange(exchange, handle);
-        // io_loop.spawn(bg);
-
-        // // ipv6 should succeed
-        // query_a(&mut io_loop, &mut client);
+        // a second request should work...
+        query_a(&mut io_loop, &mut client);
 
         assert!(true);
     })

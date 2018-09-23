@@ -62,12 +62,19 @@ use trust_dns::rr::dnssec::{KeyPair, Private, Signer};
 use trust_dns::rr::Name;
 use trust_dns::serialize::txt::{Lexer, Parser};
 
-#[cfg(feature = "dns-over-openssl")]
+#[cfg(
+    all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    )
+)]
 use trust_dns_openssl::tls_server::*;
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 #[cfg(feature = "dnssec")]
 use trust_dns_server::config::KeyConfig;
-use trust_dns_server::config::{self, Config, TlsCertConfig, ZoneConfig};
+#[cfg(feature = "dns-over-tls")]
+use trust_dns_server::config::TlsCertConfig;
+use trust_dns_server::config::{Config, ZoneConfig};
 use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
 
@@ -275,6 +282,7 @@ fn load_cert(
     tls_cert_config: &TlsCertConfig,
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
     use trust_dns_openssl::tls_server::{read_cert_pem, read_cert_pkcs12, read_key_from_der};
+    use trust_dns_server::config::{CertType, PrivateKeyType};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let cert_type = tls_cert_config.get_cert_type();
@@ -286,11 +294,11 @@ fn load_cert(
 
     // if it's pkcs12, we'll be collecting the key and certs from that, otherwise continue processing
     let (cert, cert_chain) = match cert_type {
-        config::CertType::Pem => {
+        CertType::Pem => {
             info!("loading TLS PEM certificate from: {:?}", path);
             read_cert_pem(&path)?
         }
-        config::CertType::Pkcs12 => {
+        CertType::Pkcs12 => {
             if private_key_path.is_some() {
                 warn!(
                     "ignoring specified key, using the one in the PKCS12 file: {}",
@@ -304,11 +312,11 @@ fn load_cert(
 
     // it wasn't plcs12, we need to load the key separately
     let key = match (private_key_path, private_key_type) {
-        (Some(private_key_path), config::PrivateKeyType::Pkcs8) => {
+        (Some(private_key_path), PrivateKeyType::Pkcs8) => {
             info!("loading TLS PKCS8 key from: {}", private_key_path.display());
             read_key_from_pkcs8(&private_key_path, password)?
         }
-        (Some(private_key_path), config::PrivateKeyType::Der) => {
+        (Some(private_key_path), PrivateKeyType::Der) => {
             info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }
@@ -328,6 +336,7 @@ fn load_cert(
     tls_cert_config: &TlsCertConfig,
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
     use trust_dns_rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
+    use trust_dns_server::config::{CertType, PrivateKeyType};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let cert_type = tls_cert_config.get_cert_type();
@@ -338,11 +347,11 @@ fn load_cert(
     let private_key_type = tls_cert_config.get_private_key_type();
 
     let cert = match cert_type {
-        config::CertType::Pem => {
+        CertType::Pem => {
             info!("loading TLS PEM certificate chain from: {}", path.display());
             read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
         }
-        config::CertType::Pkcs12 => {
+        CertType::Pkcs12 => {
             return Err(format!(
                 "PKCS12 is not supported with Rustls for certificate, use PEM encoding"
             ))
@@ -350,7 +359,7 @@ fn load_cert(
     };
 
     let key = match (private_key_path, private_key_type) {
-        (Some(private_key_path), config::PrivateKeyType::Pkcs8) => {
+        (Some(private_key_path), PrivateKeyType::Pkcs8) => {
             info!("loading TLS PKCS8 key from: {}", private_key_path.display());
             if password.is_some() {
                 warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
@@ -358,7 +367,7 @@ fn load_cert(
 
             read_key_from_pkcs8(&private_key_path)?
         }
-        (Some(private_key_path), config::PrivateKeyType::Der) => {
+        (Some(private_key_path), PrivateKeyType::Der) => {
             info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }
@@ -534,6 +543,7 @@ pub fn main() {
     let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
 
     // now, run the server, based on the config
+    #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
     let server_future: Box<Future<Item = (), Error = ()> + Send> = Box::new(future::lazy(
@@ -556,7 +566,7 @@ pub fn main() {
 
             // and TLS as necessary
             // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
-            if let Some(tls_cert_config) = tls_cert_config {
+            if let Some(_tls_cert_config) = tls_cert_config {
                 // setup TLS listeners
                 // TODO: support rustls
                 #[cfg(feature = "dns-over-tls")]
@@ -564,7 +574,7 @@ pub fn main() {
                     &args,
                     &mut server,
                     &config,
-                    tls_cert_config.clone(),
+                    _tls_cert_config.clone(),
                     zone_dir,
                     &listen_addrs,
                 );
@@ -575,7 +585,7 @@ pub fn main() {
                     &args,
                     &mut server,
                     &config,
-                    tls_cert_config.clone(),
+                    _tls_cert_config.clone(),
                     zone_dir,
                     &listen_addrs,
                 );
@@ -604,18 +614,6 @@ pub fn main() {
 
     // we're exiting for some reason...
     info!("Trust-DNS {} stopping", trust_dns::version());
-}
-
-#[cfg(not(feature = "dns-over-tls"))]
-fn config_tls(
-    _args: &Args,
-    _server: &mut ServerFuture<Catalog>,
-    _config: &Config,
-    _tls_cert_config: &TlsCertConfig,
-    _zone_dir: &Path,
-    _listen_addrs: &[IpAddr],
-) {
-    panic!("TLS not enabled");
 }
 
 #[cfg(feature = "dns-over-tls")]
@@ -656,18 +654,6 @@ fn config_tls(
             .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
             .expect("could not register TLS listener");
     }
-}
-
-#[cfg(not(feature = "dns-over-https"))]
-fn config_https(
-    _args: &Args,
-    _server: &mut ServerFuture<Catalog>,
-    _config: &Config,
-    _tls_cert_config: &TlsCertConfig,
-    _zone_dir: &Path,
-    _listen_addrs: &[IpAddr],
-) {
-    panic!("HTTPS not enabled");
 }
 
 #[cfg(feature = "dns-over-https")]

@@ -7,8 +7,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
-- feature `dns-over-rustls` to `trust-dns-server`
-- feature `dns-over-https-rustls`, `dns-over-https-openssl` *experimental*
+- feature `dns-over-rustls` to `trust-dns-server` (server) and `trust-dns` (client)
+- feature `dns-over-https-rustls` *experimental*
+- new configuration options for tls, see `server/tests/named_test_configs/dns_over_tls_rustls_and_openssl.toml`
+
 
 ### Changed
 

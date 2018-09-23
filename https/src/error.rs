@@ -9,8 +9,7 @@ use std::{fmt, io};
 
 use failure::{Backtrace, Context, Fail};
 use h2;
-use http;
-use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
+use trust_dns_proto::error::ProtoError;
 use typed_headers;
 
 /// An alias for results returned by functions of this crate
