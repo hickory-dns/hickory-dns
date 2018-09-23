@@ -43,10 +43,11 @@ dnssec-openssl = ["dnssec",
                   "trust-dns-server/dnssec-openssl",
                   "trust-dns/dnssec-openssl",
                   "trust-dns-proto/dnssec-openssl"]
+# TODO: dnssec-openssl is enabled for RSA support, we should add testing support for just the Ring toolchain
 dnssec-ring = ["dnssec",
                "trust-dns-resolver/dnssec-ring",
                "trust-dns-server/dnssec-ring",
-               "trust-dns/dnssec-ring",
+               "trust-dns/dnssec-ring", "trust-dns/dnssec-openssl",
                "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
