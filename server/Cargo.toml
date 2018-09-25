@@ -107,4 +107,4 @@ trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls", optional = tru
 [dev-dependencies]
 native-tls = "^0.1"
 trust-dns-native-tls = { version = "0.4.0-alpha", path = "../native-tls" }
-tokio-tls = "^0.1"
+tokio-tls = "^0.2"
