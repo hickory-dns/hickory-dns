@@ -10,14 +10,14 @@
 use std::io;
 use std::mem;
 use std::net::SocketAddr;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::{Async, Future, Poll};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
-use tokio_timer::Deadline;
+use tokio_timer::Timeout;
 
 use error::*;
 use xfer::{BufStreamHandle, SerialMessage};
@@ -118,7 +118,7 @@ impl TcpStream<TokioTcpStream> {
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let tcp = TokioTcpStream::connect(&name_server);
-        let stream = Deadline::new(tcp, Instant::now() + timeout)
+        let stream = Timeout::new(tcp, timeout)
             .map_err(move |e| {
                 debug!("timed out connecting to: {}", name_server);
                 e.into_inner().unwrap_or_else(|| {
@@ -127,8 +127,7 @@ impl TcpStream<TokioTcpStream> {
                         format!("timed out connecting to: {}", name_server),
                     )
                 })
-            })
-            .map(move |tcp_stream| {
+            }).map(move |tcp_stream| {
                 debug!("TCP connection established to: {}", name_server);
                 TcpStream {
                     socket: tcp_stream,
@@ -463,8 +462,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -510,8 +508,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();
