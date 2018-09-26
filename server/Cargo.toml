@@ -72,32 +72,32 @@ name = "named"
 path = "src/named.rs"
 
 [dependencies]
-backtrace = "^0.3"
+backtrace = "0.3"
 bytes = "0.4.9"
-chrono = "^0.4"
-clap = "^2.27"
-env_logger = "^0.5"
+chrono = "0.4"
+clap = "2.27"
+env_logger = "0.5"
 failure = "0.1"
-futures = "^0.1.17"
+futures = "0.1.17"
 h2 = { version = "0.1", optional = true }
 http = { version = "0.1", optional = true }
-lazy_static = "^1.0"
-log = "^0.4.1"
-rand = "^0.5"
+lazy_static = "1.0"
+log = "0.4.1"
+rand = "0.5"
 rusqlite = { version = "0.14.0", features = ["bundled"] }
 rustls = { version = "0.13", optional = true }
-serde = "^1.0"
-serde_derive = "^1.0"
-time = "^0.1"
-tokio = "^0.1.6"
-tokio-executor = "^0.1"
-tokio-io = "^0.1"
-tokio-reactor = "^0.1"
-tokio-rustls = "^0.7"
-tokio-tcp = "^0.1"
-tokio-timer = "^0.2"
-tokio-udp = "^0.1"
-toml = "^0.4"
+serde = "1.0"
+serde_derive = "1.0"
+time = "0.1"
+tokio = "0.1.6"
+tokio-executor = "0.1"
+tokio-io = "0.1"
+tokio-reactor = "0.1"
+tokio-rustls = "0.7"
+tokio-tcp = "0.1"
+tokio-timer = "0.2"
+tokio-udp = "0.1"
+toml = "0.4"
 trust-dns = { version = "0.15.0-alpha", path = "../client" }
 trust-dns-https = { version = "0.1.0-alpha", path = "../https", optional = true }
 trust-dns-proto = { version = "0.5.0-alpha", path = "../proto" }
@@ -105,6 +105,6 @@ trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl", optional = t
 trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls", optional = true }
 
 [dev-dependencies]
-native-tls = "^0.1"
+native-tls = "0.1"
 trust-dns-native-tls = { version = "0.4.0-alpha", path = "../native-tls" }
-tokio-tls = "^0.1"
+tokio-tls = "0.2"
