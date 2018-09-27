@@ -13,9 +13,9 @@ use std::net::SocketAddr;
 use futures::sync::mpsc::unbounded;
 use futures::{future, Future, IntoFuture};
 use native_tls::Protocol::Tlsv12;
-use native_tls::{Certificate, Pkcs12, TlsConnector};
+use native_tls::{Certificate, Identity, TlsConnector};
 use tokio_tcp::TcpStream as TokioTcpStream;
-use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
+use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
@@ -23,36 +23,16 @@ use trust_dns_proto::xfer::BufStreamHandle;
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
-fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-    let mut builder = TlsConnector::builder().map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("tls error: {}", e),
-        )
-    })?;
-    builder.supported_protocols(&[Tlsv12]).map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("tls error: {}", e),
-        )
-    })?;
+fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsConnector> {
+    let mut builder = TlsConnector::builder();
+    builder.min_protocol_version(Some(Tlsv12));
 
     for cert in certs {
-        builder.add_root_certificate(cert).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        })?;
+        builder.add_root_certificate(cert);
     }
 
     if let Some(pkcs12) = pkcs12 {
-        builder.identity(pkcs12).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        })?;
+        builder.identity(pkcs12);
     }
     builder.build().map_err(|e| {
         io::Error::new(
@@ -80,7 +60,7 @@ pub fn tls_from_stream(
 /// A builder for the TlsStream
 pub struct TlsStreamBuilder {
     ca_chain: Vec<Certificate>,
-    identity: Option<Pkcs12>,
+    identity: Option<Identity>,
 }
 
 impl TlsStreamBuilder {
@@ -101,8 +81,8 @@ impl TlsStreamBuilder {
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
     #[cfg(feature = "mtls")]
-    pub fn identity(&mut self, pkcs12: Pkcs12) {
-        self.identity = Some(pkcs12);
+    pub fn identity(&mut self, identity: Identity) {
+        self.identity = Some(identity);
     }
 
     /// Creates a new TlsStream to the specified name_server
@@ -142,7 +122,7 @@ impl TlsStreamBuilder {
         let message_sender = BufStreamHandle::new(message_sender);
 
         let tls_connector = match ::tls_stream::tls_new(self.ca_chain, self.identity) {
-            Ok(c) => c,
+            Ok(c) => TokioTlsConnector::from(c),
             Err(e) => {
                 return (
                     Box::new(future::err(e).into_future().map_err(|e| {
@@ -163,11 +143,10 @@ impl TlsStreamBuilder {
         let stream = Box::new(
             tcp.and_then(move |tcp_stream| {
                 tls_connector
-                    .connect_async(&dns_name, tcp_stream)
+                    .connect(&dns_name, tcp_stream)
                     .map(move |s| {
                         TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-                    })
-                    .map_err(|e| {
+                    }).map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::ConnectionRefused,
                             format!("tls error: {}", e),

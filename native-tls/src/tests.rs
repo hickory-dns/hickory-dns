@@ -78,8 +78,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
@@ -99,9 +98,9 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let server_handle = thread::Builder::new()
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
-            let pkcs12 = native_tls::Pkcs12::from_der(&server_pkcs12_der, "mypass")
-                .expect("Pkcs12::from_der");
-            let mut tls = TlsAcceptor::builder(pkcs12).expect("build with pkcs12 failed");
+            let pkcs12 = native_tls::Identity::from_pkcs12(&server_pkcs12_der, "mypass")
+                .expect("Identity::from_pkcs12");
+            let mut tls = TlsAcceptor::builder(pkcs12);
 
             // #[cfg(target_os = "linux")]
             // {
@@ -165,8 +164,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // let the server go first
     std::thread::yield_now();
