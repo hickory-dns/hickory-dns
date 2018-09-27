@@ -105,6 +105,6 @@ trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl", optional = t
 trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls", optional = true }
 
 [dev-dependencies]
-native-tls = "0.1"
+native-tls = "0.2"
 trust-dns-native-tls = { version = "0.4.0-alpha", path = "../native-tls" }
 tokio-tls = "0.2"
