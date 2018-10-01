@@ -54,7 +54,7 @@ log = "0.4"
 rustls = "0.13"
 tokio-executor = "0.1"
 tokio-reactor = "0.1"
-tokio-rustls = "0.7"
+tokio-rustls = "0.8"
 tokio-tcp = "0.1"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.5.0-alpha", path = "../proto", default-features = false }
