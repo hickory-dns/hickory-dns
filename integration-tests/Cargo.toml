@@ -72,7 +72,7 @@ futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
 rand = "^0.5"
 rusqlite = { version = "0.14.0", features = ["bundled"] }
-rustls = { version = "^0.13.0" }
+rustls = { version = "0.14" }
 tokio = "^0.1.6"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"

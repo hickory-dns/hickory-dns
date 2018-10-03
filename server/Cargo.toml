@@ -85,7 +85,7 @@ lazy_static = "1.0"
 log = "0.4.1"
 rand = "0.5"
 rusqlite = { version = "0.14.0", features = ["bundled"] }
-rustls = { version = "0.13", optional = true }
+rustls = { version = "0.14", optional = true }
 serde = "1.0"
 serde_derive = "1.0"
 time = "0.1"
@@ -93,7 +93,7 @@ tokio = "0.1.6"
 tokio-executor = "0.1"
 tokio-io = "0.1"
 tokio-reactor = "0.1"
-tokio-rustls = "0.7"
+tokio-rustls = "0.8"
 tokio-tcp = "0.1"
 tokio-timer = "0.2"
 tokio-udp = "0.1"
