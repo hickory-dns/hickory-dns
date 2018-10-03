@@ -6,10 +6,12 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
+use std::fmt::{self, Debug, Formatter};
 use std::marker::PhantomData;
 use std::mem;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, TryLockError};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
@@ -19,7 +21,7 @@ use tokio;
 use trust_dns_https;
 use trust_dns_proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
-use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
+use trust_dns_proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4};
 use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
@@ -50,8 +52,8 @@ enum NameServerState {
 impl NameServerState {
     fn to_usize(&self) -> usize {
         match *self {
-            NameServerState::Init { .. } => 3,
-            NameServerState::Established { .. } => 2,
+            NameServerState::Init { .. } => 2,
+            NameServerState::Established { .. } => 3,
             NameServerState::Failed { .. } => 1,
         }
     }
@@ -201,128 +203,243 @@ impl ConnectionProvider for StandardConnection {
 
     fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
-            Protocol::Udp => {
-                let (stream, handle) = UdpClientStream::new(config.socket_addr);
+            Protocol::Udp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Udp {
+                socket_addr: config.socket_addr,
+                timeout: options.timeout,
+            })),
+            Protocol::Tcp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Tcp {
+                socket_addr: config.socket_addr,
+                timeout: options.timeout,
+            })),
+            #[cfg(feature = "dns-over-tls")]
+            Protocol::Tls => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Tls {
+                socket_addr: config.socket_addr,
+                timeout: options.timeout,
+                tls_dns_name: config.tls_dns_name.clone().unwrap_or_default(),
+            })),
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => {
+                ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Https {
+                    socket_addr: config.socket_addr,
+                    timeout: options.timeout,
+                    tls_dns_name: config.tls_dns_name.clone().unwrap_or_default(),
+                }))
+            }
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Mdns {
+                socket_addr: config.socket_addr,
+                timeout: options.timeout,
+            })),
+        };
+
+        ConnectionHandle(Arc::new(Mutex::new(dns_handle)))
+    }
+}
+
+#[derive(Debug)]
+pub enum ConnectionHandleConnect {
+    Udp {
+        socket_addr: SocketAddr,
+        timeout: Duration,
+    },
+    Tcp {
+        socket_addr: SocketAddr,
+        timeout: Duration,
+    },
+    #[cfg(feature = "dns-over-tls")]
+    Tls {
+        socket_addr: SocketAddr,
+        timeout: Duration,
+        tls_dns_name: String,
+    },
+    #[cfg(feature = "dns-over-https")]
+    Https {
+        socket_addr: SocketAddr,
+        timeout: Duration,
+        tls_dns_name: String,
+    },
+    #[cfg(feature = "mdns")]
+    Mdns {
+        socket_addr: SocketAddr,
+        timeout: Duration,
+    },
+}
+
+impl ConnectionHandleConnect {
+    fn connect(self) -> ConnectionHandleConnected {
+        use self::ConnectionHandleConnect::*;
+
+        debug!("connecting: {:?}", self);
+        match self {
+            Udp {
+                socket_addr,
+                timeout,
+            } => {
+                let (stream, handle) = UdpClientStream::new(socket_addr);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     handle,
-                    options.timeout,
+                    timeout,
                     NoopMessageFinalizer::new(),
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                // TODO: instead of spawning here, return the stream as a "Background" type...
-                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                let stream = stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, udp connection shutting down: {}", e);
-                }));
-
+                });
                 let handle = BufDnsRequestStreamHandle::new(handle);
-                ConnectionHandle::UdpOrTcp(handle)
+
+                tokio::executor::spawn(stream);
+                ConnectionHandleConnected::UdpOrTcp(handle)
             }
-            Protocol::Tcp => {
-                let (stream, handle) =
-                    TcpClientStream::with_timeout(config.socket_addr, options.timeout);
+            Tcp {
+                socket_addr,
+                timeout,
+            } => {
+                let (stream, handle) = TcpClientStream::with_timeout(socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     Box::new(stream),
                     handle,
-                    options.timeout,
+                    timeout,
                     NoopMessageFinalizer::new(),
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, tcp connection shutting down: {}", e);
-                }));
-
+                let stream = stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, udp connection shutting down: {}", e);
+                });
                 let handle = BufDnsRequestStreamHandle::new(handle);
-                ConnectionHandle::UdpOrTcp(handle)
+
+                tokio::executor::spawn(stream);
+                ConnectionHandleConnected::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-tls")]
-            Protocol::Tls => {
-                let (stream, handle) = ::tls::new_tls_stream(
-                    config.socket_addr,
-                    config.tls_dns_name.clone().unwrap_or_default(),
-                );
+            Tls {
+                socket_addr,
+                timeout,
+                tls_dns_name,
+            } => {
+                let (stream, handle) = ::tls::new_tls_stream(socket_addr, tls_dns_name);
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     Box::new(handle),
-                    options.timeout,
+                    timeout,
                     NoopMessageFinalizer::new(),
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, tcp connection shutting down: {}", e);
-                }));
-
+                let stream = stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, udp connection shutting down: {}", e);
+                });
                 let handle = BufDnsRequestStreamHandle::new(handle);
-                ConnectionHandle::UdpOrTcp(handle)
+
+                tokio::executor::spawn(stream);
+                ConnectionHandleConnected::UdpOrTcp(handle)
             }
             #[cfg(feature = "dns-over-https")]
-            Protocol::Https => {
-                let (stream, handle) = ::https::new_https_stream(
-                    config.socket_addr,
-                    config.tls_dns_name.clone().unwrap_or_default(),
-                );
+            Https {
+                socket_addr,
+                // TODO: https needs timeout!
+                timeout: _,
+                tls_dns_name,
+            } => {
+                let (stream, handle) = ::https::new_https_stream(socket_addr, tls_dns_name);
 
-                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, https connection shutting down: {}", e);
-                }));
+                let stream = stream.and_then(|stream| stream).map_err(|e| {
+                    error!("error, udp connection shutting down: {}", e);
+                });
 
-                ConnectionHandle::Https(handle)
+                tokio::executor::spawn(stream);
+                ConnectionHandleConnected::Https(handle)
             }
             #[cfg(feature = "mdns")]
-            Protocol::Mdns => {
-                let (stream, handle) = MdnsClientStream::new(
-                    config.socket_addr,
-                    MdnsQueryType::OneShot,
-                    None,
-                    None,
-                    None,
-                );
+            Mdns {
+                socket_addr,
+                timeout,
+            } => {
+                let (stream, handle) =
+                    MdnsClientStream::new(socket_addr, MdnsQueryType::OneShot, None, None, None);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     handle,
-                    options.timeout,
+                    timeout,
                     NoopMessageFinalizer::new(),
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                tokio::executor::spawn(stream.and_then(|stream| stream).map_err(|e| {
+                let stream = stream.and_then(|stream| stream).map_err(|e| {
                     error!("error, udp connection shutting down: {}", e);
-                }));
-
+                });
                 let handle = BufDnsRequestStreamHandle::new(handle);
-                ConnectionHandle::UdpOrTcp(handle)
-            }
-        };
 
-        dns_handle
+                tokio::executor::spawn(stream);
+                ConnectionHandleConnected::UdpOrTcp(handle)
+            }
+        }
     }
 }
 
 #[derive(Clone)]
-pub enum ConnectionHandle {
+pub enum ConnectionHandleConnected {
     UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
 }
 
-impl DnsHandle for ConnectionHandle {
+impl DnsHandle for ConnectionHandleConnected {
     type Response = ConnectionHandleResponse;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
         match self {
-            ConnectionHandle::UdpOrTcp(ref mut conn) => {
-                ConnectionHandleResponse::UdpOrTcp(conn.send(request))
+            ConnectionHandleConnected::UdpOrTcp(ref mut conn) => {
+                return ConnectionHandleResponse::UdpOrTcp(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
-            ConnectionHandle::Https(ref mut https) => {
-                ConnectionHandleResponse::Https(https.send(request))
+            ConnectionHandleConnected::Https(ref mut https) => {
+                return ConnectionHandleResponse::Https(https.send(request))
             }
+        }
+    }
+}
+
+pub enum ConnectionHandleInner {
+    Connect(Option<ConnectionHandleConnect>),
+    Connected(ConnectionHandleConnected),
+}
+
+impl ConnectionHandleInner {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
+        use std::mem;
+
+        loop {
+            let connected = match self {
+                // still need to connect, drop through
+                ConnectionHandleInner::Connect(conn) => {
+                    conn.take().expect("already connected?").connect()
+                }
+                ConnectionHandleInner::Connected(conn) => return conn.send(request),
+            };
+
+            mem::replace(self, ConnectionHandleInner::Connected(connected));
+            // continue to return on send...
+        }
+    }
+}
+
+/// TODO: change this to Once?
+#[derive(Clone)]
+pub struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
+
+impl DnsHandle for ConnectionHandle {
+    type Response = ConnectionHandleResponse;
+
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
+        match self.0.lock() {
+            Ok(mut c) => c.send(request),
+            Err(e) => ConnectionHandleResponse::Error(ProtoError::from(e)),
         }
     }
 }
@@ -331,6 +448,7 @@ pub enum ConnectionHandleResponse {
     UdpOrTcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
+    Error(ProtoError),
 }
 
 impl Future for ConnectionHandleResponse {
@@ -342,6 +460,7 @@ impl Future for ConnectionHandleResponse {
             ConnectionHandleResponse::UdpOrTcp(ref mut resp) => resp.poll(),
             #[cfg(feature = "dns-over-https")]
             ConnectionHandleResponse::Https(ref mut https) => https.poll(),
+            ConnectionHandleResponse::Error(ref e) => Err(e.clone()),
         }
     }
 }
@@ -355,6 +474,12 @@ pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
     phantom: PhantomData<P>,
+}
+
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C, P> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "config: {:?}, options: {:?}", self.config, self.options)
+    }
 }
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
@@ -400,8 +525,9 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
                 } else {
                     None
                 }
-            })
-            .map_err(|e| ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e)))?;
+            }).map_err(|e| {
+                ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
+            })?;
 
         // if this is in a failure state
         if let Some((successes, failures)) = error_opt {
@@ -557,8 +683,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             .filter(|ns_config| ns_config.protocol.is_datagram())
             .map(|ns_config| {
                 NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
-            })
-            .collect();
+            }).collect();
 
         let stream_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
             .name_servers()
@@ -566,8 +691,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             .filter(|ns_config| ns_config.protocol.is_stream())
             .map(|ns_config| {
                 NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
-            })
-            .collect();
+            }).collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
@@ -628,9 +752,9 @@ where
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
-        let datagram_conns = self.datagram_conns.clone();
-        let stream_conns1 = self.stream_conns.clone();
-        let stream_conns2 = self.stream_conns.clone();
+        let datagram_conns = Arc::clone(&self.datagram_conns);
+        let stream_conns1 = Arc::clone(&self.stream_conns);
+        let stream_conns2 = Arc::clone(&self.stream_conns);
         // TODO: remove this clone, return the Message in the error?
         let tcp_message1 = request.clone();
         let tcp_message2 = request.clone();
@@ -729,6 +853,7 @@ where
                                 let conn = conns.pop();
 
                                 let request_cont = request.clone();
+
                                 conn.ok_or_else(move || err).into_future().and_then(
                                     move |mut conn| {
                                         conn.send(request).then(|sent_res| match sent_res {
@@ -889,7 +1014,7 @@ mod tests {
         };
 
         assert_eq!(init.cmp(&init), Ordering::Equal);
-        assert_eq!(init.cmp(&established), Ordering::Greater);
+        assert_eq!(init.cmp(&established), Ordering::Less);
         assert_eq!(established.cmp(&failed), Ordering::Greater);
         assert_eq!(established.cmp(&established_successes), Ordering::Greater);
         assert_eq!(established.cmp(&established_failed), Ordering::Greater);
@@ -919,8 +1044,7 @@ mod tests {
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 )
-            }))
-            .expect("query failed");
+            })).expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
 
@@ -943,8 +1067,7 @@ mod tests {
                 .block_on(name_server.and_then(|mut name_server| name_server.lookup(
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default()
-                )))
-                .is_err()
+                ))).is_err()
         );
     }
 
@@ -983,8 +1106,7 @@ mod tests {
                     .block_on(pool.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
-                    ))
-                    .is_err(),
+                    )).is_err(),
                 "iter: {}",
                 i
             );
@@ -996,8 +1118,7 @@ mod tests {
                     .block_on(pool.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
-                    ))
-                    .is_ok(),
+                    )).is_ok(),
                 "iter: {}",
                 i
             );

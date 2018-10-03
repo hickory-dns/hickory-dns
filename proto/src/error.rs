@@ -9,7 +9,7 @@
 
 #![deny(missing_docs)]
 
-use std::{fmt, io};
+use std::{fmt, io, sync};
 
 use rr::{Name, RecordType};
 
@@ -143,6 +143,10 @@ pub enum ProtoErrorKind {
     #[fail(display = "io error")]
     Io,
 
+    /// Any sync poised error
+    #[fail(display = "lock poisoned error")]
+    Poisoned,
+
     /// A ring error
     #[fail(display = "ring error")]
     Ring,
@@ -237,6 +241,12 @@ impl From<io::Error> for ProtoError {
             io::ErrorKind::TimedOut => e.context(ProtoErrorKind::Timeout).into(),
             _ => e.context(ProtoErrorKind::Io).into(),
         }
+    }
+}
+
+impl<T> From<sync::PoisonError<T>> for ProtoError {
+    fn from(_e: sync::PoisonError<T>) -> ProtoError {
+        Context::new(ProtoErrorKind::Poisoned).into()
     }
 }
 
@@ -362,6 +372,7 @@ impl Clone for ProtoErrorKind {
 
             // foreign
             Io => Io,
+            Poisoned => Poisoned,
             Ring => Ring,
             SSL => SSL,
             Timeout => Timeout,
