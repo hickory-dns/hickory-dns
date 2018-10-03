@@ -302,8 +302,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
         use futures::{future, Stream};
-        use rustls::ServerConfig;
-        use tokio_rustls::ServerConfigExt;
+        use tokio_rustls::TlsAcceptor;
         use trust_dns_rustls::{tls_from_stream, tls_server};
 
         let handler = self.handler.clone();
@@ -317,7 +316,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 format!("error creating TLS acceptor: {}", e),
             )
         })?;
-        let tls_acceptor: Arc<ServerConfig> = Arc::new(tls_acceptor);
+        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
         tokio_executor::spawn(future::lazy(move || {
@@ -331,7 +330,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // TODO: need to consider timeout of total connect...
                     // take the created stream...
                     tls_acceptor
-                        .accept_async(tcp_stream)
+                        .accept(tcp_stream)
                         .map_err(|e| {
                             io::Error::new(
                                 io::ErrorKind::ConnectionRefused,
@@ -423,8 +422,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         dns_hostname: String,
     ) -> io::Result<()> {
         use futures::{future, Stream};
-        use rustls::ServerConfig;
-        use tokio_rustls::ServerConfigExt;
+        use tokio_rustls::TlsAcceptor;
 
         use server::https_handler::h2_handler;
         use trust_dns_rustls::tls_server;
@@ -440,7 +438,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 format!("error creating TLS acceptor: {}", e),
             )
         })?;
-        let tls_acceptor: Arc<ServerConfig> = Arc::new(tls_acceptor);
+        let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
         let dns_hostname = dns_hostname.clone();
@@ -458,7 +456,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // TODO: need to consider timeout of total connect...
                     // take the created stream...
                     tls_acceptor
-                        .accept_async(tcp_stream)
+                        .accept(tcp_stream)
                         .map_err(|e| {
                             io::Error::new(
                                 io::ErrorKind::ConnectionRefused,

@@ -18,8 +18,7 @@ use http::header;
 use http::{Response, StatusCode};
 use rustls::{Certificate, ClientConfig, ClientSession};
 use tokio_executor;
-use tokio_rustls::ClientConfigExt;
-use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
+use tokio_rustls::{Connect, TlsConnector, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
@@ -460,7 +459,7 @@ enum HttpsClientConnectState {
     },
     TlsConnecting {
         // TODO: abstract TLS implementation
-        tls: ConnectAsync<TokioTcpStream>,
+        tls: Connect<TokioTcpStream>,
         name_server_name: Arc<String>,
         name_server: SocketAddr,
     },
@@ -504,7 +503,8 @@ impl Future for HttpsClientConnectState {
 
                     match DNSNameRef::try_from_ascii_str(&dns_name) {
                         Ok(dns_name) => {
-                            let tls = tls.client_config.connect_async(dns_name, tcp);
+                            let tls = TlsConnector::from(tls.client_config);
+                            let tls = tls.connect(dns_name, tcp);
                             HttpsClientConnectState::TlsConnecting {
                                 name_server_name,
                                 name_server: *name_server,

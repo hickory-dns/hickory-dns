@@ -12,7 +12,7 @@ use std::sync::Arc;
 use futures::sync::mpsc::unbounded;
 use futures::{Future, IntoFuture};
 use rustls::{Certificate, ClientConfig, ClientSession, Session};
-use tokio_rustls::{ClientConfigExt, TlsStream as TokioTlsStream};
+use tokio_rustls::{TlsConnector, TlsStream as TokioTlsStream};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use webpki::{DNSName, DNSNameRef};
 
@@ -106,7 +106,7 @@ impl TlsStreamBuilder {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
-        let tls_connector = Arc::new(self.client_config);
+        let tls_connector = TlsConnector::from(Arc::new(self.client_config));
         let tcp = TokioTcpStream::connect(&name_server);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
@@ -122,7 +122,7 @@ impl TlsStreamBuilder {
                         }).into_future()
                         .and_then(move |dns_name| {
                             tls_connector
-                                .connect_async(dns_name.as_ref(), tcp_stream)
+                                .connect(dns_name.as_ref(), tcp_stream)
                                 .map(move |s| {
                                     TcpStream::from_stream_with_receiver(
                                         s,
