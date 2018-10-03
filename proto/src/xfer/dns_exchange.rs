@@ -134,7 +134,7 @@ where
                 // On not ready, this is our time to return...
                 Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(None) => {
-                    //debug!("all handles closed, shutting down: {}", self.io_stream);
+                    debug!("all handles closed, shutting down: {}", self.io_stream);
                     // if there is nothing that can use this connection to send messages, then this is done...
                     self.io_stream.shutdown();
 
