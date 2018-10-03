@@ -286,7 +286,7 @@ impl ConnectionHandleConnect {
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, udp connection shutting down: {}", e);
+                    debug!("udp connection shutting down: {}", e);
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
@@ -308,7 +308,7 @@ impl ConnectionHandleConnect {
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, udp connection shutting down: {}", e);
+                    debug!("tcp connection shutting down: {}", e);
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
@@ -331,7 +331,7 @@ impl ConnectionHandleConnect {
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, udp connection shutting down: {}", e);
+                    debug!("tls connection shutting down: {}", e);
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
@@ -348,7 +348,7 @@ impl ConnectionHandleConnect {
                 let (stream, handle) = ::https::new_https_stream(socket_addr, tls_dns_name);
 
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, udp connection shutting down: {}", e);
+                    debug!("https connection shutting down: {}", e);
                 });
 
                 tokio::executor::spawn(stream);
@@ -371,7 +371,7 @@ impl ConnectionHandleConnect {
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    error!("error, udp connection shutting down: {}", e);
+                    debug!("mdns connection shutting down: {}", e);
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
