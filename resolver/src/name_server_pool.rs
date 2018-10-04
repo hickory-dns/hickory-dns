@@ -15,7 +15,10 @@ use std::time::{Duration, Instant};
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
-use tokio::executor::{DefaultExecutor, Executor};
+use tokio::{
+    self,
+    executor::{DefaultExecutor, Executor},
+};
 
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https;
@@ -187,7 +190,6 @@ impl PartialOrd for NameServerStats {
     }
 }
 
-#[doc(hidden)]
 pub trait ConnectionProvider: 'static + Clone + Send + Sync {
     type ConnHandle;
 
@@ -237,7 +239,7 @@ impl ConnectionProvider for StandardConnection {
 }
 
 #[derive(Debug)]
-pub enum ConnectionHandleConnect {
+enum ConnectionHandleConnect {
     Udp {
         socket_addr: SocketAddr,
         timeout: Duration,
@@ -290,7 +292,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                tokio::spawn(stream);
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             Tcp {
@@ -312,7 +314,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                tokio::spawn(stream);
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             #[cfg(feature = "dns-over-tls")]
@@ -335,7 +337,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                tokio::spawn(stream);
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
@@ -351,7 +353,7 @@ impl ConnectionHandleConnect {
                     debug!("https connection shutting down: {}", e);
                 });
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                tokio::spawn(stream);
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -375,7 +377,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                tokio::spawn(stream);
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
         }
@@ -383,35 +385,35 @@ impl ConnectionHandleConnect {
 }
 
 #[derive(Clone)]
-pub enum ConnectionHandleConnected {
+enum ConnectionHandleConnected {
     UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
 }
 
 impl DnsHandle for ConnectionHandleConnected {
-    type Response = ConnectionHandleResponse;
+    type Response = ConnectionHandleResponseInner;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
         match self {
             ConnectionHandleConnected::UdpOrTcp(ref mut conn) => {
-                return ConnectionHandleResponse::UdpOrTcp(conn.send(request))
+                return ConnectionHandleResponseInner::UdpOrTcp(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionHandleConnected::Https(ref mut https) => {
-                return ConnectionHandleResponse::Https(https.send(request))
+                return ConnectionHandleResponseInner::Https(https.send(request))
             }
         }
     }
 }
 
-pub enum ConnectionHandleInner {
+enum ConnectionHandleInner {
     Connect(Option<ConnectionHandleConnect>),
     Connected(ConnectionHandleConnected),
 }
 
 impl ConnectionHandleInner {
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
         use std::mem;
 
         loop {
@@ -425,7 +427,7 @@ impl ConnectionHandleInner {
 
             match connected {
                 Ok(connected) => mem::replace(self, ConnectionHandleInner::Connected(connected)),
-                Err(e) => return ConnectionHandleResponse::Error(e),
+                Err(e) => return ConnectionHandleResponseInner::Error(e),
             };
             // continue to return on send...
         }
@@ -440,31 +442,62 @@ impl DnsHandle for ConnectionHandle {
     type Response = ConnectionHandleResponse;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
-        match self.0.lock() {
-            Ok(mut c) => c.send(request),
-            Err(e) => ConnectionHandleResponse::Error(ProtoError::from(e)),
-        }
+        ConnectionHandleResponse(ConnectionHandleResponseInner::ConnectAndRequest {
+            conn: self.clone(),
+            request: Some(request.into()),
+        })
     }
 }
 
-pub enum ConnectionHandleResponse {
+enum ConnectionHandleResponseInner {
+    ConnectAndRequest {
+        conn: ConnectionHandle,
+        request: Option<DnsRequest>,
+    },
     UdpOrTcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
     Error(ProtoError),
 }
 
+impl Future for ConnectionHandleResponseInner {
+    type Item = DnsResponse;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        use self::ConnectionHandleResponseInner::*;
+
+        trace!("polling response inner");
+        loop {
+            let response = match self {
+                // we still need to check the connection
+                ConnectAndRequest {
+                    ref conn,
+                    ref mut request,
+                } => match conn.0.lock() {
+                    Ok(mut c) => c.send(request.take().expect("already sent request?")),
+                    Err(e) => Error(ProtoError::from(e)),
+                },
+                UdpOrTcp(ref mut resp) => return resp.poll(),
+                #[cfg(feature = "dns-over-https")]
+                Https(ref mut https) => return https.poll(),
+                Error(ref e) => return Err(e.clone()),
+            };
+
+            // ok, connected, loop around and use poll the actual send request
+            mem::replace(self, response);
+        }
+    }
+}
+
+pub struct ConnectionHandleResponse(ConnectionHandleResponseInner);
+
 impl Future for ConnectionHandleResponse {
     type Item = DnsResponse;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self {
-            ConnectionHandleResponse::UdpOrTcp(ref mut resp) => resp.poll(),
-            #[cfg(feature = "dns-over-https")]
-            ConnectionHandleResponse::Https(ref mut https) => https.poll(),
-            ConnectionHandleResponse::Error(ref e) => Err(e.clone()),
-        }
+        self.0.poll()
     }
 }
 
