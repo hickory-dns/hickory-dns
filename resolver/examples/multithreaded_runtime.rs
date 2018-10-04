@@ -3,6 +3,7 @@
 //! This example shows how to create a resolver that uses the tokio multithreaded runtime. This is how
 //! you might integrate the resolver into a more complex application.
 
+extern crate env_logger;
 extern crate futures;
 extern crate tokio;
 extern crate trust_dns_resolver;
@@ -12,6 +13,8 @@ use tokio::runtime::Runtime;
 use trust_dns_resolver::AsyncResolver;
 
 fn main() {
+    env_logger::init();
+
     // Set up the standard tokio runtime (multithreaded by default).
     let mut runtime = Runtime::new().expect("Failed to create runtime");
 

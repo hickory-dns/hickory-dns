@@ -4,7 +4,9 @@ use futures::{future, sync::mpsc, Async, Future, Poll, Stream};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::{
-    error::ProtoResult, rr::{Name, RData, RecordType}, xfer::{DnsRequestOptions, RetryDnsHandle},
+    error::ProtoResult,
+    rr::{Name, RData, RecordType},
+    xfer::{DnsRequestOptions, RetryDnsHandle},
 };
 
 use config::{ResolverConfig, ResolverOpts};
