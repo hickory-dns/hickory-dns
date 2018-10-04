@@ -40,8 +40,6 @@ fn main() {
     // The resolver background task needs to be created in the runtime so it can
     // connect to the reactor.
     runtime.spawn(bg);
-    // Once the resolver is created, we can ask the runtime to shut down when it's done.
-    let shutdown = runtime.shutdown_on_idle();
 
     // Create some futures representing name lookups.
     let names = &["www.google.com", "www.reddit.com", "www.wikipedia.org"];
@@ -52,8 +50,7 @@ fn main() {
 
     // Go through the list of resolution operations and wait for them to complete.
     for (name, lookup) in futures.drain(..) {
-        let ips = lookup
-            .wait()
+        let ips = runtime.block_on(lookup)
             .expect("Failed completing lookup future")
             .iter()
             .collect::<Vec<_>>();
@@ -63,6 +60,8 @@ fn main() {
     // Drop the resolver, which means that the runtime will become idle.
     drop(resolver);
 
+    // Once we have finished using the runtime, we can ask it to shut down when it's done.
+    let shutdown = runtime.shutdown_on_idle();
     // Wait for the runtime to complete shutting down.
     shutdown.wait().expect("Failed when shutting down runtime");
 }
