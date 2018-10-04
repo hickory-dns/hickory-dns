@@ -23,6 +23,7 @@ use openssl::error::ErrorStack as SslErrorStack;
 use ring::error::Unspecified;
 
 use failure::{Backtrace, Context, Fail};
+use tokio_executor::SpawnError;
 use tokio_timer::Error as TimerError;
 
 /// An alias for results returned by functions of this crate
@@ -151,6 +152,10 @@ pub enum ProtoErrorKind {
     #[fail(display = "ring error")]
     Ring,
 
+    /// Tokio Spawn Error
+    #[fail(display = "tokio spawn error")]
+    SpawnError,
+
     /// An ssl error
     #[fail(display = "ssl error")]
     SSL,
@@ -253,6 +258,12 @@ impl<T> From<sync::PoisonError<T>> for ProtoError {
 impl From<Unspecified> for ProtoError {
     fn from(e: Unspecified) -> ProtoError {
         e.context(ProtoErrorKind::Ring).into()
+    }
+}
+
+impl From<SpawnError> for ProtoError {
+    fn from(e: SpawnError) -> ProtoError {
+        e.context(ProtoErrorKind::SpawnError).into()
     }
 }
 
@@ -374,6 +385,7 @@ impl Clone for ProtoErrorKind {
             Io => Io,
             Poisoned => Poisoned,
             Ring => Ring,
+            SpawnError => SpawnError,
             SSL => SSL,
             Timeout => Timeout,
             Timer => Timer,

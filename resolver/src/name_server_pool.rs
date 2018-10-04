@@ -15,7 +15,7 @@ use std::time::{Duration, Instant};
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
-use tokio;
+use tokio::executor::{DefaultExecutor, Executor};
 
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https;
@@ -266,7 +266,7 @@ pub enum ConnectionHandleConnect {
 }
 
 impl ConnectionHandleConnect {
-    fn connect(self) -> ConnectionHandleConnected {
+    fn connect(self) -> Result<ConnectionHandleConnected, ProtoError> {
         use self::ConnectionHandleConnect::*;
 
         debug!("connecting: {:?}", self);
@@ -290,8 +290,8 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::executor::spawn(stream);
-                ConnectionHandleConnected::UdpOrTcp(handle)
+                DefaultExecutor::current().spawn(Box::new(stream))?;
+                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             Tcp {
                 socket_addr,
@@ -312,8 +312,8 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::executor::spawn(stream);
-                ConnectionHandleConnected::UdpOrTcp(handle)
+                DefaultExecutor::current().spawn(Box::new(stream))?;
+                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             #[cfg(feature = "dns-over-tls")]
             Tls {
@@ -335,8 +335,8 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::executor::spawn(stream);
-                ConnectionHandleConnected::UdpOrTcp(handle)
+                DefaultExecutor::current().spawn(Box::new(stream))?;
+                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
             Https {
@@ -351,8 +351,8 @@ impl ConnectionHandleConnect {
                     debug!("https connection shutting down: {}", e);
                 });
 
-                tokio::executor::spawn(stream);
-                ConnectionHandleConnected::Https(handle)
+                DefaultExecutor::current().spawn(Box::new(stream))?;
+                Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
             Mdns {
@@ -375,8 +375,8 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::executor::spawn(stream);
-                ConnectionHandleConnected::UdpOrTcp(handle)
+                DefaultExecutor::current().spawn(Box::new(stream))?;
+                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
         }
     }
@@ -415,7 +415,7 @@ impl ConnectionHandleInner {
         use std::mem;
 
         loop {
-            let connected = match self {
+            let connected: Result<ConnectionHandleConnected, ProtoError> = match self {
                 // still need to connect, drop through
                 ConnectionHandleInner::Connect(conn) => {
                     conn.take().expect("already connected?").connect()
@@ -423,7 +423,10 @@ impl ConnectionHandleInner {
                 ConnectionHandleInner::Connected(conn) => return conn.send(request),
             };
 
-            mem::replace(self, ConnectionHandleInner::Connected(connected));
+            match connected {
+                Ok(connected) => mem::replace(self, ConnectionHandleInner::Connected(connected)),
+                Err(e) => return ConnectionHandleResponse::Error(e),
+            };
             // continue to return on send...
         }
     }
