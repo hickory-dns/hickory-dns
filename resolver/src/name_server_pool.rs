@@ -8,17 +8,14 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::marker::PhantomData;
-use std::mem;
+//use std::mem;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
-use tokio::{
-    self,
-    executor::{DefaultExecutor, Executor},
-};
+use tokio::executor::{DefaultExecutor, Executor};
 
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https;
@@ -53,6 +50,7 @@ enum NameServerState {
 }
 
 impl NameServerState {
+    /// used for ordering purposes. The highest priority is placed on open connections
     fn to_usize(&self) -> usize {
         match *self {
             NameServerState::Init { .. } => 2,
@@ -159,6 +157,9 @@ impl Ord for NameServerStats {
         }
 
         // otherwise, run our evaluation to determine the next to be returned from the Heap
+        //   this will prefer established connections, we should try other connections after
+        //   some number to make sure that all are used. This is more important for when
+        //   letency is started to be used.
         match self.state.cmp(&other.state) {
             Ordering::Equal => (),
             o @ _ => {
@@ -184,9 +185,11 @@ impl PartialOrd for NameServerStats {
     }
 }
 
+/// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
 pub trait ConnectionProvider: 'static + Clone + Send + Sync {
     type ConnHandle;
 
+    /// The returned handle should
     fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle;
 }
 
@@ -197,6 +200,8 @@ pub struct StandardConnection;
 impl ConnectionProvider for StandardConnection {
     type ConnHandle = ConnectionHandle;
 
+    /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
+    ///   future connection.
     fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Udp {
@@ -232,6 +237,7 @@ impl ConnectionProvider for StandardConnection {
     }
 }
 
+/// The variants of all supported connections for the Resolver
 #[derive(Debug)]
 enum ConnectionHandleConnect {
     Udp {
@@ -262,6 +268,8 @@ enum ConnectionHandleConnect {
 }
 
 impl ConnectionHandleConnect {
+    /// Establishes the connection, this is allowed to perform network operations,
+    ///   suchas tokio::spawns of background tasks, etc.
     fn connect(self) -> Result<ConnectionHandleConnected, ProtoError> {
         use self::ConnectionHandleConnect::*;
 
@@ -286,7 +294,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::spawn(stream);
+                DefaultExecutor::current().spawn(Box::new(stream))?;
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             Tcp {
@@ -308,7 +316,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::spawn(stream);
+                DefaultExecutor::current().spawn(Box::new(stream))?;
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             #[cfg(feature = "dns-over-tls")]
@@ -331,7 +339,7 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::spawn(stream);
+                DefaultExecutor::current().spawn(Box::new(stream))?;
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
@@ -347,7 +355,7 @@ impl ConnectionHandleConnect {
                     debug!("https connection shutting down: {}", e);
                 });
 
-                tokio::spawn(stream);
+                DefaultExecutor::current().spawn(Box::new(stream))?;
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -371,13 +379,14 @@ impl ConnectionHandleConnect {
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                tokio::spawn(stream);
+                DefaultExecutor::current().spawn(Box::new(stream))?;
                 Ok(ConnectionHandleConnected::UdpOrTcp(handle))
             }
         }
     }
 }
 
+/// A representation of an established connection
 #[derive(Clone)]
 enum ConnectionHandleConnected {
     UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
@@ -401,6 +410,7 @@ impl DnsHandle for ConnectionHandleConnected {
     }
 }
 
+/// Allows us to wrap a connection that is either pending or already connected
 enum ConnectionHandleInner {
     Connect(Option<ConnectionHandleConnect>),
     Connected(ConnectionHandleConnected),
@@ -408,8 +418,6 @@ enum ConnectionHandleInner {
 
 impl ConnectionHandleInner {
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
-        use std::mem;
-
         loop {
             let connected: Result<ConnectionHandleConnected, ProtoError> = match self {
                 // still need to connect, drop through
@@ -428,7 +436,7 @@ impl ConnectionHandleInner {
     }
 }
 
-/// TODO: change this to Once?
+/// ConnectionHandle is used for sending DNS requests to a specific upstream DNS resolver
 #[derive(Clone)]
 pub struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
 
@@ -443,6 +451,7 @@ impl DnsHandle for ConnectionHandle {
     }
 }
 
+/// A wrapper type to switch over a connection that still needs to be made, or is already established
 enum ConnectionHandleResponseInner {
     ConnectAndRequest {
         conn: ConnectionHandle,
@@ -483,6 +492,7 @@ impl Future for ConnectionHandleResponseInner {
     }
 }
 
+/// A future response from a DNS request.
 pub struct ConnectionHandleResponse(ConnectionHandleResponseInner);
 
 impl Future for ConnectionHandleResponse {
@@ -837,6 +847,8 @@ where
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // TODO: this resolves an odd unsized issue with the loop_fn future
+        use std::mem;
         let future;
 
         match *self {
