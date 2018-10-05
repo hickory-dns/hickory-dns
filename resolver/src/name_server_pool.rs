@@ -128,10 +128,7 @@ impl NameServerStats {
         // update current state
 
         if remote_edns.is_some() {
-            mem::replace(
-                &mut self.state,
-                NameServerState::Established { remote_edns },
-            );
+            self.state = NameServerState::Established { remote_edns };;
         } else {
             // preserve existing EDNS if it exists
             let remote_edns = if let NameServerState::Established { ref remote_edns } = self.state {
@@ -140,10 +137,7 @@ impl NameServerStats {
                 None
             };
 
-            mem::replace(
-                &mut self.state,
-                NameServerState::Established { remote_edns },
-            );
+            self.state = NameServerState::Established { remote_edns };
         };
     }
 
@@ -152,7 +146,7 @@ impl NameServerStats {
         debug!("name_server connection failure: {}", error);
 
         // update current state
-        mem::replace(&mut self.state, NameServerState::Failed { when });
+        self.state = NameServerState::Failed { when };
     }
 }
 
@@ -426,7 +420,7 @@ impl ConnectionHandleInner {
             };
 
             match connected {
-                Ok(connected) => mem::replace(self, ConnectionHandleInner::Connected(connected)),
+                Ok(connected) => *self = ConnectionHandleInner::Connected(connected),
                 Err(e) => return ConnectionHandleResponseInner::Error(e),
             };
             // continue to return on send...
@@ -469,7 +463,7 @@ impl Future for ConnectionHandleResponseInner {
 
         trace!("polling response inner");
         loop {
-            let response = match self {
+            *self = match self {
                 // we still need to check the connection
                 ConnectAndRequest {
                     ref conn,
@@ -485,7 +479,6 @@ impl Future for ConnectionHandleResponseInner {
             };
 
             // ok, connected, loop around and use poll the actual send request
-            mem::replace(self, response);
         }
     }
 }
@@ -569,14 +562,10 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         if let Some((successes, failures)) = error_opt {
             debug!("reconnecting: {:?}", self.config);
             // establish a new connection
-            let client = P::new_connection(&self.config, &self.options);
-            mem::replace(&mut self.client, client);
+            self.client = P::new_connection(&self.config, &self.options);
 
             // reinitialize the mutex (in case it was poisoned before)
-            mem::replace(
-                &mut self.stats,
-                Arc::new(Mutex::new(NameServerStats::init(None, successes, failures))),
-            );
+            self.stats = Arc::new(Mutex::new(NameServerStats::init(None, successes, failures)));
             Ok(())
         } else {
             Ok(())
@@ -911,7 +900,7 @@ where
         }
 
         // can only get here if we were in the TrySend::Lock state
-        mem::replace(self, TrySend::DoSend(future));
+        *self = TrySend::DoSend(future);
 
         task::current().notify();
         Ok(Async::NotReady)
