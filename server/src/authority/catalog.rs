@@ -183,20 +183,20 @@ impl Catalog {
     ///   RR therein and that the RR's ZTYPE is SOA, else signal FORMERR to the
     ///   requestor.  Next, the ZNAME and ZCLASS are checked to see if the zone
     ///   so named is one of this server's authority zones, else signal NOTAUTH
-    ///   to the requestor.  If the server is a zone slave, the request will be
-    ///   forwarded toward the primary master.
+    ///   to the requestor.  If the server is a zone drone (secondary), the request will be
+    ///   forwarded toward the primary queen server.
     ///
     ///   3.1.2 - Pseudocode For Zone Section Processing
     ///
     ///      if (zcount != 1 || ztype != SOA)
     ///           return (FORMERR)
-    ///      if (zone_type(zname, zclass) == SLAVE)
+    ///      if (zone_type(zname, zclass) == DRONE)
     ///           return forward()
-    ///      if (zone_type(zname, zclass) == MASTER)
+    ///      if (zone_type(zname, zclass) == QUEEN)
     ///           return update()
     ///      return (NOTAUTH)
     ///
-    ///   Sections 3.2 through 3.8 describe the primary master's behaviour,
+    ///   Sections 3.2 through 3.8 describe the primary queen's behaviour,
     ///   whereas Section 6 describes a forwarder's behaviour.
     ///
     /// 3.8 - Response
@@ -254,8 +254,8 @@ impl Catalog {
         if let Some(authority) = self.find(zones[0].name()) {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
             match authority.zone_type() {
-                ZoneType::Slave => {
-                    error!("slave forwarding for update not yet implemented");
+                ZoneType::Drone | ZoneType::Slave => {
+                    error!("drone forwarding for update not yet implemented");
                     response_header.set_response_code(ResponseCode::NotImp);
 
                     return send_response(
@@ -264,7 +264,7 @@ impl Catalog {
                         response_handle,
                     );
                 }
-                ZoneType::Master => {
+                ZoneType::Queen | ZoneType::Master => {
                     let update_result = authority.update(update);
                     match update_result {
                         // successful update

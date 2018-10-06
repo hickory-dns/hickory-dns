@@ -14,7 +14,7 @@ pub fn create_example() -> Authority {
     let mut records: Authority = Authority::new(
         origin.clone(),
         BTreeMap::new(),
-        ZoneType::Master,
+        ZoneType::Queen,
         false,
         false,
     );

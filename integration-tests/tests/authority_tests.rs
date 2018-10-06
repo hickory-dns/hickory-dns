@@ -915,7 +915,7 @@ fn test_journal() {
     let mut recovered_authority = Authority::new(
         authority.origin().clone().into(),
         BTreeMap::new(),
-        ZoneType::Master,
+        ZoneType::Queen,
         false,
         false,
     );
@@ -957,7 +957,7 @@ fn test_recovery() {
     let mut recovered_authority = Authority::new(
         authority.origin().clone().into(),
         BTreeMap::new(),
-        ZoneType::Master,
+        ZoneType::Queen,
         false,
         false,
     );

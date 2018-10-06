@@ -20,7 +20,7 @@ pub fn create_test() -> Authority {
     let mut records: Authority = Authority::new(
         origin.clone(),
         BTreeMap::new(),
-        ZoneType::Master,
+        ZoneType::Queen,
         false,
         false,
     );
@@ -38,8 +38,7 @@ pub fn create_test() -> Authority {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone(),
+            ))).clone(),
         0,
     );
 
@@ -82,8 +81,7 @@ pub fn create_test() -> Authority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         0,
     );
 
@@ -106,8 +104,7 @@ pub fn create_test() -> Authority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         0,
     );
 
@@ -261,8 +258,7 @@ fn test_axfr() {
             3600,
             1209600,
             3600,
-        )))
-        .clone();
+        ))).clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone().into(), test);
@@ -306,8 +302,7 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone(),
+            ))).clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
@@ -336,8 +331,7 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -352,8 +346,7 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(3600)
@@ -367,8 +360,7 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone(),
+            ))).clone(),
     ];
 
     expected_set.sort();
