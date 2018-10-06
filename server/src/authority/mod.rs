@@ -25,8 +25,12 @@ pub type UpdateResult<T> = Result<T, ResponseCode>;
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
     /// This authority for a zone, i.e. the Primary
+    Queen,
+    #[doc(hidden)] // TODO: make serde alias Queen with Master... or remove this.
     Master,
-    /// A secondary, i.e. replicated from the Master
+    /// A secondary, i.e. replicated from the Queen
+    Drone,
+    #[doc(hidden)]
     Slave,
     /// A cached zone with recursive resolver abilities
     Hint,

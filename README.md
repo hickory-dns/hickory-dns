@@ -91,6 +91,13 @@ Zone signing support is complete, to insert a key store a pem encoded rsa file
  key rotation. Rotating the key currently is not available online and requires
  a restart of the server process.
 
+*note on terminology* This library uses the terms `Queen` and `Drone` in defining 
+ the relationship of a source or primary server which is the source of truth for
+ any following secondary zone servers. The terms `Master` and `Slave` will be
+ accepted, but only for backward compatible reasons (and an warning will be logged).
+ In addition, those terms appear in the documentation from old DNS RFCs, but have
+ been replaced in all locations where they appear in this library. 
+
 ### DNS over TLS on the Server
 
 Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/master/server/tests/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
