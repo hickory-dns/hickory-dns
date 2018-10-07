@@ -17,6 +17,7 @@ pub fn create_example() -> Authority {
         ZoneType::Master,
         false,
         false,
+        false,
     );
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert(

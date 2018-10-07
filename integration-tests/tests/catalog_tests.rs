@@ -23,6 +23,7 @@ pub fn create_test() -> Authority {
         ZoneType::Master,
         false,
         false,
+        false,
     );
     records.upsert(
         Record::new()
@@ -38,8 +39,7 @@ pub fn create_test() -> Authority {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone(),
+            ))).clone(),
         0,
     );
 
@@ -82,8 +82,7 @@ pub fn create_test() -> Authority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         0,
     );
 
@@ -106,8 +105,7 @@ pub fn create_test() -> Authority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         0,
     );
 
@@ -246,7 +244,9 @@ fn test_catalog_nx_soa() {
 
 #[test]
 fn test_axfr() {
-    let test = create_test();
+    let mut test = create_test();
+    test.set_allow_axfr(true);
+
     let origin = test.origin().clone();
     let soa = Record::new()
         .set_name(origin.clone().into())
@@ -261,8 +261,7 @@ fn test_axfr() {
             3600,
             1209600,
             3600,
-        )))
-        .clone();
+        ))).clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone().into(), test);
@@ -306,8 +305,7 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone(),
+            ))).clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
@@ -336,8 +334,7 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -352,8 +349,7 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            )))
-            .clone(),
+            ))).clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(3600)
@@ -367,13 +363,45 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone(),
+            ))).clone(),
     ];
 
     expected_set.sort();
 
     assert_eq!(expected_set, answers);
+}
+
+#[test]
+fn test_axfr_refused() {
+    let mut test = create_test();
+    test.set_allow_axfr(false);
+
+    let origin = test.origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone().into(), test);
+
+    let mut query: Query = Query::new();
+    query.set_name(origin.clone().into());
+    query.set_query_type(RecordType::AXFR);
+
+    let mut question: Message = Message::new();
+    question.add_query(query);
+
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&question_req, None, response_handler.clone())
+        .expect("lookup failed");
+    let result = response_handler.into_message();
+
+    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert!(result.answers().is_empty());
+    assert!(result.name_servers().is_empty());
+    assert!(result.additionals().is_empty());
 }
 
 #[test]

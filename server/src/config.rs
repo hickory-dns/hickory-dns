@@ -158,6 +158,7 @@ pub struct ZoneConfig {
     zone_type: ZoneType,
     file: String,
     allow_update: Option<bool>,
+    allow_axfr: Option<bool>,
     enable_dnssec: Option<bool>,
     #[serde(default)]
     keys: Vec<KeyConfig>,
@@ -172,6 +173,7 @@ impl ZoneConfig {
     /// * `zone_type` - Type of zone, e.g. Master
     /// * `file` - relative to Config base path, to the zone file
     /// * `allow_update` - enable dynamic updates
+    /// * `allow_axfr` - enable AXFR transfers
     /// * `enable_dnssec` - enable signing of the zone for DNSSec
     /// * `keys` - list of private and public keys used to sign a zone
     pub fn new(
@@ -179,16 +181,18 @@ impl ZoneConfig {
         zone_type: ZoneType,
         file: String,
         allow_update: Option<bool>,
+        allow_axfr: Option<bool>,
         enable_dnssec: Option<bool>,
         keys: Vec<KeyConfig>,
     ) -> Self {
         ZoneConfig {
-            zone: zone,
-            zone_type: zone_type,
-            file: file,
-            allow_update: allow_update,
-            enable_dnssec: enable_dnssec,
-            keys: keys,
+            zone,
+            zone_type,
+            file,
+            allow_update,
+            allow_axfr,
+            enable_dnssec,
+            keys,
         }
     }
 
@@ -214,6 +218,11 @@ impl ZoneConfig {
     /// enable dynamic updates for the zone (see SIG0 and the registered keys)
     pub fn is_update_allowed(&self) -> bool {
         self.allow_update.unwrap_or(false)
+    }
+
+    /// enable AXFR transfers
+    pub fn is_axfr_allowed(&self) -> bool {
+        self.allow_axfr.unwrap_or(false)
     }
 
     /// declare that this zone should be signed, see keys for configuration of the keys for signing

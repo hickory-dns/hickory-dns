@@ -382,6 +382,8 @@ impl Catalog {
                     let ns = authority.ns(is_dnssec, supported_algorithms);
                     // chain here to match type below...
                     response.name_servers(ns.chain(LookupRecords::NxDomain));
+                } else if records.is_refused() {
+                    response_header.set_response_code(ResponseCode::Refused);
                 } else {
                     // in the not found case it's standard to return the SOA in the authority section
                     //   if the name is in this zone, etc.
@@ -393,9 +395,14 @@ impl Catalog {
                         AuthLookup::NameExists => {
                             response_header.set_response_code(ResponseCode::NoError)
                         }
-                        _ => panic!(
-                            "programming error, should have return NoError with records above"
-                        ),
+                        AuthLookup::Refused => {
+                            panic!("programming error, should have return Refused above")
+                        }
+                        AuthLookup::Records(_) | AuthLookup::SOA(_) | AuthLookup::AXFR(_) => {
+                            panic!(
+                                "programming error, should have return NoError with records above"
+                            )
+                        }
                     };
 
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...

@@ -24,6 +24,8 @@ pub enum AuthLookup<'r, 'q> {
     NxDomain,
     /// There are no matching records for the query, but there are others associated to the name
     NameExists,
+    /// The request was refused, eg AXFR is not supported
+    Refused,
     // TODO: change the result of a lookup to a set of chained iterators...
     /// Records
     Records(LookupRecords<'r, 'q>),
@@ -37,8 +39,8 @@ impl<'r, 'q> AuthLookup<'r, 'q> {
     /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
     pub fn is_empty(&self) -> bool {
         match *self {
-            AuthLookup::NameExists | AuthLookup::NxDomain => true,
-            _ => false,
+            AuthLookup::NameExists | AuthLookup::NxDomain | AuthLookup::Refused => true,
+            AuthLookup::Records(_) | AuthLookup::SOA(_) | AuthLookup::AXFR(_) => false,
         }
     }
 
@@ -49,6 +51,14 @@ impl<'r, 'q> AuthLookup<'r, 'q> {
             _ => false,
         }
     }
+
+    /// This is a non-existant domain name
+    pub fn is_refused(&self) -> bool {
+        match *self {
+            AuthLookup::Refused => true,
+            _ => false,
+        }
+    }
 }
 
 impl<'r, 'q> Iterator for AuthLookup<'r, 'q> {
@@ -56,7 +66,7 @@ impl<'r, 'q> Iterator for AuthLookup<'r, 'q> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            AuthLookup::NxDomain | AuthLookup::NameExists => None,
+            AuthLookup::NxDomain | AuthLookup::NameExists | AuthLookup::Refused => None,
             AuthLookup::Records(ref mut i) => i.next(),
             AuthLookup::SOA(ref mut i) => i.next(),
             AuthLookup::AXFR(ref mut i) => i.next(),
