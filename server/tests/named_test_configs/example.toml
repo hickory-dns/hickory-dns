@@ -80,6 +80,9 @@ file = "example.com.zone"
 ## if false, updates will not be allowed, default false
 # allow_update = false
 
+## if false, AXFRs requests will result in Refused responses
+# allow_axfr = false
+
 ## if true, looks to see if a chained pem file exists at $file.pem (see
 ## supported_algorithms below).
 ## these keys will also be registered as authorities for update,

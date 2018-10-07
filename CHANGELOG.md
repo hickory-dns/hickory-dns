@@ -17,6 +17,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *breaking* `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
 - *breaking* `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
 - *breaking* all default features, removed: "dns-over-openssl", "dnssec-openssl". Use --features=dns-over-openssl,dnssec-openssl to enable
+- *breaking* `named` configuration now has AXFR disabled by default.
 - feature `tls` renamed to `dns-over-openssl`
 - upgraded `native-tls` and `tokio-tls` to 0.2
 
