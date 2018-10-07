@@ -13,7 +13,6 @@ use trust_dns::op::*;
 use trust_dns::rr::dnssec::*;
 use trust_dns::rr::rdata::*;
 use trust_dns::rr::*;
-use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
 use trust_dns_server::authority::*;
 
@@ -157,6 +156,8 @@ fn test_authority() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_authorize() {
+    use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
+
     let authority: Authority = create_example();
 
     let mut message = Message::new();
@@ -918,6 +919,7 @@ fn test_journal() {
         ZoneType::Master,
         false,
         false,
+        false,
     );
     recovered_authority
         .recover_with_journal(authority.journal().expect("journal not Some"))
@@ -958,6 +960,7 @@ fn test_recovery() {
         authority.origin().clone().into(),
         BTreeMap::new(),
         ZoneType::Master,
+        false,
         false,
         false,
     );
@@ -1006,4 +1009,40 @@ fn test_recovery() {
                 record.ttl() == other_record.ttl() && record.rdata() == other_record.rdata()
             })
     }));
+}
+
+#[test]
+fn test_axfr() {
+    let mut authority = create_example();
+    authority.set_allow_axfr(true);
+
+    // query: &'q LowerQuery,
+    //         is_secure: bool,
+    //         supported_algorithms: SupportedAlgorithms,
+
+    let query = LowerQuery::from(Query::query(
+        Name::from_str("example.com.").unwrap(),
+        RecordType::AXFR,
+    ));
+    let result = authority.search(&query, false, SupportedAlgorithms::new());
+
+    // just update this if the count goes up in the authority
+    assert!(!result.is_refused());
+    assert_eq!(result.collect::<Vec<_>>().len(), 10);
+}
+
+#[test]
+fn test_refused_axfr() {
+    let mut authority = create_example();
+    authority.set_allow_axfr(false);
+
+    let query = LowerQuery::from(Query::query(
+        Name::from_str("example.com.").unwrap(),
+        RecordType::AXFR,
+    ));
+    let result = authority.search(&query, false, SupportedAlgorithms::new());
+
+    // just update this if the count goes up in the authority
+    assert!(result.is_refused());
+    assert_eq!(result.collect::<Vec<_>>().len(), 0);
 }

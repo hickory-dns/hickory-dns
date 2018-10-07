@@ -19,8 +19,8 @@ extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::env;
-use std::path::{Path, PathBuf};
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use trust_dns_server::authority::ZoneType;
@@ -57,12 +57,14 @@ fn test_read_config() {
                 "default/localhost.zone".into(),
                 None,
                 None,
+                None,
                 vec![],
             ),
             ZoneConfig::new(
                 "0.0.127.in-addr.arpa".into(),
                 ZoneType::Master,
                 "default/127.0.0.1.zone".into(),
+                None,
                 None,
                 None,
                 vec![],
@@ -75,12 +77,14 @@ fn test_read_config() {
                 "default/ipv6_1.zone".into(),
                 None,
                 None,
+                None,
                 vec![],
             ),
             ZoneConfig::new(
                 "255.in-addr.arpa".into(),
                 ZoneType::Master,
                 "default/255.zone".into(),
+                None,
                 None,
                 None,
                 vec![],
@@ -91,12 +95,14 @@ fn test_read_config() {
                 "default/0.zone".into(),
                 None,
                 None,
+                None,
                 vec![],
             ),
             ZoneConfig::new(
                 "example.com".into(),
                 ZoneType::Master,
                 "example.com.zone".into(),
+                None,
                 None,
                 None,
                 vec![],
@@ -152,8 +158,8 @@ fn test_parse_toml() {
 #[cfg(feature = "dnsssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use trust_dns::rr::Name;
     use trust_dns::rr::dnssec::Algorithm;
+    use trust_dns::rr::Name;
 
     let config: Config = "
 [[zones]]
@@ -176,9 +182,8 @@ algorithm = \
          \"RSASHA256\"
 signer_name = \"ns.example.com.\"
 
-"
-        .parse()
-        .unwrap();
+".parse()
+    .unwrap();
     assert_eq!(
         config.get_zones()[0].get_keys()[0].key_path(),
         Path::new("/path/to/my_ed25519.pem")
@@ -239,9 +244,8 @@ fn test_parse_tls() {
     let config: Config = "
 tls_cert = { path = \"path/to/some.pkcs12\" }
 tls_listen_port = 8853
-  "
-        .parse()
-        .unwrap();
+  ".parse()
+    .unwrap();
 
     assert_eq!(config.get_tls_listen_port(), 8853);
     assert_eq!(

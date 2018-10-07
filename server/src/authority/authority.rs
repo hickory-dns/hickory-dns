@@ -36,6 +36,7 @@ pub struct Authority {
     records: BTreeMap<RrKey, RecordSet>,
     zone_type: ZoneType,
     allow_update: bool,
+    allow_axfr: bool,
     is_dnssec_enabled: bool,
     // Private key mapped to the Record of the DNSKey
     //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
@@ -66,16 +67,18 @@ impl Authority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_update: bool,
+        allow_axfr: bool,
         is_dnssec_enabled: bool,
     ) -> Authority {
         Authority {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             journal: None,
-            records: records,
-            zone_type: zone_type,
-            allow_update: allow_update,
-            is_dnssec_enabled: is_dnssec_enabled,
+            records,
+            zone_type,
+            allow_update,
+            allow_axfr,
+            is_dnssec_enabled,
             secure_keys: Vec::new(),
         }
     }
@@ -171,6 +174,11 @@ impl Authority {
     /// Enables the zone for dynamic DNS updates
     pub fn set_allow_update(&mut self, allow_update: bool) {
         self.allow_update = allow_update;
+    }
+
+    /// Enables AXFRs of all the zones records
+    pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
+        self.allow_axfr = allow_axfr;
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
@@ -387,66 +395,89 @@ impl Authority {
             }
 
             match require.dns_class() {
-        DNSClass::ANY =>
-          if let RData::NULL( .. ) = *require.rdata() {
-            match require.rr_type() {
-              // ANY      ANY      empty    Name is in use
-              RecordType::ANY => {
-                if self.lookup(&required_name, RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
-                  return Err(ResponseCode::NXDomain);
+                DNSClass::ANY => if let RData::NULL(..) = *require.rdata() {
+                    match require.rr_type() {
+                        // ANY      ANY      empty    Name is in use
+                        RecordType::ANY => {
+                            if self
+                                .lookup(
+                                    &required_name,
+                                    RecordType::ANY,
+                                    false,
+                                    SupportedAlgorithms::new(),
+                                ).is_totally_empty()
+                            {
+                                return Err(ResponseCode::NXDomain);
+                            } else {
+                                continue;
+                            }
+                        }
+                        // ANY      rrset    empty    RRset exists (value independent)
+                        rrset => {
+                            if self
+                                .lookup(&required_name, rrset, false, SupportedAlgorithms::new())
+                                .is_totally_empty()
+                            {
+                                return Err(ResponseCode::NXRRSet);
+                            } else {
+                                continue;
+                            }
+                        }
+                    }
                 } else {
-                  continue;
-                }
-              },
-              // ANY      rrset    empty    RRset exists (value independent)
-              rrset => {
-                if self.lookup(&required_name, rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
-                  return Err(ResponseCode::NXRRSet);
+                    return Err(ResponseCode::FormErr);
+                },
+                DNSClass::NONE => if let RData::NULL(..) = *require.rdata() {
+                    match require.rr_type() {
+                        // NONE     ANY      empty    Name is not in use
+                        RecordType::ANY => {
+                            if !self
+                                .lookup(
+                                    &required_name,
+                                    RecordType::ANY,
+                                    false,
+                                    SupportedAlgorithms::new(),
+                                ).is_totally_empty()
+                            {
+                                return Err(ResponseCode::YXDomain);
+                            } else {
+                                continue;
+                            }
+                        }
+                        // NONE     rrset    empty    RRset does not exist
+                        rrset => {
+                            if !self
+                                .lookup(&required_name, rrset, false, SupportedAlgorithms::new())
+                                .is_totally_empty()
+                            {
+                                return Err(ResponseCode::YXRRSet);
+                            } else {
+                                continue;
+                            }
+                        }
+                    }
                 } else {
-                  continue;
+                    return Err(ResponseCode::FormErr);
+                },
+                class if class == self.class =>
+                // zone     rrset    rr       RRset exists (value dependent)
+                {
+                    if self
+                        .lookup(
+                            &required_name,
+                            require.rr_type(),
+                            false,
+                            SupportedAlgorithms::new(),
+                        ).find(|rr| *rr == require)
+                        .is_none()
+                    {
+                        return Err(ResponseCode::NXRRSet);
+                    } else {
+                        continue;
+                    }
                 }
-              },
+                _ => return Err(ResponseCode::FormErr),
             }
-          } else {
-            return Err(ResponseCode::FormErr);
-          }
-        ,
-        DNSClass::NONE =>
-          if let RData::NULL( .. ) = *require.rdata() {
-            match require.rr_type() {
-              // NONE     ANY      empty    Name is not in use
-              RecordType::ANY => {
-                if !self.lookup(&required_name, RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
-                  return Err(ResponseCode::YXDomain);
-                } else {
-                  continue;
-                }
-              },
-              // NONE     rrset    empty    RRset does not exist
-              rrset => {
-                if !self.lookup(&required_name, rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
-                  return Err(ResponseCode::YXRRSet);
-                } else {
-                  continue;
-                }
-              },
-            }
-          } else {
-            return Err(ResponseCode::FormErr);
-          }
-        ,
-        class if class == self.class =>
-          // zone     rrset    rr       RRset exists (value dependent)
-          if self.lookup(&required_name, require.rr_type(), false, SupportedAlgorithms::new())
-                 .find(|rr| *rr == require)
-                 .is_none() {
-            return Err(ResponseCode::NXRRSet);
-          } else {
-            continue;
-          }
-          ,
-        _ => return Err(ResponseCode::FormErr),
-      }
         }
 
         // if we didn't bail everything checked out...
@@ -502,44 +533,41 @@ impl Authority {
         // verify sig0, currently the only authorization that is accepted.
         let sig0s: &[Record] = update_message.sig0();
         debug!("authorizing with: {:?}", sig0s);
-        if !sig0s.is_empty()
-            && sig0s
-                .iter()
-                .filter_map(|sig0| {
-                    if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *sig0.rdata() {
-                        Some(sig)
+        if !sig0s.is_empty() && sig0s
+            .iter()
+            .filter_map(|sig0| {
+                if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *sig0.rdata() {
+                    Some(sig)
+                } else {
+                    None
+                }
+            }).any(|sig| {
+                let name = LowerName::from(sig.signer_name());
+                let keys = self.lookup(
+                    &name,
+                    RecordType::DNSSEC(DNSSECRecordType::KEY),
+                    false,
+                    SupportedAlgorithms::new(),
+                );
+                debug!("found keys {:?}", keys);
+                // FIXME: check key usage flags and restrictions
+                keys.filter_map(|rr_set| {
+                    if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
+                        Some(key)
                     } else {
                         None
                     }
+                }).any(|key| {
+                    key.verify_message(update_message, sig.sig(), sig)
+                        .map(|_| {
+                            info!("verified sig: {:?} with key: {:?}", sig, key);
+                            true
+                        }).unwrap_or_else(|_| {
+                            debug!("did not verify sig: {:?} with key: {:?}", sig, key);
+                            false
+                        })
                 })
-                .any(|sig| {
-                    let name = LowerName::from(sig.signer_name());
-                    let keys = self.lookup(
-                        &name,
-                        RecordType::DNSSEC(DNSSECRecordType::KEY),
-                        false,
-                        SupportedAlgorithms::new(),
-                    );
-                    debug!("found keys {:?}", keys);
-                    // FIXME: check key usage flags and restrictions
-                    keys.filter_map(|rr_set| {
-                        if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
-                            Some(key)
-                        } else {
-                            None
-                        }
-                    }).any(|key| {
-                        key.verify_message(update_message, sig.sig(), sig)
-                            .map(|_| {
-                                info!("verified sig: {:?} with key: {:?}", sig, key);
-                                true
-                            })
-                            .unwrap_or_else(|_| {
-                                debug!("did not verify sig: {:?} with key: {:?}", sig, key);
-                                false
-                            })
-                    })
-                }) {
+            }) {
             return Ok(());
         } else {
             warn!(
@@ -771,8 +799,7 @@ impl Authority {
                                     !((k.record_type == RecordType::SOA
                                         || k.record_type == RecordType::NS)
                                         && k.name != self.origin)
-                                })
-                                .filter(|k| k.name == rr_name)
+                                }).filter(|k| k.name == rr_name)
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
                             for delete in to_delete {
@@ -951,6 +978,11 @@ impl Authority {
         // if this is an AXFR zone transfer, verify that this is either the slave or master
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
+            // TODO: support more advanced AXFR options
+            if !self.allow_axfr {
+                return AuthLookup::Refused;
+            }
+
             match self.zone_type() {
                 ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
@@ -1339,12 +1371,10 @@ impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
                     .by_ref()
                     .filter(|rr_set| {
                         query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    })
-                    .filter(|rr_set| {
+                    }).filter(|rr_set| {
                         query_type == RecordType::AXFR
                             || &LowerName::from(rr_set.name()) == query_name
-                    })
-                    .next();
+                    }).next();
 
                 if record.is_some() {
                     return record;

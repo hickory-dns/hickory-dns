@@ -83,6 +83,7 @@ fn parse_zone_file(
     origin: Option<Name>,
     zone_type: ZoneType,
     allow_update: bool,
+    allow_axfr: bool,
     is_dnssec_enabled: bool,
 ) -> ParseResult<Authority> {
     let mut file = file;
@@ -99,6 +100,7 @@ fn parse_zone_file(
         records,
         zone_type,
         allow_update,
+        allow_axfr,
         is_dnssec_enabled,
     ))
 }
@@ -122,6 +124,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             BTreeMap::new(),
             zone_config.get_zone_type(),
             zone_config.is_update_allowed(),
+            zone_config.is_axfr_allowed(),
             zone_config.is_dnssec_enabled(),
         );
         authority
@@ -143,6 +146,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             Some(zone_name.clone()),
             zone_config.get_zone_type(),
             zone_config.is_update_allowed(),
+            zone_config.is_axfr_allowed(),
             zone_config.is_dnssec_enabled(),
         ).map_err(|e| format!("error reading zone: {:?}: {}", zone_path, e))?;
 
