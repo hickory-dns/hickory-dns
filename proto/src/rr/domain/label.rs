@@ -12,18 +12,20 @@
 #[allow(unused)]
 #[allow(deprecated)]
 use std::ascii::AsciiExt;
-use std::cmp::{Ordering, PartialEq};
 use std::borrow::Borrow;
+use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc as Rc;
 
+#[cfg(feature = "idna")]
 use idna::uts46;
 
 use error::*;
 
-const WILDCARD: &[u8] = b"*";
+#[cfg(feature = "idna")]
 const IDNA_PREFIX: &[u8] = b"xn--";
+const WILDCARD: &[u8] = b"*";
 
 /// Labels are always stored as ASCII, unicode characters must be encoded with punycode
 #[derive(Clone, Eq)]
@@ -42,6 +44,7 @@ impl Label {
     }
 
     /// Translates this string into IDNA safe name, encoding to punycode as necessary.
+    #[cfg(feature = "idna")]
     pub fn from_utf8(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
             return Ok(Label(Rc::from(WILDCARD.to_vec())));
@@ -73,7 +76,9 @@ impl Label {
             return Ok(Label(Rc::from(WILDCARD.to_vec())));
         }
 
-        if !s.is_empty() && s.is_ascii() && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
+        if !s.is_empty()
+            && s.is_ascii()
+            && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
             && s.chars().skip(1).all(|c| is_safe_ascii(c, false, false))
         {
             Label::from_raw_bytes(s.as_bytes())
@@ -85,7 +90,8 @@ impl Label {
     /// Converts this label to lowercase
     pub fn to_lowercase(&self) -> Self {
         // TODO: replace case conversion when (ascii_ctype #39658) stabilizes
-        if let Some((idx, _)) = self.0
+        if let Some((idx, _)) = self
+            .0
             .iter()
             .enumerate()
             .find(|&(_, c)| *c != c.to_ascii_lowercase())
@@ -215,25 +221,31 @@ impl Display for Label {
     /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
     ///   escaping characters as necessary.
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        if self.as_bytes().starts_with(IDNA_PREFIX) {
-            // this should never be outside the ascii codes...
-            let label = String::from_utf8_lossy(self.borrow());
-            let (label, e) = uts46::to_unicode(
-                &label,
-                uts46::Flags {
-                    use_std3_ascii_rules: false,
-                    transitional_processing: false,
-                    verify_dns_length: false,
-                },
-            );
+        // This translates the idna label into UTF8
+        //
+        // with IDNA off, we'll encode strait to the string, very different behavior, when enabled non-ideal.
+        #[cfg(feature = "idna")]
+        {
+            if self.as_bytes().starts_with(IDNA_PREFIX) {
+                // this should never be outside the ascii codes...
+                let label = String::from_utf8_lossy(self.borrow());
+                let (label, e) = uts46::to_unicode(
+                    &label,
+                    uts46::Flags {
+                        use_std3_ascii_rules: false,
+                        transitional_processing: false,
+                        verify_dns_length: false,
+                    },
+                );
 
-            if e.is_ok() {
-                return f.write_str(&label);
-            } else {
-                debug!(
-                    "xn-- prefixed string did not translate via IDNA properly: {:?}",
-                    e
-                )
+                if e.is_ok() {
+                    return f.write_str(&label);
+                } else {
+                    debug!(
+                        "xn-- prefixed string did not translate via IDNA properly: {:?}",
+                        e
+                    )
+                }
             }
         }
 
@@ -322,13 +334,29 @@ impl IntoLabel for Label {
 
 impl<'a> IntoLabel for &'a str {
     fn into_label(self: Self) -> ProtoResult<Label> {
-        Label::from_utf8(self)
+        #[cfg(feature = "idna")]
+        {
+            Label::from_utf8(self)
+        }
+
+        #[cfg(not(feature = "idna"))]
+        {
+            Label::from_ascii(self)
+        }
     }
 }
 
 impl IntoLabel for String {
     fn into_label(self: Self) -> ProtoResult<Label> {
-        Label::from_utf8(&self)
+        #[cfg(feature = "idna")]
+        {
+            Label::from_utf8(&self)
+        }
+
+        #[cfg(not(feature = "idna"))]
+        {
+            Label::from_ascii(&self)
+        }
     }
 }
 
@@ -349,6 +377,8 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "idna")]
+
     fn test_encoding() {
         assert_eq!(
             Label::from_utf8("abc").unwrap(),
@@ -376,6 +406,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "idna")]
+
     fn test_decoding() {
         assert_eq!(Label::from_raw_bytes(b"abc").unwrap().to_string(), "abc");
         assert_eq!(
@@ -466,8 +498,12 @@ mod tests {
     fn test_is_wildcard() {
         assert!(Label::from_raw_bytes(b"*").unwrap().is_wildcard());
         assert!(Label::from_ascii("*").unwrap().is_wildcard());
-        assert!(Label::from_utf8("*").unwrap().is_wildcard());
         assert!(!Label::from_raw_bytes(b"abc").unwrap().is_wildcard());
+
+        #[cfg(feature = "idna")]
+        {
+            assert!(Label::from_utf8("*").unwrap().is_wildcard());
+        }
     }
 
     #[test]

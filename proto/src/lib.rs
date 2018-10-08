@@ -20,6 +20,7 @@ extern crate env_logger;
 extern crate failure;
 #[macro_use]
 extern crate futures;
+#[cfg(feature = "idna")]
 extern crate idna;
 #[macro_use]
 extern crate lazy_static;
