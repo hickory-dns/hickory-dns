@@ -39,6 +39,10 @@ name = "dnskey-to-pem"
 path = "src/dnskey_to_pem.rs"
 
 [[bin]]
+name = "get-root-ksk"
+path = "src/get_root_ksk.rs"
+
+[[bin]]
 name = "pem-to-public-dnskey"
 path = "src/pem_to_public_dnskey.rs"
 
@@ -46,6 +50,8 @@ path = "src/pem_to_public_dnskey.rs"
 clap = "^2.23.3"
 data-encoding = "2.1.0"
 trust-dns = { version = "0.15.0-alpha", features = ["dnssec-openssl"], path = "../client" }
+trust-dns-proto = { version = "0.5.0-alpha", features = ["dnssec-openssl"], path = "../proto" }
+trust-dns-resolver = { version = "0.10.0-alpha", features = ["dnssec-openssl"], path = "../resolver" }
 env_logger = "0.5"
 log = "^0.4.1"
 openssl = { version = "^0.10", features = ["v102", "v110"] }

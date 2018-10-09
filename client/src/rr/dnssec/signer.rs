@@ -674,8 +674,7 @@ mod tests {
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
-            ))))
-            .clone();
+            )))).clone();
         let rrset = vec![
             Record::new()
                 .set_name(origin.clone())
@@ -824,8 +823,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     signer.calculate_key_tag().unwrap(),
                     origin.clone(),
                     vec![],
-                ))))
-                .clone();
+                )))).clone();
             let rrset = vec![
                 Record::new()
                     .set_name(origin.clone())
@@ -854,8 +852,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     .set_dns_class(DNSClass::IN)
                     .set_rdata(RData::CNAME(
                         Name::parse("a.iana-servers.net.", None).unwrap(),
-                    ))
-                    .clone(), // different type
+                    )).clone(), // different type
                 Record::new()
                     .set_name(Name::parse("www.example.com.", None).unwrap())
                     .set_ttl(86400)
