@@ -20,7 +20,8 @@ use std::default::Default;
 
 use rr::dnssec::PublicKey;
 
-const ROOT_ANCHOR: &'static [u8] = include_bytes!("Kjqmt7v.rsa");
+const ROOT_ANCHOR_ORIG: &'static [u8] = include_bytes!("roots/19036.rsa");
+const ROOT_ANCHOR_2018: &'static [u8] = include_bytes!("roots/20326.rsa");
 
 /// The root set of trust anchors for validating DNSSec, anything in this set will be trusted
 pub struct TrustAnchor {
@@ -32,7 +33,7 @@ pub struct TrustAnchor {
 impl Default for TrustAnchor {
     fn default() -> TrustAnchor {
         TrustAnchor {
-            pkeys: vec![ROOT_ANCHOR.to_owned()],
+            pkeys: vec![ROOT_ANCHOR_ORIG.to_owned(), ROOT_ANCHOR_2018.to_owned()],
         }
     }
 }
@@ -73,6 +74,6 @@ impl TrustAnchor {
 #[test]
 fn test_kjqmt7v() {
     let trust = TrustAnchor::default();
-    assert_eq!(trust.get(0), ROOT_ANCHOR);
-    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR));
+    assert_eq!(trust.get(0), ROOT_ANCHOR_ORIG);
+    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR_ORIG));
 }
