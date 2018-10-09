@@ -304,7 +304,7 @@ impl DNSKEY {
     /// Internal checksum function (used for non-RSAMD5 hashes only,
     /// however, RSAMD5 is considered deprecated and not implemented in
     /// trust-dns, anyways).
-    fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
+    pub fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
         let mut ac: u32 = 0;
         for (i, k) in bytes.iter().enumerate() {
             ac += u32::from(*k) << if i & 0x01 != 0 { 0 } else { 8 };
@@ -379,36 +379,60 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
     Ok(())
 }
 
-#[test]
-#[cfg(any(feature = "openssl", feature = "ring"))]
-pub fn test() {
-    let rdata = DNSKEY::new(
-        true,
-        true,
-        false,
-        Algorithm::RSASHA256,
-        vec![0, 1, 2, 3, 4, 5, 6, 7],
-    );
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    #[test]
+    #[cfg(any(feature = "openssl", feature = "ring"))]
+    pub fn test() {
+        let rdata = DNSKEY::new(
+            true,
+            true,
+            false,
+            Algorithm::RSASHA256,
+            vec![0, 1, 2, 3, 4, 5, 6, 7],
+        );
 
-    println!("bytes: {:?}", bytes);
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(
-        read_rdata.is_ok(),
-        format!("error decoding: {:?}", read_rdata.unwrap_err())
-    );
-    assert_eq!(rdata, read_rdata.unwrap());
-    assert!(
-        rdata
-            .to_digest(
-                &Name::parse("www.example.com.", None).unwrap(),
-                DigestType::SHA256
-            ).is_ok()
-    );
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let read_rdata = read(&mut decoder, bytes.len() as u16);
+        assert!(
+            read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err())
+        );
+        assert_eq!(rdata, read_rdata.unwrap());
+        assert!(
+            rdata
+                .to_digest(
+                    &Name::parse("www.example.com.", None).unwrap(),
+                    DigestType::SHA256
+                ).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_calculate_key_tag_checksum() {
+        let test_text = "The quick brown fox jumps over the lazy dog";
+        let test_vectors = vec![
+            (vec![], 0),
+            (vec![0, 0, 0, 0], 0),
+            (vec![0xff, 0xff, 0xff, 0xff], 0xffff),
+            (vec![1, 0, 0, 0], 0x0100),
+            (vec![0, 1, 0, 0], 0x0001),
+            (vec![0, 0, 1, 0], 0x0100),
+            (test_text.as_bytes().to_vec(), 0x8d5b),
+        ];
+
+        for &(ref input_data, exp_result) in test_vectors.iter() {
+            let result = DNSKEY::calculate_key_tag_internal(&input_data);
+            assert_eq!(result, exp_result);
+        }
+    }
 }

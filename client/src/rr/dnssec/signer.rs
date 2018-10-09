@@ -348,18 +348,6 @@ impl Signer {
         self.is_zone_signing_key
     }
 
-    /// Internal checksum function (used for non-RSAMD5 hashes only,
-    /// however, RSAMD5 is considered deprecated and not implemented in
-    /// trust-dns, anyways).
-    fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
-        let mut ac: u32 = 0;
-        for (i, k) in bytes.iter().enumerate() {
-            ac += u32::from(*k) << if i & 0x01 != 0 { 0 } else { 8 };
-        }
-        ac += ac >> 16;
-        (ac & 0xFFFF) as u16
-    }
-
     /// Signs a hash.
     ///
     /// This will panic if the `key` is not a private key and can be used for signing.
@@ -449,7 +437,7 @@ impl Signer {
             let mut e = BinEncoder::new(&mut bytes);
             self.key_rdata.emit(&mut e)?;
         }
-        Ok(Signer::calculate_key_tag_internal(&bytes))
+        Ok(DNSKEY::calculate_key_tag_internal(&bytes))
     }
 
     /// Signs the given message, returning the signature bytes.
@@ -703,25 +691,6 @@ mod tests {
                 .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
                 .is_ok()
         );
-    }
-
-    #[test]
-    fn test_calculate_key_tag_checksum() {
-        let test_text = "The quick brown fox jumps over the lazy dog";
-        let test_vectors = vec![
-            (vec![], 0),
-            (vec![0, 0, 0, 0], 0),
-            (vec![0xff, 0xff, 0xff, 0xff], 0xffff),
-            (vec![1, 0, 0, 0], 0x0100),
-            (vec![0, 1, 0, 0], 0x0001),
-            (vec![0, 0, 1, 0], 0x0100),
-            (test_text.as_bytes().to_vec(), 0x8d5b),
-        ];
-
-        for &(ref input_data, exp_result) in test_vectors.iter() {
-            let result = Signer::calculate_key_tag_internal(&input_data);
-            assert_eq!(result, exp_result);
-        }
     }
 
     fn get_rsa_from_vec(params: &Vec<u32>) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
