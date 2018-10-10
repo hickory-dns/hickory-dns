@@ -28,14 +28,15 @@ use trust_dns_proto::rr::record_type::RecordType;
 use trust_dns_resolver::Resolver;
 
 fn args<'a>() -> ArgMatches<'a> {
-    app_from_crate!().bin_name("get-root-ksk").get_matches()
+    app_from_crate!().bin_name("get-root-ksks").get_matches()
 }
 
 pub fn main() {
     env_logger::init();
     let _matches = args();
 
-    let resolver = Resolver::default().expect("coind not create resolver");
+    println!("querying for root key-signing-keys, ie dnskeys");
+    let resolver = Resolver::default().expect("could not create resolver");
     let lookup = resolver
         .lookup(".", RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
         .expect("query failed");
@@ -49,7 +50,7 @@ pub fn main() {
 
                 let key_tag = dnskey.calculate_key_tag().expect("key_tag failed");
 
-                println!("found: tag: {} info: {:?}", key_tag, dnskey);
+                println!("found dnskey tag: {}", key_tag);
                 let extension = match dnskey.algorithm() {
                     Algorithm::RSASHA1
                     | Algorithm::RSASHA1NSEC3SHA1
@@ -69,11 +70,12 @@ pub fn main() {
                     .read(false)
                     .truncate(true)
                     .create(true)
-                    .open(path)
+                    .open(&path)
                     .expect("couldn't open file for writing");
 
                 file.write_all(dnskey.public_key())
                     .expect("failed to write to file");
+                println!("wrote dnskey tag: {} to: {}", key_tag, path.display());
             }
             _ => println!("unexpected response"),
         }

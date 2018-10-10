@@ -39,8 +39,8 @@ name = "dnskey-to-pem"
 path = "src/dnskey_to_pem.rs"
 
 [[bin]]
-name = "get-root-ksk"
-path = "src/get_root_ksk.rs"
+name = "get-root-ksks"
+path = "src/get_root_ksks.rs"
 
 [[bin]]
 name = "pem-to-public-dnskey"
