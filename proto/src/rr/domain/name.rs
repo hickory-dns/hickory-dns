@@ -907,6 +907,7 @@ impl<'r> BinDecodable<'r> for Name {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
         let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
         let mut labels: Vec<Label> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
+        let name_start = decoder.index();
 
         // assume all chars are utf-8. We're doing byte-by-byte operations, no endianess issues...
         // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
@@ -958,8 +959,8 @@ impl<'r> BinDecodable<'r> for Name {
                     let pointer_location = decoder.index();
                     let location = decoder.read_u16()? & 0x3FFF; // get rid of the two high order bits
 
-                    // all labels must appear "prior" to this label
-                    if location as usize >= pointer_location {
+                    // all labels must appear "prior" to this Name
+                    if location as usize >= name_start {
                         return Err(ProtoErrorKind::PointerNotPriorToLabel {
                             idx: pointer_location,
                             ptr: location,
@@ -1221,6 +1222,12 @@ mod tests {
 
         // formerly a stack overflow, recursing back on itself
         let bytes = vec![0xC0, 0x00];
+        let mut d = BinDecoder::new(&bytes);
+
+        assert!(Name::read(&mut d).is_err());
+
+        // formerly a stack overflow, recursing back on itself
+        let bytes = vec![0x01, 0x41, 0xC0, 0x00];
         let mut d = BinDecoder::new(&bytes);
 
         assert!(Name::read(&mut d).is_err());
