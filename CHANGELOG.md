@@ -5,11 +5,17 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.15.0
 
+### Fixed
+
+- enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
+
 ### Added
 
 - feature `dns-over-rustls` to `trust-dns-server` (server) and `trust-dns` (client)
 - feature `dns-over-https-rustls` *experimental*
 - new configuration options for tls, see `server/tests/named_test_configs/dns_over_tls_rustls_and_openssl.toml`
+- new utility for querying root key-signing-keys, `util/get-root-ksks`
+- updated root trust-anchor to include new `20326` RSA root ksk
 
 ### Changed
 

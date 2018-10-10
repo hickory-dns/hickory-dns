@@ -11,6 +11,8 @@ packages_ordered="proto openssl native-tls rustls https client resolver server"
 cargo check
 
 for p in ${packages_ordered:?} ; do
+    echo "====> dry-run publish $p"
     cargo publish --verbose --locked --dry-run --manifest-path ${p:?}/Cargo.toml
+    echo "====> publishing $p"
     cargo publish --verbose --locked --manifest-path ${p:?}/Cargo.toml     
 done
