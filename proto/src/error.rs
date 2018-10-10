@@ -72,6 +72,19 @@ pub enum ProtoErrorKind {
     #[fail(display = "label bytes exceed 63: {}", _0)]
     LabelBytesTooLong(usize),
 
+    /// Label bytes exceeded the limit of 63
+    #[fail(
+        display = "label points to data not prior to idx: {} ptr: {}",
+        _0,
+        _1
+    )]
+    PointerNotPriorToLabel {
+        /// index of the label cotaining this pointer
+        idx: usize,
+        /// location to which the pointer is directing
+        ptr: u16,
+    },
+
     /// The maximum buffer size was exceeded
     #[fail(display = "maximum buffer size exceeded: {}", _0)]
     MaxBufferSizeExceeded(usize),
@@ -361,6 +374,7 @@ impl Clone for ProtoErrorKind {
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),
+            PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },
             MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
