@@ -3,13 +3,21 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## Unreleased
+## 0.10
+
+### Fixed
+
+- enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
 
 ### Changed
 
 - `ResolverFuture` renamed to `AsyncResolver` @hawkw #487
 - *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background @hawkw #487
 - *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` @hawkw #487
+
+### Added
+
+- updated root trust-anchor to include new `20326` RSA root ksk
 
 ## 0.9.1
 
