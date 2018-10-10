@@ -28,6 +28,7 @@ error_chain! {
     // and recommended names, but they can be arbitrarily chosen.
     types {
         ProtoError, ProtoErrorKind, ProtoChainErr, ProtoResult;
+
     }
 
     // Automatic conversions between this error chain and other
@@ -94,6 +95,11 @@ error_chain! {
         description("label bytes exceed 63")
         display("label bytes exceed 63: {}", len)
       }
+
+PointerNotPriorToLabel(idx: usize, ptr: u16) {
+        description("label points to data not prior to label")
+        display("label points to data not prior to idx: {} ptr: {}", idx, ptr)
+}
 
       Message(msg: &'static str) {
         description(msg)
@@ -230,6 +236,9 @@ impl Clone for ProtoErrorKind {
                 ProtoErrorKind::IncorrectRDataLengthRead(read, len)
             }
             ProtoErrorKind::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
+            ProtoErrorKind::PointerNotPriorToLabel(idx, ptr) => {
+                ProtoErrorKind::PointerNotPriorToLabel(idx, ptr)
+            }
             ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
             ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
             ProtoErrorKind::NoError => ProtoErrorKind::NoError,
@@ -289,8 +298,4 @@ impl Clone for ProtoError {
 
 pub trait FromProtoError: From<ProtoError> + ::std::error::Error + Clone + Send {}
 
-impl<E> FromProtoError for E
-where
-    E: From<ProtoError> + ::std::error::Error + Clone + Send,
-{
-}
+impl<E> FromProtoError for E where E: From<ProtoError> + ::std::error::Error + Clone + Send {}

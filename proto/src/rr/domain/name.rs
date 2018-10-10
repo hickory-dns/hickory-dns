@@ -16,10 +16,10 @@ use std::ops::Index;
 use std::slice::Iter;
 use std::str::FromStr;
 
-use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
-use rr::domain::usage::{LOCALHOST as LOCALHOST_usage};
-use serialize::binary::*;
 use error::*;
+use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
+use rr::domain::usage::LOCALHOST as LOCALHOST_usage;
+use serialize::binary::*;
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Clone, Default, Debug, Eq, Hash)]
@@ -109,7 +109,9 @@ impl Name {
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
         self.labels.push(label.into_label()?);
-        if self.labels.len() > 255 { return Err(ProtoErrorKind::Message("labels exceed maximum length of 255").into()) };
+        if self.labels.len() > 255 {
+            return Err(ProtoErrorKind::Message("labels exceed maximum length of 255").into());
+        };
         Ok(self)
     }
 
@@ -141,12 +143,21 @@ impl Name {
         I: IntoIterator<Item = L>,
         L: IntoLabel,
     {
-        let (labels, errors): (Vec<_>, Vec<_>) = labels.into_iter().map(IntoLabel::into_label).partition(Result::is_ok);
+        let (labels, errors): (Vec<_>, Vec<_>) = labels
+            .into_iter()
+            .map(IntoLabel::into_label)
+            .partition(Result::is_ok);
         let labels: Vec<_> = labels.into_iter().map(Result::unwrap).collect();
         let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
 
-        if labels.len() > 255 { return Err(ProtoErrorKind::Message("labels exceed maximum length of 255").into()) };
-        if !errors.is_empty() { return Err(ProtoErrorKind::Msg(format!("error converting some labels: {:?}", errors)).into()) }; 
+        if labels.len() > 255 {
+            return Err(ProtoErrorKind::Message("labels exceed maximum length of 255").into());
+        };
+        if !errors.is_empty() {
+            return Err(
+                ProtoErrorKind::Msg(format!("error converting some labels: {:?}", errors)).into(),
+            );
+        };
 
         Ok(Name {
             is_fqdn: true,
@@ -232,7 +243,10 @@ impl Name {
             new_labels.push(label.to_lowercase())
         }
 
-        Name{ is_fqdn: self.is_fqdn, labels: new_labels}
+        Name {
+            is_fqdn: self.is_fqdn,
+            labels: new_labels,
+        }
     }
 
     /// Trims off the first part of the name, to help with searching for the domain piece
@@ -308,7 +322,7 @@ impl Name {
             }
         }
 
-        return true
+        return true;
     }
 
     /// returns true if the name components of self are all present at the end of name
@@ -330,7 +344,7 @@ impl Name {
     pub fn zone_of(&self, name: &Self) -> bool {
         let self_lower = self.to_lowercase();
         let name_lower = name.to_lowercase();
-        
+
         self_lower.zone_of_case(&name_lower)
     }
 
@@ -353,10 +367,13 @@ impl Name {
     /// ```
     pub fn num_labels(&self) -> u8 {
         // it is illegal to have more than 256 labels.
-        
+
         let num = self.labels.len() as u8;
-        
-        self.labels.first().map(|l| if l.is_wildcard() { num - 1 } else {num } ).unwrap_or(num)
+
+        self.labels
+            .first()
+            .map(|l| if l.is_wildcard() { num - 1 } else { num })
+            .unwrap_or(num)
     }
 
     /// returns the length in bytes of the labels. '.' counts as 1
@@ -402,10 +419,10 @@ impl Name {
     /// assert_eq!(name[0].to_string(), "example");
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
-       Self::from_encoded_str::<LabelEncUtf8>(local, origin)
+        Self::from_encoded_str::<LabelEncUtf8>(local, origin)
     }
 
-    /// Will convert the string to a name only allowing ascii as valid input 
+    /// Will convert the string to a name only allowing ascii as valid input
     ///
     /// This method will also preserve the case of the name where that's desirable
     ///
@@ -578,7 +595,7 @@ impl Name {
                     // reset back to the begining of this label, and then write the pointer...
                     encoder.set_offset(*label_idx);
                     encoder.trim();
-                    
+
                     // write out the pointer marker
                     //  or'd with the location which shouldn't be larger than this 2^14 or 16k
                     encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
@@ -624,7 +641,7 @@ impl Name {
             self.emit_as_canonical(encoder, is_canonical_names)
         }
     }
-    
+
     /// compares with the other label, ignoring case
     fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
         if self.labels.is_empty() && other.labels.is_empty() {
@@ -649,7 +666,7 @@ impl Name {
     pub fn cmp_case(&self, other: &Self) -> Ordering {
         self.cmp_with_f::<CaseSensitive>(other)
     }
-    
+
     /// Compares the Names, in a case sensitive manner
     pub fn eq_case(&self, other: &Self) -> bool {
         self.cmp_with_f::<CaseSensitive>(other) == Ordering::Equal
@@ -661,7 +678,8 @@ impl Name {
     ///  see `to_utf8` or the `Display` impl for methods which convert labels to utf8.
     pub fn to_ascii(&self) -> String {
         let mut s = String::with_capacity(self.len());
-        self.write_labels::<String, LabelEncAscii>(&mut s).expect("string conversion of name should not fail");
+        self.write_labels::<String, LabelEncAscii>(&mut s)
+            .expect("string conversion of name should not fail");
         s
     }
 
@@ -741,7 +759,6 @@ impl LabelEnc for LabelEncUtf8 {
     }
 }
 
-
 /// An iterator over labels in a name
 pub struct LabelIter<'a>(Iter<'a, Label>);
 
@@ -782,17 +799,31 @@ impl From<Ipv4Addr> for Name {
     fn from(addr: Ipv4Addr) -> Name {
         let octets = addr.octets();
 
-        let mut labels = octets
-            .iter()
-            .rev()
-            .fold(Vec::<Label>::with_capacity(6), |mut labels, o| {
-                let label: Label = format!("{}", o).as_bytes().into_label().expect("IP octet to label should never fail");
-                labels.push(label);
-                labels
-            });
+        let mut labels =
+            octets
+                .iter()
+                .rev()
+                .fold(Vec::<Label>::with_capacity(6), |mut labels, o| {
+                    let label: Label = format!("{}", o)
+                        .as_bytes()
+                        .into_label()
+                        .expect("IP octet to label should never fail");
+                    labels.push(label);
+                    labels
+                });
 
-        labels.push("in-addr".as_bytes().into_label().expect("simple name should never fail"));
-        labels.push("arpa".as_bytes().into_label().expect("simple name should never fail"));
+        labels.push(
+            "in-addr"
+                .as_bytes()
+                .into_label()
+                .expect("simple name should never fail"),
+        );
+        labels.push(
+            "arpa"
+                .as_bytes()
+                .into_label()
+                .expect("simple name should never fail"),
+        );
 
         Self::from_labels(labels).expect("a translation of Ipv4Addr should never fail")
     }
@@ -802,19 +833,50 @@ impl From<Ipv6Addr> for Name {
     fn from(addr: Ipv6Addr) -> Name {
         let segments = addr.segments();
 
-        let mut labels = segments
-            .iter()
-            .rev()
-            .fold(Vec::<Label>::with_capacity(34), |mut labels, o| {
-                labels.push(format!("{:x}", (*o & 0x000F) as u8).as_bytes().into_label().expect("IP octet to label should never fail"));
-                labels.push(format!("{:x}", (*o >> 4 & 0x000F) as u8).as_bytes().into_label().expect("IP octet to label should never fail"));
-                labels.push(format!("{:x}", (*o >> 8 & 0x000F) as u8).as_bytes().into_label().expect("IP octet to label should never fail"));
-                labels.push(format!("{:x}", (*o >> 12 & 0x000F) as u8).as_bytes().into_label().expect("IP octet to label should never fail"));
-                labels
-            });
+        let mut labels =
+            segments
+                .iter()
+                .rev()
+                .fold(Vec::<Label>::with_capacity(34), |mut labels, o| {
+                    labels.push(
+                        format!("{:x}", (*o & 0x000F) as u8)
+                            .as_bytes()
+                            .into_label()
+                            .expect("IP octet to label should never fail"),
+                    );
+                    labels.push(
+                        format!("{:x}", (*o >> 4 & 0x000F) as u8)
+                            .as_bytes()
+                            .into_label()
+                            .expect("IP octet to label should never fail"),
+                    );
+                    labels.push(
+                        format!("{:x}", (*o >> 8 & 0x000F) as u8)
+                            .as_bytes()
+                            .into_label()
+                            .expect("IP octet to label should never fail"),
+                    );
+                    labels.push(
+                        format!("{:x}", (*o >> 12 & 0x000F) as u8)
+                            .as_bytes()
+                            .into_label()
+                            .expect("IP octet to label should never fail"),
+                    );
+                    labels
+                });
 
-        labels.push("ip6".as_bytes().into_label().expect("simple name should never fail"));
-        labels.push("arpa".as_bytes().into_label().expect("simple name should never fail"));
+        labels.push(
+            "ip6"
+                .as_bytes()
+                .into_label()
+                .expect("simple name should never fail"),
+        );
+        labels.push(
+            "arpa"
+                .as_bytes()
+                .into_label()
+                .expect("simple name should never fail"),
+        );
 
         Self::from_labels(labels).expect("a translation of Ipv4Addr should never fail")
     }
@@ -896,7 +958,17 @@ impl<'r> BinDecodable<'r> for Name {
                 // domain header).  A zero offset specifies the first byte of the ID field,
                 // etc.
                 LabelParseState::Pointer => {
+                    let pointer_location = decoder.index();
                     let location = decoder.read_u16()? & 0x3FFF; // get rid of the two high order bits
+
+                    // all labels must appear "prior" to this label
+                    if location as usize >= pointer_location {
+                        return Err(ProtoErrorKind::PointerNotPriorToLabel(
+                            pointer_location,
+                            location,
+                        ).into());
+                    }
+
                     let mut pointer = decoder.clone(location);
                     let pointed = Name::read(&mut pointer)?;
 
@@ -1122,6 +1194,28 @@ mod tests {
     }
 
     #[test]
+    fn test_recursive_pointer() {
+        // points to an invalid begining label marker
+        let bytes = vec![0xC0, 0x01];
+        let mut d = BinDecoder::new(&bytes);
+
+        assert!(Name::read(&mut d).is_err());
+
+        // formerly a stack overflow, recursing back on itself
+        let bytes = vec![0xC0, 0x00];
+        let mut d = BinDecoder::new(&bytes);
+
+        assert!(Name::read(&mut d).is_err());
+
+        // formerly a stack overflow, recursing by going past the end, then back to the beginning.
+        //   this is disallowed based on the rule that all labels must be "prior" to the current label.
+        let bytes = vec![0xC0, 0x02, 0xC0, 0x00];
+        let mut d = BinDecoder::new(&bytes);
+
+        assert!(Name::read(&mut d).is_err());
+    }
+
+    #[test]
     fn test_base_name() {
         let zone = Name::from_str("example.com.").unwrap();
 
@@ -1190,7 +1284,6 @@ mod tests {
             (
                 Name::from_ascii("Z.a.example.").unwrap(),
                 Name::from_ascii("zABC.a.EXAMPLE").unwrap(),
-                
             ),
             (
                 Name::from_ascii("zABC.a.EXAMPLE.").unwrap(),
@@ -1198,15 +1291,27 @@ mod tests {
             ),
             (
                 Name::from_str("z.example.").unwrap(),
-                Name::from_labels(vec![&[001u8] as &[u8], "z".as_bytes(), "example".as_bytes()]).unwrap()
+                Name::from_labels(vec![
+                    &[001u8] as &[u8],
+                    "z".as_bytes(),
+                    "example".as_bytes(),
+                ]).unwrap(),
             ),
             (
-                Name::from_labels(vec![&[001u8] as &[u8], "z".as_bytes(), "example".as_bytes()]).unwrap(),
+                Name::from_labels(vec![
+                    &[001u8] as &[u8],
+                    "z".as_bytes(),
+                    "example".as_bytes(),
+                ]).unwrap(),
                 Name::from_str("*.z.example.").unwrap(),
             ),
             (
                 Name::from_str("*.z.example.").unwrap(),
-                Name::from_labels(vec![&[200u8] as &[u8], "z".as_bytes(), "example".as_bytes()]).unwrap()
+                Name::from_labels(vec![
+                    &[200u8] as &[u8],
+                    "z".as_bytes(),
+                    "example".as_bytes(),
+                ]).unwrap(),
             ),
         ];
 
@@ -1246,7 +1351,9 @@ mod tests {
     #[test]
     fn test_from_ipv6() {
         let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0x1));
-        let name = Name::from_str("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa").unwrap();
+        let name = Name::from_str(
+            "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa",
+        ).unwrap();
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1255,7 +1362,11 @@ mod tests {
     fn test_from_str() {
         assert_eq!(
             Name::from_str("www.example.com.").unwrap(),
-            Name::from_labels(vec!["www".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap()
+            Name::from_labels(vec![
+                "www".as_bytes(),
+                "example".as_bytes(),
+                "com".as_bytes()
+            ]).unwrap()
         );
         assert_eq!(
             Name::from_str(".").unwrap(),
@@ -1268,7 +1379,14 @@ mod tests {
         assert!(Name::root().is_fqdn());
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
-        assert!(Name::from_labels(vec!["www".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap().is_fqdn());
+        assert!(
+            Name::from_labels(vec![
+                "www".as_bytes(),
+                "example".as_bytes(),
+                "com".as_bytes()
+            ]).unwrap()
+            .is_fqdn()
+        );
 
         assert!(!Name::new().is_fqdn());
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());
@@ -1290,17 +1408,25 @@ mod tests {
 
     #[test]
     fn test_from_ascii() {
-        let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+        let bytes_name = Name::from_labels(vec![
+            "WWW".as_bytes(),
+            "example".as_bytes(),
+            "COM".as_bytes(),
+        ]).unwrap();
         let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
         let lower_name = Name::from_ascii("www.example.com.").unwrap();
 
         assert!(bytes_name.eq_case(&ascii_name));
         assert!(!lower_name.eq_case(&ascii_name));
-       }
+    }
 
     #[test]
     fn test_from_utf8() {
-        let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+        let bytes_name = Name::from_labels(vec![
+            "WWW".as_bytes(),
+            "example".as_bytes(),
+            "COM".as_bytes(),
+        ]).unwrap();
         let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
         let lower_name = Name::from_utf8("www.example.com.").unwrap();
 
@@ -1311,17 +1437,41 @@ mod tests {
     #[test]
     fn test_into_name() {
         let name = Name::from_utf8("www.example.com").unwrap();
-        assert_eq!(Name::from_utf8("www.example.com").unwrap(), (&name).into_name().unwrap());
-        assert_eq!(Name::from_utf8("www.example.com").unwrap(), Name::from_utf8("www.example.com").unwrap().into_name().unwrap());
-        assert_eq!(Name::from_utf8("www.example.com").unwrap(), "www.example.com".into_name().unwrap());
-        assert_eq!(Name::from_utf8("www.example.com").unwrap(), "www.example.com".to_string().into_name().unwrap());
+        assert_eq!(
+            Name::from_utf8("www.example.com").unwrap(),
+            (&name).into_name().unwrap()
+        );
+        assert_eq!(
+            Name::from_utf8("www.example.com").unwrap(),
+            Name::from_utf8("www.example.com")
+                .unwrap()
+                .into_name()
+                .unwrap()
+        );
+        assert_eq!(
+            Name::from_utf8("www.example.com").unwrap(),
+            "www.example.com".into_name().unwrap()
+        );
+        assert_eq!(
+            Name::from_utf8("www.example.com").unwrap(),
+            "www.example.com".to_string().into_name().unwrap()
+        );
     }
 
     #[test]
     fn test_encoding() {
-        assert_eq!(Name::from_ascii("WWW.example.COM.").unwrap().to_ascii(), "WWW.example.COM.");
-        assert_eq!(Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(), "www.example.com.");
-        assert_eq!(Name::from_ascii("WWW.example.COM.").unwrap().to_utf8(), "WWW.example.COM.");
+        assert_eq!(
+            Name::from_ascii("WWW.example.COM.").unwrap().to_ascii(),
+            "WWW.example.COM."
+        );
+        assert_eq!(
+            Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(),
+            "www.example.com."
+        );
+        assert_eq!(
+            Name::from_ascii("WWW.example.COM.").unwrap().to_utf8(),
+            "WWW.example.COM."
+        );
     }
 
     #[test]
@@ -1334,11 +1484,11 @@ mod tests {
 
         let mut result = Ok(());
         for i in 0..10000 {
-           let name = Name::from_ascii(format!("name{}.example.com.", i)).unwrap();
-           result = name.emit(&mut encoder);
-           if let Err(..) = result {
-               break
-           }
+            let name = Name::from_ascii(format!("name{}.example.com.", i)).unwrap();
+            result = name.emit(&mut encoder);
+            if let Err(..) = result {
+                break;
+            }
         }
 
         assert!(result.is_err());
