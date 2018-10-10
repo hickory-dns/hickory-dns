@@ -16,13 +16,11 @@
 
 //! public key record data for signing zone records
 
-use serialize::binary::*;
 use error::*;
-use rr::dnssec::Algorithm;
+use rr::dnssec::{Algorithm, Digest, DigestType};
 use rr::record_data::RData;
-
 use rr::Name;
-use rr::dnssec::{Digest, DigestType};
+use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -222,7 +220,8 @@ impl DNSKEY {
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
             encoder.set_canonical_names(true);
-            if let Err(e) = name.emit(&mut encoder)
+            if let Err(e) = name
+                .emit(&mut encoder)
                 .and_then(|_| emit(&mut encoder, self))
             {
                 warn!("error serializing dnskey: {}", e);
@@ -237,6 +236,81 @@ impl DNSKEY {
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
         Err("Ring or OpenSSL must be enabled for this feature".into())
+    }
+
+    /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
+    ///
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
+    ///
+    /// ```text
+    /// RFC 2535                DNS Security Extensions               March 1999
+    ///
+    /// 4.1.6 Key Tag Field
+    ///
+    ///  The "key Tag" is a two octet quantity that is used to efficiently
+    ///  select between multiple keys which may be applicable and thus check
+    ///  that a public key about to be used for the computationally expensive
+    ///  effort to check the signature is possibly valid.  For algorithm 1
+    ///  (MD5/RSA) as defined in [RFC 2537], it is the next to the bottom two
+    ///  octets of the public key modulus needed to decode the signature
+    ///  field.  That is to say, the most significant 16 of the least
+    ///  significant 24 bits of the modulus in network (big endian) order. For
+    ///  all other algorithms, including private algorithms, it is calculated
+    ///  as a simple checksum of the KEY RR as described in Appendix C.
+    ///
+    /// Appendix C: Key Tag Calculation
+    ///
+    ///  The key tag field in the SIG RR is just a means of more efficiently
+    ///  selecting the correct KEY RR to use when there is more than one KEY
+    ///  RR candidate available, for example, in verifying a signature.  It is
+    ///  possible for more than one candidate key to have the same tag, in
+    ///  which case each must be tried until one works or all fail.  The
+    ///  following reference implementation of how to calculate the Key Tag,
+    ///  for all algorithms other than algorithm 1, is in ANSI C.  It is coded
+    ///  for clarity, not efficiency.  (See section 4.1.6 for how to determine
+    ///  the Key Tag of an algorithm 1 key.)
+    ///
+    ///  /* assumes int is at least 16 bits
+    ///     first byte of the key tag is the most significant byte of return
+    ///     value
+    ///     second byte of the key tag is the least significant byte of
+    ///     return value
+    ///     */
+    ///
+    ///  int keytag (
+    ///
+    ///          unsigned char key[],  /* the RDATA part of the KEY RR */
+    ///          unsigned int keysize, /* the RDLENGTH */
+    ///          )
+    ///  {
+    ///  long int    ac;    /* assumed to be 32 bits or larger */
+    ///
+    ///  for ( ac = 0, i = 0; i < keysize; ++i )
+    ///      ac += (i&1) ? key[i] : key[i]<<8;
+    ///  ac += (ac>>16) & 0xFFFF;
+    ///  return ac & 0xFFFF;
+    ///  }
+    /// ```
+    pub fn calculate_key_tag(&self) -> ProtoResult<u16> {
+        // TODO:
+        let mut bytes: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut e = BinEncoder::new(&mut bytes);
+            self::emit(&mut e, self)?;
+        }
+        Ok(Self::calculate_key_tag_internal(&bytes))
+    }
+
+    /// Internal checksum function (used for non-RSAMD5 hashes only,
+    /// however, RSAMD5 is considered deprecated and not implemented in
+    /// trust-dns, anyways).
+    pub fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
+        let mut ac: u32 = 0;
+        for (i, k) in bytes.iter().enumerate() {
+            ac += u32::from(*k) << if i & 0x01 != 0 { 0 } else { 8 };
+        }
+        ac += ac >> 16;
+        (ac & 0xFFFF) as u16
     }
 }
 
@@ -305,37 +379,60 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
     Ok(())
 }
 
-#[test]
-#[cfg(any(feature = "openssl", feature = "ring"))]
-pub fn test() {
-    let rdata = DNSKEY::new(
-        true,
-        true,
-        false,
-        Algorithm::RSASHA256,
-        vec![0, 1, 2, 3, 4, 5, 6, 7],
-    );
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    #[test]
+    #[cfg(any(feature = "openssl", feature = "ring"))]
+    pub fn test() {
+        let rdata = DNSKEY::new(
+            true,
+            true,
+            false,
+            Algorithm::RSASHA256,
+            vec![0, 1, 2, 3, 4, 5, 6, 7],
+        );
 
-    println!("bytes: {:?}", bytes);
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(
-        read_rdata.is_ok(),
-        format!("error decoding: {:?}", read_rdata.unwrap_err())
-    );
-    assert_eq!(rdata, read_rdata.unwrap());
-    assert!(
-        rdata
-            .to_digest(
-                &Name::parse("www.example.com.", None).unwrap(),
-                DigestType::SHA256
-            )
-            .is_ok()
-    );
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let read_rdata = read(&mut decoder, bytes.len() as u16);
+        assert!(
+            read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err())
+        );
+        assert_eq!(rdata, read_rdata.unwrap());
+        assert!(
+            rdata
+                .to_digest(
+                    &Name::parse("www.example.com.", None).unwrap(),
+                    DigestType::SHA256
+                ).is_ok()
+        );
+    }
+
+    #[test]
+    fn test_calculate_key_tag_checksum() {
+        let test_text = "The quick brown fox jumps over the lazy dog";
+        let test_vectors = vec![
+            (vec![], 0),
+            (vec![0, 0, 0, 0], 0),
+            (vec![0xff, 0xff, 0xff, 0xff], 0xffff),
+            (vec![1, 0, 0, 0], 0x0100),
+            (vec![0, 1, 0, 0], 0x0001),
+            (vec![0, 0, 1, 0], 0x0100),
+            (test_text.as_bytes().to_vec(), 0x8d5b),
+        ];
+
+        for &(ref input_data, exp_result) in test_vectors.iter() {
+            let result = DNSKEY::calculate_key_tag_internal(&input_data);
+            assert_eq!(result, exp_result);
+        }
+    }
 }
