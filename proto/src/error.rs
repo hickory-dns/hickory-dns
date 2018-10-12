@@ -36,9 +36,23 @@ pub enum ProtoErrorKind {
     #[fail(display = "future was canceled: {:?}", _0)]
     Canceled(::futures::sync::oneshot::Canceled),
 
-    /// Character data length exceeded the limit of 255
-    #[fail(display = "char data length exceeds 255: {}", _0)]
-    CharacterDataTooLong(usize),
+    /// Character data length exceeded the limit
+    #[fail(display = "char data length exceeds {}: {}", _0, _1)]
+    CharacterDataTooLong {
+        /// Specified maximum
+        max: usize,
+        /// Actual length
+        len: usize,
+    },
+
+    /// Overlapping labels
+    #[fail(display = "overlapping labels name {} other {}", _0, _1)]
+    LabelOverlapsWithOther {
+        /// Start of the label that is overlaps
+        label: usize,
+        /// Start of the other label
+        other: usize,
+    },
 
     /// DNS protocol version doesn't have the expected version 3
     #[fail(display = "dns key value unknown, must be 3: {}", _0)]
@@ -368,7 +382,8 @@ impl Clone for ProtoErrorKind {
         use self::ProtoErrorKind::*;
         match *self {
             Canceled(ref c) => Canceled(*c),
-            CharacterDataTooLong(len) => CharacterDataTooLong(len),
+            CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
+            LabelOverlapsWithOther { label, other } => LabelOverlapsWithOther { label, other },
             DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
             DomainNameTooLong(len) => DomainNameTooLong(len),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),

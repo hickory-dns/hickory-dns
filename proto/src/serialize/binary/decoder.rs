@@ -15,7 +15,7 @@
  */
 
 use byteorder::{ByteOrder, NetworkEndian};
-use error::ProtoResult;
+use error::{ProtoErrorKind, ProtoResult};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -99,8 +99,23 @@ impl<'a> BinDecoder<'a> {
     ///
     /// A String version of the character data
     pub fn read_character_data(&mut self) -> ProtoResult<&[u8]> {
-        let length: u8 = self.pop()?;
-        self.read_slice(length as usize)
+        self.read_character_data_max(None)
+    }
+
+    /// Reads to a maximum length of data, returns an error if this is exceeded
+    pub fn read_character_data_max(&mut self, max_len: Option<usize>) -> ProtoResult<&[u8]> {
+        let length = self.pop()? as usize;
+
+        if let Some(max_len) = max_len {
+            if length > max_len {
+                return Err(ProtoErrorKind::CharacterDataTooLong {
+                    max: max_len,
+                    len: length,
+                }.into());
+            }
+        }
+
+        self.read_slice(length)
     }
 
     // TODO: deprecate in favor of read_slice
