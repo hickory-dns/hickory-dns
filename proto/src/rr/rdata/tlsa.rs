@@ -344,6 +344,10 @@ impl TLSA {
 ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TLSA> {
+    if rdata_length < 4 {
+        return Err("TLSA Resource Record too short".into());
+    }
+
     let cert_usage = decoder.read_u8()?.into();
     let selector = decoder.read_u8()?.into();
     let matching = decoder.read_u8()?.into();
