@@ -279,7 +279,10 @@ impl<'a> BinEncoder<'a> {
     pub fn emit_character_data<S: AsRef<[u8]>>(&mut self, char_data: S) -> ProtoResult<()> {
         let char_bytes = char_data.as_ref();
         if char_bytes.len() > 255 {
-            return Err(ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into());
+            return Err(ProtoErrorKind::CharacterDataTooLong {
+                max: 255,
+                len: char_bytes.len(),
+            }.into());
         }
 
         // first the length is written

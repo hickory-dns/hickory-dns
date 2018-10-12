@@ -102,7 +102,7 @@ fn name_cmp_long_case(b: &mut Bencher) {
 #[bench]
 fn name_to_lower_short(b: &mut Bencher) {
     let name1 = Name::from_ascii("COM").unwrap();
-    
+
     b.iter(|| {
         let lower = name1.to_lowercase();
         assert_eq!(lower.num_labels(), 1);
@@ -132,7 +132,7 @@ fn name_to_lower_long(b: &mut Bencher) {
 #[bench]
 fn name_no_lower_short(b: &mut Bencher) {
     let name1 = Name::from_ascii("com").unwrap();
-    
+
     b.iter(|| {
         let lower = name1.to_lowercase();
         assert_eq!(lower.num_labels(), 1);

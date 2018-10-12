@@ -905,91 +905,121 @@ impl<'r> BinDecodable<'r> for Name {
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the Vec which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
-        let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
-        let mut labels: Vec<Label> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
-        let name_start = decoder.index();
+        read_inner(decoder, None)
+    }
+}
 
-        // assume all chars are utf-8. We're doing byte-by-byte operations, no endianess issues...
-        // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
-        // pointer: (slice == 1100 0000 aka C0) & C0 == true, then 03FF & slice = offset
-        // label: 03FF & slice = length; slice.next(length) = label
-        // root: 0000
-        loop {
-            state = match state {
-                LabelParseState::LabelLengthOrPointer => {
-                    // determine what the next label is
-                    match decoder.peek() {
-                        Some(0) | None => LabelParseState::Root,
-                        Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
-                        Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
-                        Some(byte) => {
-                            return Err(ProtoErrorKind::UnrecognizedLabelCode(byte).into())
-                        }
-                    }
-                }
-                LabelParseState::Label => {
-                    let label = decoder.read_character_data()?;
-                    labels.push(label.into_label()?);
+fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> ProtoResult<Name> {
+    let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
+    let mut labels: Vec<Label> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
+    let name_start = decoder.index();
+    let mut run_len = 0_usize;
 
-                    // reset to collect more data
-                    LabelParseState::LabelLengthOrPointer
-                }
-                //         4.1.4. Message compression
-                //
-                // In order to reduce the size of messages, the domain system utilizes a
-                // compression scheme which eliminates the repetition of domain names in a
-                // message.  In this scheme, an entire domain name or a list of labels at
-                // the end of a domain name is replaced with a pointer to a prior occurance
-                // of the same name.
-                //
-                // The pointer takes the form of a two octet sequence:
-                //
-                //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                //     | 1  1|                OFFSET                   |
-                //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-                //
-                // The first two bits are ones.  This allows a pointer to be distinguished
-                // from a label, since the label must begin with two zero bits because
-                // labels are restricted to 63 octets or less.  (The 10 and 01 combinations
-                // are reserved for future use.)  The OFFSET field specifies an offset from
-                // the start of the message (i.e., the first octet of the ID field in the
-                // domain header).  A zero offset specifies the first byte of the ID field,
-                // etc.
-                LabelParseState::Pointer => {
-                    let pointer_location = decoder.index();
-                    let location = decoder.read_u16()? & 0x3FFF; // get rid of the two high order bits
-
-                    // all labels must appear "prior" to this Name
-                    if location as usize >= name_start {
-                        return Err(ProtoErrorKind::PointerNotPriorToLabel {
-                            idx: pointer_location,
-                            ptr: location,
-                        }.into());
-                    }
-
-                    let mut pointer = decoder.clone(location);
-                    let pointed = Name::read(&mut pointer)?;
-
-                    for l in &*pointed.labels {
-                        labels.push(l.clone());
-                    }
-
-                    // Pointers always finish the name, break like Root.
-                    break;
-                }
-                LabelParseState::Root => {
-                    // need to pop() the 0 off the stack...
-                    decoder.pop()?;
-                    break;
-                }
+    // assume all chars are utf-8. We're doing byte-by-byte operations, no endianess issues...
+    // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
+    // pointer: (slice == 1100 0000 aka C0) & C0 == true, then 03FF & slice = offset
+    // label: 03FF & slice = length; slice.next(length) = label
+    // root: 0000
+    loop {
+        // this protects against overlapping labels
+        if let Some(max_idx) = max_idx {
+            if decoder.index() >= max_idx {
+                return Err(ProtoErrorKind::LabelOverlapsWithOther {
+                    label: name_start,
+                    other: max_idx,
+                }.into());
             }
         }
 
-        Ok(Name {
-            is_fqdn: true,
-            labels: labels,
-        })
+        // enforce max length of name
+        let cur_len = run_len + labels.len();
+        if cur_len > 255 {
+            return Err(ProtoErrorKind::DomainNameTooLong(cur_len).into());
+        }
+
+        state = match state {
+            LabelParseState::LabelLengthOrPointer => {
+                // determine what the next label is
+                match decoder.peek() {
+                    Some(0) | None => LabelParseState::Root,
+                    Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
+                    Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
+                    Some(byte) => return Err(ProtoErrorKind::UnrecognizedLabelCode(byte).into()),
+                }
+            }
+            // labels must have a maximum length of 63
+            LabelParseState::Label => {
+                let label = decoder.read_character_data_max(Some(63))?;
+
+                run_len += label.len();
+                labels.push(label.into_label()?);
+
+                // reset to collect more data
+                LabelParseState::LabelLengthOrPointer
+            }
+            //         4.1.4. Message compression
+            //
+            // In order to reduce the size of messages, the domain system utilizes a
+            // compression scheme which eliminates the repetition of domain names in a
+            // message.  In this scheme, an entire domain name or a list of labels at
+            // the end of a domain name is replaced with a pointer to a prior occurance
+            // of the same name.
+            //
+            // The pointer takes the form of a two octet sequence:
+            //
+            //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+            //     | 1  1|                OFFSET                   |
+            //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+            //
+            // The first two bits are ones.  This allows a pointer to be distinguished
+            // from a label, since the label must begin with two zero bits because
+            // labels are restricted to 63 octets or less.  (The 10 and 01 combinations
+            // are reserved for future use.)  The OFFSET field specifies an offset from
+            // the start of the message (i.e., the first octet of the ID field in the
+            // domain header).  A zero offset specifies the first byte of the ID field,
+            // etc.
+            LabelParseState::Pointer => {
+                let pointer_location = decoder.index();
+                let location = decoder.read_u16()? & 0x3FFF; // get rid of the two high order bits
+
+                // all labels must appear "prior" to this Name
+                if location as usize >= name_start {
+                    return Err(ProtoErrorKind::PointerNotPriorToLabel {
+                        idx: pointer_location,
+                        ptr: location,
+                    }.into());
+                }
+
+                let mut pointer = decoder.clone(location);
+                let pointed = read_inner(&mut pointer, Some(name_start))?;
+
+                for l in &*pointed.labels {
+                    if l.len() > 0 {
+                        run_len += l.len();
+                    }
+                    labels.push(l.clone());
+                }
+
+                // Pointers always finish the name, break like Root.
+                break;
+            }
+            LabelParseState::Root => {
+                // need to pop() the 0 off the stack...
+                decoder.pop()?;
+                break;
+            }
+        }
     }
+
+    run_len += if labels.is_empty() { 1 } else { labels.len() };
+    let name = Name {
+        is_fqdn: true,
+        labels: labels,
+    };
+
+    debug_assert_eq!(run_len, name.len());
+
+    Ok(name)
 }
 
 impl fmt::Display for Name {
@@ -1237,6 +1267,40 @@ mod tests {
         let bytes = vec![0xC0, 0x02, 0xC0, 0x00];
         let mut d = BinDecoder::new(&bytes);
 
+        assert!(Name::read(&mut d).is_err());
+    }
+
+    #[test]
+    fn test_bin_overlap_enforced() {
+        let mut bytes = Vec::with_capacity(512);
+        let n = 31;
+        for _ in 0..=5 {
+            for _ in 0..=n {
+                bytes.push(n);
+            }
+        }
+        bytes.push(n + 1);
+        for b in (0..n).into_iter() {
+            bytes.push(1 + n + b);
+        }
+        bytes.extend_from_slice(&[1, 0]);
+        for b in 0..n {
+            bytes.extend_from_slice(&[0xC0, b]);
+        }
+        let mut d = BinDecoder::new(&bytes);
+        d.read_slice(n as usize).unwrap();
+        assert!(Name::read(&mut d).is_err());
+    }
+
+    #[test]
+    fn test_bin_max_octets() {
+        let mut bytes = Vec::with_capacity(512);
+        for _ in 0..256 {
+            bytes.extend_from_slice(&[1, b'a']);
+        }
+        bytes.push(0);
+
+        let mut d = BinDecoder::new(&bytes);
         assert!(Name::read(&mut d).is_err());
     }
 
