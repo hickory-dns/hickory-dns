@@ -655,7 +655,7 @@ impl KeyValue {
     }
 }
 
-/// Read the bincary CAA format
+/// Read the binary CAA format
 ///
 /// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.1)
 ///
@@ -736,8 +736,12 @@ impl KeyValue {
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<CAA> {
     // the spec declares that other flags should be ignored for future compatability...
     let issuer_critical: bool = decoder.read_u8()? & 0b1000_0000 != 0;
+
     let tag_len = decoder.read_u8()?;
-    let value_len = (rdata_length - u16::from(tag_len)) - 2;
+    let value_len = match rdata_length.checked_sub(u16::from(tag_len)).and_then(|l| l.checked_sub(2)) {
+        None => return Err("CAA tag character(s) out of bounds".into()),
+        Some(v) => v,
+    };
 
     let tag = read_tag(decoder, tag_len)?;
     let tag = Property::from(tag);
