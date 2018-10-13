@@ -18,10 +18,12 @@
 
 mod decoder;
 mod encoder;
+mod restrict;
 
 pub use self::decoder::BinDecoder;
 pub use self::encoder::BinEncoder;
 pub use self::encoder::EncodeMode;
+pub use self::restrict::{Restrict, Verified};
 
 #[cfg(test)]
 pub mod bin_tests;
