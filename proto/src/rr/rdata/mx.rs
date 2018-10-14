@@ -85,7 +85,7 @@ impl MX {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
-    Ok(MX::new(decoder.read_u16()?, Name::read(decoder)?))
+    Ok(MX::new(decoder.read_u16()?.unverified(), Name::read(decoder)?))
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005

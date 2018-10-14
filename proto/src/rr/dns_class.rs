@@ -7,14 +7,14 @@
 
 //! class of DNS operations, in general always IN for internet
 
-use std::convert::From;
 use std::cmp::Ordering;
+use std::convert::From;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 /// The DNS Record class
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
@@ -95,7 +95,7 @@ impl BinEncodable for DNSClass {
 
 impl<'r> BinDecodable<'r> for DNSClass {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        Self::from_u16(decoder.read_u16()?)
+        Self::from_u16(decoder.read_u16()?.unverified())
     }
 }
 

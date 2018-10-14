@@ -423,9 +423,9 @@ impl BinEncodable for Header {
 
 impl<'r> BinDecodable<'r> for Header {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let id = decoder.read_u16()?;
+        let id = decoder.read_u16()?.unverified();
 
-        let q_opcd_a_t_r = decoder.pop()?;
+        let q_opcd_a_t_r = decoder.pop()?.unverified();
         // if the first bit is set
         let message_type = if (0b1000_0000 & q_opcd_a_t_r) == 0b1000_0000 {
             MessageType::Response
@@ -438,16 +438,19 @@ impl<'r> BinDecodable<'r> for Header {
         let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
         let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
 
-        let r_z_ad_cd_rcod = decoder.pop()?; // fail fast...
+        let r_z_ad_cd_rcod = decoder.pop()?.unverified(); // fail fast...
+
         let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
         let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
         let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
         let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
 
-        let query_count = decoder.read_u16()?;
-        let answer_count = decoder.read_u16()?;
-        let name_server_count = decoder.read_u16()?;
-        let additional_count = decoder.read_u16()?;
+        // TODO: We should pass these restrictions on, they can't be trusted, but that would seriosly complicate the Header type..
+        // TODO: perhaps the read methods for BinDecodable should return Restrict?
+        let query_count = decoder.read_u16()?.unverified();
+        let answer_count = decoder.read_u16()?.unverified();
+        let name_server_count = decoder.read_u16()?.unverified();
+        let additional_count = decoder.read_u16()?.unverified();
 
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...
@@ -473,18 +476,8 @@ impl<'r> BinDecodable<'r> for Header {
 #[test]
 fn test_parse() {
     let byte_vec = vec![
-        0x01,
-        0x10,
-        0xAA,
-        0x83, // 0b1010 1010 1000 0011
-        0x88,
-        0x77,
-        0x66,
-        0x55,
-        0x44,
-        0x33,
-        0x22,
-        0x11,
+        0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
+        0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
     ];
 
     let mut decoder = BinDecoder::new(&byte_vec);
@@ -531,18 +524,8 @@ fn test_write() {
     };
 
     let expect: Vec<u8> = vec![
-        0x01,
-        0x10,
-        0xAA,
-        0x83, // 0b1010 1010 1000 0011
-        0x88,
-        0x77,
-        0x66,
-        0x55,
-        0x44,
-        0x33,
-        0x22,
-        0x11,
+        0x01, 0x10, 0xAA, 0x83, // 0b1010 1010 1000 0011
+        0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
     ];
 
     let mut bytes = Vec::with_capacity(512);

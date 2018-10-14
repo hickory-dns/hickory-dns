@@ -562,7 +562,7 @@ mod tests {
         assert_eq!(buf.len(), 4);
 
         let mut decoder = BinDecoder::new(&buf);
-        let written = decoder.read_u16().expect("cound not read u16");
+        let written = decoder.read_u16().expect("cound not read u16").unverified();
 
         assert_eq!(written, 4);
     }

@@ -16,10 +16,10 @@
 
 //! signature record for signing queries, updates, and responses
 
-use serialize::binary::*;
 use error::*;
-use rr::{Name, RecordType};
 use rr::dnssec::Algorithm;
+use rr::{Name, RecordType};
+use serialize::binary::*;
 
 /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
 ///
@@ -455,16 +455,18 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<SIG> {
     // TODO should we verify here? or elsewhere...
     let type_covered = RecordType::read(decoder)?;
     let algorithm = Algorithm::read(decoder)?;
-    let num_labels = decoder.read_u8()?;
-    let original_ttl = decoder.read_u32()?;
-    let sig_expiration = decoder.read_u32()?;
-    let sig_inception = decoder.read_u32()?;
-    let key_tag = decoder.read_u16()?;
+    let num_labels = decoder.read_u8()?.unverified();
+    let original_ttl = decoder.read_u32()?.unverified();
+    let sig_expiration = decoder.read_u32()?.unverified();
+    let sig_inception = decoder.read_u32()?.unverified();
+    let key_tag = decoder.read_u16()?.unverified();
     let signer_name = Name::read(decoder)?;
 
     // read the signature, this will vary buy key size
     let bytes_read = decoder.index() - start_idx;
-    let sig = decoder.read_vec(rdata_length as usize - bytes_read)?;
+    let sig = decoder
+        .read_vec(rdata_length as usize - bytes_read)?
+        .unverified();
 
     Ok(SIG::new(
         type_covered,
@@ -550,38 +552,8 @@ fn test() {
         5,
         Name::from_str("www.example.com").unwrap(),
         vec![
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8,
-            9,
-            10,
-            11,
-            12,
-            13,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
-            20,
-            21,
-            22,
-            23,
-            24,
-            25,
-            26,
-            27,
-            28,
-            29,
-            29,
-            31,
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+            24, 25, 26, 27, 28, 29, 29, 31,
         ], // 32 bytes for SHA256
     );
 

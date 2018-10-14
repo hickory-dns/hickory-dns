@@ -31,7 +31,7 @@ fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {
 fn read_character_data() {
     for (string, bytes) in get_character_data() {
         let mut decoder = BinDecoder::new(&bytes);
-        assert_eq!(decoder.read_character_data().unwrap(), string.as_bytes());
+        assert_eq!(decoder.read_character_data().unwrap().unverified(), string.as_bytes());
     }
 }
 
@@ -54,7 +54,7 @@ fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
 
 #[test]
 fn read_u16() {
-    test_read_data_set(get_u16_data(), |mut d| d.read_u16());
+    test_read_data_set(get_u16_data(), |mut d| d.read_u16().map(Restrict::unverified));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
 
 #[test]
 fn read_i32() {
-    test_read_data_set(get_i32_data(), |mut d| d.read_i32());
+    test_read_data_set(get_i32_data(), |mut d| d.read_i32().map(Restrict::unverified));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
 
 #[test]
 fn read_u32() {
-    test_read_data_set(get_u32_data(), |mut d| d.read_u32());
+    test_read_data_set(get_u32_data(), |mut d| d.read_u32().map(Restrict::unverified));
 }
 
 #[test]

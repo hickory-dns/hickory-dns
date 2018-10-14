@@ -16,10 +16,10 @@
 
 //! public key record data for signing zone records
 
-use serialize::binary::*;
 use error::*;
 use rr::dnssec::Algorithm;
 use rr::record_data::RData;
+use serialize::binary::*;
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3), Domain Name System Security Extensions, March 1999
 ///
@@ -778,14 +778,14 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
     //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-    let flags: u16 = decoder.read_u16()?;
-
-    //    Bits 2 is reserved and must be zero.
-    //    Bits 4-5 are reserved and must be zero.
-    //    Bits 8-11 are reserved and must be zero.
-    if flags & 0b0010_1100_1111_0000 != 0 {
-        return Err("flag 2, 4-5, and 8-11 are reserved, must be zero".into());
-    }
+    let flags: u16 = decoder
+        .read_u16()?
+        .verify_unwrap(|flags| {
+            //    Bits 2 is reserved and must be zero.
+            //    Bits 4-5 are reserved and must be zero.
+            //    Bits 8-11 are reserved and must be zero.
+            flags & 0b0010_1100_1111_0000 == 0
+        }).map_err(|_| ProtoError::from("flag 2, 4-5, and 8-11 are reserved, must be zero"))?;
 
     let key_trust = KeyTrust::from(flags);
     let extended_flags: bool = flags & 0b0001_0000_0000_0000 != 0;
@@ -797,21 +797,16 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
         return Err("extended flags currently not supported".into());
     }
 
-    let protocol = Protocol::from(decoder.read_u8()?);
+    let protocol = Protocol::from(decoder.read_u8()?.unverified());
 
     let algorithm: Algorithm = Algorithm::read(decoder)?;
 
     // the public key is the left-over bytes minus 4 for the first fields
     // TODO: decode the key here?
-    let public_key: Vec<u8> = decoder.read_vec((rdata_length - 4) as usize)?;
+    let public_key: Vec<u8> = decoder.read_vec((rdata_length - 4) as usize)?.unverified();
 
     Ok(KEY::new(
-        key_trust,
-        key_usage,
-        signatory,
-        protocol,
-        algorithm,
-        public_key,
+        key_trust, key_usage, signatory, protocol, algorithm, public_key,
     ))
 }
 

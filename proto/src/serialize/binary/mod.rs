@@ -67,7 +67,7 @@ impl BinEncodable for u16 {
 
 impl<'r> BinDecodable<'r> for u16 {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        decoder.read_u16()
+        decoder.read_u16().map(Restrict::unverified)
     }
 }
 
@@ -79,7 +79,7 @@ impl BinEncodable for i32 {
 
 impl<'r> BinDecodable<'r> for i32 {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<i32> {
-        decoder.read_i32()
+        decoder.read_i32().map(Restrict::unverified)
     }
 }
 
@@ -91,7 +91,7 @@ impl BinEncodable for u32 {
 
 impl<'r> BinDecodable<'r> for u32 {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        decoder.read_u32()
+        decoder.read_u32().map(Restrict::unverified)
     }
 }
 
@@ -101,8 +101,3 @@ impl BinEncodable for Vec<u8> {
     }
 }
 
-impl<'r> BinDecodable<'r> for Vec<u8> {
-    fn read(_: &mut BinDecoder) -> ProtoResult<Self> {
-        panic!("do not know amount to read in this context")
-    }
-}

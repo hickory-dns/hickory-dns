@@ -348,12 +348,12 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TLSA> {
         return Err("TLSA Resource Record too short".into());
     }
 
-    let cert_usage = decoder.read_u8()?.into();
-    let selector = decoder.read_u8()?.into();
-    let matching = decoder.read_u8()?.into();
+    let cert_usage = decoder.read_u8()?.unverified().into();
+    let selector = decoder.read_u8()?.unverified().into();
+    let matching = decoder.read_u8()?.unverified().into();
 
     // the remaining data is for the cert
-    let cert_data = decoder.read_vec((rdata_length - 3) as usize)?;
+    let cert_data = decoder.read_vec((rdata_length - 3) as usize)?.unverified();
 
     Ok(TLSA {
         cert_usage,

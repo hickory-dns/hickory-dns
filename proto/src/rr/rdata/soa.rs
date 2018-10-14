@@ -214,11 +214,11 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SOA> {
     Ok(SOA {
         mname: Name::read(decoder)?,
         rname: Name::read(decoder)?,
-        serial: decoder.read_u32()?,
-        refresh: decoder.read_i32()?,
-        retry: decoder.read_i32()?,
-        expire: decoder.read_i32()?,
-        minimum: decoder.read_u32()?,
+        serial: decoder.read_u32()?.unverified(),
+        refresh: decoder.read_i32()?.unverified(),
+        retry: decoder.read_i32()?.unverified(),
+        expire: decoder.read_i32()?.unverified(),
+        minimum: decoder.read_u32()?.unverified(),
     })
 }
 

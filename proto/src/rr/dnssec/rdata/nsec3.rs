@@ -18,10 +18,10 @@
 
 use std::collections::BTreeMap;
 
-use serialize::binary::*;
 use error::*;
-use rr::RecordType;
 use rr::dnssec::Nsec3HashAlgorithm;
+use rr::RecordType;
+use serialize::binary::*;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3)
 ///
@@ -243,18 +243,26 @@ impl NSEC3 {
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
-    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?)?;
-    let flags: u8 = decoder.read_u8()?;
+    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified())?;
+    let flags: u8 = decoder
+        .read_u8()?
+        .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
+        .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
 
-    if flags & 0b1111_1110 != 0 {
-        return Err(ProtoErrorKind::UnrecognizedNsec3Flags(flags).into());
-    }
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = decoder.read_u16()?;
-    let salt_len: u8 = decoder.read_u8()?;
-    let salt: Vec<u8> = decoder.read_vec(salt_len as usize)?;
-    let hash_len: u8 = decoder.read_u8()?;
-    let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len as usize)?;
+    let iterations: u16 = decoder.read_u16()?.unverified();
+    let salt_len = decoder
+        .read_u8()?
+        .map(|u| u as usize)
+        .verify_unwrap(|salt_len| *salt_len <= decoder.len())
+        .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
+    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified();
+    let hash_len = decoder
+        .read_u8()?
+        .map(|u| u as usize)
+        .verify_unwrap(|hash_len| *hash_len <= decoder.len())
+        .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
+    let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len)?.unverified();
 
     let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
     let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
@@ -333,7 +341,7 @@ pub fn decode_type_bit_maps(
 
     // loop through all the bytes in the bitmap
     for _ in 0..bit_map_len {
-        let current_byte = decoder.read_u8()?;
+        let current_byte = decoder.read_u8()?.unverified();
 
         state = match state {
             BitMapState::ReadWindow => BitMapState::ReadLen {
@@ -502,7 +510,6 @@ pub fn test_dups() {
             RecordType::DNSSEC(DNSSECRecordType::RRSIG),
         ],
     );
-
 
     let rdata_wo = NSEC3::new(
         Nsec3HashAlgorithm::SHA1,

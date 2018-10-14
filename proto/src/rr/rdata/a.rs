@@ -48,10 +48,10 @@ use error::*;
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
     Ok(Ipv4Addr::new(
-        decoder.pop()?,
-        decoder.pop()?,
-        decoder.pop()?,
-        decoder.pop()?,
+        decoder.pop()?.unverified(),
+        decoder.pop()?.unverified(),
+        decoder.pop()?.unverified(),
+        decoder.pop()?.unverified(),
     ))
 }
 

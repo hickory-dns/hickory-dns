@@ -16,9 +16,9 @@
 
 //! parameters used for the nsec3 hash method
 
-use serialize::binary::*;
 use error::*;
 use rr::dnssec::Nsec3HashAlgorithm;
+use serialize::binary::*;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4)
 ///
@@ -160,16 +160,20 @@ impl NSEC3PARAM {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
-    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?)?;
-    let flags: u8 = decoder.read_u8()?;
+    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified())?;
+    let flags: u8 = decoder
+        .read_u8()?
+        .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
+        .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
 
-    if flags & 0b1111_1110 != 0 {
-        return Err(ProtoErrorKind::UnrecognizedNsec3Flags(flags).into());
-    }
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = decoder.read_u16()?;
-    let salt_len: u8 = decoder.read_u8()?;
-    let salt: Vec<u8> = decoder.read_vec(salt_len as usize)?;
+    let iterations: u16 = decoder.read_u16()?.unverified();
+    let salt_len: usize = decoder
+        .read_u8()?
+        .map(|u| u as usize)
+        .verify_unwrap(|salt_len| *salt_len <= decoder.len())
+        .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
+    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified();
 
     Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
 }
