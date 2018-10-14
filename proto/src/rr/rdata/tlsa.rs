@@ -7,8 +7,8 @@
 
 //! TLSA records for storing TLS certificate validation information
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
 ///
@@ -343,17 +343,17 @@ impl TLSA {
 ///    /                                                               /
 ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TLSA> {
-    if rdata_length < 4 {
-        return Err("TLSA Resource Record too short".into());
-    }
-
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
     let cert_usage = decoder.read_u8()?.unverified().into();
     let selector = decoder.read_u8()?.unverified().into();
     let matching = decoder.read_u8()?.unverified().into();
 
     // the remaining data is for the cert
-    let cert_data = decoder.read_vec((rdata_length - 3) as usize)?.unverified();
+    let cert_len = rdata_length
+        .map(|u| u as usize)
+        .checked_sub(3)
+        .map_err(|_| ProtoError::from("invalid rdata length in TLSA"))?;
+    let cert_data = decoder.read_vec(cert_len)?.unverified();
 
     Ok(TLSA {
         cert_usage,
@@ -436,7 +436,7 @@ mod tests {
         println!("bytes: {:?}", bytes);
 
         let mut decoder: BinDecoder = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder, bytes.len() as u16).expect("failed to read back");
+        let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

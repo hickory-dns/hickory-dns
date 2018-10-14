@@ -18,8 +18,8 @@
 
 use std::collections::HashMap;
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
 use rr::dnssec::SupportedAlgorithms;
@@ -196,12 +196,14 @@ impl OPT {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<OPT> {
     let mut state: OptReadState = OptReadState::ReadCode;
     let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
     let start_idx = decoder.index();
 
-    while rdata_length as usize > decoder.index() - start_idx {
+    // There is no unsafe direct use of the rdata length after this point
+    let rdata_length = rdata_length.map(|u| u as usize).unverified();
+    while rdata_length > decoder.index() - start_idx {
         match state {
             OptReadState::ReadCode => {
                 state = OptReadState::Code {
@@ -209,10 +211,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
                 };
             }
             OptReadState::Code { code } => {
-                let length = decoder.read_u16()?
-                                .verify_unwrap(|u| *u <= rdata_length)
-                                .map(|u| u as usize)
-                                .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
+                let length = decoder
+                    .read_u16()?
+                    .map(|u| u as usize)
+                    .verify_unwrap(|u| *u <= rdata_length)
+                    .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
                 state = OptReadState::Data {
                     code: code,
                     length: length,
@@ -480,7 +483,7 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

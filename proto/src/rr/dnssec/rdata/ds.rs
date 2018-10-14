@@ -16,9 +16,9 @@
 
 //! pointer record from parent zone to child zone for dnskey proof
 
-use serialize::binary::*;
 use error::*;
 use rr::dnssec::{Algorithm, DigestType};
+use serialize::binary::*;
 
 use rr::dnssec::rdata::DNSKEY;
 use rr::Name;
@@ -185,14 +185,18 @@ impl DS {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DS> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DS> {
     let start_idx = decoder.index();
 
     let key_tag: u16 = decoder.read_u16()?.unverified();
     let algorithm: Algorithm = Algorithm::read(decoder)?;
     let digest_type: DigestType = DigestType::from_u8(decoder.read_u8()?.unverified())?;
 
-    let left: usize = rdata_length as usize - (decoder.index() - start_idx);
+    let bytes_read = decoder.index() - start_idx;
+    let left: usize = rdata_length
+        .map(|u| u as usize)
+        .checked_sub(bytes_read)
+        .map_err(|_| ProtoError::from("invalid rdata length in DS"))?;
     let digest = decoder.read_vec(left)?.unverified();
 
     Ok(DS::new(key_tag, algorithm, digest_type, digest))
@@ -225,7 +229,7 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

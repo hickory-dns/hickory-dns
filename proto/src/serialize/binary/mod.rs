@@ -23,7 +23,7 @@ mod restrict;
 pub use self::decoder::BinDecoder;
 pub use self::encoder::BinEncoder;
 pub use self::encoder::EncodeMode;
-pub use self::restrict::{Restrict, Verified};
+pub use self::restrict::{Restrict, RestrictedMath, Verified};
 
 #[cfg(test)]
 pub mod bin_tests;
@@ -100,4 +100,3 @@ impl BinEncodable for Vec<u8> {
         encoder.emit_vec(self)
     }
 }
-

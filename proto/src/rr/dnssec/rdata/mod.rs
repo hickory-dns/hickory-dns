@@ -459,7 +459,7 @@ impl DNSSECRData {
     pub(crate) fn read(
         decoder: &mut BinDecoder,
         record_type: DNSSECRecordType,
-        rdata_length: u16,
+        rdata_length: Restrict<u16>,
     ) -> ProtoResult<Self> {
         match record_type {
             DNSSECRecordType::DNSKEY => {

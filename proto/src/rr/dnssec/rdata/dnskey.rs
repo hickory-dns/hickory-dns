@@ -20,7 +20,7 @@ use error::*;
 use rr::dnssec::{Algorithm, Digest, DigestType};
 use rr::record_data::RData;
 use rr::Name;
-use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath};
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -321,7 +321,7 @@ impl From<DNSKEY> for RData {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DNSKEY> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DNSKEY> {
     let flags: u16 = decoder.read_u16()?.unverified();
 
     //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
@@ -347,7 +347,13 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DNSKEY> 
     let algorithm: Algorithm = Algorithm::read(decoder)?;
 
     // the public key is the left-over bytes minus 4 for the first fields
-    let public_key: Vec<u8> = decoder.read_vec((rdata_length - 4) as usize)?.unverified();
+    //   this sub is safe, as the first 4 fields must have been in the rdata, otherwise there would have been
+    //   an earlier return.
+    let key_len = rdata_length
+        .map(|u| u as usize)
+        .checked_sub(4)
+        .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?;
+    let public_key: Vec<u8> = decoder.read_vec(key_len)?.unverified();
 
     Ok(DNSKEY::new(
         zone_key,
@@ -401,7 +407,7 @@ mod tests {
         println!("bytes: {:?}", bytes);
 
         let mut decoder: BinDecoder = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder, bytes.len() as u16);
+        let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
         assert!(
             read_rdata.is_ok(),
             format!("error decoding: {:?}", read_rdata.unwrap_err())

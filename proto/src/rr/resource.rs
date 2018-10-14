@@ -313,7 +313,9 @@ impl<'r> BinDecodable<'r> for Record {
             // RDATA           a variable length string of octets that describes the
             //                resource.  The format of this information varies
             //                according to the TYPE and CLASS of the resource record.
-            RData::read(decoder, record_type, rd_length)?
+            // Adding restrict to the rdata length because it's used for many calculations later
+            //  and must be validated before hand
+            RData::read(decoder, record_type, Restrict::new(rd_length))?
         };
 
         Ok(Record {

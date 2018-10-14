@@ -414,7 +414,7 @@ impl RData {
     pub fn read(
         decoder: &mut BinDecoder,
         record_type: RecordType,
-        rdata_length: u16,
+        rdata_length: Restrict<u16>,
     ) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
@@ -490,12 +490,15 @@ impl RData {
 
         // we should have read rdata_length, but we did not
         let read = decoder.index() - start_idx;
-        if read != rdata_length as usize {
-            return Err(ProtoErrorKind::IncorrectRDataLengthRead {
-                read,
-                len: rdata_length as usize,
-            }.into());
-        }
+        rdata_length
+            .map(|u| u as usize)
+            .verify_unwrap(|rdata_length| read == *rdata_length)
+            .map_err(|rdata_length| {
+                ProtoError::from(ProtoErrorKind::IncorrectRDataLengthRead {
+                    read,
+                    len: rdata_length,
+                })
+            })?;
 
         result
     }
@@ -672,7 +675,7 @@ mod tests {
                     "j".to_string(),
                 ])),
                 vec![
-                    6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j'
+                    6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j',
                 ],
             ),
             (
@@ -774,7 +777,7 @@ mod tests {
             let mut decoder = BinDecoder::new(&binary);
 
             assert_eq!(
-                RData::read(&mut decoder, record_type_from_rdata(&expect), length).unwrap(),
+                RData::read(&mut decoder, record_type_from_rdata(&expect), Restrict::new(length)).unwrap(),
                 expect
             );
         }
