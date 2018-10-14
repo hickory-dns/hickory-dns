@@ -63,6 +63,15 @@ impl<T> Restrict<T> {
     }
 }
 
+impl<T: Clone> Clone for Restrict<T> {
+    fn clone(&self) -> Self {
+        Restrict(self.0.clone())
+    }
+}
+
+impl<T: Copy> Copy for Restrict<T> {}
+
+
 /// Verified data that can be operated on
 pub struct Verified<'a, T: 'a>(VerifiedInner<'a, T>);
 
@@ -90,4 +99,33 @@ impl<'a, T> Verified<'a, T> {
 enum VerifiedInner<'a, T: 'a> {
     Valid(&'a T),
     Invalid(&'a T),
+}
+
+/// Common checked math operations for the Restrict type
+pub trait RestrictedMath {
+    /// Argument for the math operations
+    type Arg: 'static + Sized + Copy;
+    /// Return value, generally the same as Arg
+    type Value: 'static + Sized + Copy;
+
+    /// Checked subtraction, see `usize::checked_sub`
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg>;
+}
+
+impl RestrictedMath for Restrict<usize> {
+    type Arg = usize;
+    type Value = usize;
+
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg> {
+        self.0.checked_sub(arg).ok_or_else(|| arg)
+    }
+}
+
+impl RestrictedMath for Restrict<u16> {
+    type Arg = u16;
+    type Value = u16;
+
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg> {
+        self.0.checked_sub(arg).ok_or_else(|| arg)
+    }
 }

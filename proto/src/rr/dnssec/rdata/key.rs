@@ -773,7 +773,7 @@ impl From<KEY> for RData {
 
 /// Read the RData from the given Decoder
 #[allow(deprecated)]
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<KEY> {
     //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
     //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
@@ -803,7 +803,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
 
     // the public key is the left-over bytes minus 4 for the first fields
     // TODO: decode the key here?
-    let public_key: Vec<u8> = decoder.read_vec((rdata_length - 4) as usize)?.unverified();
+    let key_len = rdata_length
+        .map(|u| u as usize)
+        .checked_sub(4)
+        .map_err(|_| ProtoError::from("invalid rdata length in KEY"))?;
+    let public_key: Vec<u8> = decoder.read_vec(key_len)?.unverified();
 
     Ok(KEY::new(
         key_trust, key_usage, signatory, protocol, algorithm, public_key,
@@ -844,7 +848,7 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

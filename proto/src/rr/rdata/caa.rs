@@ -359,7 +359,9 @@ fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> Proto
             let url = read_iodef(url)?;
             Ok(Value::Url(url))
         }
-        Property::Unknown(_) => Ok(Value::Unknown(decoder.read_vec(value_len as usize)?.unverified())),
+        Property::Unknown(_) => Ok(Value::Unknown(
+            decoder.read_vec(value_len as usize)?.unverified(),
+        )),
     }
 }
 
@@ -736,15 +738,15 @@ impl KeyValue {
 ///      The length of the value field is specified implicitly as the
 ///      remaining length of the enclosing Resource Record data field.
 /// ```
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<CAA> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
     // the spec declares that other flags should be ignored for future compatability...
     let issuer_critical: bool = decoder.read_u8()?.unverified() & 0b1000_0000 != 0;
 
     let tag_len = decoder.read_u8()?.unverified(); // verified usage below with checked sub
-    let value_len = match rdata_length.checked_sub(u16::from(tag_len)).and_then(|l| l.checked_sub(2)) {
-        None => return Err("CAA tag character(s) out of bounds".into()),
-        Some(v) => v,
-    };
+    let value_len = rdata_length
+        .checked_sub(u16::from(tag_len))
+        .and_then(|l| l.checked_sub(2).ok_or(2))
+        .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
 
     let tag = read_tag(decoder, tag_len)?;
     let tag = Property::from(tag);
@@ -765,10 +767,13 @@ fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
     let mut tag = String::with_capacity(len as usize);
 
     for _ in 0..len {
-        let ch = decoder.pop()?.map(char::from).verify_unwrap(|ch| match ch {
-            'a'...'z' | 'A'...'Z' | '0'...'9' => true,
-            _ => false,
-        }).map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
+        let ch = decoder
+            .pop()?
+            .map(char::from)
+            .verify_unwrap(|ch| match ch {
+                'a'...'z' | 'A'...'Z' | '0'...'9' => true,
+                _ => false,
+            }).map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
 
         tag.push(ch);
     }
@@ -955,7 +960,7 @@ mod tests {
         println!("bytes: {:?}", bytes);
 
         let mut decoder: BinDecoder = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder, bytes.len() as u16).expect("failed to read back");
+        let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

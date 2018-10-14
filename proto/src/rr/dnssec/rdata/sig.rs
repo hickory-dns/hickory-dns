@@ -449,7 +449,7 @@ impl SIG {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<SIG> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<SIG> {
     let start_idx = decoder.index();
 
     // TODO should we verify here? or elsewhere...
@@ -463,9 +463,12 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<SIG> {
     let signer_name = Name::read(decoder)?;
 
     // read the signature, this will vary buy key size
-    let bytes_read = decoder.index() - start_idx;
+    let sig_len = rdata_length
+        .map(|u| u as usize)
+        .checked_sub(decoder.index() - start_idx)
+        .map_err(|_| ProtoError::from("invalid rdata length in SIG"))?;
     let sig = decoder
-        .read_vec(rdata_length as usize - bytes_read)?
+        .read_vec(sig_len)?
         .unverified();
 
     Ok(SIG::new(
@@ -565,7 +568,7 @@ fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

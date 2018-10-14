@@ -240,7 +240,7 @@ impl NSEC3 {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC3> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
     let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified())?;
@@ -264,7 +264,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC3> {
         .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
     let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len)?.unverified();
 
-    let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
+    let bit_map_len = rdata_length
+        .map(|u|u as usize)
+        .checked_sub(decoder.index() - start_idx)
+        .map_err(|_| "invalid rdata length in NSEC3")?;
     let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
 
     Ok(NSEC3::new(
@@ -484,7 +487,7 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())
@@ -533,7 +536,7 @@ pub fn test_dups() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

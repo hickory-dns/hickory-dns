@@ -73,11 +73,13 @@ impl TXT {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TXT> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<TXT> {
     let data_len = decoder.len();
     let mut strings = Vec::with_capacity(1);
 
-    while data_len - decoder.len() < rdata_length as usize {
+    // no unsafe usage of rdata length ofter this point
+    let rdata_length = rdata_length.map(|u| u as usize).unverified();
+    while data_len - decoder.len() < rdata_length {
         let string = decoder.read_character_data()?.unverified();
         strings.push(string.to_vec().into_boxed_slice());
     }
@@ -107,7 +109,7 @@ fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

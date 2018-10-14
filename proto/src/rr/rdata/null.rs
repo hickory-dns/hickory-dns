@@ -16,8 +16,8 @@
 
 //! null record type, generally not used except as an internal tool for representing null data
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -61,9 +61,10 @@ impl NULL {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NULL> {
+    let rdata_length = rdata_length.map(|u| u as usize).unverified();
     if rdata_length > 0 {
-        let anything = decoder.read_vec(rdata_length as usize)?.unverified();
+        let anything = decoder.read_vec(rdata_length)?.unverified();
         Ok(NULL::with(anything))
     } else {
         Ok(NULL::new())
@@ -93,7 +94,7 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())

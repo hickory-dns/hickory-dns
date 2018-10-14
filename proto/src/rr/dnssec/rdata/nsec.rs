@@ -16,10 +16,10 @@
 
 //! negative cache proof for non-existence
 
-use serialize::binary::*;
+use super::nsec3;
 use error::*;
 use rr::{Name, RecordType};
-use super::nsec3;
+use serialize::binary::*;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4)
 ///
@@ -111,12 +111,15 @@ impl NSEC {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NSEC> {
     let start_idx = decoder.index();
 
     let next_domain_name = Name::read(decoder)?;
 
-    let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
+    let bit_map_len = rdata_length
+        .map(|u| u as usize)
+        .checked_sub(decoder.index() - start_idx)
+        .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
     let record_types = nsec3::decode_type_bit_maps(decoder, bit_map_len)?;
 
     Ok(NSEC::new(next_domain_name, record_types))
@@ -144,9 +147,9 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
 
 #[test]
 pub fn test() {
-    use std::str::FromStr;
-    use rr::RecordType;
     use rr::dnssec::rdata::DNSSECRecordType;
+    use rr::RecordType;
+    use std::str::FromStr;
 
     let rdata = NSEC::new(
         Name::from_str("www.example.com").unwrap(),
@@ -166,7 +169,7 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
         format!("error decoding: {:?}", read_rdata.unwrap_err())
