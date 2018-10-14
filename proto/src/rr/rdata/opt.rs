@@ -203,17 +203,21 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
 
     while rdata_length as usize > decoder.index() - start_idx {
         match state {
-            // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
             OptReadState::ReadCode => {
                 state = OptReadState::Code {
-                    code: (decoder.read_u16()?).into(),
+                    code: EdnsCode::from(decoder.read_u16()?.unverified()),
                 };
             }
             OptReadState::Code { code } => {
-                let length: usize = decoder.read_u16()? as usize;
+                let length = decoder.read_u16()?
+                                .verify_unwrap(|u| *u <= rdata_length)
+                                .map(|u| u as usize)
+                                .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
                 state = OptReadState::Data {
                     code: code,
                     length: length,
+                    // TODO: this cean be replaced with decoder.read_vec(), right?
+                    //  the current version allows for malformed opt to be skipped...
                     collected: Vec::<u8>::with_capacity(length),
                 };
             }
@@ -222,7 +226,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
                 length,
                 mut collected,
             } => {
-                collected.push(decoder.pop()?);
+                collected.push(decoder.pop()?.unverified());
                 if length == collected.len() {
                     options.insert(code, (code, &collected as &[u8]).into());
                     state = OptReadState::ReadCode;

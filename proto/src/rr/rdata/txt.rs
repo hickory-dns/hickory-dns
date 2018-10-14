@@ -78,7 +78,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TXT> {
     let mut strings = Vec::with_capacity(1);
 
     while data_len - decoder.len() < rdata_length as usize {
-        let string = decoder.read_character_data()?;
+        let string = decoder.read_character_data()?.unverified();
         strings.push(string.to_vec().into_boxed_slice());
     }
     Ok(TXT {

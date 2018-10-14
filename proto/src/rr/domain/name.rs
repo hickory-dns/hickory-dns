@@ -940,7 +940,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
         state = match state {
             LabelParseState::LabelLengthOrPointer => {
                 // determine what the next label is
-                match decoder.peek() {
+                match decoder.peek().map(|b| b.unverified()) {
                     Some(0) | None => LabelParseState::Root,
                     Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
                     Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
@@ -949,7 +949,10 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
             }
             // labels must have a maximum length of 63
             LabelParseState::Label => {
-                let label = decoder.read_character_data_max(Some(63))?;
+                let label = decoder
+                    .read_character_data_max(Some(63))?
+                    .verify_unwrap(|l| l.len() <= 63)
+                    .map_err(|_| ProtoError::from("label exceeds maximum length of 63"))?;
 
                 run_len += label.len();
                 labels.push(label.into_label()?);
@@ -980,15 +983,16 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
             // etc.
             LabelParseState::Pointer => {
                 let pointer_location = decoder.index();
-                let location = decoder.read_u16()? & 0x3FFF; // get rid of the two high order bits
-
-                // all labels must appear "prior" to this Name
-                if location as usize >= name_start {
-                    return Err(ProtoErrorKind::PointerNotPriorToLabel {
-                        idx: pointer_location,
-                        ptr: location,
-                    }.into());
-                }
+                let location = decoder.read_u16()?.map(|u| {
+                    // get rid of the two high order bits, they are markers for length or pointers
+                    u & 0x3FFF
+                }).verify_unwrap(|ptr| {
+                    // all labels must appear "prior" to this Name
+                    (*ptr as usize) < name_start
+                }).map_err(|e| ProtoError::from(ProtoErrorKind::PointerNotPriorToLabel {
+                    idx: pointer_location,
+                    ptr: e,
+                }))?;
 
                 let mut pointer = decoder.clone(location);
                 let pointed = read_inner(&mut pointer, Some(name_start))?;

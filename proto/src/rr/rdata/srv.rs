@@ -196,9 +196,9 @@ impl SRV {
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SRV> {
     // SRV { priority: u16, weight: u16, port: u16, target: Name, },
     Ok(SRV::new(
-        decoder.read_u16()?,
-        decoder.read_u16()?,
-        decoder.read_u16()?,
+        decoder.read_u16()?.unverified(),
+        decoder.read_u16()?.unverified(),
+        decoder.read_u16()?.unverified(),
         Name::read(decoder)?,
     ))
 }

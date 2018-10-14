@@ -63,15 +63,7 @@ impl NULL {
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
     if rdata_length > 0 {
-        let mut anything: Vec<u8> = Vec::with_capacity(rdata_length as usize);
-        for _ in 0..rdata_length {
-            if let Ok(byte) = decoder.pop() {
-                anything.push(byte);
-            } else {
-                return Err("unexpected end of input reached".into());
-            }
-        }
-
+        let anything = decoder.read_vec(rdata_length as usize)?.unverified();
         Ok(NULL::with(anything))
     } else {
         Ok(NULL::new())

@@ -15,7 +15,8 @@
  */
 
 use byteorder::{ByteOrder, NetworkEndian};
-use error::{ProtoErrorKind, ProtoResult};
+use error::{ProtoError, ProtoErrorKind, ProtoResult};
+use serialize::binary::Restrict;
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -43,19 +44,29 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Pop one byte from the buffer
-    pub fn pop(&mut self) -> ProtoResult<u8> {
+    pub fn pop(&mut self) -> ProtoResult<Restrict<u8>> {
         if self.index < self.buffer.len() {
             let byte = self.buffer[self.index];
             self.index += 1;
-            Ok(byte)
+            Ok(Restrict::new(byte))
         } else {
             Err("unexpected end of input reached".into())
         }
     }
 
     /// Returns the number of bytes in the buffer
+    ///
+    /// ```
+    /// use trust_dns_proto::serialize::binary::BinDecoder;
+    ///
+    /// let deadbeef = b"deadbeef";
+    /// let mut decoder = BinDecoder::new(deadbeef);
+    /// assert_eq!(decoder.len(), 8);
+    /// decoder.read_slice(7).unwrap();
+    /// assert_eq!(decoder.len(), 1);
+    /// ```
     pub fn len(&self) -> usize {
-        self.buffer.len() - self.index
+        self.buffer.len().saturating_sub(self.index)
     }
 
     /// Returns `true` if the buffer is empty
@@ -64,9 +75,9 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Peed one byte forward, without moving the current index forward
-    pub fn peek(&self) -> Option<u8> {
+    pub fn peek(&self) -> Option<Restrict<u8>> {
         if self.index < self.buffer.len() {
-            Some(self.buffer[self.index])
+            Some(Restrict::new(self.buffer[self.index]))
         } else {
             None
         }
@@ -98,13 +109,16 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// A String version of the character data
-    pub fn read_character_data(&mut self) -> ProtoResult<&[u8]> {
+    pub fn read_character_data(&mut self) -> ProtoResult<Restrict<&[u8]>> {
         self.read_character_data_max(None)
     }
 
     /// Reads to a maximum length of data, returns an error if this is exceeded
-    pub fn read_character_data_max(&mut self, max_len: Option<usize>) -> ProtoResult<&[u8]> {
-        let length = self.pop()? as usize;
+    pub fn read_character_data_max(
+        &mut self,
+        max_len: Option<usize>,
+    ) -> ProtoResult<Restrict<&[u8]>> {
+        let length = self.pop()?.unverified() as usize;
 
         if let Some(max_len) = max_len {
             if length > max_len {
@@ -118,7 +132,6 @@ impl<'a> BinDecoder<'a> {
         self.read_slice(length)
     }
 
-    // TODO: deprecate in favor of read_slice
     /// Reads a Vec out of the buffer
     ///
     /// # Arguments
@@ -128,14 +141,8 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// The Vec of the specified length, otherwise an error
-    pub fn read_vec(&mut self, len: usize) -> ProtoResult<Vec<u8>> {
-        // TODO once Drain stabalizes on Vec, this should be replaced...
-        let mut vec: Vec<u8> = Vec::with_capacity(len);
-        for _ in 0..len as usize {
-            vec.push(self.pop()?)
-        }
-
-        Ok(vec)
+    pub fn read_vec(&mut self, len: usize) -> ProtoResult<Restrict<Vec<u8>>> {
+        self.read_slice(len).map(|s| s.map(|s| s.to_owned()))
     }
 
     /// Reads a slice out of the buffer, without allocating
@@ -147,14 +154,17 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// The slice of the specified length, otherwise an error
-    pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
-        let end = self.index + len;
+    pub fn read_slice(&mut self, len: usize) -> ProtoResult<Restrict<&'a [u8]>> {
+        let end = self
+            .index
+            .checked_add(len)
+            .ok_or_else(|| ProtoError::from("invalid length for slice"))?;
         if end > self.buffer.len() {
             return Err("buffer exhausted".into());
         }
         let slice: &'a [u8] = &self.buffer[self.index..end];
         self.index += len;
-        Ok(slice)
+        Ok(Restrict::new(slice))
     }
 
     /// Reads a slice from a previous index to the current
@@ -167,7 +177,7 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Reads a byte from the buffer, equivalent to `Self::pop()`
-    pub fn read_u8(&mut self) -> ProtoResult<u8> {
+    pub fn read_u8(&mut self) -> ProtoResult<Restrict<u8>> {
         self.pop()
     }
 
@@ -179,8 +189,8 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the u16 from the buffer
-    pub fn read_u16(&mut self) -> ProtoResult<u16> {
-        Ok(NetworkEndian::read_u16(self.read_slice(2)?))
+    pub fn read_u16(&mut self) -> ProtoResult<Restrict<u16>> {
+        Ok(self.read_slice(2)?.map(|s| NetworkEndian::read_u16(s)))
     }
 
     /// Reads the next four bytes into i32.
@@ -191,8 +201,8 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the i32 from the buffer
-    pub fn read_i32(&mut self) -> ProtoResult<i32> {
-        Ok(NetworkEndian::read_i32(self.read_slice(4)?))
+    pub fn read_i32(&mut self) -> ProtoResult<Restrict<i32>> {
+        Ok(self.read_slice(4)?.map(|s| NetworkEndian::read_i32(s)))
     }
 
     /// Reads the next four bytes into u32.
@@ -203,8 +213,8 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the u32 from the buffer
-    pub fn read_u32(&mut self) -> ProtoResult<u32> {
-        Ok(NetworkEndian::read_u32(self.read_slice(4)?))
+    pub fn read_u32(&mut self) -> ProtoResult<Restrict<u32>> {
+        Ok(self.read_slice(4)?.map(|s| NetworkEndian::read_u32(s)))
     }
 }
 
