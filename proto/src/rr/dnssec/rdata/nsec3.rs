@@ -344,11 +344,11 @@ pub fn decode_type_bit_maps(
 
     // loop through all the bytes in the bitmap
     for _ in 0..bit_map_len {
-        let current_byte = decoder.read_u8()?.unverified();
+        let current_byte = decoder.read_u8()?;
 
         state = match state {
             BitMapState::ReadWindow => BitMapState::ReadLen {
-                window: current_byte,
+                window: current_byte.unverified(),
             },
             BitMapState::ReadLen { window } => BitMapState::ReadType {
                 window: window,
@@ -359,14 +359,17 @@ pub fn decode_type_bit_maps(
                 // window is the Window Block # from above
                 // len is the Bitmap Length
                 // current_byte is the Bitmap
-                let mut bit_map = current_byte;
+                let mut bit_map = current_byte.unverified();
 
                 // for all the bits in the current_byte
                 for i in 0..8 {
                     // if the current_bytes most significant bit is set
                     if bit_map & 0b1000_0000 == 0b1000_0000 {
                         // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
-                        let low_byte = ((len - left) * 8) + i;
+                        let block = len
+                            .checked_sub(left.unverified())
+                            .map_err(|_| "block len or left out of bounds in NSEC(3)")?;
+                        let low_byte = (block * 8) + i;
                         let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
                         record_types.push(RecordType::from(rr_type));
                     }
@@ -375,7 +378,9 @@ pub fn decode_type_bit_maps(
                 }
 
                 // move to the next section of the bit_map
-                let left = left - 1;
+                let left = left
+                    .checked_sub(1)
+                    .map_err(|_| ProtoError::from("block left out of bounds in NSEC(3)"))?;
                 if left == 0 {
                     // we've exhausted this Window, move to the next
                     BitMapState::ReadWindow
@@ -384,7 +389,7 @@ pub fn decode_type_bit_maps(
                     BitMapState::ReadType {
                         window: window,
                         len: len,
-                        left: left,
+                        left: Restrict::new(left),
                     }
                 }
             }
@@ -397,7 +402,7 @@ pub fn decode_type_bit_maps(
 enum BitMapState {
     ReadWindow,
     ReadLen { window: u8 },
-    ReadType { window: u8, len: u8, left: u8 },
+    ReadType { window: u8, len: Restrict<u8>, left: Restrict<u8> },
 }
 
 /// Write the RData from the given Decoder
