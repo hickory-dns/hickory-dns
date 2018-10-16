@@ -121,6 +121,15 @@ impl RestrictedMath for Restrict<usize> {
     }
 }
 
+impl RestrictedMath for Restrict<u8> {
+    type Arg = u8;
+    type Value = u8;
+
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg> {
+        self.0.checked_sub(arg).ok_or_else(|| arg)
+    }
+}
+
 impl RestrictedMath for Restrict<u16> {
     type Arg = u16;
     type Value = u16;
