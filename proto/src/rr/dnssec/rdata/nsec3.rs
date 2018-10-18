@@ -251,19 +251,34 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
     let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+
+    // read the salt
     let salt_len = decoder
         .read_u8()?
-        .map(|u| u as usize)
-        .verify_unwrap(|salt_len| *salt_len <= decoder.len())
+        .map(|u| u as usize);
+    let salt_len_max = rdata_length
+        .map(|u|u as usize)
+        .checked_sub(decoder.index() - start_idx)
+        .map_err(|_| "invalid rdata for salt_len_max")?;
+    let salt_len = salt_len
+        .verify_unwrap(|salt_len| *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/))
         .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
     let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
+
+    // read the hashed_owner_name
     let hash_len = decoder
         .read_u8()?
-        .map(|u| u as usize)
-        .verify_unwrap(|hash_len| *hash_len <= decoder.len())
+        .map(|u| u as usize);
+    let hash_len_max = rdata_length
+        .map(|u|u as usize)
+        .checked_sub(decoder.index() - start_idx)
+        .map_err(|_| "invalid rdata for hash_len_max")?;
+    let hash_len = hash_len
+        .verify_unwrap(|hash_len| *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/))
         .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
     let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 
+    // read the bitmap
     let bit_map_len = rdata_length
         .map(|u|u as usize)
         .checked_sub(decoder.index() - start_idx)
@@ -366,9 +381,6 @@ pub(crate) fn decode_type_bit_maps(
                     // if the current_bytes most significant bit is set
                     if bit_map & 0b1000_0000 == 0b1000_0000 {
                         // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
-                        // let block = len
-                        //     .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
-                        //     .map_err(|_| "block len or left out of bounds in NSEC(3)")?;
                         let low_byte: u8 = len
                             .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
                             .checked_mul(8)

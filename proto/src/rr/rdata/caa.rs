@@ -746,7 +746,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let tag_len = decoder.read_u8()?; 
     let value_len: Restrict<u16> = rdata_length
         .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
-        .and_then(|l| l.checked_sub(2))
+        .checked_sub(2)
         .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
 
     let tag = read_tag(decoder, tag_len)?;
