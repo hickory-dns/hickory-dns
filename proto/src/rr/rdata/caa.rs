@@ -287,7 +287,10 @@ impl Property {
 
 impl From<String> for Property {
     fn from(tag: String) -> Property {
-        match &tag as &str {
+        // RFC6488 section 5.1 states that "Matching of tag values is case
+        // insensitive."
+        let lower = tag.to_ascii_lowercase();
+        match &lower as &str {
             "issue" => return Property::Issue,
             "issuewild" => return Property::IssueWild,
             "iodef" => return Property::Iodef,
@@ -861,8 +864,8 @@ mod tests {
 
     #[test]
     fn test_from_str_property() {
-        assert_eq!(Property::from("issue".to_string()), Property::Issue);
-        assert_eq!(Property::from("issuewild".to_string()), Property::IssueWild);
+        assert_eq!(Property::from("Issue".to_string()), Property::Issue);
+        assert_eq!(Property::from("issueWild".to_string()), Property::IssueWild);
         assert_eq!(Property::from("iodef".to_string()), Property::Iodef);
         assert_eq!(
             Property::from("unknown".to_string()),
