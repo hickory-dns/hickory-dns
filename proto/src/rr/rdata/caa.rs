@@ -347,20 +347,21 @@ impl Value {
     }
 }
 
-fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> ProtoResult<Value> {
+fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: Restrict<u16>) -> ProtoResult<Value> {
+    let value_len = value_len.map(|u| u as usize).unverified(/*used purely as length safely*/);
     match *tag {
         Property::Issue | Property::IssueWild => {
-            let slice = decoder.read_slice(value_len as usize)?.unverified(/*read_issuer verified as safe*/);
+            let slice = decoder.read_slice(value_len)?.unverified(/*read_issuer verified as safe*/);
             let value = read_issuer(slice)?;
             Ok(Value::Issuer(value.0, value.1))
         }
         Property::Iodef => {
-            let url = decoder.read_slice(value_len as usize)?.unverified(/*read_iodef verified as safe*/);
+            let url = decoder.read_slice(value_len)?.unverified(/*read_iodef verified as safe*/);
             let url = read_iodef(url)?;
             Ok(Value::Url(url))
         }
         Property::Unknown(_) => Ok(Value::Unknown(
-            decoder.read_vec(value_len as usize)?.unverified(/*unknown will fail in usage*/),
+            decoder.read_vec(value_len)?.unverified(/*unknown will fail in usage*/),
         )),
     }
 }
@@ -742,10 +743,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     // the spec declares that other flags should be ignored for future compatability...
     let issuer_critical: bool = decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
 
-    let tag_len = decoder.read_u8()?.unverified(/*verified usage below with checked sub*/); 
-    let value_len = rdata_length
-        .checked_sub(u16::from(tag_len))
-        .and_then(|l| l.checked_sub(2).ok_or(2))
+    let tag_len = decoder.read_u8()?; 
+    let value_len: Restrict<u16> = rdata_length
+        .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
+        .and_then(|l| l.checked_sub(2))
         .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
 
     let tag = read_tag(decoder, tag_len)?;
@@ -760,11 +761,12 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 // TODO: change this to return &str
-fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
-    if len == 0 || len > 15 {
-        return Err("CAA tag length out of bounds, 1-15".into());
-    }
-    let mut tag = String::with_capacity(len as usize);
+fn read_tag(decoder: &mut BinDecoder, len: Restrict<u8>) -> ProtoResult<String> {
+    let len = len
+        .map(|len| len as usize)
+        .verify_unwrap(|len| *len > 0 && *len <= 15)
+        .map_err(|_| ProtoError::from("CAA tag length out of bounds, 1-15"))?;
+    let mut tag = String::with_capacity(len);
 
     for _ in 0..len {
         let ch = decoder
@@ -836,7 +838,7 @@ mod tests {
         let ok_under15 = b"abcxyzABCXYZ019";
         let mut decoder = BinDecoder::new(ok_under15);
 
-        let read = read_tag(&mut decoder, ok_under15.len() as u8).expect("failed to read tag");
+        let read = read_tag(&mut decoder, Restrict::new(ok_under15.len() as u8)).expect("failed to read tag");
 
         assert_eq!(str::from_utf8(ok_under15).unwrap(), read);
     }
@@ -846,7 +848,7 @@ mod tests {
         let bad_under15 = b"-";
         let mut decoder = BinDecoder::new(bad_under15);
 
-        assert!(read_tag(&mut decoder, bad_under15.len() as u8).is_err());
+        assert!(read_tag(&mut decoder, Restrict::new(bad_under15.len() as u8)).is_err());
     }
 
     #[test]
@@ -854,7 +856,7 @@ mod tests {
         let too_short = b"";
         let mut decoder = BinDecoder::new(too_short);
 
-        assert!(read_tag(&mut decoder, too_short.len() as u8).is_err());
+        assert!(read_tag(&mut decoder, Restrict::new(too_short.len() as u8)).is_err());
     }
 
     #[test]
@@ -862,7 +864,7 @@ mod tests {
         let too_long = b"0123456789abcdef";
         let mut decoder = BinDecoder::new(too_long);
 
-        assert!(read_tag(&mut decoder, too_long.len() as u8).is_err());
+        assert!(read_tag(&mut decoder, Restrict::new(too_long.len() as u8)).is_err());
     }
 
     #[test]

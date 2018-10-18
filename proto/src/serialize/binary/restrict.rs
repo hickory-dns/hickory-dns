@@ -111,16 +111,26 @@ pub trait RestrictedMath {
     /// Return value, generally the same as Arg
     type Value: 'static + Sized + Copy;
 
+    /// Checked addition, see `usize::checked_add`
+    fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg>;
     /// Checked subtraction, see `usize::checked_sub`
-    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg>;
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg>;
+    /// Checked multiplication, see `usize::checked_mul`
+    fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg>;
 }
 
 impl RestrictedMath for Restrict<usize> {
     type Arg = usize;
     type Value = usize;
 
-    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg> {
-        self.0.checked_sub(arg).ok_or_else(|| arg)
+    fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_add(arg).map(Restrict).ok_or_else(|| arg)
+    }
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_sub(arg).map(Restrict).ok_or_else(|| arg)
+    }
+    fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_mul(arg).map(Restrict).ok_or_else(|| arg)
     }
 }
 
@@ -128,8 +138,14 @@ impl RestrictedMath for Restrict<u8> {
     type Arg = u8;
     type Value = u8;
 
-    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg> {
-        self.0.checked_sub(arg).ok_or_else(|| arg)
+    fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_add(arg).map(Restrict).ok_or_else(|| arg)
+    }
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_sub(arg).map(Restrict).ok_or_else(|| arg)
+    }
+    fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_mul(arg).map(Restrict).ok_or_else(|| arg)
     }
 }
 
@@ -137,7 +153,69 @@ impl RestrictedMath for Restrict<u16> {
     type Arg = u16;
     type Value = u16;
 
-    fn checked_sub(&self, arg: Self::Arg) -> Result<Self::Value, Self::Arg> {
-        self.0.checked_sub(arg).ok_or_else(|| arg)
+    fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_add(arg).map(Restrict).ok_or_else(|| arg)
+    }
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_sub(arg).map(Restrict).ok_or_else(|| arg)
+    }
+    fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        self.0.checked_mul(arg).map(Restrict).ok_or_else(|| arg)
+    }
+}
+
+impl<R, A> RestrictedMath for Result<R, A> 
+where 
+    R: RestrictedMath,
+    A: 'static + Sized + Copy,
+{
+    type Arg = <R as RestrictedMath>::Arg;
+    type Value = <R as RestrictedMath>::Value;
+
+    fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        match *self {
+            Ok(ref r) => r.checked_add(arg),
+            Err(_) => Err(arg),
+        }
+    }
+    
+    fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        match *self {
+            Ok(ref r) => r.checked_sub(arg),
+            Err(_) => Err(arg),
+        }
+    }
+
+    fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
+        match *self {
+            Ok(ref r) => r.checked_mul(arg),
+            Err(_) => Err(arg),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_checked_add() {
+        assert_eq!(Restrict(1_usize).checked_add(2_usize).unwrap().unverified(), 3_usize);
+        assert_eq!(Restrict(1_u16).checked_add(2_u16).unwrap().unverified(), 3_u16);
+        assert_eq!(Restrict(1_u8).checked_add(2_u8).unwrap().unverified(), 3_u8);
+    }
+
+    #[test]
+    fn test_checked_sub() {
+        assert_eq!(Restrict(2_usize).checked_sub(1_usize).unwrap().unverified(), 1_usize);
+        assert_eq!(Restrict(2_u16).checked_sub(1_u16).unwrap().unverified(), 1_u16);
+        assert_eq!(Restrict(2_u8).checked_sub(1_u8).unwrap().unverified(), 1_u8);
+    }
+
+    #[test]
+    fn test_checked_mul() {
+        assert_eq!(Restrict(1_usize).checked_mul(2_usize).unwrap().unverified(), 2_usize);
+        assert_eq!(Restrict(1_u16).checked_mul(2_u16).unwrap().unverified(), 2_u16);
+        assert_eq!(Restrict(1_u8).checked_mul(2_u8).unwrap().unverified(), 2_u8);
     }
 }

@@ -466,7 +466,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let sig_len = rdata_length
         .map(|u| u as usize)
         .checked_sub(decoder.index() - start_idx)
-        .map_err(|_| ProtoError::from("invalid rdata length in SIG"))?;
+        .map_err(|_| ProtoError::from("invalid rdata length in SIG"))?
+        .unverified(/*used only as length safely*/);
     let sig = decoder
         .read_vec(sig_len)?
         .unverified(/*will fail in usage if invalid*/);
