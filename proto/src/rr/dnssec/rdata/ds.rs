@@ -196,7 +196,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let left: usize = rdata_length
         .map(|u| u as usize)
         .checked_sub(bytes_read)
-        .map_err(|_| ProtoError::from("invalid rdata length in DS"))?;
+        .map_err(|_| ProtoError::from("invalid rdata length in DS"))?
+        .unverified(/*used only as length safely*/);
     let digest = decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);
 
     Ok(DS::new(key_tag, algorithm, digest_type, digest))

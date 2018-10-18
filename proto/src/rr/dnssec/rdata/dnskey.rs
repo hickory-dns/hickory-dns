@@ -351,7 +351,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let key_len = rdata_length
         .map(|u| u as usize)
         .checked_sub(4)
-        .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?;
+        .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?
+        .unverified(/*used only as length safely*/);
     let public_key: Vec<u8> = decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
     Ok(DNSKEY::new(

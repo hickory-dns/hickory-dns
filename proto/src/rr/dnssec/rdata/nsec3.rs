@@ -290,9 +290,9 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 /// # Returns
 ///
 /// The Array of covered types
-pub fn decode_type_bit_maps(
+pub(crate) fn decode_type_bit_maps(
     decoder: &mut BinDecoder,
-    bit_map_len: usize,
+    bit_map_len: Restrict<usize>,
 ) -> ProtoResult<Vec<RecordType>> {
     // 3.2.1.  Type Bit Maps Encoding
     //
@@ -343,7 +343,7 @@ pub fn decode_type_bit_maps(
     let mut state: BitMapState = BitMapState::ReadWindow;
 
     // loop through all the bytes in the bitmap
-    for _ in 0..bit_map_len {
+    for _ in 0..bit_map_len.unverified(/*bounded over any length of u16*/) {
         let current_byte = decoder.read_u8()?;
 
         state = match state {
@@ -366,10 +366,15 @@ pub fn decode_type_bit_maps(
                     // if the current_bytes most significant bit is set
                     if bit_map & 0b1000_0000 == 0b1000_0000 {
                         // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
-                        let block = len
+                        // let block = len
+                        //     .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
+                        //     .map_err(|_| "block len or left out of bounds in NSEC(3)")?;
+                        let low_byte: u8 = len
                             .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
-                            .map_err(|_| "block len or left out of bounds in NSEC(3)")?;
-                        let low_byte = (block * 8) + i;
+                            .checked_mul(8)
+                            .checked_add(i)
+                            .map_err(|_| "block len or left out of bounds in NSEC(3)")?
+                            .unverified(/*any u8 is valid at this point*/);
                         let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
                         record_types.push(RecordType::from(rr_type));
                     }
@@ -381,15 +386,15 @@ pub fn decode_type_bit_maps(
                 let left = left
                     .checked_sub(1)
                     .map_err(|_| ProtoError::from("block left out of bounds in NSEC(3)"))?;
-                if left == 0 {
+                if left.unverified(/*comparison is safe*/) == 0 {
                     // we've exhausted this Window, move to the next
                     BitMapState::ReadWindow
                 } else {
                     // continue reading this Window
                     BitMapState::ReadType {
-                        window: window,
-                        len: len,
-                        left: Restrict::new(left),
+                        window,
+                        len,
+                        left,
                     }
                 }
             }
@@ -429,7 +434,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
 ///
 /// * `encoder` - the encoder to write to
 /// * `type_bit_maps` - types to encode into the bitmap
-pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> ProtoResult<()> {
+pub(crate) fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> ProtoResult<()> {
     let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
     let mut type_bit_maps = type_bit_maps.to_vec();
     type_bit_maps.sort();

@@ -352,7 +352,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let cert_len = rdata_length
         .map(|u| u as usize)
         .checked_sub(3)
-        .map_err(|_| ProtoError::from("invalid rdata length in TLSA"))?;
+        .map_err(|_| ProtoError::from("invalid rdata length in TLSA"))?
+        .unverified(/*used purely as length safely*/);
     let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
 
     Ok(TLSA {
