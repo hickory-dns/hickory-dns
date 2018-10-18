@@ -118,16 +118,16 @@ impl<'a> BinDecoder<'a> {
         &mut self,
         max_len: Option<usize>,
     ) -> ProtoResult<Restrict<&[u8]>> {
-        let length = self.pop()?.unverified() as usize;
-
-        if let Some(max_len) = max_len {
-            if length > max_len {
-                return Err(ProtoErrorKind::CharacterDataTooLong {
-                    max: max_len,
-                    len: length,
-                }.into());
+        let length = self.pop()?.map(|u| u as usize).verify_unwrap(|length| {
+            if let Some(max_len) = max_len {
+                *length <= max_len
+            } else {
+                true
             }
-        }
+        }).map_err(|length| ProtoError::from(ProtoErrorKind::CharacterDataTooLong {
+            max: max_len.unwrap_or_default(),
+            len: length,
+        }))?;
 
         self.read_slice(length)
     }

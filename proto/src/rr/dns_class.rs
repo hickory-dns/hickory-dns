@@ -95,7 +95,7 @@ impl BinEncodable for DNSClass {
 
 impl<'r> BinDecodable<'r> for DNSClass {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        Self::from_u16(decoder.read_u16()?.unverified())
+        Self::from_u16(decoder.read_u16()?.unverified(/*DNSClass is verified as safe in processing this*/))
     }
 }
 

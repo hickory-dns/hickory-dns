@@ -160,20 +160,20 @@ impl NSEC3PARAM {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
-    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified())?;
+    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
     let flags: u8 = decoder
         .read_u8()?
         .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
         .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
 
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = decoder.read_u16()?.unverified();
+    let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let salt_len: usize = decoder
         .read_u8()?
         .map(|u| u as usize)
         .verify_unwrap(|salt_len| *salt_len <= decoder.len())
         .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
-    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified();
+    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified(/*valid as any array of u8*/);
 
     Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
 }

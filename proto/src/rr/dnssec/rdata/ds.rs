@@ -188,16 +188,16 @@ impl DS {
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DS> {
     let start_idx = decoder.index();
 
-    let key_tag: u16 = decoder.read_u16()?.unverified();
+    let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
     let algorithm: Algorithm = Algorithm::read(decoder)?;
-    let digest_type: DigestType = DigestType::from_u8(decoder.read_u8()?.unverified())?;
+    let digest_type: DigestType = DigestType::from_u8(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/))?;
 
     let bytes_read = decoder.index() - start_idx;
     let left: usize = rdata_length
         .map(|u| u as usize)
         .checked_sub(bytes_read)
         .map_err(|_| ProtoError::from("invalid rdata length in DS"))?;
-    let digest = decoder.read_vec(left)?.unverified();
+    let digest = decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);
 
     Ok(DS::new(key_tag, algorithm, digest_type, digest))
 }

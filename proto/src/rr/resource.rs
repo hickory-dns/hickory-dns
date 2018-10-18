@@ -280,7 +280,7 @@ impl<'r> BinDecodable<'r> for Record {
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
-            DNSClass::for_opt(decoder.read_u16()?.unverified())
+            DNSClass::for_opt(decoder.read_u16()?.unverified(/*restricted to a min of 512 in for_opt*/))
         } else {
             DNSClass::read(decoder)?
         };
@@ -294,7 +294,7 @@ impl<'r> BinDecodable<'r> for Record {
         //                with a zero TTL to prohibit caching.  Zero values can
         //                also be used for extremely volatile data.
         // note: u32 seems more accurate given that it can only be positive
-        let ttl: u32 = decoder.read_u32()?.unverified();
+        let ttl: u32 = decoder.read_u32()?.unverified(/*any u32 is valid*/);
 
         // RDLENGTH        an unsigned 16 bit integer that specifies the length in
         //                octets of the RDATA field.

@@ -243,26 +243,26 @@ impl NSEC3 {
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
-    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified())?;
+    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
     let flags: u8 = decoder
         .read_u8()?
         .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
         .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
 
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = decoder.read_u16()?.unverified();
+    let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let salt_len = decoder
         .read_u8()?
         .map(|u| u as usize)
         .verify_unwrap(|salt_len| *salt_len <= decoder.len())
         .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
-    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified();
+    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
     let hash_len = decoder
         .read_u8()?
         .map(|u| u as usize)
         .verify_unwrap(|hash_len| *hash_len <= decoder.len())
         .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
-    let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len)?.unverified();
+    let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 
     let bit_map_len = rdata_length
         .map(|u|u as usize)
@@ -348,7 +348,7 @@ pub fn decode_type_bit_maps(
 
         state = match state {
             BitMapState::ReadWindow => BitMapState::ReadLen {
-                window: current_byte.unverified(),
+                window: current_byte.unverified(/*window is any valid u8,*/),
             },
             BitMapState::ReadLen { window } => BitMapState::ReadType {
                 window: window,
@@ -359,7 +359,7 @@ pub fn decode_type_bit_maps(
                 // window is the Window Block # from above
                 // len is the Bitmap Length
                 // current_byte is the Bitmap
-                let mut bit_map = current_byte.unverified();
+                let mut bit_map = current_byte.unverified(/*validated and restricted in usage in following usage*/);
 
                 // for all the bits in the current_byte
                 for i in 0..8 {
@@ -367,7 +367,7 @@ pub fn decode_type_bit_maps(
                     if bit_map & 0b1000_0000 == 0b1000_0000 {
                         // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
                         let block = len
-                            .checked_sub(left.unverified())
+                            .checked_sub(left.unverified(/*will fail as param in this call if invalid*/))
                             .map_err(|_| "block len or left out of bounds in NSEC(3)")?;
                         let low_byte = (block * 8) + i;
                         let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
