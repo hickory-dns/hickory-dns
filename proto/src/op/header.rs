@@ -423,9 +423,9 @@ impl BinEncodable for Header {
 
 impl<'r> BinDecodable<'r> for Header {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let id = decoder.read_u16()?.unverified();
+        let id = decoder.read_u16()?.unverified(/*it is valid for this to be any u16*/);
 
-        let q_opcd_a_t_r = decoder.pop()?.unverified();
+        let q_opcd_a_t_r = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/);
         // if the first bit is set
         let message_type = if (0b1000_0000 & q_opcd_a_t_r) == 0b1000_0000 {
             MessageType::Response
@@ -438,7 +438,7 @@ impl<'r> BinDecodable<'r> for Header {
         let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
         let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
 
-        let r_z_ad_cd_rcod = decoder.pop()?.unverified(); // fail fast...
+        let r_z_ad_cd_rcod = decoder.pop()?.unverified(/*used as a bitfield, this is safe*/); // fail fast...
 
         let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
         let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
@@ -447,10 +447,10 @@ impl<'r> BinDecodable<'r> for Header {
 
         // TODO: We should pass these restrictions on, they can't be trusted, but that would seriosly complicate the Header type..
         // TODO: perhaps the read methods for BinDecodable should return Restrict?
-        let query_count = decoder.read_u16()?.unverified();
-        let answer_count = decoder.read_u16()?.unverified();
-        let name_server_count = decoder.read_u16()?.unverified();
-        let additional_count = decoder.read_u16()?.unverified();
+        let query_count = decoder.read_u16()?.unverified(/*this must be verified when reading queries*/);
+        let answer_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
+        let name_server_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
+        let additional_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
 
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...

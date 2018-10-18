@@ -322,27 +322,26 @@ impl From<DNSKEY> for RData {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DNSKEY> {
-    let flags: u16 = decoder.read_u16()?.unverified();
+    let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
     //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
     //    creation of the DNSKEY RR and MUST be ignored upon receipt.
     let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
     let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
     let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
-    let protocol: u8 = decoder.read_u8()?.unverified(); // verified below
+    let _protocol: u8 = decoder.read_u8()?.verify_unwrap(|protocol| {
+        // RFC 4034                DNSSEC Resource Records               March 2005
+        //
+        // 2.1.2.  The Protocol Field
+        //
+        //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
+        //    treated as invalid during signature verification if it is found to be
+        //    some value other than 3.
+        //
+        // protocol is defined to only be '3' right now
 
-    // RFC 4034                DNSSEC Resource Records               March 2005
-    //
-    // 2.1.2.  The Protocol Field
-    //
-    //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
-    //    treated as invalid during signature verification if it is found to be
-    //    some value other than 3.
-    //
-    // protocol is defined to only be '3' right now
-    if protocol != 3 {
-        return Err(ProtoErrorKind::DnsKeyProtocolNot3(protocol).into());
-    }
+        *protocol == 3 
+    }).map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
 
     let algorithm: Algorithm = Algorithm::read(decoder)?;
 
@@ -353,7 +352,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
         .map(|u| u as usize)
         .checked_sub(4)
         .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?;
-    let public_key: Vec<u8> = decoder.read_vec(key_len)?.unverified();
+    let public_key: Vec<u8> = decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
     Ok(DNSKEY::new(
         zone_key,

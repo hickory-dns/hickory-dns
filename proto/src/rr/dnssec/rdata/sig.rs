@@ -455,11 +455,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     // TODO should we verify here? or elsewhere...
     let type_covered = RecordType::read(decoder)?;
     let algorithm = Algorithm::read(decoder)?;
-    let num_labels = decoder.read_u8()?.unverified();
-    let original_ttl = decoder.read_u32()?.unverified();
-    let sig_expiration = decoder.read_u32()?.unverified();
-    let sig_inception = decoder.read_u32()?.unverified();
-    let key_tag = decoder.read_u16()?.unverified();
+    let num_labels = decoder.read_u8()?.unverified(/*technically valid as any u8*/);
+    let original_ttl = decoder.read_u32()?.unverified(/*valid as any u32*/);
+    let sig_expiration = decoder.read_u32()?.unverified(/*valid as any u32, in practice should be in the future*/);
+    let sig_inception = decoder.read_u32()?.unverified(/*valid as any u32, in practice should be before expiration*/);
+    let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let signer_name = Name::read(decoder)?;
 
     // read the signature, this will vary buy key size
@@ -469,7 +469,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
         .map_err(|_| ProtoError::from("invalid rdata length in SIG"))?;
     let sig = decoder
         .read_vec(sig_len)?
-        .unverified();
+        .unverified(/*will fail in usage if invalid*/);
 
     Ok(SIG::new(
         type_covered,

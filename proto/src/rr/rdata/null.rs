@@ -62,9 +62,9 @@ impl NULL {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NULL> {
-    let rdata_length = rdata_length.map(|u| u as usize).unverified();
+    let rdata_length = rdata_length.map(|u| u as usize).unverified(/*any u16 is valid*/);
     if rdata_length > 0 {
-        let anything = decoder.read_vec(rdata_length)?.unverified();
+        let anything = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
         Ok(NULL::with(anything))
     } else {
         Ok(NULL::new())

@@ -1,4 +1,7 @@
-/// Untrusted types are boxed in this, only access is through the verify method
+/// Untrusted types will be wrapped in this type.
+///
+/// To gain access to the data, some form of verification through one of the public methods is necessary.
+#[derive(Clone, Copy)]
 pub struct Restrict<T>(T);
 
 impl<T> Restrict<T> {
@@ -8,7 +11,7 @@ impl<T> Restrict<T> {
         Restrict(restricted)
     }
 
-    /// it is the responsibility of th function to verfy
+    /// It is the responsibility of th function to verfy the contained type is valid.
     ///
     /// ```
     /// use trust_dns_proto::serialize::binary::Restrict;
@@ -16,6 +19,10 @@ impl<T> Restrict<T> {
     /// let unrestricted = Restrict::new(0).verify(|r| *r == 0).then(|r| *r + 1).unwrap();
     /// assert!(unrestricted == 1);
     /// ```
+    ///
+    /// # Returns
+    ///
+    /// If `f` returns true then the value is valid and a chainable `Verified` type is returned
     #[inline]
     pub fn verify<'a, F: Fn(&'a T) -> bool>(&'a self, f: F) -> Verified<'a, T> {
         if f(&self.0) {
@@ -25,7 +32,7 @@ impl<T> Restrict<T> {
         }
     }
 
-    /// it is the responsibility of th function to verfy
+    /// It is the responsibility of th function to verfy the contained type is valid.
     ///
     /// ```
     /// use trust_dns_proto::serialize::binary::Restrict;
@@ -33,6 +40,11 @@ impl<T> Restrict<T> {
     /// let unrestricted = Restrict::new(0).verify_unwrap(|r| *r == 0).unwrap();
     /// assert!(unrestricted == 0);
     /// ```
+    ///
+    /// # Returns
+    ///
+    /// If `f` returns true then the value is valid and `Ok(T)` is returned. Otherwise
+    ///  `Err(T)` is returned.
     #[inline]
     pub fn verify_unwrap<F: Fn(&T) -> bool>(self, f: F) -> Result<T, T> {
         if f(&self.0) {
@@ -62,15 +74,6 @@ impl<T> Restrict<T> {
         Restrict(f(self.0))
     }
 }
-
-impl<T: Clone> Clone for Restrict<T> {
-    fn clone(&self) -> Self {
-        Restrict(self.0.clone())
-    }
-}
-
-impl<T: Copy> Copy for Restrict<T> {}
-
 
 /// Verified data that can be operated on
 pub struct Verified<'a, T: 'a>(VerifiedInner<'a, T>);

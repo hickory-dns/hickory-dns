@@ -39,14 +39,14 @@ use error::*;
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv6Addr> {
-    let a: u16 = decoder.read_u16()?.unverified();
-    let b: u16 = decoder.read_u16()?.unverified();
-    let c: u16 = decoder.read_u16()?.unverified();
-    let d: u16 = decoder.read_u16()?.unverified();
-    let e: u16 = decoder.read_u16()?.unverified();
-    let f: u16 = decoder.read_u16()?.unverified();
-    let g: u16 = decoder.read_u16()?.unverified();
-    let h: u16 = decoder.read_u16()?.unverified();
+    let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let c: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let d: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let e: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let f: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let g: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let h: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
 
     Ok(Ipv6Addr::new(a, b, c, d, e, f, g, h))
 }

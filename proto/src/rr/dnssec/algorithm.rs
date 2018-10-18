@@ -166,7 +166,7 @@ impl BinEncodable for Algorithm {
 impl<'r> BinDecodable<'r> for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Algorithm> {
-        let algorithm_id = decoder.read_u8()?.unverified();
+        let algorithm_id = decoder.read_u8()?.unverified(/*Algorithm is verified as safe in processing this*/);
         Algorithm::from_u8(algorithm_id)
     }
 }

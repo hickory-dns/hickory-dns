@@ -344,16 +344,16 @@ impl TLSA {
 ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
-    let cert_usage = decoder.read_u8()?.unverified().into();
-    let selector = decoder.read_u8()?.unverified().into();
-    let matching = decoder.read_u8()?.unverified().into();
+    let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
+    let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
+    let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
 
     // the remaining data is for the cert
     let cert_len = rdata_length
         .map(|u| u as usize)
         .checked_sub(3)
         .map_err(|_| ProtoError::from("invalid rdata length in TLSA"))?;
-    let cert_data = decoder.read_vec(cert_len)?.unverified();
+    let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
 
     Ok(TLSA {
         cert_usage,

@@ -940,7 +940,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
         state = match state {
             LabelParseState::LabelLengthOrPointer => {
                 // determine what the next label is
-                match decoder.peek().map(|b| b.unverified()) {
+                match decoder.peek().map(Restrict::unverified/*verified in this usage*/) {
                     Some(0) | None => LabelParseState::Root,
                     Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
                     Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,

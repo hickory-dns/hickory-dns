@@ -350,17 +350,17 @@ impl Value {
 fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> ProtoResult<Value> {
     match *tag {
         Property::Issue | Property::IssueWild => {
-            let slice = decoder.read_slice(value_len as usize)?.unverified();
+            let slice = decoder.read_slice(value_len as usize)?.unverified(/*read_issuer verified as safe*/);
             let value = read_issuer(slice)?;
             Ok(Value::Issuer(value.0, value.1))
         }
         Property::Iodef => {
-            let url = decoder.read_slice(value_len as usize)?.unverified();
+            let url = decoder.read_slice(value_len as usize)?.unverified(/*read_iodef verified as safe*/);
             let url = read_iodef(url)?;
             Ok(Value::Url(url))
         }
         Property::Unknown(_) => Ok(Value::Unknown(
-            decoder.read_vec(value_len as usize)?.unverified(),
+            decoder.read_vec(value_len as usize)?.unverified(/*unknown will fail in usage*/),
         )),
     }
 }
@@ -740,9 +740,9 @@ impl KeyValue {
 /// ```
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
     // the spec declares that other flags should be ignored for future compatability...
-    let issuer_critical: bool = decoder.read_u8()?.unverified() & 0b1000_0000 != 0;
+    let issuer_critical: bool = decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
 
-    let tag_len = decoder.read_u8()?.unverified(); // verified usage below with checked sub
+    let tag_len = decoder.read_u8()?.unverified(/*verified usage below with checked sub*/); 
     let value_len = rdata_length
         .checked_sub(u16::from(tag_len))
         .and_then(|l| l.checked_sub(2).ok_or(2))
