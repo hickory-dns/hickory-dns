@@ -8,6 +8,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
+- CAA now properly performs case-incesitive compares #587 (@oherrala)
+- overhauled rdata parsers with Restrict type to reduce potential of overflowing operations #586
 
 ### Changed
 
