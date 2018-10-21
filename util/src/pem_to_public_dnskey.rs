@@ -110,7 +110,7 @@ mod test {
     fn read_read_pem_into_key_pair() {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
 
-        let path = [&server_path, "..", "tests", "ca.pubkey"]
+        let path = [&server_path, "..", "tests", "test-data", "ca.pubkey"]
             .iter()
             .collect::<PathBuf>();
         let mut pem = File::open(path).unwrap();
