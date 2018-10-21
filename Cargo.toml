@@ -1,7 +1,5 @@
 [workspace]
 members = ["crates/client", 
-           "tests/compatibility-tests",
-           "tests/integration-tests",
            "crates/native-tls",
            "crates/openssl",
            "crates/proto",
@@ -9,4 +7,6 @@ members = ["crates/client",
            "crates/rustls",
            "crates/https",
            "crates/server",
+           "tests/compatibility-tests",
+           "tests/integration-tests",
            "util"]

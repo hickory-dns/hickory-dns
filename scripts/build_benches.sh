@@ -7,4 +7,4 @@ cd $trust_dns_dir
 
 # Benchmark tests build only on nightly
 
-cargo bench --no-run
+cargo +nightly bench --no-run
