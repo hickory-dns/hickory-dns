@@ -77,12 +77,12 @@ tokio = "^0.1.6"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
 tokio-udp = "^0.1"
-trust-dns = { version = "0.15.0-alpha", path = "../client" }
-trust-dns-https = { version = "0.1.0-alpha", path = "../https" }
-trust-dns-openssl = { version = "0.4.0-alpha", path = "../openssl" }
-trust-dns-proto = { version = "0.5.0-alpha", path = "../proto" }
-trust-dns-resolver = { version = "0.10.0-alpha", path = "../resolver" }
-trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls" }
+trust-dns = { version = "0.15.0-alpha", path = "../../crates/client" }
+trust-dns-https = { version = "0.1.0-alpha", path = "../../crates/https" }
+trust-dns-openssl = { version = "0.4.0-alpha", path = "../../crates/openssl" }
+trust-dns-proto = { version = "0.5.0-alpha", path = "../../crates/proto" }
+trust-dns-resolver = { version = "0.10.0-alpha", path = "../../crates/resolver" }
+trust-dns-rustls = { version = "0.4.0-alpha", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.15.0-alpha", path = "../server" }
+trust-dns-server = { version = "0.15.0-alpha", path = "../../crates/server" }
 webpki-roots = { version = "^0.15", optional = true }

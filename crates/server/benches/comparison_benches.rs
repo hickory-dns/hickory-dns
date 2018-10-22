@@ -5,6 +5,7 @@ extern crate test;
 extern crate tokio;
 
 extern crate trust_dns;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::env;
@@ -17,15 +18,17 @@ use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 
+use futures::Future;
 use test::Bencher;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
-use trust_dns::error::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::*;
 use trust_dns::udp::*;
+use trust_dns_proto::xfer::*;
+use trust_dns_proto::error::*;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -55,8 +58,8 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .next()
             .unwrap();
         let (stream, sender) = UdpClientStream::new(addr);
-        let mut client = ClientFuture::new(stream, sender, None);
-        let mut client = io_loop.block_on(client).unwrap();
+        let (bg, mut client) = ClientFuture::new(stream, sender, None);
+        io_loop.spawn(bg);
 
         let name = domain::Name::from_str("www.example.com.").unwrap();
         let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
@@ -83,7 +86,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
 
-    let named = Command::new(&format!("{}/../target/release/named", server_path))
+    let named = Command::new(&format!("{}/../../target/release/named", server_path))
         .stdout(Stdio::null())
         .arg("-q") // TODO: need to rethink this one...
         .arg(&format!(
@@ -106,12 +109,18 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 }
 
 /// Runs the bench tesk using the specified client
-fn bench(
+fn bench<S>(
     b: &mut Bencher,
-    client: &mut futures::Future<Item = BasicClientHandle, Error = ClientError>,
-) {
+    stream: Box<Future<Item = S, Error = ProtoError> + Send>, 
+    stream_handle: Box<DnsStreamHandle>, 
+)
+where
+    S: DnsClientStream + 'static,
+{
     let mut io_loop = Runtime::new().unwrap();
-    let mut client = io_loop.block_on(client).unwrap();
+    let (bg, mut client) = ClientFuture::new(stream, stream_handle, None);
+    io_loop.spawn(bg);
+
     let name = domain::Name::from_str("www.example.com.").unwrap();
 
     // validate the request
@@ -148,9 +157,8 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut *client);
+    bench(b, stream, sender);
 
     // cleaning up the named process
     drop(named);
@@ -167,9 +175,7 @@ fn trust_dns_udp_bench_prof(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
-
-    bench(b, &mut client);
+    bench(b, stream, sender);
 }
 
 #[bench]
@@ -182,9 +188,7 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
-
-    bench(b, &mut client);
+    bench(b, Box::new(stream), sender);
 
     // cleaning up the named process
     drop(named);
@@ -202,7 +206,7 @@ fn bind_process() -> (NamedProcess, u16) {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
 
     // create the work directory
-    let working_dir = format!("{}/../target/bind_pwd", server_path);
+    let working_dir = format!("{}/../../target/bind_pwd", server_path);
     if !Path::new(&working_dir).exists() {
         DirBuilder::new()
             .create(&working_dir)
@@ -236,9 +240,8 @@ fn bind_udp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut client);
+    bench(b, stream, sender);
 
     // cleaning up the named process
     drop(named);
@@ -255,9 +258,8 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut client);
+    bench(b, Box::new(stream), sender);
 
     // cleaning up the named process
     drop(named);

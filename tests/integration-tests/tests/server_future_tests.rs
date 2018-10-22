@@ -155,12 +155,12 @@ fn read_file(path: &str) -> Vec<u8> {
 fn test_server_www_tls() {
     let dns_name = "ns.example.com";
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../../crates/server".to_owned());
     println!("using server src path: {}", server_path);
 
-    let cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
+    let cert_der = read_file(&format!("{}/../../tests/test-data/ca.der", server_path));
 
-    let pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
+    let pkcs12_der = read_file(&format!("{}/../../tests/test-data/cert.p12", server_path));
 
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));

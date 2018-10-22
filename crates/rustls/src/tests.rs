@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+extern crate openssl;
+
 use std;
 use std::env;
 use std::fs::File;
@@ -17,15 +19,18 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
+use self::openssl::pkcs12::*;
+use self::openssl::ssl::*;
+use self::openssl::x509::store::X509StoreBuilder;
+use self::openssl::x509::*;
+
 use futures::Stream;
-use native_tls;
-use native_tls::{Certificate, TlsAcceptor};
+use rustls::Certificate;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::SerialMessage;
 
-#[allow(unused)]
-use {TlsStream, TlsStreamBuilder};
+use TlsStreamBuilder;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
@@ -62,7 +67,7 @@ fn read_file(path: &str) -> Vec<u8> {
     bytes
 }
 
-#[allow(unused, unused_mut)]
+#[allow(unused_mut)]
 fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -78,16 +83,18 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
 
-    let root_cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
+    let root_cert_der = read_file(&format!("{}/../../tests/test-data/ca.der", server_path));
+    let root_cert_der_copy = root_cert_der.clone();
 
     // Generate X509 certificate
     let dns_name = "ns.example.com";
-    let server_pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
+    let server_pkcs12_der = read_file(&format!("{}/../../tests/test-data/cert.p12", server_path));
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -98,35 +105,49 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let server_handle = thread::Builder::new()
         .name("test_tls_client_stream:server".to_string())
         .spawn(move || {
-            let pkcs12 = native_tls::Identity::from_pkcs12(&server_pkcs12_der, "mypass")
-                .expect("Identity::from_pkcs12");
-            let mut tls = TlsAcceptor::builder(pkcs12);
+            let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
+                .and_then(|p| p.parse("mypass"))
+                .expect("Pkcs12::from_der");
+            let mut tls =
+                SslAcceptor::mozilla_modern(SslMethod::tls()).expect("mozilla_modern failed");
 
-            // #[cfg(target_os = "linux")]
-            // {
-            //   let mut openssl_builder = tls.builder_mut();
-            //   let mut openssl_ctx_builder = openssl_builder.builder_mut();
+            tls.set_private_key(&pkcs12.pkey)
+                .expect("failed to associated key");
+            tls.set_certificate(&pkcs12.cert)
+                .expect("failed to associated cert");
 
-            //   let mut mode = openssl::ssl::SslVerifyMode::empty();
+            if let Some(ref chain) = pkcs12.chain {
+                for cert in chain {
+                    tls.add_extra_chain_cert(cert.to_owned())
+                        .expect("failed to add chain");
+                }
+            }
 
-            //   // FIXME: mtls tests hang on Linux...
-            //   if mtls {
-            //     //   mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+            {
+                let mut openssl_ctx_builder = &mut tls;
 
-            //     // let mut store = X509StoreBuilder::new().unwrap();
-            //     // let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
-            //     // store.add_cert(root_ca).unwrap();
-            //     // openssl_ctx_builder.set_verify_cert_store(store.build()).unwrap();
-            //   } else {
-            //     mode.insert(SSL_VERIFY_NONE);
-            //   }
+                let mut mode = SslVerifyMode::empty();
 
-            //   openssl_ctx_builder.set_verify(mode);
-            // }
+                // FIXME: mtls tests hang on Linux...
+                if mtls {
+                    mode = SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT;
+
+                    let mut store = X509StoreBuilder::new().unwrap();
+                    let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
+                    store.add_cert(root_ca).unwrap();
+                    openssl_ctx_builder
+                        .set_verify_cert_store(store.build())
+                        .unwrap();
+                } else {
+                    mode.insert(SslVerifyMode::NONE);
+                }
+
+                openssl_ctx_builder.set_verify(mode);
+            }
 
             // FIXME: add CA on macOS
 
-            let tls = tls.build().expect("tls build failed");
+            let tls = tls.build();
 
             // server_barrier.wait();
             let (socket, _) = server.accept().expect("tcp accept failed");
@@ -164,7 +185,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // let the server go first
     std::thread::yield_now();
@@ -176,7 +198,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
 
-    let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
+    let trust_chain = Certificate(root_cert_der);
 
     // barrier.wait();
     let mut builder = TlsStreamBuilder::new();
@@ -224,7 +246,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 //     let (_ /*client_pkey*/, _ /*client_cert*/, client_identity) =
 //         cert(client_name, root_pkey, root_name, root_cert);
 //     let client_identity =
-//         native_tls::Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
+//         native_tls::server_cert::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
 
 //     #[cfg(feature = "mtls")]
 //     builder.identity(client_identity);

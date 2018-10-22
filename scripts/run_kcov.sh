@@ -39,8 +39,8 @@ mkdir -p target
 export TDNS_SERVER_SRC_ROOT=./server
 export COVERALLS_PARALLEL=true
 
-SRC_PATHS=client/src,native-tls/src,openssl/src,proto/src,https/src,resolver/src,rustls/src,server/src
-EXCLUDE_PATHS=client/src/error,proto/src/error.rs,server/src/error,compatibility-tests/src/lib.rs
+SRC_PATHS=crates/client/src,crates/native-tls/src,crates/openssl/src,crates/proto/src,crates/https/src,crates/resolver/src,crates/rustls/src,crates/server/src
+EXCLUDE_PATHS=crates/client/src/error,crates/proto/src/error.rs,crates/server/src/error,tests/compatibility-tests/src/lib.rs
 
 for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then

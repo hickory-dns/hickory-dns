@@ -12,7 +12,7 @@ cargo check
 
 for p in ${packages_ordered:?} ; do
     echo "====> dry-run publish $p"
-    cargo publish --verbose --locked --dry-run --manifest-path ${p:?}/Cargo.toml
+    cargo publish --verbose --locked --dry-run --manifest-path crates/${p:?}/Cargo.toml
     echo "====> publishing $p"
-    cargo publish --verbose --locked --manifest-path ${p:?}/Cargo.toml     
+    cargo publish --verbose --locked --manifest-path crates/${p:?}/Cargo.toml     
 done
