@@ -28,6 +28,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *breaking* `named` configuration now has AXFR disabled by default.
 - feature `tls` renamed to `dns-over-openssl`
 - upgraded `native-tls` and `tokio-tls` to 0.2
+- upgraded `rusqlite` to 0.15
 
 ## 0.14.0
 

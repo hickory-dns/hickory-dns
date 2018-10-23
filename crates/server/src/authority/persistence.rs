@@ -11,8 +11,7 @@ use std::iter::Iterator;
 use std::path::Path;
 
 use time;
-use rusqlite;
-use rusqlite::Connection;
+use rusqlite::{self, Connection, types::ToSql};
 
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
@@ -97,7 +96,7 @@ impl Journal {
                                             record)
                                           \
                                             VALUES ($1, $2, $3, $4)",
-            &[&client_id, &soa_serial, &timestamp, &serial_record],
+            &[&client_id as &ToSql, &soa_serial, &timestamp, &serial_record],
         )?;
         //
         if count != 1 {
@@ -191,7 +190,7 @@ impl Journal {
         )?;
 
         let tdns_schema_opt: Option<Result<String, _>> =
-            stmt.query_map(&[], |row| row.get(0))?.next();
+            stmt.query_map(None::<&dyn ToSql>, |row| row.get(0))?.next();
 
         let tdns_schema = match tdns_schema_opt {
             Some(Ok(string)) => string,
@@ -205,7 +204,7 @@ impl Journal {
             "SELECT version
                                             \
                                                 FROM tdns_schema",
-            &[],
+            None::<&dyn ToSql>,
             |row| row.get(0),
         )?;
 
@@ -248,13 +247,13 @@ impl Journal {
                                             version INTEGER NOT NULL
                                         \
                                             )",
-            &[],
+            None::<&dyn ToSql>,
         )?;
         //
         assert_eq!(count, 0);
 
         let count = self.conn
-            .execute("INSERT INTO tdns_schema (version) VALUES (0)", &[])?;
+            .execute("INSERT INTO tdns_schema (version) VALUES (0)", None::<&dyn ToSql>)?;
         //
         assert_eq!(count, 1);
 
@@ -277,7 +276,7 @@ impl Journal {
                                             record         BLOB NOT NULL
                                         \
                                             )",
-            &[],
+            None::<&dyn ToSql>,
         )?;
         //
         assert_eq!(count, 1);
