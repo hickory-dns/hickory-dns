@@ -15,7 +15,7 @@ use trust_dns_proto::xfer::SerialMessage;
 use authority::MessageResponse;
 
 /// A handler for send a response to a client
-pub trait ResponseHandler {
+pub trait ResponseHandler: Send {
     // TODO: add associated error type
     //type Error;
 
