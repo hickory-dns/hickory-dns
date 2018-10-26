@@ -121,27 +121,22 @@ impl Stream for UdpStream {
         //  makes this self throttling.
         loop {
             // first try to send
-            if let Async::Ready(Some(ref message)) = self
+            match self
                 .outbound_messages
                 .peek()
                 .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
             {
-                // will return if the socket will block
-                try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));
-            }
-
-            // now pop the request and check if we should break or continue.
-            match self
-                .outbound_messages
-                .poll()
-                .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
-            {
-                // already handled above, here to make sure the poll() pops the next message
-                Async::Ready(Some(_)) => (),
+                Async::Ready(Some(ref message)) => {
+                    // will return if the socket will block
+                    try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));},
                 // now we get to drop through to the receives...
                 // TODO: should we also return None if there are no more messages to send?
                 Async::NotReady | Async::Ready(None) => break,
             }
+
+            // now pop the request which is already sent
+            // If it were an Err, it was returned on peeking.
+            self.outbound_messages.poll().expect("Impossible");
         }
 
         // For QoS, this will only accept one message and output that
