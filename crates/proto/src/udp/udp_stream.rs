@@ -128,7 +128,8 @@ impl Stream for UdpStream {
             {
                 Async::Ready(Some(ref message)) => {
                     // will return if the socket will block
-                    try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));},
+                    try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));
+                }
                 // now we get to drop through to the receives...
                 // TODO: should we also return None if there are no more messages to send?
                 Async::NotReady | Async::Ready(None) => break,
@@ -234,8 +235,7 @@ fn udp_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
@@ -267,8 +267,7 @@ fn udp_stream_test(server_addr: IpAddr) {
                     len
                 );
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();
@@ -280,9 +279,9 @@ fn udp_stream_test(server_addr: IpAddr) {
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
-    let socket = tokio_udp::UdpSocket::bind(
-        &client_addr.to_socket_addrs().unwrap().next().unwrap(),
-    ).expect("could not create socket"); // some random address...
+    let socket =
+        tokio_udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap())
+            .expect("could not create socket"); // some random address...
     let (mut stream, sender) = UdpStream::with_bound(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 
