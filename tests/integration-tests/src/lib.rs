@@ -237,7 +237,11 @@ impl NeverReturnsClientConnection {
 impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<NeverReturnsClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<
+        Box<Future<Item = NeverReturnsClientStream, Error = ProtoError> + Send>,
+        NeverReturnsClientStream,
+        Signer,
+    >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = NeverReturnsClientStream::new();

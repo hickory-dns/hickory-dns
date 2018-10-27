@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time;
 
 use chrono::Duration;
+use futures::Future;
 use openssl::rsa::Rsa;
 
 #[cfg(feature = "dnssec")]
@@ -29,10 +30,8 @@ use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
-use trust_dns_proto::xfer::{
-    DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
-    DnsRequestStreamHandle,
-};
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 use trust_dns_server::authority::Catalog;
 
 pub struct TestClientConnection {
@@ -50,7 +49,11 @@ impl TestClientConnection {
 impl ClientConnection for TestClientConnection {
     type Sender = DnsMultiplexer<TestClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<TestClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<
+        Box<Future<Item = TestClientStream, Error = ProtoError> + Send>,
+        TestClientStream,
+        Signer,
+    >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());

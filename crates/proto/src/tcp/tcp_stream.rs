@@ -127,7 +127,8 @@ impl TcpStream<TokioTcpStream> {
                         format!("timed out connecting to: {}", name_server),
                     )
                 })
-            }).map(move |tcp_stream| {
+            })
+            .map(move |tcp_stream| {
                 debug!("TCP connection established to: {}", name_server);
                 TcpStream {
                     socket: tcp_stream,
@@ -221,24 +222,26 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
 
                 // switch states
                 match current_state {
-                    Some(WriteTcpState::LenBytes { pos, length, bytes }) => if pos < length.len() {
-                        mem::replace(
-                            &mut self.send_state,
-                            Some(WriteTcpState::LenBytes {
-                                pos: pos,
-                                length: length,
-                                bytes: bytes,
-                            }),
-                        );
-                    } else {
-                        mem::replace(
-                            &mut self.send_state,
-                            Some(WriteTcpState::Bytes {
-                                pos: 0,
-                                bytes: bytes,
-                            }),
-                        );
-                    },
+                    Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
+                        if pos < length.len() {
+                            mem::replace(
+                                &mut self.send_state,
+                                Some(WriteTcpState::LenBytes {
+                                    pos: pos,
+                                    length: length,
+                                    bytes: bytes,
+                                }),
+                            );
+                        } else {
+                            mem::replace(
+                                &mut self.send_state,
+                                Some(WriteTcpState::Bytes {
+                                    pos: 0,
+                                    bytes: bytes,
+                                }),
+                            );
+                        }
+                    }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
                         if pos < bytes.len() {
                             mem::replace(
@@ -324,7 +327,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                     if read == 0 {
                         // the Stream was closed!
                         debug!("zero bytes read, stream closed?");
-                        //try!(self.socket.shutdown(Shutdown::Both)); // FIXME: add generic shutdown function
+                        //try!(self.socket.shutdown(Shutdown::Both)); // TODO: add generic shutdown function
 
                         if *pos == 0 {
                             // Since this is the start of the next message, we have a clean end
@@ -366,7 +369,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         debug!("zero bytes read for message, stream closed?");
 
                         // Since this is the start of the next message, we have a clean end
-                        // try!(self.socket.shutdown(Shutdown::Both));  // FIXME: add generic shutdown function
+                        // try!(self.socket.shutdown(Shutdown::Both));  // TODO: add generic shutdown function
                         return Err(io::Error::new(
                             io::ErrorKind::BrokenPipe,
                             "closed while reading message",
@@ -462,7 +465,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -508,7 +512,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

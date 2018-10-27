@@ -10,7 +10,7 @@
 mod mdns_client_stream;
 mod mdns_stream;
 
-pub use self::mdns_client_stream::MdnsClientStream;
+pub use self::mdns_client_stream::{MdnsClientConnect, MdnsClientStream};
 pub use self::mdns_stream::{MdnsStream, MDNS_IPV4, MDNS_IPV6};
 
 /// See [rfc6762](https://tools.ietf.org/html/rfc6762#section-5) details on these different types.
@@ -28,10 +28,10 @@ pub enum MdnsQueryType {
     ///   port 5353 to be available on the system (many modern OSes already have mDNSResponders running taking this port).
     Continuous,
     /// The querier operates under the OneShot semantics, but also joins the multicast group. (non-compliant servers, clients)
-    /// 
+    ///
     /// This is not defined in the mDNS RFC, but allows for a multicast client to join the group, receiving all multicast network
     ///   traffic. This is useful where listening for all mDNS traffic is of interest, but because another mDNS process may have
-    ///   already taken the known port, 5353. Query responses will come from and to the standard UDP socket with a random port, 
+    ///   already taken the known port, 5353. Query responses will come from and to the standard UDP socket with a random port,
     ///   multicast traffic will come from the multicast socket. This will create two sockets.
     OneShotJoin,
     /// The querier operates under the OneShot semantics, but also joins the multicast group. (servers)
@@ -57,11 +57,11 @@ impl MdnsQueryType {
             MdnsQueryType::Continuous => true,
         }
     }
-    
+
     /// Returns true if this mDNS client should join, listen, on the multicast address
     pub fn join_multicast(&self) -> bool {
         match *self {
-            MdnsQueryType::OneShot  => false,
+            MdnsQueryType::OneShot => false,
             MdnsQueryType::Continuous | MdnsQueryType::OneShotJoin | MdnsQueryType::Passive => true,
         }
     }

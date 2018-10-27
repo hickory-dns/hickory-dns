@@ -10,7 +10,9 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-use trust_dns_proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6};
+use trust_dns_proto::multicast::{
+    MdnsClientConnect, MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6,
+};
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use client::ClientConnection;
@@ -52,7 +54,7 @@ impl MdnsClientConnection {
 impl ClientConnection for MdnsClientConnection {
     type Sender = DnsMultiplexer<MdnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<MdnsClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (mdns_client_stream, handle) = MdnsClientStream::new(
@@ -63,6 +65,6 @@ impl ClientConnection for MdnsClientConnection {
             self.ipv6_if,
         );
 
-        DnsMultiplexer::new(Box::new(mdns_client_stream), handle, signer)
+        DnsMultiplexer::new(mdns_client_stream, handle, signer)
     }
 }

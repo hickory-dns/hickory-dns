@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio_tcp::TcpStream;
-use trust_dns_proto::tcp::TcpClientStream;
+use trust_dns_proto::tcp::{TcpClientConnect, TcpClientStream};
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use client::ClientConnection;
@@ -62,11 +62,11 @@ impl TcpClientConnection {
 impl ClientConnection for TcpClientConnection {
     type Sender = DnsMultiplexer<TcpClientStream<TcpStream>, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<TcpClientStream<TcpStream>, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<TcpClientConnect, TcpClientStream<TcpStream>, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (tcp_client_stream, handle) =
             TcpClientStream::<TcpStream>::with_timeout(self.name_server, self.timeout);
-        DnsMultiplexer::new(Box::new(tcp_client_stream), handle, signer)
+        DnsMultiplexer::new(tcp_client_stream, handle, signer)
     }
 }

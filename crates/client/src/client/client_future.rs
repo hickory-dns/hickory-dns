@@ -41,12 +41,15 @@ where
     inner: InnerClientFuture<SenderFuture, Sender, Response>,
 }
 
-impl<S: DnsClientStream + 'static>
+impl<F, S>
     ClientFuture<
-        DnsMultiplexerConnect<S, Signer>,
+        DnsMultiplexerConnect<F, S, Signer>,
         DnsMultiplexer<S, Signer, Box<DnsStreamHandle>>,
         DnsMultiplexerSerialResponse,
     >
+where
+    F: Future<Item = S, Error = ProtoError> + Send + 'static,
+    S: DnsClientStream + Send + 'static,
 {
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
@@ -57,7 +60,7 @@ impl<S: DnsClientStream + 'static>
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
-        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
+        stream: F,
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
@@ -75,13 +78,12 @@ impl<S: DnsClientStream + 'static>
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
-        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
+        stream: F,
         stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
-        let mp =
-            DnsMultiplexer::with_timeout(Box::new(stream), stream_handle, timeout_duration, signer);
+        let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
         Self::connect(mp)
     }
 }

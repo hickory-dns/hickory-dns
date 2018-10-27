@@ -121,7 +121,8 @@ fn test_server_unknown_type() {
             &Name::from_str("www.example.com.").unwrap(),
             DNSClass::IN,
             RecordType::Unknown(65535),
-        ).expect("query failed for unknown");
+        )
+        .expect("query failed for unknown");
 
     assert_eq!(client_result.response_code(), ResponseCode::NoError);
     assert_eq!(
@@ -144,12 +145,7 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 // TODO: move all this to future based clients
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 #[test]
 
 fn test_server_www_tls() {
@@ -268,7 +264,8 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     io_loop
         .block_on::<Box<Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
             future::ok(server.register_socket(udp_socket))
-        }))).unwrap();
+        })))
+        .unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
@@ -284,7 +281,8 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     io_loop
         .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
             || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
-        ))).expect("tcp registration failed");
+        )))
+        .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
@@ -294,12 +292,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
 }
 
 // FIXME: need a rustls option
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
@@ -322,7 +315,8 @@ fn server_thread_tls(
                     pkcs12,
                 ))
             },
-        ))).expect("tcp registration failed");
+        )))
+        .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop

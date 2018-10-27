@@ -11,11 +11,13 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use futures::Future;
 use rustls::Certificate;
 
 use trust_dns::client::ClientConnection;
 use trust_dns::error::*;
 use trust_dns::rr::dnssec::Signer;
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use trust_dns_rustls::TlsClientStream;
@@ -39,7 +41,11 @@ impl TlsClientConnection {
 impl ClientConnection for TlsClientConnection {
     type Sender = DnsMultiplexer<TlsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<TlsClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<
+        Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+        TlsClientStream,
+        Signer,
+    >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (tls_client_stream, handle) = self

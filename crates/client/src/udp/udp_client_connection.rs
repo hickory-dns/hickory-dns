@@ -10,7 +10,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use trust_dns_proto::udp::UdpClientStream;
+use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use client::ClientConnection;
@@ -42,10 +42,10 @@ impl UdpClientConnection {
 impl ClientConnection for UdpClientConnection {
     type Sender = DnsMultiplexer<UdpClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<UdpClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<UdpClientConnect, UdpClientStream, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (udp_client_stream, handle) = UdpClientStream::new(self.name_server);
-        DnsMultiplexer::new(Box::new(udp_client_stream), handle, signer)
+        DnsMultiplexer::new(udp_client_stream, handle, signer)
     }
 }
