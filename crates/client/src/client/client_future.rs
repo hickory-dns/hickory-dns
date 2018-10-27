@@ -14,8 +14,7 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
     BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
-    DnsRequestOptions, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, DnsStreamHandle,
-    OneshotDnsResponseReceiver,
+    DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
 };
 
 use error::*;
@@ -83,50 +82,33 @@ impl<S: DnsClientStream + 'static>
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
         let mp =
             DnsMultiplexer::with_timeout(Box::new(stream), stream_handle, timeout_duration, signer);
-        let (exchange, handle) = DnsExchange::connect(mp);
-
-        Self::from_exchange_with_timeout(exchange, handle)
+        Self::connect(mp)
     }
 }
 
-impl<SenderFuture, Sender, Response> ClientFuture<SenderFuture, Sender, Response>
+impl<F, S, R> ClientFuture<F, S, R>
 where
-    SenderFuture: Future<Item = Sender, Error = ProtoError> + Send,
-    Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
+    F: Future<Item = S, Error = ProtoError> + 'static + Send,
+    S: DnsRequestSender<DnsResponseFuture = R>,
+    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
 {
-    // TODO: consider changing this to take the multiplexed connection, and create the exchange internally...
-    /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
+    /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
-    /// # Arguments
+    /// The connect_future should be lazy.
     ///
-    /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
-    ///              (see TcpClientStream or UdpClientStream)
-    /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    pub fn from_exchange(
-        stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
-        stream_handle: DnsRequestStreamHandle<Response>,
-    ) -> (Self, BasicClientHandle<Response>) {
-        Self::from_exchange_with_timeout(stream, stream_handle)
-    }
+    /// # Returns
+    ///
+    /// This returns a tuple of Self and a handle to send dns messages. Self is a
+    ///  background task, it must be run on an executor before handle is used.
+    pub fn connect(connect_future: F) -> (Self, BasicClientHandle<R>) {
+        let (exchange, handle) = DnsExchange::connect(connect_future);
 
-    /// Spawns a new ClientFuture Stream.
-    ///
-    /// # Arguments
-    ///
-    /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
-    ///              (see TcpClientStream or UdpClientStream)
-    /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
-    pub fn from_exchange_with_timeout(
-        stream: DnsExchangeConnect<SenderFuture, Sender, Response>,
-        stream_handle: DnsRequestStreamHandle<Response>,
-    ) -> (Self, BasicClientHandle<Response>) {
         (
             Self {
-                inner: InnerClientFuture::DnsExchangeConnect(stream),
+                inner: InnerClientFuture::DnsExchangeConnect(exchange),
             },
             BasicClientHandle {
-                message_sender: BufDnsRequestStreamHandle::new(stream_handle),
+                message_sender: BufDnsRequestStreamHandle::new(handle),
             },
         )
     }

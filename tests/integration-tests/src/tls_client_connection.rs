@@ -16,10 +16,7 @@ use rustls::Certificate;
 use trust_dns::client::ClientConnection;
 use trust_dns::error::*;
 use trust_dns::rr::dnssec::Signer;
-use trust_dns_proto::xfer::{
-    DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
-    DnsRequestStreamHandle,
-};
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use trust_dns_rustls::TlsClientStream;
 use trust_dns_rustls::TlsClientStreamBuilder;
@@ -44,20 +41,13 @@ impl ClientConnection for TlsClientConnection {
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<TlsClientStream, Signer>;
 
-    fn new_stream(
-        &self,
-        signer: Option<Arc<Signer>>,
-    ) -> (
-        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
-        DnsRequestStreamHandle<Self::Response>,
-    ) {
+    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (tls_client_stream, handle) = self
             .builder
             .clone()
             .build(self.name_server, self.dns_name.clone());
 
-        let mp = DnsMultiplexer::new(Box::new(tls_client_stream), Box::new(handle), signer);
-        DnsExchange::connect(mp)
+        DnsMultiplexer::new(Box::new(tls_client_stream), Box::new(handle), signer)
     }
 }
 

@@ -30,7 +30,6 @@ use rustls::Certificate;
 use tokio::runtime::current_thread::Runtime;
 use trust_dns::client::*;
 use trust_dns_https::HttpsClientStreamBuilder;
-use trust_dns_proto::xfer::DnsExchange;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -47,7 +46,8 @@ fn test_example_https_toml_startup() {
         File::open(&format!(
             "{}/tests/named_test_configs/sec/example.cert",
             server_path
-        )).expect("failed to open cert")
+        ))
+        .expect("failed to open cert")
         .read_to_end(&mut cert_der)
         .expect("failed to read cert");
 
@@ -64,8 +64,7 @@ fn test_example_https_toml_startup() {
         let cert = to_trust_anchor(&cert_der);
         https_conn_builder.add_ca(cert);
         let mp = https_conn_builder.build(addr, "ns.example.com".to_string());
-        let (exchange, handle) = DnsExchange::connect(mp);
-        let (bg, mut client) = ClientFuture::from_exchange(exchange, handle);
+        let (bg, mut client) = ClientFuture::connect(mp);
 
         // ipv4 should succeed
         io_loop.spawn(bg);
