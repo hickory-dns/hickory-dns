@@ -438,9 +438,9 @@ where
         ClientFuture<Self::SenderFuture, Self::Sender, Self::Response>,
         Self::Handle,
     ) {
-        let (stream, stream_handle) = self.conn.new_stream(self.signer.clone());
+        let stream = self.conn.new_stream(self.signer.clone());
 
-        ClientFuture::from_exchange(stream, stream_handle)
+        ClientFuture::connect(stream)
     }
 }
 
@@ -522,10 +522,10 @@ where
         ClientFuture<Self::SenderFuture, Self::Sender, Self::Response>,
         Self::Handle,
     ) {
-        let (stream, stream_handle) = self.conn.new_stream(self.signer.clone());
+        let stream = self.conn.new_stream(self.signer.clone());
 
-        let (background, client) = ClientFuture::from_exchange(stream, stream_handle);
-        (background, SecureClientHandle::new(client))
+        let (background, handle) = ClientFuture::connect(stream);
+        (background, SecureClientHandle::new(handle))
     }
 }
 

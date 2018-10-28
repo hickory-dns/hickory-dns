@@ -32,12 +32,7 @@ impl UdpClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new(
-        name_server: SocketAddr,
-    ) -> (
-        Box<Future<Item = UdpClientStream, Error = ProtoError> + Send>,
-        Box<DnsStreamHandle + Send>,
-    ) {
+    pub fn new(name_server: SocketAddr) -> (UdpClientConnect, Box<DnsStreamHandle + Send>) {
         let (stream_future, sender) = UdpStream::new(name_server);
 
         let new_future = Box::new(
@@ -48,6 +43,7 @@ impl UdpClientStream {
                 })
                 .map_err(ProtoError::from),
         );
+        let new_future = UdpClientConnect(new_future);
 
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
@@ -86,6 +82,18 @@ impl Stream for UdpClientStream {
             }
             None => Ok(Async::Ready(None)),
         }
+    }
+}
+
+/// A future that resolves to an UdpClientStream
+pub struct UdpClientConnect(Box<Future<Item = UdpClientStream, Error = ProtoError> + Send>);
+
+impl Future for UdpClientConnect {
+    type Item = UdpClientStream;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
     }
 }
 

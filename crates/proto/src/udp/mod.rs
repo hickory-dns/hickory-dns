@@ -19,5 +19,5 @@
 mod udp_client_stream;
 mod udp_stream;
 
-pub use self::udp_client_stream::UdpClientStream;
+pub use self::udp_client_stream::{UdpClientConnect, UdpClientStream};
 pub use self::udp_stream::UdpStream;

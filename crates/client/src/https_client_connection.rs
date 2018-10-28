@@ -12,9 +12,7 @@ use std::sync::Arc;
 
 use rustls::{Certificate, ClientConfig};
 use trust_dns_https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use trust_dns_proto::xfer::{
-    DnsExchange, DnsExchangeConnect, DnsRequestSender, DnsRequestStreamHandle,
-};
+use trust_dns_proto::xfer::DnsRequestSender;
 
 use client::ClientConnection;
 use rr::dnssec::Signer;
@@ -50,18 +48,13 @@ impl ClientConnection for HttpsClientConnection {
 
     fn new_stream(
         &self,
-        // FIXME: maybe signer needs to be applied in https...
+        // TODO: maybe signer needs to be applied in https...
         _signer: Option<Arc<Signer>>,
-    ) -> (
-        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
-        DnsRequestStreamHandle<Self::Response>,
-    ) {
-        // FIXME: maybe signer needs to be applied in https...
+    ) -> Self::SenderFuture {
+        // TODO: maybe signer needs to be applied in https...
         let https_builder =
             HttpsClientStreamBuilder::with_client_config(self.client_config.clone());
-        let https_connect = https_builder.build(self.name_server, self.dns_name.clone());
-
-        DnsExchange::connect(https_connect)
+        https_builder.build(self.name_server, self.dns_name.clone())
     }
 }
 

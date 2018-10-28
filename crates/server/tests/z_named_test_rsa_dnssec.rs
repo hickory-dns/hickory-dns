@@ -22,8 +22,8 @@ use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns::client::*;
 use trust_dns::rr::dnssec::*;
-use trust_dns::tcp::TcpClientStream;
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::tcp::{TcpClientConnect, TcpClientStream};
 use trust_dns_proto::xfer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
 };
@@ -65,7 +65,7 @@ fn standard_conn(
     port: u16,
 ) -> (
     ClientFuture<
-        DnsMultiplexerConnect<TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexerConnect<TcpClientConnect, TcpClientStream<TokioTcpStream>, Signer>,
         DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
         DnsMultiplexerSerialResponse,
     >,
@@ -77,7 +77,7 @@ fn standard_conn(
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    ClientFuture::new(Box::new(stream), sender, None)
+    ClientFuture::new(stream, sender, None)
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {

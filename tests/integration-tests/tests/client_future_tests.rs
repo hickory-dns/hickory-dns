@@ -123,7 +123,6 @@ fn test_query_tcp_ipv6() {
 fn test_query_https() {
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     use trust_dns_https::HttpsClientStreamBuilder;
-    use trust_dns_proto::xfer::DnsExchange;
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("1.1.1.1", 443).to_socket_addrs().unwrap().next().unwrap();
@@ -138,10 +137,8 @@ fn test_query_https() {
     client_config.versions = versions;
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    let (stream, handle) =
-        DnsExchange::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
-
-    let (bg, mut client) = ClientFuture::from_exchange(stream, handle);
+    let (bg, mut client) =
+        ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -161,14 +158,12 @@ where
             .query(name.clone(), DNSClass::IN, RecordType::A)
             .map(move |response| {
                 println!("response records: {:?}", response);
-                assert!(
-                    response
-                        .queries()
-                        .first()
-                        .expect("expected query")
-                        .name()
-                        .eq_case(&name)
-                );
+                assert!(response
+                    .queries()
+                    .first()
+                    .expect("expected query")
+                    .name()
+                    .eq_case(&name));
 
                 let record = &response.answers()[0];
                 assert_eq!(record.name(), &name);
@@ -180,7 +175,8 @@ where
                 } else {
                     assert!(false);
                 }
-            }).map_err(|e| {
+            })
+            .map_err(|e| {
                 assert!(false, "query failed: {}", e);
             }),
     )
@@ -223,7 +219,11 @@ fn create_sig0_ready_client(
     _io_loop: &mut Runtime,
 ) -> (
     ClientFuture<
-        DnsMultiplexerConnect<TestClientStream, Signer>,
+        DnsMultiplexerConnect<
+            Box<Future<Item = TestClientStream, Error = ProtoError> + Send>,
+            TestClientStream,
+            Signer,
+        >,
         DnsMultiplexer<TestClientStream, Signer>,
         DnsMultiplexerSerialResponse,
     >,
@@ -675,7 +675,8 @@ fn test_delete_by_rdata() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        )).expect("query failed");
+        ))
+        .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
     assert!(result.answers().iter().any(|rr| *rr == record1));
@@ -748,7 +749,8 @@ fn test_delete_by_rdata_multi() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        )).expect("query failed");
+        ))
+        .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
     assert!(!result.answers().iter().any(|rr| *rr == record1));

@@ -14,6 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time;
 
 use chrono::Duration;
+use futures::Future;
 use openssl::rsa::Rsa;
 
 #[cfg(feature = "dnssec")]
@@ -29,10 +30,8 @@ use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
-use trust_dns_proto::xfer::{
-    DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender,
-    DnsRequestStreamHandle,
-};
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 use trust_dns_server::authority::Catalog;
 
 pub struct TestClientConnection {
@@ -50,19 +49,16 @@ impl TestClientConnection {
 impl ClientConnection for TestClientConnection {
     type Sender = DnsMultiplexer<TestClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<TestClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<
+        Box<Future<Item = TestClientStream, Error = ProtoError> + Send>,
+        TestClientStream,
+        Signer,
+    >;
 
-    fn new_stream(
-        &self,
-        signer: Option<Arc<Signer>>,
-    ) -> (
-        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
-        DnsRequestStreamHandle<Self::Response>,
-    ) {
+    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
 
-        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer);
-        DnsExchange::connect(mp)
+        DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer)
     }
 }
 
@@ -113,14 +109,12 @@ where
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
-    assert!(
-        response
-            .queries()
-            .first()
-            .expect("expected query")
-            .name()
-            .eq_case(&name)
-    );
+    assert!(response
+        .queries()
+        .first()
+        .expect("expected query")
+        .name()
+        .eq_case(&name));
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);
@@ -507,26 +501,22 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(100, 10, 100, 10)
-            } else {
-                false
-            })
-    );
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(101, 11, 101, 11)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(100, 10, 100, 10)
+        } else {
+            false
+        }));
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(101, 11, 101, 11)
+        } else {
+            false
+        }));
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
@@ -574,16 +564,14 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(101, 11, 101, 11)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(101, 11, 101, 11)
+        } else {
+            false
+        }));
 
     // check the it fails if tried again.
     let mut new = new;
@@ -599,16 +587,14 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(101, 11, 101, 11)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(101, 11, 101, 11)
+        } else {
+            false
+        }));
 }
 
 #[cfg(feature = "dnssec")]
@@ -655,16 +641,14 @@ fn test_delete_by_rdata() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(100, 10, 100, 10)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(100, 10, 100, 10)
+        } else {
+            false
+        }));
 }
 
 #[cfg(feature = "dnssec")]

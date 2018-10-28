@@ -30,8 +30,7 @@ use trust_dns::rr::dnssec::Signer;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    DnsClientStream, DnsExchange, DnsExchangeConnect, DnsMultiplexer, DnsMultiplexerConnect,
-    DnsRequestSender, DnsRequestStreamHandle, SerialMessage,
+    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender, SerialMessage,
 };
 use trust_dns_proto::StreamHandle;
 
@@ -238,18 +237,15 @@ impl NeverReturnsClientConnection {
 impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<NeverReturnsClientStream, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<
+        Box<Future<Item = NeverReturnsClientStream, Error = ProtoError> + Send>,
+        NeverReturnsClientStream,
+        Signer,
+    >;
 
-    fn new_stream(
-        &self,
-        signer: Option<Arc<Signer>>,
-    ) -> (
-        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
-        DnsRequestStreamHandle<Self::Response>,
-    ) {
+    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
-        let mp = DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer);
-        DnsExchange::connect(mp)
+        DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer)
     }
 }

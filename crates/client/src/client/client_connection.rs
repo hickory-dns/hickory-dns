@@ -18,9 +18,7 @@ use std::sync::Arc;
 use futures::Future;
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{
-    DnsExchangeConnect, DnsRequestSender, DnsRequestStreamHandle, DnsResponse,
-};
+use trust_dns_proto::xfer::{DnsRequestSender, DnsResponse};
 
 use rr::dnssec::Signer;
 
@@ -34,11 +32,5 @@ pub trait ClientConnection: 'static + Sized + Send {
     type SenderFuture: Future<Item = Self::Sender, Error = ProtoError> + 'static + Send;
 
     /// Construct a new stream for use in the Client
-    fn new_stream(
-        &self,
-        signer: Option<Arc<Signer>>,
-    ) -> (
-        DnsExchangeConnect<Self::SenderFuture, Self::Sender, Self::Response>,
-        DnsRequestStreamHandle<Self::Response>,
-    );
+    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture;
 }

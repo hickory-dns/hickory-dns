@@ -659,7 +659,7 @@ impl Deref for Message {
 ///
 /// An example of this is a SIG0 signer, which needs the final form of the message,
 ///  but then needs to attach additional data to the body of the message.
-pub trait MessageFinalizer {
+pub trait MessageFinalizer: Send {
     /// The message taken in should be processed and then return [`Record`]s which should be
     ///  appended to the additional section of the message.
     ///

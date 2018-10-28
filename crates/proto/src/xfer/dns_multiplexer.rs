@@ -138,12 +138,14 @@ where
     ///              (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn new(
-        // TODO: unbox this
-        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
+    pub fn new<F>(
+        stream: F,
         stream_handle: Box<DnsStreamHandle>,
         signer: Option<Arc<MF>>,
-    ) -> DnsMultiplexerConnect<S, MF> {
+    ) -> DnsMultiplexerConnect<F, S, MF>
+    where
+        F: Future<Item = S, Error = ProtoError> + Send + 'static,
+    {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
@@ -157,13 +159,15 @@ where
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn with_timeout(
-        stream: Box<Future<Item = S, Error = ProtoError> + Send>,
+    pub fn with_timeout<F>(
+        stream: F,
         stream_handle: Box<DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
-    ) -> DnsMultiplexerConnect<S, MF> {
-        // TODO: remove box, see DnsExchange for Connect type
+    ) -> DnsMultiplexerConnect<F, S, MF>
+    where
+        F: Future<Item = S, Error = ProtoError> + Send + 'static,
+    {
         DnsMultiplexerConnect {
             stream,
             stream_handle: Some(stream_handle),
@@ -251,19 +255,21 @@ where
 
 /// A wrapper for a future DnsExchange connection
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexerConnect<S, MF>
+pub struct DnsMultiplexerConnect<F, S, MF>
 where
+    F: Future<Item = S, Error = ProtoError> + Send + 'static,
     S: Stream<Item = SerialMessage, Error = ProtoError>,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    stream: Box<Future<Item = S, Error = ProtoError> + Send>,
+    stream: F,
     stream_handle: Option<Box<DnsStreamHandle>>,
     timeout_duration: Duration,
     signer: Option<Arc<MF>>,
 }
 
-impl<S, MF> Future for DnsMultiplexerConnect<S, MF>
+impl<F, S, MF> Future for DnsMultiplexerConnect<F, S, MF>
 where
+    F: Future<Item = S, Error = ProtoError> + Send + 'static,
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -315,7 +321,8 @@ where
             Async::NotReady => {
                 return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(
                     "id space exhausted, consider filing an issue",
-                ))).into()
+                )))
+                .into()
             }
         };
 
@@ -505,11 +512,10 @@ impl Future for DnsMultiplexerSerialResponseInner {
         match self {
             // The inner type of the completion might have been an error
             //   we need to unwrap that, and translate to be the Future's error
-            DnsMultiplexerSerialResponseInner::Completion(complete) => match try_ready!(
-                complete
-                    .poll()
-                    .map_err(|_| ProtoError::from("the completion was canceled"))
-            ) {
+            DnsMultiplexerSerialResponseInner::Completion(complete) => match try_ready!(complete
+                .poll()
+                .map_err(|_| ProtoError::from("the completion was canceled")))
+            {
                 Ok(response) => Ok(Async::Ready(response)),
                 Err(err) => Err(err),
             },

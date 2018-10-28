@@ -55,7 +55,8 @@ impl TcpClientStream<TokioTcpStream> {
             stream_future
                 .map(move |tcp_stream| TcpClientStream {
                     tcp_stream: tcp_stream,
-                }).map_err(ProtoError::from),
+                })
+                .map_err(ProtoError::from),
         );
 
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
@@ -107,7 +108,7 @@ impl<S: AsyncRead + AsyncWrite + Send> Stream for TcpClientStream<S> {
 }
 
 // TODO: create unboxed future for the TCP Stream
-/// A future that resolves to an HttpsClientStream
+/// A future that resolves to an TcpClientStream
 pub struct TcpClientConnect(
     Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = ProtoError> + Send>,
 );
@@ -167,7 +168,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -213,7 +215,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();
