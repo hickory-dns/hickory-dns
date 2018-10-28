@@ -27,8 +27,8 @@ use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::*;
 use trust_dns::udp::*;
-use trust_dns_proto::xfer::*;
 use trust_dns_proto::error::*;
+use trust_dns_proto::xfer::*;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -109,13 +109,10 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 }
 
 /// Runs the bench tesk using the specified client
-fn bench<S>(
-    b: &mut Bencher,
-    stream: Box<Future<Item = S, Error = ProtoError> + Send>, 
-    stream_handle: Box<DnsStreamHandle>, 
-)
+fn bench<F, S>(b: &mut Bencher, stream: F, stream_handle: Box<DnsStreamHandle>)
 where
-    S: DnsClientStream + 'static,
+    F: Future<Item = S, Error = ProtoError> + Send + 'static,
+    S: DnsClientStream + Send + 'static,
 {
     let mut io_loop = Runtime::new().unwrap();
     let (bg, mut client) = ClientFuture::new(stream, stream_handle, None);
