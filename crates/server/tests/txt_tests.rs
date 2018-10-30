@@ -5,10 +5,10 @@ extern crate trust_dns_server;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
+use trust_dns::proto::rr::rdata::tlsa::*;
 use trust_dns::rr::dnssec::*;
 use trust_dns::rr::*;
 use trust_dns::serialize::txt::*;
-use trust_dns_proto::rr::rdata::tlsa::*;
 use trust_dns_server::authority::*;
 
 #[test]
@@ -104,7 +104,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::NS,
             false,
             SupportedAlgorithms::new(),
-        ).collect();
+        )
+        .collect();
     let mut compare = vec![
         // this is cool, zip up the expected results... works as long as the order is good.
         Name::from_str("a.isi.edu").unwrap(),
@@ -135,7 +136,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::MX,
             false,
             SupportedAlgorithms::new(),
-        ).collect();
+        )
+        .collect();
     let mut compare = vec![
         (10, Name::from_str("venera.isi.edu").unwrap()),
         (20, Name::from_str("vaxa.isi.edu").unwrap()),
@@ -165,7 +167,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .unwrap();
     assert_eq!(&Name::from_str("a.isi.edu").unwrap(), a_record.name());
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
@@ -184,7 +187,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::AAAA,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .unwrap();
     assert_eq!(&Name::from_str("aaaa.isi.edu").unwrap(), aaaa_record.name());
     if let RData::AAAA(ref address) = *aaaa_record.rdata() {
@@ -203,7 +207,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .unwrap();
     assert_eq!(
         &Name::from_str("short.isi.edu").unwrap(),
@@ -223,7 +228,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::TXT,
             false,
             SupportedAlgorithms::new(),
-        ).collect();
+        )
+        .collect();
     let compare = vec![
         vec![
             Box::from("I".as_bytes()),
@@ -268,7 +274,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::PTR,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .unwrap();
     if let RData::PTR(ref ptrdname) = *ptr_record.rdata() {
         assert_eq!(&Name::from_str("a.isi.edu").unwrap(), ptrdname);
@@ -283,7 +290,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::SRV,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .unwrap();
     if let RData::SRV(ref rdata) = *srv_record.rdata() {
         assert_eq!(rdata.priority(), 1);
@@ -301,7 +309,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .unwrap();
     assert_eq!(
         &Name::from_str("rust-❤️-🦀.isi.edu").unwrap(),
@@ -320,7 +329,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::CAA,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .expect("nocerts not found");
     if let RData::CAA(ref rdata) = *caa_record.rdata() {
         assert!(!rdata.issuer_critical());
@@ -339,7 +349,8 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::TLSA,
             false,
             SupportedAlgorithms::new(),
-        ).next()
+        )
+        .next()
         .expect("tlsa record not found");
     if let RData::TLSA(ref rdata) = *tlsa_record.rdata() {
         assert_eq!(*rdata.cert_usage(), CertUsage::CA);

@@ -8,10 +8,10 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use lookup::Lookup;
-use trust_dns_proto::op::Query;
+use proto::op::Query;
 #[cfg(unix)]
-use trust_dns_proto::rr::RData;
-use trust_dns_proto::rr::{Name, RecordType};
+use proto::rr::RData;
+use proto::rr::{Name, RecordType};
 
 #[derive(Debug, Default)]
 struct LookupType {
@@ -91,7 +91,7 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 
-    use trust_dns_proto::rr::domain::TryParseIp;
+    use proto::rr::domain::TryParseIp;
 
     let mut hosts = Hosts {
         by_name: HashMap::new(),

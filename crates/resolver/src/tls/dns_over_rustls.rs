@@ -16,8 +16,8 @@ use std::net::SocketAddr;
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::BufDnsStreamHandle;
+use proto::error::ProtoError;
+use proto::BufDnsStreamHandle;
 use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
 
 pub(crate) fn new_tls_stream(

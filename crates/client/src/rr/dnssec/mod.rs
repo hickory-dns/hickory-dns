@@ -21,7 +21,7 @@ mod key_format;
 mod keypair;
 mod signer;
 
-use trust_dns_proto::rr::dnssec;
+use proto::rr::dnssec;
 
 pub use self::dnssec::Algorithm;
 pub use self::dnssec::DigestType;

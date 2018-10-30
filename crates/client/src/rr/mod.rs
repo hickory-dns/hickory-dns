@@ -21,12 +21,12 @@ mod lower_name;
 mod rr_key;
 pub mod zone;
 
-use trust_dns_proto::rr;
-pub use trust_dns_proto::rr::dns_class;
-pub use trust_dns_proto::rr::domain;
-pub use trust_dns_proto::rr::record_data;
-pub use trust_dns_proto::rr::record_type;
-pub use trust_dns_proto::rr::resource;
+use proto::rr;
+pub use proto::rr::dns_class;
+pub use proto::rr::domain;
+pub use proto::rr::record_data;
+pub use proto::rr::record_type;
+pub use proto::rr::resource;
 
 pub use self::rr::domain::{IntoName, Name, Label};
 pub use self::dns_class::DNSClass;
@@ -40,6 +40,6 @@ pub use self::rr_key::RrKey;
 
 /// All record data structures and related serialization methods
 pub mod rdata {
-    pub use trust_dns_proto::rr::rdata::*;
-    pub use trust_dns_proto::rr::dnssec::rdata::*;
+    pub use proto::rr::rdata::*;
+    pub use proto::rr::dnssec::rdata::*;
 }

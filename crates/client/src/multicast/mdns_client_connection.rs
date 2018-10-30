@@ -10,10 +10,10 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-use trust_dns_proto::multicast::{
+use proto::multicast::{
     MdnsClientConnect, MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6,
 };
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use client::ClientConnection;
 use rr::dnssec::Signer;

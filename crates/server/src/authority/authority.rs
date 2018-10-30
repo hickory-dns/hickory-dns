@@ -17,7 +17,7 @@ use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-use trust_dns_proto::rr::RrsetRecords;
+use proto::rr::RrsetRecords;
 
 #[cfg(feature = "dnssec")]
 use authority::UpdateRequest;
@@ -510,7 +510,7 @@ impl Authority {
     #[cfg(feature = "dnssec")]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
-        use trust_dns_proto::rr::dnssec::Verifier;
+        use proto::rr::dnssec::Verifier;
 
         // 3.3.3 - Pseudocode for Permission Checking
         //

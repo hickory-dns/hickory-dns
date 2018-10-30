@@ -13,7 +13,7 @@ use std::str::FromStr;
 use ipconfig::computer::{get_domain, get_search_list, is_round_robin_enabled};
 use ipconfig::get_adapters;
 
-use trust_dns_proto::rr::Name;
+use proto::rr::Name;
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;

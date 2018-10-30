@@ -7,9 +7,9 @@ use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 
 use futures::Future;
 
+use proto::error::ProtoError;
+use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
 use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
 
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,

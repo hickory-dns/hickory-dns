@@ -61,7 +61,7 @@ extern crate trust_dns;
 extern crate trust_dns_https;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
-extern crate trust_dns_proto;
+pub extern crate trust_dns_proto as proto;
 #[cfg(feature = "dns-over-rustls")]
 extern crate trust_dns_rustls;
 

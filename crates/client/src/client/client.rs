@@ -17,8 +17,8 @@ use std::sync::Arc;
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsRequestSender, DnsResponse};
+use proto::error::ProtoError;
+use proto::xfer::{DnsRequestSender, DnsResponse};
 
 #[cfg(feature = "dnssec")]
 use client::SecureClientHandle;

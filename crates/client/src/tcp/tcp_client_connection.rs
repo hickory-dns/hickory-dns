@@ -12,8 +12,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tokio_tcp::TcpStream;
-use trust_dns_proto::tcp::{TcpClientConnect, TcpClientStream};
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use proto::tcp::{TcpClientConnect, TcpClientStream};
+use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use client::ClientConnection;
 use error::*;

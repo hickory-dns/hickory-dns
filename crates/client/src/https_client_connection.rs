@@ -10,9 +10,9 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use proto::xfer::DnsRequestSender;
 use rustls::{Certificate, ClientConfig};
 use trust_dns_https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use trust_dns_proto::xfer::DnsRequestSender;
 
 use client::ClientConnection;
 use rr::dnssec::Signer;

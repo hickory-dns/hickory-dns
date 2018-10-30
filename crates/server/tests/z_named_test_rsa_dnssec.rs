@@ -20,13 +20,13 @@ use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream as TokioTcpStream;
 
-use trust_dns::client::*;
-use trust_dns::rr::dnssec::*;
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::tcp::{TcpClientConnect, TcpClientStream};
-use trust_dns_proto::xfer::{
+use trust_dns::proto::error::ProtoError;
+use trust_dns::proto::tcp::{TcpClientConnect, TcpClientStream};
+use trust_dns::proto::xfer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
 };
+use trust_dns::client::*;
+use trust_dns::rr::dnssec::*;
 
 use server_harness::*;
 

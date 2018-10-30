@@ -19,13 +19,13 @@ use tokio::executor::{DefaultExecutor, Executor};
 
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https;
-use trust_dns_proto::error::{ProtoError, ProtoResult};
+use proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
-use trust_dns_proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4};
-use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
-use trust_dns_proto::tcp::TcpClientStream;
-use trust_dns_proto::udp::UdpClientStream;
-use trust_dns_proto::xfer::{
+use proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4};
+use proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
+use proto::tcp::TcpClientStream;
+use proto::udp::UdpClientStream;
+use proto::xfer::{
     self, BufDnsRequestStreamHandle, DnsExchange, DnsHandle, DnsMultiplexer,
     DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
@@ -923,8 +923,8 @@ where
 mod mdns {
     use super::*;
 
-    use trust_dns_proto::rr::domain::usage;
-    use trust_dns_proto::DnsHandle;
+    use proto::rr::domain::usage;
+    use proto::DnsHandle;
 
     /// Returns true
     pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
@@ -1009,9 +1009,9 @@ mod tests {
     use futures::future;
     use tokio::runtime::current_thread::Runtime;
 
-    use trust_dns_proto::op::{Query, ResponseCode};
-    use trust_dns_proto::rr::{Name, RecordType};
-    use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
+    use proto::op::{Query, ResponseCode};
+    use proto::rr::{Name, RecordType};
+    use proto::xfer::{DnsHandle, DnsRequestOptions};
 
     use super::*;
     use config::Protocol;

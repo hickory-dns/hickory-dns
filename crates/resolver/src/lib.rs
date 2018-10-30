@@ -194,7 +194,7 @@ extern crate trust_dns_https;
 extern crate trust_dns_native_tls;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
-extern crate trust_dns_proto;
+pub extern crate trust_dns_proto as proto;
 #[cfg(feature = "dns-over-rustls")]
 extern crate trust_dns_rustls;
 
@@ -217,7 +217,7 @@ pub mod system_conf;
 mod tls;
 
 // reexports from proto
-pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
+pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
 pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
 pub use hosts::Hosts;

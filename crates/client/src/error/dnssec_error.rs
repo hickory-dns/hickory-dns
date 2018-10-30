@@ -28,7 +28,7 @@ use self::not_ring::Unspecified;
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "ring")]
 use ring::error::Unspecified;
-use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
+use proto::error::{ProtoError, ProtoErrorKind};
 
 /// An alias for dnssec results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

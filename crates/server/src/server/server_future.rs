@@ -26,11 +26,11 @@ use tokio_udp;
     )
 )]
 use trust_dns_openssl::tls_server::*;
-use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder};
-use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::udp::UdpStream;
-use trust_dns_proto::xfer::SerialMessage;
-use trust_dns_proto::BufStreamHandle;
+use proto::serialize::binary::{BinDecodable, BinDecoder};
+use proto::tcp::TcpStream;
+use proto::udp::UdpStream;
+use proto::xfer::SerialMessage;
+use proto::BufStreamHandle;
 
 use authority::MessageRequest;
 use server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};

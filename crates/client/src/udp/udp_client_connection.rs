@@ -10,8 +10,8 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use proto::udp::{UdpClientConnect, UdpClientStream};
+use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use client::ClientConnection;
 use error::*;

@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use futures::{Future, Poll};
 use rand;
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{
+use proto::error::ProtoError;
+use proto::xfer::{
     BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,

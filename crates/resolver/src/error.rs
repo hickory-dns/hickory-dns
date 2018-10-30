@@ -9,8 +9,8 @@
 
 use failure::{Backtrace, Context, Fail};
 use std::{fmt, io, time::Instant};
-use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
-use trust_dns_proto::op::Query;
+use proto::error::{ProtoError, ProtoErrorKind};
+use proto::op::Query;
 
 /// An alias for results returned by functions of this crate
 pub type ResolveResult<T> = ::std::result::Result<T, ResolveError>;

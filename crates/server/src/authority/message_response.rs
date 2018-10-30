@@ -9,9 +9,9 @@ use std::iter::Chain;
 
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
-use trust_dns_proto::error::*;
-use trust_dns_proto::op::message::EmitAndCount;
-use trust_dns_proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
+use proto::error::*;
+use proto::op::message::EmitAndCount;
+use proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
 
 use authority::message_request::QueriesEmitAndCount;
 use authority::{AuthLookup, LookupRecords, Queries};
@@ -195,9 +195,9 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use trust_dns_proto::op::{Header, Message};
-    use trust_dns_proto::rr::{DNSClass, Name, RData, Record};
-    use trust_dns_proto::serialize::binary::BinEncoder;
+    use proto::op::{Header, Message};
+    use proto::rr::{DNSClass, Name, RData, Record};
+    use proto::serialize::binary::BinEncoder;
 
     use super::*;
 
