@@ -16,13 +16,13 @@ use std::time::Instant;
 
 use futures::{future, task, Async, Future, Poll};
 
-use trust_dns_proto::op::{Message, Query, ResponseCode};
-use trust_dns_proto::rr::domain::usage::{
+use proto::op::{Message, Query, ResponseCode};
+use proto::rr::domain::usage::{
     IN_ADDR_ARPA_127, IP6_ARPA_1, ResolverUsage, DEFAULT, INVALID, LOCAL,
     LOCALHOST as LOCALHOST_usage,
 };
-use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
+use proto::rr::{DNSClass, Name, RData, Record, RecordType};
+use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -650,10 +650,10 @@ mod tests {
 
     use futures::future;
 
-    use trust_dns_proto::error::{ProtoError, ProtoResult};
-    use trust_dns_proto::op::{Message, Query};
-    use trust_dns_proto::rr::rdata::SRV;
-    use trust_dns_proto::rr::{Name, Record};
+    use proto::error::{ProtoError, ProtoResult};
+    use proto::op::{Message, Query};
+    use proto::rr::rdata::SRV;
+    use proto::rr::{Name, Record};
 
     use super::*;
     use lookup_ip::tests::*;

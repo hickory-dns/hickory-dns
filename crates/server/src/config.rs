@@ -17,12 +17,12 @@ use std::time::Duration;
 use log;
 use toml;
 
+use proto::error::ProtoResult;
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
 use trust_dns::rr::Name;
-use trust_dns_proto::error::ProtoResult;
 
 use authority::ZoneType;
 use error::{ConfigError, ConfigResult};
@@ -301,7 +301,8 @@ impl KeyConfig {
                 "extension not understood, '{:?}': {:?}",
                 e,
                 self.key_path()
-            )).into()),
+            ))
+            .into()),
         }
     }
 

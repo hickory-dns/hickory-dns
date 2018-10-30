@@ -16,8 +16,8 @@
 
 //! mail exchange, email, record
 
-use trust_dns_proto::rr::rdata::caa;
-use trust_dns_proto::rr::rdata::caa::{Property, Value};
+use proto::rr::rdata::caa;
+use proto::rr::rdata::caa::{Property, Value};
 
 use error::*;
 use rr::rdata::CAA;

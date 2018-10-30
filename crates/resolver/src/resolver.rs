@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
-use trust_dns_proto::rr::RecordType;
+use proto::rr::RecordType;
 
 use AsyncResolver;
 use config::{ResolverConfig, ResolverOpts};

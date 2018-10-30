@@ -17,7 +17,7 @@
 //! UDP protocol related components for DNS
 
 mod udp_client_connection;
-use trust_dns_proto::udp;
+use proto::udp;
 
 pub use self::udp_client_connection::UdpClientConnection;
 pub use self::udp::UdpClientStream;

@@ -16,7 +16,7 @@
 
 //! Binary serialization types
 
-use trust_dns_proto::serialize::binary;
+use proto::serialize::binary;
 
 #[deprecated(note = "use [`trust_dns::serialize::binary::StreamHandle`] instead")]
 pub use self::binary::BinDecodable as BinSerializable;

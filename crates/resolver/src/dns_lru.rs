@@ -10,8 +10,8 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use trust_dns_proto::op::Query;
-use trust_dns_proto::rr::RData;
+use proto::op::Query;
+use proto::rr::RData;
 
 use config;
 use error::*;
@@ -255,8 +255,8 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use trust_dns_proto::op::Query;
-    use trust_dns_proto::rr::{Name, RecordType};
+    use proto::op::Query;
+    use proto::rr::{Name, RecordType};
 
     use super::*;
 

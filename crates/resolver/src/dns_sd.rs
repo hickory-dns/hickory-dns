@@ -13,8 +13,8 @@ use std::collections::HashMap;
 
 use futures::{Async, Future, Poll};
 
-use trust_dns_proto::rr::{IntoName, Name, RecordType};
-use trust_dns_proto::xfer::DnsRequestOptions;
+use proto::rr::{IntoName, Name, RecordType};
+use proto::xfer::DnsRequestOptions;
 
 use error::*;
 use lookup::{

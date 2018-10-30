@@ -22,7 +22,7 @@ use std::time::Duration;
 use resolv_conf;
 
 use config::*;
-use trust_dns_proto::rr::Name;
+use proto::rr::Name;
 
 const DEFAULT_PORT: u16 = 53;
 
@@ -102,7 +102,7 @@ mod tests {
     use std::env;
     use std::net::*;
     use std::str::FromStr;
-    use trust_dns_proto::rr::Name;
+    use proto::rr::Name;
 
     fn empty_config() -> ResolverConfig {
         ResolverConfig::from_parts(None, vec![], vec![])

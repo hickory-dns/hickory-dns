@@ -283,7 +283,7 @@ extern crate tokio_tcp;
 extern crate tokio_tls;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
-extern crate trust_dns_proto;
+pub extern crate trust_dns_proto as proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 #[cfg(feature = "dns-over-https")]
@@ -311,12 +311,12 @@ pub mod https {
 
 /// A sender to which serialized DNS Messages can be sent
 #[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
-pub use trust_dns_proto::BufStreamHandle;
+pub use proto::BufStreamHandle;
 
 /// A sender to which a Message can be sent
 // pub type MessageStreamHandle = UnboundedSender<Message>;
 #[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
-pub use trust_dns_proto::BufDnsStreamHandle as BufClientStreamHandle;
+pub use proto::BufDnsStreamHandle as BufClientStreamHandle;
 
 /// Returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

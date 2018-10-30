@@ -15,10 +15,10 @@ use futures::{
     sync::{mpsc, oneshot},
     Future, Poll,
 };
-use trust_dns_proto::error::ProtoResult;
-use trust_dns_proto::rr::domain::TryParseIp;
-use trust_dns_proto::rr::{IntoName, Name, RData, RecordType};
-use trust_dns_proto::xfer::DnsRequestOptions;
+use proto::error::ProtoResult;
+use proto::rr::domain::TryParseIp;
+use proto::rr::{IntoName, Name, RData, RecordType};
+use proto::xfer::DnsRequestOptions;
 
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::{self, DnsLru};
@@ -381,7 +381,7 @@ mod tests {
     use std::str::FromStr;
 
     use self::tokio::runtime::current_thread::Runtime;
-    use trust_dns_proto::xfer::DnsRequest;
+    use proto::xfer::DnsRequest;
 
     use config::{LookupIpStrategy, NameServerConfig};
 
@@ -574,7 +574,7 @@ mod tests {
         assert!(response.is_err());
         let error = response.unwrap_err();
 
-        use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
+        use proto::error::{ProtoError, ProtoErrorKind};
 
         let error_str = format!("{}", error.root_cause());
         let expected_str = format!(

@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use proto::error::ProtoError;
+use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use client::rc_future::{rc_future, RcFuture};
 use client::ClientHandle;
@@ -80,8 +80,8 @@ mod test {
     use op::*;
     use rr::*;
     use std::cell::Cell;
-    use trust_dns_proto::error::ProtoError;
-    use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+    use proto::error::ProtoError;
+    use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     #[derive(Clone)]
     struct TestClient {

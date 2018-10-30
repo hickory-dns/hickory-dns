@@ -18,7 +18,7 @@ use rr::{Name, Label};
 #[cfg(feature = "serde-config")]
 use serde::{Serializer, Serialize, de, Deserializer, Deserialize};
 use serialize::binary::*;
-use trust_dns_proto::error::*;
+use proto::error::*;
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]

@@ -13,7 +13,7 @@ use futures::{Future, Stream};
 use h2::server;
 use tokio_io::{AsyncRead, AsyncWrite};
 use trust_dns_https::https_server;
-use trust_dns_proto::serialize::binary::BinDecodable;
+use proto::serialize::binary::BinDecodable;
 
 use authority::MessageResponse;
 use server::request_handler::RequestHandler;
@@ -69,7 +69,7 @@ impl ResponseHandler for HttpsResponseHandle {
 
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;
-        use trust_dns_proto::serialize::binary::BinEncoder;
+        use proto::serialize::binary::BinEncoder;
 
         let mut bytes = Vec::with_capacity(512);
         // mut block

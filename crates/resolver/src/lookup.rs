@@ -15,14 +15,14 @@ use std::time::{Duration, Instant};
 
 use futures::{future, Async, Future, Poll};
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::op::Query;
-use trust_dns_proto::rr::rdata;
-use trust_dns_proto::rr::{Name, RData, RecordType};
-use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+use proto::error::ProtoError;
+use proto::op::Query;
+use proto::rr::rdata;
+use proto::rr::{Name, RData, RecordType};
+use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::SecureDnsHandle;
-use trust_dns_proto::{DnsHandle, RetryDnsHandle};
+use proto::SecureDnsHandle;
+use proto::{DnsHandle, RetryDnsHandle};
 
 use dns_lru::MAX_TTL;
 use error::*;
@@ -262,7 +262,8 @@ impl<'i> Iterator for SrvLookupIter<'i> {
         iter.filter_map(|rdata| match *rdata {
             RData::SRV(ref data) => Some(data),
             _ => None,
-        }).next()
+        })
+        .next()
     }
 }
 
@@ -319,7 +320,8 @@ macro_rules! lookup_type {
                 iter.filter_map(|rdata| match *rdata {
                     $r(ref data) => Some(data),
                     _ => None,
-                }).next()
+                })
+                .next()
             }
         }
 
@@ -385,10 +387,10 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    use trust_dns_proto::error::{ProtoErrorKind, ProtoResult};
-    use trust_dns_proto::op::Message;
-    use trust_dns_proto::rr::{Name, RData, Record, RecordType};
-    use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions};
+    use proto::error::{ProtoErrorKind, ProtoResult};
+    use proto::op::Message;
+    use proto::rr::{Name, RData, Record, RecordType};
+    use proto::xfer::{DnsRequest, DnsRequestOptions};
 
     use super::*;
 
@@ -440,26 +442,26 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()])),
-            ).wait()
-                .unwrap()
-                .iter()
-                .map(|r| r.to_ip_addr().unwrap())
-                .collect::<Vec<IpAddr>>(),
+            )
+            .wait()
+            .unwrap()
+            .iter()
+            .map(|r| r.to_ip_addr().unwrap())
+            .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
     }
 
     #[test]
     fn test_error() {
-        assert!(
-            LookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![error()])),
-            ).wait()
-                .is_err()
-        );
+        assert!(LookupFuture::lookup(
+            vec![Name::root()],
+            RecordType::A,
+            DnsRequestOptions::default(),
+            CachingClient::new(0, mock(vec![error()])),
+        )
+        .wait()
+        .is_err());
     }
 
     #[test]
@@ -470,9 +472,10 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![empty()])),
-            ).wait()
-                .unwrap_err()
-                .kind(),
+            )
+            .wait()
+            .unwrap_err()
+            .kind(),
             ResolveErrorKind::NoRecordsFound {
                 query: Query::query(Name::root(), RecordType::A),
                 valid_until: None,

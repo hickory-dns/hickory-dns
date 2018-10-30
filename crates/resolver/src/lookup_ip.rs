@@ -17,9 +17,9 @@ use failure::Fail;
 
 use futures::{future, Async, Future, Poll};
 
-use trust_dns_proto::op::Query;
-use trust_dns_proto::rr::{Name, RData, RecordType};
-use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
+use proto::op::Query;
+use proto::rr::{Name, RData, RecordType};
+use proto::xfer::{DnsHandle, DnsRequestOptions};
 
 use config::LookupIpStrategy;
 use error::*;
@@ -384,10 +384,10 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    use trust_dns_proto::error::{ProtoError, ProtoResult};
-    use trust_dns_proto::op::Message;
-    use trust_dns_proto::rr::{Name, RData, Record, RecordType};
-    use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+    use proto::error::{ProtoError, ProtoResult};
+    use proto::op::Message;
+    use proto::rr::{Name, RData, Record, RecordType};
+    use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     use super::*;
 

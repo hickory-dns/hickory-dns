@@ -22,7 +22,7 @@ use std::{fmt, io};
 use super::LexerError;
 use failure::{Backtrace, Context, Fail};
 use serialize::txt::Token;
-use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
+use proto::error::{ProtoError, ProtoErrorKind};
 
 /// An alias for parse results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

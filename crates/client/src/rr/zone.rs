@@ -1,8 +1,8 @@
 //! Reserved Zone and related information
 
-use trust_dns_proto::rr::domain::{Label, Name};
-pub use trust_dns_proto::rr::domain::usage::*;
-use trust_dns_proto::serialize::binary::BinEncodable;
+use proto::rr::domain::{Label, Name};
+pub use proto::rr::domain::usage::*;
+use proto::serialize::binary::BinEncodable;
 
 use radix_trie::{Trie, TrieKey};
 

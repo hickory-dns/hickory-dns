@@ -13,8 +13,8 @@ use std::net::SocketAddr;
 use futures::Future;
 
 use trust_dns_native_tls::{TlsClientStream, TlsClientStreamBuilder};
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::BufDnsStreamHandle;
+use proto::error::ProtoError;
+use proto::BufDnsStreamHandle;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,

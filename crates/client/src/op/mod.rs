@@ -13,6 +13,6 @@ mod update_message;
 
 pub use self::lower_query::LowerQuery;
 pub use self::update_message::UpdateMessage;
-pub use trust_dns_proto::op::{Edns, Header, Message, MessageFinalizer, MessageType, OpCode, Query,
+pub use proto::op::{Edns, Header, Message, MessageFinalizer, MessageType, OpCode, Query,
                               ResponseCode};
-pub use trust_dns_proto::xfer::DnsResponse;
+pub use proto::xfer::DnsResponse;

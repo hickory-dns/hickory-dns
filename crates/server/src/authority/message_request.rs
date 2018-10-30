@@ -6,11 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use trust_dns::op::LowerQuery;
-use trust_dns_proto::error::*;
-use trust_dns_proto::op::message::EmitAndCount;
-use trust_dns_proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
-use trust_dns_proto::rr::Record;
-use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use proto::error::*;
+use proto::op::message::EmitAndCount;
+use proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
+use proto::rr::Record;
+use proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]

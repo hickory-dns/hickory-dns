@@ -9,7 +9,7 @@ use rusqlite;
 use failure::{Backtrace, Context, Fail};
 use std::fmt;
 
-use trust_dns_proto::error::*;
+use proto::error::*;
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

@@ -14,10 +14,9 @@ use std::time::*;
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::DnsResponse;
-
 use trust_dns::client::*;
+use trust_dns::proto::error::ProtoError;
+use trust_dns::proto::xfer::DnsResponse;
 use trust_dns::rr::dnssec::*;
 use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::rr::*;
