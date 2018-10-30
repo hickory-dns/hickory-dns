@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-https"
-version = "0.1.0-alpha.3"
+version = "0.1.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -57,8 +57,8 @@ tokio-reactor = "0.1"
 tokio-rustls = "0.8"
 tokio-tcp = "0.1"
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.5.0-alpha", path = "../proto", default-features = false }
-trust-dns-rustls = { version = "0.4.0-alpha", path = "../rustls", default-features = false }
+trust-dns-proto = { version = "0.5.0", path = "../proto", default-features = false }
+trust-dns-rustls = { version = "0.4.0", path = "../rustls", default-features = false }
 typed-headers = "0.1"
 webpki-roots = { version = "0.15" }
 webpki = "0.18"
