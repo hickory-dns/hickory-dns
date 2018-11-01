@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- Fix two separate integer overflows from substractions #585 (@oherrala)
+- strictly enforce name and label lengths during label parsing #584
 - enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
 - CAA now properly performs case-incesitive compares #587 (@oherrala)
 - overhauled rdata parsers with Restrict type to reduce potential of overflowing operations #586
@@ -14,18 +16,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - feature `dns-over-rustls` to `trust-dns-server` (server) and `trust-dns` (client)
-- feature `dns-over-https-rustls` *experimental*
+- feature `dns-over-https-rustls` *experimental* #557
 - new configuration options for tls, see `server/tests/named_test_configs/dns_over_tls_rustls_and_openssl.toml`
 - new utility for querying root key-signing-keys, `util/get-root-ksks`
 - updated root trust-anchor to include new `20326` RSA root ksk
 
 ### Changed
 
+- Make trust_dns_server::server::ResponseHandler Send #593 (sticnarf)
+- Wrap types in Restrict and force validation before usage from streams #586
 - *breaking* Overhauled all `ClientFuture` implementations to align with new `DnsExchange` and `DnsMultiplexer` components in proto.
 - *breaking* `ClientFuture` after construction, now returns a "background" `ClientFuture` and a "foreground" `BasicClientHandle`
 - *breaking* `Client` has more type parameters, these match with the same types returned by the `*ClientConnection` constructors
 - *breaking* all default features, removed: "dns-over-openssl", "dnssec-openssl". Use --features=dns-over-openssl,dnssec-openssl to enable
 - *breaking* `named` configuration now has AXFR disabled by default.
+- *breaking* Migrated from error_chain to Failure #474 (@silwol)
 - feature `tls` renamed to `dns-over-openssl`
 - upgraded `native-tls` and `tokio-tls` to 0.2
 - upgraded `rusqlite` to 0.15
