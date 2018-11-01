@@ -7,19 +7,30 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
+- Fix two separate integer overflows from substractions #585 (@oherrala)
+- strictly enforce name and label lengths during label parsing #584
 - enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
 - CAA now properly performs case-incesitive compares #587 (@oherrala)
 - overhauled rdata parsers with Restrict type to reduce potential of overflowing operations #586
+- Propagate TTLs for NXDOMAIN responses #485 (@hawkw)
+- LookupIpFuture implementation to be proper in regards to loop control #480 (@hawkw)
+- max query depth tracking in Resolver #469
 
 ### Changed
 
-- `ResolverFuture` renamed to `AsyncResolver` @hawkw #487
-- *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background @hawkw #487
-- *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` @hawkw #487
+- Wrap types in Restrict and force validation before usage from streams #586
+- Delays all connections until actual use #566
+- Relax parsing rules for CAA issuer keys and values #517
+- `ResolverFuture` renamed to `AsyncResolver` #487 (@hawkw)
+- *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background #487 (@hawkw)
+- *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` #487 (@hawkw)
+- *breaking* Migrated from error_chain to Failure #474 (@silwol)
+- improve truncation to always return records #497
 
 ### Added
 
 - updated root trust-anchor to include new `20326` RSA root ksk
+- DNS over HTTPS support #520
 
 ## 0.9.1
 

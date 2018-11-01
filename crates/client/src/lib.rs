@@ -48,7 +48,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! trust-dns = { version = "^0.10", default-features = false }
+//! trust-dns = { version = "0.10", default-features = false }
 //! ```
 //!
 //! Extern the crate into your program or library:
