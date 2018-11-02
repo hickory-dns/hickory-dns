@@ -36,11 +36,11 @@ task_local! {
 }
 
 lazy_static! {
-    static ref LOCALHOST: Lookup =
-        Lookup::from(RData::PTR(Name::from_ascii("localhost.").unwrap()));
-    static ref LOCALHOST_V4: Lookup = Lookup::from(RData::A(Ipv4Addr::new(127, 0, 0, 1)));
-    static ref LOCALHOST_V6: Lookup =
-        Lookup::from(RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
+    static ref LOCALHOST: RData =
+        RData::PTR(Name::from_ascii("localhost.").unwrap());
+    static ref LOCALHOST_V4: RData = RData::A(Ipv4Addr::new(127, 0, 0, 1));
+    static ref LOCALHOST_V6: RData =
+        RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -96,9 +96,9 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
             match usage.resolver() {
                 ResolverUsage::Loopback => match query.query_type() {
                     // TODO: look in hosts for these ips/names first...
-                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
-                    RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
-                    RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
+                    RecordType::A => return Box::new(future::ok(Lookup::from_rdata(query, LOCALHOST_V4.clone()))),
+                    RecordType::AAAA => return Box::new(future::ok(Lookup::from_rdata(query, LOCALHOST_V6.clone()))),
+                    RecordType::PTR => return Box::new(future::ok(Lookup::from_rdata(query, LOCALHOST.clone()))),
                     _ => return Box::new(future::err(DnsLru::nx_error(query, None))), // Are there any other types we can use?
                 },
                 // when mdns is enabled we will follow a standard query path
@@ -973,52 +973,48 @@ mod tests {
             client: client,
         };
 
-        assert_eq!(
-            client
-                .lookup(
-                    Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A),
-                    Default::default()
-                )
+        {
+            let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A);
+            let lookup = client
+                .lookup(query.clone(), Default::default())
                 .wait()
-                .expect("should have returned localhost"),
-            *LOCALHOST_V4
-        );
+                .expect("should have returned localhost");
+            assert_eq!(lookup.query(), &query);
+            assert_eq!(lookup.rdatas(), &vec![LOCALHOST_V4.clone()]);
+        }
 
-        assert_eq!(
-            client
-                .lookup(
-                    Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::AAAA),
-                    Default::default()
-                )
+        {
+            let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::AAAA);
+            let lookup = client
+                .lookup(query.clone(), Default::default())
                 .wait()
-                .expect("should have returned localhost"),
-            *LOCALHOST_V6
-        );
+                .expect("should have returned localhost");
+            assert_eq!(lookup.query(), &query);
+            assert_eq!(lookup.rdatas(), &vec![LOCALHOST_V6.clone()]);
+        }
 
-        assert_eq!(
-            client
-                .lookup(
-                    Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::PTR),
-                    Default::default()
-                )
+        {
+            let query = Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::PTR);
+            let lookup = client
+                .lookup(query.clone(), Default::default())
                 .wait()
-                .expect("should have returned localhost"),
-            *LOCALHOST
-        );
+                .expect("should have returned localhost");
+            assert_eq!(lookup.query(), &query);
+            assert_eq!(lookup.rdatas(), &vec![LOCALHOST.clone()]);
+        }
 
-        assert_eq!(
-            client
-                .lookup(
-                    Query::query(
-                        Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-                        RecordType::PTR
-                    ),
-                    Default::default()
-                )
+        {
+            let query = Query::query(
+                Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RecordType::PTR
+            );
+            let lookup = client
+                .lookup(query.clone(), Default::default())
                 .wait()
-                .expect("should have returned localhost"),
-            *LOCALHOST
-        );
+                .expect("should have returned localhost");
+            assert_eq!(lookup.query(), &query);
+            assert_eq!(lookup.rdatas(), &vec![LOCALHOST.clone()]);
+        }
 
         assert!(
             client
