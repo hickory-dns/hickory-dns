@@ -35,26 +35,39 @@ use name_server_pool::{ConnectionHandle, ConnectionProvider, NameServerPool, Sta
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
+    query: Query,
     rdatas: Arc<Vec<RData>>,
     valid_until: Instant,
 }
 
 impl Lookup {
+    /// Return new instance with given rdata and the maximum TTL.
+    pub fn from_rdata(query: Query, data: RData) -> Self {
+        Self::new_with_max_ttl(query, Arc::new(vec![data]))
+    }
+
     /// Return new instance with given rdatas and the maximum TTL.
-    pub fn new_with_max_ttl(rdatas: Arc<Vec<RData>>) -> Self {
+    pub fn new_with_max_ttl(query: Query, rdatas: Arc<Vec<RData>>) -> Self {
         let valid_until = Instant::now() + Duration::from_secs(MAX_TTL as u64);
         Lookup {
+            query,
             rdatas,
             valid_until,
         }
     }
 
     /// Return a new instance with the given rdatas and deadline.
-    pub fn new_with_deadline(rdatas: Arc<Vec<RData>>, valid_until: Instant) -> Self {
+    pub fn new_with_deadline(query: Query, rdatas: Arc<Vec<RData>>, valid_until: Instant) -> Self {
         Lookup {
+            query,
             rdatas,
             valid_until,
         }
+    }
+
+    /// Returns a reference to the Query that was used to produce this result.
+    pub fn query(&self) -> &Query {
+        &self.query
     }
 
     /// Returns a borrowed iterator of the returned IPs
@@ -75,6 +88,11 @@ impl Lookup {
         self.rdatas.len()
     }
 
+    #[cfg(test)]
+    pub fn rdatas(&self) -> &Vec<RData> {
+        self.rdatas.as_ref()
+    }
+
     /// Clones the inner vec, appends the other vec
     pub(crate) fn append(&self, other: Lookup) -> Self {
         let mut rdatas = Vec::with_capacity(self.len() + other.len());
@@ -83,13 +101,7 @@ impl Lookup {
 
         // Choose the sooner deadline of the two lookups.
         let valid_until = min(self.valid_until(), other.valid_until());
-        Self::new_with_deadline(Arc::new(rdatas), valid_until)
-    }
-}
-
-impl From<RData> for Lookup {
-    fn from(data: RData) -> Self {
-        Lookup::new_with_max_ttl(Arc::new(vec![data]))
+        Self::new_with_deadline(self.query.clone(), Arc::new(rdatas), valid_until)
     }
 }
 
@@ -237,6 +249,11 @@ impl SrvLookup {
         SrvLookupIter(self.0.iter())
     }
 
+    /// Returns a reference to the Query that was used to produce this result.
+    pub fn query(&self) -> &Query {
+        self.0.query()
+    }
+
     /// Returns the list of IPs associated with the SRV record.
     ///
     /// *Note*: the lack of any IPs does not necessarily meant that there are no IPs available for the service, only that they were not included in the original request. A subsequent query for the IPs via the `srv.target()` should resolve to the IPs.
@@ -300,6 +317,11 @@ macro_rules! lookup_type {
             /// Returns an iterator over the RData
             pub fn iter(&self) -> $i {
                 $i(self.0.iter())
+            }
+
+            /// Returns a reference to the Query that was used to produce this result.
+            pub fn query(&self) -> &Query {
+                self.0.query()
             }
         }
 

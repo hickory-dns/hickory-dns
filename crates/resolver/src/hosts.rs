@@ -63,10 +63,16 @@ impl Hosts {
             let mut old_lookup = match &record_type {
                 &RecordType::A => lookup_type
                     .a
-                    .get_or_insert_with(|| Lookup::new_with_max_ttl(Arc::new(vec![]))),
+                    .get_or_insert_with(|| {
+                        let query = Query::query(name.clone(), record_type);
+                        Lookup::new_with_max_ttl(query, Arc::new(vec![]))
+                    }),
                 &RecordType::AAAA => lookup_type
                     .aaaa
-                    .get_or_insert_with(|| Lookup::new_with_max_ttl(Arc::new(vec![]))),
+                    .get_or_insert_with(|| {
+                        let query = Query::query(name.clone(), record_type);
+                        Lookup::new_with_max_ttl(query, Arc::new(vec![]))
+                    }),
                 _ => {
                     warn!("unsupported IP type from Hosts file: {:#?}", record_type);
                     return;
@@ -129,10 +135,17 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 
         for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
             if let Ok(name) = Name::from_str(&domain) {
-                let lookup = Lookup::new_with_max_ttl(Arc::new(vec![addr.clone()]));
                 match &addr {
-                    &RData::A(..) => hosts.insert(name.clone(), RecordType::A, lookup),
-                    &RData::AAAA(..) => hosts.insert(name.clone(), RecordType::AAAA, lookup),
+                    &RData::A(..) => {
+                        let query = Query::query(name.clone(), RecordType::A);
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![addr.clone()]));
+                        hosts.insert(name.clone(), RecordType::A, lookup);
+                    }
+                    &RData::AAAA(..) => {
+                        let query = Query::query(name.clone(), RecordType::AAAA);
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![addr.clone()]));
+                        hosts.insert(name.clone(), RecordType::AAAA, lookup);
+                    }
                     _ => {
                         warn!("unsupported IP type from Hosts file: {:#?}", addr);
                         continue;

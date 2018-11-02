@@ -16,6 +16,7 @@ use lookup::{Lookup, LookupEither, LookupFuture};
 use lookup_ip::LookupIpFuture;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionHandle, NameServerPool, StandardConnection};
+use proto::op::Query;
 
 use super::Request;
 
@@ -107,7 +108,7 @@ impl Task {
             } else {
                 return LookupIpFuture::ok(
                     self.client_cache.clone(),
-                    Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])),
+                    Lookup::new_with_max_ttl(Query::new(), Arc::new(vec![ip_addr])),
                 );
             }
         }
@@ -118,7 +119,7 @@ impl Task {
                 // it was a valid IP, return that...
                 return LookupIpFuture::ok(
                     self.client_cache.clone(),
-                    Lookup::new_with_max_ttl(Arc::new(vec![ip_addr.clone()])),
+                    Lookup::new_with_max_ttl(Query::new(), Arc::new(vec![ip_addr.clone()])),
                 );
             }
             (Err(err), None) => {

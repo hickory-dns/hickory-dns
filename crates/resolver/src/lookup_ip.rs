@@ -122,9 +122,8 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
                 } else if let Some(ip_addr) = self.finally_ip_addr.take() {
                     // Otherwise, if there's an IP address to fall back to,
                     // we'll return it.
-                    return Ok(Async::Ready(
-                        Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])).into(),
-                    ));
+                    let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::new(vec![ip_addr]));
+                    return Ok(Async::Ready(lookup.into()));
                 }
             };
 
