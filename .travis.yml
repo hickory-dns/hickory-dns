@@ -109,13 +109,12 @@ matrix:
         - scripts/test_all_features.sh
 
     # clippy
-    - rust: nightly
+    - rust: stable
       env: NAME=clippy
            RUST_BACKTRACE=full
-      before_install:
-        - cargo install clippy --force
       script:
-        - scripts/run_clippy.sh
+        - cargo clippy -- -D warnings
+        - cargo clippy --all-features --all-targets -- -D warnings
 
     - rust: nightly
       env: NAME=rustfmt
