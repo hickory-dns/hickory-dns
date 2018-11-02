@@ -101,6 +101,14 @@ matrix:
       script: 
         - scripts/test_all_features.sh
 
+    # windows
+    - os: windows
+      rust: stable
+      env: NAME=windows
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_all_features.sh
+
     # nightly
     - rust: nightly
       env: NAME=nightly
