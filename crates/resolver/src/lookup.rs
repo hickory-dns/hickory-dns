@@ -89,7 +89,7 @@ impl Lookup {
     }
 
     #[cfg(test)]
-    pub fn rdatas(&self) -> &Vec<RData> {
+    pub fn rdatas(&self) -> &[RData] {
         self.rdatas.as_ref()
     }
 

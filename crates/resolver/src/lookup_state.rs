@@ -980,7 +980,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &vec![LOCALHOST_V4.clone()]);
+            assert_eq!(lookup.rdatas(), &[LOCALHOST_V4.clone()]);
         }
 
         {
@@ -990,7 +990,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &vec![LOCALHOST_V6.clone()]);
+            assert_eq!(lookup.rdatas(), &[LOCALHOST_V6.clone()]);
         }
 
         {
@@ -1000,7 +1000,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &vec![LOCALHOST.clone()]);
+            assert_eq!(lookup.rdatas(), &[LOCALHOST.clone()]);
         }
 
         {
@@ -1013,7 +1013,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &vec![LOCALHOST.clone()]);
+            assert_eq!(lookup.rdatas(), &[LOCALHOST.clone()]);
         }
 
         assert!(
