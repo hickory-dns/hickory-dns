@@ -59,7 +59,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::too_many_arguments\
     -A clippy::trivially_copy_pass_by_ref\
     -A clippy::type_complexity\
-    -A clippy::unit_arg\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

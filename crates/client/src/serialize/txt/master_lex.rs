@@ -5,9 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::char;
 use std::iter::Peekable;
 use std::str::Chars;
-use std::char;
 
 use error::*;
 
@@ -161,11 +161,9 @@ impl<'a> Lexer<'a> {
                             } else if "TTL" == dollar {
                                 return Ok(Some(Token::Ttl));
                             } else {
-                                return Err(
-                                    LexerErrorKind::UnrecognizedDollar(
-                                        char_data.take().unwrap_or_else(|| "".into()),
-                                    ).into(),
-                                );
+                                return Err(LexerErrorKind::UnrecognizedDollar(
+                                    char_data.take().unwrap_or_else(|| "".into()),
+                                ).into());
                             }
                         }
                     }
@@ -182,8 +180,7 @@ impl<'a> Lexer<'a> {
                             .take()
                             .ok_or_else(|| {
                                 LexerErrorKind::IllegalState("char_data_vec is None").into()
-                            })
-                            .map(|v| Some(Token::List(v)));
+                            }).map(|v| Some(Token::List(v)));
                     }
                     Some(ch) if ch.is_whitespace() => {
                         self.txt.next();
@@ -204,21 +201,23 @@ impl<'a> Lexer<'a> {
                             char_data_vec
                                 .as_mut()
                                 .ok_or_else(|| {
-                                    LexerError::from(
-                                        LexerErrorKind::IllegalState("char_data_vec is None"),
-                                    )
-                                })
-                                .and_then(|v| {
-                                    Ok(v.push(char_data.take().ok_or_else(
-                                        || LexerErrorKind::IllegalState("char_data is None"),
-                                    )?))
+                                    LexerError::from(LexerErrorKind::IllegalState(
+                                        "char_data_vec is None",
+                                    ))
+                                }).and_then(|v| {
+                                    let char_data = char_data.take().ok_or_else(|| {
+                                        LexerErrorKind::IllegalState("char_data is None")
+                                    })?;
+
+                                    v.push(char_data);
+                                    Ok(())
                                 })?;
                             self.state = State::List;
                         } else {
                             self.state = State::RestOfLine;
-                            let result = char_data.take().ok_or_else(
-                                || LexerErrorKind::IllegalState("char_data is None").into(),
-                            );
+                            let result = char_data.take().ok_or_else(|| {
+                                LexerErrorKind::IllegalState("char_data is None").into()
+                            });
                             let opt = result.map(|s| Some(Token::CharData(s)));
                             return opt;
                         },
@@ -233,10 +232,9 @@ impl<'a> Lexer<'a> {
                             self.state = State::EOF;
                             return char_data
                                 .take()
-                                .ok_or_else(
-                                    || LexerErrorKind::IllegalState("char_data is None").into(),
-                                )
-                                .map(|s| Some(Token::CharData(s)));
+                                .ok_or_else(|| {
+                                    LexerErrorKind::IllegalState("char_data is None").into()
+                                }).map(|s| Some(Token::CharData(s)));
                         }
                     }
                 }
@@ -272,33 +270,40 @@ impl<'a> Lexer<'a> {
         collect
             .as_mut()
             .ok_or_else(|| LexerErrorKind::IllegalState("collect is None").into())
-            .and_then(|s| Ok(s.push(ch)))
+            .and_then(|s| {
+                s.push(ch);
+                Ok(())
+            })
     }
 
     fn escape_seq(&mut self) -> LexerResult<char> {
         // escaped character, let's decode it.
         self.txt.next(); // consume the escape
-        let ch = self.peek()
+        let ch = self
+            .peek()
             .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))?;
 
         if !ch.is_control() {
             if ch.is_numeric() {
                 // in this case it's an excaped octal: \DDD
-                let d1: u32 = self.txt
+                let d1: u32 = self
+                    .txt
                     .next()
                     .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
                     .map(|c| {
                         c.to_digit(10)
                             .ok_or_else(|| LexerError::from(LexerErrorKind::IllegalCharacter(c)))
                     })??; // gobble
-                let d2: u32 = self.txt
+                let d2: u32 = self
+                    .txt
                     .next()
                     .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
                     .map(|c| {
                         c.to_digit(10)
                             .ok_or_else(|| LexerError::from(LexerErrorKind::IllegalCharacter(c)))
                     })??; // gobble
-                let d3: u32 = self.txt
+                let d3: u32 = self
+                    .txt
                     .next()
                     .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
                     .map(|c| {
@@ -398,7 +403,6 @@ mod lex_test {
             next_token(&mut lexer).unwrap(),
             Token::CharData("beef".to_string())
         );
-
 
         let mut lexer = Lexer::new("dead beef\r\n after");
         assert_eq!(

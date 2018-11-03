@@ -279,7 +279,8 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let server = ServerFuture::new(catalog);
     io_loop
         .block_on::<Box<Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
-            future::ok(server.register_socket(udp_socket))
+            server.register_socket(udp_socket);
+            future::ok(())
         }))).unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
