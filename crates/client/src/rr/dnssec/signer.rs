@@ -17,11 +17,11 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
-#[cfg(feature = "dnssec")]
-use rr::rdata::DNSSECRData;
 use proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use proto::rr::dnssec::{tbs, TBS};
+#[cfg(feature = "dnssec")]
+use rr::rdata::DNSSECRData;
 
 use op::{Message, MessageFinalizer};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -693,7 +693,7 @@ mod tests {
         );
     }
 
-    fn get_rsa_from_vec(params: &Vec<u32>) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
+    fn get_rsa_from_vec(params: &[u32]) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
         Rsa::from_private_components(
             BigNum::from_u32(params[0]).unwrap(), // modulus: n
             BigNum::from_u32(params[1]).unwrap(), // public exponent: e,
