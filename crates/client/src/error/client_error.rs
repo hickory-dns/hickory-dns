@@ -186,7 +186,7 @@ impl From<Error> for io::Error {
 
 #[test]
 fn test_conversion() {
-    let io_error = io::Error::new(io::ErrorKind::TimedOut, format!("mock timeout"));
+    let io_error = io::Error::new(io::ErrorKind::TimedOut, "mock timeout");
 
     let error = Error::from(io_error);
 

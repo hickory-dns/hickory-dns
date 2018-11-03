@@ -35,8 +35,7 @@ fn args<'a>() -> ArgMatches<'a> {
                 .help("Input FILE from which to read the DNSSec private key")
                 .required(true)
                 .index(1),
-        )
-        .arg(
+        ).arg(
             Arg::with_name("output")
                 .value_name("OUTPUT_FILE")
                 .long("output")
@@ -44,8 +43,7 @@ fn args<'a>() -> ArgMatches<'a> {
                 .takes_value(true)
                 .help("Output FILE to write to")
                 .default_value("out.pem"),
-        )
-        .get_matches()
+        ).get_matches()
 }
 
 pub fn main() {
@@ -64,7 +62,7 @@ pub fn main() {
     // private key format expected to be first
     let next_line = lines
         .next()
-        .expect(&format!("missing Private-key-format line"))
+        .expect("missing Private-key-format line")
         .unwrap();
 
     let (key, value) = split_field_value(&next_line);
@@ -76,10 +74,7 @@ pub fn main() {
     }
 
     // algorithm
-    let next_line = lines
-        .next()
-        .expect(&format!("missing Algorithm line"))
-        .unwrap();
+    let next_line = lines.next().expect("missing Algorithm line").unwrap();
 
     let (key, value) = split_field_value(&next_line);
     if key != "Algorithm" {
@@ -136,10 +131,11 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
         let (field, value) = split_field_value(&line);
 
         let num = Some(
-            BigNum::from_slice(&BASE64
-                .decode(value.as_bytes())
-                .expect(&format!("badly formated line, expected base64: {}", line)))
-                .unwrap(),
+            BigNum::from_slice(
+                &BASE64
+                    .decode(value.as_bytes())
+                    .expect(&format!("badly formated line, expected base64: {}", line)),
+            ).unwrap(),
         );
 
         match field {

@@ -62,12 +62,10 @@ use trust_dns::rr::dnssec::{KeyPair, Private, Signer};
 use trust_dns::rr::Name;
 use trust_dns::serialize::txt::{Lexer, Parser};
 
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 use trust_dns_openssl::tls_server::*;
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 #[cfg(feature = "dnssec")]
@@ -275,12 +273,10 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     ))
 }
 
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
@@ -356,9 +352,9 @@ fn load_cert(
             read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
         }
         CertType::Pkcs12 => {
-            return Err(format!(
-                "PKCS12 is not supported with Rustls for certificate, use PEM encoding"
-            ))
+            return Err(
+                "PKCS12 is not supported with Rustls for certificate, use PEM encoding".to_string(),
+            )
         }
     };
 
@@ -375,11 +371,7 @@ fn load_cert(
             info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }
-        (None, _) => {
-            return Err(format!(
-                "No private key associated with specified certificate"
-            ))
-        }
+        (None, _) => return Err("No private key associated with specified certificate".to_string()),
     };
 
     Ok((cert, key))
@@ -550,8 +542,8 @@ pub fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
-    let server_future: Box<Future<Item = (), Error = ()> + Send> = Box::new(future::lazy(
-        move || {
+    let server_future: Box<Future<Item = (), Error = ()> + Send> =
+        Box::new(future::lazy(move || {
             // load all the listeners
             for udp_socket in udp_sockets {
                 info!("listening for UDP on {:?}", udp_socket);
@@ -604,8 +596,7 @@ pub fn main() {
             ///  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
             future::empty()
-        },
-    ));
+        }));
 
     if let Err(e) = io_loop.block_on(server_future.map_err(|_| {
         io::Error::new(

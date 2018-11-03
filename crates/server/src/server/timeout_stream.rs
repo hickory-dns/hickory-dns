@@ -62,7 +62,7 @@ where
                         warn!("timeout fired immediately!");
                         return Err(io::Error::new(
                             io::ErrorKind::TimedOut,
-                            format!("timeout fired immediately!"),
+                            "timeout fired immediately!",
                         ));
                     }
                     Err(e) => {
@@ -91,7 +91,10 @@ where
                             ));
                         }
                         Err(_) => {
-                            return Err(io::Error::new(io::ErrorKind::Other, "timer internal error"));
+                            return Err(io::Error::new(
+                                io::ErrorKind::Other,
+                                "timer internal error",
+                            ));
                         }
                     }
                 } else {

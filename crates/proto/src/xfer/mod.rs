@@ -229,7 +229,7 @@ where
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         try_oneshot!(self.sender.unbounded_send(request).map_err(|_| {
             debug!("unable to enqueue message");
-            ProtoError::from(format!("could not send request"))
+            ProtoError::from("could not send request")
         }));
 
         OneshotDnsResponseReceiver::Receiver(oneshot)

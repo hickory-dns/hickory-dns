@@ -117,9 +117,8 @@ impl TlsStreamBuilder {
                     let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from);
 
                     dns_name
-                        .map_err(|_| {
-                            io::Error::new(io::ErrorKind::InvalidInput, format!("bad dns_name"))
-                        }).into_future()
+                        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name"))
+                        .into_future()
                         .and_then(move |dns_name| {
                             tls_connector
                                 .connect(dns_name.as_ref(), tcp_stream)

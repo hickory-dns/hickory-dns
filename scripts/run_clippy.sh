@@ -61,7 +61,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::unneeded_field_pattern\
     -A clippy::unreadable_literal\
     -A clippy::useless_attribute\
-    -A clippy::useless_format\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
