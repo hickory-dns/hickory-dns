@@ -17,8 +17,6 @@ use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
 use tokio::executor::{DefaultExecutor, Executor};
 
-#[cfg(feature = "dns-over-https")]
-use trust_dns_https;
 use proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4};
@@ -29,6 +27,8 @@ use proto::xfer::{
     self, BufDnsRequestStreamHandle, DnsExchange, DnsHandle, DnsMultiplexer,
     DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
+#[cfg(feature = "dns-over-https")]
+use trust_dns_https;
 
 //use async_resolver::BasicAsyncResolver;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
@@ -346,7 +346,7 @@ impl ConnectionHandleConnect {
             Https {
                 socket_addr,
                 // TODO: https needs timeout!
-                timeout: _,
+                timeout: _t,
                 tls_dns_name,
             } => {
                 let (stream, handle) = ::https::new_https_stream(socket_addr, tls_dns_name);

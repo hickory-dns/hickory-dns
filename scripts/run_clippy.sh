@@ -18,6 +18,8 @@ cargo clean -p trust-dns-integration
 TARGETS_OPTS="--all --lib --examples --tests --bins"
 CLIPPY_OPTS="-D warnings\
     -A clippy::module-inception\
+    -A clippy::unreadable_literal\
+    -A clippy::useless_attribute\
     \
     -A clippy::block_in_if_condition_stmt\
     -A clippy::cast_lossless\
@@ -58,9 +60,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::trivially_copy_pass_by_ref\
     -A clippy::type_complexity\
     -A clippy::unit_arg\
-    -A clippy::unneeded_field_pattern\
-    -A clippy::unreadable_literal\
-    -A clippy::useless_attribute\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
