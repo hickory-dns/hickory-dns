@@ -12,8 +12,8 @@
 #[allow(unused)]
 #[allow(deprecated)]
 use std::ascii::AsciiExt;
-use std::cmp::{Ordering, PartialEq};
 use std::borrow::Borrow;
+use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc as Rc;
@@ -73,7 +73,9 @@ impl Label {
             return Ok(Label(Rc::from(WILDCARD.to_vec())));
         }
 
-        if !s.is_empty() && s.is_ascii() && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
+        if !s.is_empty()
+            && s.is_ascii()
+            && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
             && s.chars().skip(1).all(|c| is_safe_ascii(c, false, false))
         {
             Label::from_raw_bytes(s.as_bytes())
@@ -85,7 +87,8 @@ impl Label {
     /// Converts this label to lowercase
     pub fn to_lowercase(&self) -> Self {
         // TODO: replace case conversion when (ascii_ctype #39658) stabilizes
-        if let Some((idx, _)) = self.0
+        if let Some((idx, _)) = self
+            .0
             .iter()
             .enumerate()
             .find(|&(_, c)| *c != c.to_ascii_lowercase())
@@ -447,7 +450,7 @@ mod tests {
                 Label::from_raw_bytes(b"zABC").unwrap(),
             ),
             (
-                Label::from_raw_bytes(&[001]).unwrap(),
+                Label::from_raw_bytes(&[1]).unwrap(),
                 Label::from_raw_bytes(b"*").unwrap(),
             ),
             (

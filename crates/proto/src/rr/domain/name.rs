@@ -1385,14 +1385,14 @@ mod tests {
             (
                 Name::from_str("z.example.").unwrap(),
                 Name::from_labels(vec![
-                    &[001u8] as &[u8],
+                    &[1u8] as &[u8],
                     "z".as_bytes(),
                     "example".as_bytes(),
                 ]).unwrap(),
             ),
             (
                 Name::from_labels(vec![
-                    &[001u8] as &[u8],
+                    &[1u8] as &[u8],
                     "z".as_bytes(),
                     "example".as_bytes(),
                 ]).unwrap(),
