@@ -113,8 +113,7 @@ matrix:
       env: NAME=clippy
            RUST_BACKTRACE=full
       script:
-        - cargo clippy -- -D warnings
-        - cargo clippy --all-features --all-targets -- -D warnings
+        - scripts/run_clippy.sh
 
     - rust: nightly
       env: NAME=rustfmt
