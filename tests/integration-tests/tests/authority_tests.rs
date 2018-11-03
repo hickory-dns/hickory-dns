@@ -1028,7 +1028,7 @@ fn test_axfr() {
 
     // just update this if the count goes up in the authority
     assert!(!result.is_refused());
-    assert_eq!(result.collect::<Vec<_>>().len(), 10);
+    assert_eq!(result.count(), 10);
 }
 
 #[test]
@@ -1044,5 +1044,5 @@ fn test_refused_axfr() {
 
     // just update this if the count goes up in the authority
     assert!(result.is_refused());
-    assert_eq!(result.collect::<Vec<_>>().len(), 0);
+    assert_eq!(result.count(), 0);
 }

@@ -487,8 +487,7 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
                     } else {
                         false
                     }
-                })
-                .max_by_key(|record| {
+                }).max_by_key(|record| {
                     if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
                         rrsig.algorithm()
                     } else {
@@ -558,22 +557,12 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 1);
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
 
         // dups ignored
         assert!(!rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 1);
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
 
         // add one
         let insert1 = Record::new()
@@ -585,18 +574,8 @@ mod test {
             .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
         assert_eq!(rr_set.records_without_rrsigs().count(), 2);
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert1)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert1));
     }
 
     #[test]
@@ -618,8 +597,7 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone();
+            ))).clone();
         let same_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
@@ -633,8 +611,7 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone();
+            ))).clone();
         let new_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
@@ -648,29 +625,17 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone();
+            ))).clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
         assert!(
             !rr_set
                 .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&same_serial,)
+                .any(|ref x| x == &&same_serial)
         );
 
         assert!(rr_set.insert(new_serial.clone(), 0));
@@ -680,20 +645,13 @@ mod test {
         assert!(
             rr_set
                 .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&new_serial)
+                .any(|ref x| x == &&new_serial)
         );
+        assert!(!rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
         assert!(
             !rr_set
                 .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
-        assert!(
-            !rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&same_serial)
+                .any(|ref x| x == &&same_serial)
         );
     }
 
@@ -722,26 +680,15 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
 
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
-        assert!(
-            !rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(!rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
         assert!(
             rr_set
                 .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&new_record)
+                .any(|ref x| x == &&new_record)
         );
     }
 
@@ -794,17 +741,11 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            )))
-            .clone();
+            ))).clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .collect::<Vec<_>>()
-                .contains(&&insert)
-        );
+        assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
     }
 
     #[test]

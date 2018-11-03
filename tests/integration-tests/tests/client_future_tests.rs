@@ -19,23 +19,25 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "dnssec")]
 use chrono::Duration;
 use futures::Future;
-use openssl::rsa::Rsa;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::error::ClientErrorKind;
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
-use trust_dns::rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType};
+#[cfg(feature = "dnssec")]
+use trust_dns::rr::dnssec::Signer;
+use trust_dns::rr::{DNSClass, Name, RData, RecordSet, RecordType};
+#[cfg(feature = "dnssec")]
+use trust_dns::rr::{IntoRecordSet, Record};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{
-    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
-};
+use trust_dns_proto::xfer::DnsResponse;
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse};
 use trust_dns_server::authority::Catalog;
 
 use trust_dns_integration::authority::create_example;
@@ -158,12 +160,14 @@ where
             .query(name.clone(), DNSClass::IN, RecordType::A)
             .map(move |response| {
                 println!("response records: {:?}", response);
-                assert!(response
-                    .queries()
-                    .first()
-                    .expect("expected query")
-                    .name()
-                    .eq_case(&name));
+                assert!(
+                    response
+                        .queries()
+                        .first()
+                        .expect("expected query")
+                        .name()
+                        .eq_case(&name)
+                );
 
                 let record = &response.answers()[0];
                 assert_eq!(record.name(), &name);
@@ -175,8 +179,7 @@ where
                 } else {
                     assert!(false);
                 }
-            })
-            .map_err(|e| {
+            }).map_err(|e| {
                 assert!(false, "query failed: {}", e);
             }),
     )
@@ -230,6 +233,10 @@ fn create_sig0_ready_client(
     BasicClientHandle<impl Future<Item = DnsResponse, Error = ProtoError>>,
     Name,
 ) {
+    use openssl::rsa::Rsa;
+    use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+    use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
@@ -675,8 +682,7 @@ fn test_delete_by_rdata() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        ))
-        .expect("query failed");
+        )).expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
     assert!(result.answers().iter().any(|rr| *rr == record1));
@@ -749,8 +755,7 @@ fn test_delete_by_rdata_multi() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        ))
-        .expect("query failed");
+        )).expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
     assert!(!result.answers().iter().any(|rr| *rr == record1));

@@ -9,28 +9,30 @@ extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
 use std::net::*;
+#[cfg(feature = "dnssec")]
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::time;
 
+#[cfg(feature = "dnssec")]
 use chrono::Duration;
 use futures::Future;
-use openssl::rsa::Rsa;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::client::SecureSyncClient;
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SyncClient};
 use trust_dns::error::ClientErrorKind;
-use trust_dns::op::*;
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::rdata::*;
-use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
+use trust_dns::rr::dnssec::Signer;
+#[cfg(feature = "dnssec")]
+use trust_dns::rr::Record;
+use trust_dns::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::op::*;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 use trust_dns_server::authority::Catalog;
 
@@ -109,12 +111,14 @@ where
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
-    assert!(response
-        .queries()
-        .first()
-        .expect("expected query")
-        .name()
-        .eq_case(&name));
+    assert!(
+        response
+            .queries()
+            .first()
+            .expect("expected query")
+            .name()
+            .eq_case(&name)
+    );
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);
@@ -222,6 +226,8 @@ fn test_timeout_query_udp() {
 
 #[test]
 fn test_timeout_query_tcp() {
+    use std::time::Duration;
+
     let addr: SocketAddr = ("203.0.113.0", 53)
         .to_socket_addrs()
         .unwrap()
@@ -229,9 +235,8 @@ fn test_timeout_query_tcp() {
         .unwrap();
 
     // TODO: need to add timeout length to SyncClient
-    let client = SyncClient::new(
-        TcpClientConnection::with_timeout(addr, time::Duration::from_millis(1)).unwrap(),
-    );
+    let client =
+        SyncClient::new(TcpClientConnection::with_timeout(addr, Duration::from_millis(1)).unwrap());
     test_timeout_query(client);
 }
 
@@ -372,6 +377,10 @@ fn test_nsec_query_type() {
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
+    use openssl::rsa::Rsa;
+    use trust_dns::rr::dnssec::{Algorithm, KeyPair};
+    use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, KEY};
+
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
@@ -501,22 +510,26 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(100, 10, 100, 10)
-        } else {
-            false
-        }));
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(101, 11, 101, 11)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(100, 10, 100, 10)
+            } else {
+                false
+            })
+    );
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
@@ -564,14 +577,16 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(101, 11, 101, 11)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 
     // check the it fails if tried again.
     let mut new = new;
@@ -587,14 +602,16 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(101, 11, 101, 11)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 }
 
 #[cfg(feature = "dnssec")]
@@ -641,14 +658,16 @@ fn test_delete_by_rdata() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result
-        .answers()
-        .iter()
-        .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(100, 10, 100, 10)
-        } else {
-            false
-        }));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(100, 10, 100, 10)
+            } else {
+                false
+            })
+    );
 }
 
 #[cfg(feature = "dnssec")]
