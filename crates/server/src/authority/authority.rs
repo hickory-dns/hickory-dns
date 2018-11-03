@@ -12,12 +12,12 @@ use std::borrow::Borrow;
 use std::collections::btree_map::Values;
 use std::collections::BTreeMap;
 
+use proto::rr::RrsetRecords;
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-use proto::rr::RrsetRecords;
 
 #[cfg(feature = "dnssec")]
 use authority::UpdateRequest;
@@ -405,7 +405,7 @@ impl Authority {
                                     RecordType::ANY,
                                     false,
                                     SupportedAlgorithms::new(),
-                                ).is_totally_empty()
+                                ).was_empty()
                             {
                                 return Err(ResponseCode::NXDomain);
                             } else {
@@ -416,7 +416,7 @@ impl Authority {
                         rrset => {
                             if self
                                 .lookup(&required_name, rrset, false, SupportedAlgorithms::new())
-                                .is_totally_empty()
+                                .was_empty()
                             {
                                 return Err(ResponseCode::NXRRSet);
                             } else {
@@ -437,7 +437,7 @@ impl Authority {
                                     RecordType::ANY,
                                     false,
                                     SupportedAlgorithms::new(),
-                                ).is_totally_empty()
+                                ).was_empty()
                             {
                                 return Err(ResponseCode::YXDomain);
                             } else {
@@ -448,7 +448,7 @@ impl Authority {
                         rrset => {
                             if !self
                                 .lookup(&required_name, rrset, false, SupportedAlgorithms::new())
-                                .is_totally_empty()
+                                .was_empty()
                             {
                                 return Err(ResponseCode::YXRRSet);
                             } else {
@@ -509,8 +509,8 @@ impl Authority {
     ///
     #[cfg(feature = "dnssec")]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
         use proto::rr::dnssec::Verifier;
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 
         // 3.3.3 - Pseudocode for Permission Checking
         //
@@ -1415,7 +1415,7 @@ impl<'r, 'q> LookupRecords<'r, 'q> {
     /// This is an NxDomain or NameExists, and has no associated records
     ///
     /// this consumes the iterator, and verifies it is empty
-    pub fn is_totally_empty(self) -> bool {
+    pub fn was_empty(self) -> bool {
         self.count() == 0
     }
 

@@ -5,12 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use trust_dns::op::LowerQuery;
 use proto::error::*;
 use proto::op::message::EmitAndCount;
 use proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
 use proto::rr::Record;
 use proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
@@ -244,7 +244,7 @@ impl<'r> Queries<'r> {
         self.original
     }
 
-    pub(crate) fn into_emit_and_count<'s>(&'s self) -> QueriesEmitAndCount<'s> {
+    pub(crate) fn as_emit_and_count<'s>(&'s self) -> QueriesEmitAndCount<'s> {
         QueriesEmitAndCount {
             length: self.queries.len(),
             original: self.original,

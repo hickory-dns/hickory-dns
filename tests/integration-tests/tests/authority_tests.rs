@@ -74,7 +74,7 @@ fn test_authority() {
                 RecordType::NS,
                 false,
                 SupportedAlgorithms::new()
-            ).is_totally_empty()
+            ).was_empty()
     );
 
     let mut lookup: Vec<_> = authority.ns(false, SupportedAlgorithms::new()).collect();
@@ -108,7 +108,7 @@ fn test_authority() {
                 RecordType::TXT,
                 false,
                 SupportedAlgorithms::new()
-            ).is_totally_empty()
+            ).was_empty()
     );
 
     let mut lookup: Vec<_> = authority
@@ -600,7 +600,7 @@ fn test_update() {
                     RecordType::ANY,
                     false,
                     SupportedAlgorithms::new()
-                ).is_totally_empty()
+                ).was_empty()
         );
     }
 
@@ -692,7 +692,7 @@ fn test_update() {
                     RecordType::ANY,
                     false,
                     SupportedAlgorithms::new()
-                ).is_totally_empty()
+                ).was_empty()
         );
     }
 
@@ -792,7 +792,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new()
-            ).is_totally_empty()
+            ).was_empty()
     );
     assert_eq!(serial + 6, authority.serial());
 }
@@ -910,7 +910,7 @@ fn test_journal() {
         false,
         SupportedAlgorithms::new(),
     );
-    assert!(delete_rrset.is_totally_empty());
+    assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
     let mut recovered_authority = Authority::new(
@@ -941,7 +941,7 @@ fn test_journal() {
         false,
         SupportedAlgorithms::new(),
     );
-    assert!(delete_rrset.is_totally_empty());
+    assert!(delete_rrset.was_empty());
 }
 
 #[test]
