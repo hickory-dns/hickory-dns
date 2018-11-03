@@ -208,8 +208,8 @@ pub enum Protocol {
 
 impl Protocol {
     /// Returns true if this is a datagram oriented protocol, e.g. UDP
-    pub fn is_datagram(&self) -> bool {
-        match *self {
+    pub fn is_datagram(self) -> bool {
+        match self {
             Protocol::Udp => true,
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]
@@ -222,13 +222,13 @@ impl Protocol {
     }
 
     /// Returns true if this is a stream oriented protocol, e.g. TCP
-    pub fn is_stream(&self) -> bool {
+    pub fn is_stream(self) -> bool {
         !self.is_datagram()
     }
 
     /// Is this an encrypted protocol, i.e. TLS or HTTPS
-    pub fn is_encrypted(&self) -> bool {
-        match *self {
+    pub fn is_encrypted(self) -> bool {
+        match self {
             Protocol::Udp => false,
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]

@@ -350,7 +350,7 @@ impl Catalog {
                         .edns()
                         .map_or((false, SupportedAlgorithms::new()), |edns| {
                             let supported_algorithms =
-                                if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
+                                if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
                                     algs
                                 } else {
                                     debug!("no DAU in request, used default SupportAlgorithms");

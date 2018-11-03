@@ -521,7 +521,7 @@ impl RData {
     /// ```
     pub fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         match *self {
-            RData::A(ref address) => rdata::a::emit(encoder, address),
+            RData::A(address) => rdata::a::emit(encoder, address),
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
             RData::CAA(ref caa) => rdata::caa::emit(encoder, caa),
             // to_lowercase for rfc4034 and rfc6840

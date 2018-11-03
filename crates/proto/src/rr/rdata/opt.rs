@@ -185,8 +185,8 @@ impl OPT {
     }
 
     /// Get a single option based on the code
-    pub fn get(&self, code: &EdnsCode) -> Option<&EdnsOption> {
-        self.options.get(code)
+    pub fn get(&self, code: EdnsCode) -> Option<&EdnsOption> {
+        self.options.get(&code)
     }
 
     /// Insert a new option, the key is derived from the `EdnsOption`
@@ -202,12 +202,15 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let start_idx = decoder.index();
 
     // There is no unsafe direct use of the rdata length after this point
-    let rdata_length = rdata_length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
+    let rdata_length =
+        rdata_length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
     while rdata_length > decoder.index() - start_idx {
         match state {
             OptReadState::ReadCode => {
                 state = OptReadState::Code {
-                    code: EdnsCode::from(decoder.read_u16()?.unverified(/*EdnsCode is verified as safe*/)),
+                    code: EdnsCode::from(
+                        decoder.read_u16()?.unverified(/*EdnsCode is verified as safe*/),
+                    ),
                 };
             }
             OptReadState::Code { code } => {

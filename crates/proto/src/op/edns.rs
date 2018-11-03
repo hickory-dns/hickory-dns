@@ -17,9 +17,9 @@
 //! Extended DNS options
 
 use error::*;
-use rr::{DNSClass, Name, RData, Record, RecordType};
-use rr::rdata::OPT;
 use rr::rdata::opt::{self, EdnsCode, EdnsOption};
+use rr::rdata::OPT;
+use rr::{DNSClass, Name, RData, Record, RecordType};
 
 use serialize::binary::{BinEncodable, BinEncoder};
 
@@ -79,7 +79,7 @@ impl Edns {
     }
 
     /// Returns the Option associated with the code
-    pub fn option(&self, code: &EdnsCode) -> Option<&EdnsOption> {
+    pub fn option(&self, code: EdnsCode) -> Option<&EdnsOption> {
         self.options.get(code)
     }
 
