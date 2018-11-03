@@ -127,8 +127,7 @@ impl TcpStream<TokioTcpStream> {
                         format!("timed out connecting to: {}", name_server),
                     )
                 })
-            })
-            .map(move |tcp_stream| {
+            }).map(move |tcp_stream| {
                 debug!("TCP connection established to: {}", name_server);
                 TcpStream {
                     socket: tcp_stream,
@@ -465,8 +464,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -512,8 +510,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();
@@ -523,10 +520,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::new::<ProtoError>(server_addr);
 
-    let mut stream = io_loop
-        .block_on(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once

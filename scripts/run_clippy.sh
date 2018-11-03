@@ -70,7 +70,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::collapsible-if\
     -A clippy::ptr-arg\
     -A clippy::zero-prefixed-literal\
-    -A clippy::ok-expect\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

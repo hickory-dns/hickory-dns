@@ -57,7 +57,7 @@ fn mdns_responsder(
             // a max time for the test to run
             let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
-            // FIXME: ipv6 if is hardcoded, need a different strategy
+            // TODO: ipv6 if is hardcoded, need a different strategy
             let (mdns_stream, mdns_handle) = MdnsStream::new(
                 mdns_addr,
                 MdnsQueryType::OneShotJoin,
@@ -68,7 +68,6 @@ fn mdns_responsder(
 
             let mut stream = io_loop
                 .block_on(mdns_stream)
-                .ok()
                 .expect("failed to create server stream")
                 .into_future();
 

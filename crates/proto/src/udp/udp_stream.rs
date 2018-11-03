@@ -199,7 +199,6 @@ fn test_next_random_socket() {
     drop(
         io_loop
             .block_on(stream)
-            .ok()
             .expect("failed to get next socket address"),
     );
 }

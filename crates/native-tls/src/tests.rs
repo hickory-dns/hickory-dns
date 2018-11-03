@@ -109,7 +109,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
             //   let mut mode = openssl::ssl::SslVerifyMode::empty();
 
-            //   // FIXME: mtls tests hang on Linux...
+            //   // TODO: mtls tests hang on Linux...
             //   if mtls {
             //     //   mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
@@ -124,7 +124,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             //   openssl_ctx_builder.set_verify(mode);
             // }
 
-            // FIXME: add CA on macOS
+            // TODO: add CA on macOS
 
             let tls = tls.build().expect("tls build failed");
 
@@ -190,10 +190,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let (stream, sender) = builder.build(server_addr, dns_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop
-        .block_on(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once

@@ -83,8 +83,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
@@ -185,8 +184,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // let the server go first
     std::thread::yield_now();
@@ -212,10 +210,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let (stream, sender) = builder.build(server_addr, dns_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop
-        .block_on(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
