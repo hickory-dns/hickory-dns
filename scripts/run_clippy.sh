@@ -2,6 +2,8 @@
 
 set -e
 
+cargo clippy --version || rustup component add clippy-preview
+
 cargo clean -p trust-dns
 cargo clean -p trust-dns-proto
 cargo clean -p trust-dns-server
@@ -70,8 +72,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::zero-prefixed-literal\
     -A clippy::ok-expect\
     -A clippy::explicit-counter-loop\
-    -A clippy::map-clone\
-    -A clippy::ok-expect\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
