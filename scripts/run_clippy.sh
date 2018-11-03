@@ -67,7 +67,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::cyclomatic_complexity\
     -A clippy::module_inception\
     -A clippy::op_ref\
-    -A clippy::collapsible-if\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
