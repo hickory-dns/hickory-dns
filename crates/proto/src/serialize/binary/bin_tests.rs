@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use std::fmt::Debug;
-use error::*;
 use super::*;
+use error::*;
+use std::fmt::Debug;
 
 fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {
     vec![
@@ -31,16 +31,18 @@ fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {
 fn read_character_data() {
     for (string, bytes) in get_character_data() {
         let mut decoder = BinDecoder::new(&bytes);
-        assert_eq!(decoder.read_character_data().unwrap().unverified(), string.as_bytes());
+        assert_eq!(
+            decoder.read_character_data().unwrap().unverified(),
+            string.as_bytes()
+        );
     }
 }
 
 #[test]
 fn emit_character_data() {
-    test_emit_data_set(
-        get_character_data(),
-        |ref mut e, d| e.emit_character_data(&d),
-    );
+    test_emit_data_set(get_character_data(), |ref mut e, d| {
+        e.emit_character_data(&d)
+    });
 }
 
 fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
@@ -54,7 +56,9 @@ fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
 
 #[test]
 fn read_u16() {
-    test_read_data_set(get_u16_data(), |mut d| d.read_u16().map(Restrict::unverified));
+    test_read_data_set(get_u16_data(), |mut d| {
+        d.read_u16().map(Restrict::unverified)
+    });
 }
 
 #[test]
@@ -77,7 +81,9 @@ fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
 
 #[test]
 fn read_i32() {
-    test_read_data_set(get_i32_data(), |mut d| d.read_i32().map(Restrict::unverified));
+    test_read_data_set(get_i32_data(), |mut d| {
+        d.read_i32().map(Restrict::unverified)
+    });
 }
 
 #[test]
@@ -100,7 +106,9 @@ fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
 
 #[test]
 fn read_u32() {
-    test_read_data_set(get_u32_data(), |mut d| d.read_u32().map(Restrict::unverified));
+    test_read_data_set(get_u32_data(), |mut d| {
+        d.read_u32().map(Restrict::unverified)
+    });
 }
 
 #[test]
@@ -108,15 +116,12 @@ fn emit_u32() {
     test_emit_data_set(get_u32_data(), |ref mut e, d| e.emit_u32(d));
 }
 
-
 pub fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
 where
     E: PartialEq<E> + Debug,
     F: Fn(BinDecoder) -> ProtoResult<E>,
 {
-    let mut test_pass = 0;
-    for (expect, binary) in data_set {
-        test_pass += 1;
+    for (test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
         println!("test {}: {:?}", test_pass, binary);
 
         let decoder = BinDecoder::new(&binary);
@@ -129,10 +134,7 @@ where
     F: Fn(&mut BinEncoder, S) -> ProtoResult<()>,
     S: Debug,
 {
-    let mut test_pass = 0;
-
-    for (data, expect) in data_set {
-        test_pass += 1;
+    for (test_pass, (data, expect)) in data_set.into_iter().enumerate() {
         println!("test {}: {:?}", test_pass, data);
 
         let mut bytes: Vec<u8> = Vec::with_capacity(512);

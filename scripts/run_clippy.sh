@@ -71,7 +71,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::ptr-arg\
     -A clippy::zero-prefixed-literal\
     -A clippy::ok-expect\
-    -A clippy::explicit-counter-loop\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
