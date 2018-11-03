@@ -698,7 +698,7 @@ pub mod tests {
                 },
             };
 
-            if server_got_packet.load(std::sync::atomic::Ordering::Relaxed) == true {
+            if server_got_packet.load(std::sync::atomic::Ordering::Relaxed) {
                 return;
             }
 
