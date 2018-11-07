@@ -11,9 +11,9 @@ use std::sync::{Arc, Mutex};
 
 use futures::{Future, Stream};
 use h2::server;
+use proto::serialize::binary::BinDecodable;
 use tokio_io::{AsyncRead, AsyncWrite};
 use trust_dns_https::https_server;
-use proto::serialize::binary::BinDecodable;
 
 use authority::MessageResponse;
 use server::request_handler::RequestHandler;
@@ -67,9 +67,9 @@ impl ResponseHandler for HttpsResponseHandle {
     fn send_response(mut self, response: MessageResponse) -> io::Result<()> {
         use bytes::Bytes;
 
+        use proto::serialize::binary::BinEncoder;
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;
-        use proto::serialize::binary::BinEncoder;
 
         let mut bytes = Vec::with_capacity(512);
         // mut block
@@ -84,10 +84,8 @@ impl ResponseHandler for HttpsResponseHandle {
         let mut stream = self
             .0
             .send_response(response, false)
-            .map_err(|e| HttpsError::from(e))?;
-        stream
-            .send_data(bytes, true)
-            .map_err(|e| HttpsError::from(e))?;
+            .map_err(HttpsError::from)?;
+        stream.send_data(bytes, true).map_err(HttpsError::from)?;
 
         Ok(())
     }

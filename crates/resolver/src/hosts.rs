@@ -55,9 +55,10 @@ impl Hosts {
     pub fn insert(&mut self, name: Name, record_type: RecordType, lookup: Lookup) {
         assert!(record_type == RecordType::A || record_type == RecordType::AAAA);
 
-        let lookup_type = self.by_name
+        let lookup_type = self
+            .by_name
             .entry(name.clone())
-            .or_insert_with(|| LookupType::default());
+            .or_insert_with(LookupType::default);
 
         let new_lookup = {
             let mut old_lookup = match &record_type {

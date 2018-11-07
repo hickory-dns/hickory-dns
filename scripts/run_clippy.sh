@@ -51,7 +51,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::op_ref\
     -A clippy::or_fun_call\
     -A clippy::question_mark\
-    -A clippy::redundant_closure\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
