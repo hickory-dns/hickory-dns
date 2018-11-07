@@ -53,7 +53,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::question_mark\
     -A clippy::redundant_closure\
     -A clippy::redundant_field_names\
-    -A clippy::redundant_pattern\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

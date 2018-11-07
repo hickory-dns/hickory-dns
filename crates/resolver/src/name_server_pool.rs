@@ -162,7 +162,7 @@ impl Ord for NameServerStats {
         //   letency is started to be used.
         match self.state.cmp(&other.state) {
             Ordering::Equal => (),
-            o @ _ => {
+            o => {
                 return o;
             }
         }

@@ -122,7 +122,7 @@ impl RequestHandler for Catalog {
                 OpCode::Update => {
                     return self.update(request_message, response_edns, response_handle)
                 }
-                c @ _ => {
+                c => {
                     error!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
                     return response_handle.send_response(response.error_msg(

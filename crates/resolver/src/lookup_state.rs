@@ -83,11 +83,11 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
         // special use rules only apply to the IN Class
         if query.query_class() == DNSClass::IN {
             let usage = match query.name() {
-                n @ _ if LOCALHOST_usage.zone_of(n) => &*LOCALHOST_usage,
-                n @ _ if IN_ADDR_ARPA_127.zone_of(n) => &*LOCALHOST_usage,
-                n @ _ if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
-                n @ _ if INVALID.zone_of(n) => &*INVALID,
-                n @ _ if LOCAL.zone_of(n) => &*LOCAL,
+                n if LOCALHOST_usage.zone_of(n) => &*LOCALHOST_usage,
+                n if IN_ADDR_ARPA_127.zone_of(n) => &*LOCALHOST_usage,
+                n if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
+                n if INVALID.zone_of(n) => &*INVALID,
+                n if LOCAL.zone_of(n) => &*LOCAL,
                 _ => &*DEFAULT,
             };
 
@@ -355,7 +355,7 @@ impl<C: DnsHandle + 'static> Future for QueryFuture<C> {
                         message, false, /* false b/c DNSSec should not cache NXDomain */
                     ))),
                     ResponseCode::NoError => self.handle_noerror(message),
-                    r @ _ => Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into()),
+                    r => Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into()),
                 }
             }
             Ok(Async::NotReady) => Ok(Async::NotReady),
@@ -526,7 +526,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
                     Records::CnameChain { .. } => {
                         panic!("CnameChain should have been polled in poll() of QueryState");
                     }
-                    rdatas @ _ => {
+                    rdatas => {
                         mem::replace(
                             self,
                             QueryState::InsertCache(InsertCache {
@@ -544,7 +544,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
                     Records::CnameChain { .. } => {
                         panic!("CnameChain should have been polled in poll() of QueryState");
                     }
-                    rdatas @ _ => {
+                    rdatas => {
                         mem::replace(
                             self,
                             QueryState::InsertCache(InsertCache {

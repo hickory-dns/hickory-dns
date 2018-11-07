@@ -190,7 +190,7 @@ mod tests {
         let mut from_post = message_from(Arc::new("ns.example.com".to_string()), request);
         let bytes = match from_post.poll() {
             Ok(Async::Ready(bytes)) => bytes,
-            e @ _ => panic!("{:#?}", e),
+            e => panic!("{:#?}", e),
         };
 
         let msg_from_post = Message::from_vec(bytes.as_ref()).expect("bytes failed");
