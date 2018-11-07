@@ -85,7 +85,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             panic!("timeout");
         }).unwrap();
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../server".to_owned());
     println!("using server src path: {}", server_path);
 
     let root_cert_der = read_file(&format!("{}/../../tests/test-data/ca.der", server_path));

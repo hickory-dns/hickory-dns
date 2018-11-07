@@ -59,7 +59,8 @@ impl Drop for NamedProcess {
 }
 
 fn new_working_dir() -> String {
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../../crates/server".to_owned());
+    let server_path =
+        env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../../crates/server".to_owned());
 
     let rand = rand::random::<u32>();
     let rand = BASE32.encode(&[

@@ -177,7 +177,7 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr};
 
     fn tests_dir() -> String {
-        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         format!{"{}/../resolver/tests", server_path}
     }
 

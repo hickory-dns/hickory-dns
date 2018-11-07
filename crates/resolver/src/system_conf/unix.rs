@@ -99,10 +99,10 @@ fn into_resolver_config(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proto::rr::Name;
     use std::env;
     use std::net::*;
     use std::str::FromStr;
-    use proto::rr::Name;
 
     fn empty_config() -> ResolverConfig {
         ResolverConfig::from_parts(None, vec![], vec![])
@@ -125,7 +125,7 @@ mod tests {
     }
 
     fn tests_dir() -> String {
-        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         format!{"{}/../resolver/tests", server_path}
     }
 

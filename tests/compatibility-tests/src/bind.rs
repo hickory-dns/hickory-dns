@@ -19,7 +19,7 @@ use super::*;
 pub fn named_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
-    let bind_path = env::var("TDNS_BIND_PATH").unwrap_or("named".to_owned());
+    let bind_path = env::var("TDNS_BIND_PATH").unwrap_or_else(|_| "named".to_owned());
 
     println!(
         "Path to BIND '{}' this can be changed with the TDNS_BIND_PATH environment variable",

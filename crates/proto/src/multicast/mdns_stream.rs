@@ -311,7 +311,9 @@ impl NextRandomUdpSocket {
         match addr {
             SocketAddr::V4(..) => {
                 socket.set_multicast_loop_v4(true)?;
-                socket.set_multicast_if_v4(&self.ipv4_if.unwrap_or(Ipv4Addr::new(0, 0, 0, 0)))?;
+                socket.set_multicast_if_v4(
+                    &self.ipv4_if.unwrap_or_else(|| Ipv4Addr::new(0, 0, 0, 0)),
+                )?;
                 if let Some(ttl) = self.packet_ttl {
                     socket.set_ttl(ttl)?;
                     socket.set_multicast_ttl_v4(ttl)?;

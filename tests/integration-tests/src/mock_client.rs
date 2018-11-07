@@ -27,7 +27,7 @@ impl DnsHandle for MockClientHandle {
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         Box::new(future::result(
-            self.messages.lock().unwrap().pop().unwrap_or(empty()),
+            self.messages.lock().unwrap().pop().unwrap_or_else(empty),
         ))
     }
 }
