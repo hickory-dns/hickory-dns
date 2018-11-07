@@ -49,9 +49,9 @@ where
         let future = self.handle.send(request.clone());
 
         Box::new(RetrySendFuture {
-            request: request,
+            request,
             handle: self.handle.clone(),
-            future: future,
+            future,
             remaining_attempts: self.attempts,
         })
     }

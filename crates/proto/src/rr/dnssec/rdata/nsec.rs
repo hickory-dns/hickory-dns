@@ -64,8 +64,8 @@ impl NSEC {
     /// An NSEC RData for use in a Resource Record
     pub fn new(next_domain_name: Name, type_bit_maps: Vec<RecordType>) -> NSEC {
         NSEC {
-            next_domain_name: next_domain_name,
-            type_bit_maps: type_bit_maps,
+            next_domain_name,
+            type_bit_maps,
         }
     }
 

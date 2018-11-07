@@ -56,7 +56,7 @@ impl UdpStream {
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream = Box::new(next_socket.map(move |socket| UdpStream {
-            socket: socket,
+            socket,
             outbound_messages: outbound_messages.fuse().peekable(),
         }));
 
@@ -81,7 +81,7 @@ impl UdpStream {
         let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = UdpStream {
-            socket: socket,
+            socket,
             outbound_messages: outbound_messages.fuse().peekable(),
         };
 
@@ -94,7 +94,7 @@ impl UdpStream {
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
-            socket: socket,
+            socket,
             outbound_messages: outbound_messages.fuse().peekable(),
         }
     }

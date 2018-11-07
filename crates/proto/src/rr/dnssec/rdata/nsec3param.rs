@@ -93,10 +93,10 @@ impl NSEC3PARAM {
         salt: Vec<u8>,
     ) -> NSEC3PARAM {
         NSEC3PARAM {
-            hash_algorithm: hash_algorithm,
-            opt_out: opt_out,
-            iterations: iterations,
-            salt: salt,
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
         }
     }
 
@@ -160,7 +160,8 @@ impl NSEC3PARAM {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
-    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
+    let hash_algorithm =
+        Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
     let flags: u8 = decoder
         .read_u8()?
         .verify_unwrap(|flags| flags & 0b1111_1110 == 0)

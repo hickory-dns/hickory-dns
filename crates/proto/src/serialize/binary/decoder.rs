@@ -37,10 +37,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// * `buffer` - buffer from which all data will be read
     pub fn new(buffer: &'a [u8]) -> Self {
-        BinDecoder {
-            buffer: buffer,
-            index: 0,
-        }
+        BinDecoder { buffer, index: 0 }
     }
 
     /// Pop one byte from the buffer
@@ -118,16 +115,21 @@ impl<'a> BinDecoder<'a> {
         &mut self,
         max_len: Option<usize>,
     ) -> ProtoResult<Restrict<&[u8]>> {
-        let length = self.pop()?.map(|u| u as usize).verify_unwrap(|length| {
-            if let Some(max_len) = max_len {
-                *length <= max_len
-            } else {
-                true
-            }
-        }).map_err(|length| ProtoError::from(ProtoErrorKind::CharacterDataTooLong {
-            max: max_len.unwrap_or_default(),
-            len: length,
-        }))?;
+        let length = self
+            .pop()?
+            .map(|u| u as usize)
+            .verify_unwrap(|length| {
+                if let Some(max_len) = max_len {
+                    *length <= max_len
+                } else {
+                    true
+                }
+            }).map_err(|length| {
+                ProtoError::from(ProtoErrorKind::CharacterDataTooLong {
+                    max: max_len.unwrap_or_default(),
+                    len: length,
+                })
+            })?;
 
         self.read_slice(length)
     }

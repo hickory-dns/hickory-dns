@@ -166,7 +166,7 @@ pub struct SupportedAlgorithmsIter<'a> {
 impl<'a> SupportedAlgorithmsIter<'a> {
     pub fn new(algorithms: &'a SupportedAlgorithms) -> Self {
         SupportedAlgorithmsIter {
-            algorithms: algorithms,
+            algorithms,
             current: 0,
         }
     }

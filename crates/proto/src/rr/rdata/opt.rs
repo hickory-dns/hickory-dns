@@ -176,7 +176,7 @@ impl OPT {
     ///
     /// The newly created OPT data
     pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
-        OPT { options: options }
+        OPT { options }
     }
 
     /// The entire map of options
@@ -220,8 +220,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
                     .verify_unwrap(|u| *u <= rdata_length)
                     .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
                 state = OptReadState::Data {
-                    code: code,
-                    length: length,
+                    code,
+                    length,
                     // TODO: this cean be replaced with decoder.read_vec(), right?
                     //  the current version allows for malformed opt to be skipped...
                     collected: Vec::<u8>::with_capacity(length),
@@ -239,9 +239,9 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
                     state = OptReadState::ReadCode;
                 } else {
                     state = OptReadState::Data {
-                        code: code,
-                        length: length,
-                        collected: collected,
+                        code,
+                        length,
+                        collected,
                     };
                 }
             }

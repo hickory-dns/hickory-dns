@@ -280,11 +280,11 @@ impl Signer {
 
         Signer {
             key_rdata: key_rdata.into(),
-            key: key,
-            algorithm: algorithm,
-            signer_name: signer_name,
-            sig_duration: sig_duration,
-            is_zone_signing_key: is_zone_signing_key,
+            key,
+            algorithm,
+            signer_name,
+            sig_duration,
+            is_zone_signing_key,
         }
     }
 
@@ -301,9 +301,9 @@ impl Signer {
 
         Signer {
             key_rdata: key_rdata.into(),
-            key: key,
-            algorithm: algorithm,
-            signer_name: signer_name,
+            key,
+            algorithm,
+            signer_name,
             sig_duration: Duration::zero(),
             is_zone_signing_key: false,
         }
@@ -325,11 +325,11 @@ impl Signer {
 
         Signer {
             key_rdata: dnskey.into(),
-            key: key,
-            algorithm: algorithm,
-            signer_name: signer_name,
-            sig_duration: sig_duration,
-            is_zone_signing_key: is_zone_signing_key,
+            key,
+            algorithm,
+            signer_name,
+            sig_duration,
+            is_zone_signing_key,
         }
     }
 

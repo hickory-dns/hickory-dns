@@ -132,7 +132,7 @@ impl<'a> BinEncoder<'a> {
             // FIXME: add max_size to signature
             buffer: private::MaximalBuf::new(u16::max_value(), buf),
             name_pointers: Vec::new(),
-            mode: mode,
+            mode,
             canonical_names: false,
         }
     }

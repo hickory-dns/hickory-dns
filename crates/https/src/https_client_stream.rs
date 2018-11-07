@@ -274,7 +274,7 @@ impl Future for HttpsSerialResponseInner {
                     Receiving {
                         response_stream,
                         response_bytes: Bytes::with_capacity(content_length.unwrap_or(512)),
-                        content_length: content_length,
+                        content_length,
                         name_server: *name_server,
                     }
                 }

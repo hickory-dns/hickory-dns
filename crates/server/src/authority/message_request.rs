@@ -198,13 +198,13 @@ impl<'r> BinDecodable<'r> for MessageRequest<'r> {
         let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
 
         Ok(MessageRequest {
-            header: header,
-            queries: queries,
-            answers: answers,
-            name_servers: name_servers,
-            additionals: additionals,
-            sig0: sig0,
-            edns: edns,
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
         })
     }
 }

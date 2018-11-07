@@ -129,12 +129,12 @@ impl NSEC3 {
         type_bit_maps: Vec<RecordType>,
     ) -> NSEC3 {
         NSEC3 {
-            hash_algorithm: hash_algorithm,
-            opt_out: opt_out,
-            iterations: iterations,
-            salt: salt,
-            next_hashed_owner_name: next_hashed_owner_name,
-            type_bit_maps: type_bit_maps,
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            type_bit_maps,
         }
     }
 
@@ -243,7 +243,8 @@ impl NSEC3 {
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
-    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
+    let hash_algorithm =
+        Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
     let flags: u8 = decoder
         .read_u8()?
         .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
@@ -253,34 +254,34 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
 
     // read the salt
-    let salt_len = decoder
-        .read_u8()?
-        .map(|u| u as usize);
+    let salt_len = decoder.read_u8()?.map(|u| u as usize);
     let salt_len_max = rdata_length
-        .map(|u|u as usize)
+        .map(|u| u as usize)
         .checked_sub(decoder.index() - start_idx)
         .map_err(|_| "invalid rdata for salt_len_max")?;
     let salt_len = salt_len
-        .verify_unwrap(|salt_len| *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/))
-        .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
-    let salt: Vec<u8> = decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
+        .verify_unwrap(|salt_len| {
+            *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/)
+        }).map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
+    let salt: Vec<u8> =
+        decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
 
     // read the hashed_owner_name
-    let hash_len = decoder
-        .read_u8()?
-        .map(|u| u as usize);
+    let hash_len = decoder.read_u8()?.map(|u| u as usize);
     let hash_len_max = rdata_length
-        .map(|u|u as usize)
+        .map(|u| u as usize)
         .checked_sub(decoder.index() - start_idx)
         .map_err(|_| "invalid rdata for hash_len_max")?;
     let hash_len = hash_len
-        .verify_unwrap(|hash_len| *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/))
-        .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
-    let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
+        .verify_unwrap(|hash_len| {
+            *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/)
+        }).map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
+    let next_hashed_owner_name: Vec<u8> =
+        decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 
     // read the bitmap
     let bit_map_len = rdata_length
-        .map(|u|u as usize)
+        .map(|u| u as usize)
         .checked_sub(decoder.index() - start_idx)
         .map_err(|_| "invalid rdata length in NSEC3")?;
     let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
@@ -366,7 +367,7 @@ pub(crate) fn decode_type_bit_maps(
                 window: current_byte.unverified(/*window is any valid u8,*/),
             },
             BitMapState::ReadLen { window } => BitMapState::ReadType {
-                window: window,
+                window,
                 len: current_byte,
                 left: current_byte,
             },
@@ -403,11 +404,7 @@ pub(crate) fn decode_type_bit_maps(
                     BitMapState::ReadWindow
                 } else {
                     // continue reading this Window
-                    BitMapState::ReadType {
-                        window,
-                        len,
-                        left,
-                    }
+                    BitMapState::ReadType { window, len, left }
                 }
             }
         };
@@ -418,8 +415,14 @@ pub(crate) fn decode_type_bit_maps(
 
 enum BitMapState {
     ReadWindow,
-    ReadLen { window: u8 },
-    ReadType { window: u8, len: Restrict<u8>, left: Restrict<u8> },
+    ReadLen {
+        window: u8,
+    },
+    ReadType {
+        window: u8,
+        len: Restrict<u8>,
+        left: Restrict<u8>,
+    },
 }
 
 /// Write the RData from the given Decoder
@@ -446,7 +449,10 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
 ///
 /// * `encoder` - the encoder to write to
 /// * `type_bit_maps` - types to encode into the bitmap
-pub(crate) fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> ProtoResult<()> {
+pub(crate) fn encode_bit_maps(
+    encoder: &mut BinEncoder,
+    type_bit_maps: &[RecordType],
+) -> ProtoResult<()> {
     let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
     let mut type_bit_maps = type_bit_maps.to_vec();
     type_bit_maps.sort();

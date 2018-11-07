@@ -269,8 +269,8 @@ impl KeyConfig {
         is_zone_update_auth: bool,
     ) -> Self {
         KeyConfig {
-            key_path: key_path,
-            password: password,
+            key_path,
+            password,
             algorithm: algorithm.to_str().to_string(),
             signer_name: Some(signer_name),
             is_zone_signing_key: Some(is_zone_signing_key),
@@ -301,8 +301,7 @@ impl KeyConfig {
                 "extension not understood, '{:?}': {:?}",
                 e,
                 self.key_path()
-            ))
-            .into()),
+            )).into()),
         }
     }
 

@@ -38,10 +38,9 @@ impl UdpClientStream {
         let new_future = Box::new(
             stream_future
                 .map(move |udp_stream| UdpClientStream {
-                    name_server: name_server,
-                    udp_stream: udp_stream,
-                })
-                .map_err(ProtoError::from),
+                    name_server,
+                    udp_stream,
+                }).map_err(ProtoError::from),
         );
         let new_future = UdpClientConnect(new_future);
 
@@ -133,8 +132,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
@@ -166,8 +164,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
                     len
                 );
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

@@ -53,9 +53,7 @@ impl TcpClientStream<TokioTcpStream> {
 
         let new_future = Box::new(
             stream_future
-                .map(move |tcp_stream| TcpClientStream {
-                    tcp_stream: tcp_stream,
-                })
+                .map(move |tcp_stream| TcpClientStream { tcp_stream })
                 .map_err(ProtoError::from),
         );
 
@@ -68,9 +66,7 @@ impl TcpClientStream<TokioTcpStream> {
 impl<S> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
-        TcpClientStream {
-            tcp_stream: tcp_stream,
-        }
+        TcpClientStream { tcp_stream }
     }
 }
 
@@ -168,8 +164,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -215,8 +210,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

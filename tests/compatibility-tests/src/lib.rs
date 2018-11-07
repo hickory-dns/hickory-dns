@@ -17,8 +17,8 @@ use std::fs::DirBuilder;
 use std::io::{stdout, BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::Child;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 
 use data_encoding::BASE32;
@@ -125,13 +125,12 @@ where
                 // stdout().write(b"SRV: ").unwrap();
                 // stdout().write(output.as_bytes()).unwrap();
             }
-        })
-        .expect("no thread available");
+        }).expect("no thread available");
 
     // return handle to child process
     NamedProcess {
-        working_dir: working_dir,
+        working_dir,
         named: Some(named),
-        thread_notice: thread_notice,
+        thread_notice,
     }
 }

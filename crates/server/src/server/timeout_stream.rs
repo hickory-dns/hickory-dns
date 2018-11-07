@@ -27,9 +27,9 @@ impl<S> TimeoutStream<S> {
         let timeout = Self::timeout(timeout_duration);
 
         TimeoutStream {
-            stream: stream,
-            timeout_duration: timeout_duration,
-            timeout: timeout,
+            stream,
+            timeout_duration,
+            timeout,
         }
     }
 

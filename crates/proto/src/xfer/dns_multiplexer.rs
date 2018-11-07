@@ -172,7 +172,7 @@ where
             stream,
             stream_handle: Some(stream_handle),
             timeout_duration,
-            signer: signer,
+            signer,
         }
     }
 
@@ -321,8 +321,7 @@ where
             Async::NotReady => {
                 return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(
                     "id space exhausted, consider filing an issue",
-                )))
-                .into()
+                ))).into()
             }
         };
 
@@ -512,10 +511,11 @@ impl Future for DnsMultiplexerSerialResponseInner {
         match self {
             // The inner type of the completion might have been an error
             //   we need to unwrap that, and translate to be the Future's error
-            DnsMultiplexerSerialResponseInner::Completion(complete) => match try_ready!(complete
-                .poll()
-                .map_err(|_| ProtoError::from("the completion was canceled")))
-            {
+            DnsMultiplexerSerialResponseInner::Completion(complete) => match try_ready!(
+                complete
+                    .poll()
+                    .map_err(|_| ProtoError::from("the completion was canceled"))
+            ) {
                 Ok(response) => Ok(Async::Ready(response)),
                 Err(err) => Err(err),
             },

@@ -185,7 +185,7 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
         };
 
         LookupFuture {
-            client_cache: client_cache,
+            client_cache,
             names,
             record_type,
             options,
@@ -279,8 +279,7 @@ impl<'i> Iterator for SrvLookupIter<'i> {
         iter.filter_map(|rdata| match *rdata {
             RData::SRV(ref data) => Some(data),
             _ => None,
-        })
-        .next()
+        }).next()
     }
 }
 
@@ -342,8 +341,7 @@ macro_rules! lookup_type {
                 iter.filter_map(|rdata| match *rdata {
                     $r(ref data) => Some(data),
                     _ => None,
-                })
-                .next()
+                }).next()
             }
         }
 
@@ -464,8 +462,7 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()])),
-            )
-            .wait()
+            ).wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -476,14 +473,15 @@ pub mod tests {
 
     #[test]
     fn test_error() {
-        assert!(LookupFuture::lookup(
-            vec![Name::root()],
-            RecordType::A,
-            DnsRequestOptions::default(),
-            CachingClient::new(0, mock(vec![error()])),
-        )
-        .wait()
-        .is_err());
+        assert!(
+            LookupFuture::lookup(
+                vec![Name::root()],
+                RecordType::A,
+                DnsRequestOptions::default(),
+                CachingClient::new(0, mock(vec![error()])),
+            ).wait()
+            .is_err()
+        );
     }
 
     #[test]
@@ -494,8 +492,7 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![empty()])),
-            )
-            .wait()
+            ).wait()
             .unwrap_err()
             .kind(),
             ResolveErrorKind::NoRecordsFound {

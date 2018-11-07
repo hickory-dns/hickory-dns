@@ -224,15 +224,15 @@ impl SIG {
         sig: Vec<u8>,
     ) -> SIG {
         SIG {
-            type_covered: type_covered,
-            algorithm: algorithm,
-            num_labels: num_labels,
-            original_ttl: original_ttl,
-            sig_expiration: sig_expiration,
-            sig_inception: sig_inception,
-            key_tag: key_tag,
-            signer_name: signer_name,
-            sig: sig,
+            type_covered,
+            algorithm,
+            num_labels,
+            original_ttl,
+            sig_expiration,
+            sig_inception,
+            key_tag,
+            signer_name,
+            sig,
         }
     }
 
@@ -457,7 +457,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let algorithm = Algorithm::read(decoder)?;
     let num_labels = decoder.read_u8()?.unverified(/*technically valid as any u8*/);
     let original_ttl = decoder.read_u32()?.unverified(/*valid as any u32*/);
-    let sig_expiration = decoder.read_u32()?.unverified(/*valid as any u32, in practice should be in the future*/);
+    let sig_expiration =
+        decoder.read_u32()?.unverified(/*valid as any u32, in practice should be in the future*/);
     let sig_inception = decoder.read_u32()?.unverified(/*valid as any u32, in practice should be before expiration*/);
     let key_tag = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let signer_name = Name::read(decoder)?;

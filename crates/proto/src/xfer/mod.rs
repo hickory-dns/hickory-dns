@@ -88,8 +88,8 @@ impl BufDnsStreamHandle {
     /// * `sender` - the handle being used to send data to the server
     pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
         BufDnsStreamHandle {
-            name_server: name_server,
-            sender: sender,
+            name_server,
+            sender,
         }
     }
 }

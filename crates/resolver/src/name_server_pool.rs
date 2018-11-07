@@ -764,7 +764,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
-            mdns_conns: mdns_conns,
+            mdns_conns,
             options: options.clone(),
             phantom: PhantomData,
         }

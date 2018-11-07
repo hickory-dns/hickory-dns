@@ -139,11 +139,11 @@ impl<'a> From<&'a Record> for Edns {
         };
 
         Edns {
-            rcode_high: rcode_high,
-            version: version,
-            dnssec_ok: dnssec_ok,
-            max_payload: max_payload,
-            options: options,
+            rcode_high,
+            version,
+            dnssec_ok,
+            max_payload,
+            options,
         }
     }
 }

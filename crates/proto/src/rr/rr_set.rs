@@ -43,12 +43,12 @@ impl RecordSet {
     pub fn new(name: &Name, record_type: RecordType, serial: u32) -> Self {
         RecordSet {
             name: name.clone(),
-            record_type: record_type,
+            record_type,
             dns_class: DNSClass::IN,
             ttl: 0,
             records: Vec::new(),
             rrsigs: Vec::new(),
-            serial: serial,
+            serial,
         }
     }
 
@@ -67,10 +67,10 @@ impl RecordSet {
     /// TODO: make all cloned params pass by value
     pub fn with_ttl(name: Name, record_type: RecordType, ttl: u32) -> Self {
         RecordSet {
-            name: name,
-            record_type: record_type,
+            name,
+            record_type,
             dns_class: DNSClass::IN,
-            ttl: ttl,
+            ttl,
             records: Vec::new(),
             rrsigs: Vec::new(),
             serial: 0,

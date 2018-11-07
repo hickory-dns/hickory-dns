@@ -59,7 +59,7 @@ impl TestClientStream {
         let message_sender = StreamHandle::new(message_sender);
 
         let stream = Box::new(finished(TestClientStream {
-            catalog: catalog,
+            catalog,
             outbound_messages: outbound_messages.fuse(),
         }));
 
@@ -129,7 +129,7 @@ impl Stream for TestClientStream {
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
                 let request = Request {
-                    message: message,
+                    message,
                     src: src_addr,
                 };
 

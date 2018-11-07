@@ -177,7 +177,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
                 pos: 0,
                 bytes: [0u8; 2],
             },
-            peer_addr: peer_addr,
+            peer_addr,
         }
     }
 }
@@ -225,19 +225,12 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         if pos < length.len() {
                             mem::replace(
                                 &mut self.send_state,
-                                Some(WriteTcpState::LenBytes {
-                                    pos: pos,
-                                    length: length,
-                                    bytes: bytes,
-                                }),
+                                Some(WriteTcpState::LenBytes { pos, length, bytes }),
                             );
                         } else {
                             mem::replace(
                                 &mut self.send_state,
-                                Some(WriteTcpState::Bytes {
-                                    pos: 0,
-                                    bytes: bytes,
-                                }),
+                                Some(WriteTcpState::Bytes { pos: 0, bytes }),
                             );
                         }
                     }
@@ -245,10 +238,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         if pos < bytes.len() {
                             mem::replace(
                                 &mut self.send_state,
-                                Some(WriteTcpState::Bytes {
-                                    pos: pos,
-                                    bytes: bytes,
-                                }),
+                                Some(WriteTcpState::Bytes { pos, bytes }),
                             );
                         } else {
                             // At this point we successfully delivered the entire message.
@@ -352,10 +342,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         bytes.resize(length as usize, 0);
 
                         debug!("move ReadTcpState::Bytes: {}", bytes.len());
-                        Some(ReadTcpState::Bytes {
-                            pos: 0,
-                            bytes: bytes,
-                        })
+                        Some(ReadTcpState::Bytes { pos: 0, bytes })
                     }
                 }
                 ReadTcpState::Bytes {

@@ -473,7 +473,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
                         query,
                         cache: cache.clone(),
                         dnssec: client.is_verifying_dnssec(),
-                        options: options,
+                        options,
                         client: CachingClient::with_cache(cache, client),
                     }),
                 );
@@ -926,7 +926,7 @@ mod tests {
             cache: lru,
             dnssec: false,
             options: Default::default(),
-            client: client,
+            client,
         };
 
         let mut message = Message::new();
@@ -971,7 +971,7 @@ mod tests {
         let client = mock(vec![empty()]);
         let mut client = CachingClient {
             lru: cache,
-            client: client,
+            client,
         };
 
         {
@@ -1054,7 +1054,7 @@ mod tests {
         let client = mock(vec![empty()]);
         let mut client = CachingClient {
             lru: cache,
-            client: client,
+            client,
         };
 
         assert!(
@@ -1085,7 +1085,7 @@ mod tests {
         let client = mock(vec![error(), Ok(message)]);
         let mut client = CachingClient {
             lru: cache,
-            client: client,
+            client,
         };
 
         assert!(

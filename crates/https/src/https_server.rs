@@ -111,7 +111,7 @@ fn message_from_post<R>(request: Request<R>, length: Option<usize>) -> MessageFr
     let body = request.into_body();
     MessageFromPost {
         stream: body,
-        length: length,
+        length,
     }
 }
 

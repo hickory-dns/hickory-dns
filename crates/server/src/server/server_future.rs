@@ -19,18 +19,16 @@ use tokio_reactor::Handle;
 use tokio_tcp;
 use tokio_udp;
 
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
-use trust_dns_openssl::tls_server::*;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
 use proto::tcp::TcpStream;
 use proto::udp::UdpStream;
 use proto::xfer::SerialMessage;
 use proto::BufStreamHandle;
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
+use trust_dns_openssl::tls_server::*;
 
 use authority::MessageRequest;
 use server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
@@ -175,12 +173,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(
-        all(
-            feature = "dns-over-openssl",
-            not(feature = "dns-over-rustls")
-        )
-    )]
+    #[cfg(all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    ))]
     pub fn register_tls_listener(
         &self,
         listener: tokio_tcp::TcpListener,
@@ -262,12 +258,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(
-        all(
-            feature = "dns-over-openssl",
-            not(feature = "dns-over-rustls")
-        )
-    )]
+    #[cfg(all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    ))]
     pub fn register_tls_listener_std(
         &self,
         listener: std::net::TcpListener,
@@ -384,12 +378,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(
-        all(
-            feature = "dns-over-https-openssl",
-            not(feature = "dns-over-https-rustls")
-        )
-    )]
+    #[cfg(all(
+        feature = "dns-over-https-openssl",
+        not(feature = "dns-over-https-rustls")
+    ))]
     pub fn register_https_listener(
         &self,
         listener: tokio_tcp::TcpListener,
@@ -500,7 +492,7 @@ pub(crate) fn handle_request<'q, R: ResponseHandler + 'static, T: RequestHandler
     response_handler: R,
 ) -> io::Result<()> {
     let request = Request {
-        message: message,
+        message,
         src: src_addr,
     };
 

@@ -161,7 +161,7 @@ impl Name {
 
         Ok(Name {
             is_fqdn: true,
-            labels: labels,
+            labels,
         })
     }
 
@@ -1009,7 +1009,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
     run_len += if labels.is_empty() { 1 } else { labels.len() };
     let name = Name {
         is_fqdn: true,
-        labels: labels,
+        labels,
     };
 
     debug_assert_eq!(run_len, name.len());

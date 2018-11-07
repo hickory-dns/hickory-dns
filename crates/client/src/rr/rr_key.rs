@@ -31,10 +31,7 @@ impl RrKey {
     /// A new key to access the Authorities.
     /// TODO: make all cloned params pass by value.
     pub fn new(name: LowerName, record_type: RecordType) -> RrKey {
-        RrKey {
-            name: name,
-            record_type: record_type,
-        }
+        RrKey { name, record_type }
     }
 
     /// Returns the name of the key

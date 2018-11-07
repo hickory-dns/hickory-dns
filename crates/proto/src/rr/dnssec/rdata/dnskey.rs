@@ -20,7 +20,9 @@ use error::*;
 use rr::dnssec::{Algorithm, Digest, DigestType};
 use rr::record_data::RData;
 use rr::Name;
-use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath};
+use serialize::binary::{
+    BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
+};
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -99,11 +101,11 @@ impl DNSKEY {
         public_key: Vec<u8>,
     ) -> DNSKEY {
         DNSKEY {
-            zone_key: zone_key,
-            secure_entry_point: secure_entry_point,
-            revoke: revoke,
-            algorithm: algorithm,
-            public_key: public_key,
+            zone_key,
+            secure_entry_point,
+            revoke,
+            algorithm,
+            public_key,
         }
     }
 
@@ -329,19 +331,21 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
     let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
     let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
-    let _protocol: u8 = decoder.read_u8()?.verify_unwrap(|protocol| {
-        // RFC 4034                DNSSEC Resource Records               March 2005
-        //
-        // 2.1.2.  The Protocol Field
-        //
-        //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
-        //    treated as invalid during signature verification if it is found to be
-        //    some value other than 3.
-        //
-        // protocol is defined to only be '3' right now
+    let _protocol: u8 = decoder
+        .read_u8()?
+        .verify_unwrap(|protocol| {
+            // RFC 4034                DNSSEC Resource Records               March 2005
+            //
+            // 2.1.2.  The Protocol Field
+            //
+            //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
+            //    treated as invalid during signature verification if it is found to be
+            //    some value other than 3.
+            //
+            // protocol is defined to only be '3' right now
 
-        *protocol == 3 
-    }).map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
+            *protocol == 3
+        }).map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
 
     let algorithm: Algorithm = Algorithm::read(decoder)?;
 
@@ -353,7 +357,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
         .checked_sub(4)
         .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?
         .unverified(/*used only as length safely*/);
-    let public_key: Vec<u8> = decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+    let public_key: Vec<u8> =
+        decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
     Ok(DNSKEY::new(
         zone_key,
