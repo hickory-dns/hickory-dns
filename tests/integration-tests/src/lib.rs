@@ -205,9 +205,8 @@ impl Stream for NeverReturnsClientStream {
         println!("still not returning");
 
         // poll the timer forever...
-        match self.timeout.poll() {
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
-            _ => (),
+        if let Ok(Async::NotReady) = self.timeout.poll() {
+            return Ok(Async::NotReady);
         }
 
         self.timeout.reset(Instant::now() + Duration::from_secs(1));
