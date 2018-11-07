@@ -67,7 +67,7 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     request.headers_mut().typed_insert(&accept);
 
     // future proof for when GET is supported
-    if &Method::POST == request.method() {
+    if Method::POST == request.method() {
         request
             .headers_mut()
             .typed_insert(&ContentLength(message_len as u64));

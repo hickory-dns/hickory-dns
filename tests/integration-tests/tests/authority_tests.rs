@@ -863,7 +863,7 @@ fn test_get_nsec() {
     let results = authority.get_nsec_records(&lower_name, true, SupportedAlgorithms::all());
 
     for record in results {
-        assert!(record.name() < &name);
+        assert!(*record.name() < name);
     }
 }
 

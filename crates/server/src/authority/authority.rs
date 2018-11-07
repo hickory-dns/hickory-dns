@@ -1115,7 +1115,7 @@ impl Authority {
         self.records
             .values()
             .filter(|rr_set| is_nsec_rrset(rr_set))
-            .skip_while(|rr_set| name < &rr_set.name().into())
+            .skip_while(|rr_set| *name < rr_set.name().into())
             .next()
             .map_or(LookupRecords::NxDomain, |rr_set| {
                 LookupRecords::from(rr_set.records(is_secure, supported_algorithms))
@@ -1176,7 +1176,7 @@ impl Authority {
             for key in self.records.keys() {
                 match nsec_info {
                     None => nsec_info = Some((key.name.borrow(), vec![key.record_type])),
-                    Some((name, ref mut vec)) if &LowerName::new(name) == &key.name => {
+                    Some((name, ref mut vec)) if LowerName::new(name) == key.name => {
                         vec.push(key.record_type)
                     }
                     Some((name, vec)) => {
