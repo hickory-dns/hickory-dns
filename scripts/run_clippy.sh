@@ -54,7 +54,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::redundant_closure\
     -A clippy::redundant_field_names\
     -A clippy::redundant_pattern\
-    -A clippy::single_char_pattern\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

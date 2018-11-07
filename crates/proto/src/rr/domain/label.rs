@@ -48,7 +48,7 @@ impl Label {
         }
 
         // special case for SRV type records
-        if s.starts_with("_") {
+        if s.starts_with('_') {
             return Self::from_ascii(s);
         }
 

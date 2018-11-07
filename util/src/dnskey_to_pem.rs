@@ -80,7 +80,7 @@ pub fn main() {
     if key != "Algorithm" {
         panic!("Algorithm line not found: {}", next_line)
     }
-    let algorithm_num = u8::from_str(value.split(" ").next().expect(&format!(
+    let algorithm_num = u8::from_str(value.split(' ').next().expect(&format!(
         "bad algorithm format, expected '# STR': {}",
         next_line
     ))).expect(&format!(
