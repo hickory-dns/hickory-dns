@@ -56,7 +56,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::redundant_pattern\
     -A clippy::single_char_pattern\
     -A clippy::single_match\
-    -A clippy::string_lit_as_bytes\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
