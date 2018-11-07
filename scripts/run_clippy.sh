@@ -50,7 +50,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::new_without_default\
     -A clippy::op_ref\
     -A clippy::or_fun_call\
-    -A clippy::question_mark\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

@@ -1384,9 +1384,7 @@ impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
             self.rrset = self.rrsets.next();
 
             // if there are no more RecordSets, then return
-            if self.rrset.is_none() {
-                return None;
-            }
+            self.rrset?;
 
             // getting here, we must have exhausted our records from the rrset
             self.records = Some(
