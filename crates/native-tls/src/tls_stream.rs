@@ -58,6 +58,7 @@ pub fn tls_from_stream(
 }
 
 /// A builder for the TlsStream
+#[derive(Default)]
 pub struct TlsStreamBuilder {
     ca_chain: Vec<Certificate>,
     identity: Option<Identity>,

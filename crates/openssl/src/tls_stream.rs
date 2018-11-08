@@ -15,7 +15,7 @@ use openssl::pkey::{PKeyRef, Private};
 use openssl::ssl::{SslConnector, SslContextBuilder, SslMethod, SslOptions};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
-use openssl::x509::{X509, X509Ref};
+use openssl::x509::{X509Ref, X509};
 use tokio_openssl::{SslConnectorExt, SslStream as TokioTlsStream};
 use tokio_tcp::TcpStream as TokioTcpStream;
 
@@ -126,6 +126,7 @@ pub fn tls_stream_from_existing_tls_stream(
 }
 
 /// A builder for the TlsStream
+#[derive(Default)]
 pub struct TlsStreamBuilder {
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12>,
@@ -214,8 +215,7 @@ impl TlsStreamBuilder {
                     .connect_async(&dns_name, tcp_stream)
                     .map(move |s| {
                         TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-                    })
-                    .map_err(|e| {
+                    }).map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::ConnectionRefused,
                             format!("tls error: {}", e),

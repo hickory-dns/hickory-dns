@@ -67,7 +67,7 @@ impl TestClientStream {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TestResponseHandler {
     buf: Arc<Mutex<Vec<u8>>>,
 }

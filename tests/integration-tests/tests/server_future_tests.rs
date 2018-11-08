@@ -140,6 +140,7 @@ fn test_server_unknown_type() {
 ))]
 fn read_file(path: &str) -> Vec<u8> {
     use std::fs::File;
+    use std::io::Read;
 
     let mut bytes = vec![];
 

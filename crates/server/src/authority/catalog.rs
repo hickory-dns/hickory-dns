@@ -32,6 +32,7 @@ use authority::{
 };
 
 /// Set of authorities, zones, available to this server.
+#[derive(Default)]
 pub struct Catalog {
     authorities: HashMap<LowerName, RwLock<Authority>>,
 }

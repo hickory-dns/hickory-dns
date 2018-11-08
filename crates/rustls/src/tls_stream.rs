@@ -146,3 +146,9 @@ impl TlsStreamBuilder {
         (stream, message_sender)
     }
 }
+
+impl Default for TlsStreamBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -84,3 +84,9 @@ impl TlsClientStreamBuilder {
         (new_future, sender)
     }
 }
+
+impl Default for TlsClientStreamBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

@@ -430,6 +430,12 @@ impl HttpsClientStreamBuilder {
     }
 }
 
+impl Default for HttpsClientStreamBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// A future that resolves to an HttpsClientStream
 pub struct HttpsClientConnect(HttpsClientConnectState);
 

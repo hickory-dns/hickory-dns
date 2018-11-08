@@ -46,8 +46,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::needless_return\
     -A clippy::needless_update\
     -A clippy::new_ret_no_self\
-    -A clippy::new_without_default_derive\
-    -A clippy::new_without_default\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

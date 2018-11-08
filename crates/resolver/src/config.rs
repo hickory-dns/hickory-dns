@@ -447,6 +447,12 @@ impl NameServerConfigGroup {
     }
 }
 
+impl Default for NameServerConfigGroup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Deref for NameServerConfigGroup {
     type Target = Vec<NameServerConfig>;
     fn deref(&self) -> &Self::Target {
