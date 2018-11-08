@@ -841,7 +841,7 @@ fn test_zone_signing() {
             inner_results.any(
                 |r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
                     && r.name() == record.name()
-                    && if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = r.rdata() {
+                    && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
                         rrsig.type_covered() == record.rr_type()
                     } else {
                         false

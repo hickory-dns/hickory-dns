@@ -174,7 +174,7 @@ where
                 assert_eq!(record.rr_type(), RecordType::A);
                 assert_eq!(record.dns_class(), DNSClass::IN);
 
-                if let &RData::A(ref address) = record.rdata() {
+                if let RData::A(ref address) = *record.rdata() {
                     assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
                 } else {
                     assert!(false);

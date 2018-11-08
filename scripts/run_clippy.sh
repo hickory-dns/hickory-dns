@@ -42,7 +42,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::len_without_is_empty\
     -A clippy::len_zero\
     -A clippy::many_single_char_names\
-    -A clippy::match_ref_pats\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

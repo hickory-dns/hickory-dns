@@ -125,7 +125,7 @@ where
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let &RData::A(ref address) = record.rdata() {
+    if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         assert!(false);
@@ -182,7 +182,7 @@ where
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let &RData::A(ref address) = record.rdata() {
+    if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         assert!(false);
@@ -514,8 +514,8 @@ fn test_append() {
         result
             .answers()
             .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(100, 10, 100, 10)
+            .any(|rr| if let RData::A(ip) = *rr.rdata() {
+                ip == Ipv4Addr::new(100, 10, 100, 10)
             } else {
                 false
             })
@@ -524,7 +524,7 @@ fn test_append() {
         result
             .answers()
             .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            .any(|rr| if let RData::A(ip) = rr.rdata() {
                 *ip == Ipv4Addr::new(101, 11, 101, 11)
             } else {
                 false
@@ -581,7 +581,7 @@ fn test_compare_and_swap() {
         result
             .answers()
             .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            .any(|rr| if let RData::A(ip) = rr.rdata() {
                 *ip == Ipv4Addr::new(101, 11, 101, 11)
             } else {
                 false
@@ -606,7 +606,7 @@ fn test_compare_and_swap() {
         result
             .answers()
             .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            .any(|rr| if let RData::A(ip) = rr.rdata() {
                 *ip == Ipv4Addr::new(101, 11, 101, 11)
             } else {
                 false
@@ -662,7 +662,7 @@ fn test_delete_by_rdata() {
         result
             .answers()
             .iter()
-            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+            .any(|rr| if let RData::A(ip) = rr.rdata() {
                 *ip == Ipv4Addr::new(100, 10, 100, 10)
             } else {
                 false

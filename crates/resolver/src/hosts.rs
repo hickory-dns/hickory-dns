@@ -61,19 +61,15 @@ impl Hosts {
             .or_insert_with(LookupType::default);
 
         let new_lookup = {
-            let mut old_lookup = match &record_type {
-                &RecordType::A => lookup_type
-                    .a
-                    .get_or_insert_with(|| {
-                        let query = Query::query(name.clone(), record_type);
-                        Lookup::new_with_max_ttl(query, Arc::new(vec![]))
-                    }),
-                &RecordType::AAAA => lookup_type
-                    .aaaa
-                    .get_or_insert_with(|| {
-                        let query = Query::query(name.clone(), record_type);
-                        Lookup::new_with_max_ttl(query, Arc::new(vec![]))
-                    }),
+            let mut old_lookup = match record_type {
+                RecordType::A => lookup_type.a.get_or_insert_with(|| {
+                    let query = Query::query(name.clone(), record_type);
+                    Lookup::new_with_max_ttl(query, Arc::new(vec![]))
+                }),
+                RecordType::AAAA => lookup_type.aaaa.get_or_insert_with(|| {
+                    let query = Query::query(name.clone(), record_type);
+                    Lookup::new_with_max_ttl(query, Arc::new(vec![]))
+                }),
                 _ => {
                     warn!("unsupported IP type from Hosts file: {:#?}", record_type);
                     return;
@@ -84,9 +80,9 @@ impl Hosts {
         };
 
         // replace the appended version
-        match &record_type {
-            &RecordType::A => lookup_type.a = Some(new_lookup),
-            &RecordType::AAAA => lookup_type.aaaa = Some(new_lookup),
+        match record_type {
+            RecordType::A => lookup_type.a = Some(new_lookup),
+            RecordType::AAAA => lookup_type.aaaa = Some(new_lookup),
             _ => warn!("unsupported IP type from Hosts file"),
         }
     }
@@ -136,13 +132,13 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 
         for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
             if let Ok(name) = Name::from_str(&domain) {
-                match &addr {
-                    &RData::A(..) => {
+                match addr {
+                    RData::A(..) => {
                         let query = Query::query(name.clone(), RecordType::A);
                         let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![addr.clone()]));
                         hosts.insert(name.clone(), RecordType::A, lookup);
                     }
-                    &RData::AAAA(..) => {
+                    RData::AAAA(..) => {
                         let query = Query::query(name.clone(), RecordType::AAAA);
                         let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![addr.clone()]));
                         hosts.insert(name.clone(), RecordType::AAAA, lookup);

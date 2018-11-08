@@ -631,7 +631,7 @@ mod tests {
         let sig = signer.sign_message(&question, &pre_sig0);
         println!("sig after sign: {:?}", sig);
 
-        if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = question.sig0()[0].rdata() {
+        if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *question.sig0()[0].rdata() {
             assert!(sig0key.verify_message(&question, sig.sig(), &sig).is_ok());
         }
     }

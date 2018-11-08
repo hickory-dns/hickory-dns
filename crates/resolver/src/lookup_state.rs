@@ -216,8 +216,8 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                     response.messages().flat_map(Message::answers).fold(
                         (Cow::Borrowed(self.query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
-                            match r.rdata() {
-                                &RData::CNAME(ref cname) => {
+                            match *r.rdata() {
+                                RData::CNAME(ref cname) => {
                                     // take the minimum TTL of the cname_ttl and the next record in the chain
                                     let ttl = cname_ttl.min(r.ttl());
                                     debug_assert_eq!(r.rr_type(), RecordType::CNAME);
@@ -225,7 +225,7 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                                         return (Cow::Owned(cname.clone()), ttl, true);
                                     }
                                 }
-                                &RData::SRV(ref srv) => {
+                                RData::SRV(ref srv) => {
                                     // take the minimum TTL of the cname_ttl and the next record in the chain
                                     let ttl = cname_ttl.min(r.ttl());
                                     debug_assert_eq!(r.rr_type(), RecordType::SRV);
