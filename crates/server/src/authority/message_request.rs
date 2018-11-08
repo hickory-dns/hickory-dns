@@ -244,7 +244,7 @@ impl<'r> Queries<'r> {
         self.original
     }
 
-    pub(crate) fn as_emit_and_count<'s>(&'s self) -> QueriesEmitAndCount<'s> {
+    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount {
         QueriesEmitAndCount {
             length: self.queries.len(),
             original: self.original,

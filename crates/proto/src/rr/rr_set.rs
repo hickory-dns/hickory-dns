@@ -155,11 +155,11 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
-    pub fn records<'s>(
-        &'s self,
+    pub fn records(
+        &self,
         and_rrsigs: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> RrsetRecords<'s> {
+    ) -> RrsetRecords {
         if and_rrsigs {
             self.records_with_rrsigs(supported_algorithms)
         } else {
@@ -174,10 +174,7 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
-    pub fn records_with_rrsigs<'s>(
-        &'s self,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> RrsetRecords<'s> {
+    pub fn records_with_rrsigs(&self, supported_algorithms: SupportedAlgorithms) -> RrsetRecords {
         if self.records.is_empty() {
             RrsetRecords::Empty
         } else {
@@ -190,7 +187,7 @@ impl RecordSet {
     }
 
     /// Returns a Vec of all records in the set, without any RRSIGs.
-    pub fn records_without_rrsigs<'s>(&'s self) -> RrsetRecords<'s> {
+    pub fn records_without_rrsigs(&self) -> RrsetRecords {
         if self.records.is_empty() {
             RrsetRecords::Empty
         } else {
@@ -200,7 +197,7 @@ impl RecordSet {
 
     /// Returns an iterator over the records in the set
     #[deprecated(note = "see `records_without_rrsigs`")]
-    pub fn iter<'s>(&'s self) -> Iter<'s, Record> {
+    pub fn iter(&self) -> Iter<Record> {
         self.records.iter()
     }
 
