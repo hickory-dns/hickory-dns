@@ -179,7 +179,7 @@ where
     }
 
     pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
-        return LookupIpFuture {
+        LookupIpFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
             names: vec![],
@@ -190,11 +190,11 @@ where
             )),
             hosts: None,
             finally_ip_addr: None,
-        };
+        }
     }
 
     pub(crate) fn ok(client_cache: CachingClient<C>, lp: Lookup) -> Self {
-        return LookupIpFuture {
+        LookupIpFuture {
             client_cache,
             names: vec![],
             strategy: LookupIpStrategy::default(),
@@ -202,7 +202,7 @@ where
             query: Box::new(future::ok(lp)),
             hosts: None,
             finally_ip_addr: None,
-        };
+        }
     }
 }
 /// returns a new future for lookup

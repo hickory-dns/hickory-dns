@@ -400,11 +400,11 @@ impl DnsHandle for ConnectionHandleConnected {
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
         match self {
             ConnectionHandleConnected::UdpOrTcp(ref mut conn) => {
-                return ConnectionHandleResponseInner::UdpOrTcp(conn.send(request))
+                ConnectionHandleResponseInner::UdpOrTcp(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionHandleConnected::Https(ref mut https) => {
-                return ConnectionHandleResponseInner::Https(https.send(request))
+                ConnectionHandleResponseInner::Https(https.send(request))
             }
         }
     }

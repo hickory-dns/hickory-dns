@@ -57,13 +57,11 @@ impl KeyFormat {
                         })?
                     }
                     e => {
-                        return Err(
-                            format!(
-                                "unsupported key format with RSA (DER or PEM only): \
-                                 {:?}",
-                                e
-                            ).into(),
-                        )
+                        return Err(format!(
+                            "unsupported key format with RSA (DER or PEM only): \
+                             {:?}",
+                            e
+                        ).into())
                     }
                 };
 
@@ -83,13 +81,11 @@ impl KeyFormat {
                         })?
                     }
                     e => {
-                        return Err(
-                            format!(
-                                "unsupported key format with EC (DER or PEM only): \
-                                 {:?}",
-                                e
-                            ).into(),
-                        );
+                        return Err(format!(
+                            "unsupported key format with EC (DER or PEM only): \
+                             {:?}",
+                            e
+                        ).into());
                     }
                 };
 
@@ -103,22 +99,16 @@ impl KeyFormat {
 
                     Ok(KeyPair::from_ed25519(key))
                 }
-                e => Err(
-                    format!(
-                        "unsupported key format with ED25519 (only Pkcs8 supported): {:?}",
-                        e
-                    ).into(),
-                ),
+                e => Err(format!(
+                    "unsupported key format with ED25519 (only Pkcs8 supported): {:?}",
+                    e
+                ).into()),
             },
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            e => {
-                return Err(
-                    format!(
-                        "unsupported Algorithm, enable openssl or ring feature: {:?}",
-                        e
-                    ).into(),
-                )
-            }
+            e => Err(format!(
+                "unsupported Algorithm, enable openssl or ring feature: {:?}",
+                e
+            ).into()),
         }
     }
 
@@ -152,12 +142,10 @@ impl KeyFormat {
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
             e => {
-                return Err(
-                    format!(
-                        "unsupported Algorithm, enable openssl or ring feature: {:?}",
-                        e
-                    ).into(),
-                )
+                return Err(format!(
+                    "unsupported Algorithm, enable openssl or ring feature: {:?}",
+                    e
+                ).into())
             }
         };
 
@@ -165,36 +153,33 @@ impl KeyFormat {
         #[allow(unreachable_code)]
         match key_pair {
             #[cfg(feature = "openssl")]
-            KeyPair::EC(ref pkey) |
-            KeyPair::RSA(ref pkey) => {
+            KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
                 match self {
                     KeyFormat::Der => {
                         // to avoid accientally storing a key where there was an expectation that it was password protected
                         if password.is_some() {
                             return Err(format!("Can only password protect PEM: {:?}", self).into());
                         }
-                        pkey.private_key_to_der().map_err(|e| {
-                            format!("error writing key as DER: {}", e).into()
-                        })
+                        pkey.private_key_to_der()
+                            .map_err(|e| format!("error writing key as DER: {}", e).into())
                     }
                     KeyFormat::Pem => {
                         let key = if let Some(password) = password {
-                            pkey.private_key_to_pem_pkcs8_passphrase(Cipher::aes_256_cbc(), password)
+                            pkey.private_key_to_pem_pkcs8_passphrase(
+                                Cipher::aes_256_cbc(),
+                                password,
+                            )
                         } else {
                             pkey.private_key_to_pem_pkcs8()
                         };
 
                         key.map_err(|e| format!("error writing key as PEM: {}", e).into())
                     }
-                    e => {
-                        Err(
-                            format!(
-                                "unsupported key format with RSA or EC (DER or PEM \
-                                            only): {:?}",
-                                e
-                            ).into(),
-                        )
-                    }
+                    e => Err(format!(
+                        "unsupported key format with RSA or EC (DER or PEM \
+                         only): {:?}",
+                        e
+                    ).into()),
                 }
             }
             #[cfg(feature = "ring")]
@@ -202,13 +187,19 @@ impl KeyFormat {
             #[cfg(not(feature = "openssl"))]
             KeyPair::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
+            _ => Err(format!(
+                "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
+            ).into()),
         }
     }
 
     /// Encode private key
     #[deprecated]
-    pub fn encode_key(self, key_pair: &KeyPair<Private>, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
+    pub fn encode_key(
+        self,
+        key_pair: &KeyPair<Private>,
+        password: Option<&str>,
+    ) -> DnsSecResult<Vec<u8>> {
         // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
         #[allow(unused)]
         let password = password
@@ -231,20 +222,21 @@ impl KeyFormat {
                     }
                     KeyFormat::Pem => {
                         let key = if let Some(password) = password {
-                            pkey.private_key_to_pem_pkcs8_passphrase(Cipher::aes_256_cbc(), password)
+                            pkey.private_key_to_pem_pkcs8_passphrase(
+                                Cipher::aes_256_cbc(),
+                                password,
+                            )
                         } else {
                             pkey.private_key_to_pem_pkcs8()
                         };
 
                         key.map_err(|e| format!("error writing key as PEM: {}", e).into())
                     }
-                    e => Err(
-                        format!(
-                            "unsupported key format with RSA or EC (DER or PEM \
-                             only): {:?}",
-                            e
-                        ).into(),
-                    ),
+                    e => Err(format!(
+                        "unsupported key format with RSA or EC (DER or PEM \
+                         only): {:?}",
+                        e
+                    ).into()),
                 }
             }
             #[cfg(any(feature = "ring", not(feature = "openssl")))]

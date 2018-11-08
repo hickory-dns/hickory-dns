@@ -119,7 +119,7 @@ mod test {
             }
 
             self.attempts.set(i + 1);
-            return Box::new(failed(ProtoError::from("last retry set to fail").into()));
+            Box::new(failed(ProtoError::from("last retry set to fail").into()))
         }
     }
 

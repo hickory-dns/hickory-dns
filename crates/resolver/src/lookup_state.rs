@@ -143,16 +143,14 @@ impl Future for FromCache {
         match self.cache.try_lock() {
             Err(TryLockError::WouldBlock) => {
                 task::current().notify(); // yield
-                return Ok(Async::NotReady);
+                Ok(Async::NotReady)
             }
             // TODO: need to figure out a way to recover from this.
             // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
             Err(TryLockError::Poisoned(poison)) => {
                 Err(ResolveErrorKind::Msg(format!("poisoned: {}", poison)).into())
             }
-            Ok(mut lru) => {
-                return Ok(Async::Ready(lru.get(&self.query, Instant::now())));
-            }
+            Ok(mut lru) => Ok(Async::Ready(lru.get(&self.query, Instant::now()))),
         }
     }
 }
@@ -379,7 +377,7 @@ impl Future for InsertCache {
         match self.cache.try_lock() {
             Err(TryLockError::WouldBlock) => {
                 task::current().notify(); // yield
-                return Ok(Async::NotReady);
+                Ok(Async::NotReady)
             }
             // TODO: need to figure out a way to recover from this.
             // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
@@ -638,7 +636,7 @@ impl<C: DnsHandle + 'static> Future for QueryState<C> {
         }
 
         task::current().notify(); // yield
-        return Ok(Async::NotReady);
+        Ok(Async::NotReady)
     }
 }
 
@@ -969,10 +967,7 @@ mod tests {
     fn test_early_return_localhost() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient {
-            lru: cache,
-            client,
-        };
+        let mut client = CachingClient { lru: cache, client };
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A);
@@ -1052,10 +1047,7 @@ mod tests {
     fn test_early_return_invalid() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient {
-            lru: cache,
-            client,
-        };
+        let mut client = CachingClient { lru: cache, client };
 
         assert!(
             client
@@ -1083,10 +1075,7 @@ mod tests {
         ));
 
         let client = mock(vec![error(), Ok(message)]);
-        let mut client = CachingClient {
-            lru: cache,
-            client,
-        };
+        let mut client = CachingClient { lru: cache, client };
 
         assert!(
             client

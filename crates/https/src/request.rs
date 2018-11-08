@@ -134,7 +134,7 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
             .unwrap_or("unknown user agent")
     );
 
-    return Ok(());
+    Ok(())
 }
 
 #[cfg(test)]

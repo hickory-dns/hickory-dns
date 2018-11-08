@@ -44,7 +44,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::match_ref_pats\
     -A clippy::needless_lifetimes\
     -A clippy::needless_pass_by_value\
-    -A clippy::needless_return\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

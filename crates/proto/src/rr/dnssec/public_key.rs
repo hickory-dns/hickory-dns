@@ -139,7 +139,7 @@ impl<'k> Ec<'k> {
                 // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
                 .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
-                .and_then(|ec_key| PKey::from_ec_key(ec_key) )
+                .and_then(PKey::from_ec_key)
                 .map_err(|e| e.into())
                 .map(|pkey| Ec{raw: public_key, pkey})
     }
@@ -373,7 +373,7 @@ fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey<Public>> {
     let n = BigNum::from_slice(parsed.n())?;
 
     OpenSslRsa::from_public_components(n, e)
-        .and_then(|rsa| PKey::from_rsa(rsa))
+        .and_then(PKey::from_rsa)
         .map_err(|e| e.into())
 }
 

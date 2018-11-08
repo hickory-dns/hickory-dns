@@ -212,7 +212,7 @@ impl Stream for NeverReturnsClientStream {
         self.timeout.reset(Instant::now() + Duration::from_secs(1));
 
         match self.timeout.poll() {
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
             _ => panic!("timeout fired early"),
         }
     }

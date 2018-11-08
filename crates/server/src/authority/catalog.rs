@@ -117,20 +117,16 @@ impl RequestHandler for Catalog {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => match request_message.op_code() {
-                OpCode::Query => {
-                    return self.lookup(request_message, response_edns, response_handle)
-                }
-                OpCode::Update => {
-                    return self.update(request_message, response_edns, response_handle)
-                }
+                OpCode::Query => self.lookup(request_message, response_edns, response_handle),
+                OpCode::Update => self.update(request_message, response_edns, response_handle),
                 c => {
                     error!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    return response_handle.send_response(response.error_msg(
+                    response_handle.send_response(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
                         ResponseCode::NotImp,
-                    ));
+                    ))
                 }
             },
             MessageType::Response => {
@@ -140,13 +136,13 @@ impl RequestHandler for Catalog {
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
 
-                return response_handle.send_response(response.error_msg(
+                response_handle.send_response(response.error_msg(
                     request_message.id(),
                     request_message.op_code(),
                     ResponseCode::FormErr,
-                ));
+                ))
             }
-        };
+        }
     }
 }
 
@@ -439,11 +435,11 @@ impl Catalog {
         }
 
         let response = MessageResponseBuilder::new(Some(request.raw_queries()));
-        return send_response(
+        send_response(
             response_edns,
             response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),
             response_handle,
-        );
+        )
     }
 
     /// Recursively searches the catalog for a matching authority

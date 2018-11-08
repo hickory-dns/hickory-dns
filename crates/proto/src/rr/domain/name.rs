@@ -322,7 +322,7 @@ impl Name {
             }
         }
 
-        return true;
+        true
     }
 
     /// returns true if the name components of self are all present at the end of name

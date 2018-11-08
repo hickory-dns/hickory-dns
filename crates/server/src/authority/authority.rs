@@ -1140,7 +1140,7 @@ impl Authority {
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
     #[cfg(not(feature = "dnssec"))]
     pub fn secure_zone(&mut self) -> Result<(), &str> {
-        return Err("DNSSEC is not enabled.");
+        Err("DNSSEC is not enabled.")
     }
 
     /// Dummy implementation for when DNSSEC is disabled.
