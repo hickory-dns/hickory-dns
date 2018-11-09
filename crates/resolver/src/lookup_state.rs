@@ -263,13 +263,13 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                     // TODO: disable name validation with ResolverOpts? glibc feature...
                     // restrict to the RData type requested
                     if self.query.query_class() == r.dns_class() {
-                        if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
-                            (search_name.as_ref() == r.name() || self.query.name() == r.name()) {
-                            // standard evaluation, it's an any type or it's the requested type and the search_name matches
-                            Some((r.unwrap_rdata(), ttl))
-                        } else if self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name() {
-                            // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
-                            //   and it's an IP
+                        // standard evaluation, it's an any type or it's the requested type and the search_name matches
+                        // - or -
+                        // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
+                        //    and it's an IP
+                        if ((self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
+                            (search_name.as_ref() == r.name() || self.query.name() == r.name())) || 
+                            (self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name()) {
                             Some((r.unwrap_rdata(), ttl))
                         } else {
                             None
