@@ -147,7 +147,7 @@ impl<'k> Ec<'k> {
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
-    assert!(int.len() > 0);
+    assert!(!int.is_empty());
     output.push(0x02); // INTEGER
     if int[0] > 0x7f {
         output.push((int.len() + 1) as u8);
@@ -178,7 +178,7 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
 /// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
-    if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
+    if signature.is_empty() || signature.len() & 1 != 0 || signature.len() > 127 {
         return Err("invalid signature length".into());
     }
     let part_len = signature.len() / 2;

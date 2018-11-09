@@ -239,6 +239,11 @@ impl<'r> Queries<'r> {
         self.queries.len()
     }
 
+    /// Returns true if there are no queries
+    pub fn is_empty(&self) -> bool {
+        self.queries.is_empty()
+    }
+
     /// returns the bytes as they were seen from the Client
     pub fn as_bytes(&self) -> &[u8] {
         self.original

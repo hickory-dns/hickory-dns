@@ -989,7 +989,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
                 let pointed = read_inner(&mut pointer, Some(name_start))?;
 
                 for l in &*pointed.labels {
-                    if l.len() > 0 {
+                    if !l.is_empty() {
                         run_len += l.len();
                     }
                     labels.push(l.clone());

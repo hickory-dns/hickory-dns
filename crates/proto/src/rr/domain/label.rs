@@ -111,6 +111,11 @@ impl Label {
         self.0.len()
     }
 
+    /// True if the label contains no characters
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Returns the raw bytes of the label, this is good for writing to the wire.
     ///
     /// See [`Display`] for presentation version (unescaped from punycode, etc)

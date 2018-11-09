@@ -7,18 +7,18 @@
 
 //! domain name, aka labels, implementaton
 
-use std::str::FromStr;
 use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Index;
+use std::str::FromStr;
 
-use rr::{Name, Label};
-#[cfg(feature = "serde-config")]
-use serde::{Serializer, Serialize, de, Deserializer, Deserialize};
-use serialize::binary::*;
 use proto::error::*;
+use rr::{Label, Name};
+#[cfg(feature = "serde-config")]
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serialize::binary::*;
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]
@@ -134,6 +134,11 @@ impl LowerName {
     /// and/or escaped causing the exact length to be different.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Returns true if the name is empty
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Emits the canonical version of the name to the encoder.
@@ -268,8 +273,7 @@ impl FromStr for LowerName {
     type Err = ProtoError;
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        Name::from_str(name)
-            .map(LowerName::from)
+        Name::from_str(name).map(LowerName::from)
     }
 }
 
