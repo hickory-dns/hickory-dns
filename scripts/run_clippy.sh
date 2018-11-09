@@ -38,7 +38,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::expect_fun_call\
     -A clippy::filter_next\
     -A clippy::identity_conversion\
-    -A clippy::if_let_redundant_pattern_matching\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
