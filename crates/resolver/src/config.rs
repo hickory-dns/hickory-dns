@@ -279,12 +279,12 @@ impl NameServerConfigGroup {
 
         for ip in ips {
             let udp = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
+                socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
             };
             let tcp = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
+                socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
             };
@@ -309,7 +309,7 @@ impl NameServerConfigGroup {
 
         for ip in ips {
             let config = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
+                socket_addr: SocketAddr::new(*ip, port),
                 protocol,
                 tls_dns_name: Some(tls_dns_name.clone()),
             };

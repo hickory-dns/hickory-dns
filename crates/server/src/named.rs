@@ -558,7 +558,7 @@ pub fn main() {
                     .expect("could not register TCP listener");
             }
 
-            let tls_cert_config = config.get_tls_cert().clone();
+            let tls_cert_config = config.get_tls_cert();
 
             // and TLS as necessary
             // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
