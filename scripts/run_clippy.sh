@@ -17,6 +17,7 @@ cargo clean -p trust-dns-integration
 
 TARGETS_OPTS="--all --lib --examples --tests --bins"
 CLIPPY_OPTS="-D warnings\
+    -A clippy::block_in_if_condition_stmt\
     -A clippy::cyclomatic_complexity\
     -A clippy::large_enum_variant\
     -A clippy::many_single_char_names\
@@ -27,8 +28,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::type_complexity\
     -A clippy::unreadable_literal\
     -A clippy::useless_attribute\
-    \
-    -A clippy::block_in_if_condition_stmt\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
