@@ -30,7 +30,6 @@ CLIPPY_OPTS="-D warnings\
     \
     -A clippy::block_in_if_condition_stmt\
     -A clippy::cast_lossless\
-    -A clippy::clone_double_ref\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

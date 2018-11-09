@@ -570,7 +570,7 @@ pub fn main() {
                     &args,
                     &mut server,
                     &config,
-                    _tls_cert_config.clone(),
+                    _tls_cert_config,
                     zone_dir,
                     &listen_addrs,
                 );
@@ -581,7 +581,7 @@ pub fn main() {
                     &args,
                     &mut server,
                     &config,
-                    _tls_cert_config.clone(),
+                    _tls_cert_config,
                     zone_dir,
                     &listen_addrs,
                 );
