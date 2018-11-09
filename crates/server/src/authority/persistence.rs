@@ -84,7 +84,7 @@ impl Journal {
 
         let timestamp = time::get_time();
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
-        let soa_serial: i64 = soa_serial as i64;
+        let soa_serial: i64 = i64::from(soa_serial);
 
         let count = self.conn.execute(
             "INSERT

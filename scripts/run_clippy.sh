@@ -29,7 +29,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::useless_attribute\
     \
     -A clippy::block_in_if_condition_stmt\
-    -A clippy::cast_lossless\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

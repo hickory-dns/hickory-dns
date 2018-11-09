@@ -90,7 +90,7 @@ fn into_resolver_config(
 
     let mut options = ResolverOpts::default();
     options.ndots = parsed_config.ndots as usize;
-    options.timeout = Duration::from_secs(parsed_config.timeout as u64);
+    options.timeout = Duration::from_secs(u64::from(parsed_config.timeout));
     options.attempts = parsed_config.attempts as usize;
 
     Ok((config, options))

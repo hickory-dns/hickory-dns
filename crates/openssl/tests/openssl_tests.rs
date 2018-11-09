@@ -167,7 +167,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 socket
                     .read_exact(&mut len_bytes)
                     .expect("SERVER: receive failed");
-                let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+                let length =
+                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
                 let mut buffer = [0_u8; TEST_BYTES_LEN];

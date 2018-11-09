@@ -48,7 +48,7 @@ impl Lookup {
 
     /// Return new instance with given rdatas and the maximum TTL.
     pub fn new_with_max_ttl(query: Query, rdatas: Arc<Vec<RData>>) -> Self {
-        let valid_until = Instant::now() + Duration::from_secs(MAX_TTL as u64);
+        let valid_until = Instant::now() + Duration::from_secs(u64::from(MAX_TTL));
         Lookup {
             query,
             rdatas,
