@@ -987,7 +987,7 @@ fn test_recovery() {
                 let other_rr_set = authority
                     .records()
                     .get(rr_key)
-                    .expect(&format!("key doesn't exist: {:?}", rr_key));
+                    .unwrap_or_else(|| panic!("key doesn't exist: {:?}", rr_key));
                 rr_set
                     .records_without_rrsigs()
                     .zip(other_rr_set.records_without_rrsigs())
@@ -1001,7 +1001,7 @@ fn test_recovery() {
         let other_rr_set = recovered_authority
             .records()
             .get(rr_key)
-            .expect(&format!("key doesn't exist: {:?}", rr_key));
+            .unwrap_or_else(|| panic!("key doesn't exist: {:?}", rr_key));
         rr_set
             .records_without_rrsigs()
             .zip(other_rr_set.records_without_rrsigs())

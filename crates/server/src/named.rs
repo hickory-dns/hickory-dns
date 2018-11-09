@@ -487,7 +487,7 @@ pub fn main() {
     let config_path = Path::new(&flag_config);
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path)
-        .expect(&format!("could not read config: {:?}", config_path));
+        .unwrap_or_else(|_| panic!("could not read config: {:?}", config_path));
     let directory_config = config.get_directory().to_path_buf();
     let flag_zonedir = args.flag_zonedir.clone();
     let zone_dir: &Path = flag_zonedir
@@ -500,7 +500,7 @@ pub fn main() {
     for zone in config.get_zones() {
         let zone_name = zone
             .get_zone()
-            .expect(&format!("bad zone name in {:?}", config_path));
+            .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
         match load_zone(zone_dir, zone) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
@@ -529,11 +529,11 @@ pub fn main() {
         .collect();
     let udp_sockets: Vec<UdpSocket> = sockaddrs
         .iter()
-        .map(|x| UdpSocket::bind(x).expect(&format!("could not bind to udp: {}", x)))
+        .map(|x| UdpSocket::bind(x).unwrap_or_else(|_| panic!("could not bind to udp: {}", x)))
         .collect();
     let tcp_listeners: Vec<TcpListener> = sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x)))
+        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tcp: {}", x)))
         .collect();
 
     let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
@@ -629,7 +629,7 @@ fn config_tls(
         .collect();
     let tls_listeners: Vec<TcpListener> = tls_sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
+        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)))
         .collect();
     if tls_listeners.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
@@ -669,7 +669,7 @@ fn config_https(
         .collect();
     let https_listeners: Vec<TcpListener> = https_sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
+        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)))
         .collect();
     if https_listeners.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");

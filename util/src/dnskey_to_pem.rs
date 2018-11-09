@@ -80,16 +80,15 @@ pub fn main() {
     if key != "Algorithm" {
         panic!("Algorithm line not found: {}", next_line)
     }
-    let algorithm_num = u8::from_str(value.split(' ').next().expect(&format!(
-        "bad algorithm format, expected '# STR': {}",
-        next_line
-    ))).expect(&format!(
-        "bad algorithm format, expected '# STR': {}",
-        next_line
-    ));
+    let algorithm_num = u8::from_str(
+        value
+            .split(' ')
+            .next()
+            .unwrap_or_else(|| panic!("bad algorithm format, expected '# STR': {}", next_line)),
+    ).unwrap_or_else(|_| panic!("bad algorithm format, expected '# STR': {}", next_line));
 
-    let algorithm =
-        Algorithm::from_u8(algorithm_num).expect(&format!("unsupported algorithm: {}", next_line));
+    let algorithm = Algorithm::from_u8(algorithm_num)
+        .unwrap_or_else(|_| panic!("unsupported algorithm: {}", next_line));
 
     let pem_bytes = match algorithm {
         Algorithm::RSASHA256 => read_rsa(lines),
@@ -101,16 +100,20 @@ pub fn main() {
         .create_new(true)
         .write(true)
         .open(output_path)
-        .expect(&format!("could not create file: {}", output_path));
+        .unwrap_or_else(|_| panic!("could not create file: {}", output_path));
 
     file.write_all(&pem_bytes)
-        .expect(&format!("could not write to file: {}", output_path));
+        .unwrap_or_else(|_| panic!("could not write to file: {}", output_path));
 }
 
 fn split_field_value(line: &str) -> (&str, &str) {
     let mut split = line.split(": ");
-    let field: &str = split.next().expect(&format!("missing field: {}", line));
-    let value: &str = split.next().expect(&format!("missing value: {}", line));
+    let field: &str = split
+        .next()
+        .unwrap_or_else(|| panic!("missing field: {}", line));
+    let value: &str = split
+        .next()
+        .unwrap_or_else(|| panic!("missing value: {}", line));
 
     (field, value)
 }
@@ -134,7 +137,7 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
             BigNum::from_slice(
                 &BASE64
                     .decode(value.as_bytes())
-                    .expect(&format!("badly formated line, expected base64: {}", line)),
+                    .unwrap_or_else(|_| panic!("badly formated line, expected base64: {}", line)),
             ).unwrap(),
         );
 

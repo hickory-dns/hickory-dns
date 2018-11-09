@@ -61,9 +61,9 @@ const TEST_BYTES_LEN: usize = 8;
 fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
-    let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
+    let mut file = File::open(path).unwrap_or_else(|_| panic!("failed to open file: {}", path));
     file.read_to_end(&mut bytes)
-        .expect(&format!("failed to read file: {}", path));
+        .unwrap_or_else(|_| panic!("failed to open file: {}", path));
     bytes
 }
 
