@@ -34,7 +34,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::const_static_lifetime\
     -A clippy::cyclomatic_complexity\
     -A clippy::derive_hash_xor_eq\
-    -A clippy::enum_variant_names\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

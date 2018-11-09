@@ -356,22 +356,22 @@ pub(crate) fn decode_type_bit_maps(
     //  original owner name of the NSEC3 RR.  Trailing octets not specified
     //  MUST be interpreted as zero octets.
     let mut record_types: Vec<RecordType> = Vec::new();
-    let mut state: BitMapState = BitMapState::ReadWindow;
+    let mut state: BitMapReadState = BitMapReadState::Window;
 
     // loop through all the bytes in the bitmap
     for _ in 0..bit_map_len.unverified(/*bounded over any length of u16*/) {
         let current_byte = decoder.read_u8()?;
 
         state = match state {
-            BitMapState::ReadWindow => BitMapState::ReadLen {
+            BitMapReadState::Window => BitMapReadState::Len {
                 window: current_byte.unverified(/*window is any valid u8,*/),
             },
-            BitMapState::ReadLen { window } => BitMapState::ReadType {
+            BitMapReadState::Len { window } => BitMapReadState::RecordType {
                 window,
                 len: current_byte,
                 left: current_byte,
             },
-            BitMapState::ReadType { window, len, left } => {
+            BitMapReadState::RecordType { window, len, left } => {
                 // window is the Window Block # from above
                 // len is the Bitmap Length
                 // current_byte is the Bitmap
@@ -401,10 +401,10 @@ pub(crate) fn decode_type_bit_maps(
                     .map_err(|_| ProtoError::from("block left out of bounds in NSEC(3)"))?;
                 if left.unverified(/*comparison is safe*/) == 0 {
                     // we've exhausted this Window, move to the next
-                    BitMapState::ReadWindow
+                    BitMapReadState::Window
                 } else {
                     // continue reading this Window
-                    BitMapState::ReadType { window, len, left }
+                    BitMapReadState::RecordType { window, len, left }
                 }
             }
         };
@@ -413,12 +413,12 @@ pub(crate) fn decode_type_bit_maps(
     Ok(record_types)
 }
 
-enum BitMapState {
-    ReadWindow,
-    ReadLen {
+enum BitMapReadState {
+    Window,
+    Len {
         window: u8,
     },
-    ReadType {
+    RecordType {
         window: u8,
         len: Restrict<u8>,
         left: Restrict<u8>,
