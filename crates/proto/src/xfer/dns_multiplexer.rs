@@ -344,7 +344,7 @@ where
             if let Some(ref signer) = self.signer {
                 if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return DnsMultiplexerSerialResponseInner::Err(Some(e.into())).into();
+                    return DnsMultiplexerSerialResponseInner::Err(Some(e)).into();
                 }
             }
         }
@@ -368,9 +368,7 @@ where
                     Ok(()) => self
                         .active_requests
                         .insert(active_request.request_id(), active_request),
-                    Err(err) => {
-                        return DnsMultiplexerSerialResponseInner::Err(Some(err.into())).into()
-                    }
+                    Err(err) => return DnsMultiplexerSerialResponseInner::Err(Some(err)).into(),
                 };
             }
             Err(e) => {

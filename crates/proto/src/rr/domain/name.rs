@@ -1275,7 +1275,7 @@ mod tests {
             }
         }
         bytes.push(n + 1);
-        for b in (0..n).into_iter() {
+        for b in 0..n {
             bytes.push(1 + n + b);
         }
         bytes.extend_from_slice(&[1, 0]);

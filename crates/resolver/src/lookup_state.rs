@@ -579,7 +579,7 @@ impl<C: DnsHandle + 'static> Future for QueryState<C> {
                 records = None;
             }
             QueryState::Query(ref mut query, ..) => {
-                let poll = query.poll().map_err(|e| e.into());
+                let poll = query.poll();
                 match poll {
                     Ok(Async::NotReady) => {
                         return Ok(Async::NotReady);

@@ -47,7 +47,7 @@ use trust_dns_integration::{NeverReturnsClientStream, TestClientStream};
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone().into(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
@@ -189,7 +189,7 @@ where
 fn test_notify() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone().into(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
@@ -260,7 +260,7 @@ fn create_sig0_ready_client(
 
     // setup the catalog
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone().into(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));

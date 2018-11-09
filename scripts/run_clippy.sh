@@ -37,7 +37,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::enum_variant_names\
     -A clippy::expect_fun_call\
     -A clippy::filter_next\
-    -A clippy::identity_conversion\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

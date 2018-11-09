@@ -1262,7 +1262,6 @@ impl Authority {
                     //  from records is of Vec<&R>, but we really want &[R]
                     &rr_set
                         .records_without_rrsigs()
-                        .into_iter()
                         .cloned()
                         .collect::<Vec<Record>>(),
                 );

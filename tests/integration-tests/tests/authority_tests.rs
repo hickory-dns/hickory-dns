@@ -631,7 +631,7 @@ fn test_update() {
     assert_eq!(serial + 1, authority.serial());
 
     let add_www_record = &[Record::new()
-        .set_name(www_name.clone().into())
+        .set_name(www_name.clone())
         .set_ttl(86400)
         .set_rr_type(RecordType::A)
         .set_dns_class(DNSClass::IN)

@@ -13,7 +13,7 @@ use trust_dns::op::Query;
 use trust_dns::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::{ProtoError, ProtoResult};
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
 
@@ -83,7 +83,7 @@ fn test_datagram() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]).unwrap();
-    let future = pool.send(DnsRequest::from(request.into()));
+    let future = pool.send(request);
 
     let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
