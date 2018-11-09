@@ -33,7 +33,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::clone_on_copy\
     -A clippy::const_static_lifetime\
     -A clippy::cyclomatic_complexity\
-    -A clippy::derive_hash_xor_eq\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

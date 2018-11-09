@@ -11,6 +11,7 @@ use std::borrow::Borrow;
 use std::char;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Write};
+use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
 use std::slice::Iter;
@@ -24,7 +25,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serialize::binary::*;
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
-#[derive(Clone, Default, Debug, Eq, Hash)]
+#[derive(Clone, Default, Debug, Eq)]
 pub struct Name {
     is_fqdn: bool,
     labels: Vec<Label>,
@@ -866,6 +867,17 @@ impl From<Ipv6Addr> for Name {
 impl PartialEq<Name> for Name {
     fn eq(&self, other: &Self) -> bool {
         self.cmp_with_f::<CaseInsensitive>(other) == Ordering::Equal
+    }
+}
+
+impl Hash for Name {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.is_fqdn.hash(state);
+
+        // this needs to be CaseInsensitive like PartialEq
+        for l in self.labels.iter().map(|l| l.to_lowercase()) {
+            l.hash(state);
+        }
     }
 }
 
