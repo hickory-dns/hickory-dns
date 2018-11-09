@@ -1366,10 +1366,10 @@ impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
                     .by_ref()
                     .filter(|rr_set| {
                         query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    }).filter(|rr_set| {
+                    }).find(|rr_set| {
                         query_type == RecordType::AXFR
                             || &LowerName::from(rr_set.name()) == query_name
-                    }).next();
+                    });
 
                 if record.is_some() {
                     return record;
