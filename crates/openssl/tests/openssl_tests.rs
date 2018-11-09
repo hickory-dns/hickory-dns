@@ -63,7 +63,7 @@ fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
 }
 
-const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
 
 #[allow(unused_mut)]

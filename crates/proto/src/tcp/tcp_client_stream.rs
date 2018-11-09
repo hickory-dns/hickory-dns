@@ -140,7 +140,7 @@ fn test_tcp_client_stream_ipv6() {
 }
 
 #[cfg(test)]
-const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 #[cfg(test)]
 const TEST_BYTES_LEN: usize = 8;
 

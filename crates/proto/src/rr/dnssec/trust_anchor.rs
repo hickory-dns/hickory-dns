@@ -20,8 +20,8 @@ use std::default::Default;
 
 use rr::dnssec::PublicKey;
 
-const ROOT_ANCHOR_ORIG: &'static [u8] = include_bytes!("roots/19036.rsa");
-const ROOT_ANCHOR_2018: &'static [u8] = include_bytes!("roots/20326.rsa");
+const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
+const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
 
 /// The root set of trust anchors for validating DNSSec, anything in this set will be trusted
 pub struct TrustAnchor {

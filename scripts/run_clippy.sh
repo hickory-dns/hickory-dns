@@ -17,6 +17,7 @@ cargo clean -p trust-dns-integration
 
 TARGETS_OPTS="--all --lib --examples --tests --bins"
 CLIPPY_OPTS="-D warnings\
+    -A clippy::cyclomatic_complexity\
     -A clippy::large_enum_variant\
     -A clippy::many_single_char_names\
     -A clippy::module-inception\
@@ -31,8 +32,6 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::cast_lossless\
     -A clippy::clone_double_ref\
     -A clippy::clone_on_copy\
-    -A clippy::const_static_lifetime\
-    -A clippy::cyclomatic_complexity\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
