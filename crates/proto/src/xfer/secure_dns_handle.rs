@@ -74,7 +74,7 @@ where
     /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
     pub fn with_trust_anchor(handle: H, trust_anchor: TrustAnchor) -> SecureDnsHandle<H> {
         SecureDnsHandle {
-            handle: handle,
+            handle,
             trust_anchor: Arc::new(trust_anchor),
             request_depth: 0,
             minimum_key_len: 0,
@@ -162,8 +162,7 @@ impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
                         //  each rrset type needs to validated independently
                         debug!("validating message_response: {}", message_response.id());
                         verify_rrsets(&handle, message_response, dns_class)
-                    })
-                    .and_then(move |verified_message| {
+                    }).and_then(move |verified_message| {
                         // at this point all of the message is verified.
                         //  This is where NSEC (and possibly NSEC3) validation occurs
                         // As of now, only NSEC is supported.
@@ -219,8 +218,7 @@ fn verify_rrsets<H: DnsHandle>(
                                           (handle.request_depth <= 1 ||
                                            is_dnssec(rr, DNSSECRecordType::DNSKEY) ||
                                            is_dnssec(rr, DNSSECRecordType::DS))
-        })
-        .map(|rr| (rr.name().clone(), rr.rr_type()))
+        }).map(|rr| (rr.name().clone(), rr.rr_type()))
     {
         rrset_types.insert(rrset);
     }
@@ -245,7 +243,7 @@ fn verify_rrsets<H: DnsHandle>(
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
-        let rrset: Vec<Record> = message_result
+        let records: Vec<Record> = message_result
             .answers()
             .iter()
             .chain(message_result.name_servers())
@@ -266,17 +264,16 @@ fn verify_rrsets<H: DnsHandle>(
                 } else {
                     false
                 }
-            })
-            .cloned()
+            }).cloned()
             .collect();
 
         // if there is already an active validation going on, assume the other validation will
         //  complete properly or error if it is invalid
         let rrset = Rrset {
-            name: name,
-            record_type: record_type,
+            name,
+            record_type,
             record_class: dns_class,
-            records: rrset,
+            records,
         };
 
         // TODO: support non-IN classes?
@@ -358,8 +355,7 @@ impl Future for VerifyRrsetsFuture {
                     .filter(|record| {
                         self.verified_rrsets
                             .contains(&(record.name().clone(), record.rr_type()))
-                    })
-                    .collect::<Vec<Record>>();
+                    }).collect::<Vec<Record>>();
 
                 let name_servers = message_result
                     .take_name_servers()
@@ -367,8 +363,7 @@ impl Future for VerifyRrsetsFuture {
                     .filter(|record| {
                         self.verified_rrsets
                             .contains(&(record.name().clone(), record.rr_type()))
-                    })
-                    .collect::<Vec<Record>>();
+                    }).collect::<Vec<Record>>();
 
                 let additionals = message_result
                     .take_additionals()
@@ -376,8 +371,7 @@ impl Future for VerifyRrsetsFuture {
                     .filter(|record| {
                         self.verified_rrsets
                             .contains(&(record.name().clone(), record.rr_type()))
-                    })
-                    .collect::<Vec<Record>>();
+                    }).collect::<Vec<Record>>();
 
                 // add the filtered records back to the message
                 message_result.insert_answers(answers);
@@ -429,8 +423,7 @@ where
                 verify_dnskey_rrset(handle, rrset),
             // RecordType::DNSSEC(DNSSECRecordType::DS) => verify_ds_rrset(handle, name, record_type, record_class, rrset, rrsigs),
             _ => Box::new(finished(rrset)),
-          })
-            .map_err(|e| {
+          }).map_err(|e| {
                 debug!("rrset failed validation: {}", e);
                 e
             }),
@@ -467,8 +460,7 @@ where
                 } else {
                     None
                 }
-            })
-            .filter_map(|(i, rdata)| {
+            }).filter_map(|(i, rdata)| {
                 if handle
                     .trust_anchor
                     .contains_dnskey_bytes(rdata.public_key())
@@ -478,8 +470,7 @@ where
                 } else {
                     None
                 }
-            })
-            .collect::<Vec<usize>>();
+            }).collect::<Vec<usize>>();
 
         if !anchored_keys.is_empty() {
             let mut rrset = rrset;

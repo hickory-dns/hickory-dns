@@ -17,11 +17,11 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
-#[cfg(feature = "dnssec")]
-use rr::rdata::DNSSECRData;
 use proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use proto::rr::dnssec::{tbs, TBS};
+#[cfg(feature = "dnssec")]
+use rr::rdata::DNSSECRData;
 
 use op::{Message, MessageFinalizer};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -280,11 +280,11 @@ impl Signer {
 
         Signer {
             key_rdata: key_rdata.into(),
-            key: key,
-            algorithm: algorithm,
-            signer_name: signer_name,
-            sig_duration: sig_duration,
-            is_zone_signing_key: is_zone_signing_key,
+            key,
+            algorithm,
+            signer_name,
+            sig_duration,
+            is_zone_signing_key,
         }
     }
 
@@ -301,9 +301,9 @@ impl Signer {
 
         Signer {
             key_rdata: key_rdata.into(),
-            key: key,
-            algorithm: algorithm,
-            signer_name: signer_name,
+            key,
+            algorithm,
+            signer_name,
             sig_duration: Duration::zero(),
             is_zone_signing_key: false,
         }
@@ -325,11 +325,11 @@ impl Signer {
 
         Signer {
             key_rdata: dnskey.into(),
-            key: key,
-            algorithm: algorithm,
-            signer_name: signer_name,
-            sig_duration: sig_duration,
-            is_zone_signing_key: is_zone_signing_key,
+            key,
+            algorithm,
+            signer_name,
+            sig_duration,
+            is_zone_signing_key,
         }
     }
 
@@ -631,7 +631,7 @@ mod tests {
         let sig = signer.sign_message(&question, &pre_sig0);
         println!("sig after sign: {:?}", sig);
 
-        if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = question.sig0()[0].rdata() {
+        if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *question.sig0()[0].rdata() {
             assert!(sig0key.verify_message(&question, sig.sig(), &sig).is_ok());
         }
     }
@@ -693,7 +693,7 @@ mod tests {
         );
     }
 
-    fn get_rsa_from_vec(params: &Vec<u32>) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
+    fn get_rsa_from_vec(params: &[u32]) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
         Rsa::from_private_components(
             BigNum::from_u32(params[0]).unwrap(), // modulus: n
             BigNum::from_u32(params[1]).unwrap(), // public exponent: e,

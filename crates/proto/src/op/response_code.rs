@@ -131,13 +131,13 @@ pub enum ResponseCode {
 
 impl ResponseCode {
     /// returns the lower 4 bits of the response code (for the original header portion of the code)
-    pub fn low(&self) -> u8 {
-        (u16::from(*self) & 0x000F) as u8
+    pub fn low(self) -> u8 {
+        (u16::from(self) & 0x000F) as u8
     }
 
     /// returns the high 12 bits for the edns portion of the response code
-    pub fn high(&self) -> u16 {
-        (u16::from(*self) & 0x0FF0) >> 4
+    pub fn high(self) -> u16 {
+        (u16::from(self) & 0x0FF0) >> 4
     }
 
     /// Combines the EDNS high and low from the Header to produce the Extended ResponseCode
@@ -146,8 +146,8 @@ impl ResponseCode {
     }
 
     /// Transforms the response code into the human message
-    pub fn to_str(&self) -> &'static str {
-        match *self {
+    pub fn to_str(self) -> &'static str {
+        match self {
             ResponseCode::NoError => "No Error",
             ResponseCode::FormErr => "Form Error",                   // 1     FormErr       Format Error                        [RFC1035]
             ResponseCode::ServFail => "Server Failure",              // 2     ServFail      Server Failure                      [RFC1035]

@@ -16,8 +16,8 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 /// DNSSec signing and validation algorithms.
 ///
@@ -134,8 +134,8 @@ impl Algorithm {
     }
 
     /// length in bytes that the hash portion of this function will produce
-    pub fn hash_len(&self) -> usize {
-        match *self {
+    pub fn hash_len(self) -> usize {
+        match self {
             Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
             Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => 32, // 256 bits
             Algorithm::ECDSAP384SHA384 => 48,
@@ -144,8 +144,8 @@ impl Algorithm {
     }
 
     /// Convert to string form
-    pub fn to_str(&self) -> &'static str {
-        match *self {
+    pub fn to_str(self) -> &'static str {
+        match self {
             Algorithm::RSASHA1 => "RSASHA1",
             Algorithm::RSASHA256 => "RSASHA256",
             Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
@@ -166,7 +166,8 @@ impl BinEncodable for Algorithm {
 impl<'r> BinDecodable<'r> for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Algorithm> {
-        let algorithm_id = decoder.read_u8()?.unverified(/*Algorithm is verified as safe in processing this*/);
+        let algorithm_id =
+            decoder.read_u8()?.unverified(/*Algorithm is verified as safe in processing this*/);
         Algorithm::from_u8(algorithm_id)
     }
 }
@@ -238,7 +239,8 @@ fn test_order() {
             Algorithm::ECDSAP256SHA256,
             Algorithm::ECDSAP384SHA384,
             Algorithm::ED25519,
-        ].iter(),
+        ]
+            .iter(),
     ) {
         assert_eq!(got, expect);
     }

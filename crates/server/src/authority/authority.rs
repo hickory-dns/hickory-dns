@@ -12,12 +12,12 @@ use std::borrow::Borrow;
 use std::collections::btree_map::Values;
 use std::collections::BTreeMap;
 
+use proto::rr::RrsetRecords;
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-use proto::rr::RrsetRecords;
 
 #[cfg(feature = "dnssec")]
 use authority::UpdateRequest;
@@ -205,7 +205,7 @@ impl Authority {
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    pub fn soa<'s>(&'s self) -> LookupRecords<'s, 's> {
+    pub fn soa(&self) -> LookupRecords {
         // SOA should be origin|SOA
         self.lookup(
             &self.origin,
@@ -216,11 +216,11 @@ impl Authority {
     }
 
     /// Returns the SOA record for the zone
-    pub fn soa_secure<'s>(
-        &'s self,
+    pub fn soa_secure(
+        &self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords<'s, 's> {
+    ) -> LookupRecords {
         self.lookup(
             &self.origin,
             RecordType::SOA,
@@ -285,11 +285,7 @@ impl Authority {
     }
 
     /// Get the NS, NameServer, record for the zone
-    pub fn ns<'s>(
-        &'s self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords<'s, 's> {
+    pub fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> LookupRecords {
         self.lookup(
             &self.origin,
             RecordType::NS,
@@ -405,7 +401,7 @@ impl Authority {
                                     RecordType::ANY,
                                     false,
                                     SupportedAlgorithms::new(),
-                                ).is_totally_empty()
+                                ).was_empty()
                             {
                                 return Err(ResponseCode::NXDomain);
                             } else {
@@ -416,7 +412,7 @@ impl Authority {
                         rrset => {
                             if self
                                 .lookup(&required_name, rrset, false, SupportedAlgorithms::new())
-                                .is_totally_empty()
+                                .was_empty()
                             {
                                 return Err(ResponseCode::NXRRSet);
                             } else {
@@ -437,7 +433,7 @@ impl Authority {
                                     RecordType::ANY,
                                     false,
                                     SupportedAlgorithms::new(),
-                                ).is_totally_empty()
+                                ).was_empty()
                             {
                                 return Err(ResponseCode::YXDomain);
                             } else {
@@ -448,7 +444,7 @@ impl Authority {
                         rrset => {
                             if !self
                                 .lookup(&required_name, rrset, false, SupportedAlgorithms::new())
-                                .is_totally_empty()
+                                .was_empty()
                             {
                                 return Err(ResponseCode::YXRRSet);
                             } else {
@@ -509,8 +505,8 @@ impl Authority {
     ///
     #[cfg(feature = "dnssec")]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
         use proto::rr::dnssec::Verifier;
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 
         // 3.3.3 - Pseudocode for Permission Checking
         //
@@ -1115,7 +1111,7 @@ impl Authority {
         self.records
             .values()
             .filter(|rr_set| is_nsec_rrset(rr_set))
-            .skip_while(|rr_set| name < &rr_set.name().into())
+            .skip_while(|rr_set| *name < rr_set.name().into())
             .next()
             .map_or(LookupRecords::NxDomain, |rr_set| {
                 LookupRecords::from(rr_set.records(is_secure, supported_algorithms))
@@ -1140,7 +1136,7 @@ impl Authority {
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
     #[cfg(not(feature = "dnssec"))]
     pub fn secure_zone(&mut self) -> Result<(), &str> {
-        return Err("DNSSEC is not enabled.");
+        Err("DNSSEC is not enabled.")
     }
 
     /// Dummy implementation for when DNSSEC is disabled.
@@ -1176,7 +1172,7 @@ impl Authority {
             for key in self.records.keys() {
                 match nsec_info {
                     None => nsec_info = Some((key.name.borrow(), vec![key.record_type])),
-                    Some((name, ref mut vec)) if &LowerName::new(name) == &key.name => {
+                    Some((name, ref mut vec)) if LowerName::new(name) == key.name => {
                         vec.push(key.record_type)
                     }
                     Some((name, vec)) => {
@@ -1266,7 +1262,6 @@ impl Authority {
                     //  from records is of Vec<&R>, but we really want &[R]
                     &rr_set
                         .records_without_rrsigs()
-                        .into_iter()
                         .cloned()
                         .collect::<Vec<Record>>(),
                 );
@@ -1371,10 +1366,10 @@ impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
                     .by_ref()
                     .filter(|rr_set| {
                         query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    }).filter(|rr_set| {
+                    }).find(|rr_set| {
                         query_type == RecordType::AXFR
                             || &LowerName::from(rr_set.name()) == query_name
-                    }).next();
+                    });
 
                 if record.is_some() {
                     return record;
@@ -1384,9 +1379,7 @@ impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
             self.rrset = self.rrsets.next();
 
             // if there are no more RecordSets, then return
-            if self.rrset.is_none() {
-                return None;
-            }
+            self.rrset?;
 
             // getting here, we must have exhausted our records from the rrset
             self.records = Some(
@@ -1415,7 +1408,7 @@ impl<'r, 'q> LookupRecords<'r, 'q> {
     /// This is an NxDomain or NameExists, and has no associated records
     ///
     /// this consumes the iterator, and verifies it is empty
-    pub fn is_totally_empty(self) -> bool {
+    pub fn was_empty(self) -> bool {
         self.count() == 0
     }
 

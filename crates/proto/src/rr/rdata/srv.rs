@@ -16,9 +16,9 @@
 
 //! service records for identify port mapping for specific services on a host
 
-use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
+use serialize::binary::*;
 
 /// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
 ///
@@ -104,10 +104,10 @@ impl SRV {
     /// The newly constructed SRV record data.
     pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> SRV {
         SRV {
-            priority: priority,
-            weight: weight,
-            port: port,
-            target: target,
+            priority,
+            weight,
+            port,
+            target,
         }
     }
 
@@ -236,12 +236,7 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
 fn test() {
     use std::str::FromStr;
 
-    let rdata = SRV::new(
-        1,
-        2,
-        3,
-        Name::from_str("_dns._tcp.example.com").unwrap(),
-    );
+    let rdata = SRV::new(1, 2, 3, Name::from_str("_dns._tcp.example.com").unwrap());
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

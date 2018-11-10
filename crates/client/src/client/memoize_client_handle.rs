@@ -35,7 +35,7 @@ where
     /// Returns a new handle wrapping the specified client
     pub fn new(client: H) -> MemoizeClientHandle<H> {
         MemoizeClientHandle {
-            client: client,
+            client,
             active_queries: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -78,10 +78,10 @@ mod test {
     use client::*;
     use futures::*;
     use op::*;
-    use rr::*;
-    use std::cell::Cell;
     use proto::error::ProtoError;
     use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+    use rr::*;
+    use std::cell::Cell;
 
     #[derive(Clone)]
     struct TestClient {

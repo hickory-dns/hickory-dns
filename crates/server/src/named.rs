@@ -62,12 +62,10 @@ use trust_dns::rr::dnssec::{KeyPair, Private, Signer};
 use trust_dns::rr::Name;
 use trust_dns::serialize::txt::{Lexer, Parser};
 
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 use trust_dns_openssl::tls_server::*;
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 #[cfg(feature = "dnssec")]
@@ -275,12 +273,10 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     ))
 }
 
-#[cfg(
-    all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    )
-)]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
@@ -356,9 +352,9 @@ fn load_cert(
             read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
         }
         CertType::Pkcs12 => {
-            return Err(format!(
-                "PKCS12 is not supported with Rustls for certificate, use PEM encoding"
-            ))
+            return Err(
+                "PKCS12 is not supported with Rustls for certificate, use PEM encoding".to_string(),
+            )
         }
     };
 
@@ -375,11 +371,7 @@ fn load_cert(
             info!("loading TLS DER key from: {}", private_key_path.display());
             read_key_from_der(&private_key_path)?
         }
-        (None, _) => {
-            return Err(format!(
-                "No private key associated with specified certificate"
-            ))
-        }
+        (None, _) => return Err("No private key associated with specified certificate".to_string()),
     };
 
     Ok((cert, key))
@@ -495,7 +487,7 @@ pub fn main() {
     let config_path = Path::new(&flag_config);
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path)
-        .expect(&format!("could not read config: {:?}", config_path));
+        .unwrap_or_else(|_| panic!("could not read config: {:?}", config_path));
     let directory_config = config.get_directory().to_path_buf();
     let flag_zonedir = args.flag_zonedir.clone();
     let zone_dir: &Path = flag_zonedir
@@ -508,7 +500,7 @@ pub fn main() {
     for zone in config.get_zones() {
         let zone_name = zone
             .get_zone()
-            .expect(&format!("bad zone name in {:?}", config_path));
+            .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
         match load_zone(zone_dir, zone) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
@@ -537,11 +529,11 @@ pub fn main() {
         .collect();
     let udp_sockets: Vec<UdpSocket> = sockaddrs
         .iter()
-        .map(|x| UdpSocket::bind(x).expect(&format!("could not bind to udp: {}", x)))
+        .map(|x| UdpSocket::bind(x).unwrap_or_else(|_| panic!("could not bind to udp: {}", x)))
         .collect();
     let tcp_listeners: Vec<TcpListener> = sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x)))
+        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tcp: {}", x)))
         .collect();
 
     let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
@@ -550,8 +542,8 @@ pub fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
-    let server_future: Box<Future<Item = (), Error = ()> + Send> = Box::new(future::lazy(
-        move || {
+    let server_future: Box<Future<Item = (), Error = ()> + Send> =
+        Box::new(future::lazy(move || {
             // load all the listeners
             for udp_socket in udp_sockets {
                 info!("listening for UDP on {:?}", udp_socket);
@@ -566,7 +558,7 @@ pub fn main() {
                     .expect("could not register TCP listener");
             }
 
-            let tls_cert_config = config.get_tls_cert().clone();
+            let tls_cert_config = config.get_tls_cert();
 
             // and TLS as necessary
             // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
@@ -578,7 +570,7 @@ pub fn main() {
                     &args,
                     &mut server,
                     &config,
-                    _tls_cert_config.clone(),
+                    _tls_cert_config,
                     zone_dir,
                     &listen_addrs,
                 );
@@ -589,7 +581,7 @@ pub fn main() {
                     &args,
                     &mut server,
                     &config,
-                    _tls_cert_config.clone(),
+                    _tls_cert_config,
                     zone_dir,
                     &listen_addrs,
                 );
@@ -604,8 +596,7 @@ pub fn main() {
             ///  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
             future::empty()
-        },
-    ));
+        }));
 
     if let Err(e) = io_loop.block_on(server_future.map_err(|_| {
         io::Error::new(
@@ -638,7 +629,7 @@ fn config_tls(
         .collect();
     let tls_listeners: Vec<TcpListener> = tls_sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
+        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)))
         .collect();
     if tls_listeners.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
@@ -678,7 +669,7 @@ fn config_https(
         .collect();
     let https_listeners: Vec<TcpListener> = https_sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
+        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)))
         .collect();
     if https_listeners.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");

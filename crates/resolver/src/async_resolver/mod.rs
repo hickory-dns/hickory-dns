@@ -239,7 +239,7 @@ impl AsyncResolver {
             options,
             tx,
         };
-        if let Err(_) = self.request_tx.unbounded_send(request) {
+        if self.request_tx.unbounded_send(request).is_err() {
             return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
         }
         let f: BgSend<LookupFuture, F> = rx
@@ -263,7 +263,7 @@ impl AsyncResolver {
             tx,
         };
 
-        if let Err(_) = self.request_tx.unbounded_send(request) {
+        if self.request_tx.unbounded_send(request).is_err() {
             // Note: this shouldn't happen. We return a ResolveError here, but it would
             // probably be okay to just `expect` the unbounded send to be successful.
             return ResolveErrorKind::Message("background resolver gone, this is a bug").into();

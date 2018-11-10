@@ -10,8 +10,8 @@
 use std::iter::Iterator;
 use std::path::Path;
 
+use rusqlite::{self, types::ToSql, Connection};
 use time;
-use rusqlite::{self, Connection, types::ToSql};
 
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
@@ -30,11 +30,8 @@ pub struct Journal {
 impl Journal {
     /// Constructs a new Journal, attaching to the specified Sqlite Connection
     pub fn new(conn: Connection) -> PersistenceResult<Journal> {
-        let version = Self::select_schema_version(&conn);
-        Ok(Journal {
-            conn: conn,
-            version: version?,
-        })
+        let version = Self::select_schema_version(&conn)?;
+        Ok(Journal { conn, version })
     }
 
     /// Constructs a new Journal opening a Sqlite connection to the file at the specified path
@@ -87,7 +84,7 @@ impl Journal {
 
         let timestamp = time::get_time();
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
-        let soa_serial: i64 = soa_serial as i64;
+        let soa_serial: i64 = i64::from(soa_serial);
 
         let count = self.conn.execute(
             "INSERT
@@ -96,7 +93,12 @@ impl Journal {
                                             record)
                                           \
                                             VALUES ($1, $2, $3, $4)",
-            &[&client_id as &ToSql, &soa_serial, &timestamp, &serial_record],
+            &[
+                &client_id as &ToSql,
+                &soa_serial,
+                &timestamp,
+                &serial_record,
+            ],
         )?;
         //
         if count != 1 {
@@ -144,24 +146,24 @@ impl Journal {
                                                LIMIT 1",
         )?;
 
-        let record_opt: Option<Result<(i64, Record), rusqlite::Error>> = stmt.query_and_then(
-            &[&row_id],
-            |row| -> Result<(i64, Record), rusqlite::Error> {
-                let row_id: i64 = row.get_checked(0)?;
-                let record_bytes: Vec<u8> = row.get_checked(1)?;
-                let mut decoder = BinDecoder::new(&record_bytes);
+        let record_opt: Option<Result<(i64, Record), rusqlite::Error>> = stmt
+            .query_and_then(
+                &[&row_id],
+                |row| -> Result<(i64, Record), rusqlite::Error> {
+                    let row_id: i64 = row.get_checked(0)?;
+                    let record_bytes: Vec<u8> = row.get_checked(1)?;
+                    let mut decoder = BinDecoder::new(&record_bytes);
 
-                // todo add location to this...
-                match Record::read(&mut decoder) {
-                    Ok(record) => Ok((row_id, record)),
-                    Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!(
-                        "could not decode: {}",
-                        decode_error
-                    ))),
-                }
-            },
-        )?
-            .next();
+                    // todo add location to this...
+                    match Record::read(&mut decoder) {
+                        Ok(record) => Ok((row_id, record)),
+                        Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!(
+                            "could not decode: {}",
+                            decode_error
+                        ))),
+                    }
+                },
+            )?.next();
 
         //
         match record_opt {
@@ -216,7 +218,8 @@ impl Journal {
         // validate the versions of all the schemas...
         assert!(new_version <= CURRENT_VERSION);
 
-        let count = self.conn
+        let count = self
+            .conn
             .execute("UPDATE tdns_schema SET version = $1", &[&new_version])?;
 
         //
@@ -252,8 +255,10 @@ impl Journal {
         //
         assert_eq!(count, 0);
 
-        let count = self.conn
-            .execute("INSERT INTO tdns_schema (version) VALUES (0)", None::<&dyn ToSql>)?;
+        let count = self.conn.execute(
+            "INSERT INTO tdns_schema (version) VALUES (0)",
+            None::<&dyn ToSql>,
+        )?;
         //
         assert_eq!(count, 1);
 
@@ -297,7 +302,7 @@ impl<'j> JournalIter<'j> {
     fn new(journal: &'j Journal) -> Self {
         JournalIter {
             current_row_id: 0,
-            journal: journal,
+            journal,
         }
     }
 }

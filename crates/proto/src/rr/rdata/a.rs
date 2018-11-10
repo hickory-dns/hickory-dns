@@ -42,8 +42,8 @@
 
 use std::net::Ipv4Addr;
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
@@ -56,7 +56,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder, address: Ipv4Addr) -> ProtoResult<()> {
     let segments = address.octets();
 
     encoder.emit(segments[0])?;
@@ -96,6 +96,6 @@ mod mytests {
 
     #[test]
     fn test_write_to() {
-        test_emit_data_set(get_data(), |ref mut e, d| emit(e, &d));
+        test_emit_data_set(get_data(), |ref mut e, d| emit(e, d));
     }
 }

@@ -347,7 +347,11 @@ impl Value {
     }
 }
 
-fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: Restrict<u16>) -> ProtoResult<Value> {
+fn read_value(
+    tag: &Property,
+    decoder: &mut BinDecoder,
+    value_len: Restrict<u16>,
+) -> ProtoResult<Value> {
     let value_len = value_len.map(|u| u as usize).unverified(/*used purely as length safely*/);
     match *tag {
         Property::Issue | Property::IssueWild => {
@@ -741,9 +745,10 @@ impl KeyValue {
 /// ```
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
     // the spec declares that other flags should be ignored for future compatability...
-    let issuer_critical: bool = decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
+    let issuer_critical: bool =
+        decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
 
-    let tag_len = decoder.read_u8()?; 
+    let tag_len = decoder.read_u8()?;
     let value_len: Restrict<u16> = rdata_length
         .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
         .checked_sub(2)
@@ -838,7 +843,8 @@ mod tests {
         let ok_under15 = b"abcxyzABCXYZ019";
         let mut decoder = BinDecoder::new(ok_under15);
 
-        let read = read_tag(&mut decoder, Restrict::new(ok_under15.len() as u8)).expect("failed to read tag");
+        let read = read_tag(&mut decoder, Restrict::new(ok_under15.len() as u8))
+            .expect("failed to read tag");
 
         assert_eq!(str::from_utf8(ok_under15).unwrap(), read);
     }
@@ -962,7 +968,8 @@ mod tests {
         println!("bytes: {:?}", bytes);
 
         let mut decoder: BinDecoder = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
+        let read_rdata =
+            read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -1026,7 +1033,7 @@ mod tests {
         let encoded: Vec<u8> = header
             .into_iter()
             .chain(name_bytes.iter())
-            .map(|b| *b)
+            .cloned()
             .collect();
 
         test_encode(
@@ -1043,7 +1050,7 @@ mod tests {
     fn test_encode_fqdn() {
         let name_bytes: &[u8] = b"issueexample.com.";
         let header: [u8; 2] = [128, 5];
-        let encoded: Vec<u8> = header.iter().chain(name_bytes.iter()).map(|b| *b).collect();
+        let encoded: Vec<u8> = header.iter().chain(name_bytes.iter()).cloned().collect();
 
         test_encode(
             CAA::new_issue(

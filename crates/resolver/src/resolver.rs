@@ -11,16 +11,16 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
-use tokio::runtime::current_thread::Runtime;
 use proto::rr::RecordType;
+use tokio::runtime::current_thread::Runtime;
 
-use AsyncResolver;
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::{self, DnsLru};
 use error::*;
 use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
+use AsyncResolver;
 
 /// The Resolver is used for performing DNS queries.
 ///
@@ -76,10 +76,7 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let lru = DnsLru::new(
-            options.cache_size,
-            dns_lru::TtlConfig::from_opts(&options),
-        );
+        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         let lru = Arc::new(Mutex::new(lru));
 
         Ok(Resolver {
@@ -110,13 +107,11 @@ impl Resolver {
     }
 
     /// Constructs a new ResolverFutture
-    fn construct_and_run(&self) -> ResolveResult<(AsyncResolver, impl Future<Item=(), Error=()>)> {
+    fn construct_and_run(
+        &self,
+    ) -> ResolveResult<(AsyncResolver, impl Future<Item = (), Error = ()>)> {
         // TODO: can we reuse the background task/handle once it has been spawned?
-        let handle = AsyncResolver::with_cache(
-            self.config.clone(),
-            self.options.clone(),
-            self.lru.clone(),
-        );
+        let handle = AsyncResolver::with_cache(self.config.clone(), self.options, self.lru.clone());
 
         Ok(handle)
     }
@@ -219,14 +214,7 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }
@@ -250,14 +238,7 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }

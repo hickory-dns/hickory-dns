@@ -53,9 +53,7 @@ impl TcpClientStream<TokioTcpStream> {
 
         let new_future = Box::new(
             stream_future
-                .map(move |tcp_stream| TcpClientStream {
-                    tcp_stream: tcp_stream,
-                })
+                .map(move |tcp_stream| TcpClientStream { tcp_stream })
                 .map_err(ProtoError::from),
         );
 
@@ -68,9 +66,7 @@ impl TcpClientStream<TokioTcpStream> {
 impl<S> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
-        TcpClientStream {
-            tcp_stream: tcp_stream,
-        }
+        TcpClientStream { tcp_stream }
     }
 }
 
@@ -144,7 +140,7 @@ fn test_tcp_client_stream_ipv6() {
 }
 
 #[cfg(test)]
-const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 #[cfg(test)]
 const TEST_BYTES_LEN: usize = 8;
 
@@ -168,8 +164,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -196,7 +191,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 socket
                     .read_exact(&mut len_bytes)
                     .expect("SERVER: receive failed");
-                let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+                let length =
+                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
                 let mut buffer = [0_u8; TEST_BYTES_LEN];
@@ -215,8 +211,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

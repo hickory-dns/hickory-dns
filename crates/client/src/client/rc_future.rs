@@ -27,7 +27,7 @@ where
     let rc_future = Arc::new(Mutex::new(future.into_future().fuse()));
 
     RcFuture {
-        rc_future: rc_future,
+        rc_future,
         result: Arc::new(Mutex::new(None)),
     }
 }
@@ -46,7 +46,8 @@ where
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
         if self.result.lock().expect("poisoned").is_some() {
-            return self.result
+            return self
+                .result
                 .lock()
                 .expect("poisoned")
                 .as_ref()

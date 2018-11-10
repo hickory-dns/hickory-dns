@@ -90,7 +90,7 @@ fn into_resolver_config(
 
     let mut options = ResolverOpts::default();
     options.ndots = parsed_config.ndots as usize;
-    options.timeout = Duration::from_secs(parsed_config.timeout as u64);
+    options.timeout = Duration::from_secs(u64::from(parsed_config.timeout));
     options.attempts = parsed_config.attempts as usize;
 
     Ok((config, options))
@@ -99,10 +99,10 @@ fn into_resolver_config(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proto::rr::Name;
     use std::env;
     use std::net::*;
     use std::str::FromStr;
-    use proto::rr::Name;
 
     fn empty_config() -> ResolverConfig {
         ResolverConfig::from_parts(None, vec![], vec![])
@@ -125,7 +125,7 @@ mod tests {
     }
 
     fn tests_dir() -> String {
-        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         format!{"{}/../resolver/tests", server_path}
     }
 

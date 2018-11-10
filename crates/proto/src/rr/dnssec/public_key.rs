@@ -10,12 +10,6 @@
 use std::marker::PhantomData;
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-use openssl::rsa::Rsa as OpenSslRsa;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-use openssl::sign::Verifier;
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
-use openssl::pkey::{PKey, Public};
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::bn::BigNum;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::bn::BigNumContext;
@@ -23,17 +17,23 @@ use openssl::bn::BigNumContext;
 use openssl::ec::{EcGroup, EcKey, EcPoint};
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::nid::Nid;
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+use openssl::pkey::{PKey, Public};
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+use openssl::rsa::Rsa as OpenSslRsa;
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+use openssl::sign::Verifier;
 #[cfg(feature = "ring")]
 use ring::signature;
 #[cfg(feature = "ring")]
-use ring::signature::{ED25519_PUBLIC_KEY_LEN, EdDSAParameters, VerificationAlgorithm};
+use ring::signature::{EdDSAParameters, VerificationAlgorithm, ED25519_PUBLIC_KEY_LEN};
 #[cfg(feature = "ring")]
 use untrusted::Input;
 
 use error::*;
+use rr::dnssec::Algorithm;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use rr::dnssec::DigestType;
-use rr::dnssec::Algorithm;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::ec_public_key::ECPublicKey;
@@ -139,15 +139,15 @@ impl<'k> Ec<'k> {
                 // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
                 .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
-                .and_then(|ec_key| PKey::from_ec_key(ec_key) )
+                .and_then(PKey::from_ec_key)
                 .map_err(|e| e.into())
-                .map(|pkey| Ec{raw: public_key, pkey: pkey})
+                .map(|pkey| Ec{raw: public_key, pkey})
     }
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
-    assert!(int.len() > 0);
+    assert!(!int.is_empty());
     output.push(0x02); // INTEGER
     if int[0] > 0x7f {
         output.push((int.len() + 1) as u8);
@@ -178,7 +178,7 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
 /// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
-    if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
+    if signature.is_empty() || signature.len() & 1 != 0 || signature.len() > 127 {
         return Err("invalid signature length".into());
     }
     let part_len = signature.len() / 2;
@@ -318,9 +318,11 @@ impl<'k> PublicKey for Ed25519<'k> {
 pub struct Rsa<'k> {
     raw: &'k [u8],
 
-    #[cfg(all(not(feature = "ring"), feature = "openssl"))] pkey: PKey<Public>,
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    pkey: PKey<Public>,
 
-    #[cfg(feature = "ring")] pkey: RSAPublicKey<'k>,
+    #[cfg(feature = "ring")]
+    pkey: RSAPublicKey<'k>,
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -371,7 +373,7 @@ fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey<Public>> {
     let n = BigNum::from_slice(parsed.n())?;
 
     OpenSslRsa::from_public_components(n, e)
-        .and_then(|rsa| PKey::from_rsa(rsa))
+        .and_then(PKey::from_rsa)
         .map_err(|e| e.into())
 }
 
@@ -440,9 +442,9 @@ impl<'k> PublicKeyEnum<'k> {
                 Ec::from_public_bytes(public_key, algorithm)?,
             )),
             #[cfg(feature = "ring")]
-            Algorithm::ED25519 => Ok(PublicKeyEnum::Ed25519(
-                Ed25519::from_public_bytes(public_key)?,
-            )),
+            Algorithm::ED25519 => Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(
+                public_key,
+            )?)),
             #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1

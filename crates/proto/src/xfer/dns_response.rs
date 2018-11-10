@@ -38,6 +38,11 @@ impl DnsResponse {
     pub fn len(&self) -> usize {
         self.0.len()
     }
+
+    /// returns the number of messages in the response
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 impl Deref for DnsResponse {

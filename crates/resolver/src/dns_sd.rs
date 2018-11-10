@@ -16,11 +16,9 @@ use futures::{Async, Future, Poll};
 use proto::rr::{IntoName, Name, RecordType};
 use proto::xfer::DnsRequestOptions;
 
+use async_resolver::{AsyncResolver, BackgroundLookup};
 use error::*;
-use lookup::{
-    ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
-};
-use async_resolver::{BackgroundLookup, AsyncResolver};
+use lookup::{ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture};
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -41,8 +39,8 @@ impl DnsSdHandle for AsyncResolver {
     fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,
-            ..Default::default()
         };
+
         let name: Name = match name.into_name() {
             Ok(name) => name,
             Err(err) => return ListServicesFuture(err.into()),
@@ -137,8 +135,7 @@ impl ServiceInfo {
                 } else {
                     None
                 }
-            })
-            .collect()
+            }).collect()
     }
 }
 

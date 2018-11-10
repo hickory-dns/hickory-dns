@@ -62,9 +62,7 @@ impl MdnsClientStream {
 
         let new_future = Box::new(
             stream_future
-                .map(move |mdns_stream| MdnsClientStream {
-                    mdns_stream: mdns_stream,
-                })
+                .map(move |mdns_stream| MdnsClientStream { mdns_stream })
                 .map_err(ProtoError::from),
         );
         let new_future = MdnsClientConnect(new_future);

@@ -5,12 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use trust_dns::op::LowerQuery;
 use proto::error::*;
 use proto::op::message::EmitAndCount;
 use proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
 use proto::rr::Record;
 use proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
@@ -198,13 +198,13 @@ impl<'r> BinDecodable<'r> for MessageRequest<'r> {
         let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
 
         Ok(MessageRequest {
-            header: header,
-            queries: queries,
-            answers: answers,
-            name_servers: name_servers,
-            additionals: additionals,
-            sig0: sig0,
-            edns: edns,
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
         })
     }
 }
@@ -239,12 +239,17 @@ impl<'r> Queries<'r> {
         self.queries.len()
     }
 
+    /// Returns true if there are no queries
+    pub fn is_empty(&self) -> bool {
+        self.queries.is_empty()
+    }
+
     /// returns the bytes as they were seen from the Client
     pub fn as_bytes(&self) -> &[u8] {
         self.original
     }
 
-    pub(crate) fn into_emit_and_count<'s>(&'s self) -> QueriesEmitAndCount<'s> {
+    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount {
         QueriesEmitAndCount {
             length: self.queries.len(),
             original: self.original,

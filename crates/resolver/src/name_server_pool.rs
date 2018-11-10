@@ -17,8 +17,6 @@ use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
 use tokio::executor::{DefaultExecutor, Executor};
 
-#[cfg(feature = "dns-over-https")]
-use trust_dns_https;
 use proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4};
@@ -29,6 +27,8 @@ use proto::xfer::{
     self, BufDnsRequestStreamHandle, DnsExchange, DnsHandle, DnsMultiplexer,
     DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
+#[cfg(feature = "dns-over-https")]
+use trust_dns_https;
 
 //use async_resolver::BasicAsyncResolver;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
@@ -162,7 +162,7 @@ impl Ord for NameServerStats {
         //   letency is started to be used.
         match self.state.cmp(&other.state) {
             Ordering::Equal => (),
-            o @ _ => {
+            o => {
                 return o;
             }
         }
@@ -346,7 +346,7 @@ impl ConnectionHandleConnect {
             Https {
                 socket_addr,
                 // TODO: https needs timeout!
-                timeout: _,
+                timeout: _t,
                 tls_dns_name,
             } => {
                 let (stream, handle) = ::https::new_https_stream(socket_addr, tls_dns_name);
@@ -400,11 +400,11 @@ impl DnsHandle for ConnectionHandleConnected {
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
         match self {
             ConnectionHandleConnected::UdpOrTcp(ref mut conn) => {
-                return ConnectionHandleResponseInner::UdpOrTcp(conn.send(request))
+                ConnectionHandleResponseInner::UdpOrTcp(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionHandleConnected::Https(ref mut https) => {
-                return ConnectionHandleResponseInner::Https(https.send(request))
+                ConnectionHandleResponseInner::Https(https.send(request))
             }
         }
     }
@@ -716,24 +716,22 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
-            .map(|ns_config| {
-                NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
-            }).collect();
+            .map(|ns_config| NameServer::<_, StandardConnection>::new(ns_config.clone(), *options))
+            .collect();
 
         let stream_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
-            .map(|ns_config| {
-                NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
-            }).collect();
+            .map(|ns_config| NameServer::<_, StandardConnection>::new(ns_config.clone(), *options))
+            .collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
             stream_conns: Arc::new(Mutex::new(stream_conns)),
             #[cfg(feature = "mdns")]
-            mdns_conns: mdns_nameserver(options.clone()),
-            options: options.clone(),
+            mdns_conns: mdns_nameserver(*options),
+            options: *options,
             phantom: PhantomData,
         }
     }
@@ -748,7 +746,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
-            options: options.clone(),
+            options: *options,
             phantom: PhantomData,
         }
     }
@@ -764,8 +762,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
-            mdns_conns: mdns_conns,
-            options: options.clone(),
+            mdns_conns,
+            options: *options,
             phantom: PhantomData,
         }
     }

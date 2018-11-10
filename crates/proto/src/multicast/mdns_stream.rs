@@ -141,8 +141,7 @@ impl MdnsStream {
                         socket.map(|socket| {
                             UdpSocket::from_std(socket, &handle).expect("bad handle?")
                         })
-                    })
-                    .map(move |socket: Option<_>| {
+                    }).map(move |socket: Option<_>| {
                         let datagram =
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
                         let multicast: Option<UdpSocket> =
@@ -312,7 +311,9 @@ impl NextRandomUdpSocket {
         match addr {
             SocketAddr::V4(..) => {
                 socket.set_multicast_loop_v4(true)?;
-                socket.set_multicast_if_v4(&self.ipv4_if.unwrap_or(Ipv4Addr::new(0, 0, 0, 0)))?;
+                socket.set_multicast_if_v4(
+                    &self.ipv4_if.unwrap_or_else(|| Ipv4Addr::new(0, 0, 0, 0)),
+                )?;
                 if let Some(ttl) = self.packet_ttl {
                     socket.set_ttl(ttl)?;
                     socket.set_multicast_ttl_v4(ttl)?;
@@ -481,7 +482,7 @@ pub mod tests {
                     .expect("could not create mDNS listener")
                     .into_future();
 
-                for _ in 0..(send_recv_times + 1) {
+                for _ in 0..=send_recv_times {
                     if client_done_clone.load(std::sync::atomic::Ordering::Relaxed) {
                         return;
                     }
@@ -520,8 +521,7 @@ pub mod tests {
                         .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
                         .unwrap();
                 }
-            })
-            .unwrap();
+            }).unwrap();
 
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Runtime::new().unwrap();
@@ -530,9 +530,10 @@ pub mod tests {
         let (stream, sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
-            future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
-        );
+        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+            Box::new(future::lazy(|| {
+                Delay::new(Instant::now() + Duration::from_millis(100))
+            }));
         let mut successes = 0;
 
         for _ in 0..send_recv_times {
@@ -632,7 +633,7 @@ pub mod tests {
                     .expect("could not create mDNS listener")
                     .into_future();
 
-                for _ in 0..(send_recv_times + 1) {
+                for _ in 0..=send_recv_times {
                     // wait for some bytes...
                     match io_loop
                         .block_on(future::lazy(|| server_stream.select2(timeout)))
@@ -666,8 +667,7 @@ pub mod tests {
                         .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
                         .unwrap();
                 }
-            })
-            .unwrap();
+            }).unwrap();
 
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Runtime::new().unwrap();
@@ -675,9 +675,10 @@ pub mod tests {
         let (stream, sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
-            future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
-        );
+        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+            Box::new(future::lazy(|| {
+                Delay::new(Instant::now() + Duration::from_millis(100))
+            }));
 
         for _ in 0..send_recv_times {
             // test once
@@ -699,7 +700,7 @@ pub mod tests {
                 },
             };
 
-            if server_got_packet.load(std::sync::atomic::Ordering::Relaxed) == true {
+            if server_got_packet.load(std::sync::atomic::Ordering::Relaxed) {
                 return;
             }
 

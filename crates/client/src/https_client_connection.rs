@@ -100,3 +100,9 @@ impl HttpsClientConnectionBuilder {
         }
     }
 }
+
+impl Default for HttpsClientConnectionBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}

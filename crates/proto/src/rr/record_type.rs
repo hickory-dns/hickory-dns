@@ -103,26 +103,26 @@ pub enum RecordType {
 impl RecordType {
     /// Returns true if this is an ANY
     #[inline]
-    pub fn is_any(&self) -> bool {
-        *self == RecordType::ANY
+    pub fn is_any(self) -> bool {
+        self == RecordType::ANY
     }
 
     /// Returns true if this is a CNAME
     #[inline]
-    pub fn is_cname(&self) -> bool {
-        *self == RecordType::CNAME
+    pub fn is_cname(self) -> bool {
+        self == RecordType::CNAME
     }
 
     /// Returns true if this is an SRV
     #[inline]
-    pub fn is_srv(&self) -> bool {
-        *self == RecordType::SRV
+    pub fn is_srv(self) -> bool {
+        self == RecordType::SRV
     }
 
     /// Returns true if this is an A or an AAAA record
     #[inline]
-    pub fn is_ip_addr(&self) -> bool {
-        match *self {
+    pub fn is_ip_addr(self) -> bool {
+        match self {
             RecordType::A | RecordType::AAAA => true,
             _ => false,
         }
@@ -212,7 +212,10 @@ impl BinEncodable for RecordType {
 
 impl<'r> BinDecodable<'r> for RecordType {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        decoder.read_u16().map(|u| u.unverified(/*RecordType is safe with any u16*/)).map(Self::from)
+        decoder
+            .read_u16()
+            .map(|u| u.unverified(/*RecordType is safe with any u16*/))
+            .map(Self::from)
     }
 }
 

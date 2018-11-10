@@ -74,7 +74,7 @@ fn test_authority() {
                 RecordType::NS,
                 false,
                 SupportedAlgorithms::new()
-            ).is_totally_empty()
+            ).was_empty()
     );
 
     let mut lookup: Vec<_> = authority.ns(false, SupportedAlgorithms::new()).collect();
@@ -108,7 +108,7 @@ fn test_authority() {
                 RecordType::TXT,
                 false,
                 SupportedAlgorithms::new()
-            ).is_totally_empty()
+            ).was_empty()
     );
 
     let mut lookup: Vec<_> = authority
@@ -600,7 +600,7 @@ fn test_update() {
                     RecordType::ANY,
                     false,
                     SupportedAlgorithms::new()
-                ).is_totally_empty()
+                ).was_empty()
         );
     }
 
@@ -631,7 +631,7 @@ fn test_update() {
     assert_eq!(serial + 1, authority.serial());
 
     let add_www_record = &[Record::new()
-        .set_name(www_name.clone().into())
+        .set_name(www_name.clone())
         .set_ttl(86400)
         .set_rr_type(RecordType::A)
         .set_dns_class(DNSClass::IN)
@@ -692,7 +692,7 @@ fn test_update() {
                     RecordType::ANY,
                     false,
                     SupportedAlgorithms::new()
-                ).is_totally_empty()
+                ).was_empty()
         );
     }
 
@@ -792,7 +792,7 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new()
-            ).is_totally_empty()
+            ).was_empty()
     );
     assert_eq!(serial + 6, authority.serial());
 }
@@ -841,7 +841,7 @@ fn test_zone_signing() {
             inner_results.any(
                 |r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
                     && r.name() == record.name()
-                    && if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = r.rdata() {
+                    && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
                         rrsig.type_covered() == record.rr_type()
                     } else {
                         false
@@ -863,7 +863,7 @@ fn test_get_nsec() {
     let results = authority.get_nsec_records(&lower_name, true, SupportedAlgorithms::all());
 
     for record in results {
-        assert!(record.name() < &name);
+        assert!(*record.name() < name);
     }
 }
 
@@ -910,7 +910,7 @@ fn test_journal() {
         false,
         SupportedAlgorithms::new(),
     );
-    assert!(delete_rrset.is_totally_empty());
+    assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
     let mut recovered_authority = Authority::new(
@@ -941,7 +941,7 @@ fn test_journal() {
         false,
         SupportedAlgorithms::new(),
     );
-    assert!(delete_rrset.is_totally_empty());
+    assert!(delete_rrset.was_empty());
 }
 
 #[test]
@@ -987,7 +987,7 @@ fn test_recovery() {
                 let other_rr_set = authority
                     .records()
                     .get(rr_key)
-                    .expect(&format!("key doesn't exist: {:?}", rr_key));
+                    .unwrap_or_else(|| panic!("key doesn't exist: {:?}", rr_key));
                 rr_set
                     .records_without_rrsigs()
                     .zip(other_rr_set.records_without_rrsigs())
@@ -1001,7 +1001,7 @@ fn test_recovery() {
         let other_rr_set = recovered_authority
             .records()
             .get(rr_key)
-            .expect(&format!("key doesn't exist: {:?}", rr_key));
+            .unwrap_or_else(|| panic!("key doesn't exist: {:?}", rr_key));
         rr_set
             .records_without_rrsigs()
             .zip(other_rr_set.records_without_rrsigs())
@@ -1028,7 +1028,7 @@ fn test_axfr() {
 
     // just update this if the count goes up in the authority
     assert!(!result.is_refused());
-    assert_eq!(result.collect::<Vec<_>>().len(), 10);
+    assert_eq!(result.count(), 10);
 }
 
 #[test]
@@ -1044,5 +1044,5 @@ fn test_refused_axfr() {
 
     // just update this if the count goes up in the authority
     assert!(result.is_refused());
-    assert_eq!(result.collect::<Vec<_>>().len(), 0);
+    assert_eq!(result.count(), 0);
 }

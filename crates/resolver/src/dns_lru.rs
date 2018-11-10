@@ -75,11 +75,10 @@ pub(crate) struct DnsLru {
     ///
     /// [`MAX_TTL`]: const.MAX_TTL.html
     negative_max_ttl: Duration,
-
 }
 
 /// The time-to-live, TTL, configuration for use by the cache.
-/// 
+///
 /// It should be understood that the TTL in DNS is expressed with a u32.
 ///   We use Duration here for tracking this which can express larger values
 ///   than the DNS standard. Generally a Duration greater than u32::MAX_VALUE
@@ -134,9 +133,9 @@ impl DnsLru {
             positive_min_ttl: positive_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
             negative_min_ttl: negative_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
             positive_max_ttl: positive_max_ttl
-                .unwrap_or_else(|| Duration::from_secs(MAX_TTL as u64)),
+                .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
             negative_max_ttl: negative_max_ttl
-                .unwrap_or_else(|| Duration::from_secs(MAX_TTL as u64)),
+                .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
         }
     }
 
@@ -152,7 +151,7 @@ impl DnsLru {
             (Vec::with_capacity(len), self.positive_max_ttl),
             |(mut rdatas, mut min_ttl), (rdata, ttl)| {
                 rdatas.push(rdata);
-                let ttl = Duration::from_secs(ttl as u64);
+                let ttl = Duration::from_secs(u64::from(ttl));
                 min_ttl = min_ttl.min(ttl);
                 (rdatas, min_ttl)
             },
@@ -184,7 +183,7 @@ impl DnsLru {
         ttl: u32,
         now: Instant,
     ) -> Lookup {
-        let ttl = Duration::from_secs(ttl as u64);
+        let ttl = Duration::from_secs(u64::from(ttl));
         let valid_until = now + ttl;
 
         self.cache.insert(
@@ -206,7 +205,7 @@ impl DnsLru {
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
 
-        let ttl = Duration::from_secs(ttl as u64)
+        let ttl = Duration::from_secs(u64::from(ttl))
             // Clamp the TTL so that it's between the cache's configured
             // minimum and maximum TTLs for negative responses.
             .max(self.negative_min_ttl)
@@ -330,7 +329,7 @@ mod tests {
                 let valid_until = valid_until.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 2 seconds.
                 assert_eq!(valid_until, now + Duration::from_secs(2));
-            },
+            }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
 
@@ -342,7 +341,7 @@ mod tests {
                 // the error's `valid_until` field should not have been limited, as it was
                 // over the min TTL.
                 assert_eq!(valid_until, now + Duration::from_secs(3));
-            },
+            }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
     }
@@ -399,7 +398,7 @@ mod tests {
                 let valid_until = valid_until.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 60 seconds.
                 assert_eq!(valid_until, now + Duration::from_secs(60));
-            },
+            }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
 

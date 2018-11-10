@@ -176,7 +176,7 @@ impl OPT {
     ///
     /// The newly created OPT data
     pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
-        OPT { options: options }
+        OPT { options }
     }
 
     /// The entire map of options
@@ -185,8 +185,8 @@ impl OPT {
     }
 
     /// Get a single option based on the code
-    pub fn get(&self, code: &EdnsCode) -> Option<&EdnsOption> {
-        self.options.get(code)
+    pub fn get(&self, code: EdnsCode) -> Option<&EdnsOption> {
+        self.options.get(&code)
     }
 
     /// Insert a new option, the key is derived from the `EdnsOption`
@@ -202,12 +202,15 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let start_idx = decoder.index();
 
     // There is no unsafe direct use of the rdata length after this point
-    let rdata_length = rdata_length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
+    let rdata_length =
+        rdata_length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
     while rdata_length > decoder.index() - start_idx {
         match state {
             OptReadState::ReadCode => {
                 state = OptReadState::Code {
-                    code: EdnsCode::from(decoder.read_u16()?.unverified(/*EdnsCode is verified as safe*/)),
+                    code: EdnsCode::from(
+                        decoder.read_u16()?.unverified(/*EdnsCode is verified as safe*/),
+                    ),
                 };
             }
             OptReadState::Code { code } => {
@@ -217,8 +220,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
                     .verify_unwrap(|u| *u <= rdata_length)
                     .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
                 state = OptReadState::Data {
-                    code: code,
-                    length: length,
+                    code,
+                    length,
                     // TODO: this cean be replaced with decoder.read_vec(), right?
                     //  the current version allows for malformed opt to be skipped...
                     collected: Vec::<u8>::with_capacity(length),
@@ -236,9 +239,9 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
                     state = OptReadState::ReadCode;
                 } else {
                     state = OptReadState::Data {
-                        code: code,
-                        length: length,
-                        collected: collected,
+                        code,
+                        length,
+                        collected,
                     };
                 }
             }

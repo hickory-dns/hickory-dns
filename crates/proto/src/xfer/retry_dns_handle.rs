@@ -49,9 +49,9 @@ where
         let future = self.handle.send(request.clone());
 
         Box::new(RetrySendFuture {
-            request: request,
+            request,
             handle: self.handle.clone(),
-            future: future,
+            future,
             remaining_attempts: self.attempts,
         })
     }
@@ -112,16 +112,14 @@ mod test {
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let i = self.attempts.get();
 
-            if i > self.retries || self.retries - i == 0 {
-                if self.last_succeed {
-                    let mut message = Message::new();
-                    message.set_id(i);
-                    return Box::new(finished(message.into()));
-                }
+            if (i > self.retries || self.retries - i == 0) && self.last_succeed {
+                let mut message = Message::new();
+                message.set_id(i);
+                return Box::new(finished(message.into()));
             }
 
             self.attempts.set(i + 1);
-            return Box::new(failed(ProtoError::from("last retry set to fail").into()));
+            Box::new(failed(ProtoError::from("last retry set to fail")))
         }
     }
 
@@ -136,11 +134,7 @@ mod test {
             2,
         );
         let test1 = Message::new();
-        let result = handle
-            .send(test1)
-            .wait()
-            .ok()
-            .expect("should have succeeded");
+        let result = handle.send(test1).wait().expect("should have succeeded");
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestCient ran
     }
 

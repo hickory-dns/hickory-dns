@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use serialize::binary::{BinEncodable, BinEncoder};
+use super::{Digest, DigestType};
+use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use super::{Digest, DigestType};
+use serialize::binary::{BinEncodable, BinEncoder};
 
 /// ```text
 /// RFC 5155                         NSEC3                        March 2008
@@ -144,8 +144,8 @@ impl Nsec3HashAlgorithm {
     ///        substitution);
     /// ```
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
-        match *self {
+    pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
+        match self {
             // if there ever is more than just SHA1 support, this should be a genericized method
             Nsec3HashAlgorithm::SHA1 => {
                 let mut buf: Vec<u8> = Vec::new();

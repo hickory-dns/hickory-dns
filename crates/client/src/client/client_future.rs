@@ -9,13 +9,13 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{Future, Poll};
-use rand;
 use proto::error::ProtoError;
 use proto::xfer::{
     BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
 };
+use rand;
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
@@ -816,6 +816,6 @@ where
     type Error = ClientError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(|e| ClientError::from(e))
+        self.0.poll().map_err(ClientError::from)
     }
 }

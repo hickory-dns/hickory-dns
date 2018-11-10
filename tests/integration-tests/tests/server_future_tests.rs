@@ -12,10 +12,7 @@ extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
-use std::env;
-use std::fs::File;
 use std::io;
-use std::io::Read;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -24,8 +21,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use futures::{future, Future};
-use openssl::pkcs12::Pkcs12;
-use rustls::Certificate;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpListener;
 use tokio_timer::Delay;
@@ -43,6 +38,11 @@ use trust_dns_server::authority::*;
 use trust_dns_server::ServerFuture;
 
 use trust_dns_integration::authority::create_example;
+
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
@@ -121,8 +121,7 @@ fn test_server_unknown_type() {
             &Name::from_str("www.example.com.").unwrap(),
             DNSClass::IN,
             RecordType::Unknown(65535),
-        )
-        .expect("query failed for unknown");
+        ).expect("query failed for unknown");
 
     assert_eq!(client_result.response_code(), ResponseCode::NoError);
     assert_eq!(
@@ -135,7 +134,14 @@ fn test_server_unknown_type() {
     server_thread.join().unwrap();;
 }
 
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 fn read_file(path: &str) -> Vec<u8> {
+    use std::fs::File;
+    use std::io::Read;
+
     let mut bytes = vec![];
 
     let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
@@ -145,10 +151,15 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 // TODO: move all this to future based clients
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 #[test]
 
 fn test_server_www_tls() {
+    use std::env;
+
     let dns_name = "ns.example.com";
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../../crates/server".to_owned());
@@ -192,7 +203,13 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     TcpClientConnection::new(ipaddr).unwrap()
 }
 
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
+    use rustls::Certificate;
+
     let mut builder = TlsClientConnection::builder();
 
     let trust_chain = Certificate(cert_der);
@@ -225,7 +242,7 @@ where
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let &RData::A(ref address) = record.rdata() {
+    if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         assert!(false);
@@ -252,7 +269,7 @@ fn new_catalog() -> Catalog {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone().into(), example);
+    catalog.upsert(origin, example);
     catalog
 }
 
@@ -263,9 +280,9 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let server = ServerFuture::new(catalog);
     io_loop
         .block_on::<Box<Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
-            future::ok(server.register_socket(udp_socket))
-        })))
-        .unwrap();
+            server.register_socket(udp_socket);
+            future::ok(())
+        }))).unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
@@ -281,8 +298,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     io_loop
         .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
             || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
-        )))
-        .expect("tcp registration failed");
+        ))).expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
@@ -292,12 +308,17 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
 }
 
 // FIXME: need a rustls option
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
     pkcs12_der: Vec<u8>,
 ) {
+    use openssl::pkcs12::Pkcs12;
+
     let catalog = new_catalog();
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
@@ -315,8 +336,7 @@ fn server_thread_tls(
                     pkcs12,
                 ))
             },
-        )))
-        .expect("tcp registration failed");
+        ))).expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop

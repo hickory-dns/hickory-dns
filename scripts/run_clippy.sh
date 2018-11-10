@@ -1,89 +1,35 @@
-#!/bin/bash -e
+#!/bin/bash
 
-set -x
+set -e
 
-# This script is used for CI and assumes clippy is installed already.
-# TODO: run clippy on the other crates, for now we only fixed the clippy warning on the client crate
+cargo clippy --version || rustup component add clippy-preview
 
-pushd client
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
+cargo clean -p trust-dns
+cargo clean -p trust-dns-proto
+cargo clean -p trust-dns-server
+cargo clean -p trust-dns-resolver
+cargo clean -p trust-dns-rustls
+cargo clean -p trust-dns-openssl
+cargo clean -p trust-dns-https
+cargo clean -p trust-dns-native-tls
+cargo clean -p trust-dns-compatibility
+cargo clean -p trust-dns-integration
 
-pushd compatibility-tests
-cargo clippy --features "bind" --no-default-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
+TARGETS_OPTS="--all --lib --examples --tests --bins"
+CLIPPY_OPTS="-D warnings\
+    -A clippy::block_in_if_condition_stmt\
+    -A clippy::cyclomatic_complexity\
+    -A clippy::large_enum_variant\
+    -A clippy::many_single_char_names\
+    -A clippy::module-inception\
+    -A clippy::needless_pass_by_value\
+    -A clippy::new_ret_no_self\
+    -A clippy::too_many_arguments\
+    -A clippy::type_complexity\
+    -A clippy::unreadable_literal\
+    -A clippy::useless_attribute\
+"
 
-pushd compatibility-tests
-cargo clippy -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd integration-tests
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd native-tls
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd openssl
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd proto
-# FIXME: we should probably not allow `block_in_if_condition_stmt
-cargo clippy --all-features -- \
-    --allow doc_markdown \
-    --allow type_complexity \
-    --allow many_single_char_names \
-    --allow needless_lifetimes \
-    --allow block_in_if_condition_stmt \
-    --allow too_many_arguments \
-    --allow new_ret_no_self \
-    --allow enum_variant_names
-popd
-
-pushd resolver
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd rustls
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd server
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
-
-pushd util
-cargo clippy --all-features -- \
-    --allow type_complexity \
-    --allow doc_markdown \
-    --allow module_inception
-popd
+cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
+cargo clippy ${TARGETS_OPTS:?} --all-features -- ${CLIPPY_OPTS:?}
+cargo clippy ${TARGETS_OPTS:?} --no-default-features -- ${CLIPPY_OPTS:?}

@@ -59,7 +59,7 @@ impl TestClientStream {
         let message_sender = StreamHandle::new(message_sender);
 
         let stream = Box::new(finished(TestClientStream {
-            catalog: catalog,
+            catalog,
             outbound_messages: outbound_messages.fuse(),
         }));
 
@@ -67,7 +67,7 @@ impl TestClientStream {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct TestResponseHandler {
     buf: Arc<Mutex<Vec<u8>>>,
 }
@@ -129,7 +129,7 @@ impl Stream for TestClientStream {
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
                 let request = Request {
-                    message: message,
+                    message,
                     src: src_addr,
                 };
 
@@ -205,15 +205,14 @@ impl Stream for NeverReturnsClientStream {
         println!("still not returning");
 
         // poll the timer forever...
-        match self.timeout.poll() {
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
-            _ => (),
+        if let Ok(Async::NotReady) = self.timeout.poll() {
+            return Ok(Async::NotReady);
         }
 
         self.timeout.reset(Instant::now() + Duration::from_secs(1));
 
         match self.timeout.poll() {
-            Ok(Async::NotReady) => return Ok(Async::NotReady),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
             _ => panic!("timeout fired early"),
         }
     }

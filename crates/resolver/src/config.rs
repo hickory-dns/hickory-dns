@@ -208,8 +208,8 @@ pub enum Protocol {
 
 impl Protocol {
     /// Returns true if this is a datagram oriented protocol, e.g. UDP
-    pub fn is_datagram(&self) -> bool {
-        match *self {
+    pub fn is_datagram(self) -> bool {
+        match self {
             Protocol::Udp => true,
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]
@@ -222,13 +222,13 @@ impl Protocol {
     }
 
     /// Returns true if this is a stream oriented protocol, e.g. TCP
-    pub fn is_stream(&self) -> bool {
+    pub fn is_stream(self) -> bool {
         !self.is_datagram()
     }
 
     /// Is this an encrypted protocol, i.e. TLS or HTTPS
-    pub fn is_encrypted(&self) -> bool {
-        match *self {
+    pub fn is_encrypted(self) -> bool {
+        match self {
             Protocol::Udp => false,
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]
@@ -279,12 +279,12 @@ impl NameServerConfigGroup {
 
         for ip in ips {
             let udp = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
+                socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
             };
             let tcp = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
+                socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
             };
@@ -309,7 +309,7 @@ impl NameServerConfigGroup {
 
         for ip in ips {
             let config = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
+                socket_addr: SocketAddr::new(*ip, port),
                 protocol,
                 tls_dns_name: Some(tls_dns_name.clone()),
             };
@@ -444,6 +444,12 @@ impl NameServerConfigGroup {
     /// ```
     pub fn merge(&mut self, mut other: Self) {
         self.append(&mut other)
+    }
+}
+
+impl Default for NameServerConfigGroup {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

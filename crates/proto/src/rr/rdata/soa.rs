@@ -16,9 +16,9 @@
 
 //! start of authority record defining ownership and defaults for the zone
 
-use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
+use serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -101,13 +101,13 @@ impl SOA {
         minimum: u32,
     ) -> Self {
         SOA {
-            mname: mname,
-            rname: rname,
-            serial: serial,
-            refresh: refresh,
-            retry: retry,
-            expire: expire,
-            minimum: minimum,
+            mname,
+            rname,
+            serial,
+            refresh,
+            retry,
+            expire,
+            minimum,
         }
     }
 

@@ -89,10 +89,10 @@ impl DS {
     /// the DS RDATA for use in a Resource Record
     pub fn new(key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8>) -> DS {
         DS {
-            key_tag: key_tag,
-            algorithm: algorithm,
-            digest_type: digest_type,
-            digest: digest,
+            key_tag,
+            algorithm,
+            digest_type,
+            digest,
         }
     }
 
@@ -190,7 +190,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 
     let key_tag: u16 = decoder.read_u16()?.unverified(/*key_tag is valid as any u16*/);
     let algorithm: Algorithm = Algorithm::read(decoder)?;
-    let digest_type: DigestType = DigestType::from_u8(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/))?;
+    let digest_type: DigestType =
+        DigestType::from_u8(decoder.read_u8()?.unverified(/*DigestType is verified as safe*/))?;
 
     let bytes_read = decoder.index() - start_idx;
     let left: usize = rdata_length
@@ -198,7 +199,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
         .checked_sub(bytes_read)
         .map_err(|_| ProtoError::from("invalid rdata length in DS"))?
         .unverified(/*used only as length safely*/);
-    let digest = decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);
+    let digest =
+        decoder.read_vec(left)?.unverified(/*the byte array will fail in usage if invalid*/);
 
     Ok(DS::new(key_tag, algorithm, digest_type, digest))
 }

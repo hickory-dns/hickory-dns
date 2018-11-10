@@ -17,8 +17,8 @@ use std::fs::DirBuilder;
 use std::io::{stdout, BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::Child;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 
 use data_encoding::BASE32;
@@ -59,7 +59,8 @@ impl Drop for NamedProcess {
 }
 
 fn new_working_dir() -> String {
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../../crates/server".to_owned());
+    let server_path =
+        env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../../crates/server".to_owned());
 
     let rand = rand::random::<u32>();
     let rand = BASE32.encode(&[
@@ -125,13 +126,12 @@ where
                 // stdout().write(b"SRV: ").unwrap();
                 // stdout().write(output.as_bytes()).unwrap();
             }
-        })
-        .expect("no thread available");
+        }).expect("no thread available");
 
     // return handle to child process
     NamedProcess {
-        working_dir: working_dir,
+        working_dir,
         named: Some(named),
-        thread_notice: thread_notice,
+        thread_notice,
     }
 }

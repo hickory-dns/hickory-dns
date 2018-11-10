@@ -100,8 +100,7 @@ pub fn resolve<N: IntoName + TryParseIp>(host: N, port: u16) -> IoFuture<Vec<Soc
                     io::ErrorKind::AddrNotAvailable,
                     format!("dns resolution error: {}", err),
                 )
-            })
-            .map(move |lookup_ip| {
+            }).map(move |lookup_ip| {
                 // we take all the IPs returned, and then send back the set of IPs
                 lookup_ip
                     .iter()
@@ -131,12 +130,13 @@ fn main() {
             });
 
             (name, join)
-        })
-        .collect::<Vec<_>>();
+        }).collect::<Vec<_>>();
 
     // print the resolved IPs
     for (name, join) in threads {
-        let result = join.join().expect(&format!("error resolving: {}", name));
+        let result = join
+            .join()
+            .unwrap_or_else(|_| panic!("error resolving: {}", name));
         println!("{} resolved to {:?}", name, result);
     }
 }

@@ -16,9 +16,9 @@
 
 //! mail exchange, email, record
 
-use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
+use serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -56,8 +56,8 @@ impl MX {
     /// A new MX RData for use in a Resource Record
     pub fn new(preference: u16, exchange: Name) -> MX {
         MX {
-            preference: preference,
-            exchange: exchange,
+            preference,
+            exchange,
         }
     }
 
@@ -85,7 +85,10 @@ impl MX {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
-    Ok(MX::new(decoder.read_u16()?.unverified(/*any u16 is valid*/), Name::read(decoder)?))
+    Ok(MX::new(
+        decoder.read_u16()?.unverified(/*any u16 is valid*/),
+        Name::read(decoder)?,
+    ))
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005

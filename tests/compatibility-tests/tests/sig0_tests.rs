@@ -27,14 +27,14 @@ use openssl::rsa::Rsa;
 use trust_dns::client::Client;
 use trust_dns::client::{ClientConnection, SyncClient};
 #[cfg(not(feature = "none"))]
-use trust_dns::udp::UdpClientConnection;
-#[cfg(not(feature = "none"))]
 use trust_dns::op::ResponseCode;
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns::rr::rdata::key::{KeyUsage, KEY};
 use trust_dns::rr::Name;
 #[cfg(not(feature = "none"))]
 use trust_dns::rr::{DNSClass, RData, Record, RecordType};
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::rdata::key::{KeyUsage, KEY};
+#[cfg(not(feature = "none"))]
+use trust_dns::udp::UdpClientConnection;
 #[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
 
@@ -68,7 +68,8 @@ fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
 {
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../../crates/server".to_owned());
+    let server_path =
+        env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../../crates/server".to_owned());
     let pem_path = format!(
         "{}/../../tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem",
         server_path
@@ -89,11 +90,7 @@ where
         key.to_public_bytes().unwrap(),
     );
 
-    let signer = Signer::sig0(
-        sig0key,
-        key,
-        Name::from_str("update.example.com").unwrap(),
-    );
+    let signer = Signer::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());
 
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
 
@@ -118,7 +115,6 @@ fn test_create() {
         Duration::minutes(5).num_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
-
 
     let result = client
         .create(record.clone(), origin.clone())

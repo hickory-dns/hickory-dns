@@ -66,7 +66,7 @@ pub(super) fn task(
             config,
             options,
             client_cache: CachingClient::with_cache(lru, either),
-            hosts: hosts,
+            hosts,
             request_rx,
         }
     })

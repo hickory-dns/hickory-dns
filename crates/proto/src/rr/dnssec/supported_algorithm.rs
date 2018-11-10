@@ -90,7 +90,7 @@ impl SupportedAlgorithms {
     }
 
     /// Returns true if the algorithm is supported
-    pub fn has(&self, algorithm: Algorithm) -> bool {
+    pub fn has(self, algorithm: Algorithm) -> bool {
         let bit_pos: u8 = Self::pos(algorithm);
         (bit_pos & self.bit_map) == bit_pos
     }
@@ -101,13 +101,13 @@ impl SupportedAlgorithms {
     }
 
     /// Return the count of supported algorithms
-    pub fn len(&self) -> u16 {
+    pub fn len(self) -> u16 {
         // this is pretty much guaranteed to be less that u16::max_value()
         self.iter().count() as u16
     }
 
     /// Return true if no SupportedAlgorithms are set, this implies the option is not supported
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty(self) -> bool {
         self.bit_map == 0
     }
 }
@@ -166,7 +166,7 @@ pub struct SupportedAlgorithmsIter<'a> {
 impl<'a> SupportedAlgorithmsIter<'a> {
     pub fn new(algorithms: &'a SupportedAlgorithms) -> Self {
         SupportedAlgorithmsIter {
-            algorithms: algorithms,
+            algorithms,
             current: 0,
         }
     }

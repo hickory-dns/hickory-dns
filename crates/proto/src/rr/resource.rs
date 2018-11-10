@@ -102,9 +102,9 @@ impl Record {
     pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Record {
         Record {
             name_labels: name,
-            rr_type: rr_type,
+            rr_type,
             dns_class: DNSClass::IN,
-            ttl: ttl,
+            ttl,
             rdata: RData::NULL(NULL::new()),
         }
     }
@@ -122,8 +122,8 @@ impl Record {
             name_labels: name,
             rr_type: record_type,
             dns_class: DNSClass::IN,
-            ttl: ttl,
-            rdata: rdata,
+            ttl,
+            rdata,
         }
     }
 
@@ -280,7 +280,9 @@ impl<'r> BinDecodable<'r> for Record {
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
-            DNSClass::for_opt(decoder.read_u16()?.unverified(/*restricted to a min of 512 in for_opt*/))
+            DNSClass::for_opt(
+                decoder.read_u16()?.unverified(/*restricted to a min of 512 in for_opt*/),
+            )
         } else {
             DNSClass::read(decoder)?
         };
@@ -319,11 +321,11 @@ impl<'r> BinDecodable<'r> for Record {
         };
 
         Ok(Record {
-            name_labels: name_labels,
+            name_labels,
             rr_type: record_type,
             dns_class: class,
-            ttl: ttl,
-            rdata: rdata,
+            ttl,
+            rdata,
         })
     }
 }

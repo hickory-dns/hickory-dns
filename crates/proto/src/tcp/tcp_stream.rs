@@ -127,8 +127,7 @@ impl TcpStream<TokioTcpStream> {
                         format!("timed out connecting to: {}", name_server),
                     )
                 })
-            })
-            .map(move |tcp_stream| {
+            }).map(move |tcp_stream| {
                 debug!("TCP connection established to: {}", name_server);
                 TcpStream {
                     socket: tcp_stream,
@@ -178,7 +177,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
                 pos: 0,
                 bytes: [0u8; 2],
             },
-            peer_addr: peer_addr,
+            peer_addr,
         }
     }
 }
@@ -226,19 +225,12 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         if pos < length.len() {
                             mem::replace(
                                 &mut self.send_state,
-                                Some(WriteTcpState::LenBytes {
-                                    pos: pos,
-                                    length: length,
-                                    bytes: bytes,
-                                }),
+                                Some(WriteTcpState::LenBytes { pos, length, bytes }),
                             );
                         } else {
                             mem::replace(
                                 &mut self.send_state,
-                                Some(WriteTcpState::Bytes {
-                                    pos: 0,
-                                    bytes: bytes,
-                                }),
+                                Some(WriteTcpState::Bytes { pos: 0, bytes }),
                             );
                         }
                     }
@@ -246,10 +238,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         if pos < bytes.len() {
                             mem::replace(
                                 &mut self.send_state,
-                                Some(WriteTcpState::Bytes {
-                                    pos: pos,
-                                    bytes: bytes,
-                                }),
+                                Some(WriteTcpState::Bytes { pos, bytes }),
                             );
                         } else {
                             // At this point we successfully delivered the entire message.
@@ -353,10 +342,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         bytes.resize(length as usize, 0);
 
                         debug!("move ReadTcpState::Bytes: {}", bytes.len());
-                        Some(ReadTcpState::Bytes {
-                            pos: 0,
-                            bytes: bytes,
-                        })
+                        Some(ReadTcpState::Bytes { pos: 0, bytes })
                     }
                 }
                 ReadTcpState::Bytes {
@@ -441,7 +427,7 @@ fn test_tcp_client_stream_ipv6() {
 }
 
 #[cfg(test)]
-const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 #[cfg(test)]
 const TEST_BYTES_LEN: usize = 8;
 
@@ -465,8 +451,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -493,7 +478,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 socket
                     .read_exact(&mut len_bytes)
                     .expect("SERVER: receive failed");
-                let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+                let length =
+                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
                 let mut buffer = [0_u8; TEST_BYTES_LEN];
@@ -512,8 +498,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();
@@ -523,10 +508,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::new::<ProtoError>(server_addr);
 
-    let mut stream = io_loop
-        .block_on(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once

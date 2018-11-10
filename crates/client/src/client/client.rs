@@ -463,7 +463,7 @@ where
     /// * `client_connection` - the client_connection to use for all communication
     pub fn new(conn: CC) -> SecureSyncClientBuilder<CC> {
         SecureSyncClientBuilder {
-            conn: conn,
+            conn,
             trust_anchor: None,
             signer: None,
         }

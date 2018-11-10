@@ -55,15 +55,15 @@ fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
 }
 
-const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
 
 fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
-    let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
+    let mut file = File::open(path).unwrap_or_else(|_| panic!("failed to open file: {}", path));
     file.read_to_end(&mut bytes)
-        .expect(&format!("failed to read file: {}", path));
+        .unwrap_or_else(|_| panic!("failed to open file: {}", path));
     bytes
 }
 
@@ -83,10 +83,9 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             }
 
             panic!("timeout");
-        })
-        .unwrap();
+        }).unwrap();
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../server".to_owned());
     println!("using server src path: {}", server_path);
 
     let root_cert_der = read_file(&format!("{}/../../tests/test-data/ca.der", server_path));
@@ -166,7 +165,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 socket
                     .read_exact(&mut len_bytes)
                     .expect("SERVER: receive failed");
-                let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+                let length =
+                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
                 let mut buffer = [0_u8; TEST_BYTES_LEN];
@@ -185,8 +185,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        })
-        .unwrap();
+        }).unwrap();
 
     // let the server go first
     std::thread::yield_now();
@@ -212,10 +211,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let (stream, sender) = builder.build(server_addr, dns_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop
-        .block_on(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once

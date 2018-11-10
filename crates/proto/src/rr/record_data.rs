@@ -521,7 +521,7 @@ impl RData {
     /// ```
     pub fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         match *self {
-            RData::A(ref address) => rdata::a::emit(encoder, address),
+            RData::A(address) => rdata::a::emit(encoder, address),
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
             RData::CAA(ref caa) => rdata::caa::emit(encoder, caa),
             // to_lowercase for rfc4034 and rfc6840
@@ -769,15 +769,17 @@ mod tests {
 
     #[test]
     fn test_read() {
-        let mut test_pass = 0;
-        for (expect, binary) in get_data() {
-            test_pass += 1;
+        for (test_pass, (expect, binary)) in get_data().into_iter().enumerate() {
             println!("test {}: {:?}", test_pass, binary);
             let length = binary.len() as u16; // pre exclusive borrow
             let mut decoder = BinDecoder::new(&binary);
 
             assert_eq!(
-                RData::read(&mut decoder, record_type_from_rdata(&expect), Restrict::new(length)).unwrap(),
+                RData::read(
+                    &mut decoder,
+                    record_type_from_rdata(&expect),
+                    Restrict::new(length)
+                ).unwrap(),
                 expect
             );
         }

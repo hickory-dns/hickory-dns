@@ -120,8 +120,8 @@ fn test_catalog_lookup() {
     let test_origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone().into(), example);
-    catalog.upsert(test_origin.clone().into(), test);
+    catalog.upsert(origin.clone(), example);
+    catalog.upsert(test_origin.clone(), test);
 
     let mut question: Message = Message::new();
 
@@ -202,7 +202,7 @@ fn test_catalog_nx_soa() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone().into(), example);
+    catalog.upsert(origin.clone(), example);
 
     let mut question: Message = Message::new();
 
@@ -264,7 +264,7 @@ fn test_axfr() {
         ))).clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone().into(), test);
+    catalog.upsert(origin.clone(), test);
 
     let mut query: Query = Query::new();
     query.set_name(origin.clone().into());
@@ -379,7 +379,7 @@ fn test_axfr_refused() {
     let origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone().into(), test);
+    catalog.upsert(origin.clone(), test);
 
     let mut query: Query = Query::new();
     query.set_name(origin.clone().into());

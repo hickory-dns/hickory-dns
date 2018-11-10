@@ -13,7 +13,7 @@ use trust_dns::op::Query;
 use trust_dns::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::{ProtoError, ProtoResult};
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
 
@@ -83,7 +83,7 @@ fn test_datagram() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]).unwrap();
-    let future = pool.send(DnsRequest::from(request.into()));
+    let future = pool.send(request);
 
     let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
@@ -127,8 +127,7 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message: Result<DnsResponse, _> =
-        Err(ProtoError::from(format!("Forced Testing Error")));
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
@@ -155,10 +154,8 @@ fn test_local_mdns() {
 
     let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
 
-    let tcp_message: Result<DnsResponse, _> =
-        Err(ProtoError::from(format!("Forced Testing Error")));
-    let udp_message: Result<DnsResponse, _> =
-        Err(ProtoError::from(format!("Forced Testing Error")));
+    let tcp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
+    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
     let mdns_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);

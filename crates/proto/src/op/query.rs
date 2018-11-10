@@ -19,11 +19,11 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+use error::*;
+use rr::dns_class::DNSClass;
 use rr::domain::Name;
 use rr::record_type::RecordType;
-use rr::dns_class::DNSClass;
 use serialize::binary::*;
-use error::*;
 
 /// Query struct for looking up resource records, basically a resource record without RDATA.
 ///
@@ -148,9 +148,9 @@ impl<'r> BinDecodable<'r> for Query {
         let query_class = DNSClass::read(decoder)?;
 
         Ok(Query {
-            name: name,
-            query_type: query_type,
-            query_class: query_class,
+            name,
+            query_type,
+            query_class,
         })
     }
 }
@@ -160,9 +160,7 @@ impl Display for Query {
         write!(
             f,
             "name: {} type: {} class: {}",
-            self.name,
-            self.query_type,
-            self.query_class
+            self.name, self.query_type, self.query_class
         )
     }
 }

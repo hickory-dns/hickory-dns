@@ -7,11 +7,11 @@
 
 use std::iter::Chain;
 
-use trust_dns::rr::Record;
-use trust_dns::serialize::binary::BinEncoder;
 use proto::error::*;
 use proto::op::message::EmitAndCount;
 use proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
+use trust_dns::rr::Record;
+use trust_dns::serialize::binary::BinEncoder;
 
 use authority::message_request::QueriesEmitAndCount;
 use authority::{AuthLookup, LookupRecords, Queries};
@@ -44,7 +44,7 @@ enum EmptyOrQueries<'q> {
 impl<'q> From<Option<&'q Queries<'q>>> for EmptyOrQueries<'q> {
     fn from(option: Option<&'q Queries<'q>>) -> Self {
         option.map_or(EmptyOrQueries::Empty, |q| {
-            EmptyOrQueries::Queries(q.into_emit_and_count())
+            EmptyOrQueries::Queries(q.as_emit_and_count())
         })
     }
 }

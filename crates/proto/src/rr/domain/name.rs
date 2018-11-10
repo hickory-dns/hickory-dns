@@ -11,6 +11,7 @@ use std::borrow::Borrow;
 use std::char;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Write};
+use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
 use std::slice::Iter;
@@ -24,7 +25,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serialize::binary::*;
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
-#[derive(Clone, Default, Debug, Eq, Hash)]
+#[derive(Clone, Default, Debug, Eq)]
 pub struct Name {
     is_fqdn: bool,
     labels: Vec<Label>,
@@ -161,7 +162,7 @@ impl Name {
 
         Ok(Name {
             is_fqdn: true,
-            labels: labels,
+            labels,
         })
     }
 
@@ -322,7 +323,7 @@ impl Name {
             }
         }
 
-        return true;
+        true
     }
 
     /// returns true if the name components of self are all present at the end of name
@@ -810,17 +811,11 @@ impl From<Ipv4Addr> for Name {
                 });
 
         labels.push(
-            "in-addr"
-                .as_bytes()
+            b"in-addr"
                 .into_label()
                 .expect("simple name should never fail"),
         );
-        labels.push(
-            "arpa"
-                .as_bytes()
-                .into_label()
-                .expect("simple name should never fail"),
-        );
+        labels.push(b"arpa".into_label().expect("simple name should never fail"));
 
         Self::from_labels(labels).expect("a translation of Ipv4Addr should never fail")
     }
@@ -862,18 +857,8 @@ impl From<Ipv6Addr> for Name {
                     labels
                 });
 
-        labels.push(
-            "ip6"
-                .as_bytes()
-                .into_label()
-                .expect("simple name should never fail"),
-        );
-        labels.push(
-            "arpa"
-                .as_bytes()
-                .into_label()
-                .expect("simple name should never fail"),
-        );
+        labels.push(b"ip6".into_label().expect("simple name should never fail"));
+        labels.push(b"arpa".into_label().expect("simple name should never fail"));
 
         Self::from_labels(labels).expect("a translation of Ipv6Addr should never fail")
     }
@@ -882,6 +867,17 @@ impl From<Ipv6Addr> for Name {
 impl PartialEq<Name> for Name {
     fn eq(&self, other: &Self) -> bool {
         self.cmp_with_f::<CaseInsensitive>(other) == Ordering::Equal
+    }
+}
+
+impl Hash for Name {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.is_fqdn.hash(state);
+
+        // this needs to be CaseInsensitive like PartialEq
+        for l in self.labels.iter().map(|l| l.to_lowercase()) {
+            l.hash(state);
+        }
     }
 }
 
@@ -940,7 +936,10 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
         state = match state {
             LabelParseState::LabelLengthOrPointer => {
                 // determine what the next label is
-                match decoder.peek().map(Restrict::unverified/*verified in this usage*/) {
+                match decoder
+                    .peek()
+                    .map(Restrict::unverified /*verified in this usage*/)
+                {
                     Some(0) | None => LabelParseState::Root,
                     Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
                     Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
@@ -983,22 +982,26 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
             // etc.
             LabelParseState::Pointer => {
                 let pointer_location = decoder.index();
-                let location = decoder.read_u16()?.map(|u| {
-                    // get rid of the two high order bits, they are markers for length or pointers
-                    u & 0x3FFF
-                }).verify_unwrap(|ptr| {
-                    // all labels must appear "prior" to this Name
-                    (*ptr as usize) < name_start
-                }).map_err(|e| ProtoError::from(ProtoErrorKind::PointerNotPriorToLabel {
-                    idx: pointer_location,
-                    ptr: e,
-                }))?;
+                let location = decoder
+                    .read_u16()?
+                    .map(|u| {
+                        // get rid of the two high order bits, they are markers for length or pointers
+                        u & 0x3FFF
+                    }).verify_unwrap(|ptr| {
+                        // all labels must appear "prior" to this Name
+                        (*ptr as usize) < name_start
+                    }).map_err(|e| {
+                        ProtoError::from(ProtoErrorKind::PointerNotPriorToLabel {
+                            idx: pointer_location,
+                            ptr: e,
+                        })
+                    })?;
 
                 let mut pointer = decoder.clone(location);
                 let pointed = read_inner(&mut pointer, Some(name_start))?;
 
                 for l in &*pointed.labels {
-                    if l.len() > 0 {
+                    if !l.is_empty() {
                         run_len += l.len();
                     }
                     labels.push(l.clone());
@@ -1018,7 +1021,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
     run_len += if labels.is_empty() { 1 } else { labels.len() };
     let name = Name {
         is_fqdn: true,
-        labels: labels,
+        labels,
     };
 
     debug_assert_eq!(run_len, name.len());
@@ -1284,7 +1287,7 @@ mod tests {
             }
         }
         bytes.push(n + 1);
-        for b in (0..n).into_iter() {
+        for b in 0..n {
             bytes.push(1 + n + b);
         }
         bytes.extend_from_slice(&[1, 0]);
@@ -1384,27 +1387,15 @@ mod tests {
             ),
             (
                 Name::from_str("z.example.").unwrap(),
-                Name::from_labels(vec![
-                    &[001u8] as &[u8],
-                    "z".as_bytes(),
-                    "example".as_bytes(),
-                ]).unwrap(),
+                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"]).unwrap(),
             ),
             (
-                Name::from_labels(vec![
-                    &[001u8] as &[u8],
-                    "z".as_bytes(),
-                    "example".as_bytes(),
-                ]).unwrap(),
+                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"]).unwrap(),
                 Name::from_str("*.z.example.").unwrap(),
             ),
             (
                 Name::from_str("*.z.example.").unwrap(),
-                Name::from_labels(vec![
-                    &[200u8] as &[u8],
-                    "z".as_bytes(),
-                    "example".as_bytes(),
-                ]).unwrap(),
+                Name::from_labels(vec![&[200u8] as &[u8], b"z", b"example"]).unwrap(),
             ),
         ];
 
@@ -1455,11 +1446,7 @@ mod tests {
     fn test_from_str() {
         assert_eq!(
             Name::from_str("www.example.com.").unwrap(),
-            Name::from_labels(vec![
-                "www".as_bytes(),
-                "example".as_bytes(),
-                "com".as_bytes()
-            ]).unwrap()
+            Name::from_labels(vec![b"www" as &[u8], b"example", b"com"]).unwrap()
         );
         assert_eq!(
             Name::from_str(".").unwrap(),
@@ -1473,12 +1460,9 @@ mod tests {
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
         assert!(
-            Name::from_labels(vec![
-                "www".as_bytes(),
-                "example".as_bytes(),
-                "com".as_bytes()
-            ]).unwrap()
-            .is_fqdn()
+            Name::from_labels(vec![b"www" as &[u8], b"example", b"com"])
+                .unwrap()
+                .is_fqdn()
         );
 
         assert!(!Name::new().is_fqdn());
@@ -1501,11 +1485,7 @@ mod tests {
 
     #[test]
     fn test_from_ascii() {
-        let bytes_name = Name::from_labels(vec![
-            "WWW".as_bytes(),
-            "example".as_bytes(),
-            "COM".as_bytes(),
-        ]).unwrap();
+        let bytes_name = Name::from_labels(vec![b"WWW" as &[u8], b"example", b"COM"]).unwrap();
         let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
         let lower_name = Name::from_ascii("www.example.com.").unwrap();
 
@@ -1515,11 +1495,7 @@ mod tests {
 
     #[test]
     fn test_from_utf8() {
-        let bytes_name = Name::from_labels(vec![
-            "WWW".as_bytes(),
-            "example".as_bytes(),
-            "COM".as_bytes(),
-        ]).unwrap();
+        let bytes_name = Name::from_labels(vec![b"WWW" as &[u8], b"example", b"COM"]).unwrap();
         let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
         let lower_name = Name::from_utf8("www.example.com.").unwrap();
 

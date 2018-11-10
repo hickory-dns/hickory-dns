@@ -67,12 +67,18 @@ impl TlsClientStreamBuilder {
 
         let new_future = Box::new(
             stream_future
-                .map(move |tls_stream| TcpClientStream::from_stream(tls_stream))
+                .map(TcpClientStream::from_stream)
                 .map_err(ProtoError::from),
         );
 
         let sender = BufDnsStreamHandle::new(name_server, sender);
 
         (new_future, sender)
+    }
+}
+
+impl Default for TlsClientStreamBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

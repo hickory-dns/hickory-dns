@@ -88,8 +88,8 @@ impl BufDnsStreamHandle {
     /// * `sender` - the handle being used to send data to the server
     pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
         BufDnsStreamHandle {
-            name_server: name_server,
-            sender: sender,
+            name_server,
+            sender,
         }
     }
 }
@@ -229,7 +229,7 @@ where
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         try_oneshot!(self.sender.unbounded_send(request).map_err(|_| {
             debug!("unable to enqueue message");
-            ProtoError::from(format!("could not send request"))
+            ProtoError::from("could not send request")
         }));
 
         OneshotDnsResponseReceiver::Receiver(oneshot)
