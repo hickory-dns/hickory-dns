@@ -64,5 +64,5 @@ webpki-roots = { version = "0.15" }
 webpki = "0.18"
 
 [dev-dependencies]
-env_logger = "^0.5"
+env_logger = "^0.6"
 tokio = "0.1"
