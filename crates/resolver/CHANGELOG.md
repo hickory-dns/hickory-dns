@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.11
+
+### Changed
+
+- Added option to distrust Nameservers on SERVFAIL responses, continue resolution #608
+
 ## 0.10
 
 ### Fixed

@@ -601,6 +601,8 @@ where
             return Box::new(future::err(error));
         }
 
+        let distrust_nx_responses = self.options.distrust_nx_responses;
+
         // Becuase a Poisoned lock error could have occured, make sure to create a new Mutex...
 
         // grab a reference to the stats for this NameServer
@@ -609,6 +611,21 @@ where
         Box::new(
             self.client
                 .send(request)
+                .and_then(move |response| {
+                    // first we'll evaluate if the message succeeded
+                    //   see https://github.com/bluejekyll/trust-dns/issues/606
+                    //   TODO: there are probably other return codes from the server we may want to
+                    //    retry on. We may also want to evaluate NoError responses that lack records as errors as well
+                    if distrust_nx_responses {
+                        if let ResponseCode::ServFail = response.response_code() {
+                            let note = "Nameserver responded with SERVFAIL";
+                            debug!("{}", note);
+                            return Err(ProtoError::from(note));
+                        }
+                    }
+
+                    Ok(response)
+                })
                 .and_then(move |response| {
                     // TODO: consider making message::take_edns...
                     let remote_edns = response.edns().cloned();
