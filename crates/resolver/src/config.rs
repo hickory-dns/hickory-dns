@@ -548,6 +548,9 @@ pub struct ResolverOpts {
     ///
     /// [`MAX_TTL`]: ../dns_lru/const.MAX_TTL.html
     pub negative_max_ttl: Option<Duration>,
+    /// Default is to distrust negative responses from upstream nameservers
+    ///
+    pub distrust_nx_responses: bool,
 }
 
 impl Default for ResolverOpts {
@@ -570,6 +573,7 @@ impl Default for ResolverOpts {
             negative_min_ttl: None,
             positive_max_ttl: None,
             negative_max_ttl: None,
+            distrust_nx_responses: true,
         }
     }
 }
