@@ -64,7 +64,7 @@ fn mock_nameserver_pool(
         &options,
         udp,
         tcp,
-        _mdns.unwrap_or_else(|| mock_nameserver(vec![])),
+        _mdns.unwrap_or_else(|| mock_nameserver(vec![], options)),
     );
 }
 
@@ -207,7 +207,7 @@ fn test_trust_nx_responses_fails_servfail() {
     let mut options = ResolverOpts::default();
     options.distrust_nx_responses = false;
 
-    let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
+    let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     let mut servfail_message = message(query.clone(), vec![], vec![], vec![]).unwrap();
     servfail_message.set_response_code(ResponseCode::ServFail);
@@ -261,7 +261,7 @@ fn test_distrust_nx_responses() {
     let mut options = ResolverOpts::default();
     options.distrust_nx_responses = true;
 
-    let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
+    let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     let mut servfail_message = message(query.clone(), vec![], vec![], vec![]).unwrap();
     servfail_message.set_response_code(ResponseCode::ServFail);
