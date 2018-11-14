@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
+use smallvec::SmallVec;
 use tokio::executor::{DefaultExecutor, Executor};
 
 use proto::error::{ProtoError, ProtoResult};
@@ -785,8 +786,13 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         }
     }
 
-    fn try_send(conns: Arc<Mutex<Vec<NameServer<C, P>>>>, request: DnsRequest) -> TrySend<C, P> {
+    fn try_send(
+        opts: ResolverOpts,
+        conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
+        request: DnsRequest,
+    ) -> TrySend<C, P> {
         TrySend::Lock {
+            opts,
             conns,
             request: Some(request),
         }
@@ -801,6 +807,7 @@ where
     type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+        let opts = self.options;
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
         let stream_conns1 = Arc::clone(&self.stream_conns);
@@ -828,25 +835,26 @@ where
         let request = mdns.take_request();
         Box::new(
             // First try the UDP connections
-            Self::try_send(datagram_conns, request)
+            Self::try_send(opts, datagram_conns, request)
                 .and_then(move |response| {
                     // handling promotion from datagram to stream base on truncation in message
                     if ResponseCode::NoError == response.response_code() && response.truncated() {
                         // TCP connections should not truncate
-                        future::Either::A(Self::try_send(stream_conns1, tcp_message1))
+                        future::Either::A(Self::try_send(opts, stream_conns1, tcp_message1))
                     } else {
                         // Return the result from the UDP connection
                         future::Either::B(future::ok(response))
                     }
                 })
                 // if UDP fails, try TCP
-                .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
+                .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)),
         )
     }
 }
 
 enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
+        opts: ResolverOpts,
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
@@ -868,6 +876,7 @@ where
 
         match *self {
             TrySend::Lock {
+                ref opts,
                 ref conns,
                 ref mut request,
             } => {
@@ -884,13 +893,17 @@ where
                         return Ok(Async::NotReady);
                     }
                     Ok(mut conns) => {
+                        let opts = *opts;
+
                         // select the highest priority connection
                         //   reorder the connections based on current view...
                         //   this reorders the inner set
                         conns.sort_unstable();
 
                         // TODO: restrict this size to a maximum # of NameServers to try
-                        let mut conns: Vec<NameServer<C, P>> = conns.clone(); // get a stable view for trying all connections
+                        // get a stable view for trying all connections
+                        //   we split into chunks of the numeber of parallel requests to issue
+                        let mut conns: Vec<NameServer<C, P>> = conns.clone();
                         let request = mem::replace(request, None);
                         let request = request.expect("bad state, mesage should never be None");
                         let request_loop = request.clone();
@@ -901,19 +914,35 @@ where
                                 request_loop,
                                 ProtoError::from("No connections available"),
                             ),
-                            |(mut conns, request, err)| {
-                                let conn = conns.pop();
-
+                            move |(mut conns, request, err)| {
                                 let request_cont = request.clone();
 
-                                conn.ok_or_else(move || err).into_future().and_then(
-                                    move |mut conn| {
-                                        conn.send(request).then(|sent_res| match sent_res {
-                                            Ok(sent) => Ok(Loop::Break(sent)),
-                                            Err(err) => {
+                                // construct the parallel requests, 2 is the default
+                                let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
+                                let count = conns.len().min(opts.num_concurrent_reqs);
+                                for conn in conns.drain(..count) {
+                                    par_conns.push(conn);
+                                }
+
+                                // construct the requests to send
+                                let requests = if par_conns.is_empty() {
+                                    None
+                                } else {
+                                    Some(
+                                        par_conns
+                                            .into_iter()
+                                            .map(move |mut conn| conn.send(request.clone())),
+                                    )
+                                };
+
+                                // execute all the requests
+                                requests.ok_or_else(move || err).into_future().and_then(
+                                    |requests| {
+                                        futures::select_ok(requests)
+                                            .and_then(|(sent, _)| Ok(Loop::Break(sent)))
+                                            .or_else(move |err| {
                                                 Ok(Loop::Continue((conns, request_cont, err)))
-                                            }
-                                        })
+                                            })
                                     },
                                 )
                             },
