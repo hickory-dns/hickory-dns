@@ -715,9 +715,10 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P> 
-where 
-    C: DnsHandle, P: ConnectionProvider<ConnHandle = C> 
+fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P>
+where
+    C: DnsHandle,
+    P: ConnectionProvider<ConnHandle = C>,
 {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
@@ -954,7 +955,7 @@ where
 
                                 // construct the parallel requests, 2 is the default
                                 let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
-                                let count = conns.len().min(opts.num_concurrent_reqs);
+                                let count = conns.len().min(opts.num_concurrent_reqs.max(1));
                                 for conn in conns.drain(..count) {
                                     par_conns.push(conn);
                                 }
