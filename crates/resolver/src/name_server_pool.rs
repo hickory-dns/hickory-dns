@@ -7,8 +7,6 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::marker::PhantomData;
-//use std::mem;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
@@ -191,7 +189,8 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync {
     type ConnHandle;
 
     /// The returned handle should
-    fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle;
+    fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
+        -> Self::ConnHandle;
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
@@ -203,7 +202,11 @@ impl ConnectionProvider for StandardConnection {
 
     /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
     ///   future connection.
-    fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
+    fn new_connection(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Udp {
                 socket_addr: config.socket_addr,
@@ -513,7 +516,7 @@ pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     client: C,
     // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
-    phantom: PhantomData<P>,
+    conn_provider: P,
 }
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C, P> {
@@ -522,12 +525,19 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C
     }
 }
 
+impl NameServer<ConnectionHandle, StandardConnection> {
+    pub fn new(config: NameServerConfig, options: ResolverOpts) -> Self {
+        Self::new_with_provider(config, options, StandardConnection)
+    }
+}
+
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
-    pub fn new(
+    pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
-    ) -> NameServer<ConnectionHandle, StandardConnection> {
-        let client = StandardConnection::new_connection(&config, &options);
+        conn_provider: P,
+    ) -> NameServer<C, P> {
+        let client = conn_provider.new_connection(&config, &options);
 
         // TODO: setup EDNS
         NameServer {
@@ -535,7 +545,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -544,13 +554,14 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         config: NameServerConfig,
         options: ResolverOpts,
         client: C,
+        conn_provider: P,
     ) -> NameServer<C, P> {
         NameServer {
             config,
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -573,7 +584,9 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         if let Some((successes, failures)) = error_opt {
             debug!("reconnecting: {:?}", self.config);
             // establish a new connection
-            self.client = P::new_connection(&self.config, &self.options);
+            self.client = self
+                .conn_provider
+                .new_connection(&self.config, &self.options);
 
             // reinitialize the mutex (in case it was poisoned before)
             self.stats = Arc::new(Mutex::new(NameServerStats::init(None, successes, failures)));
@@ -702,13 +715,16 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-fn mdns_nameserver(options: ResolverOpts) -> NameServer<ConnectionHandle, StandardConnection> {
+fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P> 
+where 
+    C: DnsHandle, P: ConnectionProvider<ConnHandle = C> 
+{
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
         tls_dns_name: None,
     };
-    NameServer::<_, StandardConnection>::new(config, options)
+    NameServer::new_with_provider(config, options, conn_provider)
 }
 
 /// A pool of NameServers
@@ -722,35 +738,52 @@ pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHand
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
-    phantom: PhantomData<P>,
+    conn_provider: P,
+}
+
+impl NameServerPool<ConnectionHandle, StandardConnection> {
+    pub(crate) fn from_config(config: &ResolverConfig, options: &ResolverOpts) -> Self {
+        Self::from_config_with_provider(config, options, StandardConnection)
+    }
 }
 
 impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> NameServerPool<C, P> {
-    pub(crate) fn from_config(
+    pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: &ResolverOpts,
-    ) -> NameServerPool<ConnectionHandle, StandardConnection> {
-        let datagram_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
+        conn_provider: P,
+    ) -> NameServerPool<C, P> {
+        let datagram_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
-            .map(|ns_config| NameServer::<_, StandardConnection>::new(ns_config.clone(), *options))
-            .collect();
+            .map(|ns_config| {
+                NameServer::<C, P>::new_with_provider(
+                    ns_config.clone(),
+                    *options,
+                    conn_provider.clone(),
+                )
+            }).collect();
 
-        let stream_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
+        let stream_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
-            .map(|ns_config| NameServer::<_, StandardConnection>::new(ns_config.clone(), *options))
-            .collect();
+            .map(|ns_config| {
+                NameServer::<C, P>::new_with_provider(
+                    ns_config.clone(),
+                    *options,
+                    conn_provider.clone(),
+                )
+            }).collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
             stream_conns: Arc::new(Mutex::new(stream_conns)),
             #[cfg(feature = "mdns")]
-            mdns_conns: mdns_nameserver(*options),
+            mdns_conns: mdns_nameserver(*options, conn_provider.clone()),
             options: *options,
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -760,12 +793,13 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         options: &ResolverOpts,
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
+        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
             options: *options,
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -776,13 +810,14 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
         mdns_conns: NameServer<C, P>,
+        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
             mdns_conns,
             options: *options,
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 

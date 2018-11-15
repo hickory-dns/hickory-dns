@@ -18,25 +18,45 @@ use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
 
 #[derive(Clone)]
-struct MockConnProvider {}
+struct MockConnProvider<O: OnSend> {
+    on_send: O,
+}
 
-impl ConnectionProvider for MockConnProvider {
-    type ConnHandle = MockClientHandle;
-
-    fn new_connection(_: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
-        MockClientHandle::mock(vec![])
+impl Default for MockConnProvider<DefaultOnSend> {
+    fn default() -> Self {
+        Self {
+            on_send: DefaultOnSend,
+        }
     }
 }
 
-type MockedNameServer = NameServer<MockClientHandle, MockConnProvider>;
-type MockedNameServerPool = NameServerPool<MockClientHandle, MockConnProvider>;
+impl<O: OnSend> ConnectionProvider for MockConnProvider<O> {
+    type ConnHandle = MockClientHandle<O>;
+
+    fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
+        MockClientHandle::mock_on_send(vec![], self.on_send.clone())
+    }
+}
+
+type MockedNameServer<O> = NameServer<MockClientHandle<O>, MockConnProvider<O>>;
+type MockedNameServerPool<O> = NameServerPool<MockClientHandle<O>, MockConnProvider<O>>;
 
 #[cfg(test)]
 fn mock_nameserver(
     messages: Vec<ProtoResult<DnsResponse>>,
     options: ResolverOpts,
-) -> MockedNameServer {
-    let client = MockClientHandle::mock(messages);
+) -> MockedNameServer<DefaultOnSend> {
+    mock_nameserver_on_send(messages, options, DefaultOnSend)
+}
+
+#[cfg(test)]
+fn mock_nameserver_on_send<O: OnSend>(
+    messages: Vec<ProtoResult<DnsResponse>>,
+    options: ResolverOpts,
+    on_send: O,
+) -> MockedNameServer<O> {
+    let conn_provider = MockConnProvider{ on_send: on_send.clone() };
+    let client = MockClientHandle::mock_on_send(messages, on_send);
 
     NameServer::from_conn(
         NameServerConfig {
@@ -46,18 +66,21 @@ fn mock_nameserver(
         },
         options,
         client,
+        conn_provider,
     )
 }
 
 #[cfg(test)]
 fn mock_nameserver_pool(
-    udp: Vec<MockedNameServer>,
-    tcp: Vec<MockedNameServer>,
-    _mdns: Option<MockedNameServer>,
+    udp: Vec<MockedNameServer<DefaultOnSend>>,
+    tcp: Vec<MockedNameServer<DefaultOnSend>>,
+    _mdns: Option<MockedNameServer<DefaultOnSend>>,
     options: ResolverOpts,
-) -> MockedNameServerPool {
+) -> MockedNameServerPool<DefaultOnSend> {
+    let conn_provider = MockConnProvider { on_send: DefaultOnSend };
+
     #[cfg(not(feature = "mdns"))]
-    return NameServerPool::from_nameservers(&options, udp, tcp);
+    return NameServerPool::from_nameservers(&options, udp, tcp, conn_provider);
 
     #[cfg(feature = "mdns")]
     return NameServerPool::from_nameservers(
@@ -65,6 +88,7 @@ fn mock_nameserver_pool(
         udp,
         tcp,
         _mdns.unwrap_or_else(|| mock_nameserver(vec![], options)),
+        conn_provider,
     );
 }
 
@@ -288,3 +312,6 @@ fn test_distrust_nx_responses() {
     let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], v4_record);
 }
+
+#[test]
+fn test_concurrent_requests() {}
