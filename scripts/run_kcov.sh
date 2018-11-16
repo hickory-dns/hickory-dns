@@ -36,7 +36,7 @@ cd ../..
 mkdir -p target
 
 # needed to tell some config tests where the server root directory is
-export TDNS_SERVER_SRC_ROOT=./server
+export TDNS_SERVER_SRC_ROOT=./crates/server
 export COVERALLS_PARALLEL=true
 
 SRC_PATHS=crates/client/src,crates/native-tls/src,crates/openssl/src,crates/proto/src,crates/https/src,crates/resolver/src,crates/rustls/src,crates/server/src
