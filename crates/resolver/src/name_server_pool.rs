@@ -7,14 +7,13 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::marker::PhantomData;
-//use std::mem;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
+use smallvec::SmallVec;
 use tokio::executor::{DefaultExecutor, Executor};
 
 use proto::error::{ProtoError, ProtoResult};
@@ -190,7 +189,8 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync {
     type ConnHandle;
 
     /// The returned handle should
-    fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle;
+    fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
+        -> Self::ConnHandle;
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
@@ -202,7 +202,11 @@ impl ConnectionProvider for StandardConnection {
 
     /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
     ///   future connection.
-    fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
+    fn new_connection(
+        &self,
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+    ) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Udp {
                 socket_addr: config.socket_addr,
@@ -512,7 +516,7 @@ pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     client: C,
     // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
-    phantom: PhantomData<P>,
+    conn_provider: P,
 }
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C, P> {
@@ -521,12 +525,19 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C
     }
 }
 
+impl NameServer<ConnectionHandle, StandardConnection> {
+    pub fn new(config: NameServerConfig, options: ResolverOpts) -> Self {
+        Self::new_with_provider(config, options, StandardConnection)
+    }
+}
+
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
-    pub fn new(
+    pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
-    ) -> NameServer<ConnectionHandle, StandardConnection> {
-        let client = StandardConnection::new_connection(&config, &options);
+        conn_provider: P,
+    ) -> NameServer<C, P> {
+        let client = conn_provider.new_connection(&config, &options);
 
         // TODO: setup EDNS
         NameServer {
@@ -534,7 +545,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -543,13 +554,14 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         config: NameServerConfig,
         options: ResolverOpts,
         client: C,
+        conn_provider: P,
     ) -> NameServer<C, P> {
         NameServer {
             config,
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -572,7 +584,9 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         if let Some((successes, failures)) = error_opt {
             debug!("reconnecting: {:?}", self.config);
             // establish a new connection
-            self.client = P::new_connection(&self.config, &self.options);
+            self.client = self
+                .conn_provider
+                .new_connection(&self.config, &self.options);
 
             // reinitialize the mutex (in case it was poisoned before)
             self.stats = Arc::new(Mutex::new(NameServerStats::init(None, successes, failures)));
@@ -701,13 +715,17 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-fn mdns_nameserver(options: ResolverOpts) -> NameServer<ConnectionHandle, StandardConnection> {
+fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P>
+where
+    C: DnsHandle,
+    P: ConnectionProvider<ConnHandle = C>,
+{
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
         tls_dns_name: None,
     };
-    NameServer::<_, StandardConnection>::new(config, options)
+    NameServer::new_with_provider(config, options, conn_provider)
 }
 
 /// A pool of NameServers
@@ -721,35 +739,52 @@ pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHand
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
-    phantom: PhantomData<P>,
+    conn_provider: P,
+}
+
+impl NameServerPool<ConnectionHandle, StandardConnection> {
+    pub(crate) fn from_config(config: &ResolverConfig, options: &ResolverOpts) -> Self {
+        Self::from_config_with_provider(config, options, StandardConnection)
+    }
 }
 
 impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> NameServerPool<C, P> {
-    pub(crate) fn from_config(
+    pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: &ResolverOpts,
-    ) -> NameServerPool<ConnectionHandle, StandardConnection> {
-        let datagram_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
+        conn_provider: P,
+    ) -> NameServerPool<C, P> {
+        let datagram_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
-            .map(|ns_config| NameServer::<_, StandardConnection>::new(ns_config.clone(), *options))
-            .collect();
+            .map(|ns_config| {
+                NameServer::<C, P>::new_with_provider(
+                    ns_config.clone(),
+                    *options,
+                    conn_provider.clone(),
+                )
+            }).collect();
 
-        let stream_conns: Vec<NameServer<ConnectionHandle, StandardConnection>> = config
+        let stream_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
-            .map(|ns_config| NameServer::<_, StandardConnection>::new(ns_config.clone(), *options))
-            .collect();
+            .map(|ns_config| {
+                NameServer::<C, P>::new_with_provider(
+                    ns_config.clone(),
+                    *options,
+                    conn_provider.clone(),
+                )
+            }).collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
             stream_conns: Arc::new(Mutex::new(stream_conns)),
             #[cfg(feature = "mdns")]
-            mdns_conns: mdns_nameserver(*options),
+            mdns_conns: mdns_nameserver(*options, conn_provider.clone()),
             options: *options,
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -759,12 +794,13 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         options: &ResolverOpts,
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
+        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
             options: *options,
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
@@ -775,18 +811,24 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
         mdns_conns: NameServer<C, P>,
+        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
             mdns_conns,
             options: *options,
-            phantom: PhantomData,
+            conn_provider,
         }
     }
 
-    fn try_send(conns: Arc<Mutex<Vec<NameServer<C, P>>>>, request: DnsRequest) -> TrySend<C, P> {
+    fn try_send(
+        opts: ResolverOpts,
+        conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
+        request: DnsRequest,
+    ) -> TrySend<C, P> {
         TrySend::Lock {
+            opts,
             conns,
             request: Some(request),
         }
@@ -801,6 +843,7 @@ where
     type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+        let opts = self.options;
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
         let stream_conns1 = Arc::clone(&self.stream_conns);
@@ -828,25 +871,26 @@ where
         let request = mdns.take_request();
         Box::new(
             // First try the UDP connections
-            Self::try_send(datagram_conns, request)
+            Self::try_send(opts, datagram_conns, request)
                 .and_then(move |response| {
                     // handling promotion from datagram to stream base on truncation in message
                     if ResponseCode::NoError == response.response_code() && response.truncated() {
                         // TCP connections should not truncate
-                        future::Either::A(Self::try_send(stream_conns1, tcp_message1))
+                        future::Either::A(Self::try_send(opts, stream_conns1, tcp_message1))
                     } else {
                         // Return the result from the UDP connection
                         future::Either::B(future::ok(response))
                     }
                 })
                 // if UDP fails, try TCP
-                .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
+                .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)),
         )
     }
 }
 
 enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
+        opts: ResolverOpts,
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
@@ -868,6 +912,7 @@ where
 
         match *self {
             TrySend::Lock {
+                ref opts,
                 ref conns,
                 ref mut request,
             } => {
@@ -884,13 +929,17 @@ where
                         return Ok(Async::NotReady);
                     }
                     Ok(mut conns) => {
+                        let opts = *opts;
+
                         // select the highest priority connection
                         //   reorder the connections based on current view...
                         //   this reorders the inner set
                         conns.sort_unstable();
 
                         // TODO: restrict this size to a maximum # of NameServers to try
-                        let mut conns: Vec<NameServer<C, P>> = conns.clone(); // get a stable view for trying all connections
+                        // get a stable view for trying all connections
+                        //   we split into chunks of the numeber of parallel requests to issue
+                        let mut conns: Vec<NameServer<C, P>> = conns.clone();
                         let request = mem::replace(request, None);
                         let request = request.expect("bad state, mesage should never be None");
                         let request_loop = request.clone();
@@ -901,19 +950,35 @@ where
                                 request_loop,
                                 ProtoError::from("No connections available"),
                             ),
-                            |(mut conns, request, err)| {
-                                let conn = conns.pop();
-
+                            move |(mut conns, request, err)| {
                                 let request_cont = request.clone();
 
-                                conn.ok_or_else(move || err).into_future().and_then(
-                                    move |mut conn| {
-                                        conn.send(request).then(|sent_res| match sent_res {
-                                            Ok(sent) => Ok(Loop::Break(sent)),
-                                            Err(err) => {
+                                // construct the parallel requests, 2 is the default
+                                let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
+                                let count = conns.len().min(opts.num_concurrent_reqs.max(1));
+                                for conn in conns.drain(..count) {
+                                    par_conns.push(conn);
+                                }
+
+                                // construct the requests to send
+                                let requests = if par_conns.is_empty() {
+                                    None
+                                } else {
+                                    Some(
+                                        par_conns
+                                            .into_iter()
+                                            .map(move |mut conn| conn.send(request.clone())),
+                                    )
+                                };
+
+                                // execute all the requests
+                                requests.ok_or_else(move || err).into_future().and_then(
+                                    |requests| {
+                                        futures::select_ok(requests)
+                                            .and_then(|(sent, _)| Ok(Loop::Break(sent)))
+                                            .or_else(move |err| {
                                                 Ok(Loop::Continue((conns, request_cont, err)))
-                                            }
-                                        })
+                                            })
                                     },
                                 )
                             },

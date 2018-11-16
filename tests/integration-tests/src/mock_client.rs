@@ -9,26 +9,37 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 #[derive(Clone)]
-pub struct MockClientHandle {
+pub struct MockClientHandle<O: OnSend> {
     messages: Arc<Mutex<Vec<Result<DnsResponse, ProtoError>>>>,
+    on_send: O,
 }
 
-impl MockClientHandle {
+impl MockClientHandle<DefaultOnSend> {
     /// constructs a new MockClient which returns each Message one after the other
     pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> Self {
         MockClientHandle {
             messages: Arc::new(Mutex::new(messages)),
+            on_send: DefaultOnSend,
         }
     }
 }
 
-impl DnsHandle for MockClientHandle {
+impl<O: OnSend> MockClientHandle<O> {
+    /// constructs a new MockClient which returns each Message one after the other
+    pub fn mock_on_send(messages: Vec<Result<DnsResponse, ProtoError>>, on_send: O) -> Self {
+        MockClientHandle {
+            messages: Arc::new(Mutex::new(messages)),
+            on_send,
+        }
+    }
+}
+
+impl<O: OnSend> DnsHandle for MockClientHandle<O> {
     type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-        Box::new(future::result(
-            self.messages.lock().unwrap().pop().unwrap_or_else(empty),
-        ))
+        self.on_send
+            .on_send(self.messages.lock().unwrap().pop().unwrap_or_else(empty))
     }
 }
 
@@ -61,3 +72,17 @@ pub fn empty() -> Result<DnsResponse, ProtoError> {
 pub fn error(error: ProtoError) -> Result<DnsResponse, ProtoError> {
     Err(error)
 }
+
+pub trait OnSend: Clone + Send + Sync + 'static {
+    fn on_send(
+        &mut self,
+        response: Result<DnsResponse, ProtoError>,
+    ) -> Box<Future<Item = DnsResponse, Error = ProtoError> + Send> {
+        Box::new(future::result(response))
+    }
+}
+
+#[derive(Clone)]
+pub struct DefaultOnSend;
+
+impl OnSend for DefaultOnSend {}

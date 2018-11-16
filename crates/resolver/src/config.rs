@@ -550,7 +550,12 @@ pub struct ResolverOpts {
     pub negative_max_ttl: Option<Duration>,
     /// Default is to distrust negative responses from upstream nameservers
     ///
+    /// Currently only SERVFAIL responses are continued on, this may be expanded to include NXDOMAIN or NoError/Empty responses
     pub distrust_nx_responses: bool,
+    /// Concurrent requests where more than one Nameserver is registered, the default is 2
+    ///
+    /// 0 or 1 will configure this to execute all requests serially
+    pub num_concurrent_reqs: usize,
 }
 
 impl Default for ResolverOpts {
@@ -574,6 +579,7 @@ impl Default for ResolverOpts {
             positive_max_ttl: None,
             negative_max_ttl: None,
             distrust_nx_responses: true,
+            num_concurrent_reqs: 2,
         }
     }
 }
