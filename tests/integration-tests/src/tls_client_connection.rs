@@ -21,6 +21,7 @@ use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSen
 
 use trust_dns_rustls::TlsClientStream;
 use trust_dns_rustls::TlsClientStreamBuilder;
+use rustls::{Certificate, ClientConfig};
 
 /// Tls client connection
 ///
@@ -36,8 +37,8 @@ pub struct TlsClientConnection {
     not(feature = "dns-over-rustls")
 ))]
 impl TlsClientConnection {
-    pub fn builder() -> TlsClientConnectionBuilder {
-        TlsClientConnectionBuilder(TlsClientStreamBuilder::new())
+    pub fn builder(client_config: Arc<ClientConfig>) -> TlsClientConnectionBuilder {
+        TlsClientConnectionBuilder(TlsClientStreamBuilder::with_client_config(client_config))
     }
 }
 
@@ -63,17 +64,6 @@ impl ClientConnection for TlsClientConnection {
 pub struct TlsClientConnectionBuilder(TlsClientStreamBuilder);
 
 impl TlsClientConnectionBuilder {
-    #[cfg(all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    ))]
-    /// Add a custom trusted peer certificate or certificate auhtority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: Certificate) {
-        self.0.add_ca(ca);
-    }
-
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
     #[cfg(feature = "mtls")]
     pub fn identity(&mut self, pkcs12: Pkcs12) {
