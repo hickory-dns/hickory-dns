@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures::Future;
-use rustls::{Certificate, ClientConfig, ClientSession};
+use rustls::{ClientConfig, ClientSession};
 use tokio_rustls::TlsStream as TokioTlsStream;
 use tokio_tcp::TcpStream as TokioTcpStream;
 

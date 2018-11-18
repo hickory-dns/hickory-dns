@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use futures::sync::mpsc::unbounded;
 use futures::{Future, IntoFuture};
-use rustls::{Certificate, ClientConfig, ClientSession, Session};
+use rustls::{ClientConfig, ClientSession, Session};
 use tokio_rustls::{TlsConnector, TlsStream as TokioTlsStream};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use webpki::{DNSName, DNSNameRef};

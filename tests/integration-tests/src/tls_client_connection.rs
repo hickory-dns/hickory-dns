@@ -12,7 +12,6 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures::Future;
-use rustls::Certificate;
 
 use trust_dns::client::ClientConnection;
 use trust_dns::error::*;
