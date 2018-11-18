@@ -24,8 +24,10 @@ use std::env;
 use std::fs::File;
 use std::io::*;
 use std::net::*;
+use std::sync::Arc;
 
 use rustls::Certificate;
+use rustls::ClientConfig;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
@@ -55,9 +57,14 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let mut tls_conn_builder = TlsClientStreamBuilder::new();
+
             let cert = to_trust_anchor(&cert_der);
-            tls_conn_builder.add_ca(cert);
+            let mut config = ClientConfig::new();
+            config.root_store.add(&cert).expect("bad certificate");
+            let config = Arc::new(config);
+
+            let tls_conn_builder = TlsClientStreamBuilder::with_client_config(config.clone());
+
             let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
 
@@ -70,9 +77,7 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let mut tls_conn_builder = TlsClientStreamBuilder::new();
-            let cert = to_trust_anchor(&cert_der);
-            tls_conn_builder.add_ca(cert);
+            let tls_conn_builder = TlsClientStreamBuilder::with_client_config(config.clone());
             let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
             io_loop.spawn(bg);
