@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use futures::Future;
 use rustls::{Certificate, ClientConfig, ClientSession};
@@ -24,21 +25,9 @@ pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream, Client
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
-    /// Returns a new Builder for the TlsClientSteam
-    pub fn new() -> Self {
-        TlsClientStreamBuilder(TlsStreamBuilder::new())
-    }
-
     /// Constructs a new TlsClientStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: ClientConfig) -> Self {
+    pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
         TlsClientStreamBuilder(TlsStreamBuilder::with_client_config(client_config))
-    }
-
-    /// Add a custom trusted peer certificate or certificate auhtority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: Certificate) {
-        self.0.add_ca(ca);
     }
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
@@ -72,11 +61,5 @@ impl TlsClientStreamBuilder {
         let sender = BufDnsStreamHandle::new(name_server, sender);
 
         (new_future, sender)
-    }
-}
-
-impl Default for TlsClientStreamBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

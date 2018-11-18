@@ -26,6 +26,7 @@ use self::openssl::x509::*;
 
 use futures::Stream;
 use rustls::Certificate;
+use rustls::ClientConfig;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::SerialMessage;
@@ -199,9 +200,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let trust_chain = Certificate(root_cert_der);
 
+    let mut config = ClientConfig::new();
+    config.root_store.add(&trust_chain).expect("bad certificate!");
+
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::new();
-    builder.add_ca(trust_chain);
+    let mut builder = TlsStreamBuilder::with_client_config(Arc::new(config));
 
     // fix MTLS
     // if mtls {

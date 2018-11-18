@@ -38,30 +38,13 @@ pub fn tls_from_stream<S: Session>(
 
 #[derive(Clone)]
 pub struct TlsStreamBuilder {
-    client_config: ClientConfig,
+    client_config: Arc<ClientConfig>,
 }
 
 impl TlsStreamBuilder {
-    /// Constructs a new TlsStreamBuilder
-    pub fn new() -> Self {
-        TlsStreamBuilder {
-            client_config: ClientConfig::new(),
-        }
-    }
-
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: ClientConfig) -> Self {
+    pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
         TlsStreamBuilder { client_config }
-    }
-
-    /// Add a custom trusted peer certificate or certificate auhtority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: Certificate) {
-        self.client_config
-            .root_store
-            .add(&ca)
-            .expect("bad certificate!");
     }
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
@@ -106,7 +89,7 @@ impl TlsStreamBuilder {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
-        let tls_connector = TlsConnector::from(Arc::new(self.client_config));
+        let tls_connector = TlsConnector::from(self.client_config);
         let tcp = TokioTcpStream::connect(&name_server);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
@@ -144,11 +127,5 @@ impl TlsStreamBuilder {
             );
 
         (stream, message_sender)
-    }
-}
-
-impl Default for TlsStreamBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

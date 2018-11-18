@@ -32,6 +32,10 @@ pub struct TlsClientConnection {
     dns_name: String,
 }
 
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 impl TlsClientConnection {
     pub fn builder() -> TlsClientConnectionBuilder {
         TlsClientConnectionBuilder(TlsClientStreamBuilder::new())
@@ -60,6 +64,10 @@ impl ClientConnection for TlsClientConnection {
 pub struct TlsClientConnectionBuilder(TlsClientStreamBuilder);
 
 impl TlsClientConnectionBuilder {
+    #[cfg(all(
+        feature = "dns-over-openssl",
+        not(feature = "dns-over-rustls")
+    ))]
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
