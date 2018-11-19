@@ -26,11 +26,12 @@ use self::openssl::x509::*;
 
 use futures::Stream;
 use rustls::Certificate;
+use rustls::ClientConfig;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::SerialMessage;
 
-use TlsStreamBuilder;
+use tls_connect;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
@@ -199,16 +200,16 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let trust_chain = Certificate(root_cert_der);
 
-    // barrier.wait();
-    let mut builder = TlsStreamBuilder::new();
-    builder.add_ca(trust_chain);
+    let mut config = ClientConfig::new();
+    config.root_store.add(&trust_chain).expect("bad certificate!");
 
+    // barrier.wait();
     // fix MTLS
     // if mtls {
     //     config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     // }
 
-    let (stream, sender) = builder.build(server_addr, dns_name.to_string());
+    let (stream, sender) = tls_connect(server_addr, dns_name.to_string(), Arc::new(config));
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop.block_on(stream).expect("run failed to get stream");

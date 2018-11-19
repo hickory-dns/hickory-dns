@@ -208,14 +208,13 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     not(feature = "dns-over-rustls")
 ))]
 fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
-    use rustls::Certificate;
-
-    let mut builder = TlsClientConnection::builder();
+    use rustls::{Certificate, ClientConfig};
 
     let trust_chain = Certificate(cert_der);
+    let mut config = ClientConfig::new();
+    config.root_store.add(&trust_chain).expect("bad certificate");
 
-    builder.add_ca(trust_chain);
-    builder.build(ipaddr, dns_name).unwrap()
+    TlsClientConnection::new(ipaddr, dns_name, Arc::new(config))
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)
