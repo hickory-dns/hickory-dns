@@ -49,5 +49,5 @@ data-encoding = "2.1.0"
 env_logger = "0.6"
 futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
-rand = "^0.5"
+rand = "^0.6"
 trust-dns = { version = "0.15.0", path="../../crates/client", features = ["dnssec-openssl"] }
