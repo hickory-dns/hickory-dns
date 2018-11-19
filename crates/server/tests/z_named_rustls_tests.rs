@@ -31,7 +31,7 @@ use rustls::ClientConfig;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
-use trust_dns_rustls::TlsClientStreamBuilder;
+use trust_dns_rustls::tls_client_connect;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -63,9 +63,7 @@ fn test_example_tls_toml_startup() {
             config.root_store.add(&cert).expect("bad certificate");
             let config = Arc::new(config);
 
-            let tls_conn_builder = TlsClientStreamBuilder::with_client_config(config.clone());
-
-            let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
+            let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
 
             // ipv4 should succeed
@@ -77,8 +75,7 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let tls_conn_builder = TlsClientStreamBuilder::with_client_config(config.clone());
-            let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
+            let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
             io_loop.spawn(bg);
 

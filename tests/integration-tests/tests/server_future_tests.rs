@@ -214,9 +214,7 @@ fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> T
     let mut config = ClientConfig::new();
     config.root_store.add(&trust_chain).expect("bad certificate");
 
-    let builder = TlsClientConnection::builder(Arc::new(config));
-
-    builder.build(ipaddr, dns_name).unwrap()
+    TlsClientConnection::new(ipaddr, dns_name, Arc::new(config))
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)

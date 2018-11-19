@@ -31,8 +31,8 @@ pub mod tls_client_stream;
 pub mod tls_server;
 pub mod tls_stream;
 
-pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
-pub use self::tls_stream::{tls_from_stream, TlsStream, TlsStreamBuilder};
+pub use self::tls_client_stream::{TlsClientStream, tls_client_connect};
+pub use self::tls_stream::{tls_from_stream, TlsStream, tls_connect};
 
 #[cfg(test)]
 mod tests;

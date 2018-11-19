@@ -17,49 +17,33 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
-use TlsStreamBuilder;
+use tls_stream::tls_connect;
 
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream, ClientSession>>;
 
-#[derive(Clone)]
-pub struct TlsClientStreamBuilder(TlsStreamBuilder);
+/// Creates a new TlsStream to the specified name_server
+///
+/// # Arguments
+///
+/// * `name_server` - IP and Port for the remote DNS resolver
+/// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+pub fn tls_client_connect(
+    name_server: SocketAddr,
+    dns_name: String,
+    client_config: Arc<ClientConfig>,
+) -> (
+    Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+    BufDnsStreamHandle,
+) {
+    let (stream_future, sender) = tls_connect(name_server, dns_name, client_config);
 
-impl TlsClientStreamBuilder {
-    /// Constructs a new TlsClientStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
-        TlsClientStreamBuilder(TlsStreamBuilder::with_client_config(client_config))
-    }
+    let new_future = Box::new(
+        stream_future
+            .map(TcpClientStream::from_stream)
+            .map_err(ProtoError::from),
+    );
 
-    /// Client side identity for client auth in TLS (aka mutual TLS auth)
-    #[cfg(feature = "mtls")]
-    pub fn identity(&mut self, pkcs12: Pkcs12) {
-        self.0.identity(pkcs12);
-    }
+    let sender = BufDnsStreamHandle::new(name_server, sender);
 
-    /// Creates a new TlsStream to the specified name_server
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build(
-        self,
-        name_server: SocketAddr,
-        dns_name: String,
-    ) -> (
-        Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
-        BufDnsStreamHandle,
-    ) {
-        let (stream_future, sender) = self.0.build(name_server, dns_name);
-
-        let new_future = Box::new(
-            stream_future
-                .map(TcpClientStream::from_stream)
-                .map_err(ProtoError::from),
-        );
-
-        let sender = BufDnsStreamHandle::new(name_server, sender);
-
-        (new_future, sender)
-    }
+    (new_future, sender)
 }
