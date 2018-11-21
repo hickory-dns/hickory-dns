@@ -9,7 +9,7 @@ use std::iter::Chain;
 
 use trust_dns::rr::Record;
 
-use authority::authority::LookupRecords;
+use store::sqlite::LookupRecords;
 
 /// The result of a lookup on an Authority
 ///

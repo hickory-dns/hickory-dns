@@ -69,6 +69,7 @@ pub mod config;
 pub mod error;
 pub mod logger;
 pub mod server;
+pub mod store;
 
 pub use self::server::ServerFuture;
 

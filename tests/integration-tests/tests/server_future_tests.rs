@@ -268,7 +268,7 @@ fn new_catalog() -> Catalog {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, example);
+    catalog.upsert(origin, Box::new(example));
     catalog
 }
 

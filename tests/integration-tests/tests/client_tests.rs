@@ -34,7 +34,7 @@ use trust_dns_proto::error::ProtoError;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::op::*;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
-use trust_dns_server::authority::Catalog;
+use trust_dns_server::authority::{Authority, Catalog};
 
 pub struct TestClientConnection {
     catalog: Arc<Mutex<Catalog>>,
@@ -69,7 +69,7 @@ impl ClientConnection for TestClientConnection {
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), Box::new(authority));
 
     let client = SyncClient::new(TestClientConnection::new(catalog));
 
@@ -416,7 +416,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     ))));
     authority.upsert(auth_key, 0);
 
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), Box::new(authority));
     let client = SyncClient::with_signer(TestClientConnection::new(catalog), signer);
 
     (client, origin.into())

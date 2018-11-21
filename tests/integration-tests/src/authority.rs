@@ -2,16 +2,16 @@ use std::collections::BTreeMap;
 
 use trust_dns::rr::*;
 
-use trust_dns_server::authority::Authority;
 use trust_dns_server::authority::ZoneType;
+use trust_dns_server::store::sqlite::SqliteAuthority;
 
 #[allow(unused)]
-pub fn create_example() -> Authority {
+pub fn create_example() -> SqliteAuthority {
     use std::net::*;
     use trust_dns::rr::rdata::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
-    let mut records: Authority = Authority::new(
+    let mut records: SqliteAuthority = SqliteAuthority::new(
         origin.clone(),
         BTreeMap::new(),
         ZoneType::Master,
@@ -166,12 +166,13 @@ pub fn create_example() -> Authority {
 
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
-pub fn create_secure_example() -> Authority {
+pub fn create_secure_example() -> SqliteAuthority {
     use chrono::Duration;
     use openssl::rsa::Rsa;
     use trust_dns::rr::dnssec::*;
+    use trust_dns_server::authority::Authority;
 
-    let mut authority: Authority = create_example();
+    let mut authority: SqliteAuthority = create_example();
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();

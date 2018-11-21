@@ -15,6 +15,7 @@ use trust_dns::rr::rdata::*;
 use trust_dns::rr::*;
 
 use trust_dns_server::authority::*;
+use trust_dns_server::store::sqlite::{Journal, SqliteAuthority};
 
 use trust_dns_integration::authority::create_example;
 #[cfg(feature = "dnssec")]
@@ -63,7 +64,7 @@ fn test_search_www() {
 
 #[test]
 fn test_authority() {
-    let authority: Authority = create_example();
+    let authority: SqliteAuthority = create_example();
 
     assert_eq!(authority.soa().next().unwrap().dns_class(), DNSClass::IN);
 
@@ -158,7 +159,7 @@ fn test_authority() {
 fn test_authorize() {
     use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
-    let authority: Authority = create_example();
+    let authority: SqliteAuthority = create_example();
 
     let mut message = Message::new();
     message
@@ -181,7 +182,7 @@ fn test_prerequisites() {
     let not_zone = Name::from_str("not.a.domain.com").unwrap();
     let not_in_zone = Name::from_str("not.example.com").unwrap();
 
-    let mut authority: Authority = create_example();
+    let mut authority: SqliteAuthority = create_example();
     authority.set_allow_update(true);
 
     // first check the initial negatives, ttl = 0, and the zone is the same
@@ -345,7 +346,7 @@ fn test_pre_scan() {
     let up_name = Name::from_str("www.example.com").unwrap();
     let not_zone = Name::from_str("not.zone.com").unwrap();
 
-    let authority: Authority = create_example();
+    let authority: SqliteAuthority = create_example();
 
     assert_eq!(
         authority.pre_scan(&[Record::new()
@@ -547,7 +548,7 @@ fn test_pre_scan() {
 fn test_update() {
     let new_name = Name::from_str("new.example.com").unwrap();
     let www_name = Name::from_str("www.example.com").unwrap();
-    let mut authority: Authority = create_example();
+    let mut authority: SqliteAuthority = create_example();
     let serial = authority.serial();
 
     authority.set_allow_update(true);
@@ -800,7 +801,7 @@ fn test_update() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_zone_signing() {
-    let authority: Authority = create_secure_example();
+    let authority: SqliteAuthority = create_secure_example();
 
     let mut results = authority.lookup(
         &authority.origin(),
@@ -857,7 +858,7 @@ fn test_zone_signing() {
 #[test]
 fn test_get_nsec() {
     let name = Name::from_str("zzz.example.com").unwrap();
-    let authority: Authority = create_secure_example();
+    let authority: SqliteAuthority = create_secure_example();
     let lower_name = LowerName::from(name.clone());
 
     let results = authority.get_nsec_records(&lower_name, true, SupportedAlgorithms::all());
@@ -913,7 +914,7 @@ fn test_journal() {
     assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
-    let mut recovered_authority = Authority::new(
+    let mut recovered_authority = SqliteAuthority::new(
         authority.origin().clone().into(),
         BTreeMap::new(),
         ZoneType::Master,
@@ -956,7 +957,7 @@ fn test_recovery() {
     authority.persist_to_journal().unwrap();
 
     let journal = authority.journal().unwrap();
-    let mut recovered_authority = Authority::new(
+    let mut recovered_authority = SqliteAuthority::new(
         authority.origin().clone().into(),
         BTreeMap::new(),
         ZoneType::Master,
