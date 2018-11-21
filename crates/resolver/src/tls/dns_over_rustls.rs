@@ -12,13 +12,29 @@ extern crate rustls;
 extern crate webpki_roots;
 
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;
 
 use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;
-use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
+use trust_dns_rustls::{tls_client_connect, TlsClientStream};
+
+lazy_static! {
+    // using the mozilla default root store
+    static ref CLIENT_CONFIG: Arc<ClientConfig> = {
+        let mut root_store = RootCertStore::empty();
+        root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
+        let versions = vec![ProtocolVersion::TLSv1_2];
+
+        let mut client_config = ClientConfig::new();
+        client_config.root_store = root_store;
+        client_config.versions = versions;
+
+        Arc::new(client_config)
+    };
+}
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
@@ -27,16 +43,6 @@ pub(crate) fn new_tls_stream(
     Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
     BufDnsStreamHandle,
 ) {
-    // using the mozilla default root store
-    let mut root_store = RootCertStore::empty();
-    root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
-    let versions = vec![ProtocolVersion::TLSv1_2];
-
-    let mut client_config = ClientConfig::new();
-    client_config.root_store = root_store;
-    client_config.versions = versions;
-
-    let tls_builder = TlsClientStreamBuilder::with_client_config(client_config);
-    let (stream, handle) = tls_builder.build(socket_addr, dns_name);
+    let (stream, handle) = tls_client_connect(socket_addr, dns_name, CLIENT_CONFIG.clone());
     (Box::new(stream), handle)
 }
