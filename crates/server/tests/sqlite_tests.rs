@@ -9,8 +9,8 @@ use std::str::FromStr;
 use rusqlite::*;
 
 use trust_dns::rr::*;
-use trust_dns_server::authority::*;
-use trust_dns_server::authority::persistence::CURRENT_VERSION;
+use trust_dns_server::store::sqlite::persistence::CURRENT_VERSION;
+use trust_dns_server::store::sqlite::Journal;
 
 #[test]
 fn test_new_journal() {

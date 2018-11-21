@@ -14,7 +14,8 @@ use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
 
 use authority::message_request::QueriesEmitAndCount;
-use authority::{AuthLookup, LookupRecords, Queries};
+use authority::{AuthLookup, Queries};
+use store::sqlite::LookupRecords;
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]

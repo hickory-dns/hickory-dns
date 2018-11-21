@@ -10,6 +10,7 @@ use trust_dns::rr::dnssec::*;
 use trust_dns::rr::*;
 use trust_dns::serialize::txt::*;
 use trust_dns_server::authority::*;
+use trust_dns_server::store::sqlite::SqliteAuthority;
 
 #[test]
 fn test_string() {
@@ -71,7 +72,7 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     let (origin, records) = records.unwrap();
-    let authority = Authority::new(origin, records, ZoneType::Master, false, false, false);
+    let authority = SqliteAuthority::new(origin, records, ZoneType::Master, false, false, false);
 
     // not validating everything, just one of each...
 

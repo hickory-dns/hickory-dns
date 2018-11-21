@@ -22,9 +22,8 @@ use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 
-use trust_dns_proto::udp::{UdpClientStream, UdpResponse};
-use trust_dns_proto::xfer::{SecureDnsHandle, DnsMultiplexerSerialResponse};
-use trust_dns_server::authority::Catalog;
+use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
+use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_secure_example;
 use trust_dns_integration::TestClientStream;
@@ -234,7 +233,7 @@ where
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), Box::new(authority));
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
