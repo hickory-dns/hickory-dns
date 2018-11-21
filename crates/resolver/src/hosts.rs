@@ -1,15 +1,15 @@
-//! Hosts result from a configuration of `/etc/hosts`
+//! Hosts result from a configuration of the system hosts file
 
 use std::collections::HashMap;
 use std::io;
-use std::path::Path;
-#[cfg(unix)]
+use std::path::{Path, PathBuf};
+#[cfg(any(unix, windows))]
 use std::str::FromStr;
 use std::sync::Arc;
 
 use lookup::Lookup;
 use proto::op::Query;
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 use proto::rr::RData;
 use proto::rr::{Name, RecordType};
 
@@ -21,7 +21,7 @@ struct LookupType {
     aaaa: Option<Lookup>,
 }
 
-/// Configuration for the local `/etc/hosts`
+/// Configuration for the local hosts file
 #[derive(Debug, Default)]
 pub struct Hosts {
     /// Name -> RDatas map
@@ -29,13 +29,15 @@ pub struct Hosts {
 }
 
 impl Hosts {
-    /// Creates a new configuration from /etc/hosts, only works for unix like OSes,
-    /// others will return empty configuration
+    /// Creates a new configuration from the system hosts file,
+    /// only works for Windows and Unix-like OSes,
+    /// will return empty configuration on others
     pub fn new() -> Hosts {
-        read_hosts_conf("/etc/hosts").unwrap_or_default()
+        read_hosts_conf(hosts_path()).unwrap_or_default()
     }
 
-    /// lookup_static_host looks up the addresses for the given host from /etc/hosts.
+    /// lookup_static_host looks up the addresses
+    /// for the given host from the system hosts file.
     pub fn lookup_static_host(&self, query: &Query) -> Option<Lookup> {
         if !self.by_name.is_empty() {
             if let Some(val) = self.by_name.get(query.name()) {
@@ -88,8 +90,21 @@ impl Hosts {
     }
 }
 
-/// parse configuration from `/etc/hosts`
 #[cfg(unix)]
+fn hosts_path() -> &'static str {
+    "/etc/hosts"
+}
+
+#[cfg(windows)]
+fn hosts_path() -> PathBuf {
+    let system_root =
+        std::env::var_os("SystemRoot").expect("Environtment variable SystemRoot not found");
+    let system_root = Path::new(&system_root);
+    system_root.join("System32\\drivers\\etc\\hosts")
+}
+
+/// parse configuration from `path`
+#[cfg(any(unix, windows))]
 pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
@@ -157,15 +172,15 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     Ok(hosts)
 }
 
-#[cfg(not(unix))]
+#[cfg(not(any(unix, windows)))]
 pub fn read_hosts_conf<P: AsRef<Path>>(_path: P) -> io::Result<Hosts> {
     Err(io::Error::new(
         io::ErrorKind::Other,
-        "Non-Posix systems currently not supported".to_string(),
+        "Only Windows or Unix-like hosts file is supported".to_string(),
     ))
 }
 
-#[cfg(unix)]
+#[cfg(any(unix, windows))]
 #[cfg(test)]
 mod tests {
     use super::*;
