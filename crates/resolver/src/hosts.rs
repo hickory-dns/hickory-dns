@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 #[cfg(any(unix, windows))]
 use std::str::FromStr;
 use std::sync::Arc;
@@ -96,7 +96,7 @@ fn hosts_path() -> &'static str {
 }
 
 #[cfg(windows)]
-fn hosts_path() -> PathBuf {
+fn hosts_path() -> std::path::PathBuf {
     let system_root =
         std::env::var_os("SystemRoot").expect("Environtment variable SystemRoot not found");
     let system_root = Path::new(&system_root);
@@ -123,18 +123,16 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     let file = File::open(path)?;
 
     for line in BufReader::new(file).lines() {
-        let line = line.unwrap_or_default();
-        let line = if let Some(pos) = line.find('#') {
-            String::from(line.split_at(pos).0)
-        } else {
-            line
-        };
-        let line = line.trim();
+        // Remove comments from the line
+        let line = line
+            .as_ref()
+            .map(|line| line.split('#').next().unwrap().trim())
+            .unwrap_or_default();
         if line.is_empty() {
             continue;
         }
 
-        let fields: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect();
+        let fields: Vec<_> = line.split_whitespace().collect();
         if fields.len() < 2 {
             continue;
         }
