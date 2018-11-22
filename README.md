@@ -3,6 +3,7 @@
 [![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/master/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
+[![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=bluejekyll/trust-dns)](https://dependabot.com)
 
 # trust-dns
 
