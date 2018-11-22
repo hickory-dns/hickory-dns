@@ -15,7 +15,7 @@ use futures::sync::mpsc::unbounded;
 use futures::task;
 use futures::{Async, Future, Poll};
 use rand;
-use rand::distributions::{Distribution, Range};
+use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
 use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
@@ -359,11 +359,11 @@ impl Future for NextRandomUdpSocket {
         } else {
             // TODO: this is basically identical to UdpStream from here... share some code? (except for the port restriction)
             // one-shot queries look very similar to UDP socket, but can't listen on 5353
-            let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
+            let rand_port_range = Uniform::new_inclusive(1025_u16, u16::max_value());
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {
-                let port = between.sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
+                let port = rand_port_range.sample(&mut rand); // the range is [0 ... u16::max]
 
                 // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
                 //  the MDNS_PORT is used to signal to remote processes that this is capable of recieving multicast packets

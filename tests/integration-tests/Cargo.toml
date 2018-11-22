@@ -70,7 +70,7 @@ lazy_static = "^1.0"
 log = "^0.4.1"
 futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
-rand = "^0.5"
+rand = "0.6"
 rusqlite = { version = "0.15.0", features = ["bundled"] }
 rustls = { version = "0.14" }
 tokio = "^0.1.6"
