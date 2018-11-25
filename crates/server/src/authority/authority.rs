@@ -12,7 +12,6 @@ use trust_dns::rr::dnssec::SupportedAlgorithms;
 use trust_dns::rr::LowerName;
 
 use authority::{AuthLookup, MessageRequest, UpdateResult, ZoneType};
-use store::sqlite::authority::LookupRecords;
 
 /// Authority implementations can be used with a `Catalog`
 pub trait Authority: Send {
@@ -36,15 +35,15 @@ pub trait Authority: Send {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search<'s, 'q>(
-        &'s self,
-        query: &'q LowerQuery,
+    fn search(
+        &self,
+        query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup<'s, 'q>;
+    ) -> AuthLookup;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> LookupRecords;
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup;
 
     /// Return the NSEC records based on the given name
     ///
@@ -53,23 +52,19 @@ pub trait Authority: Send {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    fn get_nsec_records<'s, 'q>(
-        &'s self,
-        name: &'q LowerName,
+    fn get_nsec_records(
+        &self,
+        name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords<'s, 'q>;
+    ) -> AuthLookup;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> LookupRecords;
+    fn soa(&self) -> AuthLookup;
 
     /// Returns the SOA record for the zone
-    fn soa_secure(
-        &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords;
+    fn soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup;
 }

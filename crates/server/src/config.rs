@@ -26,6 +26,7 @@ use trust_dns::rr::Name;
 
 use authority::ZoneType;
 use error::{ConfigError, ConfigResult};
+use store;
 
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -156,12 +157,13 @@ impl FromStr for Config {
 pub struct ZoneConfig {
     zone: String, // TODO: make Domain::Name decodable
     zone_type: ZoneType,
-    file: String,
+    file: Option<String>,
     allow_update: Option<bool>,
     allow_axfr: Option<bool>,
     enable_dnssec: Option<bool>,
     #[serde(default)]
     keys: Vec<KeyConfig>,
+    store: Option<store::Config>,
 }
 
 impl ZoneConfig {
@@ -188,11 +190,12 @@ impl ZoneConfig {
         ZoneConfig {
             zone,
             zone_type,
-            file,
+            file: Some(file),
             allow_update,
             allow_axfr,
             enable_dnssec,
             keys,
+            store: None,
         }
     }
 
@@ -212,7 +215,8 @@ impl ZoneConfig {
     /// this is ony used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
     pub fn get_file(&self) -> PathBuf {
-        PathBuf::from(&self.file)
+        // FIXME: Option on PathBuf
+        PathBuf::from(self.file.as_ref().unwrap())
     }
 
     /// enable dynamic updates for the zone (see SIG0 and the registered keys)

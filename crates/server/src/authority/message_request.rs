@@ -14,9 +14,9 @@ use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
-pub struct MessageRequest<'r> {
+pub struct MessageRequest<'q> {
     header: Header,
-    queries: Queries<'r>,
+    queries: Queries<'q>,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
@@ -24,7 +24,7 @@ pub struct MessageRequest<'r> {
     edns: Option<Edns>,
 }
 
-impl<'r> MessageRequest<'r> {
+impl<'q> MessageRequest<'q> {
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
         self.header.id()
@@ -175,10 +175,10 @@ impl<'r> MessageRequest<'r> {
     }
 }
 
-impl<'r> BinDecodable<'r> for MessageRequest<'r> {
+impl<'q> BinDecodable<'q> for MessageRequest<'q> {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'q>) -> ProtoResult<Self> {
         let header = Header::read(decoder)?;
 
         // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
@@ -211,13 +211,13 @@ impl<'r> BinDecodable<'r> for MessageRequest<'r> {
 
 /// A set of Queries with the associated serialized data
 #[derive(Debug, PartialEq)]
-pub struct Queries<'r> {
+pub struct Queries<'q> {
     queries: Vec<LowerQuery>,
-    original: &'r [u8],
+    original: &'q [u8],
 }
 
-impl<'r> Queries<'r> {
-    fn read_queries(decoder: &mut BinDecoder<'r>, count: usize) -> ProtoResult<Vec<LowerQuery>> {
+impl<'q> Queries<'q> {
+    fn read_queries(decoder: &mut BinDecoder<'q>, count: usize) -> ProtoResult<Vec<LowerQuery>> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(LowerQuery::read(decoder)?);
@@ -226,7 +226,7 @@ impl<'r> Queries<'r> {
     }
 
     /// Read queries from a decoder
-    pub fn read(decoder: &mut BinDecoder<'r>, num_queries: usize) -> ProtoResult<Self> {
+    pub fn read(decoder: &mut BinDecoder<'q>, num_queries: usize) -> ProtoResult<Self> {
         let queries_start = decoder.index();
         let queries = Self::read_queries(decoder, num_queries)?;
         let original = decoder.slice_from(queries_start)?;
@@ -257,19 +257,19 @@ impl<'r> Queries<'r> {
     }
 }
 
-pub(crate) struct QueriesEmitAndCount<'r> {
+pub(crate) struct QueriesEmitAndCount<'q> {
     length: usize,
-    original: &'r [u8],
+    original: &'q [u8],
 }
 
-impl<'r> EmitAndCount for QueriesEmitAndCount<'r> {
+impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
     fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
         encoder.emit_vec(self.original)?;
         Ok(self.length)
     }
 }
 
-impl<'r> BinEncodable for MessageRequest<'r> {
+impl<'q> BinEncodable for MessageRequest<'q> {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         message::emit_message_parts(
             &self.header,
@@ -307,7 +307,7 @@ pub trait UpdateRequest {
     fn sig0(&self) -> &[Record];
 }
 
-impl<'r> UpdateRequest for MessageRequest<'r> {
+impl<'q> UpdateRequest for MessageRequest<'q> {
     fn id(&self) -> u16 {
         MessageRequest::id(self)
     }

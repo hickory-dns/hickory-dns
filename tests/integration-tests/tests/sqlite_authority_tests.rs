@@ -30,9 +30,9 @@ fn test_search() {
     query.set_name(origin.clone().into());
     let query = LowerQuery::from(query);
 
-    let mut result = example.search(&query, false, SupportedAlgorithms::new());
+    let result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {
-        let record = result.next().unwrap();
+        let record = result.iter().next().unwrap();
         assert_eq!(record.rr_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
         assert_eq!(record.rdata(), &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
@@ -51,9 +51,9 @@ fn test_search_www() {
     query.set_name(www_name.clone());
     let query = LowerQuery::from(query);
 
-    let mut result = example.search(&query, false, SupportedAlgorithms::new());
+    let result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {
-        let record = result.next().unwrap();
+        let record = result.iter().next().unwrap();
         assert_eq!(record.rr_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
         assert_eq!(record.rdata(), &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
@@ -66,7 +66,10 @@ fn test_search_www() {
 fn test_authority() {
     let authority: SqliteAuthority = create_example();
 
-    assert_eq!(authority.soa().next().unwrap().dns_class(), DNSClass::IN);
+    assert_eq!(
+        authority.soa().iter().next().unwrap().dns_class(),
+        DNSClass::IN
+    );
 
     assert!(
         !authority
@@ -78,11 +81,15 @@ fn test_authority() {
             ).was_empty()
     );
 
-    let mut lookup: Vec<_> = authority.ns(false, SupportedAlgorithms::new()).collect();
+    let mut lookup: Vec<_> = authority
+        .ns(false, SupportedAlgorithms::new())
+        .iter()
+        .cloned()
+        .collect();
     lookup.sort();
 
     assert_eq!(
-        **lookup.first().unwrap(),
+        *lookup.first().unwrap(),
         Record::new()
             .set_name(authority.origin().clone().into())
             .set_ttl(86400)
@@ -92,7 +99,7 @@ fn test_authority() {
             .clone()
     );
     assert_eq!(
-        **lookup.last().unwrap(),
+        *lookup.last().unwrap(),
         Record::new()
             .set_name(authority.origin().clone().into())
             .set_ttl(86400)
@@ -118,11 +125,13 @@ fn test_authority() {
             RecordType::TXT,
             false,
             SupportedAlgorithms::new(),
-        ).collect();
+        ).iter()
+        .cloned()
+        .collect();
     lookup.sort();
 
     assert_eq!(
-        **lookup.first().unwrap(),
+        *lookup.first().unwrap(),
         Record::new()
             .set_name(authority.origin().clone().into())
             .set_ttl(60)
@@ -142,7 +151,8 @@ fn test_authority() {
                 RecordType::A,
                 false,
                 SupportedAlgorithms::new()
-            ).next()
+            ).iter()
+            .next()
             .unwrap(),
         Record::new()
             .set_name(authority.origin().clone().into())
@@ -582,16 +592,18 @@ fn test_update() {
 
     {
         // assert that the correct set of records is there.
-        let mut www_rrset: Vec<&Record> = authority
+        let mut www_rrset: Vec<Record> = authority
             .lookup(
                 &www_name.clone().into(),
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            ).collect();
+            ).iter()
+            .cloned()
+            .collect();
         www_rrset.sort();
 
-        assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
+        assert_eq!(www_rrset, original_vec);
 
         // assert new record doesn't exist
         assert!(
@@ -626,7 +638,8 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new()
-            ).collect::<Vec<_>>(),
+            ).iter()
+            .collect::<Vec<_>>(),
         add_record.iter().collect::<Vec<&Record>>()
     );
     assert_eq!(serial + 1, authority.serial());
@@ -652,13 +665,15 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            ).collect();
+            ).iter()
+            .cloned()
+            .collect();
         www_rrset.sort();
 
         let mut plus_10 = original_vec.clone();
         plus_10.push(add_www_record[0].clone());
         plus_10.sort();
-        assert_eq!(www_rrset, plus_10.iter().collect::<Vec<&Record>>());
+        assert_eq!(www_rrset, plus_10);
     }
 
     //
@@ -718,10 +733,12 @@ fn test_update() {
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            ).collect();
+            ).iter()
+            .cloned()
+            .collect();
         www_rrset.sort();
 
-        assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
+        assert_eq!(www_rrset, original_vec);
     }
 
     //
@@ -759,16 +776,18 @@ fn test_update() {
     removed_a_vec.sort();
 
     {
-        let mut www_rrset: Vec<_> = authority
+        let mut www_rrset: Vec<Record> = authority
             .lookup(
                 &www_name.clone().into(),
                 RecordType::ANY,
                 false,
                 SupportedAlgorithms::new(),
-            ).collect();
+            ).iter()
+            .cloned()
+            .collect();
         www_rrset.sort();
 
-        assert_eq!(www_rrset, removed_a_vec.iter().collect::<Vec<&Record>>());
+        assert_eq!(www_rrset, removed_a_vec);
     }
 
     //
@@ -803,7 +822,7 @@ fn test_update() {
 fn test_zone_signing() {
     let authority: SqliteAuthority = create_secure_example();
 
-    let mut results = authority.lookup(
+    let results = authority.lookup(
         &authority.origin(),
         RecordType::AXFR,
         true,
@@ -811,7 +830,9 @@ fn test_zone_signing() {
     );
 
     assert!(
-        results.any(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
+        results
+            .iter()
+            .any(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
         "must contain a DNSKEY"
     );
 
@@ -822,7 +843,7 @@ fn test_zone_signing() {
         SupportedAlgorithms::all(),
     );
 
-    for record in results {
+    for record in &results {
         if record.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG) {
             continue;
         }
@@ -839,15 +860,14 @@ fn test_zone_signing() {
 
         // validate all records have associated RRSIGs after signing
         assert!(
-            inner_results.any(
-                |r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
-                    && r.name() == record.name()
-                    && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
-                        rrsig.type_covered() == record.rr_type()
-                    } else {
-                        false
-                    }
-            ),
+            inner_results.iter().any(|r| r.rr_type()
+                == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
+                && r.name() == record.name()
+                && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
+                    rrsig.type_covered() == record.rr_type()
+                } else {
+                    false
+                }),
             "record type not covered: {:?}",
             record
         );
@@ -863,7 +883,7 @@ fn test_get_nsec() {
 
     let results = authority.get_nsec_records(&lower_name, true, SupportedAlgorithms::all());
 
-    for record in results {
+    for record in &results {
         assert!(*record.name() < name);
     }
 }
@@ -895,14 +915,16 @@ fn test_journal() {
         .unwrap();
 
     // assert that the correct set of records is there.
-    let new_rrset: Vec<&Record> = authority
+    let new_rrset: Vec<Record> = authority
         .lookup(
             &new_name.clone().into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        ).collect();
-    assert!(new_rrset.iter().all(|r| *r == &new_record));
+        ).iter()
+        .cloned()
+        .collect();
+    assert!(new_rrset.iter().all(|r| *r == new_record));
     let lower_delete_name = LowerName::from(delete_name.clone());
 
     let delete_rrset = authority.lookup(
@@ -927,14 +949,16 @@ fn test_journal() {
         .expect("recovery");
 
     // assert that the correct set of records is there.
-    let new_rrset: Vec<&Record> = recovered_authority
+    let new_rrset: Vec<Record> = recovered_authority
         .lookup(
             &new_name.into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        ).collect();
-    assert!(new_rrset.iter().all(|r| *r == &new_record));
+        ).iter()
+        .cloned()
+        .collect();
+    assert!(new_rrset.iter().all(|r| *r == new_record));
 
     let delete_rrset = authority.lookup(
         &lower_delete_name,
@@ -977,7 +1001,8 @@ fn test_recovery() {
     assert!(
         recovered_authority
             .soa()
-            .zip(authority.soa())
+            .iter()
+            .zip(authority.soa().iter())
             .all(|(r1, r2)| r1 == r2)
     );
     assert!(
@@ -1029,7 +1054,7 @@ fn test_axfr() {
 
     // just update this if the count goes up in the authority
     assert!(!result.is_refused());
-    assert_eq!(result.count(), 10);
+    assert_eq!(result.iter().count(), 10);
 }
 
 #[test]
@@ -1045,5 +1070,5 @@ fn test_refused_axfr() {
 
     // just update this if the count goes up in the authority
     assert!(result.is_refused());
-    assert_eq!(result.count(), 0);
+    assert_eq!(result.iter().count(), 0);
 }
