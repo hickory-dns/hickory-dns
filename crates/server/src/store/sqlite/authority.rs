@@ -9,10 +9,9 @@
 
 #[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
-use std::collections::btree_map::Values;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
-use proto::rr::RrsetRecords;
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
@@ -21,7 +20,9 @@ use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordT
 
 #[cfg(feature = "dnssec")]
 use authority::UpdateRequest;
-use authority::{AuthLookup, Authority, MessageRequest, UpdateResult, ZoneType};
+use authority::{
+    AnyRecords, AuthLookup, Authority, LookupRecords, MessageRequest, UpdateResult, ZoneType,
+};
 use store::sqlite::Journal;
 
 use error::{PersistenceErrorKind, PersistenceResult};
@@ -34,7 +35,7 @@ pub struct SqliteAuthority {
     origin: LowerName,
     class: DNSClass,
     journal: Option<Journal>,
-    records: BTreeMap<RrKey, RecordSet>,
+    records: BTreeMap<RrKey, Arc<RecordSet>>,
     zone_type: ZoneType,
     allow_update: bool,
     allow_axfr: bool,
@@ -75,7 +76,10 @@ impl SqliteAuthority {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             journal: None,
-            records,
+            records: records
+                .into_iter()
+                .map(|(key, rrset)| (key, Arc::new(rrset)))
+                .collect(),
             zone_type,
             allow_update,
             allow_axfr,
@@ -188,13 +192,13 @@ impl SqliteAuthority {
     }
 
     /// Get all the
-    pub fn records(&self) -> &BTreeMap<RrKey, RecordSet> {
+    pub fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
         &self.records
     }
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn minimum_ttl(&self) -> u32 {
-        self.soa().next().map_or(0, |soa| {
+        self.soa().iter().next().map_or(0, |soa| {
             if let RData::SOA(ref rdata) = *soa.rdata() {
                 rdata.minimum()
             } else {
@@ -205,7 +209,7 @@ impl SqliteAuthority {
 
     /// get the current serial number for the zone.
     pub fn serial(&self) -> u32 {
-        self.soa().next().map_or_else(
+        self.soa().iter().next().map_or_else(
             || {
                 warn!("no soa record found for zone: {}", self.origin);
                 0
@@ -221,7 +225,7 @@ impl SqliteAuthority {
     }
 
     fn increment_soa_serial(&mut self) -> u32 {
-        let opt_soa_serial = self.soa().next().map(|soa| {
+        let opt_soa_serial = self.soa().iter().next().map(|soa| {
             // TODO: can we get a mut reference to SOA directly?
             let mut soa: Record = soa.clone();
 
@@ -417,7 +421,8 @@ impl SqliteAuthority {
                             require.rr_type(),
                             false,
                             SupportedAlgorithms::new(),
-                        ).find(|rr| *rr == require)
+                        ).iter()
+                        .find(|rr| *rr == require)
                         .is_none()
                     {
                         return Err(ResponseCode::NXRRSet);
@@ -500,22 +505,23 @@ impl SqliteAuthority {
                 );
                 debug!("found keys {:?}", keys);
                 // FIXME: check key usage flags and restrictions
-                keys.filter_map(|rr_set| {
-                    if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
-                        Some(key)
-                    } else {
-                        None
-                    }
-                }).any(|key| {
-                    key.verify_message(update_message, sig.sig(), sig)
-                        .map(|_| {
-                            info!("verified sig: {:?} with key: {:?}", sig, key);
-                            true
-                        }).unwrap_or_else(|_| {
-                            debug!("did not verify sig: {:?} with key: {:?}", sig, key);
-                            false
-                        })
-                })
+                keys.iter()
+                    .filter_map(|rr_set| {
+                        if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
+                            Some(key)
+                        } else {
+                            None
+                        }
+                    }).any(|key| {
+                        key.verify_message(update_message, sig.sig(), sig)
+                            .map(|_| {
+                                info!("verified sig: {:?} with key: {:?}", sig, key);
+                                true
+                            }).unwrap_or_else(|_| {
+                                debug!("did not verify sig: {:?} with key: {:?}", sig, key);
+                                false
+                            })
+                    })
             }) {
             return Ok(());
         } else {
@@ -777,10 +783,16 @@ impl SqliteAuthority {
                 DNSClass::NONE => {
                     info!("deleting specific record: {:?}", rr);
                     // NONE     rrset    rr       Delete an RR from an RRset
-                    if let Some(rrset) = self.records.get_mut(&rr_key) {
-                        let deleted = rrset.remove(rr, serial);
+                    if let Some(mut rrset) = self.records.get_mut(&rr_key) {
+                        // b/c this is an Arc, we need to clone, then remove, and replace the node.
+                        let mut rrset_clone: RecordSet = RecordSet::clone(&*rrset);
+                        let deleted = rrset_clone.remove(rr, serial);
                         info!("deleted ({}) specific record: {:?}", deleted, rr);
                         updated = updated || deleted;
+
+                        if deleted {
+                            *rrset = Arc::new(rrset_clone);
+                        }
                     }
                 }
                 class => {
@@ -823,12 +835,19 @@ impl SqliteAuthority {
         assert_eq!(self.class, record.dns_class());
 
         let rr_key = RrKey::new(record.name().into(), record.rr_type());
-        let records: &mut RecordSet = self
+        let records: &mut Arc<RecordSet> = self
             .records
             .entry(rr_key)
-            .or_insert_with(|| RecordSet::new(record.name(), record.rr_type(), serial));
+            .or_insert_with(|| Arc::new(RecordSet::new(record.name(), record.rr_type(), serial)));
 
-        records.insert(record, serial)
+        // because this is and Arc, we need to clone and then replace the entry
+        let mut records_clone = RecordSet::clone(&*records);
+        if records_clone.insert(record, serial) {
+            *records = Arc::new(records_clone);
+            true
+        } else {
+            false
+        }
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -845,32 +864,32 @@ impl SqliteAuthority {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    pub fn lookup<'s, 'q>(
-        &'s self,
-        name: &'q LowerName,
+    pub fn lookup(
+        &self,
+        name: &LowerName,
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords<'s, 'q> {
+    ) -> LookupRecords {
         let rr_key = RrKey::new(name.clone(), rtype);
 
         // Collect the records from each rr_set
         let result: LookupRecords = match rtype {
             RecordType::AXFR | RecordType::ANY => {
-                let result = AnyRecordsIter::new(
+                let result = AnyRecords::new(
                     is_secure,
                     supported_algorithms,
-                    self.records.values(),
+                    self.records.values().cloned().collect(),
                     rtype,
-                    name,
+                    name.clone(),
                 );
-                LookupRecords::AnyRecordsIter(result)
+                LookupRecords::AnyRecords(result)
             }
             _ => self
                 .records
                 .get(&rr_key)
                 .map_or(LookupRecords::NxDomain, |rr_set| {
-                    LookupRecords::from(rr_set.records(is_secure, supported_algorithms))
+                    LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
                 }),
         };
 
@@ -1000,7 +1019,10 @@ impl SqliteAuthority {
         }
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
-        for rr_set in self.records.values_mut() {
+        for rr_set_orig in self.records.values_mut() {
+            let mut rr_set = RecordSet::clone(&*rr_set_orig);
+            // becuase the rrset is an Arc, it must be cloned before mutated
+
             rr_set.clear_rrsigs();
             let rrsig_temp = Record::with(
                 rr_set.name().clone(),
@@ -1079,6 +1101,8 @@ impl SqliteAuthority {
 
                 rr_set.insert_rrsig(rrsig);
             }
+
+            *rr_set_orig = Arc::new(rr_set);
         }
 
         Ok(())
@@ -1180,12 +1204,12 @@ impl Authority for SqliteAuthority {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search<'s, 'q>(
-        &'s self,
-        query: &'q LowerQuery,
+    fn search(
+        &self,
+        query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup<'s, 'q> {
+    ) -> AuthLookup {
         let lookup_name = query.name();
         let record_type: RecordType = query.query_type();
 
@@ -1224,9 +1248,12 @@ impl Authority for SqliteAuthority {
                     self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
 
                 match start_soa {
-                    LookupRecords::NxDomain => AuthLookup::NxDomain,
-                    LookupRecords::NameExists => AuthLookup::NameExists,
-                    start_soa => AuthLookup::AXFR(start_soa.chain(records).chain(end_soa)),
+                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
+                    start_soa => AuthLookup::AXFR {
+                        start_soa: start_soa.unwrap_records(),
+                        records,
+                        end_soa: end_soa.unwrap_records(),
+                    },
                 }
             }
             _ => {
@@ -1242,13 +1269,13 @@ impl Authority for SqliteAuthority {
     }
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> LookupRecords {
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
         self.lookup(
             &self.origin,
             RecordType::NS,
             is_secure,
             supported_algorithms,
-        )
+        ).into()
     }
 
     /// Return the NSEC records based on the given name
@@ -1258,12 +1285,12 @@ impl Authority for SqliteAuthority {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    fn get_nsec_records<'s, 'q>(
-        &'s self,
-        name: &'q LowerName,
+    fn get_nsec_records(
+        &self,
+        name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords<'s, 'q> {
+    ) -> AuthLookup {
         #[cfg(feature = "dnssec")]
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             use trust_dns::rr::rdata::DNSSECRecordType;
@@ -1284,177 +1311,31 @@ impl Authority for SqliteAuthority {
             .skip_while(|rr_set| *name < rr_set.name().into())
             .next()
             .map_or(LookupRecords::NxDomain, |rr_set| {
-                LookupRecords::from(rr_set.records(is_secure, supported_algorithms))
-            })
+                LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
+            }).into()
     }
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> LookupRecords {
+    fn soa(&self) -> AuthLookup {
         // SOA should be origin|SOA
         self.lookup(
             &self.origin,
             RecordType::SOA,
             false,
             SupportedAlgorithms::new(),
-        )
+        ).into()
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(
-        &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords {
+    fn soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
         self.lookup(
             &self.origin,
             RecordType::SOA,
             is_secure,
             supported_algorithms,
-        )
-    }
-}
-
-/// An iterator over an ANY query for Records.
-///
-/// The length of this result cannot be known without consuming the iterator.
-///
-/// # Lifetimes
-///
-/// * `'r` - the record_set's lifetime, from the catalog
-/// * `'q` - the lifetime of the query/request
-#[derive(Debug)]
-pub struct AnyRecordsIter<'r, 'q> {
-    is_secure: bool,
-    supported_algorithms: SupportedAlgorithms,
-    rrsets: Values<'r, RrKey, RecordSet>,
-    rrset: Option<&'r RecordSet>,
-    records: Option<RrsetRecords<'r>>,
-    query_type: RecordType,
-    query_name: &'q LowerName,
-}
-
-impl<'r, 'q> AnyRecordsIter<'r, 'q> {
-    fn new(
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-        rrsets: Values<'r, RrKey, RecordSet>,
-        query_type: RecordType,
-        query_name: &'q LowerName,
-    ) -> Self {
-        AnyRecordsIter {
-            is_secure,
-            supported_algorithms,
-            rrsets,
-            rrset: None,
-            records: None,
-            query_type,
-            query_name,
-        }
-    }
-}
-
-impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
-    type Item = &'r Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let query_type = self.query_type;
-        let query_name = self.query_name;
-
-        loop {
-            if let Some(ref mut records) = self.records {
-                let record = records
-                    .by_ref()
-                    .filter(|rr_set| {
-                        query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    }).find(|rr_set| {
-                        query_type == RecordType::AXFR
-                            || &LowerName::from(rr_set.name()) == query_name
-                    });
-
-                if record.is_some() {
-                    return record;
-                }
-            }
-
-            self.rrset = self.rrsets.next();
-
-            // if there are no more RecordSets, then return
-            self.rrset?;
-
-            // getting here, we must have exhausted our records from the rrset
-            self.records = Some(
-                self.rrset
-                    .expect("rrset should not be None at this point")
-                    .records(self.is_secure, self.supported_algorithms),
-            );
-        }
-    }
-}
-
-/// The result of a lookup
-#[derive(Debug)]
-pub enum LookupRecords<'r, 'q> {
-    /// There is no record by the name
-    NxDomain,
-    /// There is no record for the given query, but there are other records at that name
-    NameExists,
-    /// The associate records
-    RecordsIter(RrsetRecords<'r>),
-    /// A generic lookup response where anything is desired
-    AnyRecordsIter(AnyRecordsIter<'r, 'q>),
-}
-
-impl<'r, 'q> LookupRecords<'r, 'q> {
-    /// This is an NxDomain or NameExists, and has no associated records
-    ///
-    /// this consumes the iterator, and verifies it is empty
-    pub fn was_empty(self) -> bool {
-        self.count() == 0
-    }
-
-    /// This is an NxDomain
-    pub fn is_nx_domain(&self) -> bool {
-        match *self {
-            LookupRecords::NxDomain => true,
-            _ => false,
-        }
-    }
-
-    /// This is a NameExists
-    pub fn is_name_exists(&self) -> bool {
-        match *self {
-            LookupRecords::NameExists => true,
-            _ => false,
-        }
-    }
-}
-
-impl<'r, 'q> Iterator for LookupRecords<'r, 'q> {
-    type Item = &'r Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            LookupRecords::NxDomain | LookupRecords::NameExists => None,
-            LookupRecords::RecordsIter(ref mut i) => i.next(),
-            LookupRecords::AnyRecordsIter(ref mut i) => i.next(),
-        }
-    }
-}
-
-impl<'r, 'q> From<RrsetRecords<'r>> for LookupRecords<'r, 'q> {
-    fn from(rrset_records: RrsetRecords<'r>) -> Self {
-        match rrset_records {
-            RrsetRecords::Empty => LookupRecords::NxDomain,
-            rrset_records => LookupRecords::RecordsIter(rrset_records),
-        }
-    }
-}
-
-impl<'r, 'q> From<AnyRecordsIter<'r, 'q>> for LookupRecords<'r, 'q> {
-    fn from(rrset_records: AnyRecordsIter<'r, 'q>) -> Self {
-        LookupRecords::AnyRecordsIter(rrset_records)
+        ).into()
     }
 }

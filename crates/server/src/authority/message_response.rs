@@ -5,8 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::iter::Chain;
-
 use proto::error::*;
 use proto::op::message::EmitAndCount;
 use proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
@@ -14,24 +12,26 @@ use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
 
 use authority::message_request::QueriesEmitAndCount;
-use authority::{AuthLookup, Queries};
-use store::sqlite::LookupRecords;
+use authority::{AuthLookupIter, Queries};
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
 pub struct MessageResponse<
     'q,
     'a,
-    A = AuthLookup<'a, 'q>,
-    N = Chain<LookupRecords<'q, 'a>, LookupRecords<'q, 'a>>,
+    A = AuthLookupIter<'a>,
+    N = AuthLookupIter<'a>,
+    S = AuthLookupIter<'a>,
 > where
-    A: 'q + 'a + Iterator<Item = &'a Record>,
-    N: 'q + 'a + Iterator<Item = &'a Record>,
+    A: Iterator<Item = &'a Record> + Send + 'a,
+    N: Iterator<Item = &'a Record> + Send + 'a,
+    S: Iterator<Item = &'a Record> + Send + 'a,
 {
     header: Header,
     queries: Option<&'q Queries<'q>>,
     answers: A,
     name_servers: N,
+    soa: S,
     additionals: Vec<&'a Record>,
     sig0: Vec<Record>,
     edns: Option<Edns>,
@@ -59,10 +59,11 @@ impl<'q> EmitAndCount for EmptyOrQueries<'q> {
     }
 }
 
-impl<'q, 'a, A, N> MessageResponse<'q, 'a, A, N>
+impl<'q, 'a, A, N, S> MessageResponse<'q, 'a, A, N, S>
 where
-    A: 'q + 'a + Iterator<Item = &'a Record>,
-    N: 'q + 'a + Iterator<Item = &'a Record>,
+    A: Iterator<Item = &'a Record> + Send + 'a,
+    N: Iterator<Item = &'a Record> + Send + 'a,
+    S: Iterator<Item = &'a Record> + Send + 'a,
 {
     /// Returns the header of the message
     pub fn header(&self) -> &Header {
@@ -77,11 +78,14 @@ where
 
     /// Consumes self, and emits to the encoder.
     pub fn destructive_emit(mut self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        // soa records are part of the nameserver section
+        let mut name_servers = self.name_servers.chain(self.soa);
+
         message::emit_message_parts(
             &self.header,
             &mut EmptyOrQueries::from(self.queries),
             &mut self.answers,
-            &mut self.name_servers,
+            &mut name_servers,
             &mut self.additionals.iter().cloned(),
             self.edns.as_ref(),
             &self.sig0,
@@ -91,45 +95,24 @@ where
 }
 
 /// A builder for MessageResponses
-pub struct MessageResponseBuilder<'q, 'a> {
+pub struct MessageResponseBuilder<'q> {
     queries: Option<&'q Queries<'q>>,
-    answers: Option<AuthLookup<'a, 'q>>,
-    name_servers: Option<Chain<LookupRecords<'q, 'a>, LookupRecords<'q, 'a>>>,
-    additionals: Option<Vec<&'a Record>>,
     sig0: Option<Vec<Record>>,
     edns: Option<Edns>,
 }
 
-impl<'q, 'a> MessageResponseBuilder<'q, 'a> {
+impl<'q> MessageResponseBuilder<'q> {
     /// Constructs a new Response
     ///
     /// # Arguments
     ///
     /// * `queries` - any optional set of Queries to associate with the Response
-    pub fn new(queries: Option<&'q Queries<'q>>) -> MessageResponseBuilder<'q, 'a> {
+    pub fn new(queries: Option<&'q Queries<'q>>) -> MessageResponseBuilder<'q> {
         MessageResponseBuilder {
             queries,
-            answers: None,
-            name_servers: None,
-            additionals: None,
             sig0: None,
             edns: None,
         }
-    }
-
-    /// Associate a set of answers with the response, generally owned by either a cache or [`trust_dns_server::authorith::Authority`]
-    pub fn answers(&mut self, records: AuthLookup<'a, 'q>) -> &mut Self {
-        self.answers = Some(records);
-        self
-    }
-
-    /// Associate a set of name_servers with the response, generally owned by either a cache or [`trust_dns_server::authorith::Authority`]
-    pub fn name_servers(
-        &mut self,
-        records: Chain<LookupRecords<'q, 'a>, LookupRecords<'q, 'a>>,
-    ) -> &mut Self {
-        self.name_servers = Some(records);
-        self
     }
 
     /// Associate EDNS with the Response
@@ -143,15 +126,42 @@ impl<'q, 'a> MessageResponseBuilder<'q, 'a> {
     /// # Arguments
     ///
     /// * `header` - set of [Header]s for the Message
-    pub fn build(self, header: Header) -> MessageResponse<'q, 'a> {
+    pub fn build<'a, A, N, S>(
+        self,
+        header: Header,
+        answers: A,
+        name_servers: N,
+        soa: S,
+    ) -> MessageResponse<'q, 'a, A::IntoIter, N::IntoIter, S::IntoIter>
+    where
+        A: IntoIterator<Item = &'a Record> + Send + 'a,
+        A::IntoIter: Send,
+        N: IntoIterator<Item = &'a Record> + Send + 'a,
+        N::IntoIter: Send,
+        S: IntoIterator<Item = &'a Record> + Send + 'a,
+        S::IntoIter: Send,
+    {
         MessageResponse {
             header,
             queries: self.queries,
-            answers: self.answers.unwrap_or_default(),
-            name_servers: self
-                .name_servers
-                .unwrap_or_else(|| LookupRecords::NxDomain.chain(LookupRecords::NxDomain)),
-            additionals: self.additionals.unwrap_or_default(),
+            answers: answers.into_iter(),
+            name_servers: name_servers.into_iter(),
+            soa: soa.into_iter(),
+            additionals: Default::default(),
+            sig0: self.sig0.unwrap_or_default(),
+            edns: self.edns,
+        }
+    }
+
+    /// Construct a Response with no associated records
+    pub fn build_no_records(self, header: Header) -> MessageResponse<'q, 'q> {
+        MessageResponse {
+            header,
+            queries: self.queries,
+            answers: Default::default(),
+            name_servers: Default::default(),
+            soa: Default::default(),
+            additionals: Default::default(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
         }
@@ -169,7 +179,7 @@ impl<'q, 'a> MessageResponseBuilder<'q, 'a> {
         id: u16,
         op_code: OpCode,
         response_code: ResponseCode,
-    ) -> MessageResponse<'q, 'a> {
+    ) -> MessageResponse<'q, 'q> {
         let mut header = Header::default();
         header.set_message_type(MessageType::Response);
         header.set_id(id);
@@ -179,11 +189,10 @@ impl<'q, 'a> MessageResponseBuilder<'q, 'a> {
         MessageResponse {
             header,
             queries: self.queries,
-            answers: self.answers.unwrap_or_default(),
-            name_servers: self
-                .name_servers
-                .unwrap_or_else(|| LookupRecords::NxDomain.chain(LookupRecords::NxDomain)),
-            additionals: self.additionals.unwrap_or_default(),
+            answers: Default::default(),
+            name_servers: Default::default(),
+            soa: Default::default(),
+            additionals: Default::default(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
         }
@@ -220,6 +229,7 @@ mod tests {
                 queries: None,
                 answers: iter::repeat(&answer),
                 name_servers: iter::once(&answer),
+                soa: iter::once(&answer),
                 additionals: vec![],
                 sig0: vec![],
                 edns: None,
@@ -255,6 +265,7 @@ mod tests {
                 queries: None,
                 answers: iter::empty(),
                 name_servers: iter::repeat(&answer),
+                soa: iter::repeat(&answer),
                 additionals: vec![],
                 sig0: vec![],
                 edns: None,

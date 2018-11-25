@@ -29,7 +29,6 @@ use trust_dns::rr::{LowerName, RecordType};
 use authority::{
     AuthLookup, Authority, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
 };
-use store::sqlite::LookupRecords;
 
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
@@ -105,7 +104,7 @@ impl RequestHandler for Catalog {
                 response.edns(resp_edns);
 
                 // TODO: should ResponseHandle consume self?
-                return response_handle.send_response(response.build(response_header));
+                return response_handle.send_response(response.build_no_records(response_header));
             }
 
             response_edns = Some(resp_edns);
@@ -238,17 +237,30 @@ impl Catalog {
         //  therefore the Zone Section is allowed to contain exactly one record.
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
-        if zones.len() != 1 || zones[0].query_type() != RecordType::SOA {
+        let ztype = zones
+            .first()
+            .map(|z| z.query_type())
+            .unwrap_or(RecordType::Unknown(0));
+        if zones.len() != 1 || ztype != RecordType::SOA {
+            warn!(
+                "invalid update request zones must be 1 and not SOA records, zones: {} ztype: {}",
+                zones.len(),
+                ztype
+            );
             response_header.set_response_code(ResponseCode::FormErr);
 
             return send_response(
                 response_edns,
-                response.build(response_header),
+                response.build_no_records(response_header),
                 response_handle,
             );
         }
 
-        if let Some(authority) = self.find(zones[0].name()) {
+        if let Some(authority) = zones
+            .first()
+            .map(|z| z.name())
+            .and_then(|name| self.find(name))
+        {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
             match authority.zone_type() {
                 ZoneType::Slave => {
@@ -257,7 +269,7 @@ impl Catalog {
 
                     return send_response(
                         response_edns,
-                        response.build(response_header),
+                        response.build_no_records(response_header),
                         response_handle,
                     );
                 }
@@ -275,7 +287,7 @@ impl Catalog {
 
                     return send_response(
                         response_edns,
-                        response.build(response_header),
+                        response.build_no_records(response_header),
                         response_handle,
                     );
                 }
@@ -284,7 +296,7 @@ impl Catalog {
 
                     return send_response(
                         response_edns,
-                        response.build(response_header),
+                        response.build_no_records(response_header),
                         response_handle,
                     );
                 }
@@ -294,7 +306,7 @@ impl Catalog {
 
             return send_response(
                 response_edns,
-                response.build(response_header),
+                response.build_no_records(response_header),
                 response_handle,
             );
         }
@@ -370,17 +382,16 @@ impl Catalog {
 
                 // setup headers
                 //  and add records
-                if !records.is_empty() {
+                let (ns, soa) = if !records.is_empty() {
                     response_header.set_response_code(ResponseCode::NoError);
                     response_header.set_authoritative(true);
-                    response.answers(records);
-
                     // get the NS records
                     let ns = authority.ns(is_dnssec, supported_algorithms);
                     // chain here to match type below...
-                    response.name_servers(ns.chain(LookupRecords::NxDomain));
+                    (ns, AuthLookup::NxDomain)
                 } else if records.is_refused() {
                     response_header.set_response_code(ResponseCode::Refused);
+                    (AuthLookup::NxDomain, AuthLookup::NxDomain)
                 } else {
                     // in the not found case it's standard to return the SOA in the authority section
                     //   if the name is in this zone, etc.
@@ -395,7 +406,7 @@ impl Catalog {
                         AuthLookup::Refused => {
                             panic!("programming error, should have return Refused above")
                         }
-                        AuthLookup::Records(_) | AuthLookup::SOA(_) | AuthLookup::AXFR(_) => {
+                        AuthLookup::Records(_) | AuthLookup::SOA(_) | AuthLookup::AXFR { .. } => {
                             panic!(
                                 "programming error, should have return NoError with records above"
                             )
@@ -403,7 +414,7 @@ impl Catalog {
                     };
 
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-                    let ns = if is_dnssec {
+                    let ns: AuthLookup = if is_dnssec {
                         // get NSEC records
                         let mut nsecs = authority.get_nsec_records(
                             query.name(),
@@ -417,18 +428,16 @@ impl Catalog {
                     } else {
                         // place holder...
                         debug!("request: {} non-existent", request.id());
-                        LookupRecords::NxDomain
+                        AuthLookup::NxDomain
                     };
 
                     let soa = authority.soa_secure(is_dnssec, supported_algorithms);
-                    let ns = ns.chain(soa);
-
-                    response.name_servers(ns);
-                }
+                    (ns, soa)
+                };
 
                 return send_response(
                     response_edns,
-                    response.build(response_header),
+                    response.build(response_header, records.iter(), ns.iter(), soa.iter()),
                     response_handle,
                 );
             }

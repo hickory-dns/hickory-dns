@@ -7,7 +7,10 @@
 
 //! All persistent store implementations
 
-pub mod file;
+mod config;
+// pub mod file;
 pub mod sqlite;
 
 // TODO: add a dynamic library option?
+
+pub use self::config::Config;

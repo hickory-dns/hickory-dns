@@ -5,4 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Master file authority
+//! Master file based serving with Dynamic DNS and journaling support
+
+mod authority;
+mod config;
+
+pub use self::authority::Authority;
+pub use self::config::Config;
