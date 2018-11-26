@@ -69,7 +69,7 @@ tokio-executor = "^0.1"
 tokio-io = "^0.1"
 tokio-reactor = "^0.1"
 tokio-tcp = "^0.1"
-tokio-timer = "^0.2"
+tokio-timer = "^0.2.6"
 tokio-udp = "^0.1"
 untrusted = { version = "^0.6", optional = true }
 url = "1.6.0"
