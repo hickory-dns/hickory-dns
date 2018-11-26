@@ -13,7 +13,7 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
 use futures::{Async, Future, Poll};
 use rand;
-use rand::distributions::{Distribution, Range};
+use rand::distributions::{uniform::Uniform, Distribution};
 use tokio_udp;
 
 use xfer::{BufStreamHandle, SerialMessage};
@@ -168,11 +168,11 @@ impl Future for NextRandomUdpSocket {
     ///
     /// if there is no port available after 10 attempts, returns NotReady
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
+        let rand_port_range = Uniform::new_inclusive(1025_u16, u16::max_value());
         let mut rand = rand::thread_rng();
 
         for attempt in 0..10 {
-            let port = between.sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
+            let port = rand_port_range.sample(&mut rand); // the range is [0 ... u16::max]
             let zero_addr = SocketAddr::new(self.bind_address, port);
 
             // TODO: allow TTL to be adjusted...
