@@ -45,6 +45,7 @@ use std::fs::File;
 use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
@@ -96,7 +97,10 @@ fn parse_zone_file(
 
     Ok(SqliteAuthority::new(
         origin,
-        records,
+        records
+            .into_iter()
+            .map(|(key, rrset)| (key, Arc::new(rrset)))
+            .collect(),
         zone_type,
         allow_update,
         allow_axfr,

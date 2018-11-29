@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Benjamin Fry <benjaminfry -@- me.com>
+// Copyright 2015-2018 Benjamin Fry <benjaminfry -@- me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -8,7 +8,7 @@
 //! All persistent store implementations
 
 mod config;
-// pub mod file;
+pub mod file;
 pub mod sqlite;
 
 // TODO: add a dynamic library option?

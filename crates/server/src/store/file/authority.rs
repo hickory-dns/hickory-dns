@@ -9,24 +9,20 @@
 
 #[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
-use std::collections::btree_map::Values;
 use std::collections::BTreeMap;
-use std::slice::Iter;
 use std::sync::Arc;
 
-use proto::rr::RrsetRecords;
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
-#[cfg(feature = "dnssec")]
-use authority::UpdateRequest;
-use authority::{AuthLookup, Authority as AuthorityTrait, MessageRequest, UpdateResult, ZoneType};
-use store::sqlite::Journal;
-
-use error::{PersistenceErrorKind, PersistenceResult};
+use authority::{
+    AnyRecords, AuthLookup, Authority as AuthorityTrait, LookupRecords, MessageRequest,
+    UpdateResult, ZoneType,
+};
+use store::file::FileConfig;
 
 /// SqliteAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -38,7 +34,6 @@ pub struct Authority {
     records: BTreeMap<RrKey, Arc<RecordSet>>,
     zone_type: ZoneType,
     allow_axfr: bool,
-    is_dnssec_enabled: bool,
     // Private key mapped to the Record of the DNSKey
     //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
     //   server instance, but that requires requesting updates from the parent zone, which may or
@@ -68,7 +63,6 @@ impl Authority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
-        is_dnssec_enabled: bool,
     ) -> Self {
         Self {
             origin: LowerName::new(&origin),
@@ -79,9 +73,42 @@ impl Authority {
                 .collect(),
             zone_type,
             allow_axfr,
-            is_dnssec_enabled,
             secure_keys: Vec::new(),
         }
+    }
+
+    /// Read the Authority for the origin from the specified configuration
+    pub fn try_from_config(
+        origin: Option<Name>,
+        zone_type: ZoneType,
+        allow_axfr: bool,
+        config: FileConfig,
+    ) -> Result<Self, String> {
+        use std::fs::File;
+        use std::io::Read;
+        use trust_dns::serialize::txt::{Lexer, Parser};
+
+        let zone_path = config.path;
+
+        info!("loading zone file: {:?}", zone_path);
+
+        let mut file =
+            File::open(&zone_path).map_err(|e| format!("error opening {}: {:?}", zone_path, e))?;
+
+        let mut buf = String::new();
+
+        // TODO: this should really use something to read line by line or some other method to
+        //  keep the usage down. and be a custom lexer...
+        file.read_to_string(&mut buf)
+            .map_err(|e| format!("failed to read {}: {:?}", zone_path, e))?;
+        let lexer = Lexer::new(&buf);
+        let (origin, records) = Parser::new()
+            .parse(lexer, origin)
+            .map_err(|e| format!("failed to parse {}: {:?}", zone_path, e))?;
+
+        info!("zone file loaded: {}", origin);
+
+        Ok(Authority::new(origin, records, zone_type, allow_axfr))
     }
 
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
@@ -107,32 +134,6 @@ impl Authority {
         let serial = self.serial();
         self.upsert(dnskey, serial);
         self.secure_keys.push(signer);
-        Ok(())
-    }
-
-    /// Recovers the zone from a Journal, returns an error on failure to recover the zone.
-    ///
-    /// # Arguments
-    ///
-    /// * `journal` - the journal from which to load the persisted zone.
-    pub fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
-        assert!(
-            self.records.is_empty(),
-            "records should be empty during a recovery"
-        );
-
-        info!("recovering from journal");
-        for record in journal.iter() {
-            // AXFR is special, it is used to mark the dump of a full zone.
-            //  when recovering, if an AXFR is encountered, we should remove all the records in the
-            //  authority.
-            if record.rr_type() == RecordType::AXFR {
-                self.records.clear();
-            } else if let Err(error) = self.update_records(&[record], false) {
-                return Err(PersistenceErrorKind::Recovery(error.to_str()).into());
-            }
-        }
-
         Ok(())
     }
 
@@ -179,6 +180,7 @@ impl Authority {
         )
     }
 
+    #[allow(unused)]
     fn increment_soa_serial(&mut self) -> u32 {
         let opt_soa_serial = self.soa().iter().next().map(|soa| {
             // TODO: can we get a mut reference to SOA directly?
@@ -203,6 +205,37 @@ impl Authority {
                 self.origin
             );
             0
+        }
+    }
+
+    /// Inserts or updates a `Record` depending on it's existence in the authority.
+    ///
+    /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - The `Record` to be inserted or updated.
+    /// * `serial` - Current serial number to be recorded against updates.
+    ///
+    /// # Return value
+    ///
+    /// Ok() on success or Err() with the `ResponseCode` associated with the error.
+    pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
+        assert_eq!(self.class, record.dns_class());
+
+        let rr_key = RrKey::new(record.name().into(), record.rr_type());
+        let records: &mut Arc<RecordSet> = self
+            .records
+            .entry(rr_key)
+            .or_insert_with(|| Arc::new(RecordSet::new(record.name(), record.rr_type(), serial)));
+
+        // because this is and Arc, we need to clone and then replace the entry
+        let mut records_clone = RecordSet::clone(&*records);
+        if records_clone.insert(record, serial) {
+            *records = Arc::new(records_clone);
+            true
+        } else {
+            false
         }
     }
 
@@ -235,7 +268,7 @@ impl Authority {
                 let result = AnyRecords::new(
                     is_secure,
                     supported_algorithms,
-                    self.records.values(),
+                    self.records.values().cloned().collect(),
                     rtype,
                     name.clone(),
                 );
@@ -463,6 +496,11 @@ impl Authority {
 
         Ok(())
     }
+
+    /// unwrap all the records
+    pub(crate) fn unwrap_records(self) -> BTreeMap<RrKey, Arc<RecordSet>> {
+        self.records
+    }
 }
 
 impl AuthorityTrait for Authority {
@@ -592,35 +630,28 @@ impl AuthorityTrait for Authority {
                     self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
 
                 match start_soa {
-                    LookupRecords::NxDomain => AuthLookup::NxDomain,
-                    LookupRecords::NameExists => AuthLookup::NameExists,
+                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
                     start_soa => AuthLookup::AXFR {
-                        start_soa,
+                        start_soa: start_soa.unwrap_records(),
                         records,
-                        end_soa,
+                        end_soa: end_soa.unwrap_records(),
                     },
                 }
             }
-            _ => {
-                let lookup = self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
-
-                match lookup {
-                    LookupRecords::NxDomain => AuthLookup::NxDomain,
-                    LookupRecords::NameExists => AuthLookup::NameExists,
-                    lookup => AuthLookup::Records(lookup),
-                }
-            }
+            _ => self
+                .lookup(lookup_name, record_type, is_secure, supported_algorithms)
+                .into(),
         }
     }
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> LookupRecords {
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
         self.lookup(
             &self.origin,
             RecordType::NS,
             is_secure,
             supported_algorithms,
-        )
+        ).into()
     }
 
     /// Return the NSEC records based on the given name
@@ -635,7 +666,7 @@ impl AuthorityTrait for Authority {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords {
+    ) -> AuthLookup {
         #[cfg(feature = "dnssec")]
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             use trust_dns::rr::rdata::DNSSECRecordType;
@@ -657,264 +688,69 @@ impl AuthorityTrait for Authority {
             .next()
             .map_or(LookupRecords::NxDomain, |rr_set| {
                 LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
-            })
+            }).into()
     }
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> LookupRecords {
+    fn soa(&self) -> AuthLookup {
         // SOA should be origin|SOA
         self.lookup(
             &self.origin,
             RecordType::SOA,
             false,
             SupportedAlgorithms::new(),
-        )
+        ).into()
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(
-        &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords {
+    fn soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
         self.lookup(
             &self.origin,
             RecordType::SOA,
             is_secure,
             supported_algorithms,
-        )
+        ).into()
     }
 }
 
-/// An iterator over an ANY query for Records.
-///
-/// The length of this result cannot be known without consuming the iterator.
-///
-/// # Lifetimes
-///
-/// * `'r` - the record_set's lifetime, from the catalog
-/// * `'q` - the lifetime of the query/request
-#[derive(Debug)]
-pub struct AnyRecords {
-    is_secure: bool,
-    supported_algorithms: SupportedAlgorithms,
-    rrsets: Vec<Arc<RecordSet>>,
-    rrset: Option<Arc<RecordSet>>,
-    records: Option<Arc<RecordSet>>,
-    query_type: RecordType,
-    query_name: LowerName,
-}
+// TODO: construct a battery of standard authority tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use authority::ZoneType;
+    use std::net::Ipv4Addr;
+    use std::str::FromStr;
 
-impl AnyRecords {
-    fn new(
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-        rrsets: Values<RrKey, Arc<RecordSet>>,
-        query_type: RecordType,
-        query_name: LowerName,
-    ) -> Self {
-        AnyRecords {
-            is_secure,
-            supported_algorithms,
-            // TODO: potentially very expensive
-            rrsets: rrsets.cloned().collect(),
-            rrset: None,
-            records: None,
-            query_type,
-            query_name,
+    #[test]
+    fn test_load_zone() {
+        let config = FileConfig {
+            path: "tests/named_test_configs/example.com.zone".to_string(),
+        };
+        let authority = Authority::try_from_config(
+            Some(Name::from_str("example.com.").unwrap()),
+            ZoneType::Master,
+            false,
+            config,
+        ).expect("failed to load file");
+
+        let lookup = authority.lookup(
+            &LowerName::from_str("www.example.com.").unwrap(),
+            RecordType::A,
+            false,
+            SupportedAlgorithms::new(),
+        );
+
+        match lookup
+            .into_iter()
+            .next()
+            .expect("A record not found in authity")
+            .rdata()
+        {
+            RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
+            _ => panic!("wrong rdata type returned"),
         }
-    }
-
-    fn iter(&self) -> AnyRecordsIter {
-        self.into_iter()
-    }
-}
-
-impl<'r> IntoIterator for &'r AnyRecords {
-    type Item = &'r Record;
-    type IntoIter = AnyRecordsIter<'r>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        AnyRecordsIter {
-            is_secure: self.is_secure,
-            supported_algorithms: self.supported_algorithms,
-            // TODO: potentially very expensive
-            rrsets: self.rrsets.iter(),
-            rrset: None,
-            records: None,
-            query_type: self.query_type,
-            query_name: &self.query_name,
-        }
-    }
-}
-
-/// An iteration over a lookup for any Records
-pub struct AnyRecordsIter<'r> {
-    is_secure: bool,
-    supported_algorithms: SupportedAlgorithms,
-    rrsets: Iter<'r, Arc<RecordSet>>,
-    rrset: Option<&'r RecordSet>,
-    records: Option<RrsetRecords<'r>>,
-    query_type: RecordType,
-    query_name: &'r LowerName,
-}
-
-impl<'r> Iterator for AnyRecordsIter<'r> {
-    type Item = &'r Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        use std::borrow::Borrow;
-
-        let query_type = self.query_type;
-        let query_name = self.query_name;
-
-        loop {
-            if let Some(ref mut records) = self.records {
-                let record = records
-                    .by_ref()
-                    .filter(|rr_set| {
-                        query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    }).find(|rr_set| {
-                        query_type == RecordType::AXFR
-                            || &LowerName::from(rr_set.name()) == query_name
-                    });
-
-                if record.is_some() {
-                    return record;
-                }
-            }
-
-            self.rrset = self.rrsets.next().map(|r| r.borrow());
-
-            // if there are no more RecordSets, then return
-            self.rrset?;
-
-            // getting here, we must have exhausted our records from the rrset
-            self.records = Some(
-                self.rrset
-                    .expect("rrset should not be None at this point")
-                    .records(self.is_secure, self.supported_algorithms),
-            );
-        }
-    }
-}
-
-/// The result of a lookup
-#[derive(Debug)]
-pub enum LookupRecords {
-    /// There is no record by the name
-    NxDomain,
-    /// There is no record for the given query, but there are other records at that name
-    NameExists,
-    /// The associate records
-    Records(bool, SupportedAlgorithms, Arc<RecordSet>),
-    // TODO: need a better option for very large zone xfrs...
-    /// A generic lookup response where anything is desired
-    AnyRecords(AnyRecords),
-}
-
-impl LookupRecords {
-    /// Construct a new LookupRecords
-    pub fn new(
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-        records: Arc<RecordSet>,
-    ) -> Self {
-        LookupRecords::Records(is_secure, supported_algorithms, records)
-    }
-
-    /// This is an NxDomain or NameExists, and has no associated records
-    ///
-    /// this consumes the iterator, and verifies it is empty
-    pub fn was_empty(&self) -> bool {
-        self.iter().count() == 0
-    }
-
-    /// This is an NxDomain
-    pub fn is_nx_domain(&self) -> bool {
-        match *self {
-            LookupRecords::NxDomain => true,
-            _ => false,
-        }
-    }
-
-    /// This is a NameExists
-    pub fn is_name_exists(&self) -> bool {
-        match *self {
-            LookupRecords::NameExists => true,
-            _ => false,
-        }
-    }
-
-    /// Conversion to an iterator
-    pub fn iter(&self) -> LookupRecordsIter {
-        self.into_iter()
-    }
-}
-
-impl Default for LookupRecords {
-    fn default() -> Self {
-        LookupRecords::NxDomain
-    }
-}
-
-impl<'a> IntoIterator for &'a LookupRecords {
-    type Item = &'a Record;
-    type IntoIter = LookupRecordsIter<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        match self {
-            LookupRecords::NxDomain | LookupRecords::NameExists => LookupRecordsIter::Empty,
-            LookupRecords::Records(is_secure, supported_algorithms, r) => {
-                LookupRecordsIter::RecordsIter(r.records(*is_secure, *supported_algorithms))
-            }
-            LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
-        }
-    }
-}
-
-/// Iteratof over lookup records
-pub enum LookupRecordsIter<'r> {
-    /// An iteration over batch record type results
-    AnyRecordsIter(AnyRecordsIter<'r>),
-    /// An iteration over a single RecordSet
-    RecordsIter(RrsetRecords<'r>),
-    /// An empty set
-    Empty,
-}
-
-impl<'r> Default for LookupRecordsIter<'r> {
-    fn default() -> Self {
-        LookupRecordsIter::Empty
-    }
-}
-
-impl<'r> Iterator for LookupRecordsIter<'r> {
-    type Item = &'r Record;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            LookupRecordsIter::Empty => None,
-            LookupRecordsIter::AnyRecordsIter(current) => current.next(),
-            LookupRecordsIter::RecordsIter(current) => current.next(),
-        }
-    }
-}
-
-// impl From<Arc<RecordSet>> for LookupRecords {
-//     fn from(rrset_records: Arc<RecordSet>) -> Self {
-//         match *rrset_records {
-//             RrsetRecords::Empty => LookupRecords::NxDomain,
-//             rrset_records => LookupRecords::RecordsIter(rrset_records),
-//         }
-//     }
-// }
-
-impl From<AnyRecords> for LookupRecords {
-    fn from(rrset_records: AnyRecords) -> Self {
-        LookupRecords::AnyRecords(rrset_records)
     }
 }

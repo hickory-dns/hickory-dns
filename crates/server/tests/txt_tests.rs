@@ -4,6 +4,7 @@ extern crate trust_dns_server;
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
+use std::sync::Arc;
 
 use trust_dns::proto::rr::rdata::tlsa::*;
 use trust_dns::rr::dnssec::*;
@@ -72,7 +73,17 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     let (origin, records) = records.unwrap();
-    let authority = SqliteAuthority::new(origin, records, ZoneType::Master, false, false, false);
+    let authority = SqliteAuthority::new(
+        origin,
+        records
+            .into_iter()
+            .map(|(key, rrset)| (key, Arc::new(rrset)))
+            .collect(),
+        ZoneType::Master,
+        false,
+        false,
+        false,
+    );
 
     // not validating everything, just one of each...
 
