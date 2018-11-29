@@ -23,7 +23,7 @@ use authority::UpdateRequest;
 use authority::{
     AnyRecords, AuthLookup, Authority, LookupRecords, MessageRequest, UpdateResult, ZoneType,
 };
-use store::sqlite::Journal;
+use store::sqlite::{Journal, SqliteConfig};
 
 use error::{PersistenceErrorKind, PersistenceResult};
 
@@ -66,7 +66,7 @@ impl SqliteAuthority {
     /// The new `Authority`.
     pub fn new(
         origin: Name,
-        records: BTreeMap<RrKey, RecordSet>,
+        records: BTreeMap<RrKey, Arc<RecordSet>>,
         zone_type: ZoneType,
         allow_update: bool,
         allow_axfr: bool,
@@ -76,15 +76,96 @@ impl SqliteAuthority {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
             journal: None,
-            records: records
-                .into_iter()
-                .map(|(key, rrset)| (key, Arc::new(rrset)))
-                .collect(),
+            records,
             zone_type,
             allow_update,
             allow_axfr,
             is_dnssec_enabled,
             secure_keys: Vec::new(),
+        }
+    }
+
+    /// load the authority from the configuration
+    pub fn try_from_config(
+        origin: Option<Name>,
+        zone_type: ZoneType,
+        allow_axfr: bool,
+        config: SqliteConfig,
+    ) -> Result<Self, String> {
+        use std::path::PathBuf;
+        use store::file::{self, FileConfig};
+
+        let zone_name: Name = origin.expect("bad zone name");
+
+        // to be compatible with previous versions, the extension might be zone, not jrnl
+        let journal_path: PathBuf = PathBuf::from(config.journal_file_path);
+        let zone_path: PathBuf = PathBuf::from(config.zone_file_path);
+
+        // load the zone
+        if journal_path.exists() {
+            info!("recovering zone from journal: {:?}", journal_path);
+            let journal = Journal::from_file(&journal_path)
+                .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
+
+            let mut authority = SqliteAuthority::new(
+                zone_name.clone(),
+                BTreeMap::new(),
+                zone_type,
+                config.allow_update,
+                allow_axfr,
+                config.enable_dnssec,
+            );
+            authority
+                .recover_with_journal(&journal)
+                .map_err(|e| format!("error recovering from journal: {}", e))?;
+
+            authority.set_journal(journal);
+            info!("recovered zone: {}", zone_name);
+
+            Ok(authority)
+        } else if zone_path.exists() {
+            // TODO: deprecate this portion of loading, instantiate the journal through a separate tool
+            info!("loading zone file: {:?}", zone_path);
+
+            let file_config = FileConfig {
+                path: zone_path.to_str().unwrap().to_string(),
+            };
+
+            let records = file::Authority::try_from_config(
+                Some(zone_name.clone()),
+                zone_type,
+                allow_axfr,
+                file_config,
+            )?.unwrap_records();
+
+            let mut authority = SqliteAuthority::new(
+                zone_name.clone(),
+                records,
+                zone_type,
+                config.allow_update,
+                allow_axfr,
+                config.enable_dnssec,
+            );
+
+            // if dynamic update is enabled, enable the journal
+            info!("creating new journal: {:?}", journal_path);
+            let journal = Journal::from_file(&journal_path)
+                .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e))?;
+
+            authority.set_journal(journal);
+
+            // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
+            authority
+                .persist_to_journal()
+                .map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e))?;
+
+            info!("zone file loaded: {}", zone_name);
+            Ok(authority)
+        } else {
+            Err(format!(
+                "no zone file or journal defined at: {:?}",
+                zone_path
+            ))
         }
     }
 
