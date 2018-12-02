@@ -262,7 +262,8 @@ impl PublicKey for Ec {
             Input::from(self.prefixed_bytes()),
             Input::from(message),
             Input::from(signature),
-        ).map_err(|e| e.into())
+        )
+        .map_err(|e| e.into())
     }
 }
 
@@ -289,7 +290,8 @@ impl<'k> Ed25519<'k> {
                 "expected {} byte public_key: {}",
                 ED25519_PUBLIC_KEY_LEN,
                 public_key.len()
-            ).into());
+            )
+            .into());
         }
 
         Ok(Ed25519 { raw: public_key })
@@ -409,7 +411,8 @@ impl<'k> PublicKey for Rsa<'k> {
             (Input::from(self.pkey.n()), Input::from(self.pkey.e())),
             Input::from(message),
             Input::from(signature),
-        ).map_err(|e| e.into())
+        )
+        .map_err(|e| e.into())
     }
 }
 

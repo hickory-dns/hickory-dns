@@ -17,28 +17,32 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
+
 use proto::error::{ProtoErrorKind, ProtoResult};
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use proto::rr::dnssec::{tbs, TBS};
+#[cfg(feature = "dnssec")]
+use proto::rr::dnssec::{tbs, TBS, PublicKeyEnum};
+#[cfg(feature = "dnssec")]
+use proto::rr::dnssec::Verifier;
+
+#[cfg(feature = "dnssec")]
+use error::DnsSecResult;
 #[cfg(feature = "dnssec")]
 use rr::rdata::DNSSECRData;
-
 use op::{Message, MessageFinalizer};
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::dnssec::{Algorithm, KeyPair};
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::rdata::SIG;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::RData;
 use rr::Record;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::{DNSClass, Name, RecordType};
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use serialize::binary::BinEncoder;
-
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::dnssec::Private;
 
 /// Use for performing signing and validation of DNSSec based components.
@@ -498,6 +502,26 @@ impl Signer {
     pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
         tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
     }
+
+    /// Extracts a DNSKEY from this Signer
+    pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
+        self.key.to_public_bytes()
+            .map(|bytes| DNSKEY::new(self.is_zone_signing_key, true, false, self.algorithm, bytes))
+    }
+
+    /// Test that this key is capable of signing and verifying data
+    pub fn test_key(&self) -> DnsSecResult<()> {
+        //use proto::rr::dnssec::PublicKey;
+        
+        // TODO: why doesn't this work for ecdsa_256 and 384?
+        // let test_data = TBS::from(b"DEADBEEF" as &[u8]);
+        
+        // let signature = self.sign(&test_data).map_err(|e| {println!("failed to sign, {:?}", e); e})?;
+        // let pk = self.key.to_public_key()?;
+        // pk.verify(self.algorithm, test_data.as_ref(), &signature).map_err(|e| {println!("failed to verify, {:?}", e); e})?;
+
+        Ok(())
+    }
 }
 
 impl MessageFinalizer for Signer {
@@ -554,6 +578,21 @@ impl MessageFinalizer for Signer {
             ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
                 .into(),
         )
+    }
+}
+
+#[cfg(feature = "dnssec")]
+impl Verifier for Signer {
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm()
+    }
+
+    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
+        match self.key_rdata {
+            RData::DNSSEC(DNSSECRData::DNSKEY(ref key)) => key.key(),
+            RData::DNSSEC(DNSSECRData::KEY(ref key)) => key.key(),
+            _ => panic!("Signer incorrectly initialized with incorrect RData"),
+        }
     }
 }
 

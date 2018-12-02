@@ -9,7 +9,7 @@
 //! be used to gether to either query or update resource records sets.
 
 mod lower_query;
-mod update_message;
+pub mod update_message;
 
 pub use self::lower_query::LowerQuery;
 pub use self::update_message::UpdateMessage;

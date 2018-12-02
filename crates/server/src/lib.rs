@@ -42,6 +42,8 @@ extern crate serde_derive;
 extern crate h2;
 #[cfg(feature = "dns-over-https")]
 extern crate http;
+#[cfg(feature = "dns-over-openssl")]
+extern crate openssl;
 #[cfg(feature = "dns-over-rustls")]
 extern crate rustls;
 extern crate time;
@@ -76,9 +78,4 @@ pub use self::server::ServerFuture;
 /// Returns the current version of TRust-DNS
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
-}
-
-#[test]
-fn enable_logging_for_tests() {
-    logger::debug();
 }

@@ -10,12 +10,11 @@
 #[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-#[cfg(feature = "dnssec")]
-use trust_dns::error::*;
-use trust_dns::op::{LowerQuery, ResponseCode};
-use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
+use trust_dns::op::ResponseCode;
+use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 #[cfg(feature = "dnssec")]
@@ -87,19 +86,22 @@ impl SqliteAuthority {
 
     /// load the authority from the configuration
     pub fn try_from_config(
-        origin: Option<Name>,
+        origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
-        config: SqliteConfig,
+        enable_dnssec: bool,
+        root_dir: Option<&Path>,
+        config: &SqliteConfig,
     ) -> Result<Self, String> {
-        use std::path::PathBuf;
-        use store::file::{self, FileConfig};
+        use store::file::{FileAuthority, FileConfig};
 
-        let zone_name: Name = origin.expect("bad zone name");
+        let zone_name: Name = origin;
+
+        let root_zone_dir = root_dir.map(PathBuf::from).unwrap_or_else(PathBuf::new);
 
         // to be compatible with previous versions, the extension might be zone, not jrnl
-        let journal_path: PathBuf = PathBuf::from(config.journal_file_path);
-        let zone_path: PathBuf = PathBuf::from(config.zone_file_path);
+        let journal_path: PathBuf = root_zone_dir.join(&config.journal_file_path);
+        let zone_path: PathBuf = root_zone_dir.join(&config.zone_file_path);
 
         // load the zone
         if journal_path.exists() {
@@ -113,7 +115,7 @@ impl SqliteAuthority {
                 zone_type,
                 config.allow_update,
                 allow_axfr,
-                config.enable_dnssec,
+                enable_dnssec,
             );
             authority
                 .recover_with_journal(&journal)
@@ -128,14 +130,15 @@ impl SqliteAuthority {
             info!("loading zone file: {:?}", zone_path);
 
             let file_config = FileConfig {
-                path: zone_path.to_str().unwrap().to_string(),
+                zone_file_path: config.zone_file_path.clone(),
             };
 
-            let records = file::Authority::try_from_config(
-                Some(zone_name.clone()),
+            let records = FileAuthority::try_from_config(
+                zone_name.clone(),
                 zone_type,
                 allow_axfr,
-                file_config,
+                root_dir,
+                &file_config,
             )?.unwrap_records();
 
             let mut authority = SqliteAuthority::new(
@@ -144,7 +147,7 @@ impl SqliteAuthority {
                 zone_type,
                 config.allow_update,
                 allow_axfr,
-                config.enable_dnssec,
+                enable_dnssec,
             );
 
             // if dynamic update is enabled, enable the journal
@@ -167,32 +170,6 @@ impl SqliteAuthority {
                 zone_path
             ))
         }
-    }
-
-    /// By adding a secure key, this will implicitly enable dnssec for the zone.
-    ///
-    /// # Arguments
-    ///
-    /// * `signer` - Signer with associated private key
-    #[cfg(feature = "dnssec")]
-    pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
-
-        // also add the key to the zone
-        let zone_ttl = self.minimum_ttl();
-        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
-        let dnskey = Record::from_rdata(
-            self.origin.clone().into(),
-            zone_ttl,
-            RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
-            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
-        );
-
-        // TODO: also generate the CDS and CDNSKEY
-        let serial = self.serial();
-        self.upsert(dnskey, serial);
-        self.secure_keys.push(signer);
-        Ok(())
     }
 
     /// Recovers the zone from a Journal, returns an error on failure to recover the zone.
@@ -931,85 +908,6 @@ impl SqliteAuthority {
         }
     }
 
-    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The `Name`, label, to lookup.
-    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
-    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             preceed and follow all other records.
-    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
-    ///
-    /// # Return value
-    ///
-    /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    pub fn lookup(
-        &self,
-        name: &LowerName,
-        rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords {
-        let rr_key = RrKey::new(name.clone(), rtype);
-
-        // Collect the records from each rr_set
-        let result: LookupRecords = match rtype {
-            RecordType::AXFR | RecordType::ANY => {
-                let result = AnyRecords::new(
-                    is_secure,
-                    supported_algorithms,
-                    self.records.values().cloned().collect(),
-                    rtype,
-                    name.clone(),
-                );
-                LookupRecords::AnyRecords(result)
-            }
-            _ => self
-                .records
-                .get(&rr_key)
-                .map_or(LookupRecords::NxDomain, |rr_set| {
-                    LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
-                }),
-        };
-
-        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
-        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
-        //   always return empty sets. This is only important in the negative case, where other DNS authorities
-        //   generally return NoError and no results when other types exist at the same name. bah.
-        if result.is_nx_domain() {
-            if self.records.keys().any(|key| key.name() == name) {
-                return LookupRecords::NameExists;
-            } else {
-                return LookupRecords::NxDomain;
-            }
-        }
-
-        result
-    }
-
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
-    #[cfg(feature = "dnssec")]
-    pub fn secure_zone(&mut self) -> DnsSecResult<()> {
-        // TODO: only call nsec_zone after adds/deletes
-        // needs to be called before incrementing the soa serial, to make sur IXFR works properly
-        self.nsec_zone();
-
-        // need to resign any records at the current serial number and bump the number.
-        // first bump the serial number on the SOA, so that it is resigned with the new serial.
-        self.increment_soa_serial();
-
-        // TODO: should we auto sign here? or maybe up a level...
-        self.sign_zone()
-    }
-
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
-    #[cfg(not(feature = "dnssec"))]
-    pub fn secure_zone(&mut self) -> Result<(), &str> {
-        Err("DNSSEC is not enabled.")
-    }
-
     /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self) {
@@ -1196,6 +1094,11 @@ impl Authority for SqliteAuthority {
         self.zone_type
     }
 
+    /// Return true if AXFR is allowed
+    fn is_axfr_allowed(&self) -> bool {
+        self.allow_axfr
+    }
+
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
     ///
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -1274,89 +1177,62 @@ impl Authority for SqliteAuthority {
         &self.origin
     }
 
-    /// Using the specified query, perform a lookup against this zone.
+    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
     ///
     /// # Arguments
     ///
-    /// * `query` - the query to perform the lookup with.
-    /// * `is_secure` - if true, then RRSIG records (if this is a secure zone) will be returned.
+    /// * `name` - The `Name`, label, to lookup.
+    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
+    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
+    ///             preceed and follow all other records.
+    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
     ///
     /// # Return value
     ///
-    /// Returns a vectory containing the results of the query, it will be empty if not found. If
-    ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(
+    /// None if there are no matching records, otherwise a `Vec` containing the found records.
+    fn lookup(
         &self,
-        query: &LowerQuery,
+        name: &LowerName,
+        rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> AuthLookup {
-        let lookup_name = query.name();
-        let record_type: RecordType = query.query_type();
+        let rr_key = RrKey::new(name.clone(), rtype);
 
-        // if this is an AXFR zone transfer, verify that this is either the slave or master
-        //  for AXFR the first and last record must be the SOA
-        if RecordType::AXFR == record_type {
-            // TODO: support more advanced AXFR options
-            if !self.allow_axfr {
-                return AuthLookup::Refused;
+        // Collect the records from each rr_set
+        let result: LookupRecords = match rtype {
+            RecordType::AXFR | RecordType::ANY => {
+                let result = AnyRecords::new(
+                    is_secure,
+                    supported_algorithms,
+                    self.records.values().cloned().collect(),
+                    rtype,
+                    name.clone(),
+                );
+                LookupRecords::AnyRecords(result)
             }
+            _ => self
+                .records
+                .get(&rr_key)
+                .map_or(LookupRecords::NxDomain, |rr_set| {
+                    LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
+                }),
+        };
 
-            match self.zone_type() {
-                ZoneType::Master | ZoneType::Slave => (),
-                // TODO: Forward?
-                _ => return AuthLookup::NxDomain, // TODO: this sould be an error.
-            }
-        }
-
-        // perform the actual lookup
-        match record_type {
-            RecordType::SOA => {
-                let lookup =
-                    self.lookup(&self.origin, record_type, is_secure, supported_algorithms);
-
-                match lookup {
-                    LookupRecords::NxDomain => AuthLookup::NxDomain,
-                    LookupRecords::NameExists => AuthLookup::NameExists,
-                    lookup => AuthLookup::SOA(lookup),
-                }
-            }
-            RecordType::AXFR => {
-                // FIXME: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let start_soa = self.soa();
-                let end_soa = self.soa();
-                let records =
-                    self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
-
-                match start_soa {
-                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
-                    start_soa => AuthLookup::AXFR {
-                        start_soa: start_soa.unwrap_records(),
-                        records,
-                        end_soa: end_soa.unwrap_records(),
-                    },
-                }
-            }
-            _ => {
-                let lookup = self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
-
-                match lookup {
-                    LookupRecords::NxDomain => AuthLookup::NxDomain,
-                    LookupRecords::NameExists => AuthLookup::NameExists,
-                    lookup => AuthLookup::Records(lookup),
-                }
+        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
+        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
+        //   always return empty sets. This is only important in the negative case, where other DNS authorities
+        //   generally return NoError and no results when other types exist at the same name. bah.
+        if result.is_nx_domain() {
+            if self.records.keys().any(|key| key.name() == name) {
+                return AuthLookup::NameExists;
+            } else {
+                return AuthLookup::NxDomain;
             }
         }
-    }
 
-    /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
-        self.lookup(
-            &self.origin,
-            RecordType::NS,
-            is_secure,
-            supported_algorithms,
-        ).into()
+        result.into()
     }
 
     /// Return the NSEC records based on the given name
@@ -1396,27 +1272,55 @@ impl Authority for SqliteAuthority {
             }).into()
     }
 
-    /// Returns the SOA of the authority.
+    /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
-    /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
-    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> AuthLookup {
-        // SOA should be origin|SOA
-        self.lookup(
-            &self.origin,
-            RecordType::SOA,
-            false,
-            SupportedAlgorithms::new(),
-        ).into()
+    /// # Arguments
+    ///
+    /// * `signer` - Signer with associated private key
+    #[cfg(feature = "dnssec")]
+    fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+
+        // also add the key to the zone
+        let zone_ttl = self.minimum_ttl();
+        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
+        let dnskey = Record::from_rdata(
+            self.origin.clone().into(),
+            zone_ttl,
+            RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
+            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
+        );
+
+        // TODO: also generate the CDS and CDNSKEY
+        let serial = self.serial();
+        self.upsert(dnskey, serial);
+        self.secure_keys.push(signer);
+        Ok(())
     }
 
-    /// Returns the SOA record for the zone
-    fn soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
-        self.lookup(
-            &self.origin,
-            RecordType::SOA,
-            is_secure,
-            supported_algorithms,
-        ).into()
+    #[cfg(not(feature = "dnssec"))]
+    fn add_secure_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+        Err("DNSSEC is not enabled.".into())
+    }
+
+    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    #[cfg(feature = "dnssec")]
+    fn secure_zone(&mut self) -> DnsSecResult<()> {
+        // TODO: only call nsec_zone after adds/deletes
+        // needs to be called before incrementing the soa serial, to make sur IXFR works properly
+        self.nsec_zone();
+
+        // need to resign any records at the current serial number and bump the number.
+        // first bump the serial number on the SOA, so that it is resigned with the new serial.
+        self.increment_soa_serial();
+
+        // TODO: should we auto sign here? or maybe up a level...
+        self.sign_zone()
+    }
+
+    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    #[cfg(not(feature = "dnssec"))]
+    fn secure_zone(&mut self) -> DnsSecResult<()> {
+        Err("DNSSEC is not enabled.".into())
     }
 }

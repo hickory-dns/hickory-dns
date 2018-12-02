@@ -18,7 +18,7 @@
 
 mod client;
 mod client_connection;
-mod client_future;
+pub(crate) mod client_future;
 mod memoize_client_handle;
 mod rc_future;
 

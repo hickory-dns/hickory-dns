@@ -2,6 +2,7 @@
 #![cfg(not(windows))]
 
 extern crate futures;
+#[macro_use]
 extern crate log;
 extern crate tokio;
 extern crate tokio_tcp;
@@ -20,12 +21,12 @@ use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream as TokioTcpStream;
 
+use trust_dns::client::*;
 use trust_dns::proto::error::ProtoError;
 use trust_dns::proto::tcp::{TcpClientConnect, TcpClientStream};
 use trust_dns::proto::xfer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
 };
-use trust_dns::client::*;
 use trust_dns::rr::dnssec::*;
 
 use server_harness::*;
@@ -181,7 +182,7 @@ fn test_dnssec_restart_with_update_journal() {
     // TODO: make journal path configurable, it should be in target/tests/...
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     let server_path = Path::new(&server_path);
-    let journal = server_path.join("tests/named_test_configs/example.com.jrnl");
+    let journal = server_path.join("tests/named_test_configs/example.com_dnsec_update.jrnl");
     std::fs::remove_file(&journal).ok();
 
     generic_test(
@@ -197,6 +198,41 @@ fn test_dnssec_restart_with_update_journal() {
     // and all dnssec tests should still pass
     generic_test(
         "dnssec_with_update.toml",
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA256,
+    );
+
+    // and journal should still exist
+    assert!(journal.exists());
+
+    // cleanup...
+    // TODO: fix journal path so that it doesn't leave the dir dirty... this might make windows an option after that
+    std::fs::remove_file(&journal).expect("failed to cleanup after test");
+}
+
+#[cfg(feature = "dnssec-openssl")]
+#[test]
+fn test_dnssec_restart_with_update_journal_dep() {
+    // TODO: make journal path configurable, it should be in target/tests/...
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
+    let server_path = Path::new(&server_path);
+    let journal = server_path.join("tests/named_test_configs/example.com.jrnl");
+    std::fs::remove_file(&journal).ok();
+
+    generic_test(
+        "dnssec_with_update_deprecated.toml",
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA256,
+    );
+
+    // after running the above test, the journal file should exist
+    assert!(journal.exists());
+
+    // and all dnssec tests should still pass
+    generic_test(
+        "dnssec_with_update_deprecated.toml",
         "tests/named_test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,

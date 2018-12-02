@@ -7,6 +7,7 @@
 
 extern crate chrono;
 extern crate futures;
+#[macro_use]
 extern crate log;
 extern crate tokio;
 extern crate trust_dns;

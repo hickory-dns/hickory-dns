@@ -13,4 +13,4 @@ pub mod sqlite;
 
 // TODO: add a dynamic library option?
 
-pub use self::config::Config;
+pub use self::config::StoreConfig;

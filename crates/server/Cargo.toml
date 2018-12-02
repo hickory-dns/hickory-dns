@@ -42,7 +42,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 
 [features]
 default = []
-dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
+dnssec-openssl = ["dnssec", "openssl", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
@@ -83,11 +83,12 @@ h2 = { version = "0.1", optional = true }
 http = { version = "0.1", optional = true }
 lazy_static = "1.0"
 log = "0.4.1"
+openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rand = "0.6"
 rusqlite = { version = "0.16.0", features = ["bundled"] }
 rustls = { version = "0.14", optional = true }
-serde = "1.0"
-serde_derive = "1.0"
+serde = "1.0.34"
+serde_derive = "1.0.34"
 time = "0.1"
 tokio = "0.1.6"
 tokio-executor = "0.1.4"

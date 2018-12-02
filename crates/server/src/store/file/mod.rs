@@ -10,5 +10,5 @@
 mod authority;
 mod config;
 
-pub use self::authority::Authority;
+pub use self::authority::FileAuthority;
 pub use self::config::FileConfig;
