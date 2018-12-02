@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::fmt::{self, Display};
+
 use proto::error::*;
 
 use op::Query;
@@ -79,5 +81,17 @@ impl<'r> BinDecodable<'r> for LowerQuery {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let original = Query::read(decoder)?;
         Ok(LowerQuery::query(original))
+    }
+}
+
+impl Display for LowerQuery {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "name: {} type: {} class: {}",
+            self.name,
+            self.original.query_type(),
+            self.original.query_class()
+        )
     }
 }

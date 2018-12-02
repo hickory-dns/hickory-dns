@@ -22,7 +22,9 @@ use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 
+use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
+use trust_dns_proto::udp::{UdpClientStream, UdpResponse};
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_secure_example;

@@ -15,7 +15,4 @@ pub struct SqliteConfig {
     /// Are updates allowed to this zone
     #[serde(default)]
     pub allow_update: bool,
-    /// Enable dnssec on this zone, this will sign the zone
-    #[serde(default)]
-    pub enable_dnssec: bool,
 }

@@ -10,17 +10,15 @@
 #[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-#[cfg(feature = "dnssec")]
-use trust_dns::error::*;
-use trust_dns::op::{LowerQuery, ResponseCode};
-use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
+use trust_dns::op::ResponseCode;
+use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use authority::{
-    AnyRecords, AuthLookup, Authority as AuthorityTrait, LookupRecords, MessageRequest,
-    UpdateResult, ZoneType,
+    AnyRecords, AuthLookup, Authority, LookupRecords, MessageRequest, UpdateResult, ZoneType,
 };
 use store::file::FileConfig;
 
@@ -28,7 +26,7 @@ use store::file::FileConfig;
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a slave, or a cached zone.
-pub struct Authority {
+pub struct FileAuthority {
     origin: LowerName,
     class: DNSClass,
     records: BTreeMap<RrKey, Arc<RecordSet>>,
@@ -42,7 +40,7 @@ pub struct Authority {
     secure_keys: Vec<Signer>,
 }
 
-impl Authority {
+impl FileAuthority {
     /// Creates a new Authority.
     ///
     /// # Arguments
@@ -79,62 +77,44 @@ impl Authority {
 
     /// Read the Authority for the origin from the specified configuration
     pub fn try_from_config(
-        origin: Option<Name>,
+        origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
-        config: FileConfig,
+        root_dir: Option<&Path>,
+        config: &FileConfig,
     ) -> Result<Self, String> {
         use std::fs::File;
         use std::io::Read;
         use trust_dns::serialize::txt::{Lexer, Parser};
 
-        let zone_path = config.path;
+        let zone_path = root_dir
+            .map(PathBuf::from)
+            .unwrap_or_else(PathBuf::new)
+            .join(&config.zone_file_path);
 
         info!("loading zone file: {:?}", zone_path);
 
-        let mut file =
-            File::open(&zone_path).map_err(|e| format!("error opening {}: {:?}", zone_path, e))?;
+        let mut file = File::open(&zone_path)
+            .map_err(|e| format!("error opening {}: {:?}", zone_path.display(), e))?;
 
         let mut buf = String::new();
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
         file.read_to_string(&mut buf)
-            .map_err(|e| format!("failed to read {}: {:?}", zone_path, e))?;
+            .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
         let lexer = Lexer::new(&buf);
         let (origin, records) = Parser::new()
-            .parse(lexer, origin)
-            .map_err(|e| format!("failed to parse {}: {:?}", zone_path, e))?;
+            .parse(lexer, Some(origin))
+            .map_err(|e| format!("failed to parse {}: {:?}", zone_path.display(), e))?;
 
-        info!("zone file loaded: {}", origin);
-
-        Ok(Authority::new(origin, records, zone_type, allow_axfr))
-    }
-
-    /// By adding a secure key, this will implicitly enable dnssec for the zone.
-    ///
-    /// # Arguments
-    ///
-    /// * `signer` - Signer with associated private key
-    #[cfg(feature = "dnssec")]
-    pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
-
-        // also add the key to the zone
-        let zone_ttl = self.minimum_ttl();
-        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
-        let dnskey = Record::from_rdata(
-            self.origin.clone().into(),
-            zone_ttl,
-            RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
-            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
+        info!(
+            "zone file loaded: {} with {} records",
+            origin,
+            records.len()
         );
 
-        // TODO: also generate the CDS and CDNSKEY
-        let serial = self.serial();
-        self.upsert(dnskey, serial);
-        self.secure_keys.push(signer);
-        Ok(())
+        Ok(FileAuthority::new(origin, records, zone_type, allow_axfr))
     }
 
     /// Enables AXFRs of all the zones records
@@ -237,64 +217,6 @@ impl Authority {
         } else {
             false
         }
-    }
-
-    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The `Name`, label, to lookup.
-    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
-    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
-    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             preceed and follow all other records.
-    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
-    ///
-    /// # Return value
-    ///
-    /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    pub fn lookup(
-        &self,
-        name: &LowerName,
-        rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupRecords {
-        let rr_key = RrKey::new(name.clone(), rtype);
-
-        // Collect the records from each rr_set
-        let result: LookupRecords = match rtype {
-            RecordType::AXFR | RecordType::ANY => {
-                let result = AnyRecords::new(
-                    is_secure,
-                    supported_algorithms,
-                    self.records.values().cloned().collect(),
-                    rtype,
-                    name.clone(),
-                );
-                LookupRecords::AnyRecords(result)
-            }
-            _ => self
-                .records
-                .get(&rr_key)
-                .map_or(LookupRecords::NxDomain, |rr_set| {
-                    LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
-                }),
-        };
-
-        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
-        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
-        //   always return empty sets. This is only important in the negative case, where other DNS authorities
-        //   generally return NoError and no results when other types exist at the same name. bah.
-        if result.is_nx_domain() {
-            if self.records.keys().any(|key| key.name() == name) {
-                return LookupRecords::NameExists;
-            } else {
-                return LookupRecords::NxDomain;
-            }
-        }
-
-        result
     }
 
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
@@ -503,10 +425,15 @@ impl Authority {
     }
 }
 
-impl AuthorityTrait for Authority {
+impl Authority for FileAuthority {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type
+    }
+
+    /// Return true if AXFR is allowed
+    fn is_axfr_allowed(&self) -> bool {
+        self.allow_axfr
     }
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -575,83 +502,62 @@ impl AuthorityTrait for Authority {
         &self.origin
     }
 
-    /// Using the specified query, perform a lookup against this zone.
+    /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
     ///
     /// # Arguments
     ///
-    /// * `query` - the query to perform the lookup with.
-    /// * `is_secure` - if true, then RRSIG records (if this is a secure zone) will be returned.
+    /// * `name` - The `Name`, label, to lookup.
+    /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+    ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
+    ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
+    ///             preceed and follow all other records.
+    /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
     ///
     /// # Return value
     ///
-    /// Returns a vectory containing the results of the query, it will be empty if not found. If
-    ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(
+    /// None if there are no matching records, otherwise a `Vec` containing the found records.
+    fn lookup(
         &self,
-        query: &LowerQuery,
+        name: &LowerName,
+        rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> AuthLookup {
-        let lookup_name = query.name();
-        let record_type: RecordType = query.query_type();
+        let rr_key = RrKey::new(name.clone(), rtype);
 
-        // if this is an AXFR zone transfer, verify that this is either the slave or master
-        //  for AXFR the first and last record must be the SOA
-        if RecordType::AXFR == record_type {
-            // TODO: support more advanced AXFR options
-            if !self.allow_axfr {
-                return AuthLookup::Refused;
-            }
-
-            match self.zone_type() {
-                ZoneType::Master | ZoneType::Slave => (),
-                // TODO: Forward?
-                _ => return AuthLookup::NxDomain, // TODO: this sould be an error.
-            }
-        }
-
-        // perform the actual lookup
-        match record_type {
-            RecordType::SOA => {
-                let lookup =
-                    self.lookup(&self.origin, record_type, is_secure, supported_algorithms);
-
-                match lookup {
-                    LookupRecords::NxDomain => AuthLookup::NxDomain,
-                    LookupRecords::NameExists => AuthLookup::NameExists,
-                    lookup => AuthLookup::SOA(lookup),
-                }
-            }
-            RecordType::AXFR => {
-                // FIXME: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let start_soa = self.soa();
-                let end_soa = self.soa();
-                let records =
-                    self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
-
-                match start_soa {
-                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
-                    start_soa => AuthLookup::AXFR {
-                        start_soa: start_soa.unwrap_records(),
-                        records,
-                        end_soa: end_soa.unwrap_records(),
-                    },
-                }
+        // Collect the records from each rr_set
+        let result: LookupRecords = match rtype {
+            RecordType::AXFR | RecordType::ANY => {
+                let result = AnyRecords::new(
+                    is_secure,
+                    supported_algorithms,
+                    self.records.values().cloned().collect(),
+                    rtype,
+                    name.clone(),
+                );
+                LookupRecords::AnyRecords(result)
             }
             _ => self
-                .lookup(lookup_name, record_type, is_secure, supported_algorithms)
-                .into(),
-        }
-    }
+                .records
+                .get(&rr_key)
+                .map_or(LookupRecords::NxDomain, |rr_set| {
+                    LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
+                }),
+        };
 
-    /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
-        self.lookup(
-            &self.origin,
-            RecordType::NS,
-            is_secure,
-            supported_algorithms,
-        ).into()
+        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
+        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
+        //   always return empty sets. This is only important in the negative case, where other DNS authorities
+        //   generally return NoError and no results when other types exist at the same name. bah.
+        if result.is_nx_domain() {
+            if self.records.keys().any(|key| key.name() == name) {
+                return AuthLookup::NameExists;
+            } else {
+                return AuthLookup::NxDomain;
+            }
+        }
+
+        result.into()
     }
 
     /// Return the NSEC records based on the given name
@@ -691,28 +597,57 @@ impl AuthorityTrait for Authority {
             }).into()
     }
 
-    /// Returns the SOA of the authority.
+    /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
-    /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
-    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> AuthLookup {
-        // SOA should be origin|SOA
-        self.lookup(
-            &self.origin,
-            RecordType::SOA,
-            false,
-            SupportedAlgorithms::new(),
-        ).into()
+    /// # Arguments
+    ///
+    /// * `signer` - Signer with associated private key
+    #[cfg(feature = "dnssec")]
+    fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+
+        // also add the key to the zone
+        let zone_ttl = self.minimum_ttl();
+        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
+        let dnskey = Record::from_rdata(
+            self.origin.clone().into(),
+            zone_ttl,
+            RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
+            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
+        );
+
+        // TODO: also generate the CDS and CDNSKEY
+        let serial = self.serial();
+        self.upsert(dnskey, serial);
+        self.secure_keys.push(signer);
+        Ok(())
     }
 
-    /// Returns the SOA record for the zone
-    fn soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
-        self.lookup(
-            &self.origin,
-            RecordType::SOA,
-            is_secure,
-            supported_algorithms,
-        ).into()
+    /// This will fail, the dnssec feature must be enabled
+    #[cfg(not(feature = "dnssec"))]
+    fn add_secure_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+        Err("DNSSEC is not enabled.".into())
+    }
+
+    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    #[cfg(feature = "dnssec")]
+    fn secure_zone(&mut self) -> DnsSecResult<()> {
+        // TODO: only call nsec_zone after adds/deletes
+        // needs to be called before incrementing the soa serial, to make sur IXFR works properly
+        self.nsec_zone();
+
+        // need to resign any records at the current serial number and bump the number.
+        // first bump the serial number on the SOA, so that it is resigned with the new serial.
+        self.increment_soa_serial();
+
+        // TODO: should we auto sign here? or maybe up a level...
+        self.sign_zone()
+    }
+
+    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    #[cfg(not(feature = "dnssec"))]
+    fn secure_zone(&mut self) -> DnsSecResult<()> {
+        Err("DNSSEC is not enabled.".into())
     }
 }
 
@@ -727,13 +662,14 @@ mod tests {
     #[test]
     fn test_load_zone() {
         let config = FileConfig {
-            path: "tests/named_test_configs/example.com.zone".to_string(),
+            zone_file_path: "tests/named_test_configs/example.com.zone".to_string(),
         };
-        let authority = Authority::try_from_config(
-            Some(Name::from_str("example.com.").unwrap()),
+        let authority = FileAuthority::try_from_config(
+            Name::from_str("example.com.").unwrap(),
             ZoneType::Master,
             false,
-            config,
+            None,
+            &config,
         ).expect("failed to load file");
 
         let lookup = authority.lookup(

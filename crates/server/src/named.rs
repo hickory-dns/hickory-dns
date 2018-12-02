@@ -40,148 +40,123 @@ extern crate trust_dns_openssl;
 extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::{self, Read};
+use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::Path;
 
-#[cfg(feature = "dnssec")]
-use chrono::Duration;
 use clap::{Arg, ArgMatches};
 use futures::{future, Future};
-#[cfg(feature = "dns-over-rustls")]
-use rustls::{Certificate, PrivateKey};
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpListener;
 use tokio_udp::UdpSocket;
 
-use trust_dns::error::ParseResult;
-#[cfg(feature = "dnssec")]
-use trust_dns::rr::dnssec::{KeyPair, Private, Signer};
 use trust_dns::rr::Name;
-use trust_dns::serialize::txt::{Lexer, Parser};
-
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
-use trust_dns_openssl::tls_server::*;
-use trust_dns_server::authority::{Catalog, ZoneType};
-#[cfg(feature = "dnssec")]
-use trust_dns_server::config::KeyConfig;
-#[cfg(feature = "dns-over-tls")]
-use trust_dns_server::config::TlsCertConfig;
+use trust_dns_server::authority::{Authority, Catalog, ZoneType};
 use trust_dns_server::config::{Config, ZoneConfig};
+#[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
+use trust_dns_server::config::dnssec::{self, TlsCertConfig};
 use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
-use trust_dns_server::store::sqlite::{Journal, SqliteAuthority};
-
-fn parse_zone_file(
-    file: File,
-    origin: Option<Name>,
-    zone_type: ZoneType,
-    allow_update: bool,
-    allow_axfr: bool,
-    is_dnssec_enabled: bool,
-) -> ParseResult<SqliteAuthority> {
-    let mut file = file;
-    let mut buf = String::new();
-
-    // TODO, this should really use something to read line by line or some other method to
-    //  keep the usage down. and be a custom lexer...
-    file.read_to_string(&mut buf)?;
-    let lexer = Lexer::new(&buf);
-    let (origin, records) = Parser::new().parse(lexer, origin)?;
-
-    Ok(SqliteAuthority::new(
-        origin,
-        records
-            .into_iter()
-            .map(|(key, rrset)| (key, Arc::new(rrset)))
-            .collect(),
-        zone_type,
-        allow_update,
-        allow_axfr,
-        is_dnssec_enabled,
-    ))
-}
+use trust_dns_server::store::file::{FileAuthority, FileConfig};
+use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use trust_dns_server::store::StoreConfig;
 
 #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
-fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<SqliteAuthority, String> {
+fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Authority>, String> {
+    use std::path::PathBuf;
+
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
-    let zone_path: PathBuf = zone_dir.to_owned().join(zone_config.get_file());
-    let journal_path: PathBuf = zone_path.with_extension("jrnl");
+    let zone_name_for_signer = zone_name.clone();
+    let zone_path: Option<String> = zone_config.file.clone();
+    let zone_type: ZoneType = zone_config.get_zone_type();
+    let is_axfr_allowed = zone_config.is_axfr_allowed();
+    let is_dnssec_enabled = zone_config.is_dnssec_enabled();
+
+    if zone_config.is_update_allowed() {
+        warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
+    }
 
     // load the zone
-    let mut authority = if zone_config.is_update_allowed() && journal_path.exists() {
-        info!("recovering zone from journal: {:?}", journal_path);
-        let journal = Journal::from_file(&journal_path)
-            .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
+    let mut authority: Box<dyn Authority> = match zone_config.stores {
+        Some(StoreConfig::Sqlite(ref config)) => {
+            if zone_path.is_some() {
+                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+            }
 
-        let mut authority = SqliteAuthority::new(
-            zone_name.clone(),
-            BTreeMap::new(),
-            zone_config.get_zone_type(),
-            zone_config.is_update_allowed(),
-            zone_config.is_axfr_allowed(),
-            zone_config.is_dnssec_enabled(),
-        );
-        authority
-            .recover_with_journal(&journal)
-            .map_err(|e| format!("error recovering from journal: {}", e))?;
-
-        authority.set_journal(journal);
-        info!("recovered zone: {}", zone_name);
-
-        authority
-    } else if zone_path.exists() {
-        info!("loading zone file: {:?}", zone_path);
-
-        let zone_file = File::open(&zone_path)
-            .map_err(|e| format!("error opening zone file: {:?}: {}", zone_path, e))?;
-
-        let mut authority = parse_zone_file(
-            zone_file,
-            Some(zone_name.clone()),
-            zone_config.get_zone_type(),
-            zone_config.is_update_allowed(),
-            zone_config.is_axfr_allowed(),
-            zone_config.is_dnssec_enabled(),
-        ).map_err(|e| format!("error reading zone: {:?}: {}", zone_path, e))?;
-
-        // if dynamic update is enabled, enable the journal
-        if zone_config.is_update_allowed() {
-            info!("enabling journal: {:?}", journal_path);
-            let journal = Journal::from_file(&journal_path)
-                .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e))?;
-
-            authority.set_journal(journal);
-
-            // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
-            authority
-                .persist_to_journal()
-                .map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e))?;
+            SqliteAuthority::try_from_config(
+                zone_name,
+                zone_type,
+                is_axfr_allowed,
+                is_dnssec_enabled,
+                Some(zone_dir),
+                config,
+            ).map(Box::new)?
         }
+        Some(StoreConfig::File(ref config)) => {
+            if zone_path.is_some() {
+                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+            }
+            FileAuthority::try_from_config(
+                zone_name,
+                zone_type,
+                is_axfr_allowed,
+                Some(zone_dir),
+                config,
+            ).map(Box::new)?
+        }
+        None if zone_config.is_update_allowed() => {
+            warn!(
+                "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
+            );
+            let zone_file_path =
+                zone_path.ok_or_else(|| "file is a necessary parameter of zone_config")?;
+            let journal_file_path = PathBuf::from(zone_file_path.clone())
+                .with_extension("jrnl")
+                .to_str()
+                .map(String::from)
+                .ok_or_else(|| "non-unicode characters in file name")?;
 
-        info!("zone file loaded: {}", zone_name);
-        authority
-    } else {
-        return Err(format!("no zone file defined at: {:?}", zone_path));
+            let config = SqliteConfig {
+                zone_file_path,
+                journal_file_path,
+                allow_update: zone_config.is_update_allowed(),
+            };
+
+            SqliteAuthority::try_from_config(
+                zone_name,
+                zone_type,
+                is_axfr_allowed,
+                is_dnssec_enabled,
+                Some(zone_dir),
+                &config,
+            ).map(Box::new)?
+        }
+        None => {
+            let config = FileConfig {
+                zone_file_path: zone_path
+                    .ok_or_else(|| "file is a necessary parameter of zone_config")?,
+            };
+            FileAuthority::try_from_config(
+                zone_name,
+                zone_type,
+                is_axfr_allowed,
+                Some(zone_dir),
+                &config,
+            ).map(Box::new)?
+        }
     };
 
     #[cfg(feature = "dnssec")]
     fn load_keys(
-        authority: &mut SqliteAuthority,
+        authority: &mut dyn Authority,
         zone_name: Name,
         zone_config: &ZoneConfig,
     ) -> Result<(), String> {
         if zone_config.is_dnssec_enabled() {
             for key_config in zone_config.get_keys() {
-                let signer = load_key(zone_name.clone(), key_config).map_err(|e| {
+                let signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
                     format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
                 })?;
                 info!(
@@ -203,7 +178,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<SqliteAuthorit
 
     #[cfg(not(feature = "dnssec"))]
     fn load_keys(
-        _authority: &mut SqliteAuthority,
+        _authority: &mut dyn Authority,
         _zone_name: Name,
         _zone_config: &ZoneConfig,
     ) -> Result<(), String> {
@@ -211,175 +186,13 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<SqliteAuthorit
     }
 
     // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-    load_keys(&mut authority, zone_name, zone_config)?;
+    load_keys(authority.as_mut(), zone_name_for_signer, zone_config)?;
 
     info!(
         "zone successfully loaded: {}",
         zone_config.get_zone().unwrap()
     );
     Ok(authority)
-}
-
-/// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
-/// these will be lookedup by $file.{key_name}.pem, for backward compatability
-/// with previous versions of TRust-DNS, if enable_dnssec is enabled but
-/// supported_algorithms is not specified, it will default to "RSASHA256" and
-/// look for the $file.pem for the key. To control key length, or other options
-/// keys of the specified formats can be generated in PEM format. Instructions
-/// for custom keys can be found elsewhere.
-///
-/// the currently supported set of supported_algorithms are
-/// ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
-///
-/// keys are listed in pairs of key_name and algorithm, the search path is the
-/// same directory has the zone $file:
-///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
-#[cfg(feature = "dnssec")]
-fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
-    let key_path = key_config.key_path();
-    let algorithm = key_config
-        .algorithm()
-        .map_err(|e| format!("bad algorithm: {}", e))?;
-    let format = key_config
-        .format()
-        .map_err(|e| format!("bad key format: {}", e))?;
-
-    // read the key in
-    let key: KeyPair<Private> = {
-        info!("reading key: {:?}", key_path);
-
-        let mut file = File::open(&key_path)
-            .map_err(|e| format!("error opening private key file: {:?}: {}", key_path, e))?;
-
-        let mut key_bytes = Vec::with_capacity(256);
-        file.read_to_end(&mut key_bytes)
-            .map_err(|e| format!("could not read key from: {:?}: {}", key_path, e))?;
-
-        format
-            .decode_key(&key_bytes, key_config.password(), algorithm)
-            .map_err(|e| format!("could not decode key: {}", e))?
-    };
-
-    let name = key_config
-        .signer_name()
-        .map_err(|e| format!("error reading name: {}", e))?
-        .unwrap_or(zone_name);
-
-    // add the key to the zone
-    // TODO: allow the duration of signatutes to be customized
-    let dnskey = key
-        .to_dnskey(algorithm)
-        .map_err(|e| format!("error converting to dnskey: {}", e))?;
-    Ok(Signer::dnssec(
-        dnskey.clone(),
-        key,
-        name,
-        Duration::weeks(52),
-    ))
-}
-
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
-fn load_cert(
-    zone_dir: &Path,
-    tls_cert_config: &TlsCertConfig,
-) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
-    use trust_dns_openssl::tls_server::{read_cert_pem, read_cert_pkcs12, read_key_from_der};
-    use trust_dns_server::config::{CertType, PrivateKeyType};
-
-    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
-    let cert_type = tls_cert_config.get_cert_type();
-    let password = tls_cert_config.get_password();
-    let private_key_path = tls_cert_config
-        .get_private_key()
-        .map(|p| zone_dir.to_owned().join(p));
-    let private_key_type = tls_cert_config.get_private_key_type();
-
-    // if it's pkcs12, we'll be collecting the key and certs from that, otherwise continue processing
-    let (cert, cert_chain) = match cert_type {
-        CertType::Pem => {
-            info!("loading TLS PEM certificate from: {:?}", path);
-            read_cert_pem(&path)?
-        }
-        CertType::Pkcs12 => {
-            if private_key_path.is_some() {
-                warn!(
-                    "ignoring specified key, using the one in the PKCS12 file: {}",
-                    path.display()
-                );
-            }
-            info!("loading TLS PKCS12 certificate from: {:?}", path);
-            return read_cert_pkcs12(&path, password).map_err(Into::into);
-        }
-    };
-
-    // it wasn't plcs12, we need to load the key separately
-    let key = match (private_key_path, private_key_type) {
-        (Some(private_key_path), PrivateKeyType::Pkcs8) => {
-            info!("loading TLS PKCS8 key from: {}", private_key_path.display());
-            read_key_from_pkcs8(&private_key_path, password)?
-        }
-        (Some(private_key_path), PrivateKeyType::Der) => {
-            info!("loading TLS DER key from: {}", private_key_path.display());
-            read_key_from_der(&private_key_path)?
-        }
-        (None, _) => {
-            return Err(format!(
-                "No private key associated with specified certificate"
-            ))
-        }
-    };
-
-    Ok(((cert, cert_chain), key))
-}
-
-#[cfg(feature = "dns-over-rustls")]
-fn load_cert(
-    zone_dir: &Path,
-    tls_cert_config: &TlsCertConfig,
-) -> Result<(Vec<Certificate>, PrivateKey), String> {
-    use trust_dns_rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
-    use trust_dns_server::config::{CertType, PrivateKeyType};
-
-    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
-    let cert_type = tls_cert_config.get_cert_type();
-    let password = tls_cert_config.get_password();
-    let private_key_path = tls_cert_config
-        .get_private_key()
-        .map(|p| zone_dir.to_owned().join(p));
-    let private_key_type = tls_cert_config.get_private_key_type();
-
-    let cert = match cert_type {
-        CertType::Pem => {
-            info!("loading TLS PEM certificate chain from: {}", path.display());
-            read_cert(&path).map_err(|e| format!("error reading cert: {}", e))?
-        }
-        CertType::Pkcs12 => {
-            return Err(
-                "PKCS12 is not supported with Rustls for certificate, use PEM encoding".to_string(),
-            )
-        }
-    };
-
-    let key = match (private_key_path, private_key_type) {
-        (Some(private_key_path), PrivateKeyType::Pkcs8) => {
-            info!("loading TLS PKCS8 key from: {}", private_key_path.display());
-            if password.is_some() {
-                warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
-            }
-
-            read_key_from_pkcs8(&private_key_path)?
-        }
-        (Some(private_key_path), PrivateKeyType::Der) => {
-            info!("loading TLS DER key from: {}", private_key_path.display());
-            read_key_from_der(&private_key_path)?
-        }
-        (None, _) => return Err("No private key associated with specified certificate".to_string()),
-    };
-
-    Ok((cert, key))
 }
 
 // argument name constants for the CLI options
@@ -492,7 +305,7 @@ pub fn main() {
     let config_path = Path::new(&flag_config);
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path)
-        .unwrap_or_else(|_| panic!("could not read config: {:?}", config_path));
+        .unwrap_or_else(|e| panic!("could not read config {}: {:?}", config_path.display(), e));
     let directory_config = config.get_directory().to_path_buf();
     let flag_zonedir = args.flag_zonedir.clone();
     let zone_dir: &Path = flag_zonedir
@@ -508,8 +321,8 @@ pub fn main() {
             .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
         match load_zone(zone_dir, zone) {
-            Ok(authority) => catalog.upsert(zone_name.into(), Box::new(authority)),
-            Err(error) => error!("could not load zone {}: {}", zone_name, error),
+            Ok(authority) => catalog.upsert(zone_name.into(), authority),
+            Err(error) => panic!("could not load zone {}: {}", zone_name, error),
         }
     }
 
@@ -647,7 +460,7 @@ fn config_tls(
         );
 
         let tls_cert =
-            load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+            dnssec::load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
         info!("listening for TLS on {:?}", tls_listener);
         server
@@ -687,7 +500,7 @@ fn config_https(
         );
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
         let tls_cert =
-            load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+            dnssec::load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
         info!("listening for HTTPS on {:?}", https_listener);
         server

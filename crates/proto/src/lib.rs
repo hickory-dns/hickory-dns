@@ -14,6 +14,8 @@
 extern crate byteorder;
 #[cfg(feature = "dnssec")]
 extern crate data_encoding;
+#[macro_use]
+extern crate enum_as_inner;
 #[cfg(test)]
 extern crate env_logger;
 extern crate failure;

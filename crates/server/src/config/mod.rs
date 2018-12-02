@@ -7,6 +7,8 @@
 
 //! Configuration module for the server binary, `named`.
 
+pub mod dnssec;
+
 use std::fs::File;
 use std::io::Read;
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -18,15 +20,11 @@ use log;
 use toml;
 
 use proto::error::ProtoResult;
-#[cfg(feature = "dnssec")]
-use trust_dns::error::*;
-#[cfg(feature = "dnssec")]
-use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
 use trust_dns::rr::Name;
 
 use authority::ZoneType;
 use error::{ConfigError, ConfigResult};
-use store;
+use store::StoreConfig;
 
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -59,7 +57,7 @@ pub struct Config {
     #[serde(default)]
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
-    tls_cert: Option<TlsCertConfig>,
+    tls_cert: Option<dnssec::TlsCertConfig>,
 }
 
 impl Config {
@@ -68,7 +66,7 @@ impl Config {
         let mut file: File = File::open(path)?;
         let mut toml: String = String::new();
         file.read_to_string(&mut toml)?;
-        toml.parse()
+        toml.parse().map_err(Into::into)
     }
 
     /// set of listening ipv4 addresses (for TCP and UDP)
@@ -139,7 +137,7 @@ impl Config {
     }
 
     /// the tls certificate to use for accepting tls connections
-    pub fn get_tls_cert(&self) -> Option<&TlsCertConfig> {
+    pub fn get_tls_cert(&self) -> Option<&dnssec::TlsCertConfig> {
         self.tls_cert.as_ref()
     }
 }
@@ -155,15 +153,24 @@ impl FromStr for Config {
 /// Configuration for a zone
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct ZoneConfig {
-    zone: String, // TODO: make Domain::Name decodable
-    zone_type: ZoneType,
-    file: Option<String>,
-    allow_update: Option<bool>,
-    allow_axfr: Option<bool>,
-    enable_dnssec: Option<bool>,
+    /// name of the zone
+    pub zone: String, // TODO: make Domain::Name decodable
+    /// type of the zone
+    pub zone_type: ZoneType,
+    /// location of the file (short for StoreConfig::FileConfig{zone_file_path})
+    pub file: Option<String>,
+    /// Deprecated allow_update, this is a Store option
+    pub allow_update: Option<bool>,
+    /// Allow AXFR (TODO: need auth)
+    pub allow_axfr: Option<bool>,
+    /// Enable DnsSec TODO: should this move to StoreConfig?
+    pub enable_dnssec: Option<bool>,
+    /// Keys for use by the zone
     #[serde(default)]
-    keys: Vec<KeyConfig>,
-    store: Option<store::Config>,
+    pub keys: Vec<dnssec::KeyConfig>,
+    /// Store configurations, TODO: allow chained Stores
+    #[serde(default)]
+    pub stores: Option<StoreConfig>,
 }
 
 impl ZoneConfig {
@@ -185,7 +192,7 @@ impl ZoneConfig {
         allow_update: Option<bool>,
         allow_axfr: Option<bool>,
         enable_dnssec: Option<bool>,
-        keys: Vec<KeyConfig>,
+        keys: Vec<dnssec::KeyConfig>,
     ) -> Self {
         ZoneConfig {
             zone,
@@ -195,7 +202,7 @@ impl ZoneConfig {
             allow_axfr,
             enable_dnssec,
             keys,
-            store: None,
+            stores: None,
         }
     }
 
@@ -235,195 +242,7 @@ impl ZoneConfig {
     }
 
     /// the configuration for the keys used for auth and/or dnssec zone signing.
-    pub fn get_keys(&self) -> &[KeyConfig] {
+    pub fn get_keys(&self) -> &[dnssec::KeyConfig] {
         &self.keys
-    }
-}
-
-/// Key pair configuration for DNSSec keys for signing a zone
-#[cfg(feature = "dnssec")]
-#[derive(Deserialize, PartialEq, Debug)]
-pub struct KeyConfig {
-    key_path: String,
-    password: Option<String>,
-    algorithm: String,
-    signer_name: Option<String>,
-    is_zone_signing_key: Option<bool>,
-    is_zone_update_auth: Option<bool>,
-}
-
-#[cfg(feature = "dnssec")]
-impl KeyConfig {
-    /// Return a new KeyConfig
-    ///
-    /// # Arguments
-    ///
-    /// * `key_path` - file path to the key
-    /// * `password` - password to use to read the key
-    /// * `algorithm` - the type of key stored, see `Algorithm`
-    /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
-    /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
-    /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
-    pub fn new(
-        key_path: String,
-        password: Option<String>,
-        algorithm: Algorithm,
-        signer_name: String,
-        is_zone_signing_key: bool,
-        is_zone_update_auth: bool,
-    ) -> Self {
-        KeyConfig {
-            key_path,
-            password,
-            algorithm: algorithm.to_str().to_string(),
-            signer_name: Some(signer_name),
-            is_zone_signing_key: Some(is_zone_signing_key),
-            is_zone_update_auth: Some(is_zone_update_auth),
-        }
-    }
-
-    /// path to the key file, either relative to the zone file, or a explicit from the root.
-    pub fn key_path(&self) -> &Path {
-        Path::new(&self.key_path)
-    }
-
-    /// Converts key into
-    pub fn format(&self) -> ParseResult<KeyFormat> {
-        let extension = self.key_path().extension().ok_or_else(|| {
-            ParseErrorKind::Msg(format!(
-                "file lacks extension, e.g. '.pk8': {:?}",
-                self.key_path()
-            ))
-        })?;
-
-        match extension.to_str() {
-            Some("der") => Ok(KeyFormat::Der),
-            Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
-            Some("pem") => Ok(KeyFormat::Pem),
-            Some("pk8") => Ok(KeyFormat::Pkcs8),
-            e => Err(ParseErrorKind::Msg(format!(
-                "extension not understood, '{:?}': {:?}",
-                e,
-                self.key_path()
-            )).into()),
-        }
-    }
-
-    /// Returns the password used to read the key
-    pub fn password(&self) -> Option<&str> {
-        self.password.as_ref().map(|s| s.as_str())
-    }
-
-    /// algorithm for for the key, see `Algorithm` for supported algorithms.
-    pub fn algorithm(&self) -> ParseResult<Algorithm> {
-        match self.algorithm.as_str() {
-            "RSASHA1" => Ok(Algorithm::RSASHA1),
-            "RSASHA256" => Ok(Algorithm::RSASHA256),
-            "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
-            "RSASHA512" => Ok(Algorithm::RSASHA512),
-            "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
-            "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
-            "ED25519" => Ok(Algorithm::ED25519),
-            s => Err(format!("unrecognized string {}", s).into()),
-        }
-    }
-
-    /// the signer name for the key, this defaults to the $ORIGIN aka zone name.
-    pub fn signer_name(&self) -> ParseResult<Option<Name>> {
-        if let Some(signer_name) = self.signer_name.as_ref() {
-            let name = Name::parse(signer_name, None)?;
-            return Ok(Some(name));
-        }
-
-        Ok(None)
-    }
-
-    /// specifies that this key should be used to sign the zone
-    ///
-    /// The public key for this must be trusted by a resolver to work. The key must have a private
-    /// portion associated with it. It will be registered as a DNSKEY in the zone.
-    pub fn is_zone_signing_key(&self) -> bool {
-        self.is_zone_signing_key.unwrap_or(false)
-    }
-
-    /// this is at least a public_key, and can be used for SIG0 dynamic updates.
-    ///
-    /// it will be registered as a KEY record in the zone.
-    pub fn is_zone_update_auth(&self) -> bool {
-        self.is_zone_update_auth.unwrap_or(false)
-    }
-}
-
-#[cfg(not(feature = "dnssec"))]
-#[allow(missing_docs)]
-#[derive(Deserialize, PartialEq, Debug)]
-pub struct KeyConfig {}
-
-/// Certificate format of the file being read
-#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-pub enum CertType {
-    /// Pkcs12 formatted certifcates and private key (requries OpenSSL)
-    Pkcs12,
-    /// PEM formatted Certificate chain
-    Pem,
-}
-
-impl Default for CertType {
-    fn default() -> Self {
-        CertType::Pkcs12
-    }
-}
-
-/// Format of the private key file to read
-#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
-#[serde(rename_all = "snake_case")]
-pub enum PrivateKeyType {
-    /// PKCS8 formatted key file, allows for a password (requires Rustls)
-    Pkcs8,
-    /// DER formatted key, raw and unencrypted
-    Der,
-}
-
-impl Default for PrivateKeyType {
-    fn default() -> Self {
-        PrivateKeyType::Der
-    }
-}
-
-/// Configuration for a TLS certificate
-#[derive(Deserialize, PartialEq, Debug)]
-pub struct TlsCertConfig {
-    path: String,
-    cert_type: Option<CertType>,
-    password: Option<String>,
-    private_key: Option<String>,
-    private_key_type: Option<PrivateKeyType>,
-}
-
-impl TlsCertConfig {
-    /// path to the pkcs12 der formated certificate file
-    pub fn get_path(&self) -> &Path {
-        Path::new(&self.path)
-    }
-
-    /// Returns the format type of the certificate file
-    pub fn get_cert_type(&self) -> CertType {
-        self.cert_type.unwrap_or_default()
-    }
-
-    /// optional password for open the pkcs12, none assumes no password
-    pub fn get_password(&self) -> Option<&str> {
-        self.password.as_ref().map(|s| s.as_str())
-    }
-
-    /// returns the path to the private key, as associated with the certificate
-    pub fn get_private_key(&self) -> Option<&Path> {
-        self.private_key.as_ref().map(|s| s.as_str()).map(Path::new)
-    }
-
-    /// returns the path to the private key
-    pub fn get_private_key_type(&self) -> PrivateKeyType {
-        self.private_key_type.unwrap_or_default()
     }
 }

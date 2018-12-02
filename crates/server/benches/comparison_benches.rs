@@ -15,6 +15,7 @@ use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
@@ -22,11 +23,12 @@ use futures::Future;
 use test::Bencher;
 use tokio::runtime::current_thread::Runtime;
 
-use proto::error::*;
-use proto::xfer::*;
+use trust_dns_proto::error::*;
+use trust_dns_proto::xfer::*;
 use trust_dns::client::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
+use trust_dns::rr::dnssec::Signer;
 use trust_dns::tcp::*;
 use trust_dns::udp::*;
 
@@ -57,8 +59,8 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .unwrap()
             .next()
             .unwrap();
-        let (stream, sender) = UdpClientStream::new(addr);
-        let (bg, mut client) = ClientFuture::new(stream, sender, None);
+        let stream = UdpClientStream::new(addr);
+        let (bg, mut client) = ClientFuture::connect(stream);
         io_loop.spawn(bg);
 
         let name = domain::Name::from_str("www.example.com.").unwrap();
@@ -109,13 +111,14 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 }
 
 /// Runs the bench tesk using the specified client
-fn bench<F, S>(b: &mut Bencher, stream: F, stream_handle: Box<DnsStreamHandle>)
+fn bench<F, S, R>(b: &mut Bencher, stream: F)
 where
-    F: Future<Item = S, Error = ProtoError> + Send + 'static,
-    S: DnsClientStream + Send + 'static,
+    F: Future<Item = S, Error = ProtoError> + 'static + Send,
+    S: DnsRequestSender<DnsResponseFuture = R>,
+    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
 {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client) = ClientFuture::new(stream, stream_handle, None);
+    let (bg, mut client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
 
     let name = domain::Name::from_str("www.example.com.").unwrap();
@@ -153,9 +156,8 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr);
-
-    bench(b, stream, sender);
+    let stream = UdpClientStream::new(addr);
+    bench(b, stream);
 
     // cleaning up the named process
     drop(named);
@@ -171,8 +173,8 @@ fn trust_dns_udp_bench_prof(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr);
-    bench(b, stream, sender);
+    let stream = UdpClientStream::new(addr);
+    bench(b, stream);
 }
 
 #[bench]
@@ -185,7 +187,8 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    bench(b, Box::new(stream), sender);
+    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
+    bench(b, mp);
 
     // cleaning up the named process
     drop(named);
@@ -236,9 +239,8 @@ fn bind_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr);
-
-    bench(b, stream, sender);
+    let stream = UdpClientStream::new(addr);
+    bench(b, stream);
 
     // cleaning up the named process
     drop(named);
@@ -255,8 +257,8 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-
-    bench(b, Box::new(stream), sender);
+    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
+    bench(b, mp);
 
     // cleaning up the named process
     drop(named);

@@ -119,7 +119,7 @@ impl From<DNSSECRecordType> for u16 {
 }
 
 /// Record data enum variants for DNSSEC-specific records.
-#[derive(Debug, PartialEq, Clone, Eq)]
+#[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
 pub enum DNSSECRData {
     /// ```text
     /// RFC 4034                DNSSEC Resource Records               March 2005

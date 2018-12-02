@@ -50,7 +50,7 @@ use super::dnssec::rdata::DNSSECRData;
 /// is treated as binary information, and can be up to 256 characters in
 /// length (including the length octet).
 /// ```
-#[derive(Debug, PartialEq, Clone, Eq)]
+#[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
 pub enum RData {
     /// ```text
     /// -- RFC 1035 -- Domain Implementation and Specification    November 1987

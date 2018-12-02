@@ -53,6 +53,13 @@ impl AuthLookup {
         }
     }
 
+    /// This is an NxDomain or NameExists, and has no associated records
+    ///
+    /// this consumes the iterator, and verifies it is empty
+    pub fn was_empty(&self) -> bool {
+        self.iter().count() == 0
+    }
+
     /// This is a non-existant domain name
     pub fn is_nx_domain(&self) -> bool {
         match *self {

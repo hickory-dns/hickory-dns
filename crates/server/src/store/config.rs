@@ -8,10 +8,15 @@
 //! Configuration for the stores
 
 use store::file::FileConfig;
+use store::sqlite::SqliteConfig;
 
 /// Enumeration over all Store configurations
 #[derive(Deserialize, PartialEq, Debug)]
-pub enum Config {
+#[serde(tag = "type")]
+#[serde(rename_all = "lowercase")]
+pub enum StoreConfig {
     /// File based configuration
     File(FileConfig),
+    /// Sqlite based configuration file
+    Sqlite(SqliteConfig),
 }

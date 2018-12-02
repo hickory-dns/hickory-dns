@@ -54,6 +54,7 @@ path = "src/lib.rs"
 [dependencies]
 byteorder = "^1.2"
 data-encoding = { version = "2.1.0", optional = true }
+enum-as-inner = "0.2"
 failure = "0.1"
 futures = "^0.1.17"
 idna = "^0.1.4"

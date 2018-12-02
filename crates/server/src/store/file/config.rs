@@ -9,5 +9,5 @@
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct FileConfig {
     /// path to the master file
-    pub path: String,
+    pub zone_file_path: String,
 }

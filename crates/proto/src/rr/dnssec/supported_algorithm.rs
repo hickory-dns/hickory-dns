@@ -158,6 +158,12 @@ impl<'a> From<&'a SupportedAlgorithms> for Vec<u8> {
     }
 }
 
+impl From<Algorithm> for SupportedAlgorithms {
+    fn from(algorithm: Algorithm) -> Self {
+        SupportedAlgorithms::from_vec(&[algorithm])
+    }
+}
+
 pub struct SupportedAlgorithmsIter<'a> {
     algorithms: &'a SupportedAlgorithms,
     current: usize,

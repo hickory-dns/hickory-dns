@@ -83,11 +83,11 @@ where
             let succeeded = succeeded_clone;
 
             let kill_named = || {
-                println!("killing named");
+                info!("killing named");
 
                 let mut named = named_killer.lock().unwrap();
                 if let Err(e) = named.kill() {
-                    println!("warning: failed to kill named: {:?}", e);
+                    warn!("warning: failed to kill named: {:?}", e);
                 }
             };
 
@@ -126,8 +126,7 @@ where
             .read_line(&mut output)
             .expect("could not read stdout");
         if !output.is_empty() {
-            stdout().write_all(b"SRV: ").unwrap();
-            stdout().write_all(output.as_bytes()).unwrap();
+            info!("SRV: {}", output.trim_end());
         }
         if output.contains("awaiting connections...") {
             found = true;
@@ -150,8 +149,7 @@ where
                     .read_line(&mut output)
                     .expect("could not read stdout");
                 if !output.is_empty() {
-                    stdout().write_all(b"SRV: ").unwrap();
-                    stdout().write_all(output.as_bytes()).unwrap();
+                    info!("SRV: {}", output.trim_end());
                 }
             }
         }).expect("no thread available");
@@ -175,7 +173,7 @@ pub fn query_message<C: ClientHandle>(
 ) -> DnsResponse {
     println!("sending request: {} for: {}", name, record_type);
     let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, record_type));
-    println!("got response: {:#?}", response);
+    //println!("got response: {}");
     response.expect("request failed")
 }
 

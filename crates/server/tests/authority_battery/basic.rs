@@ -74,8 +74,8 @@ macro_rules! define_basic_test {
         $(
             #[test]
             fn $f () {
-                let authority = $new("tests/named_test_configs/example.com.zone", stringify!($f));
-                authority_battery::basic::$f(authority);
+                let authority = ::$new("tests/named_test_configs/example.com.zone", module_path!(), stringify!($f));
+                ::authority_battery::basic::$f(authority);
             }
         )*
     }
@@ -83,11 +83,16 @@ macro_rules! define_basic_test {
 
 macro_rules! basic_battery {
     ($new:ident) => {
-        define_basic_test!($new;
-            test_a_lookup,
-            test_soa,
-            test_ns,
-            test_update_errors,
-        );
+        #[cfg(test)]
+        mod basic {
+            mod $new {
+                define_basic_test!($new;
+                    test_a_lookup,
+                    test_soa,
+                    test_ns,
+                    test_update_errors,
+                );
+            }
+        }
     };
 }

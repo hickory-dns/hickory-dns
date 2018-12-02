@@ -77,27 +77,6 @@ impl RecordSet {
         }
     }
 
-    /// Creates a new Resource Record Set from a Record
-    ///
-    /// # Arguments
-    ///
-    /// * `record` - initializes a record set with a single record
-    ///
-    /// # Return value
-    ///
-    /// The newly created Resource Record Set
-    pub fn from(record: Record) -> Self {
-        RecordSet {
-            name: record.name().clone(),
-            record_type: record.rr_type(),
-            dns_class: record.dns_class(),
-            ttl: record.ttl(),
-            records: vec![record],
-            rrsigs: vec![],
-            serial: 0,
-        }
-    }
-
     /// # Return value
     ///
     /// Label of the Resource Record Set
@@ -387,10 +366,12 @@ impl RecordSet {
 
         match record.rr_type() {
             // never delete the last NS record
-            RecordType::NS => if self.records.len() <= 1 {
-                info!("ignoring delete of last NS record: {:?}", record);
-                return false;
-            },
+            RecordType::NS => {
+                if self.records.len() <= 1 {
+                    info!("ignoring delete of last NS record: {:?}", record);
+                    return false;
+                }
+            }
             // never delete SOA
             RecordType::SOA => {
                 info!("ignored delete of SOA");
@@ -419,7 +400,22 @@ impl RecordSet {
     }
 }
 
+impl From<Record> for RecordSet {
+    fn from(record: Record) -> Self {
+        RecordSet {
+            name: record.name().clone(),
+            record_type: record.rr_type(),
+            dns_class: record.dns_class(),
+            ttl: record.ttl(),
+            records: vec![record],
+            rrsigs: vec![],
+            serial: 0,
+        }
+    }
+}
+
 /// Types which implement this can be converted into a RecordSet
+#[deprecated(note = "use From/Into")]
 pub trait IntoRecordSet: Sized {
     /// Performs the conversion to a RecordSet
     fn into_record_set(self) -> RecordSet;
@@ -484,7 +480,8 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
                     } else {
                         false
                     }
-                }).max_by_key(|record| {
+                })
+                .max_by_key(|record| {
                     if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
                         rrsig.algorithm()
                     } else {
@@ -594,7 +591,8 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            ))).clone();
+            )))
+            .clone();
         let same_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
@@ -608,7 +606,8 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            ))).clone();
+            )))
+            .clone();
         let new_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
@@ -622,34 +621,29 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            ))).clone();
+            )))
+            .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(
-            !rr_set
-                .records_without_rrsigs()
-                .any(|ref x| x == &&same_serial)
-        );
+        assert!(!rr_set
+            .records_without_rrsigs()
+            .any(|ref x| x == &&same_serial));
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(!rr_set.insert(insert.clone(), 0));
 
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .any(|ref x| x == &&new_serial)
-        );
+        assert!(rr_set
+            .records_without_rrsigs()
+            .any(|ref x| x == &&new_serial));
         assert!(!rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(
-            !rr_set
-                .records_without_rrsigs()
-                .any(|ref x| x == &&same_serial)
-        );
+        assert!(!rr_set
+            .records_without_rrsigs()
+            .any(|ref x| x == &&same_serial));
     }
 
     #[test]
@@ -682,11 +676,9 @@ mod test {
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
         assert!(!rr_set.records_without_rrsigs().any(|ref x| x == &&insert));
-        assert!(
-            rr_set
-                .records_without_rrsigs()
-                .any(|ref x| x == &&new_record)
-        );
+        assert!(rr_set
+            .records_without_rrsigs()
+            .any(|ref x| x == &&new_record));
     }
 
     #[test]
@@ -738,7 +730,8 @@ mod test {
                 3600,
                 1209600,
                 3600,
-            ))).clone();
+            )))
+            .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
@@ -876,17 +869,15 @@ mod test {
         rrset.insert_rrsig(rrsig_ecp384);
         rrset.insert_rrsig(rrsig_ed25519);
 
-        assert!(
-            rrset
-                .records_with_rrsigs(SupportedAlgorithms::all(),)
-                .any(
-                    |r| if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
-                        sig.algorithm() == Algorithm::ED25519
-                    } else {
-                        false
-                    },
-                )
-        );
+        assert!(rrset
+            .records_with_rrsigs(SupportedAlgorithms::all(),)
+            .any(
+                |r| if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
+                    sig.algorithm() == Algorithm::ED25519
+                } else {
+                    false
+                },
+            ));
 
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);

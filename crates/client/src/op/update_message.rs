@@ -5,10 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Update related operations for Messages
+
 use std::fmt::Debug;
 
-use rr::Record;
-use super::{Message, Query};
+use op::{Message, Query, MessageType, OpCode};
+use rr::{Record, RecordSet, DNSClass, Name, RecordType, RData};
+use rr::rdata::NULL;
+use client::client_future::MAX_PAYLOAD_LEN;
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
@@ -120,4 +124,429 @@ impl UpdateMessage for Message {
     fn sig0(&self) -> &[Record] {
         self.sig0()
     }
+}
+
+/// Sends a record to create on the server, this will fail if the record exists (atomicity
+///  depends on the server)
+///
+/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+///
+/// ```text
+///  2.4.3 - RRset Does Not Exist
+///
+///   No RRs with a specified NAME and TYPE (in the zone and class denoted
+///   by the Zone Section) can exist.
+///
+///   For this prerequisite, a requestor adds to the section a single RR
+///   whose NAME and TYPE are equal to that of the RRset whose nonexistence
+///   is required.  The RDLENGTH of this record is zero (0), and RDATA
+///   field is therefore empty.  CLASS must be specified as NONE in order
+///   to distinguish this condition from a valid RR whose RDLENGTH is
+///   naturally zero (0) (for example, the NULL RR).  TTL must be specified
+///   as zero (0).
+///
+/// 2.5.1 - Add To An RRset
+///
+///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+///    and RDATA are those being added, and CLASS is the same as the zone
+///    class.  Any duplicate RRs will be silently ignored by the primary
+///    master.
+/// ```
+///
+/// # Arguments
+///
+/// * `rrset` - the record(s) to create
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+///
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection)
+pub fn create(rrset: RecordSet, zone_origin: Name) -> Message {
+    // TODO: assert non-empty rrset?
+    assert!(zone_origin.zone_of(rrset.name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin)
+        .set_query_class(rrset.dns_class())
+        .set_query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
+    prerequisite.set_dns_class(DNSClass::NONE);
+    message.add_pre_requisite(prerequisite);
+    message.add_updates(rrset);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+/// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
+///  depends on the server)
+///
+/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+///
+/// ```text
+/// 2.4.1 - RRset Exists (Value Independent)
+///
+///   At least one RR with a specified NAME and TYPE (in the zone and class
+///   specified in the Zone Section) must exist.
+///
+///   For this prerequisite, a requestor adds to the section a single RR
+///   whose NAME and TYPE are equal to that of the zone RRset whose
+///   existence is required.  RDLENGTH is zero and RDATA is therefore
+///   empty.  CLASS must be specified as ANY to differentiate this
+///   condition from that of an actual RR whose RDLENGTH is naturally zero
+///   (0) (e.g., NULL).  TTL is specified as zero (0).
+///
+/// 2.5.1 - Add To An RRset
+///
+///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+///    and RDATA are those being added, and CLASS is the same as the zone
+///    class.  Any duplicate RRs will be silently ignored by the primary
+///    master.
+/// ```
+///
+/// # Arguments
+///
+/// * `rrset` - the record(s) to append to an RRSet
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `must_exist` - if true, the request will fail if the record does not exist
+///
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
+/// the rrset does not exist and must_exist is false, then the RRSet will be created.
+pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool) -> Message {
+    assert!(zone_origin.zone_of(rrset.name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin)
+        .set_query_class(rrset.dns_class())
+        .set_query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    if must_exist {
+        let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
+        prerequisite.set_dns_class(DNSClass::ANY);
+        message.add_pre_requisite(prerequisite);
+    }
+
+    message.add_updates(rrset);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+/// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
+///
+/// ```text
+///  2.4.2 - RRset Exists (Value Dependent)
+///
+///   A set of RRs with a specified NAME and TYPE exists and has the same
+///   members with the same RDATAs as the RRset specified here in this
+///   section.  While RRset ordering is undefined and therefore not
+///   significant to this comparison, the sets be identical in their
+///   extent.
+///
+///   For this prerequisite, a requestor adds to the section an entire
+///   RRset whose preexistence is required.  NAME and TYPE are that of the
+///   RRset being denoted.  CLASS is that of the zone.  TTL must be
+///   specified as zero (0) and is ignored when comparing RRsets for
+///   identity.
+///
+///  2.5.4 - Delete An RR From An RRset
+///
+///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
+///   RDLENGTH and RDATA must match the RR being deleted.  TTL must be
+///   specified as zero (0) and will otherwise be ignored by the primary
+///   master.  CLASS must be specified as NONE to distinguish this from an
+///   RR addition.  If no such RRs exist, then this Update RR will be
+///   silently ignored by the primary master.
+///
+///  2.5.1 - Add To An RRset
+///
+///   RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+///   and RDATA are those being added, and CLASS is the same as the zone
+///   class.  Any duplicate RRs will be silently ignored by the primary
+///   master.
+/// ```
+///
+/// # Arguments
+///
+/// * `current` - the current rrset which must exist for the swap to complete
+/// * `new` - the new rrset with which to replace the current rrset
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+///
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection).
+pub fn compare_and_swap(current: RecordSet, new: RecordSet, zone_origin: Name) -> Message {
+    assert!(zone_origin.zone_of(current.name()));
+    assert!(zone_origin.zone_of(new.name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin)
+        .set_query_class(new.dns_class())
+        .set_query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    // make sure the record is what is expected
+    let mut prerequisite = current.clone();
+    prerequisite.set_ttl(0);
+    message.add_pre_requisites(prerequisite);
+
+    // add the delete for the old record
+    let mut delete = current;
+    // the class must be none for delete
+    delete.set_dns_class(DNSClass::NONE);
+    // the TTL should be 0
+    delete.set_ttl(0);
+    message.add_updates(delete);
+
+    // insert the new record...
+    message.add_updates(new);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+/// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
+///
+/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+///
+/// ```text
+/// 2.4.1 - RRset Exists (Value Independent)
+///
+///   At least one RR with a specified NAME and TYPE (in the zone and class
+///   specified in the Zone Section) must exist.
+///
+///   For this prerequisite, a requestor adds to the section a single RR
+///   whose NAME and TYPE are equal to that of the zone RRset whose
+///   existence is required.  RDLENGTH is zero and RDATA is therefore
+///   empty.  CLASS must be specified as ANY to differentiate this
+///   condition from that of an actual RR whose RDLENGTH is naturally zero
+///   (0) (e.g., NULL).  TTL is specified as zero (0).
+///
+/// 2.5.4 - Delete An RR From An RRset
+///
+///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
+///   RDLENGTH and RDATA must match the RR being deleted.  TTL must be
+///   specified as zero (0) and will otherwise be ignored by the primary
+///   master.  CLASS must be specified as NONE to distinguish this from an
+///   RR addition.  If no such RRs exist, then this Update RR will be
+///   silently ignored by the primary master.
+/// ```
+///
+/// # Arguments
+///
+/// * `rrset` - the record(s) to delete from a RRSet, the name, type and rdata must match the
+///              record to delete
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `signer` - the signer, with private key, to use to sign the request
+///
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
+/// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name) -> Message {
+    assert!(zone_origin.zone_of(rrset.name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin)
+        .set_query_class(rrset.dns_class())
+        .set_query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    // the class must be none for delete
+    rrset.set_dns_class(DNSClass::NONE);
+    // the TTL shoudl be 0
+    rrset.set_ttl(0);
+    message.add_updates(rrset);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+/// Deletes an entire rrset, optionally require the rrset to exist.
+///
+/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+///
+/// ```text
+/// 2.4.1 - RRset Exists (Value Independent)
+///
+///   At least one RR with a specified NAME and TYPE (in the zone and class
+///   specified in the Zone Section) must exist.
+///
+///   For this prerequisite, a requestor adds to the section a single RR
+///   whose NAME and TYPE are equal to that of the zone RRset whose
+///   existence is required.  RDLENGTH is zero and RDATA is therefore
+///   empty.  CLASS must be specified as ANY to differentiate this
+///   condition from that of an actual RR whose RDLENGTH is naturally zero
+///   (0) (e.g., NULL).  TTL is specified as zero (0).
+///
+/// 2.5.2 - Delete An RRset
+///
+///   One RR is added to the Update Section whose NAME and TYPE are those
+///   of the RRset to be deleted.  TTL must be specified as zero (0) and is
+///   otherwise not used by the primary master.  CLASS must be specified as
+///   ANY.  RDLENGTH must be zero (0) and RDATA must therefore be empty.
+///   If no such RRset exists, then this Update RR will be silently ignored
+///   by the primary master.
+/// ```
+///
+/// # Arguments
+///
+/// * `record` - The name, class and record_type will be used to match and delete the RecordSet
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+///
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
+/// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
+    assert!(zone_origin.zone_of(record.name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin)
+        .set_query_class(record.dns_class())
+        .set_query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    // the class must be none for an rrset delete
+    record.set_dns_class(DNSClass::ANY);
+    // the TTL shoudl be 0
+    record.set_ttl(0);
+    // the rdata must be null to delete all rrsets
+    record.set_rdata(RData::NULL(NULL::new()));
+    message.add_update(record);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+/// Deletes all records at the specified name
+///
+/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+///
+/// ```text
+/// 2.5.3 - Delete All RRsets From A Name
+///
+///   One RR is added to the Update Section whose NAME is that of the name
+///   to be cleansed of RRsets.  TYPE must be specified as ANY.  TTL must
+///   be specified as zero (0) and is otherwise not used by the primary
+///   master.  CLASS must be specified as ANY.  RDLENGTH must be zero (0)
+///   and RDATA must therefore be empty.  If no such RRsets exist, then
+///   this Update RR will be silently ignored by the primary master.
+/// ```
+///
+/// # Arguments
+///
+/// * `name_of_records` - the name of all the record sets to delete
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `dns_class` - the class of the SOA
+///
+/// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
+/// operation attempts to delete all resource record sets the the specified name reguardless of
+/// the record type.
+pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass) -> Message {
+    assert!(zone_origin.zone_of(&name_of_records));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin)
+        .set_query_class(dns_class)
+        .set_query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Update)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    // the TTL shoudl be 0
+    // the rdata must be null to delete all rrsets
+    // the record type must be any
+    let mut record = Record::with(name_of_records, RecordType::ANY, 0);
+
+    // the class must be none for an rrset delete
+    record.set_dns_class(DNSClass::ANY);
+
+    message.add_update(record);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
 }
