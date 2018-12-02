@@ -5,6 +5,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.11
 
+### Fixed 
+
+- Ignore UDP responses not from target src address #629 #630 #631 (@aep)
+
 ### Added
 
 - New option to execute queries concurrently, default is 2 #615

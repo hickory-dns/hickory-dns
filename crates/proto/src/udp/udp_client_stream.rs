@@ -8,7 +8,7 @@
 use std::fmt::{self, Display};
 use std::net::SocketAddr;
 
-use futures::{Async, Future, Poll, Stream, task};
+use futures::{Async, Future, Poll, Stream};
 
 use error::ProtoError;
 use udp::UdpStream;
@@ -67,21 +67,21 @@ impl Stream for UdpClientStream {
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match try_ready!(self.udp_stream.poll().map_err(ProtoError::from)) {
-            Some(message) => {
-                if message.addr() != self.name_server {
-                    warn!(
-                        "ignoring response from {} because it does not match name_server: {}.",
-                        message.addr(),
-                        self.name_server
-                    );
-                    task::current().notify();
-                    return Ok(Async::NotReady);
+        loop {
+            match try_ready!(self.udp_stream.poll().map_err(ProtoError::from)) {
+                Some(message) => {
+                    if message.addr() == self.name_server {
+                        return Ok(Async::Ready(Some(message)));
+                    } else {
+                        warn!(
+                            "ignoring response from {} because it does not match name_server: {}.",
+                            message.addr(),
+                            self.name_server
+                        );
+                    }
                 }
-
-                Ok(Async::Ready(Some(message)))
+                None => return Ok(Async::Ready(None)),
             }
-            None => Ok(Async::Ready(None)),
         }
     }
 }
