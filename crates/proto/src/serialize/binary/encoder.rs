@@ -282,7 +282,8 @@ impl<'a> BinEncoder<'a> {
             return Err(ProtoErrorKind::CharacterDataTooLong {
                 max: 255,
                 len: char_bytes.len(),
-            }.into());
+            }
+            .into());
         }
 
         // first the length is written
@@ -368,7 +369,7 @@ impl<'a> BinEncoder<'a> {
         I: Iterator<Item = &'r &'e E>,
         E: 'r + 'e + BinEncodable,
     {
-        let mut iter = iter.map(|i| *i);
+        let mut iter = iter.cloned();
         self.emit_iter(&mut iter)
     }
 

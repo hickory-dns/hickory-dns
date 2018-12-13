@@ -81,7 +81,7 @@ where
             &mut EmptyOrQueries::from(self.queries),
             &mut self.answers,
             &mut self.name_servers,
-            &mut self.additionals.iter().map(|r| *r),
+            &mut self.additionals.iter().cloned(),
             self.edns.as_ref(),
             &self.sig0,
             encoder,

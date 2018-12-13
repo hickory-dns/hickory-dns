@@ -30,7 +30,6 @@
 extern crate bytes;
 extern crate chrono;
 extern crate env_logger;
-#[macro_use]
 extern crate failure;
 extern crate futures;
 #[macro_use]

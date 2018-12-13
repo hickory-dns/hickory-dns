@@ -907,7 +907,6 @@ where
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // TODO: this resolves an odd unsized issue with the loop_fn future
-        use std::mem;
         let future;
 
         match *self {
@@ -940,7 +939,7 @@ where
                         // get a stable view for trying all connections
                         //   we split into chunks of the numeber of parallel requests to issue
                         let mut conns: Vec<NameServer<C, P>> = conns.clone();
-                        let request = mem::replace(request, None);
+                        let request = request.take();
                         let request = request.expect("bad state, mesage should never be None");
                         let request_loop = request.clone();
 
