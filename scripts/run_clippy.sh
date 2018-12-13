@@ -28,6 +28,7 @@ CLIPPY_OPTS="-D warnings\
     -A clippy::type_complexity\
     -A clippy::unreadable_literal\
     -A clippy::useless_attribute\
+    -A clippy::unused_unit\
 "
 
 cargo clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}

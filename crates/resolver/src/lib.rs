@@ -169,7 +169,6 @@
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
 extern crate cfg_if;
-#[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate futures;
