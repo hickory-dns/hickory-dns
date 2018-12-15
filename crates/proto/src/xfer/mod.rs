@@ -308,11 +308,9 @@ where
             let future;
             match self {
                 OneshotDnsResponseReceiver::Receiver(ref mut receiver) => {
-                    future = try_ready!(
-                        receiver
-                            .poll()
-                            .map_err(|_| ProtoError::from("receiver was canceled"))
-                    );
+                    future = try_ready!(receiver
+                        .poll()
+                        .map_err(|_| ProtoError::from("receiver was canceled")));
                 }
                 OneshotDnsResponseReceiver::Received(ref mut future) => return future.poll(),
                 OneshotDnsResponseReceiver::Err(err) => {

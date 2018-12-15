@@ -16,7 +16,6 @@ extern crate byteorder;
 extern crate data_encoding;
 #[cfg(test)]
 extern crate env_logger;
-#[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate futures;
