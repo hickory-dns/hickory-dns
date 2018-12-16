@@ -178,7 +178,10 @@ impl Future for NextRandomUdpSocket {
 
             // TODO: allow TTL to be adjusted...
             match tokio_udp::UdpSocket::bind(&zero_addr) {
-                Ok(socket) => return Ok(Async::Ready(socket)),
+                Ok(socket) => {
+                    debug!("created socket: {:?}", socket);
+                    return Ok(Async::Ready(socket));
+                }
                 Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
             }
         }
@@ -236,7 +239,8 @@ fn udp_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
@@ -268,7 +272,8 @@ fn udp_stream_test(server_addr: IpAddr) {
                     len
                 );
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

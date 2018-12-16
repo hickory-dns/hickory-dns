@@ -279,7 +279,7 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
             } => {
-                let (stream, handle) = UdpClientStream::with_timeout(socket_addr, timeout);
+                let stream = UdpClientStream::with_timeout(socket_addr, timeout);
                 let (stream, handle) = DnsExchange::connect(stream);
 
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
