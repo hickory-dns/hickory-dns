@@ -144,7 +144,7 @@ where
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
     where
-        F: Future<Item = Future<Item = S, Error = ProtoError>, Error = ProtoError> + Send + 'static,
+        F: Future<Item = S, Error = ProtoError> + Send + 'static,
     {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
