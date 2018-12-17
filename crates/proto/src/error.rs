@@ -70,11 +70,7 @@ pub enum ProtoErrorKind {
     EdnsNameNotRoot(::rr::Name),
 
     /// The length of rdata read was not as expected
-    #[fail(
-        display = "incorrect rdata length read: {} expected: {}",
-        read,
-        len
-    )]
+    #[fail(display = "incorrect rdata length read: {} expected: {}", read, len)]
     IncorrectRDataLengthRead {
         /// The amount of read data
         read: usize,
@@ -87,11 +83,7 @@ pub enum ProtoErrorKind {
     LabelBytesTooLong(usize),
 
     /// Label bytes exceeded the limit of 63
-    #[fail(
-        display = "label points to data not prior to idx: {} ptr: {}",
-        _0,
-        _1
-    )]
+    #[fail(display = "label points to data not prior to idx: {} ptr: {}", _0, _1)]
     PointerNotPriorToLabel {
         /// index of the label cotaining this pointer
         idx: usize,
@@ -116,10 +108,7 @@ pub enum ProtoErrorKind {
     NoError,
 
     /// Not all records were able to be written
-    #[fail(
-        display = "not all records could be written, wrote: {}",
-        count
-    )]
+    #[fail(display = "not all records could be written, wrote: {}", count)]
     NotAllRecordsWritten {
         /// Number of records that were written before the error
         count: usize,
@@ -128,8 +117,7 @@ pub enum ProtoErrorKind {
     /// Missing rrsigs
     #[fail(
         display = "rrsigs are not present for record set name: {} record_type: {}",
-        name,
-        record_type
+        name, record_type
     )]
     RrsigsNotPresent {
         /// The record set name
@@ -303,6 +291,27 @@ impl From<SslErrorStack> for ProtoError {
 impl From<TimerError> for ProtoError {
     fn from(e: TimerError) -> ProtoError {
         e.context(ProtoErrorKind::Timer).into()
+    }
+}
+
+impl From<tokio_timer::timeout::Error<ProtoError>> for ProtoError {
+    fn from(e: tokio_timer::timeout::Error<ProtoError>) -> Self {
+        if e.is_elapsed() {
+            return ProtoError::from(ProtoErrorKind::Timeout);
+        }
+
+        if e.is_inner() {
+            return e.into_inner().expect("invalid state, not a ProtoError");
+        }
+
+        if e.is_timer() {
+            return ProtoError::from(
+                e.into_timer()
+                    .expect("invalid state, not a tokio_timer::Error"),
+            );
+        }
+
+        ProtoError::from("unknown error with tokio_timer")
     }
 }
 

@@ -60,8 +60,8 @@ fn test_query_nonet() {
 fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = UdpClientStream::new(addr);
-    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    let stream = UdpClientStream::new(addr);
+    let (bg, mut client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -78,8 +78,8 @@ fn test_query_udp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr);
-    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    let stream = UdpClientStream::new(addr);
+    let (bg, mut client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -914,9 +914,8 @@ fn test_timeout_query_udp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = UdpClientStream::new(addr);
-    let (bg, client) =
-        ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
+    let stream = UdpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
+    let (bg, client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
 }
