@@ -227,14 +227,15 @@
 //! let mut runtime = Runtime::new().unwrap();
 //!
 //! // We need a connection, TCP and UDP are supported by DNS servers
-//! let (stream, handle) = UdpClientStream::new(([8,8,8,8], 53).into());
+//! //   (tcp construction is slightly different as it needs a multiplexer)
+//! let stream = UdpClientStream::new(([8,8,8,8], 53).into());
 //!
 //! // Create a new client, the bg is a background future which handles
 //! //   the multiplexing of the DNS requests to the server.
 //! //   the client is a handle to an unbounded queue for sending requests via the
 //! //   background. The background must be scheduled to run before the client can
 //! //   send any dns requests
-//! let (bg, mut client) = ClientFuture::new(stream, handle, None);
+//! let (bg, mut client) = ClientFuture::connect(stream);
 //!
 //! // run the background task
 //! runtime.spawn(bg);

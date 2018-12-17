@@ -162,6 +162,9 @@ fn test_secure_query_example<CC>(client: SecureSyncClient<CC>)
 where
     CC: ClientConnection,
 {
+    // extern crate env_logger;
+    // env_logger::try_init().ok();
+
     let name = Name::from_str("www.example.com").unwrap();
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
 
