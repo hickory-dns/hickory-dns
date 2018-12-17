@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.10.1
+
+### Fixed
+
+- UDP Sockets not being properly closed in timeout scenarios #635
+
 ## 0.10
 
 ### Fixed
