@@ -5,7 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.11
 
-### Fixed 
+### Fixed
 
 - Ignore UDP responses not from target src address #629 #630 #631 (@aep)
 
@@ -16,6 +16,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Added option to distrust Nameservers on SERVFAIL responses, continue resolution #613
+
+## 0.10.1
+
+### Fixed
+
+- UDP Sockets not being properly closed in timeout scenarios #635
 
 ## 0.10
 
@@ -108,6 +114,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Improved message serialization #311 (@little-dude)
 - Many serialization improvements #317
 - Dependencies updated #334 (@oherrala)
+
 ### Added
 
 - `Name` and `Label` now support idna, punycode, see `Name::from_str`
