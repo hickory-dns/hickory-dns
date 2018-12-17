@@ -128,7 +128,7 @@ where
 impl<S, MF> DnsMultiplexer<S, MF, Box<DnsStreamHandle>>
 where
     S: DnsClientStream + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
+    MF: MessageFinalizer,
 {
     /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
     ///

@@ -21,9 +21,9 @@ use trust_dns::rr::dnssec::TrustAnchor;
 use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::udp::UdpClientStream;
 
-use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
+use trust_dns_proto::udp::{UdpClientStream, UdpResponse};
+use trust_dns_proto::xfer::{SecureDnsHandle, DnsMultiplexerSerialResponse};
 use trust_dns_server::authority::Catalog;
 
 use trust_dns_integration::authority::create_secure_example;
@@ -251,7 +251,7 @@ where
 fn with_udp<F>(test: F)
 where
     F: Fn(
-        SecureClientHandle<MemoizeClientHandle<BasicClientHandle<DnsMultiplexerSerialResponse>>>,
+        SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>,
         Runtime,
     ),
 {
@@ -273,8 +273,8 @@ where
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = UdpClientStream::new(addr);
-    let (bg, client) = ClientFuture::new(stream, sender, None);
+    let stream = UdpClientStream::new(addr);
+    let (bg, client) = ClientFuture::connect(stream);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
