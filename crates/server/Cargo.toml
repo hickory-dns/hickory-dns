@@ -100,7 +100,7 @@ tokio-udp = "0.1"
 toml = "0.4"
 trust-dns = { version = "0.15.0", path = "../client" }
 trust-dns-https = { version = "0.1.0", path = "../https", optional = true }
-trust-dns-proto = { version = "0.5.0", path = "../proto" }
+trust-dns-proto = { version = "0.6.0", path = "../proto" }
 trust-dns-openssl = { version = "0.4.0", path = "../openssl", optional = true }
 trust-dns-rustls = { version = "0.4.0", path = "../rustls", optional = true }
 

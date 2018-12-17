@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.16.0
+
+### Fixed
+
+- UDP Sockets not being properly closed in timeout scenarios #635
+
+### Changed
+
+- *breaking* UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
+
 ## 0.15.0
 
 ### Fixed

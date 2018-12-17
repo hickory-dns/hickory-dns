@@ -9,9 +9,10 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use proto::udp::{UdpClientConnect, UdpClientStream};
-use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use proto::xfer::DnsRequestSender;
 
 use client::ClientConnection;
 use error::*;
@@ -23,29 +24,34 @@ use rr::dnssec::Signer;
 #[derive(Clone)]
 pub struct UdpClientConnection {
     name_server: SocketAddr,
+    timeout: Duration,
 }
 
 impl UdpClientConnection {
-    /// Creates a new client connection.
-    ///
-    /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
-    ///        event_loop. Expect this to change in the future.
+    /// Creates a new client connection. With a default timeout of 5 seconds
     ///
     /// # Arguments
     ///
     /// * `name_server` - address of the name server to use for queries
     pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
-        Ok(UdpClientConnection { name_server })
+        Self::with_timeout(name_server, Duration::from_secs(5))
+    }
+
+    /// Allows a custom timeout
+    pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> ClientResult<Self> {
+        Ok(UdpClientConnection {name_server, timeout})
     }
 }
 
 impl ClientConnection for UdpClientConnection {
-    type Sender = DnsMultiplexer<UdpClientStream, Signer>;
+    type Sender = UdpClientStream<Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<UdpClientConnect, UdpClientStream, Signer>;
+    type SenderFuture = UdpClientConnect<Signer>;
 
-    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (udp_client_stream, handle) = UdpClientStream::new(self.name_server);
-        DnsMultiplexer::new(udp_client_stream, handle, signer)
+    fn new_stream(
+        &self,
+        signer: Option<Arc<Signer>>,
+    ) -> Self::SenderFuture {
+        UdpClientStream::with_timeout_and_signer(self.name_server, self.timeout, signer)
     }
 }

@@ -21,7 +21,6 @@ use xfer::{BufStreamHandle, SerialMessage};
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
-    // FIXME: change UdpStream to always select a new Socket for every request
     socket: tokio_udp::UdpSocket,
     outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
 }
@@ -51,7 +50,7 @@ impl UdpStream {
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
-        let next_socket = Self::next_bound_local_address(&name_server);
+        let next_socket = NextRandomUdpSocket::new(&name_server);
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
@@ -96,18 +95,6 @@ impl UdpStream {
         UdpStream {
             socket,
             outbound_messages: outbound_messages.fuse().peekable(),
-        }
-    }
-
-    /// Creates a future for randomly binding to a local socket address for client connections.
-    fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {
-        let zero_addr: IpAddr = match *name_server {
-            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
-        };
-
-        NextRandomUdpSocket {
-            bind_address: zero_addr,
         }
     }
 }
@@ -156,8 +143,22 @@ impl Stream for UdpStream {
 }
 
 #[must_use = "futures do nothing unless polled"]
-struct NextRandomUdpSocket {
+pub(crate) struct NextRandomUdpSocket {
     bind_address: IpAddr,
+}
+
+impl NextRandomUdpSocket {
+    /// Creates a future for randomly binding to a local socket address for client connections.
+    pub(crate) fn new(name_server: &SocketAddr) -> NextRandomUdpSocket {
+        let zero_addr: IpAddr = match *name_server {
+            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
+        };
+
+        NextRandomUdpSocket {
+            bind_address: zero_addr,
+        }
+    }
 }
 
 impl Future for NextRandomUdpSocket {
@@ -177,7 +178,10 @@ impl Future for NextRandomUdpSocket {
 
             // TODO: allow TTL to be adjusted...
             match tokio_udp::UdpSocket::bind(&zero_addr) {
-                Ok(socket) => return Ok(Async::Ready(socket)),
+                Ok(socket) => {
+                    debug!("created socket: {:?}", socket);
+                    return Ok(Async::Ready(socket));
+                }
                 Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
             }
         }
@@ -234,7 +238,8 @@ fn udp_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
@@ -266,7 +271,8 @@ fn udp_stream_test(server_addr: IpAddr) {
                     len
                 );
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

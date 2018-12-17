@@ -21,7 +21,7 @@ use proto::error::{ProtoError, ProtoResult};
 use proto::multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4};
 use proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use proto::tcp::TcpClientStream;
-use proto::udp::UdpClientStream;
+use proto::udp::{UdpResponse, UdpClientStream};
 use proto::xfer::{
     self, BufDnsRequestStreamHandle, DnsExchange, DnsHandle, DnsMultiplexer,
     DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
@@ -283,23 +283,16 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
             } => {
-                let (stream, handle) = UdpClientStream::new(socket_addr);
-                // TODO: need config for Signer...
-                let dns_conn = DnsMultiplexer::with_timeout(
-                    stream,
-                    handle,
-                    timeout,
-                    NoopMessageFinalizer::new(),
-                );
+                let stream = UdpClientStream::with_timeout(socket_addr, timeout);
+                let (stream, handle) = DnsExchange::connect(stream);
 
-                let (stream, handle) = DnsExchange::connect(dns_conn);
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
                     debug!("udp connection shutting down: {}", e);
                 });
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(Box::new(stream))?;
-                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
+                Ok(ConnectionHandleConnected::Udp(handle))
             }
             Tcp {
                 socket_addr,
@@ -321,7 +314,7 @@ impl ConnectionHandleConnect {
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(Box::new(stream))?;
-                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
+                Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-tls")]
             Tls {
@@ -344,7 +337,7 @@ impl ConnectionHandleConnect {
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(Box::new(stream))?;
-                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
+                Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
             Https {
@@ -384,7 +377,7 @@ impl ConnectionHandleConnect {
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(Box::new(stream))?;
-                Ok(ConnectionHandleConnected::UdpOrTcp(handle))
+                Ok(ConnectionHandleConnected::Tcp(handle))
             }
         }
     }
@@ -393,7 +386,8 @@ impl ConnectionHandleConnect {
 /// A representation of an established connection
 #[derive(Clone)]
 enum ConnectionHandleConnected {
-    UdpOrTcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
+    Udp(xfer::BufDnsRequestStreamHandle<UdpResponse>),
+    Tcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
 }
@@ -403,8 +397,11 @@ impl DnsHandle for ConnectionHandleConnected {
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
         match self {
-            ConnectionHandleConnected::UdpOrTcp(ref mut conn) => {
-                ConnectionHandleResponseInner::UdpOrTcp(conn.send(request))
+            ConnectionHandleConnected::Udp(ref mut conn) => {
+                ConnectionHandleResponseInner::Udp(conn.send(request))
+            }
+            ConnectionHandleConnected::Tcp(ref mut conn) => {
+                ConnectionHandleResponseInner::Tcp(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionHandleConnected::Https(ref mut https) => {
@@ -461,7 +458,8 @@ enum ConnectionHandleResponseInner {
         conn: ConnectionHandle,
         request: Option<DnsRequest>,
     },
-    UdpOrTcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
+    Udp(xfer::OneshotDnsResponseReceiver<UdpResponse>),
+    Tcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
     Error(ProtoError),
@@ -485,7 +483,8 @@ impl Future for ConnectionHandleResponseInner {
                     Ok(mut c) => c.send(request.take().expect("already sent request?")),
                     Err(e) => Error(ProtoError::from(e)),
                 },
-                UdpOrTcp(ref mut resp) => return resp.poll(),
+                Udp(ref mut resp) => return resp.poll(),
+                Tcp(ref mut resp) => return resp.poll(),
                 #[cfg(feature = "dns-over-https")]
                 Https(ref mut https) => return https.poll(),
                 Error(ref e) => return Err(e.clone()),
