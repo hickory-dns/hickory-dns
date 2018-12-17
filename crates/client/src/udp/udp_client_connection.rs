@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use proto::udp::{UdpClientConnect, UdpClientStream};
-use proto::xfer::{DnsRequestSender};
+use proto::xfer::DnsRequestSender;
 
 use client::ClientConnection;
 use error::*;
@@ -44,16 +44,14 @@ impl UdpClientConnection {
 }
 
 impl ClientConnection for UdpClientConnection {
-    type Sender = UdpClientStream;
+    type Sender = UdpClientStream<Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = UdpClientConnect;
+    type SenderFuture = UdpClientConnect<Signer>;
 
     fn new_stream(
         &self,
-        // FIXME: apply signer...
-        _signer: Option<Arc<Signer>>,
+        signer: Option<Arc<Signer>>,
     ) -> Self::SenderFuture {
-        // FIXME: apply signer
-        UdpClientStream::with_timeout(self.name_server, self.timeout)
+        UdpClientStream::with_timeout_and_signer(self.name_server, self.timeout, signer)
     }
 }

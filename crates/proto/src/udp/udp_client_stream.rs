@@ -5,28 +5,38 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::borrow::Borrow;
 use std::fmt::{self, Display};
 use std::net::SocketAddr;
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{Async, Future, Poll, Stream};
 use tokio_timer::Timeout;
 use tokio_udp;
 
 use error::ProtoError;
-use op::Message;
+use op::message::NoopMessageFinalizer;
+use op::{Message, MessageFinalizer, OpCode};
 use udp::udp_stream::NextRandomUdpSocket;
 use xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 
 /// A UDP client stream of DNS binary packets
+///
+/// This stream will create a new UDP socket for every request. This is to avoid potential cache
+///   poisoning during use by UDP based attacks.
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpClientStream {
+pub struct UdpClientStream<MF = NoopMessageFinalizer>
+where
+    MF: MessageFinalizer,
+{
     name_server: SocketAddr,
     timeout: Duration,
     is_shutdown: bool,
+    signer: Option<Arc<MF>>,
 }
 
-impl UdpClientStream {
+impl UdpClientStream<NoopMessageFinalizer> {
     /// it is expected that the resolver wrapper will be responsible for creating and managing
     ///  new UdpClients such that each new client would have a random port (reduce chance of cache
     ///  poisoning)
@@ -35,7 +45,7 @@ impl UdpClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new(name_server: SocketAddr) -> UdpClientConnect {
+    pub fn new(name_server: SocketAddr) -> UdpClientConnect<NoopMessageFinalizer> {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -45,15 +55,35 @@ impl UdpClientStream {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
-    pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> UdpClientConnect {
+    pub fn with_timeout(
+        name_server: SocketAddr,
+        timeout: Duration,
+    ) -> UdpClientConnect<NoopMessageFinalizer> {
+        Self::with_timeout_and_signer(name_server, timeout, None)
+    }
+}
+
+impl<MF: MessageFinalizer> UdpClientStream<MF> {
+    /// Constructs a new TcpStream for a client to the specified SocketAddr.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `timeout` - connection timeout
+    pub fn with_timeout_and_signer(
+        name_server: SocketAddr,
+        timeout: Duration,
+        signer: Option<Arc<MF>>,
+    ) -> UdpClientConnect<MF> {
         UdpClientConnect {
             name_server: Some(name_server),
             timeout,
+            signer,
         }
     }
 }
 
-impl Display for UdpClientStream {
+impl<MF: MessageFinalizer> Display for UdpClientStream<MF> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(formatter, "UDP({})", self.name_server)
     }
@@ -67,7 +97,7 @@ fn random_query_id() -> u16 {
     Standard.sample(&mut rand)
 }
 
-impl DnsRequestSender for UdpClientStream {
+impl<MF: MessageFinalizer> DnsRequestSender for UdpClientStream<MF> {
     type DnsResponseFuture = UdpResponse;
 
     fn send_message(&mut self, mut message: DnsRequest) -> Self::DnsResponseFuture {
@@ -75,7 +105,41 @@ impl DnsRequestSender for UdpClientStream {
             panic!("can not send messages after stream is shutdown")
         }
 
+        // associated the ID for this request, b/c this connection is uniquw to socket port, the ID
+        //   does not need to be globally unique
         message.set_id(random_query_id());
+
+        let now = match SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|_| ProtoError::from("Current time is before the Unix epoch.").into())
+        {
+            Ok(now) => now.as_secs(),
+            Err(err) => {
+                let err: ProtoError = err;
+
+                return UdpResponse(Timeout::new(
+                    SingleUseUdpSocket::Errored(Some(err.into())),
+                    self.timeout,
+                ));
+            }
+        };
+
+        // TODO: truncates u64 to u32, error on overflow?
+        let now = now as u32;
+
+        // TODO: move this logic into Message::finalize?
+        if let OpCode::Update = message.op_code() {
+            if let Some(ref signer) = self.signer {
+                if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
+                    debug!("could not sign message: {}", e);
+                    let err = ProtoError::from(e);
+                    return UdpResponse(Timeout::new(
+                        SingleUseUdpSocket::Errored(Some(err.into())),
+                        self.timeout,
+                    ));
+                }
+            }
+        }
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
@@ -110,7 +174,7 @@ impl DnsRequestSender for UdpClientStream {
 }
 
 // TODO: is this impl necessary? there's nothing being driven here...
-impl Stream for UdpClientStream {
+impl<MF: MessageFinalizer> Stream for UdpClientStream<MF> {
     type Item = ();
     type Error = ProtoError;
 
@@ -152,13 +216,17 @@ impl Future for UdpResponse {
 }
 
 /// A future that resolves to an UdpClientStream
-pub struct UdpClientConnect {
+pub struct UdpClientConnect<MF = NoopMessageFinalizer>
+where
+    MF: MessageFinalizer,
+{
     name_server: Option<SocketAddr>,
     timeout: Duration,
+    signer: Option<Arc<MF>>,
 }
 
-impl Future for UdpClientConnect {
-    type Item = UdpClientStream;
+impl<MF: MessageFinalizer> Future for UdpClientConnect<MF> {
+    type Item = UdpClientStream<MF>;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -169,6 +237,7 @@ impl Future for UdpClientConnect {
                 .expect("UdpClientConnect invalid state: name_server"),
             is_shutdown: false,
             timeout: self.timeout,
+            signer: self.signer.take(),
         }))
     }
 }
@@ -283,7 +352,7 @@ impl Future for SingleUseUdpSocket {
                     ));
                 }
                 SingleUseUdpSocket::Errored(ref mut error) => {
-                    // finally return the message
+                    // finally return the error
                     return Err(error
                         .take()
                         .expect("SingleUseUdpSocket::Errored invalid state: already complete"));
