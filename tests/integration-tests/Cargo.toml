@@ -75,7 +75,7 @@ rusqlite = { version = "0.16.0", features = ["bundled"] }
 rustls = { version = "0.14" }
 tokio = "^0.1.6"
 tokio-tcp = "^0.1"
-tokio-timer = "^0.2"
+tokio-timer = "0.2.6"
 tokio-udp = "^0.1"
 trust-dns = { version = "0.15.0", path = "../../crates/client" }
 trust-dns-https = { version = "0.1.0", path = "../../crates/https" }
