@@ -14,8 +14,9 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - DNSSec validation
 - Generic Record Type Lookup
 - CNAME chain resolution
-- mDNS support (enable with `mdns` feature)
+- *experimental* mDNS support (enable with `mdns` feature)
 - DNS over TLS (utilizing `native-tls`, `rustls`, and `openssl`; `native-tls` or `rustls` are recommended)
+- *experimental* DNS over HTTPS (currently only supports `rustls`)
 
 ## Example
 
@@ -43,11 +44,13 @@ if address.is_ipv4() {
 }
 ```
 
-## Enabling DNS-over-TLS
+## Enabling DNS-over-TLS and DNS-over-HTTPS
 
-DNS over TLS is experimental in the TRust-DNS Resolver library. The underlying implementations have been available as addon libraries to the Client and Server, but the configuration is experimental in TRust-DNS Resolver. *WARNING* The author makes no claims on the security and/or privacy guarantees of this implementation.
+**DNS-over-TLS**, DoT, the underlying implementations have been available as addon libraries to the Client and Server, but the configuration is experimental in TRust-DNS Resolver. *WARNING* The author makes no claims on the security and/or privacy guarantees of this implementation.
 
-To use you must compile in support with one of the `dns-over-tls` features. There are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. The reason for each is to make the TRust-DNS libraries flexible for different deployments, and/or security concerns. The easiest to use will generally be `dns-over-rustls` which utilizes the native Rust library (a rework of the `boringssl` project), this should compile and be usable on most ARM and x86 platforms. `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to `openssl` where not. `dns-over-openssl` will specify that `openssl` should be used (which is a perfect fine option if required). If more than one is specified, the presidence will be in this order (i.e. only one can be used at a time) `dns-over-rustls`, `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the author is not responsible for any choice of library that does not meet required security requirements.
+To use you must compile in support with one of the `dns-over-tls` features. There are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. The reason for each is to make the TRust-DNS libraries flexible for different deployments, and/or security concerns. The easiest to use will generally be `dns-over-rustls` which utilizes the native Rust library (a rework of the `boringssl` project), this should compile and be usable on most ARM and x86 platforms. `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to `openssl` where not. `dns-over-openssl` will specify that `openssl` should be used (which is a perfect fine option if required). If more than one is specified, the presidence will be in this order (i.e. only one can be used at a time) `dns-over-rustls`, `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the author is not responsible for any choice of library that does not meet security requirements.
+
+**DNS-over-HTTPS**, DoH, currently the only supported TLS library is `rustls`. To enable, us the feature `dns-over-https-rustls`.
 
 ### Example
 
