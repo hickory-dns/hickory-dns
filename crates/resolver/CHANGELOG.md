@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.10.2
+
+### Fixed
+
+- all optional dependencies updated #640
+
 ## 0.10.1
 
 ### Fixed
