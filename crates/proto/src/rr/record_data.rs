@@ -23,7 +23,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use super::domain::Name;
 use super::rdata;
-use super::rdata::{CAA, MX, NULL, OPT, SOA, SRV, TLSA, TXT};
+use super::rdata::{CAA, MX, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, TLSA, TXT};
 use super::record_type::RecordType;
 use error::*;
 use serialize::binary::*;
@@ -218,6 +218,15 @@ pub enum RData {
     /// ```
     NS(Name),
 
+    /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
+    ///
+    /// ```text
+    /// The RDATA portion of an OPENPGPKEY resource record contains a single
+    /// value consisting of a Transferable Public Key formatted as specified
+    /// in [RFC4880].
+    /// ```
+    OPENPGPKEY(OPENPGPKEY),
+
     /// ```text
     /// RFC 6891                   EDNS(0) Extensions                 April 2013
     /// 6.1.2.  Wire Format
@@ -347,6 +356,68 @@ pub enum RData {
     /// ```
     SRV(SRV),
 
+    /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
+    ///
+    /// ```text
+    /// 3.1.  The SSHFP RDATA Format
+    ///
+    ///    The RDATA for a SSHFP RR consists of an algorithm number, fingerprint
+    ///    type and the fingerprint of the public host key.
+    ///
+    ///        1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    ///        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    ///        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    ///        |   algorithm   |    fp type    |                               /
+    ///        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               /
+    ///        /                                                               /
+    ///        /                          fingerprint                          /
+    ///        /                                                               /
+    ///        +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    ///
+    /// 3.1.1.  Algorithm Number Specification
+    ///
+    ///    This algorithm number octet describes the algorithm of the public
+    ///    key.  The following values are assigned:
+    ///
+    ///           Value    Algorithm name
+    ///           -----    --------------
+    ///           0        reserved
+    ///           1        RSA
+    ///           2        DSS
+    ///
+    ///    Reserving other types requires IETF consensus [4].
+    ///
+    /// 3.1.2.  Fingerprint Type Specification
+    ///
+    ///    The fingerprint type octet describes the message-digest algorithm
+    ///    used to calculate the fingerprint of the public key.  The following
+    ///    values are assigned:
+    ///
+    ///           Value    Fingerprint type
+    ///           -----    ----------------
+    ///           0        reserved
+    ///           1        SHA-1
+    ///
+    ///    Reserving other types requires IETF consensus [4].
+    ///
+    ///    For interoperability reasons, as few fingerprint types as possible
+    ///    should be reserved.  The only reason to reserve additional types is
+    ///    to increase security.
+    ///
+    /// 3.1.3.  Fingerprint
+    ///
+    ///    The fingerprint is calculated over the public key blob as described
+    ///    in [7].
+    ///
+    ///    The message-digest algorithm is presumed to produce an opaque octet
+    ///    string output, which is placed as-is in the RDATA fingerprint field.
+    /// ```
+    ///
+    /// The algorithm and fingerprint type values have been updated in
+    /// [RFC 6594](https://tools.ietf.org/html/rfc6594) and
+    /// [RFC 7479](https://tools.ietf.org/html/rfc7479).
+    SSHFP(SSHFP),
+
     /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
     ///
     /// ```text
@@ -428,7 +499,7 @@ impl RData {
                 rdata::aaaa::read(decoder).map(RData::AAAA)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
-                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
+                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
             }
             RecordType::CAA => {
                 debug!("reading CAA");
@@ -454,6 +525,10 @@ impl RData {
                 debug!("reading NS");
                 rdata::name::read(decoder).map(RData::NS)
             }
+            RecordType::OPENPGPKEY => {
+                debug!("reading OPENPGPKEY");
+                rdata::openpgpkey::read(decoder, rdata_length).map(RData::OPENPGPKEY)
+            }
             RecordType::OPT => {
                 debug!("reading OPT");
                 rdata::opt::read(decoder, rdata_length).map(RData::OPT)
@@ -469,6 +544,10 @@ impl RData {
             RecordType::SRV => {
                 debug!("reading SRV");
                 rdata::srv::read(decoder).map(RData::SRV)
+            }
+            RecordType::SSHFP => {
+                debug!("reading SSHFP");
+                rdata::sshfp::read(decoder, rdata_length).map(RData::SSHFP)
             }
             RecordType::TLSA => {
                 debug!("reading TLSA");
@@ -532,11 +611,13 @@ impl RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
             RData::NULL(ref null) => rdata::null::emit(encoder, null),
+            RData::OPENPGPKEY(ref openpgpkey) => rdata::openpgpkey::emit(encoder, openpgpkey),
             RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
             // to_lowercase for rfc4034 and rfc6840
             RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840
             RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
+            RData::SSHFP(ref sshfp) => rdata::sshfp::emit(encoder, sshfp),
             RData::TLSA(ref tlsa) => rdata::tlsa::emit(encoder, tlsa),
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
@@ -555,10 +636,12 @@ impl RData {
             RData::MX(..) => RecordType::MX,
             RData::NS(..) => RecordType::NS,
             RData::NULL(..) => RecordType::NULL,
+            RData::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
             RData::OPT(..) => RecordType::OPT,
             RData::PTR(..) => RecordType::PTR,
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
+            RData::SSHFP(..) => RecordType::SSHFP,
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
@@ -779,7 +862,8 @@ mod tests {
                     &mut decoder,
                     record_type_from_rdata(&expect),
                     Restrict::new(length)
-                ).unwrap(),
+                )
+                .unwrap(),
                 expect
             );
         }
@@ -795,10 +879,12 @@ mod tests {
             RData::MX(..) => RecordType::MX,
             RData::NS(..) => RecordType::NS,
             RData::NULL(..) => RecordType::NULL,
+            RData::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
             RData::OPT(..) => RecordType::OPT,
             RData::PTR(..) => RecordType::PTR,
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
+            RData::SSHFP(..) => RecordType::SSHFP,
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]

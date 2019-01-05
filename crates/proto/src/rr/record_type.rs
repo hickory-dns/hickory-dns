@@ -68,6 +68,8 @@ pub enum RecordType {
     NS,
     /// RFC 1035[1]	Null server record, for testing
     NULL,
+    /// RFC 7929	OpenPGP public key
+    OPENPGPKEY,
     /// RFC 6891	Option
     OPT,
     /// RFC 1035[1]	Pointer record
@@ -77,7 +79,8 @@ pub enum RecordType {
     SOA,
     /// RFC 2782	Service locator
     SRV,
-    //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
+    /// RFC 4255	SSH Public Key Fingerprint
+    SSHFP,
     //  TA,         //	32768	N/A	DNSSEC Trust Authorities
     //  TKEY,       //	249	RFC 2930	Secret key record
     ///	RFC 6698	TLSA certificate association
@@ -142,6 +145,7 @@ impl FromStr for RecordType {
     /// assert_eq!(RecordType::A, var);
     /// ```
     fn from_str(str: &str) -> ProtoResult<Self> {
+        // TODO missing stuff?
         match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
@@ -150,9 +154,11 @@ impl FromStr for RecordType {
             "NULL" => Ok(RecordType::NULL),
             "MX" => Ok(RecordType::MX),
             "NS" => Ok(RecordType::NS),
+            "OPENPGPKEY" => Ok(RecordType::OPENPGPKEY),
             "PTR" => Ok(RecordType::PTR),
             "SOA" => Ok(RecordType::SOA),
             "SRV" => Ok(RecordType::SRV),
+            "SSHFP" => Ok(RecordType::SSHFP),
             "TLSA" => Ok(RecordType::TLSA),
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
@@ -183,10 +189,12 @@ impl From<u16> for RecordType {
             15 => RecordType::MX,
             2 => RecordType::NS,
             10 => RecordType::NULL,
+            61 => RecordType::OPENPGPKEY,
             41 => RecordType::OPT,
             12 => RecordType::PTR,
             6 => RecordType::SOA,
             33 => RecordType::SRV,
+            44 => RecordType::SSHFP,
             52 => RecordType::TLSA,
             16 => RecordType::TXT,
             #[cfg(feature = "dnssec")]
@@ -247,10 +255,12 @@ impl From<RecordType> for &'static str {
             RecordType::MX => "MX",
             RecordType::NULL => "NULL",
             RecordType::NS => "NS",
+            RecordType::OPENPGPKEY => "OPENPGPKEY",
             RecordType::OPT => "OPT",
             RecordType::PTR => "PTR",
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
+            RecordType::SSHFP => "SSHFP",
             RecordType::TLSA => "TLSA",
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
@@ -283,10 +293,12 @@ impl From<RecordType> for u16 {
             RecordType::MX => 15,
             RecordType::NS => 2,
             RecordType::NULL => 10,
+            RecordType::OPENPGPKEY => 61,
             RecordType::OPT => 41,
             RecordType::PTR => 12,
             RecordType::SOA => 6,
             RecordType::SRV => 33,
+            RecordType::SSHFP => 44,
             RecordType::TLSA => 52,
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]

@@ -17,8 +17,8 @@
 //! record data enum variants
 
 use error::*;
-use rr::{Name, RData, RecordType};
 use rr::rdata::DNSSECRecordType;
+use rr::{Name, RData, RecordType};
 use serialize::txt::rdata_parsers::*;
 
 pub trait RDataParser: Sized {
@@ -47,10 +47,12 @@ impl RDataParser for RData {
             RecordType::MX => RData::MX(mx::parse(tokens, origin)?),
             RecordType::NULL => RData::NULL(null::parse(tokens)?),
             RecordType::NS => RData::NS(name::parse(tokens, origin)?),
+            RecordType::OPENPGPKEY => RData::OPENPGPKEY(openpgpkey::parse(tokens)?),
             RecordType::OPT => panic!("parsing OPT doesn't make sense"), // valid panic, never should happen
             RecordType::PTR => RData::PTR(name::parse(tokens, origin)?),
             RecordType::SOA => RData::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => RData::SRV(srv::parse(tokens, origin)?),
+            RecordType::SSHFP => RData::SSHFP(sshfp::parse(tokens)?),
             RecordType::TLSA => RData::TLSA(tlsa::parse(tokens)?),
             RecordType::TXT => RData::TXT(txt::parse(tokens)?),
             RecordType::DNSSEC(DNSSECRecordType::SIG) => panic!("parsing SIG doesn't make sense"), // valid panic, never should happen
