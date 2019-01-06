@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
+ * Copyright (C) 2015-2019 Benjamin Fry <benjaminfry@me.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
