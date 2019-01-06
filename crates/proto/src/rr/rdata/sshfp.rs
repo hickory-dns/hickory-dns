@@ -1,4 +1,9 @@
-// TODO license
+// Copyright 2019 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! SSHFP records for SSH public key fingerprints
 
@@ -217,4 +222,88 @@ pub fn emit(encoder: &mut BinEncoder, sshfp: &SSHFP) -> ProtoResult<()> {
     encoder.emit_vec(sshfp.fingerprint())
 }
 
-// TODO test
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_algorithm() {
+        assert_eq!(Algorithm::Reserved, 0.into());
+        assert_eq!(Algorithm::RSA, 1.into());
+        assert_eq!(Algorithm::DSA, 2.into());
+        assert_eq!(Algorithm::ECDSA, 3.into());
+        assert_eq!(Algorithm::Ed25519, 4.into());
+        assert_eq!(Algorithm::Unassigned(17), 17.into());
+        assert_eq!(Algorithm::Unassigned(42), 42.into());
+
+        assert_eq!(0u8, Algorithm::Reserved.into());
+        assert_eq!(1u8, Algorithm::RSA.into());
+        assert_eq!(2u8, Algorithm::DSA.into());
+        assert_eq!(3u8, Algorithm::ECDSA.into());
+        assert_eq!(4u8, Algorithm::Ed25519.into());
+        assert_eq!(17u8, Algorithm::Unassigned(17).into());
+        assert_eq!(42u8, Algorithm::Unassigned(42).into());
+    }
+
+    #[test]
+    fn read_fingerprint_type() {
+        assert_eq!(FingerprintType::Reserved, 0.into());
+        assert_eq!(FingerprintType::SHA1, 1.into());
+        assert_eq!(FingerprintType::SHA256, 2.into());
+        assert_eq!(FingerprintType::Unassigned(12), 12.into());
+        assert_eq!(FingerprintType::Unassigned(89), 89.into());
+
+        assert_eq!(0u8, FingerprintType::Reserved.into());
+        assert_eq!(1u8, FingerprintType::SHA1.into());
+        assert_eq!(2u8, FingerprintType::SHA256.into());
+        assert_eq!(12u8, FingerprintType::Unassigned(12).into());
+        assert_eq!(89u8, FingerprintType::Unassigned(89).into());
+    }
+
+    fn test_encode_decode(rdata: SSHFP, result: &[u8]) {
+        let mut bytes = Vec::new();
+        let mut encoder = BinEncoder::new(&mut bytes);
+        emit(&mut encoder, &rdata).expect("failed to emit SSHFP");
+        let bytes = encoder.into_bytes();
+        assert_eq!(bytes, &result);
+
+        let mut decoder = BinDecoder::new(result);
+        let read_rdata =
+            read(&mut decoder, Restrict::new(result.len() as u16)).expect("failed to read SSHFP");
+        assert_eq!(read_rdata, rdata)
+    }
+
+    #[test]
+    fn test_encode_decode_sshfp() {
+        test_encode_decode(
+            SSHFP::new(Algorithm::RSA, FingerprintType::SHA256, vec![]),
+            &[1, 2],
+        );
+        test_encode_decode(
+            SSHFP::new(
+                Algorithm::ECDSA,
+                FingerprintType::SHA1,
+                vec![115, 115, 104, 102, 112],
+            ),
+            &[3, 1, 115, 115, 104, 102, 112],
+        );
+        test_encode_decode(
+            SSHFP::new(
+                Algorithm::Reserved,
+                FingerprintType::Reserved,
+                b"ssh fingerprint".to_vec(),
+            ),
+            &[
+                0, 0, 115, 115, 104, 32, 102, 105, 110, 103, 101, 114, 112, 114, 105, 110, 116,
+            ],
+        );
+        test_encode_decode(
+            SSHFP::new(
+                Algorithm::Unassigned(255),
+                FingerprintType::Unassigned(13),
+                vec![100, 110, 115, 115, 101, 99, 32, 100, 97, 110, 101],
+            ),
+            &[255, 13, 100, 110, 115, 115, 101, 99, 32, 100, 97, 110, 101],
+        );
+    }
+}
