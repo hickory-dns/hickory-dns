@@ -9,6 +9,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - UDP Sockets not being properly closed in timeout scenarios #635
 
+### Added
+
+- support for the OPENPGPKEY and SSHFP record types #646 #647
+
 ### Changed
 
 - *breaking* UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
