@@ -69,7 +69,6 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
         cert_data.push_str(data);
         cert_data
     });
-    println!("cert_data: {}", cert_data);
     let cert_data = HEX.decode(cert_data.as_bytes())?;
 
     if !cert_data.is_empty() {

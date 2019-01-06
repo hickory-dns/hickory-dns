@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
+ * Copyright (C) 2015-2019 Benjamin Fry <benjaminfry@me.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -308,12 +308,14 @@ impl From<RecordType> for u16 {
     }
 }
 
+/// [Canonical DNS Name Order](https://tools.ietf.org/html/rfc4034#section-6)
 impl PartialOrd<RecordType> for RecordType {
     fn partial_cmp(&self, other: &RecordType) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+/// [Canonical DNS Name Order](https://tools.ietf.org/html/rfc4034#section-6)
 impl Ord for RecordType {
     fn cmp(&self, other: &Self) -> Ordering {
         u16::from(*self).cmp(&u16::from(*other))
@@ -363,8 +365,6 @@ fn test_order() {
     for rtype in unordered.clone() {
         println!("u16 for {:?}: {}", rtype, u16::from(rtype));
     }
-
-    assert_eq!(5.partial_cmp(&28), Some(Ordering::Less));
 
     assert_eq!(ordered, unordered);
 }
