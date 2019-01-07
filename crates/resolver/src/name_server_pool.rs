@@ -531,6 +531,10 @@ impl NameServer<ConnectionHandle, StandardConnection> {
 }
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
+    // TODO: get rid of this connection provider on NameServer. NameServerPool is the one that needs this...
+    //     or get rid ConnectionProvider on NameServerPool...
+    //     TODO: try this, NameServer sould basically be just the ConnectionProvider, and not connection
+    //        pool, should have a set of optional Clients are the are the connections for the NameServer
     pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,

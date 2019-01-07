@@ -8,18 +8,18 @@ extern crate trust_dns_resolver;
 use std::net::*;
 use std::str::FromStr;
 use std::sync::{
-    atomic::{AtomicIsize, Ordering},
+    atomic::{AtomicBool, AtomicIsize, AtomicUsize, Ordering},
     Arc,
 };
 
-use futures::future::{self, Future, Loop};
+use futures::{Async, future::{self, Future, Loop}};
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns::op::Query;
+use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::{ProtoError, ProtoResult};
-use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
+use trust_dns_proto::xfer::{DnsRequest, DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
 
@@ -541,4 +541,136 @@ fn test_concurrent_requests_0_conn() {
 
     let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
+}
+
+// Liveness tests, validating that nameservers are never droppped unexpectedly
+
+#[derive(Clone)]
+struct AliveConnProvider {
+    all_done: Arc<AtomicBool>,
+    conn_count: Arc<AtomicUsize>,
+}
+
+impl AliveConnProvider {
+    fn mock() -> Self {
+        AliveConnProvider {
+           all_done: Arc::new(AtomicBool::new(false)),
+           conn_count: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    fn handle(&self) -> Arc<AtomicBool> {
+        self.all_done.clone()
+    }
+
+    fn counter(&self) -> Arc<AtomicUsize> {
+        self.conn_count.clone()
+    }
+}
+
+impl ConnectionProvider for AliveConnProvider {
+    type ConnHandle = AliveClientHandle;
+
+    fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
+        self.conn_count.fetch_add(1, Ordering::Release);
+        AliveClientHandle::mock(self.handle())
+    }
+}
+
+#[derive(Clone)]
+pub struct AliveClientHandle {
+    all_done: Arc<AtomicBool>,
+}
+
+impl AliveClientHandle {
+    /// constructs a new MockClient which returns each Message one after the other
+    pub fn mock(handle: Arc<AtomicBool>) -> Self {
+        AliveClientHandle {
+            all_done: handle,
+        }
+    }
+}
+
+impl Drop for AliveClientHandle {
+    fn drop(&mut self) {
+        assert!(self.all_done.load(Ordering::Acquire), "dopped this nameserver when it should not have been!");
+    }
+}
+
+impl DnsHandle for AliveClientHandle {
+    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
+
+    fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
+        let response = Message::default().into();
+        Box::new(future::ok(response))
+    }
+}
+
+#[test]
+fn test_name_server_never_drops_connection() {
+    let provider = AliveConnProvider::mock();
+    let handle = provider.handle();
+    let counter = provider.counter();
+
+    let mut alive_nameserver = NameServer::new_with_provider(
+        NameServerConfig {
+            socket_addr: SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0),
+            protocol: Protocol::Tcp,
+            tls_dns_name: None,
+        },
+        Default::default(),
+        provider,
+    );
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let request = message(query, vec![], vec![], vec![]).unwrap();
+
+    for i in 0..5 {
+        let mut response = alive_nameserver.send(request.clone());
+        loop {
+            match response.poll() {
+                Ok(Async::Ready(_)) => (),
+                Err(e) => panic!("response future failed"),
+                Ok(Async::NotReady) => continue,
+            }
+        }
+    }
+
+    handle.store(true, Ordering::Release);
+    assert_eq!(counter.load(Ordering::Acquire), 1, "more than 1 connection was created!");
+}
+
+#[test]
+fn test_name_server_pool_never_drops_connection() {
+    let provider = AliveConnProvider::mock();
+    let handle = provider.handle();
+    let counter = provider.counter();
+
+    let alive_nameserver = NameServer::new_with_provider(
+        NameServerConfig {
+            socket_addr: SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0),
+            protocol: Protocol::Tcp,
+            tls_dns_name: None,
+        },
+        Default::default(),
+        provider.clone(),
+    );
+    let mut pool =  NameServerPool::from_nameservers(&Default::default(), vec![], vec![alive_nameserver], provider);
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let request = message(query, vec![], vec![], vec![]).unwrap();
+
+    for i in 0..5 {
+        let mut response = pool.send(request.clone());
+        loop {
+            match response.poll() {
+                Ok(Async::Ready(_)) => (),
+                Err(e) => panic!("response future failed"),
+                Ok(Async::NotReady) => continue,
+            }
+        }
+    }
+
+    handle.store(true, Ordering::Release);
+    assert_eq!(counter.load(Ordering::Acquire), 1, "more than 1 connection was created!");
 }
