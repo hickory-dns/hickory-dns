@@ -119,7 +119,7 @@ where
                     // if there is no peer, this connection should die...
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.unwrap();
 
-                    info!("sending message via: {}", self.io_stream);
+                    debug!("sending message via: {}", self.io_stream);
 
                     match serial_response.send_response(self.io_stream.send_message(dns_request)) {
                         Ok(()) => (),
