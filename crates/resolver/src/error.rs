@@ -8,7 +8,7 @@
 //! Error types for the crate
 
 use failure::{Backtrace, Context, Fail};
-use std::{fmt, io, time::Instant};
+use std::{fmt, io, sync, time::Instant};
 use proto::error::{ProtoError, ProtoErrorKind};
 use proto::op::Query;
 
@@ -164,5 +164,11 @@ impl From<ResolveError> for io::Error {
             ResolveErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e.compat()),
             _ => io::Error::new(io::ErrorKind::Other, e.compat()),
         }
+    }
+}
+
+impl<T> From<sync::PoisonError<sync::MutexGuard<'_, T>>> for ResolveError {
+    fn from(e: sync::PoisonError<sync::MutexGuard<'_, T>>) -> Self {
+        ResolveErrorKind::Msg(format!("lock was poisoned, this is non-recoverable: {}", e)).into()
     }
 }
