@@ -8,14 +8,12 @@
 //! Structs for creating and using a Resolver
 use std::io;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use futures::Future;
 use proto::rr::RecordType;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::{self, Runtime};
 
 use config::{ResolverConfig, ResolverOpts};
-use dns_lru::{self, DnsLru};
 use error::*;
 use lookup;
 use lookup::Lookup;
@@ -27,10 +25,14 @@ use AsyncResolver;
 /// For forward (A) lookups, hostname -> IP address, see: `Resolver::lookup_ip`
 ///
 /// Special note about resource consumption. The Resolver and all TRust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`trust_dns_resolver::ResolverFuture`]. To allow the Resolver to be [`Send`] + [`Sync`], the construction of the `ResolverFuture` is lazy, this means some of the features of the `ResolverFuture`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the TRust-DNS Resolver are desired, please use the tokio based `ResolverFuture`.
+/// 
+/// *Note: Threaded/Sync usage*: In multithreaded scenarios, the internal Tokio Runtime will block on an internal Mutex for the tokio Runtime in use. For higher performance, it's recommended to use the `AsyncResolver`.
 pub struct Resolver {
-    config: ResolverConfig,
-    options: ResolverOpts,
-    lru: Arc<Mutex<DnsLru>>,
+    // TODO: Mutex allows this to be Sync, another option would be to instantiate a thread_local, but that has other
+    //   drawbacks. One major issues, is if this Resolver is shared across threads, it will cause all to block on any
+    //   query. A TLS on the otherhand would not, at the cost of only allowing a Resolver to be configured once per Thread
+    runtime: Mutex<Runtime>,
+    async_resolver: AsyncResolver,
 }
 
 macro_rules! lookup_fn {
@@ -43,10 +45,8 @@ macro_rules! lookup_fn {
 ///
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
 pub fn $p(&self, query: &str) -> ResolveResult<$l> {
-    let mut io_loop = Runtime::new()?;
-    let (handle, bg) = self.construct_and_run()?;
-    io_loop.spawn(bg);
-    io_loop.block_on(handle.$p(query))
+    let lookup = self.async_resolver.$p(query);
+    self.runtime.lock()?.block_on(lookup)
 }
     };
     ($p:ident, $l:ty, $t:ty) => {
@@ -56,10 +56,8 @@ pub fn $p(&self, query: &str) -> ResolveResult<$l> {
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
 pub fn $p(&self, query: $t) -> ResolveResult<$l> {
-    let mut io_loop = Runtime::new()?;
-    let (handle, bg) = self.construct_and_run()?;
-    io_loop.spawn(bg);
-    io_loop.block_on(handle.$p(query))
+    let lookup = self.async_resolver.$p(query);
+    self.runtime.lock()?.block_on(lookup)
 }
     };
 }
@@ -76,13 +74,17 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
-        let lru = Arc::new(Mutex::new(lru));
+        let mut builder = runtime::Builder::new();
+        builder.core_threads(1);
+
+        let mut runtime = builder.build()?;
+        let (async_resolver, bg) = AsyncResolver::new(config, options);
+
+        runtime.spawn(bg);
 
         Ok(Resolver {
-            config,
-            options,
-            lru,
+            runtime: Mutex::new(runtime),
+            async_resolver,
         })
     }
 
@@ -106,16 +108,6 @@ impl Resolver {
         Self::new(config, options)
     }
 
-    /// Constructs a new ResolverFutture
-    fn construct_and_run(
-        &self,
-    ) -> ResolveResult<(AsyncResolver, impl Future<Item = (), Error = ()>)> {
-        // TODO: can we reuse the background task/handle once it has been spawned?
-        let handle = AsyncResolver::with_cache(self.config.clone(), self.options, self.lru.clone());
-
-        Ok(handle)
-    }
-
     /// Generic lookup for any RecordType
     ///
     /// *WARNING* This interface may change in the future, please use [`Self::lookup_ip`] or another variant for more stable interfaces.
@@ -125,10 +117,8 @@ impl Resolver {
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
     pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
-        let mut io_loop = Runtime::new()?;
-        let (handle, bg) = self.construct_and_run()?;
-        io_loop.spawn(bg);
-        io_loop.block_on(handle.lookup(name, record_type))
+        let lookup = self.async_resolver.lookup(name, record_type);
+        self.runtime.lock()?.block_on(lookup)
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -139,10 +129,8 @@ impl Resolver {
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
-        let mut io_loop = Runtime::new()?;
-        let (handle, bg) = self.construct_and_run()?;
-        io_loop.spawn(bg);
-        io_loop.block_on(handle.lookup_ip(host))
+        let lookup = self.async_resolver.lookup_ip(host);
+        self.runtime.lock()?.block_on(lookup)
     }
 
     /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
@@ -161,19 +149,15 @@ impl Resolver {
         protocol: &str,
         name: &str,
     ) -> ResolveResult<lookup::SrvLookup> {
-        let mut io_loop = Runtime::new()?;
-        let (handle, bg) = self.construct_and_run()?;
-        io_loop.spawn(bg);
         #[allow(deprecated)]
-        io_loop.block_on(handle.lookup_service(service, protocol, name))
+        let lookup = self.async_resolver.lookup_service(service, protocol, name);
+        self.runtime.lock()?.block_on(lookup)
     }
 
     /// Lookup an SRV record.
     pub fn lookup_srv(&self, name: &str) -> ResolveResult<lookup::SrvLookup> {
-        let mut io_loop = Runtime::new()?;
-        let (handle, bg) = self.construct_and_run()?;
-        io_loop.spawn(bg);
-        io_loop.block_on(handle.lookup_srv(name))
+        let lookup = self.async_resolver.lookup_srv(name);
+        self.runtime.lock()?.block_on(lookup)
     }
 
     lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);
