@@ -106,6 +106,8 @@ matrix:
       rust: stable
       env: NAME=windows
            RUST_BACKTRACE=full
+      before_install:
+        - scripts/install_openssl_win.sh
       script: 
         - scripts/test_all_features.sh
 
