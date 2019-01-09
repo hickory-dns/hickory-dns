@@ -76,7 +76,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket_std(&self, socket: std::net::UdpSocket) {
         self.register_socket(
-            tokio_udp::UdpSocket::from_std(socket, &Handle::current()).expect("bad handle?"),
+            tokio_udp::UdpSocket::from_std(socket, &Handle::default()).expect("bad handle?"),
         )
     }
 
@@ -155,7 +155,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
     ) -> io::Result<()> {
         self.register_listener(
-            tokio_tcp::TcpListener::from_std(listener, &Handle::current())?,
+            tokio_tcp::TcpListener::from_std(listener, &Handle::default())?,
             timeout,
         )
     }

@@ -132,7 +132,7 @@ impl MdnsStream {
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream = {
-            let handle = Handle::current();
+            let handle = Handle::default();
             let handle_clone = handle.clone();
 
             Box::new(
@@ -141,7 +141,8 @@ impl MdnsStream {
                         socket.map(|socket| {
                             UdpSocket::from_std(socket, &handle).expect("bad handle?")
                         })
-                    }).map(move |socket: Option<_>| {
+                    })
+                    .map(move |socket: Option<_>| {
                         let datagram =
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
                         let multicast: Option<UdpSocket> =
@@ -460,11 +461,10 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Runtime::new().unwrap();
-                let mut timeout: Box<
-                    Future<Item = (), Error = tokio_timer::Error> + Send,
-                > = Box::new(future::lazy(|| {
-                    Delay::new(Instant::now() + Duration::from_millis(100))
-                }));
+                let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+                    Box::new(future::lazy(|| {
+                        Delay::new(Instant::now() + Duration::from_millis(100))
+                    }));
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
@@ -521,7 +521,8 @@ pub mod tests {
                         .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
                         .unwrap();
                 }
-            }).unwrap();
+            })
+            .unwrap();
 
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Runtime::new().unwrap();
@@ -616,11 +617,10 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut io_loop = Runtime::new().unwrap();
-                let mut timeout: Box<
-                    Future<Item = (), Error = tokio_timer::Error> + Send,
-                > = Box::new(future::lazy(|| {
-                    Delay::new(Instant::now() + Duration::from_millis(100))
-                }));
+                let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+                    Box::new(future::lazy(|| {
+                        Delay::new(Instant::now() + Duration::from_millis(100))
+                    }));
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
@@ -667,7 +667,8 @@ pub mod tests {
                         .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
                         .unwrap();
                 }
-            }).unwrap();
+            })
+            .unwrap();
 
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Runtime::new().unwrap();
