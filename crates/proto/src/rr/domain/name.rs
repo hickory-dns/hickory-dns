@@ -474,7 +474,7 @@ impl Name {
     /// assert!(!bytes_name.eq_case(&utf8_name));
     /// assert!(lower_name.eq_case(&utf8_name));
     /// ```
-    pub(crate) fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
     }
 
@@ -488,10 +488,10 @@ impl Name {
     /// use trust_dns_proto::rr::Name;
     ///
     /// // Ok, underscore in the beginning of a name
-    /// assert!(Name::from_str("_allows.example.com.").is_ok());
+    /// assert!(Name::from_utf8("_allows.example.com.").is_ok());
     ///
     /// // Error, underscore in the end
-    /// assert!(Name::from_str("dis_allowed.example.com.").is_err());
+    /// assert!(Name::from_utf8("dis_allowed.example.com.").is_err());
     ///
     /// // Ok, relaxed mode
     /// assert!(Name::from_str_relaxed("allow_in_.example.com.").is_ok());
@@ -1134,7 +1134,7 @@ impl FromStr for Name {
 
     /// Uses the Name::from_utf8 conversion on this string, see [`from_ascii`] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Name::from_utf8(s)
+        Name::from_str_relaxed(s)
     }
 }
 
