@@ -202,9 +202,10 @@ fn is_safe_ascii(c: char, is_first: bool, for_encoding: bool) -> bool {
     match c {
         c if !c.is_ascii() => false,
         c if c.is_alphanumeric() => true,
-        '-' if !is_first => true,      // dash is allowed
-        '_' | '*' if is_first => true, // SRV like labels and wildcard
-        '.' if !for_encoding => true,  // needed to allow dots, for things like email addresses
+        '-' if !is_first => true,     // dash is allowed
+        '_' => true,                  // SRV like labels
+        '*' if is_first => true,      // wildcard
+        '.' if !for_encoding => true, // needed to allow dots, for things like email addresses
         _ => false,
     }
 }

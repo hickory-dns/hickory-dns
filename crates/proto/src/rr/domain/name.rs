@@ -473,8 +473,31 @@ impl Name {
     /// assert!(!bytes_name.eq_case(&utf8_name));
     /// assert!(lower_name.eq_case(&utf8_name));
     /// ```
-    pub(crate) fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
+    }
+
+    /// First attempts to decode via from_utf8, if that fails IDNA checks, than falls back to
+    ///   ascii decoding.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// // Ok, underscore in the beginning of a name
+    /// assert!(Name::from_utf8("_allows.example.com.").is_ok());
+    ///
+    /// // Error, underscore in the end
+    /// assert!(Name::from_utf8("dis_allowed.example.com.").is_err());
+    ///
+    /// // Ok, relaxed mode
+    /// assert!(Name::from_str_relaxed("allow_in_.example.com.").is_ok());
+    /// ```
+    pub fn from_str_relaxed<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+        let name = name.as_ref();
+        Self::from_utf8(name).or_else(|_| Self::from_ascii(name))
     }
 
     fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
@@ -514,27 +537,32 @@ impl Name {
                         state = ParseState::Label;
                     }
                 }
-                ParseState::Escape2(i) => if ch.is_numeric() {
-                    state = ParseState::Escape3(
-                        i,
-                        ch.to_digit(8)
-                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?,
-                    );
-                } else {
-                    return Err(ProtoError::from(format!("unrecognized char: {}", ch)))?;
-                },
-                ParseState::Escape3(i, ii) => if ch.is_numeric() {
-                    // octal conversion
-                    let val: u32 = (i * 8 * 8) + (ii * 8) + ch
-                        .to_digit(8)
-                        .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
-                    let new: char = char::from_u32(val)
-                        .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
-                    label.push(new);
-                    state = ParseState::Label;
-                } else {
-                    return Err(format!("unrecognized char: {}", ch))?;
-                },
+                ParseState::Escape2(i) => {
+                    if ch.is_numeric() {
+                        state = ParseState::Escape3(
+                            i,
+                            ch.to_digit(8)
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?,
+                        );
+                    } else {
+                        return Err(ProtoError::from(format!("unrecognized char: {}", ch)))?;
+                    }
+                }
+                ParseState::Escape3(i, ii) => {
+                    if ch.is_numeric() {
+                        // octal conversion
+                        let val: u32 = (i * 8 * 8)
+                            + (ii * 8)
+                            + ch.to_digit(8)
+                                .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
+                        let new: char = char::from_u32(val)
+                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
+                        label.push(new);
+                        state = ParseState::Label;
+                    } else {
+                        return Err(format!("unrecognized char: {}", ch))?;
+                    }
+                }
             }
         }
 
@@ -927,7 +955,8 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
                 return Err(ProtoErrorKind::LabelOverlapsWithOther {
                     label: name_start,
                     other: max_idx,
-                }.into());
+                }
+                .into());
             }
         }
 
@@ -983,16 +1012,22 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
             // etc.
             LabelParseState::Pointer => {
                 let pointer_location = decoder.index();
-                let location = decoder.read_u16()?.map(|u| {
-                    // get rid of the two high order bits, they are markers for length or pointers
-                    u & 0x3FFF
-                }).verify_unwrap(|ptr| {
-                    // all labels must appear "prior" to this Name
-                    (*ptr as usize) < name_start
-                }).map_err(|e| ProtoError::from(ProtoErrorKind::PointerNotPriorToLabel {
-                    idx: pointer_location,
-                    ptr: e,
-                }))?;
+                let location = decoder
+                    .read_u16()?
+                    .map(|u| {
+                        // get rid of the two high order bits, they are markers for length or pointers
+                        u & 0x3FFF
+                    })
+                    .verify_unwrap(|ptr| {
+                        // all labels must appear "prior" to this Name
+                        (*ptr as usize) < name_start
+                    })
+                    .map_err(|e| {
+                        ProtoError::from(ProtoErrorKind::PointerNotPriorToLabel {
+                            idx: pointer_location,
+                            ptr: e,
+                        })
+                    })?;
 
                 let mut pointer = decoder.clone(location);
                 let pointed = read_inner(&mut pointer, Some(name_start))?;
@@ -1100,7 +1135,7 @@ impl FromStr for Name {
 
     /// Uses the Name::from_utf8 conversion on this string, see [`from_ascii`] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Name::from_utf8(s)
+        Name::from_str_relaxed(s)
     }
 }
 
@@ -1446,7 +1481,8 @@ mod tests {
         let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0x1));
         let name = Name::from_str(
             "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa",
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1472,14 +1508,9 @@ mod tests {
         assert!(Name::root().is_fqdn());
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
-        assert!(
-            Name::from_labels(vec![
-                "www".as_bytes(),
-                "example".as_bytes(),
-                "com".as_bytes()
-            ]).unwrap()
-            .is_fqdn()
-        );
+        assert!(Name::from_labels(vec![b"www" as &[u8], b"example", b"com"])
+            .unwrap()
+            .is_fqdn());
 
         assert!(!Name::new().is_fqdn());
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());
@@ -1589,5 +1620,12 @@ mod tests {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => assert!(false),
         }
+    }
+
+    #[test]
+    fn test_underscore() {
+        Name::from_str("_begin.example.com").expect("failed at beginning");
+        Name::from_str_relaxed("mid_dle.example.com").expect("failed in the middle");
+        Name::from_str_relaxed("end_.example.com").expect("failed at the end");
     }
 }
