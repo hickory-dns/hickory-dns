@@ -4,162 +4,163 @@ language: rust
 
 matrix:
   include:
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=all_features
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_all_features.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=all_features
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_all_features.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=default_features
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_default_features.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=default_features
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_default_features.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=dns_over_native_tls
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_dns_over_native_tls.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=dns_over_native_tls
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_dns_over_native_tls.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=dns_over_openssl
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_dns_over_openssl.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=dns_over_openssl
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_dns_over_openssl.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=dns_over_rustls
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_dns_over_rustls.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=dns_over_rustls
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_dns_over_rustls.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=dnssec_openssl
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_dnssec_openssl.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=dnssec_openssl
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_dnssec_openssl.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=dnssec_ring
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_dnssec_ring.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=dnssec_ring
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_dnssec_ring.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=mdns
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_mdns.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=mdns
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_mdns.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # parallel builds for tests
-    - rust: stable
-      env: NAME=no_default_features
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_no_default_features.sh
-      after_success:
-        - scripts/run_kcov.sh
+    # # parallel builds for tests
+    # - rust: stable
+    #   env: NAME=no_default_features
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_no_default_features.sh
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    # min rust version
-    # - rust: 1.14.0
-    - rust: beta
-      env: NAME=beta
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_all_features.sh
+    # # min rust version
+    # # - rust: 1.14.0
+    # - rust: beta
+    #   env: NAME=beta
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_all_features.sh
 
-    # macos
-    - os: osx
-      rust: stable
-      env: NAME=macOS
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_all_features.sh
+    # # macos
+    # - os: osx
+    #   rust: stable
+    #   env: NAME=macOS
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_all_features.sh
 
     # windows
     - os: windows
       rust: stable
       env: NAME=windows
            RUST_BACKTRACE=full
+           OPENSSL_DIR='C:\\Program Files\\OpenSSL'
       before_install:
         - scripts/install_openssl_win.sh
       script: 
         - scripts/test_all_features.sh
 
-    # nightly
-    - rust: nightly
-      env: NAME=nightly
-           RUST_BACKTRACE=full
-      script: 
-        - scripts/test_all_features.sh
+    # # nightly
+    # - rust: nightly
+    #   env: NAME=nightly
+    #        RUST_BACKTRACE=full
+    #   script: 
+    #     - scripts/test_all_features.sh
 
-    # clippy
-    - rust: stable
-      env: NAME=clippy
-           RUST_BACKTRACE=full
-      script:
-        - scripts/run_clippy.sh
+    # # clippy
+    # - rust: stable
+    #   env: NAME=clippy
+    #        RUST_BACKTRACE=full
+    #   script:
+    #     - scripts/run_clippy.sh
 
-    - rust: nightly
-      env: NAME=rustfmt
-           RUST_BACKTRACE=full
-      before_install:
-        - cargo install rustfmt-nightly --force
-      script:
-        - cargo fmt --all -- --write-mode=diff
+    # - rust: nightly
+    #   env: NAME=rustfmt
+    #        RUST_BACKTRACE=full
+    #   before_install:
+    #     - cargo install rustfmt-nightly --force
+    #   script:
+    #     - cargo fmt --all -- --write-mode=diff
 
-    # benchmark tests; built but not run in Travis to avoid inconsistent timing results
-    - rust: nightly
-      env: NAME=bench
-      script:
-        - scripts/build_benches.sh
+    # # benchmark tests; built but not run in Travis to avoid inconsistent timing results
+    # - rust: nightly
+    #   env: NAME=bench
+    #   script:
+    #     - scripts/build_benches.sh
 
-    # compatiblity tests
-    - rust: stable
-      env: NAME=compatiblity
-           TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
-           RUST_BACKTRACE=full
-      before_install:
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
-        - scripts/install_bind.sh
-      script:
-        - cargo test --manifest-path tests/compatibility-tests/Cargo.toml --no-default-features --features=bind
-      after_success:
-        - scripts/run_kcov.sh
+    # # compatiblity tests
+    # - rust: stable
+    #   env: NAME=compatiblity
+    #        TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
+    #        RUST_BACKTRACE=full
+    #   before_install:
+    #     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
+    #     - scripts/install_bind.sh
+    #   script:
+    #     - cargo test --manifest-path tests/compatibility-tests/Cargo.toml --no-default-features --features=bind
+    #   after_success:
+    #     - scripts/run_kcov.sh
 
-    - rust: stable
-      env: NAME=package-audit
-      before_install:
-        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
-        - cargo install cargo-audit
-        - cargo check
-      script:
-        - cargo audit
+    # - rust: stable
+    #   env: NAME=package-audit
+    #   before_install:
+    #     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
+    #     - cargo install cargo-audit
+    #     - cargo check
+    #   script:
+    #     - cargo audit
 
   allow_failures:
     - rust: nightly
