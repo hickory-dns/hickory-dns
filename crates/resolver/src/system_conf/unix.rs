@@ -47,7 +47,7 @@ fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, Res
     into_resolver_config(parsed_conf)
 }
 
-// FIXME: use a custom parsing error type maybe?
+// TODO: use a custom parsing error type maybe?
 fn into_resolver_config(
     parsed_config: resolv_conf::Config,
 ) -> io::Result<(ResolverConfig, ResolverOpts)> {
@@ -145,6 +145,15 @@ mod tests {
         let parsed = parse_resolv_conf("search localnet.").expect("failed");
         let mut cfg = empty_config();
         cfg.add_search(Name::from_str("localnet.").unwrap());
+        assert_eq!(cfg.search(), parsed.0.search());
+        assert_eq!(ResolverOpts::default(), parsed.1);
+    }
+
+    #[test]
+    fn test_underscore_in_search() {
+        let parsed = parse_resolv_conf("search Speedport_000").expect("failed");
+        let mut cfg = empty_config();
+        cfg.add_search(Name::from_str_relaxed("Speedport_000.").unwrap());
         assert_eq!(cfg.search(), parsed.0.search());
         assert_eq!(ResolverOpts::default(), parsed.1);
     }
