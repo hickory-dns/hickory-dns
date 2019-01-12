@@ -106,7 +106,7 @@ Currently the root key is hardcoded into the system. This gives validation of
 
 Zones will be automatically resigned on any record updates via dynamic DNS.
 
-## RFC's implemented
+## RFCs implemented
 
 ### Basic operations
 - [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (see the Resolver for caching)
@@ -136,7 +136,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 - [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
 - [RFC DoH](https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
 
-## RFC's in progress or not yet implemented
+## RFCs in progress or not yet implemented
 
 ### Basic operations
 - [RFC 2317](https://tools.ietf.org/html/rfc2317): Classless IN-ADDR.ARPA delegation
