@@ -106,7 +106,7 @@ matrix:
       rust: stable
       env: NAME=windows
            RUST_BACKTRACE=full
-           OPENSSL_DIR='C:\\Program Files\\OpenSSL'
+           OPENSSL_DIR='C:\Program Files\OpenSSL'
       before_install:
         - scripts/install_openssl_win.sh
       script: 
