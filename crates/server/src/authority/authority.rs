@@ -8,8 +8,9 @@
 //! All authority related types
 
 use trust_dns::op::LowerQuery;
-use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::{LowerName, RecordType};
+use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns::rr::{LowerName, Name, RecordType};
+use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 
 use authority::{AuthLookup, MessageRequest, UpdateResult, ZoneType};
 
@@ -159,9 +160,19 @@ pub trait Authority: Send {
         )
     }
 
+    // TODO: this should probably be a general purpose higher level component?
+    /// Add a (Sig0) key that is authorized to perform updates against this authority
+    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
+        Err(DnsSecError::from("dynamic update not supported by this Authority type").into())
+    }
+
     /// Add Signer
-    fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()>;
+    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+        Err(DnsSecError::from("zone signing not supported by this Authority type").into())
+    }
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()>;
+    fn secure_zone(&mut self) -> DnsSecResult<()> {
+        Err(DnsSecError::from("zone signing not supported by this Authority type").into())
+    }
 }

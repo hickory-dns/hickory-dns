@@ -147,7 +147,7 @@ pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
 
         let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        authority.add_secure_key(signer).expect("failed to add signer to zone");
+        authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
         authority.secure_zone().expect("failed to sign zone");
     }
 
@@ -165,7 +165,7 @@ pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
 
     //     let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
     //     keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-    //     authority.add_secure_key(signer).expect("failed to add signer to zone");
+    //     authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
     //     authority.secure_zone().expect("failed to sign zone");
     // }
 
@@ -182,7 +182,7 @@ pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
 
     //     let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
     //     keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-    //     authority.add_secure_key(signer).expect("failed to add signer to zone");
+    //     authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
     //     authority.secure_zone().expect("failed to sign zone");
     // }
 
@@ -200,7 +200,7 @@ pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
 
         let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        authority.add_secure_key(signer).expect("failed to add signer to zone");
+        authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
         authority.secure_zone().expect("failed to sign zone");
     }
 

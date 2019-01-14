@@ -217,17 +217,23 @@ impl RecordSet {
     }
 
     /// creates a new Record as part of this RecordSet, adding the associated RData
+    #[deprecated(note = "use add_rdata")]
     pub fn new_record(&mut self, rdata: &RData) -> &Record {
-        assert_eq!(self.record_type, rdata.to_record_type());
-
-        let mut record = Record::with(self.name.clone(), self.record_type, self.ttl);
-        record.set_rdata(rdata.clone()); // TODO: remove clone()? this is only needed for the record return
-        self.insert(record, 0);
+        self.add_rdata(rdata.clone());
 
         self.records
             .iter()
             .find(|r| r.rdata() == rdata)
-            .expect("insert failed? 172")
+            .expect("insert failed")
+    }
+
+    /// creates a new Record as part of this RecordSet, adding the associated RData
+    pub fn add_rdata(&mut self, rdata: RData) -> bool {
+        debug_assert_eq!(self.record_type, rdata.to_record_type());
+
+        let mut record = Record::with(self.name.clone(), self.record_type, self.ttl);
+        record.set_rdata(rdata);
+        self.insert(record, 0)
     }
 
     /// Inserts a new Resource Record into the Set.
