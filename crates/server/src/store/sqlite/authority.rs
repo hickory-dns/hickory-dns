@@ -13,6 +13,8 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use trust_dns::proto::rr::dnssec::rdata::key::KEY;
+use trust_dns::proto::rr::dnssec::rdata::DNSSECRData;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
@@ -58,7 +60,7 @@ impl SqliteAuthority {
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
-    ///                         (see `add_secure_key()`)
+    ///                         (see `add_zone_signing_key()`)
     ///
     /// # Return value
     ///
@@ -1272,13 +1274,32 @@ impl Authority for SqliteAuthority {
             }).into()
     }
 
+    #[cfg(feature = "dnssec")]
+    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
+        let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
+        // TODO: what TTL?
+        let record = Record::from_rdata(name, 86400, rdata.to_record_type(), rdata);
+
+        let serial = self.serial();
+        if self.upsert(record, serial) {
+            Ok(())
+        } else {
+            Err("failed to add auth key".into())
+        }
+    }
+
+    #[cfg(not(feature = "dnssec"))]
+    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
+        Err("DNSSEC was not enabled during compilation.".into())
+    }
+
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
     #[cfg(feature = "dnssec")]
-    fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 
         // also add the key to the zone
@@ -1299,8 +1320,8 @@ impl Authority for SqliteAuthority {
     }
 
     #[cfg(not(feature = "dnssec"))]
-    fn add_secure_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
-        Err("DNSSEC is not enabled.".into())
+    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+        Err("DNSSEC was not enabled during compilation.".into())
     }
 
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
@@ -1321,6 +1342,6 @@ impl Authority for SqliteAuthority {
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
     #[cfg(not(feature = "dnssec"))]
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err("DNSSEC is not enabled.".into())
+        Err("DNSSEC was not enabled during compilation.".into())
     }
 }

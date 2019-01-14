@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -381,6 +372,7 @@ impl Signer {
         &self.signer_name
     }
 
+    // TODO: move this to DNSKEY/KEY?
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
@@ -435,7 +427,6 @@ impl Signer {
     ///  }
     /// ```
     pub fn calculate_key_tag(&self) -> ProtoResult<u16> {
-        // TODO:
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
             let mut e = BinEncoder::new(&mut bytes);
@@ -503,8 +494,9 @@ impl Signer {
         tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
     }
 
-    /// Extracts a DNSKEY from this Signer
+    /// Extracts a public KEY from this Signer
     pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
+        // TODO: this interface should allow for setting if this is a secure entry point vs. ZSK
         self.key.to_public_bytes()
             .map(|bytes| DNSKEY::new(self.is_zone_signing_key, true, false, self.algorithm, bytes))
     }
@@ -588,6 +580,7 @@ impl Verifier for Signer {
     }
 
     fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
+        // TODO: perform this directly with the key...
         match self.key_rdata {
             RData::DNSSEC(DNSSECRData::DNSKEY(ref key)) => key.key(),
             RData::DNSSEC(DNSSECRData::KEY(ref key)) => key.key(),

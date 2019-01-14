@@ -51,7 +51,7 @@ impl FileAuthority {
     /// * `zone_type` - The type of zone, i.e. is this authoritative?
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
-    ///                         (see `add_secure_key()`)
+    ///                         (see `add_zone_signing_key()`)
     ///
     /// # Return value
     ///
@@ -237,7 +237,7 @@ impl FileAuthority {
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
     #[cfg(not(feature = "dnssec"))]
     pub fn secure_zone(&mut self) -> Result<(), &str> {
-        Err("DNSSEC is not enabled.")
+        Err("DNSSEC was not enabled during compilation.")
     }
 
     /// Dummy implementation for when DNSSEC is disabled.
@@ -603,7 +603,7 @@ impl Authority for FileAuthority {
     ///
     /// * `signer` - Signer with associated private key
     #[cfg(feature = "dnssec")]
-    fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 
         // also add the key to the zone
@@ -625,8 +625,8 @@ impl Authority for FileAuthority {
 
     /// This will fail, the dnssec feature must be enabled
     #[cfg(not(feature = "dnssec"))]
-    fn add_secure_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
-        Err("DNSSEC is not enabled.".into())
+    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+        Err("DNSSEC was not enabled during compilation.".into())
     }
 
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
@@ -647,7 +647,7 @@ impl Authority for FileAuthority {
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
     #[cfg(not(feature = "dnssec"))]
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err("DNSSEC is not enabled.".into())
+        Err("DNSSEC was not enabled during compilation.".into())
     }
 }
 

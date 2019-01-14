@@ -36,7 +36,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 
 [[bin]]
 name = "dnskey-to-pem"
-path = "src/dnskey_to_pem.rs"
+path = "src/bind_dnskey_to_pem.rs"
 
 [[bin]]
 name = "get-root-ksks"

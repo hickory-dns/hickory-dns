@@ -183,7 +183,7 @@ pub fn create_secure_example() -> SqliteAuthority {
         Duration::weeks(1),
     );
 
-    authority.add_secure_key(signer);
+    authority.add_zone_signing_key(signer);
     authority.secure_zone();
 
     authority

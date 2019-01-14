@@ -166,7 +166,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
                     key_config.is_zone_update_auth()
                 );
                 authority
-                    .add_secure_key(signer)
+                    .add_zone_signing_key(signer)
                     .expect("failed to add key to authority");
             }
 
