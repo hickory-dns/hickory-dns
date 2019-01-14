@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use futures::future::Loop;
 use futures::{future, task, Async, Future, IntoFuture, Poll};
 use smallvec::SmallVec;
-use tokio::executor::{DefaultExecutor, Executor};
+use tokio_executor::{DefaultExecutor, Executor};
 
 use proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]

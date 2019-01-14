@@ -35,6 +35,10 @@
 //! This uses the default configuration, which sets the [Google Public DNS](https://developers.google.com/speed/public-dns/) as the upstream resolvers. Please see their [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS.
 //!
 //! ```rust
+//! # extern crate trust_dns_resolver;
+//! # fn main() {
+//! # #[cfg(feature = "tokio")]
+//! # {
 //! use std::net::*;
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
@@ -55,6 +59,8 @@
 //! } else {
 //!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
+//! # }
+//! # }
 //! ```
 //!
 //! ## Using the host system config
@@ -62,6 +68,10 @@
 //! On Unix systems, the `/etc/resolv.conf` can be used for configuration. Not all options specified in the host systems `resolv.conf` are applicable or compatible with this software. In addition there may be additional options supported which the host system does not. Example:
 //!
 //! ```rust,no_run
+//! # extern crate trust_dns_resolver;
+//! # fn main() {
+//! # #[cfg(feature = "tokio")]
+//! # {
 //! # use std::net::*;
 //! # use trust_dns_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
@@ -69,6 +79,8 @@
 //! let resolver = Resolver::from_system_conf().unwrap();
 //! # #[cfg(unix)]
 //! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! # }
+//! # }
 //! ```
 //!
 //! ## Using the Tokio/Async Resolver
@@ -148,6 +160,8 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
+//! # #[cfg(feature = "tokio")]
+//! # {
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
 //!
@@ -156,6 +170,7 @@
 //! let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
 //!
 //! // see example above...
+//! # }
 //! # }
 //! ```
 //!
@@ -186,7 +201,9 @@ extern crate serde_derive;
 #[cfg(feature = "serde-config")]
 extern crate serde;
 extern crate smallvec;
+#[cfg(any(feature = "tokio", test))]
 extern crate tokio;
+extern crate tokio_executor;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 #[cfg(feature = "dns-over-native-tls")]
@@ -210,6 +227,7 @@ pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server_pool;
+#[cfg(any(feature = "tokio", test))]
 mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
@@ -220,6 +238,7 @@ pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
 pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
 pub use hosts::Hosts;
+#[cfg(any(feature = "tokio", test))]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
