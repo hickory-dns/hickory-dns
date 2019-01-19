@@ -217,7 +217,8 @@ impl RecordSet {
     }
 
     /// creates a new Record as part of this RecordSet, adding the associated RData
-    #[deprecated(note = "use add_rdata")]
+    ///
+    /// this interface may be deprecated in the future.
     pub fn new_record(&mut self, rdata: &RData) -> &Record {
         self.add_rdata(rdata.clone());
 
@@ -427,6 +428,7 @@ pub trait IntoRecordSet: Sized {
     fn into_record_set(self) -> RecordSet;
 }
 
+#[allow(deprecated)]
 impl IntoRecordSet for RecordSet {
     fn into_record_set(self) -> Self {
         self
@@ -869,7 +871,7 @@ mod test {
             .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
             .clone();
 
-        let mut rrset = a.into_record_set();
+        let mut rrset = RecordSet::from(a);
         rrset.insert_rrsig(rrsig_rsa);
         rrset.insert_rrsig(rrsig_ecp256);
         rrset.insert_rrsig(rrsig_ecp384);

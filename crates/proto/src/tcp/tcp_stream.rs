@@ -338,7 +338,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         let length =
                             u16::from(bytes[0]) << 8 & 0xFF00 | u16::from(bytes[1]) & 0x00FF;
                         debug!("got length: {}", length);
-                        let mut bytes = Vec::with_capacity(length as usize);
+                        let mut bytes = vec![0; length as usize];
                         bytes.resize(length as usize, 0);
 
                         debug!("move ReadTcpState::Bytes: {}", bytes.len());

@@ -16,7 +16,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - *breaking* UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
-- *breaking* configuration for sqlite dynamic update different, see dnssec_with_update.toml for example
+- *breaking* configuration for sqlite dynamic update different, see dnssec_with_update.toml for example #622
+- *breaking* util/dnskey_to_pem has been renamed to bind_dnskey_to_pem for clarity #622
 
 ## 0.15.0
 

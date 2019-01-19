@@ -21,6 +21,7 @@ use std::cmp::Ordering;
 use error::*;
 use rr::dns_class::DNSClass;
 use rr::rdata::NULL;
+#[allow(deprecated)]
 use rr::IntoRecordSet;
 use rr::Name;
 use rr::RData;
@@ -231,6 +232,7 @@ impl Record {
     }
 }
 
+#[allow(deprecated)]
 impl IntoRecordSet for Record {
     fn into_record_set(self) -> RecordSet {
         RecordSet::from(self)

@@ -20,7 +20,7 @@ use rand;
 use error::*;
 use op::{Message, MessageType, OpCode, Query, update_message};
 use rr::dnssec::Signer;
-use rr::{DNSClass, IntoRecordSet, Name, Record, RecordType};
+use rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
 pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -290,7 +290,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         rrset: Option<R>,
     ) -> ClientResponse<<Self as DnsHandle>::Response>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
         debug!("notifying: {} {:?}", name, query_type);
 
@@ -324,7 +324,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 
         // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
         if let Some(rrset) = rrset {
-            message.add_answers(rrset.into_record_set());
+            message.add_answers(rrset.into());
         }
 
         ClientResponse(self.send(message))
@@ -369,9 +369,9 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         zone_origin: Name,
     ) -> ClientResponse<<Self as DnsHandle>::Response>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
-        let rrset = rrset.into_record_set();
+        let rrset = rrset.into();
         let message = update_message::create(rrset, zone_origin);
         
         ClientResponse(self.send(message))
@@ -418,9 +418,9 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         must_exist: bool,
     ) -> ClientResponse<<Self as DnsHandle>::Response>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
-        let rrset = rrset.into_record_set();
+        let rrset = rrset.into();
         let message = update_message::append(rrset, zone_origin, must_exist);
 
         ClientResponse(self.send(message))
@@ -474,11 +474,11 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         zone_origin: Name,
     ) -> ClientResponse<<Self as DnsHandle>::Response>
     where
-        C: IntoRecordSet,
-        N: IntoRecordSet,
+        C: Into<RecordSet>,
+        N: Into<RecordSet>,
     {
-        let current = current.into_record_set();
-        let new = new.into_record_set();
+        let current = current.into();
+        let new = new.into();
 
         let message = update_message::compare_and_swap(current, new, zone_origin);
         ClientResponse(self.send(message))
@@ -526,9 +526,9 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         zone_origin: Name,
     ) -> ClientResponse<<Self as DnsHandle>::Response>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
-        let rrset = rrset.into_record_set();
+        let rrset = rrset.into();
         let message = update_message::delete_by_rdata(rrset, zone_origin);
 
         ClientResponse(self.send(message))

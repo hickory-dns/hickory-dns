@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use error::*;
-use rr::{DNSClass, IntoRecordSet, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 use serialize::txt::master_lex::{Lexer, Token};
 use serialize::txt::parse_rdata::RDataParser;
 
@@ -302,7 +302,7 @@ impl Parser {
 
                             match rtype.unwrap() {
                                 RecordType::SOA => {
-                                    let set = record.into_record_set();
+                                    let set = record.into();
                                     if records.insert(key, set).is_some() {
                                         return Err(
                                             ParseErrorKind::Message(

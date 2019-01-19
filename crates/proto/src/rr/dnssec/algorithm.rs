@@ -172,7 +172,7 @@ impl<'r> BinDecodable<'r> for Algorithm {
 
 impl From<Algorithm> for &'static str {
     fn from(a: Algorithm) -> &'static str {
-        a.to_str()
+        a.as_str()
     }
 }
 
@@ -192,7 +192,7 @@ impl From<Algorithm> for u8 {
 
 impl Display for Algorithm {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        f.write_str(self.to_str())
+        f.write_str(self.as_str())
     }
 }
 

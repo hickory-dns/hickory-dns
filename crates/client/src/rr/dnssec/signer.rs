@@ -11,9 +11,7 @@ use chrono::Duration;
 
 use proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(feature = "dnssec")]
-use proto::rr::dnssec::{tbs, TBS, PublicKeyEnum};
-#[cfg(feature = "dnssec")]
-use proto::rr::dnssec::Verifier;
+use proto::rr::dnssec::{tbs, TBS};
 
 #[cfg(feature = "dnssec")]
 use error::DnsSecResult;
@@ -503,9 +501,9 @@ impl Signer {
 
     /// Test that this key is capable of signing and verifying data
     pub fn test_key(&self) -> DnsSecResult<()> {
-        //use proto::rr::dnssec::PublicKey;
+        // use proto::rr::dnssec::PublicKey;
         
-        // TODO: why doesn't this work for ecdsa_256 and 384?
+        // // TODO: why doesn't this work for ecdsa_256 and 384?
         // let test_data = TBS::from(b"DEADBEEF" as &[u8]);
         
         // let signature = self.sign(&test_data).map_err(|e| {println!("failed to sign, {:?}", e); e})?;
@@ -570,22 +568,6 @@ impl MessageFinalizer for Signer {
             ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
                 .into(),
         )
-    }
-}
-
-#[cfg(feature = "dnssec")]
-impl Verifier for Signer {
-    fn algorithm(&self) -> Algorithm {
-        self.algorithm()
-    }
-
-    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
-        // TODO: perform this directly with the key...
-        match self.key_rdata {
-            RData::DNSSEC(DNSSECRData::DNSKEY(ref key)) => key.key(),
-            RData::DNSSEC(DNSSECRData::KEY(ref key)) => key.key(),
-            _ => panic!("Signer incorrectly initialized with incorrect RData"),
-        }
     }
 }
 

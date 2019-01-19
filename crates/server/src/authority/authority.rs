@@ -162,17 +162,17 @@ pub trait Authority: Send {
 
     // TODO: this should probably be a general purpose higher level component?
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        Err(DnsSecError::from("dynamic update not supported by this Authority type").into())
+    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
+        Err(DnsSecError::from("dynamic update not supported by this Authority type"))
     }
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        Err(DnsSecError::from("zone signing not supported by this Authority type").into())
+    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+        Err(DnsSecError::from("zone signing not supported by this Authority type"))
     }
 
     /// Sign the zone for DNSSEC
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err(DnsSecError::from("zone signing not supported by this Authority type").into())
+        Err(DnsSecError::from("zone signing not supported by this Authority type"))
     }
 }

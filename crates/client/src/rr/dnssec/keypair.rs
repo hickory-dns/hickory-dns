@@ -513,8 +513,7 @@ mod tests {
                 None,
                 algorithm,
             ).unwrap();
-        let pk = key.to_public_bytes().unwrap();
-        let pk = PublicKeyEnum::from_public_bytes(&pk, algorithm).unwrap();
+        let pk = key.to_public_key().unwrap();
 
         let tbs = TBS::from(&b"www.example.com"[..]);
         let mut sig = key.sign(algorithm, &tbs).unwrap();
@@ -530,6 +529,7 @@ mod tests {
             algorithm
         );
     }
+    
     fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
         let tbs = TBS::from(&b"www.example.com"[..]);
 
@@ -540,8 +540,7 @@ mod tests {
                 None,
                 algorithm,
             ).unwrap();
-        let pub_key = key.to_public_bytes().unwrap();
-        let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, algorithm).unwrap();
+        let pub_key = key.to_public_key().unwrap();
 
         let neg = key_format
             .decode_key(
@@ -549,8 +548,7 @@ mod tests {
                 None,
                 algorithm,
             ).unwrap();
-        let neg_pub_key = neg.to_public_bytes().unwrap();
-        let neg_pub_key = PublicKeyEnum::from_public_bytes(&neg_pub_key, algorithm).unwrap();
+        let neg_pub_key = neg.to_public_key().unwrap();
 
         let sig = key.sign(algorithm, &tbs).unwrap();
         assert!(

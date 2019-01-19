@@ -31,7 +31,7 @@ use trust_dns::op::ResponseCode;
 use trust_dns::rr::dnssec::Signer;
 use trust_dns::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::{IntoRecordSet, Record};
+use trust_dns::rr::Record;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
@@ -332,7 +332,7 @@ fn test_create_multi() {
     record2.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 11)));
     let record2 = record2;
 
-    let mut rrset = record.clone().into_record_set();
+    let mut rrset = RecordSet::from(record.clone());
     rrset.insert(record2.clone(), 0);
     let rrset = rrset;
 
@@ -477,7 +477,7 @@ fn test_append_multi() {
     record3.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 12)));
 
     // build the append set
-    let mut rrset = record2.clone().into_record_set();
+    let mut rrset = RecordSet::from(record2.clone());
     rrset.insert(record3.clone(), 0);
 
     let result = io_loop

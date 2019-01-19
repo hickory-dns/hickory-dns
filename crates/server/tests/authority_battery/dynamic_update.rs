@@ -1,3 +1,5 @@
+#![cfg(feature = "dnssec")]
+
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
@@ -81,7 +83,7 @@ pub fn test_create_multi<A: Authority>(mut authority: A, keys: &[Signer]) {
         let rrset = rrset;
 
         let message = update_message::create(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
@@ -93,7 +95,7 @@ pub fn test_create_multi<A: Authority>(mut authority: A, keys: &[Signer]) {
         assert!(lookup.iter().any(|rr| *rr == record2));
 
         // trying to create again should error
-        let message = update_message::create(rrset.into(), Name::from_str("example.com.").unwrap());
+        let message = update_message::create(rrset, Name::from_str("example.com.").unwrap());
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
             ResponseCode::YXRRSet
@@ -205,7 +207,7 @@ pub fn test_append_multi<A: Authority>(mut authority: A, keys: &[Signer]) {
         rrset.insert(record3.clone(), 0);
 
         let message = update_message::append(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
             true,
         );
@@ -223,7 +225,7 @@ pub fn test_append_multi<A: Authority>(mut authority: A, keys: &[Signer]) {
         // show that appending the same thing again is ok, but doesn't add any records
         // TODO: technically this is a test for the Server, not client...
         let message = update_message::append(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
             true,
         );
@@ -320,7 +322,7 @@ pub fn test_compare_and_swap_multi<A: Authority>(mut authority: A, keys: &[Signe
         let current = current;
 
         let mut message = update_message::create(
-            current.clone().into(),
+            current.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
@@ -336,8 +338,8 @@ pub fn test_compare_and_swap_multi<A: Authority>(mut authority: A, keys: &[Signe
         let new = new;
 
         let mut message = update_message::compare_and_swap(
-            current.clone().into(),
-            new.clone().into(),
+            current.clone(),
+            new.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(update_authority(message, key, &mut authority).expect("compare_and_swap failed"));
@@ -357,7 +359,7 @@ pub fn test_compare_and_swap_multi<A: Authority>(mut authority: A, keys: &[Signe
         let not = not;
 
         let message = update_message::compare_and_swap(
-            current.clone().into(),
+            current.clone(),
             not.clone().into(),
             Name::from_str("example.com.").unwrap(),
         );
@@ -449,14 +451,14 @@ pub fn test_delete_by_rdata_multi<A: Authority>(mut authority: A, keys: &[Signer
 
         // first check the must_exist option
         let message = update_message::delete_by_rdata(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(!update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
         // next create to a non-existent RRset
         let message = update_message::create(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
@@ -469,7 +471,7 @@ pub fn test_delete_by_rdata_multi<A: Authority>(mut authority: A, keys: &[Signer
         let rrset = rrset;
 
         let message = update_message::append(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
             true,
         );
@@ -477,7 +479,7 @@ pub fn test_delete_by_rdata_multi<A: Authority>(mut authority: A, keys: &[Signer
 
         // verify record contents
         let message = update_message::delete_by_rdata(
-            rrset.clone().into(),
+            rrset.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
@@ -506,7 +508,7 @@ pub fn test_delete_rrset<A: Authority>(mut authority: A, keys: &[Signer]) {
 
         // first check the must_exist option
         let message = update_message::delete_rrset(
-            record.clone().into(),
+            record.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(!update_authority(message, key, &mut authority).expect("delete_rrset failed"));
@@ -529,7 +531,7 @@ pub fn test_delete_rrset<A: Authority>(mut authority: A, keys: &[Signer]) {
 
         // verify record contents
         let message = update_message::delete_rrset(
-            record.clone().into(),
+            record.clone(),
             Name::from_str("example.com.").unwrap(),
         );
         assert!(update_authority(message, key, &mut authority).expect("delete_rrset failed"));
@@ -553,7 +555,7 @@ pub fn test_delete_all<A: Authority>(mut authority: A, keys: &[Signer]) {
 
         // first check the must_exist option
         let message = update_message::delete_all(
-            record.name().clone().into(),
+            record.name().clone(),
             Name::from_str("example.com.").unwrap(),
             DNSClass::IN,
         );
@@ -577,7 +579,7 @@ pub fn test_delete_all<A: Authority>(mut authority: A, keys: &[Signer]) {
 
         // verify record contents
         let message = update_message::delete_all(
-            record.name().clone().into(),
+            record.name().clone(),
             Name::from_str("example.com.").unwrap(),
             DNSClass::IN,
         );
