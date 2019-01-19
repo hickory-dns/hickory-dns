@@ -27,7 +27,7 @@ use error::*;
 use rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use rr::dnssec::TrustAnchor;
-use rr::{DNSClass, IntoRecordSet, Name, Record, RecordType};
+use rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 /// Client trait which implements basic DNS Client operations.
 ///
@@ -101,7 +101,7 @@ pub trait Client {
         rrset: Option<R>,
     ) -> ClientResult<DnsResponse>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
@@ -145,7 +145,7 @@ pub trait Client {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
     fn create<R>(&self, rrset: R, zone_origin: Name) -> ClientResult<DnsResponse>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
@@ -190,7 +190,7 @@ pub trait Client {
     /// the rrset does not exist and must_exist is false, then the RRSet will be created.
     fn append<R>(&self, rrset: R, zone_origin: Name, must_exist: bool) -> ClientResult<DnsResponse>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
@@ -247,8 +247,8 @@ pub trait Client {
         zone_origin: Name,
     ) -> ClientResult<DnsResponse>
     where
-        CR: IntoRecordSet,
-        NR: IntoRecordSet,
+        CR: Into<RecordSet>,
+        NR: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
@@ -294,7 +294,7 @@ pub trait Client {
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_by_rdata<R>(&self, record: R, zone_origin: Name) -> ClientResult<DnsResponse>
     where
-        R: IntoRecordSet,
+        R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();

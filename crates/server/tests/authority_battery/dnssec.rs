@@ -1,3 +1,5 @@
+#![cfg(feature = "dnssec")]
+
 use std::str::FromStr;
 
 use trust_dns::op::Query;

@@ -34,6 +34,7 @@ pub use self::lower_name::LowerName;
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
+#[allow(deprecated)]
 pub use self::rr::IntoRecordSet;
 pub use self::rr::RecordSet;
 pub use self::rr_key::RrKey;

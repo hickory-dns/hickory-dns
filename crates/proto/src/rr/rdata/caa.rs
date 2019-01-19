@@ -1031,7 +1031,7 @@ mod tests {
         let name_bytes: &[u8] = b"issueexample.com";
         let header: &[u8] = &[128, 5];
         let encoded: Vec<u8> = header
-            .into_iter()
+            .iter()
             .chain(name_bytes.iter())
             .cloned()
             .collect();

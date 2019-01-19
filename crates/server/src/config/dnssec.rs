@@ -11,7 +11,10 @@ use std::path::Path;
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
-#[cfg(feature = "dns-over-openssl")]
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls")
+))]
 use openssl::{pkey::PKey, stack::Stack, x509::X509};
 
 use trust_dns::rr::domain::Name;
@@ -61,7 +64,7 @@ impl KeyConfig {
         KeyConfig {
             key_path,
             password,
-            algorithm: algorithm.to_str().to_string(),
+            algorithm: algorithm.as_str().to_string(),
             signer_name: Some(signer_name),
             is_zone_signing_key: Some(is_zone_signing_key),
             is_zone_update_auth: Some(is_zone_update_auth),

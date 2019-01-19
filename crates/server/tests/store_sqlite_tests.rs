@@ -38,6 +38,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
     ).expect("failed to load file")
 }
 
+#[allow(unused)]
 fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
         .join(module)

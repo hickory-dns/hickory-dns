@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use trust_dns::proto::rr::dnssec::rdata::key::KEY;
+#[cfg(feature = "dnssec")]
 use trust_dns::proto::rr::dnssec::rdata::DNSSECRData;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
@@ -1289,7 +1290,7 @@ impl Authority for SqliteAuthority {
     }
 
     #[cfg(not(feature = "dnssec"))]
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
+    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
         Err("DNSSEC was not enabled during compilation.".into())
     }
 

@@ -15,7 +15,6 @@
  */
 
 // there is not much to format in this file, and we don't want rusftfmt to mess up the comments
-#![cfg_attr(rustfmt, rustfmt_skip)]
 
 //! All defined response codes in DNS
 
