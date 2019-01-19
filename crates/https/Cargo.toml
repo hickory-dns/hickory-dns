@@ -61,7 +61,7 @@ trust-dns-proto = { version = "0.6.0", path = "../proto", default-features = fal
 trust-dns-rustls = { version = "0.5.0", path = "../rustls", default-features = false }
 typed-headers = "0.1"
 webpki-roots = { version = "0.15" }
-webpki = "0.18"
+webpki = "0.19"
 
 [dev-dependencies]
 env_logger = "^0.6"
