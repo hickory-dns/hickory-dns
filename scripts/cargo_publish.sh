@@ -5,7 +5,7 @@ set -x
 trust_dns_dir=$(dirname $0)/..
 cd ${trust_dns_dir:?}
 
-packages_ordered="proto openssl native-tls rustls https client resolver server util"
+packages_ordered="proto openssl native-tls rustls https client resolver server"
 
 ## dry-run
 cargo check
