@@ -5,7 +5,7 @@ set -x
 trust_dns_dir=$(dirname $0)/..
 cd ${trust_dns_dir:?}
 
-packages_ordered="proto openssl native-tls rustls https client resolver server"
+packages_ordered="proto openssl native-tls rustls https client resolver server util"
 
 ## dry-run
 cargo check
@@ -14,5 +14,5 @@ for p in ${packages_ordered:?} ; do
     echo "====> dry-run publish $p"
     cargo publish --verbose --locked --dry-run --manifest-path crates/${p:?}/Cargo.toml
     echo "====> publishing $p"
-    cargo publish --verbose --locked --manifest-path crates/${p:?}/Cargo.toml     
+    cargo publish --verbose --locked --manifest-path crates/${p:?}/Cargo.toml
 done

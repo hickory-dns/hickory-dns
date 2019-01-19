@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-util"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -47,11 +47,11 @@ name = "pem-to-public-dnskey"
 path = "src/pem_to_public_dnskey.rs"
 
 [dependencies]
-clap = "^2.23.3"
+clap = "2.23.3"
 data-encoding = "2.1.0"
-trust-dns = { version = "0.15.0", features = ["dnssec-openssl"], path = "../crates/client" }
-trust-dns-proto = { version = "0.6.0", features = ["dnssec-openssl"], path = "../crates/proto" }
-trust-dns-resolver = { version = "0.10.0", features = ["dnssec-openssl"], path = "../crates/resolver" }
+trust-dns = { version = "0.16.0-alpha", features = ["dnssec-openssl"], path = "../crates/client" }
+trust-dns-proto = { version = "0.7.0", features = ["dnssec-openssl"], path = "../crates/proto" }
+trust-dns-resolver = { version = "0.11.0-alpha", features = ["dnssec-openssl"], path = "../crates/resolver" }
 env_logger = "0.6"
-log = "^0.4.1"
-openssl = { version = "^0.10", features = ["v102", "v110"] }
+log = "0.4.1"
+openssl = { version = "0.10", features = ["v102", "v110"] }
