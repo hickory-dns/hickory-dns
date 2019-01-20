@@ -523,6 +523,7 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "dnssec")]
+    #[allow(clippy::block_in_if_condition_stmt)]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use proto::rr::dnssec::Verifier;
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
@@ -623,6 +624,7 @@ impl SqliteAuthority {
     ///   MAILB, or any other QUERY metatype besides ANY, or any unrecognized
     ///   type, else signal FORMERR to the requestor.
     /// ```
+    #[allow(clippy::unused_unit)]
     pub fn pre_scan(&self, records: &[Record]) -> UpdateResult<()> {
         // 3.4.1.3 - Pseudocode For Update Section Prescan
         //

@@ -22,6 +22,7 @@ pub use tokio_openssl::SslAcceptorExt;
 /// Read the certificate from the specified path.
 ///
 /// If the password is specified, then it will be used to decode the Certificate
+#[allow(clippy::type_complexity)]
 pub fn read_cert_pkcs12(
     path: &Path,
     password: Option<&str>,

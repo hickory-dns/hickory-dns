@@ -9,6 +9,7 @@
 //!
 //! A label is stored internally as ascii, where all unicode characters are converted to punycode interenally.
 
+#[allow(clippy::useless_attribute)]
 #[allow(unused)]
 #[allow(deprecated)]
 use std::ascii::AsciiExt;

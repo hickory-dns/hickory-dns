@@ -138,6 +138,7 @@ where
     ///              (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<F>(
         stream: F,
         stream_handle: Box<DnsStreamHandle>,

@@ -45,6 +45,7 @@ impl UdpClientStream<NoopMessageFinalizer> {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(name_server: SocketAddr) -> UdpClientConnect<NoopMessageFinalizer> {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }

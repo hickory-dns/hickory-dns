@@ -22,6 +22,7 @@ pub fn test_a_lookup<A: Authority>(authority: A) {
     }
 }
 
+#[allow(clippy::unreadable_literal)]
 pub fn test_soa<A: Authority>(authority: A) {
     let lookup = authority.soa();
 

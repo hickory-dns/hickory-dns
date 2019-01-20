@@ -422,6 +422,7 @@ mod tests {
     use rr::record_data::RData;
     use rr::record_type::RecordType;
     use rr::Name;
+    #[allow(clippy::useless_attribute)]
     #[allow(unused)]
     use serialize::binary::*;
 

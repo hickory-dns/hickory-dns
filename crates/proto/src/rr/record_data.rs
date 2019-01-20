@@ -475,7 +475,6 @@ impl RData {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
             self.emit(&mut encoder).unwrap_or_else(|_| {
                 warn!("could not encode RDATA: {:?}", self);
-                ()
             });
         }
         buf
@@ -703,6 +702,7 @@ mod tests {
     use rr::domain::Name;
     use rr::rdata::{MX, SOA, SRV, TXT};
     use serialize::binary::bin_tests::test_emit_data_set;
+    #[allow(clippy::useless_attribute)]
     #[allow(unused)]
     use serialize::binary::*;
 

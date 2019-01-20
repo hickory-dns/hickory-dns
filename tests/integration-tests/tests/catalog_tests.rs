@@ -16,6 +16,7 @@ use trust_dns_server::store::sqlite::SqliteAuthority;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::*;
 
+#[allow(clippy::unreadable_literal)]
 pub fn create_test() -> SqliteAuthority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
     let mut records: SqliteAuthority = SqliteAuthority::new(
@@ -198,6 +199,7 @@ fn test_catalog_lookup() {
 }
 
 #[test]
+#[allow(clippy::unreadable_literal)]
 fn test_catalog_nx_soa() {
     let example = create_example();
     let origin = example.origin().clone();
@@ -244,6 +246,7 @@ fn test_catalog_nx_soa() {
 }
 
 #[test]
+#[allow(clippy::unreadable_literal)]
 fn test_axfr() {
     let mut test = create_test();
     test.set_allow_axfr(true);

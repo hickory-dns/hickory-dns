@@ -453,6 +453,7 @@ struct TlsConfig {
     dns_name: Arc<String>,
 }
 
+#[allow(clippy::large_enum_variant)]
 enum HttpsClientConnectState {
     ConnectTcp {
         name_server: SocketAddr,

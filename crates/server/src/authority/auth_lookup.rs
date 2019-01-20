@@ -21,6 +21,7 @@ use trust_dns::rr::LowerName;
 /// * `'r` - the recordset lifetime, subset of 'c
 /// * `'q` - the queries lifetime
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum AuthLookup {
     /// There is no matching name for the query
     NxDomain,
@@ -116,6 +117,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
 }
 
 /// An iterator over an Authority Lookup
+#[allow(clippy::large_enum_variant)]
 pub enum AuthLookupIter<'r> {
     /// The empty set
     Empty,

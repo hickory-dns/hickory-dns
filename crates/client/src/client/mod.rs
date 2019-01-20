@@ -16,6 +16,7 @@
 
 //! DNS Client associated classes for performing queries and other operations.
 
+#[allow(clippy::module_inception)]
 mod client;
 mod client_connection;
 pub(crate) mod client_future;

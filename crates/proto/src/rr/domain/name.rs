@@ -1200,6 +1200,7 @@ mod tests {
     use super::*;
 
     use serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
+    #[allow(clippy::useless_attribute)]
     #[allow(unused)]
     use serialize::binary::*;
 

@@ -35,6 +35,7 @@ impl TcpClientStream<TokioTcpStream> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(name_server: SocketAddr) -> (TcpClientConnect, Box<DnsStreamHandle + Send>) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }

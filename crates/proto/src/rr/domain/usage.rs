@@ -393,6 +393,7 @@ pub struct ZoneUsage {
 
 impl ZoneUsage {
     /// Constructs a new ZoneUsage with the associated values
+    #[allow(clippy::too_many_arguments)]    
     pub fn new(name: Name, user: UserUsage, app: AppUsage, resolver: ResolverUsage, cache: CacheUsage, auth: AuthUsage, op: OpUsage, registry: RegistryUsage) -> Self {
         ZoneUsage {name, user, app, resolver, cache, auth, op, registry}
     }

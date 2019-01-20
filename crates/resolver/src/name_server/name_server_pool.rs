@@ -180,6 +180,7 @@ where
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
         opts: ResolverOpts,

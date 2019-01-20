@@ -91,6 +91,7 @@ fn emit_i32() {
     test_emit_data_set(get_i32_data(), |ref mut e, d| e.emit_i32(d));
 }
 
+#[allow(clippy::unreadable_literal)]
 fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
     vec![
         (0, vec![0x00, 0x00, 0x00, 0x00]),

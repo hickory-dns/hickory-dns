@@ -24,6 +24,7 @@ pub fn test_a_lookup<A: Authority>(authority: A, keys: &[DNSKEY]) {
     verify(&a_records, &rrsig_records, keys);
 }
 
+#[allow(clippy::unreadable_literal)]
 pub fn test_soa<A: Authority>(authority: A, keys: &[DNSKEY]) {
     let lookup = authority.soa_secure(true, SupportedAlgorithms::new());
 

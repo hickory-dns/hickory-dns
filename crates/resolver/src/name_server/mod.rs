@@ -8,6 +8,7 @@
 mod connection_provider;
 mod name_server_pool;
 mod name_server_stats;
+#[allow(clippy::module_inception)]
 mod name_server;
 
 use self::name_server_stats::{NameServerStats, NameServerState};

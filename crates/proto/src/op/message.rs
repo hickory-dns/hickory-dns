@@ -716,6 +716,7 @@ impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
 }
 
 /// Emits the different sections of a message properly
+#[allow(clippy::too_many_arguments)]
 pub fn emit_message_parts<Q, A, N, D>(
     header: &Header,
     queries: &mut Q,

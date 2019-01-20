@@ -38,6 +38,7 @@ use serialize::binary::*;
 use error::*;
 
 /// Read the RData from the given Decoder
+#[allow(clippy::many_single_char_names)]
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv6Addr> {
     let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);

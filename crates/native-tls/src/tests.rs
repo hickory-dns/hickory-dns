@@ -24,6 +24,7 @@ use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::SerialMessage;
 
+#[allow(clippy::useless_attribute)]
 #[allow(unused)]
 use {TlsStream, TlsStreamBuilder};
 

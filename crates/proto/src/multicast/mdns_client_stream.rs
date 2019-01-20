@@ -50,6 +50,7 @@ impl MdnsClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(
         mdns_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
