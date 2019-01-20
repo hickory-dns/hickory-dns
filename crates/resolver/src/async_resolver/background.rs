@@ -15,7 +15,7 @@ use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupFuture};
 use lookup_ip::LookupIpFuture;
 use lookup_state::CachingClient;
-use name_server_pool::{ConnectionHandle, NameServerPool, StandardConnection};
+use name_server::{ConnectionHandle, NameServerPool, StandardConnection};
 use proto::op::Query;
 
 use super::Request;

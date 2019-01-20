@@ -226,7 +226,7 @@ pub mod lookup;
 pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
-pub mod name_server_pool;
+pub mod name_server;
 #[cfg(any(feature = "tokio", test))]
 mod resolver;
 pub mod system_conf;

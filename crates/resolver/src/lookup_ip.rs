@@ -26,7 +26,7 @@ use error::*;
 use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
-use name_server_pool::{ConnectionHandle, StandardConnection};
+use name_server::{ConnectionHandle, StandardConnection};
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
