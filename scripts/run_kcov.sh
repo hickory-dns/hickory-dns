@@ -61,5 +61,5 @@ done
 echo "----> ran $test_count test(s)"
 
 echo "----> uploading to codecov.io"
-bash <(curl -s https://codecov.io/bash)
+bash <(curl -s https://codecov.io/bash) -c -F ${NAME}
 echo "----> coverage reports done"
