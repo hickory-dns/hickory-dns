@@ -21,7 +21,7 @@ use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::{ProtoError, ProtoResult};
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
-use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
+use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
 
 #[derive(Clone)]
 struct MockConnProvider<O: OnSend> {

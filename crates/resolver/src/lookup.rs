@@ -28,7 +28,7 @@ use dns_lru::MAX_TTL;
 use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
-use name_server_pool::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
+use name_server::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
