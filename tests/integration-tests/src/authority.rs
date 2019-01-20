@@ -6,6 +6,7 @@ use trust_dns_server::authority::ZoneType;
 use trust_dns_server::store::sqlite::SqliteAuthority;
 
 #[allow(unused)]
+#[allow(clippy::unreadable_literal)]
 pub fn create_example() -> SqliteAuthority {
     use std::net::*;
     use trust_dns::rr::rdata::*;

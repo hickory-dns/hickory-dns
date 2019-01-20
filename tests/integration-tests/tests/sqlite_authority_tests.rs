@@ -970,6 +970,7 @@ fn test_journal() {
 }
 
 #[test]
+#[allow(clippy::block_in_if_condition_stmt)]
 fn test_recovery() {
     // test that this message can be inserted
     let conn = Connection::open_in_memory().expect("could not create in memory DB");

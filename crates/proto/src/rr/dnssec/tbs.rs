@@ -74,6 +74,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 /// # Returns
 ///
 /// the binary hash of the specified RRSet and associated information
+#[allow(clippy::too_many_arguments)]
 pub fn rrset_tbs(
     name: &Name,
     dns_class: DNSClass,

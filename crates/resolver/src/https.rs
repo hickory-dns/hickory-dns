@@ -11,6 +11,7 @@ use proto::error::ProtoError;
 use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
 use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,

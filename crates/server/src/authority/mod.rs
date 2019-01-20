@@ -35,6 +35,7 @@ pub enum ZoneType {
 }
 
 mod auth_lookup;
+#[allow(clippy::module_inception)]
 mod authority;
 mod catalog;
 pub(crate) mod message_request;

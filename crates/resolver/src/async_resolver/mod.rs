@@ -90,6 +90,7 @@ type BgSend<F, G> = futures::AndThen<
 >;
 
 /// Used by `AsyncResolver` for communicating with the background resolver task.
+#[allow(clippy::large_enum_variant)]
 enum Request {
     /// Requests a lookup of the specified `RecordType`.
     Lookup {

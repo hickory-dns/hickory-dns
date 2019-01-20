@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use futures::{Async, Fuse, Future, IntoFuture, Poll};
 
+#[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>
 where
     F: Future + Send,

@@ -212,6 +212,7 @@ impl SIG {
     /// # Return value
     ///
     /// The new SIG record data.
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         type_covered: RecordType,
         algorithm: Algorithm,
@@ -521,6 +522,7 @@ pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
 }
 
 /// specifically for outputing the RData for an RRSIG, with signer_name in canonical form
+#[allow(clippy::too_many_arguments)]
 pub fn emit_pre_sig(
     encoder: &mut BinEncoder,
     type_covered: RecordType,

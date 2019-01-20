@@ -14,6 +14,7 @@ use trust_dns_server::authority::*;
 use trust_dns_server::store::sqlite::SqliteAuthority;
 
 #[test]
+#[allow(clippy::cyclomatic_complexity)]
 fn test_string() {
     let lexer = Lexer::new(
         "@   IN  SOA     venera      action\\.domains (

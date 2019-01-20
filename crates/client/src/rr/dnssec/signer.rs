@@ -722,6 +722,7 @@ mod tests {
 
     #[test]
     #[allow(deprecated)]
+    #[allow(clippy::unreadable_literal)]
     fn test_calculate_key_tag() {
         let test_vectors = vec![
             (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
@@ -773,6 +774,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
 
     // TODO: these tests technically came from TBS in trust_dns_proto
     #[cfg(feature = "openssl")]
+    #[allow(clippy::module_inception)]
     #[cfg(test)]
     mod tests {
         extern crate openssl;

@@ -218,6 +218,7 @@ fn test_notify() {
 
 /// create a client with a sig0 section
 #[cfg(feature = "dnssec")]
+#[allow(clippy::type_complexity)]
 fn create_sig0_ready_client(
     _io_loop: &mut Runtime,
 ) -> (

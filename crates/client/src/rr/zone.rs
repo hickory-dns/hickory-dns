@@ -157,6 +157,7 @@ impl<'n> TrieKey for TrieNameRef<'n> {
 pub struct UsageTrie(Trie<TrieName, &'static ZoneUsage>);
 
 impl UsageTrie {
+    #[allow(clippy::cyclomatic_complexity)]
     fn default() -> Self {
         let mut trie: Trie<TrieName, &'static ZoneUsage> = Trie::new();
 

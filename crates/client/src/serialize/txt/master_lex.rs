@@ -596,6 +596,7 @@ mod lex_test {
     }
 
     #[test]
+    #[allow(clippy::cyclomatic_complexity)]
     fn soa() {
         let mut lexer = Lexer::new(
             "@   IN  SOA     VENERA      Action\\.domains (

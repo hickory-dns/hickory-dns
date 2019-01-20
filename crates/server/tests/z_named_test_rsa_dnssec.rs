@@ -62,6 +62,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     trust_anchor
 }
 
+#[allow(clippy::type_complexity)]
 fn standard_conn(
     port: u16,
 ) -> (

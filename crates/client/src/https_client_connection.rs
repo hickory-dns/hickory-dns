@@ -36,6 +36,7 @@ impl HttpsClientConnection {
     /// # Arguments
     ///
     /// * `name_server` - address of the name server to use for queries
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> HttpsClientConnectionBuilder {
         HttpsClientConnectionBuilder::new()
     }

@@ -581,6 +581,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_insert_soa() {
         let name = Name::from_str("example.com.").unwrap();
         let record_type = RecordType::SOA;
@@ -720,6 +721,7 @@ mod test {
     }
 
     #[test]
+    #[allow(clippy::unreadable_literal)]
     fn test_remove_soa() {
         let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::SOA;
@@ -783,6 +785,7 @@ mod test {
 
     #[test]
     #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
+    #[allow(clippy::block_in_if_condition_stmt)]
     fn test_get_filter() {
         use rr::dnssec::rdata::SIG;
         use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};

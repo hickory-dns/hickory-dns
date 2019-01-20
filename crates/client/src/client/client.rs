@@ -55,6 +55,7 @@ pub trait Client {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
+    #[allow(clippy::type_complexity)]
     fn new_future(
         &self,
     ) -> (
@@ -432,6 +433,7 @@ where
     type SenderFuture = CC::SenderFuture;
     type Handle = BasicClientHandle<CC::Response>;
 
+    #[allow(clippy::type_complexity)]
     fn new_future(
         &self,
     ) -> (
@@ -461,6 +463,7 @@ where
     /// # Arguments
     ///
     /// * `client_connection` - the client_connection to use for all communication
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(conn: CC) -> SecureSyncClientBuilder<CC> {
         SecureSyncClientBuilder {
             conn,
@@ -516,6 +519,7 @@ where
     type SenderFuture = CC::SenderFuture;
     type Handle = SecureClientHandle<BasicClientHandle<Self::Response>>;
 
+    #[allow(clippy::type_complexity)]
     fn new_future(
         &self,
     ) -> (

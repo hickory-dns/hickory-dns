@@ -82,6 +82,7 @@ where
     type Item = ();
     type Error = ProtoError;
 
+    #[allow(clippy::unused_unit)]
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.
