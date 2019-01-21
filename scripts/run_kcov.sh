@@ -32,24 +32,44 @@ make
 sudo make install
 cd ../..
 
+PROJECT=${PWD}
+WORK_DIR=${PROJECT:?}/crates/server
+KCOV_TARGET=${PROJECT:?}/target
+TEST_PATH=${PROJECT:?}/target/debug
+
 # run kcov on all tests, rerunning all tests with coverage report
-mkdir -p target
+mkdir -p ${KCOV_TARGET:?}
 
 # needed to tell some config tests where the server root directory is
-export TDNS_SERVER_SRC_ROOT=./crates/server
+export TDNS_SERVER_SRC_ROOT=${PROJECT:?}/crates/server
 export COVERALLS_PARALLEL=true
 
-SRC_PATHS=crates/client/src,crates/native-tls/src,crates/openssl/src,crates/proto/src,crates/https/src,crates/resolver/src,crates/rustls/src,crates/server/src
-EXCLUDE_PATHS=crates/client/src/error,crates/proto/src/error.rs,crates/server/src/error,tests/compatibility-tests/src/lib.rs
+SRC_PATHS=\
+${PROJECT:?}/crates/client/src,\
+${PROJECT:?}/crates/native-tls/src,\
+${PROJECT:?}/crates/openssl/src,\
+${PROJECT:?}/crates/proto/src,\
+${PROJECT:?}/crates/https/src,\
+${PROJECT:?}/crates/resolver/src,\
+${PROJECT:?}/crates/rustls/src,\
+${PROJECT:?}/crates/server/src
 
-for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
+EXCLUDE_PATHS=\
+${PROJECT:?}/crates/client/src/error,\
+${PROJECT:?}/crates/proto/src/error.rs,\
+${PROJECT:?}/crates/server/src/error,\
+${PROJECT:?}/tests/compatibility-tests/src/lib.rs,\
+${PROJECT:?}/tests/integration-tests/src/lib.rs
+
+pushd ${WORK_DIR:?}
+for i in ${TEST_PATH:?}/trust_dns*-* ${TEST_PATH:?}/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
     # submit the report... what's the executable since there are many?
     echo "----> executing kcov on $i"
-    kcov --exclude-pattern=/.cargo \
+    kcov --exclude-pattern=${PROJECT:?}/.cargo \
          --include-path=${SRC_PATHS} \
          --exclude-path=${EXCLUDE_PATHS} \
-         target/kcov-$(basename $i) $i
+         ${KCOV_TARGET:?}/kcov-$(basename $i) $i
 
     let test_count='test_count+1'
     
@@ -57,6 +77,7 @@ for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
     last_test=$i
   fi
 done
+popd
 
 echo "----> ran $test_count test(s)"
 
