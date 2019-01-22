@@ -63,7 +63,7 @@ pub fn new_acceptor(
     key: PrivateKey,
 ) -> Result<ServerConfig, rustls::TLSError> {
     let mut config = ServerConfig::new(rustls::NoClientAuth::new());
-    config.set_protocols(&["h2".to_string()]);
+    config.set_protocols(&[b"h2".to_vec()]);
     config.set_single_cert(cert, key)?;
 
     Ok(config)
