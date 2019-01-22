@@ -27,7 +27,7 @@ use self::not_ring::Unspecified;
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "ring")]
-use ring::error::Unspecified;
+use ring::error::{KeyRejected, Unspecified};
 use proto::error::{ProtoError, ProtoErrorKind};
 
 /// An alias for dnssec results returned by functions of this crate
@@ -139,6 +139,12 @@ impl From<ProtoError> for Error {
             ProtoErrorKind::Timeout => e.context(ErrorKind::Timeout).into(),
             _ => e.context(ErrorKind::Proto).into(),
         }
+    }
+}
+
+impl From<KeyRejected> for Error {
+    fn from(e: KeyRejected) -> Error {
+        e.context(ErrorKind::Ring).into()
     }
 }
 
