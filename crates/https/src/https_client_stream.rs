@@ -28,7 +28,7 @@ use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMes
 
 use HttpsError;
 
-const ALPN_H2: &str = "h2";
+const ALPN_H2: &[u8] = b"h2";
 
 /// A DNS client connection for DNS-over-HTTPS
 #[derive(Clone)]
@@ -416,7 +416,7 @@ impl HttpsClientStreamBuilder {
     /// * `loop_handle` - The reactor Core handle
     pub fn build(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnect {
         let mut client_config = self.client_config;
-        client_config.alpn_protocols.push(ALPN_H2.to_owned());
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let tls = TlsConfig {
             client_config: Arc::new(client_config),

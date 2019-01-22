@@ -24,7 +24,7 @@ use openssl::sign::Signer;
 #[cfg(feature = "ring")]
 use ring::rand;
 #[cfg(feature = "ring")]
-use ring::signature::Ed25519KeyPair;
+use ring::signature::{Ed25519KeyPair, KeyPair as RingKeyPair};
 
 use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -146,7 +146,7 @@ impl<K: HasPublic> KeyPair<K> {
                 Ok(bytes)
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
+            KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
             #[cfg(not(feature = "openssl"))]
             KeyPair::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
@@ -464,7 +464,7 @@ impl KeyPair<Private> {
                 let rng = rand::SystemRandom::new();
                 Ed25519KeyPair::generate_pkcs8(&rng)
                     .map_err(|e| e.into())
-                    .map(|pkcs8_bytes| pkcs8_bytes.to_vec())
+                    .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
             }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
