@@ -51,17 +51,17 @@ futures = "0.1.17"
 h2 = "0.1"
 http = "0.1"
 log = "0.4"
-rustls = "0.14"
+rustls = "0.15"
 tokio-executor = "0.1.4"
 tokio-reactor = "0.1"
-tokio-rustls = "0.8"
+tokio-rustls = "0.9"
 tokio-tcp = "0.1"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.6.0", path = "../proto", default-features = false }
 trust-dns-rustls = { version = "0.5.0", path = "../rustls", default-features = false }
 typed-headers = "0.1"
-webpki-roots = { version = "0.15" }
-webpki = "0.18"
+webpki-roots = { version = "0.16" }
+webpki = "0.19"
 
 [dev-dependencies]
 env_logger = "^0.5"

@@ -70,11 +70,11 @@ lazy_static = "^1.0"
 log = "^0.4.1"
 futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
-rand = "^0.5"
-rusqlite = { version = "0.15.0", features = ["bundled"] }
-rustls = { version = "0.14" }
-tokio = "^0.1.6"
-tokio-tcp = "^0.1"
+rand = "0.5"
+rusqlite = { version = "0.16.0", features = ["bundled"] }
+rustls = { version = "0.15" }
+tokio = "0.1.6"
+tokio-tcp = "0.1"
 tokio-timer = "0.2.6"
 tokio-udp = "^0.1"
 trust-dns = { version = "0.15.0", path = "../../crates/client" }
@@ -85,4 +85,4 @@ trust-dns-resolver = { version = "0.10.0", path = "../../crates/resolver" }
 trust-dns-rustls = { version = "0.5.0", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
 trust-dns-server = { version = "0.15.0", path = "../../crates/server" }
-webpki-roots = { version = "^0.15", optional = true }
+webpki-roots = { version = "0.16", optional = true }
