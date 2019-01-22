@@ -7,11 +7,13 @@
 
 mod connection_provider;
 mod name_server_pool;
+mod name_server_state;
 mod name_server_stats;
 #[allow(clippy::module_inception)]
 mod name_server;
 
-use self::name_server_stats::{NameServerStats, NameServerState};
+use self::name_server_state::NameServerState;
+use self::name_server_stats::NameServerStats;
 pub use self::name_server_pool::NameServerPool;
 pub use self::connection_provider::ConnectionProvider;
 pub(crate) use self::connection_provider::{StandardConnection, ConnectionHandle};

@@ -30,8 +30,9 @@ use name_server::{ConnectionHandle, ConnectionProvider, StandardConnection};
 pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     config: NameServerConfig,
     options: ResolverOpts,
-    client: C,
+    client: Option<C>,
     // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
+    state: Arc<Mutex<NameServerState>>,
     stats: Arc<Mutex<NameServerStats>>,
     conn_provider: P,
 }
@@ -54,13 +55,11 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         options: ResolverOpts,
         conn_provider: P,
     ) -> NameServer<C, P> {
-        let client = conn_provider.new_connection(&config, &options);
-
-        // TODO: setup EDNS
         NameServer {
             config,
             options,
-            client,
+            client: None,
+            state: Arc::new(Mutex::new(NameServerState::init(None))),
             stats: Arc::new(Mutex::new(NameServerStats::default())),
             conn_provider,
         }
@@ -76,41 +75,36 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         NameServer {
             config,
             options,
-            client,
+            client: Some(client),
+            state: Arc::new(Mutex::new(NameServerState::init(None))),
             stats: Arc::new(Mutex::new(NameServerStats::default())),
             conn_provider,
         }
     }
 
-    /// checks if the connection is failed, if so then reconnect.
-    fn try_reconnect(&mut self) -> ProtoResult<()> {
-        let error_opt: Option<(usize, usize)> = self
-            .stats
-            .lock()
-            .map(|stats| {
-                if let NameServerState::Failed { .. } = *stats.state() {
-                    Some((stats.successes(), stats.failures()))
-                } else {
-                    None
-                }
-            }).map_err(|e| {
-                ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
-            })?;
-
+    /// This will return a mutable client to allows for sending messages.
+    ///
+    /// If the connection is in a failed state, then this will establish a new connection
+    fn connected_mut_client(&mut self) -> ProtoResult<&mut C> {
         // if this is in a failure state
-        if let Some((successes, failures)) = error_opt {
+        if self.state.lock().expect("state lock poisoned").is_failed() || self.client.is_none() {
             debug!("reconnecting: {:?}", self.config);
-            // establish a new connection
-            self.client = self
-                .conn_provider
-                .new_connection(&self.config, &self.options);
 
             // reinitialize the mutex (in case it was poisoned before)
-            self.stats = Arc::new(Mutex::new(NameServerStats::init(None, successes, failures)));
-            Ok(())
-        } else {
-            Ok(())
+            // TODO: we need the local EDNS options
+            self.state = Arc::new(Mutex::new(NameServerState::init(None)));
+
+            // establish a new connection
+            self.client = Some(
+                self.conn_provider
+                    .new_connection(&self.config, &self.options),
+            );
         }
+
+        Ok(self
+            .client
+            .as_mut()
+            .expect("bad state, client should be connected"))
     }
 }
 
@@ -122,25 +116,28 @@ where
     type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
+        self.options.validate
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
-        // if state is failed, return future::err(), unless retry delay expired...
-        if let Err(error) = self.try_reconnect() {
-            return Box::new(future::err(error));
-        }
-
         let distrust_nx_responses = self.options.distrust_nx_responses;
 
-        // Becuase a Poisoned lock error could have occured, make sure to create a new Mutex...
-
         // grab a reference to the stats for this NameServer
-        let mutex1 = self.stats.clone();
-        let mutex2 = self.stats.clone();
+        let stats1 = self.stats.clone();
+        let stats2 = self.stats.clone();
+        let state1 = self.state.clone();
+        let state2 = self.state.clone();
+
+        // if state is failed, return future::err(), unless retry delay expired...
+        let client = match self.connected_mut_client() {
+            Ok(client) => client,
+            Err(e) => return Box::new(future::err(e)) as Self::Response,
+        };
+
+        // Becuase a Poisoned lock error could have occured, make sure to create a new Mutex...
         Box::new(
-            self.client
+            client
                 .send(request)
                 .and_then(move |response| {
                     // first we'll evaluate if the message succeeded
@@ -151,35 +148,64 @@ where
                         if let ResponseCode::ServFail = response.response_code() {
                             let note = "Nameserver responded with SERVFAIL";
                             debug!("{}", note);
-                            return Err(ProtoError::from(note));
+                            return future::err(ProtoError::from(note));
                         }
                     }
 
-                    Ok(response)
+                    future::ok(response)
                 })
                 .and_then(move |response| {
                     // TODO: consider making message::take_edns...
                     let remote_edns = response.edns().cloned();
 
-                    // this transitions the state to success
-                    let response = mutex1
+                    if let Err(e) = state1
                         .lock()
-                        .and_then(|mut stats| {
-                            stats.next_success(remote_edns);
-                            Ok(response)
+                        .and_then(|mut state| {
+                            state.establish(remote_edns);
+                            Ok(())
                         })
                         .map_err(|e| {
                             ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
-                        });
+                        }) {
+                        return future::err(e);
+                    }
 
-                    future::result(response)
-                })
-                .or_else(move |error| {
-                    // this transitions the state to failure
-                    mutex2
+                    // this transitions the state to success
+                    if let Err(e) = stats1
                         .lock()
                         .and_then(|mut stats| {
-                            stats.next_failure(error.clone(), Instant::now());
+                            stats.next_success();
+                            Ok(())
+                        })
+                        .map_err(|e| {
+                            ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
+                        }) {
+                        return future::err(e);
+                    }
+
+                    future::ok(response)
+                })
+                .or_else(move |error| {
+                    debug!("name_server connection failure: {}", error);
+
+                    // this transitions the state to failure
+                    state2
+                        .lock()
+                        .and_then(|mut state| {
+                            state.fail(Instant::now());
+                            Ok(())
+                        })
+                        .or_else(|e| {
+                            warn!("Error acquiring NameServerStats lock (already in error state, ignoring): {}", e);
+                            Err(())
+                        })
+                        .is_ok(); // ignoring error, as this connection is already marked in error...
+
+                    // this transitions the state to failure
+                    stats2
+                        .lock()
+                        .and_then(|mut stats| {
+                            stats.next_failure();
                             Ok(())
                         })
                         .or_else(|e| {
@@ -203,14 +229,30 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
             return Ordering::Equal;
         }
 
+        // otherwise, run our evaluation to determine the next to be returned from the Heap
+        //   this will prefer established connections, we should try other connections after
+        //   some number to make sure that all are used. This is more important for when
+        //   letency is started to be used.
+        match self
+            .state
+            .lock()
+            .expect("poisoned state lock")
+            .cmp(&other.state.lock().expect("poisoned other state log"))
+        {
+            Ordering::Equal => (),
+            o => {
+                return o;
+            }
+        }
+
         self.stats
             .lock()
             .expect("poisoned lock in NameServer::cmp")
             .cmp(
                 &other
-                      .stats
-                      .lock() // TODO: hmm... deadlock potential? switch to try_lock?
-                      .expect("poisoned lock in NameServer::cmp"),
+                    .stats
+                    .lock() // TODO: hmm... deadlock potential? switch to try_lock?
+                    .expect("poisoned lock in NameServer::cmp"),
             )
     }
 }
@@ -286,7 +328,8 @@ mod tests {
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
                 )
-            })).expect("query failed");
+            }))
+            .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
 
@@ -304,12 +347,11 @@ mod tests {
             future::lazy(|| future::ok(NameServer::<_, StandardConnection>::new(config, options)));
 
         let name = Name::parse("www.example.com.", None).unwrap();
-        assert!(
-            io_loop
-                .block_on(name_server.and_then(|mut name_server| name_server.lookup(
-                    Query::query(name.clone(), RecordType::A),
-                    DnsRequestOptions::default()
-                ))).is_err()
-        );
+        assert!(io_loop
+            .block_on(name_server.and_then(|mut name_server| name_server.lookup(
+                Query::query(name.clone(), RecordType::A),
+                DnsRequestOptions::default()
+            )))
+            .is_err());
     }
 }
