@@ -23,7 +23,7 @@ use failure::{Backtrace, Context, Fail};
 #[cfg(not(feature = "openssl"))]
 use self::not_openssl::SslErrorStack;
 #[cfg(not(feature = "ring"))]
-use self::not_ring::Unspecified;
+use self::not_ring::{KeyRejected, Unspecified};
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "ring")]
@@ -185,7 +185,22 @@ pub mod not_ring {
     use std;
 
     #[derive(Debug)]
+    pub struct KeyRejected;
+
+    #[derive(Debug)]
     pub struct Unspecified;
+
+    impl std::fmt::Display for KeyRejected {
+        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+            Ok(())
+        }
+    }
+
+    impl std::error::Error for KeyRejected {
+        fn description(&self) -> &str {
+            "ring feature not enabled"
+        }
+    }
 
     impl std::fmt::Display for Unspecified {
         fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
