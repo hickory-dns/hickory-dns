@@ -33,7 +33,7 @@ pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     client: Option<C>,
     // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
     state: Arc<Mutex<NameServerState>>,
-    stats: Arc<Mutex<NameServerStats>>,
+    stats: Arc<NameServerStats>,
     conn_provider: P,
 }
 
@@ -60,7 +60,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             options,
             client: None,
             state: Arc::new(Mutex::new(NameServerState::init(None))),
-            stats: Arc::new(Mutex::new(NameServerStats::default())),
+            stats: Arc::new(NameServerStats::default()),
             conn_provider,
         }
     }
@@ -77,7 +77,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             options,
             client: Some(client),
             state: Arc::new(Mutex::new(NameServerState::init(None))),
-            stats: Arc::new(Mutex::new(NameServerStats::default())),
+            stats: Arc::new(NameServerStats::default()),
             conn_provider,
         }
     }
@@ -170,18 +170,8 @@ where
                         return future::err(e);
                     }
 
-                    // this transitions the state to success
-                    if let Err(e) = stats1
-                        .lock()
-                        .and_then(|mut stats| {
-                            stats.next_success();
-                            Ok(())
-                        })
-                        .map_err(|e| {
-                            ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
-                        }) {
-                        return future::err(e);
-                    }
+                    // record the success
+                    stats1.next_success();
 
                     future::ok(response)
                 })
@@ -201,18 +191,8 @@ where
                         })
                         .is_ok(); // ignoring error, as this connection is already marked in error...
 
-                    // this transitions the state to failure
-                    stats2
-                        .lock()
-                        .and_then(|mut stats| {
-                            stats.next_failure();
-                            Ok(())
-                        })
-                        .or_else(|e| {
-                            warn!("Error acquiring NameServerStats lock (already in error state, ignoring): {}", e);
-                            Err(())
-                        })
-                        .is_ok(); // ignoring error, as this connection is already marked in error...
+                    // recrod the failure
+                    stats2.next_failure();
 
                     // These are connection failures, not lookup failures, that is handled in the resolver layer
                     future::err(error)
@@ -245,15 +225,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
             }
         }
 
-        self.stats
-            .lock()
-            .expect("poisoned lock in NameServer::cmp")
-            .cmp(
-                &other
-                    .stats
-                    .lock() // TODO: hmm... deadlock potential? switch to try_lock?
-                    .expect("poisoned lock in NameServer::cmp"),
-            )
+        self.stats.cmp(&other.stats)
     }
 }
 

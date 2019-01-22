@@ -7,10 +7,12 @@
 
 use std::cmp::Ordering;
 
-#[derive(Clone, PartialEq, Eq)]
+use std::sync::atomic::{self, AtomicUsize};
+
 pub(crate) struct NameServerStats {
-    successes: usize,
-    failures: usize,
+    successes: AtomicUsize,
+    failures: AtomicUsize,
+    // TODO: incorporate latency
 }
 
 impl Default for NameServerStats {
@@ -22,38 +24,63 @@ impl Default for NameServerStats {
 impl NameServerStats {
     pub fn new(successes: usize, failures: usize) -> Self {
         NameServerStats {
-            successes,
-            failures,
-            // TODO: incorporate latency
+            successes: AtomicUsize::new(successes),
+            failures: AtomicUsize::new(failures),
         }
     }
 
-    pub fn next_success(&mut self) {
-        self.successes += 1;
+    pub fn next_success(&self) {
+        self.successes.fetch_add(1, atomic::Ordering::Release);
    }
 
-    pub fn next_failure(&mut self) {
-        self.failures += 1;
+    pub fn next_failure(&self) {
+        self.failures.fetch_add(1, atomic::Ordering::Release);
+    }
+
+    fn noload_eq(self_successes: usize, other_successes: usize, self_failures: usize, other_failures: usize) -> bool {
+        self_successes == other_successes && self_failures == other_failures
     }
 }
+
+impl PartialEq for NameServerStats {
+    fn eq(&self, other: &Self) -> bool {
+        let self_successes = self.successes.load(atomic::Ordering::Acquire);
+        let other_successes = other.successes.load(atomic::Ordering::Acquire);
+
+        let self_failures = self.failures.load(atomic::Ordering::Acquire);
+        let other_failures = other.failures.load(atomic::Ordering::Acquire);
+
+        // if they are literally equal, just return
+        Self::noload_eq(self_successes, other_successes, self_failures, other_failures)
+    }
+}
+
+impl Eq for NameServerStats {}
+
 
 impl Ord for NameServerStats {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
+        let self_successes = self.successes.load(atomic::Ordering::Acquire);
+        let other_successes = other.successes.load(atomic::Ordering::Acquire);
+
+        let self_failures = self.failures.load(atomic::Ordering::Acquire);
+        let other_failures = other.failures.load(atomic::Ordering::Acquire);
+
         // if they are literally equal, just return
-        if self == other {
+        if Self::noload_eq(self_successes, other_successes, self_failures, other_failures) {
             return Ordering::Equal;
         }
 
         // TODO: track latency and use lowest latency connection...
 
         // invert failure comparison, i.e. the one with the least failures, wins
-        if self.failures <= other.failures {
+        if self_failures <= other_failures {
             return Ordering::Greater;
         }
 
         // at this point we'll go with the lesser of successes to make sure there is ballance
-        self.successes.cmp(&other.successes)
+        self_successes.cmp(&other_successes)
     }
 }
 
@@ -69,22 +96,20 @@ mod tests {
 
     use super::*;
 
+    fn is_send_sync<S: Sync + Send>() -> bool {
+        true
+    }
+
+    #[test]
+    fn stats_are_sync() {
+        assert!(is_send_sync::<NameServerStats>());
+    }
+
     #[test]
     fn test_state_cmp() {
-        let nil = NameServerStats {
-            successes: 0,
-            failures: 0,
-        };
-
-        let successes = NameServerStats {
-            successes: 1,
-            failures: 0,
-        };
-
-        let failures = NameServerStats {
-            successes: 0,
-            failures: 1,
-        };
+        let nil = NameServerStats::new(0,0);
+        let successes = NameServerStats::new(1,0);
+        let failures = NameServerStats::new(0,1);
 
         assert_eq!(nil.cmp(&nil), Ordering::Equal);
         assert_eq!(nil.cmp(&successes), Ordering::Greater);
