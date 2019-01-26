@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use trust_dns::op::ResponseCode;
+use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
@@ -426,6 +426,8 @@ impl FileAuthority {
 }
 
 impl Authority for FileAuthority {
+    type Lookup = AuthLookup;
+
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
         self.zone_type
@@ -561,6 +563,58 @@ impl Authority for FileAuthority {
         }
 
         result.into()
+    }
+
+    // FIXME: move back to a suplied method in the trait
+    fn search(
+        &self,
+        query: &LowerQuery,
+        is_secure: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Self::Lookup {
+        debug!("searching SqliteAuthority for: {}", query);
+
+        let lookup_name = query.name();
+        let record_type: RecordType = query.query_type();
+
+        // if this is an AXFR zone transfer, verify that this is either the slave or master
+        //  for AXFR the first and last record must be the SOA
+        if RecordType::AXFR == record_type {
+            // TODO: support more advanced AXFR options
+            if !self.is_axfr_allowed() {
+                return AuthLookup::Refused;
+            }
+
+            match self.zone_type() {
+                ZoneType::Master | ZoneType::Slave => (),
+                // TODO: Forward?
+                _ => return AuthLookup::NxDomain, // TODO: this sould be an error.
+            }
+        }
+
+        // perform the actual lookup
+        match record_type {
+            RecordType::SOA => {
+                self.lookup(self.origin(), record_type, is_secure, supported_algorithms)
+            }
+            RecordType::AXFR => {
+                // FIXME: shouldn't these SOA's be secure? at least the first, perhaps not the last?
+                let start_soa = self.soa_secure(is_secure, supported_algorithms);
+                let end_soa = self.soa();
+                let records =
+                    self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
+
+                match start_soa {
+                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
+                    start_soa => AuthLookup::AXFR {
+                        start_soa: start_soa.unwrap_records(),
+                        records: records.unwrap_records(),
+                        end_soa: end_soa.unwrap_records(),
+                    },
+                }
+            }
+            _ => self.lookup(lookup_name, record_type, is_secure, supported_algorithms),
+        }
     }
 
     /// Return the NSEC records based on the given name

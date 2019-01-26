@@ -41,19 +41,19 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = []
+default = ["trust-dns-resolver"]
 dnssec-openssl = ["dnssec", "openssl", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns/dns-over-https-rustls", "tokio-rustls"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "tokio-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns/dns-over-rustls", "tokio-rustls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -103,6 +103,7 @@ trust-dns = { version = "0.16.0-alpha", path = "../client" }
 trust-dns-https = { version = "0.3.0", path = "../https", optional = true }
 trust-dns-proto = { version = "0.7.0", path = "../proto" }
 trust-dns-openssl = { version = "0.6.0", path = "../openssl", optional = true }
+trust-dns-resolver = { version = "0.11.0-alpha", path = "../resolver", optional = true }
 trust-dns-rustls = { version = "0.6.0", path = "../rustls", optional = true }
 
 [dev-dependencies]
