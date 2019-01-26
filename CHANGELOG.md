@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - *breaking* UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
 
+## 0.15.1
+
+### Changed
+
+- upgraded ring to 0.14
+- upgraded rustls to 0.15
+- upgraded rusqlite to 0.16
+
 ## 0.15.0
 
 ### Fixed

@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-server"
-version = "0.15.0"
+version = "0.15.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -94,7 +94,7 @@ tokio = "0.1.6"
 tokio-executor = "0.1.4"
 tokio-io = "0.1"
 tokio-reactor = "0.1"
-tokio-rustls = { version = "0.9", optional = true }
+tokio-rustls = "0.9"
 tokio-tcp = "0.1"
 tokio-timer = "0.2.6"
 tokio-udp = "0.1"
