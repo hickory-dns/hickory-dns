@@ -7,7 +7,7 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Instant;
 
 use futures::{future, Future};
@@ -31,8 +31,7 @@ pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: Option<C>,
-    // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
-    state: Arc<Mutex<NameServerState>>,
+    state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
     conn_provider: P,
 }
@@ -59,7 +58,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             config,
             options,
             client: None,
-            state: Arc::new(Mutex::new(NameServerState::init(None))),
+            state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
         }
@@ -76,7 +75,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             config,
             options,
             client: Some(client),
-            state: Arc::new(Mutex::new(NameServerState::init(None))),
+            state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
         }
@@ -87,12 +86,12 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     /// If the connection is in a failed state, then this will establish a new connection
     fn connected_mut_client(&mut self) -> ProtoResult<&mut C> {
         // if this is in a failure state
-        if self.state.lock().expect("state lock poisoned").is_failed() || self.client.is_none() {
+        if self.state.is_failed() || self.client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
             // reinitialize the mutex (in case it was poisoned before)
             // TODO: we need the local EDNS options
-            self.state = Arc::new(Mutex::new(NameServerState::init(None)));
+            self.state = Arc::new(NameServerState::init(None));
 
             // establish a new connection
             self.client = Some(
@@ -158,17 +157,8 @@ where
                     // TODO: consider making message::take_edns...
                     let remote_edns = response.edns().cloned();
 
-                    if let Err(e) = state1
-                        .lock()
-                        .and_then(|mut state| {
-                            state.establish(remote_edns);
-                            Ok(())
-                        })
-                        .map_err(|e| {
-                            ProtoError::from(format!("Error acquiring NameServerStats lock: {}", e))
-                        }) {
-                        return future::err(e);
-                    }
+                    // take the remote edns options and store them
+                    state1.establish(remote_edns);
 
                     // record the success
                     stats1.next_success();
@@ -179,17 +169,7 @@ where
                     debug!("name_server connection failure: {}", error);
 
                     // this transitions the state to failure
-                    state2
-                        .lock()
-                        .and_then(|mut state| {
-                            state.fail(Instant::now());
-                            Ok(())
-                        })
-                        .or_else(|e| {
-                            warn!("Error acquiring NameServerStats lock (already in error state, ignoring): {}", e);
-                            Err(())
-                        })
-                        .is_ok(); // ignoring error, as this connection is already marked in error...
+                    state2.fail(Instant::now());
 
                     // recrod the failure
                     stats2.next_failure();
@@ -215,9 +195,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
         //   letency is started to be used.
         match self
             .state
-            .lock()
-            .expect("poisoned state lock")
-            .cmp(&other.state.lock().expect("poisoned other state log"))
+            .cmp(&other.state)
         {
             Ordering::Equal => (),
             o => {
