@@ -456,7 +456,7 @@ pub enum RData {
     #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRData),
 
-    /// Unknown RecordData is for record types not supported by TRust-DNS
+    /// Unknown RecordData is for record types not supported by Trust-DNS
     Unknown {
         /// RecordType code
         code: u16,

@@ -75,7 +75,7 @@ pub mod store;
 
 pub use self::server::ServerFuture;
 
-/// Returns the current version of TRust-DNS
+/// Returns the current version of Trust-DNS
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }

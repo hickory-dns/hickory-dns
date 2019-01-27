@@ -37,7 +37,7 @@ pub fn named_process() -> (NamedProcess, u16) {
                       // from the root target directory...
                       .arg("-c").arg("../../tests/compatibility-tests/tests/conf/bind-example.conf")
                       //.arg("-d").arg("0") // uncomment for debugging information
-                      .arg("-D").arg("TRust-DNS compatibility")
+                      .arg("-D").arg("Trust-DNS compatibility")
                       .arg("-g")
                       .arg("-p").arg(&format!("{}", test_port))
                       .spawn()

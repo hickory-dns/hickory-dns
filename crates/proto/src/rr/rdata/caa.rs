@@ -234,7 +234,7 @@ pub enum Property {
     ///    policy violation. The Incident Object Description Exchange Format
     ///    (IODEF) format is used [RFC5070].
     Iodef,
-    /// Unknown format to TRust-DNS
+    /// Unknown format to Trust-DNS
     Unknown(String),
 }
 
@@ -275,7 +275,7 @@ impl Property {
         }
     }
 
-    /// true if the property is not known to TRust-DNS
+    /// true if the property is not known to Trust-DNS
     pub fn is_unknown(&self) -> bool {
         if let Property::Unknown(_) = *self {
             true
@@ -314,7 +314,7 @@ pub enum Value {
     Issuer(Option<Name>, Vec<KeyValue>),
     /// Url to which to send CA errors
     Url(Url),
-    /// Unrecognized tag and value by TRust-DNS
+    /// Unrecognized tag and value by Trust-DNS
     Unknown(Vec<u8>),
 }
 
@@ -605,7 +605,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
             key_values
         }
         ParseNameKeyPairState::Key { key, .. } => {
-            return Err(format!("key missing value: {}", key).into())
+            return Err(format!("key missing value: {}", key).into());
         }
     };
 
@@ -780,7 +780,8 @@ fn read_tag(decoder: &mut BinDecoder, len: Restrict<u8>) -> ProtoResult<String> 
             .verify_unwrap(|ch| match ch {
                 'a'...'z' | 'A'...'Z' | '0'...'9' => true,
                 _ => false,
-            }).map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
+            })
+            .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
 
         tag.push(ch);
     }
@@ -802,7 +803,8 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
             "insufficient capacity in CAA buffer: {} for tag: {}",
             buf.len(),
             len
-        ).into());
+        )
+        .into());
     }
 
     // copy into the buffer
@@ -1030,11 +1032,7 @@ mod tests {
     fn test_encode_non_fqdn() {
         let name_bytes: &[u8] = b"issueexample.com";
         let header: &[u8] = &[128, 5];
-        let encoded: Vec<u8> = header
-            .iter()
-            .chain(name_bytes.iter())
-            .cloned()
-            .collect();
+        let encoded: Vec<u8> = header.iter().chain(name_bytes.iter()).cloned().collect();
 
         test_encode(
             CAA::new_issue(

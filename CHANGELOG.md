@@ -1,4 +1,4 @@
-# Change Log: TRust-DNS
+# Change Log: Trust-DNS
 
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
@@ -87,8 +87,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
-- TRust-DNS Proto crate to separate server management from base operations #222
-- TRust-DNS Util crate for dnssec management tools (@briansmith)
+- Trust-DNS Proto crate to separate server management from base operations #222
+- Trust-DNS Util crate for dnssec management tools (@briansmith)
 - Integration tests for Server to validate all supported DNSSec key types
 - *breaking* Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates (replaces `openssl` and `ring` features)
 - Clarified `tls` feature with `tls-openssl`, and `tls` in server (in preperation for `tls-rustls`)

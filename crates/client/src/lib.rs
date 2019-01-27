@@ -61,7 +61,7 @@
 //!
 //! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `ClientFuture`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
 //!
-//! First we must decide on the type of connection, there are three supported by TRust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
+//! First we must decide on the type of connection, there are three supported by Trust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
 //!
 //! ## Setup a connection
 //!
@@ -152,7 +152,7 @@
 //! # let conn = UdpClientConnection::new(address).unwrap();
 //!
 //! // The format of the key is dependent on the KeyPair type, in this example we're using RSA
-//! //  if the key was generated with BIND, the binary in TRust-DNS client lib `dnskey-to-pem`
+//! //  if the key was generated with BIND, the binary in Trust-DNS client lib `dnskey-to-pem`
 //! //  can be used to convert this to a pem file
 //! let mut pem = File::open("my_private_key.pem").unwrap();
 //! let mut pem_buf = Vec::<u8>::new();
@@ -173,7 +173,7 @@
 //!                        Algorithm::RSASHA256,
 //!                        key.to_public_bytes().unwrap());
 //!
-//! // Create the TRust-DNS SIG(0) signing facility. Generally the signer_name is the label
+//! // Create the Trust-DNS SIG(0) signing facility. Generally the signer_name is the label
 //! //  associated with KEY record in the server.
 //! let signer = Signer::sig0(sig0key,
 //!                           key,
@@ -202,7 +202,7 @@
 //! # }
 //! ```
 //!
-//! *Note*: The dynamic DNS functions defined by TRust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
+//! *Note*: The dynamic DNS functions defined by Trust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
 //!
 //!
 //! ## Async usage

@@ -9,7 +9,7 @@
 #![warn(missing_docs)]
 #![recursion_limit = "2048"]
 
-//! TRust-DNS Protocol library
+//! Trust-DNS Protocol library
 
 extern crate byteorder;
 #[cfg(feature = "dnssec")]

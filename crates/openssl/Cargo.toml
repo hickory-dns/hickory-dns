@@ -6,7 +6,7 @@ authors = ["Benjamin Fry <benjaminfry@me.com>"]
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-TRust-DNS is a safe and secure DNS library. This is an extension for the TRust-DNS client to use tokio-openssl for TLS.
+Trust-DNS is a safe and secure DNS library. This is an extension for the Trust-DNS client to use tokio-openssl for TLS.
 """
 
 # These URLs point to more information about the repository

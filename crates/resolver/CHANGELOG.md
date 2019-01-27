@@ -1,4 +1,4 @@
-# Change Log: TRust-DNS Resolver
+# Change Log: Trust-DNS Resolver
 
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
@@ -223,4 +223,4 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
-- Initial release of the TRust-DNS Resolver
+- Initial release of the Trust-DNS Resolver

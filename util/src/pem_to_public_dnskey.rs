@@ -20,11 +20,11 @@ use openssl::pkey::PKey;
 use trust_dns::rr::dnssec::{KeyPair, Public};
 
 fn args<'a>() -> ArgMatches<'a> {
-    App::new("TRust-DNS pem-to-public-dnskey")
+    App::new("Trust-DNS pem-to-public-dnskey")
         .version(trust_dns::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about(
-            "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in TRust-DNS.",
+            "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",
         )
         .arg(
             Arg::with_name("key")
