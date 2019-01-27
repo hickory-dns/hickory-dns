@@ -25,7 +25,7 @@ distinguished_name = dn
 C = US
 ST = California
 L = San Francisco
-O = TRust-DNS
+O = Trust-DNS
 CN = root.example.com
 
 [req_ext]
@@ -53,7 +53,7 @@ distinguished_name = dn
 C = US
 ST = California
 L = San Francisco
-O = TRust-DNS
+O = Trust-DNS
 CN = ns.example.com
 
 [req_ext]

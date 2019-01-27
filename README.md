@@ -5,22 +5,24 @@
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=bluejekyll/trust-dns)](https://dependabot.com)
 
-# trust-dns
+![Trust-DNS](logo.svg)
 
-A Rust based DNS client and server, built to be safe and secure from the
+# Trust-DNS
+
+A Rust based DNS client, server, and Resolver, built to be safe and secure from the
 ground up.
 
 This repo consists of multiple crates:
 
-| Library | Status | Description |
-|---------|--------|-------------|
-| **Proto** | [![](http://meritbadge.herokuapp.com/trust-dns-proto)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) | Raw DNS library, exposes an unstable API and only for use by the other Trust-DNS libraries, not intended for end-user use. |
-| **Client** | [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) [![trust-dns](https://docs.rs/trust-dns/badge.svg)](https://docs.rs/trust-dns) | Used for sending `query`, `update`, and `notify` messages directly to a DNS server. |
-| **Server** | [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) | Use to host DNS records, this also has a `named` binary for running in a daemon form. |
-| **Resolver** | [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) | Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
-| **Rustls** | [![](http://meritbadge.herokuapp.com/trust-dns-rustls)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls) | Implementation of DNS over TLS protocol using the rustls and ring libraries. |
-| **NativeTls** | [![](http://meritbadge.herokuapp.com/trust-dns-native-tls)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls) | Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries |
-| **OpenSsl** | [![](http://meritbadge.herokuapp.com/trust-dns-openssl)](https://crates.io/crates/trust_dns_openssl) [![trust-dns-openssl](https://docs.rs/trust-dns-openssl/badge.svg)](https://docs.rs/trust-dns-openssl) | Implementation of DNS over TLS protocol using OpenSSL |
+| Library | Description |
+|---------|-------------|
+| **Proto** | [![](http://meritbadge.herokuapp.com/trust-dns-proto)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Trust-DNS libraries, not intended for end-user use. |
+| **Client** | [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) [![trust-dns](https://docs.rs/trust-dns/badge.svg)](https://docs.rs/trust-dns) Used for sending `query`, `update`, and `notify` messages directly to a DNS server. |
+| **Server** | [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `named` binary for running in a daemon form. |
+| **Resolver** | [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+| **Rustls** | [![](http://meritbadge.herokuapp.com/trust-dns-rustls)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls) Implementation of DNS over TLS protocol using the rustls and ring libraries. |
+| **NativeTls** | [![](http://meritbadge.herokuapp.com/trust-dns-native-tls)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls) Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries |
+| **OpenSsl** | [![](http://meritbadge.herokuapp.com/trust-dns-openssl)](https://crates.io/crates/trust_dns_openssl) [![trust-dns-openssl](https://docs.rs/trust-dns-openssl/badge.svg)](https://docs.rs/trust-dns-openssl) Implementation of DNS over TLS protocol using OpenSSL |
 
 # Goals
 

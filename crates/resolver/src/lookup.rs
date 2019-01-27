@@ -30,7 +30,7 @@ use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
 use name_server::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
 
-/// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
+/// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
 #[derive(Clone, Debug, Eq, PartialEq)]

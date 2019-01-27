@@ -24,7 +24,7 @@ echo "====> generating cert"
 ${OPENSSL:?} req -new -x509 -days 365 -sha256 \
                  -key ${KEY_FILE:?} -keyform der \
                  -out ${CRT_FILE:?} -outform der \
-                 -subj '/O=TRust-DNS/CN=ns.example.com' \
+                 -subj '/O=Trust-DNS/CN=ns.example.com' \
                  -config <(cat /etc/ssl/openssl.cnf <(printf "\n[x509v3]\nsubjectAltName=critical,DNS:ns.example.com\nkeyUsage=critical,digitalSignature,keyAgreement,keyCertSign\nextendedKeyUsage=critical,serverAuth,clientAuth\nbasicConstraints=critical,pathlen:0")) \
                  -extensions x509v3 \
                  -reqexts x509v3

@@ -588,7 +588,7 @@ pub enum Protocol {
     /// Reserved for use with email
     #[deprecated = "Deprecated by RFC3445"]
     Email,
-    /// Reserved for use with DNSSec (TRust-DNS only supports DNSKEY with DNSSec)
+    /// Reserved for use with DNSSec (Trust-DNS only supports DNSKEY with DNSSec)
     DNSSec,
     /// Reserved to refer to the Oakley/IPSEC
     #[deprecated = "Deprecated by RFC3445"]

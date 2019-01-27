@@ -25,7 +25,7 @@ use openssl::rsa::Rsa;
 use trust_dns::rr::dnssec::Algorithm;
 
 fn args<'a>() -> ArgMatches<'a> {
-    App::new("TRust-DNS dnskey-to-pem")
+    App::new("Trust-DNS dnskey-to-pem")
         .version(trust_dns::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about("Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format")
