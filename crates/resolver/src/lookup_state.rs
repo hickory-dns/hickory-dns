@@ -728,7 +728,6 @@ mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
             86400,
-            RecordType::CNAME,
             RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
         )]);
         Ok(message.into())
@@ -739,7 +738,6 @@ mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),
             86400,
-            RecordType::SRV,
             RData::SRV(SRV::new(
                 1,
                 2,
@@ -817,20 +815,17 @@ mod tests {
         message.add_answer(Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
             86400,
-            RecordType::CNAME,
             RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
         ));
         message.insert_additionals(vec![
             Record::from_rdata(
                 Name::from_str("actual.example.com.").unwrap(),
                 86400,
-                RecordType::A,
                 RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             ),
             Record::from_rdata(
                 Name::from_str("actual.example.com.").unwrap(),
                 86400,
-                RecordType::AAAA,
                 RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ),
         ]);
@@ -931,13 +926,11 @@ mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("ttl.example.com.").unwrap(),
             first,
-            RecordType::CNAME,
             RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
         )]);
         message.insert_additionals(vec![Record::from_rdata(
             Name::from_str("actual.example.com.").unwrap(),
             second,
-            RecordType::A,
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         )]);
 
@@ -1070,7 +1063,6 @@ mod tests {
         message.add_answer(Record::from_rdata(
             Name::from_str("www.example.local.").unwrap(),
             86400,
-            RecordType::A,
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         ));
 

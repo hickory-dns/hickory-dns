@@ -44,11 +44,11 @@ impl<O: OnSend> DnsHandle for MockClientHandle<O> {
 }
 
 pub fn cname_record(name: Name, cname: Name) -> Record {
-    Record::from_rdata(name, 86400, RecordType::CNAME, RData::CNAME(cname))
+    Record::from_rdata(name, 86400, RData::CNAME(cname))
 }
 
 pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
-    Record::from_rdata(name, 86400, RecordType::A, RData::A(ip))
+    Record::from_rdata(name, 86400, RData::A(ip))
 }
 
 pub fn message(
