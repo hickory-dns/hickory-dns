@@ -1403,7 +1403,7 @@ impl Authority for SqliteAuthority {
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
         // TODO: what TTL?
-        let record = Record::from_rdata(name, 86400, rdata.to_record_type(), rdata);
+        let record = Record::from_rdata(name, 86400, rdata);
 
         let serial = self.serial();
         if self.upsert(record, serial) {
@@ -1433,7 +1433,6 @@ impl Authority for SqliteAuthority {
         let dnskey = Record::from_rdata(
             self.origin.clone().into(),
             zone_ttl,
-            RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
             RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
         );
 

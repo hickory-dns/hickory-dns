@@ -414,7 +414,6 @@ pub mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
-            RecordType::A,
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         )]);
         Ok(message.into())
@@ -425,7 +424,6 @@ pub mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
-            RecordType::AAAA,
             RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
         )]);
         Ok(message.into())

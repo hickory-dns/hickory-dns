@@ -31,7 +31,6 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         let record = Record::from_rdata(
             name.clone(),
             8,
-            RecordType::A,
             RData::A(Ipv4Addr::new(127, 0, 0, 10)),
         );
         let message = update_message::create(
