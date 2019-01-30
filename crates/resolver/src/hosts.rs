@@ -7,10 +7,11 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use dns_lru;
 use lookup::Lookup;
 use proto::op::Query;
 #[cfg(any(unix, windows))]
-use proto::rr::RData;
+use proto::rr::{Record, RData};
 use proto::rr::{Name, RecordType};
 
 #[derive(Debug, Default)]
@@ -145,15 +146,17 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 
         for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
             if let Ok(name) = Name::from_str(&domain) {
+                let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
+
                 match addr {
                     RData::A(..) => {
                         let query = Query::query(name.clone(), RecordType::A);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![addr.clone()]));
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
                         hosts.insert(name.clone(), RecordType::A, lookup);
                     }
                     RData::AAAA(..) => {
                         let query = Query::query(name.clone(), RecordType::AAAA);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![addr.clone()]));
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
                         hosts.insert(name.clone(), RecordType::AAAA, lookup);
                     }
                     _ => {

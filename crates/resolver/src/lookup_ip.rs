@@ -18,10 +18,11 @@ use failure::Fail;
 use futures::{future, Async, Future, Poll};
 
 use proto::op::Query;
-use proto::rr::{Name, RData, RecordType};
+use proto::rr::{Name, RData, RecordType, Record};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
 
 use config::LookupIpStrategy;
+use dns_lru::MAX_TTL;
 use error::*;
 use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupIter};
@@ -127,7 +128,8 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
                 } else if let Some(ip_addr) = self.finally_ip_addr.take() {
                     // Otherwise, if there's an IP address to fall back to,
                     // we'll return it.
-                    let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::new(vec![ip_addr]));
+                    let record = Record::from_rdata(Name::new(), MAX_TTL, ip_addr);
+                    let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::new(vec![record]));
                     return Ok(Async::Ready(lookup.into()));
                 }
             };

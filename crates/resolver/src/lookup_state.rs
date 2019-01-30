@@ -168,7 +168,7 @@ struct QueryFuture<C: DnsHandle + 'static> {
 
 enum Records {
     /// The records exists, a vec of rdata with ttl
-    Exists(Vec<(RData, u32)>),
+    Exists(Vec<(Record, u32)>),
     /// Records do not exist, ttl for negative caching
     NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
@@ -270,7 +270,7 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                         if ((self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
                             (search_name.as_ref() == r.name() || self.query.name() == r.name())) || 
                             (self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name()) {
-                            Some((r.unwrap_rdata(), ttl))
+                            Some((r, ttl))
                         } else {
                             None
                         }
@@ -677,9 +677,12 @@ mod tests {
     #[test]
     fn test_from_cache() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
+        let query = Query::new();
         cache.lock().unwrap().insert(
-            Query::new(),
-            vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value())],
+            query.clone(),
+            vec![
+                (Record::from_rdata(query.name().clone(), u32::max_value(), RData::A(Ipv4Addr::new(127, 0, 0, 1))), u32::max_value())
+            ],
             Instant::now(),
         );
 
@@ -969,7 +972,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &[LOCALHOST_V4.clone()]);
+            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST_V4.clone()]);
         }
 
         {
@@ -979,7 +982,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &[LOCALHOST_V6.clone()]);
+            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST_V6.clone()]);
         }
 
         {
@@ -989,7 +992,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &[LOCALHOST.clone()]);
+            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST.clone()]);
         }
 
         {
@@ -1002,7 +1005,7 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.rdatas(), &[LOCALHOST.clone()]);
+            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST.clone()]);
         }
 
         assert!(

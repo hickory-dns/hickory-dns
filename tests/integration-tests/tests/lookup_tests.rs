@@ -76,13 +76,16 @@ fn test_lookup_hosts() {
     let client = BufDnsRequestStreamHandle::new(handle);
 
     let mut hosts = Hosts::default();
-
+    let record = Record::from_rdata(
+        Name::from_str("www.example.com.").unwrap(), 
+        86400, 
+        RData::A(Ipv4Addr::new(10, 0, 1, 104)));
     hosts.insert(
         Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
         Lookup::new_with_max_ttl(
             Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
-            Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))]),
+            Arc::new(vec![record]),
         ),
     );
 

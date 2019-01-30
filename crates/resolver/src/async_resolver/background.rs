@@ -5,12 +5,12 @@ use futures::{future, sync::mpsc, Async, Future, Poll, Stream};
 use proto::SecureDnsHandle;
 use proto::{
     error::ProtoResult,
-    rr::{Name, RData, RecordType},
+    rr::{Name, RData, RecordType, Record},
     xfer::{DnsRequestOptions, RetryDnsHandle},
 };
 
 use config::{ResolverConfig, ResolverOpts};
-use dns_lru::DnsLru;
+use dns_lru::{self, DnsLru};
 use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupFuture};
 use lookup_ip::LookupIpFuture;
@@ -95,19 +95,22 @@ impl Task {
     }
 
     fn lookup_ip(&self, maybe_name: ProtoResult<Name>, maybe_ip: Option<RData>) -> LookupIpFuture {
-        let mut finally_ip_addr = None;
+        let mut finally_ip_addr: Option<Record> = None;
 
         // if host is a ip address, return directly.
         if let Some(ip_addr) = maybe_ip {
+            let name = maybe_name.clone().unwrap_or_default();
+            let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, ip_addr.clone());
+
             // if ndots are greater than 4, then we can't assume the name is an IpAddr
             //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
             //   but `:` is not a valid DNS character, so techinically this will fail parsing.
             //   TODO: should we always do search before returning this?
             if self.options.ndots > 4 {
-                finally_ip_addr = Some(ip_addr);
+                finally_ip_addr = Some(record);
             } else {
-                let query = Query::query(maybe_name.unwrap_or_default(), ip_addr.to_record_type());
-                let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![ip_addr]));
+                let query = Query::query(name, ip_addr.to_record_type());
+                let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
                 return LookupIpFuture::ok(self.client_cache.clone(), lookup);
             }
         }
@@ -116,7 +119,7 @@ impl Task {
             (Ok(name), _) => name,
             (Err(_), Some(ip_addr)) => {
                 // it was a valid IP, return that...
-                let query = Query::query(Name::default(), ip_addr.to_record_type());
+                let query = Query::query(ip_addr.name().clone(), ip_addr.record_type());
                 let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![ip_addr.clone()]));
                 return LookupIpFuture::ok(self.client_cache.clone(), lookup);
             }
@@ -134,7 +137,7 @@ impl Task {
             self.client_cache.clone(),
             DnsRequestOptions::default(),
             hosts,
-            finally_ip_addr,
+            finally_ip_addr.map(|r| r.unwrap_rdata()),
         )
     }
 
