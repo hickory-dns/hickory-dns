@@ -18,7 +18,7 @@ use futures::{future, Async, Future, Poll};
 use proto::error::ProtoError;
 use proto::op::Query;
 use proto::rr::rdata;
-use proto::rr::{Name, RData, RecordType};
+use proto::rr::{Name, RData, RecordType, Record};
 use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
@@ -36,31 +36,32 @@ use name_server::{ConnectionHandle, ConnectionProvider, NameServerPool, Standard
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     query: Query,
-    rdatas: Arc<Vec<RData>>,
+    records: Arc<Vec<Record>>,
     valid_until: Instant,
 }
 
 impl Lookup {
     /// Return new instance with given rdata and the maximum TTL.
-    pub fn from_rdata(query: Query, data: RData) -> Self {
-        Self::new_with_max_ttl(query, Arc::new(vec![data]))
+    pub fn from_rdata(query: Query, rdata: RData) -> Self {
+        let record = Record::from_rdata(query.name().clone(), MAX_TTL, rdata);
+        Self::new_with_max_ttl(query, Arc::new(vec![record]))
     }
 
-    /// Return new instance with given rdatas and the maximum TTL.
-    pub fn new_with_max_ttl(query: Query, rdatas: Arc<Vec<RData>>) -> Self {
+    /// Return new instance with given records and the maximum TTL.
+    pub fn new_with_max_ttl(query: Query, records: Arc<Vec<Record>>) -> Self {
         let valid_until = Instant::now() + Duration::from_secs(u64::from(MAX_TTL));
         Lookup {
             query,
-            rdatas,
+            records,
             valid_until,
         }
     }
 
-    /// Return a new instance with the given rdatas and deadline.
-    pub fn new_with_deadline(query: Query, rdatas: Arc<Vec<RData>>, valid_until: Instant) -> Self {
+    /// Return a new instance with the given records and deadline.
+    pub fn new_with_deadline(query: Query, records: Arc<Vec<Record>>, valid_until: Instant) -> Self {
         Lookup {
             query,
-            rdatas,
+            records,
             valid_until,
         }
     }
@@ -72,7 +73,7 @@ impl Lookup {
 
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIter {
-        LookupIter(self.rdatas.iter())
+        LookupIter(self.records.iter())
     }
 
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
@@ -81,38 +82,38 @@ impl Lookup {
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.rdatas.is_empty()
+        self.records.is_empty()
     }
 
     pub(crate) fn len(&self) -> usize {
-        self.rdatas.len()
+        self.records.len()
     }
 
     #[cfg(test)]
-    pub fn rdatas(&self) -> &[RData] {
-        self.rdatas.as_ref()
+    pub fn records(&self) -> &[Record] {
+        self.records.as_ref()
     }
 
     /// Clones the inner vec, appends the other vec
     pub(crate) fn append(&self, other: Lookup) -> Self {
-        let mut rdatas = Vec::with_capacity(self.len() + other.len());
-        rdatas.extend_from_slice(&*self.rdatas);
-        rdatas.extend_from_slice(&*other.rdatas);
+        let mut records = Vec::with_capacity(self.len() + other.len());
+        records.extend_from_slice(&*self.records);
+        records.extend_from_slice(&*other.records);
 
         // Choose the sooner deadline of the two lookups.
         let valid_until = min(self.valid_until(), other.valid_until());
-        Self::new_with_deadline(self.query.clone(), Arc::new(rdatas), valid_until)
+        Self::new_with_deadline(self.query.clone(), Arc::new(records), valid_until)
     }
 }
 
 /// Borrowed view of set of RDatas returned from a Lookup
-pub struct LookupIter<'a>(Iter<'a, RData>);
+pub struct LookupIter<'a>(Iter<'a, Record>);
 
 impl<'a> Iterator for LookupIter<'a> {
     type Item = &'a RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        self.0.next().map(|r| r.rdata())
     }
 }
 
@@ -210,7 +211,7 @@ impl<C: DnsHandle + 'static> Future for LookupFuture<C> {
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Ok(Async::Ready(ref lookup)) => lookup.rdatas.len() == 0,
+                Ok(Async::Ready(ref lookup)) => lookup.records.len() == 0,
                 // If the query failed, we will attempt to retry.
                 Err(_) => true,
             };
@@ -434,7 +435,6 @@ pub mod tests {
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
-            RecordType::A,
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         )]);
         Ok(message.into())
