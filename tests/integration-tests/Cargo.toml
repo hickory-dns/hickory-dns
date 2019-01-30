@@ -73,7 +73,7 @@ openssl = { version = "^0.10", features = ["v102", "v110"] }
 rand = "0.6"
 rusqlite = { version = "0.16.0", features = ["bundled"] }
 rustls = { version = "0.15" }
-tokio = "0.1.6"
+tokio = "0.1.15"
 tokio-tcp = "0.1"
 tokio-timer = "0.2.6"
 tokio-udp = "0.1"

@@ -50,4 +50,4 @@ trust-dns-proto = { version = "0.7.0", path = "../proto", features = ["openssl"]
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = "0.1.6"
+tokio = "0.1.15"
