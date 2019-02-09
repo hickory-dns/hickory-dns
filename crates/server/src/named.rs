@@ -51,6 +51,8 @@ use tokio_tcp::TcpListener;
 use tokio_udp::UdpSocket;
 
 use trust_dns::rr::Name;
+#[cfg(feature = "dnssec")]
+use trust_dns::rr::rdata::key::KeyUsage;
 use trust_dns_server::authority::{Authority, Catalog, ZoneType};
 use trust_dns_server::config::{Config, ZoneConfig};
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
@@ -156,18 +158,32 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
     ) -> Result<(), String> {
         if zone_config.is_dnssec_enabled() {
             for key_config in zone_config.get_keys() {
-                let signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
-                    format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                })?;
                 info!(
                     "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
                     key_config.key_path(),
                     key_config.is_zone_signing_key(),
                     key_config.is_zone_update_auth()
                 );
-                authority
-                    .add_zone_signing_key(signer)
-                    .expect("failed to add key to authority");
+                if key_config.is_zone_signing_key() {
+                    let zone_signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
+                        format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                    })?;
+                    authority
+                        .add_zone_signing_key(zone_signer)
+                        .expect("failed to add zone signing key to authority");
+                }
+                if key_config.is_zone_update_auth() {
+                    let update_auth_signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
+                        format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                    })?;
+                    let public_key = update_auth_signer
+                        .key()
+                        .to_sig0key_with_usage(update_auth_signer.algorithm(), KeyUsage::Host)
+                        .expect("failed to get sig0 key");
+                    authority
+                        .add_update_auth_key(zone_name.clone(), public_key)
+                        .expect("failed to add update auth key to authority");
+                }
             }
 
             info!("signing zone: {}", zone_config.get_zone().unwrap());
