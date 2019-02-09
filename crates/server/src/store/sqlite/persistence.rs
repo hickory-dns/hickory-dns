@@ -105,7 +105,8 @@ impl Journal {
             return Err(PersistenceErrorKind::WrongInsertCount {
                 got: count,
                 expect: 1,
-            }.into());
+            }
+            .into());
         };
 
         Ok(())
@@ -163,7 +164,8 @@ impl Journal {
                         ))),
                     }
                 },
-            )?.next();
+            )?
+            .next();
 
         //
         match record_opt {

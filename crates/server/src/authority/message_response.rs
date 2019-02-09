@@ -12,16 +12,16 @@ use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
 
 use authority::message_request::QueriesEmitAndCount;
-use authority::{AuthLookupIter, Queries};
+use authority::Queries;
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
 pub struct MessageResponse<
     'q,
     'a,
-    A = AuthLookupIter<'a>,
-    N = AuthLookupIter<'a>,
-    S = AuthLookupIter<'a>,
+    A = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
+    N = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
+    S = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
 > where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
@@ -158,9 +158,9 @@ impl<'q> MessageResponseBuilder<'q> {
         MessageResponse {
             header,
             queries: self.queries,
-            answers: Default::default(),
-            name_servers: Default::default(),
-            soa: Default::default(),
+            answers: Box::new(None.into_iter()),
+            name_servers: Box::new(None.into_iter()),
+            soa: Box::new(None.into_iter()),
             additionals: Default::default(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
@@ -189,9 +189,9 @@ impl<'q> MessageResponseBuilder<'q> {
         MessageResponse {
             header,
             queries: self.queries,
-            answers: Default::default(),
-            name_servers: Default::default(),
-            soa: Default::default(),
+            answers: Box::new(None.into_iter()),
+            name_servers: Box::new(None.into_iter()),
+            soa: Box::new(None.into_iter()),
             additionals: Default::default(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,

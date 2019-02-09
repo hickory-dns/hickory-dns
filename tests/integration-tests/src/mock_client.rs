@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use futures::{future, Future};
 
 use trust_dns::op::{Message, Query};
-use trust_dns::rr::{Name, RData, Record, RecordType};
+use trust_dns::rr::{Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 

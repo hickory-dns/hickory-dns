@@ -18,7 +18,7 @@ use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use authority::{
-    AnyRecords, AuthLookup, Authority, LookupRecords, MessageRequest, UpdateResult, ZoneType,
+    AnyRecords, AuthLookup, Authority, LookupRecords, LookupError, LookupResult, MessageRequest, UpdateResult, ZoneType,
 };
 use store::file::FileConfig;
 
@@ -134,7 +134,17 @@ impl FileAuthority {
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn minimum_ttl(&self) -> u32 {
-        self.soa().iter().next().map_or(0, |soa| {
+        let soa = Authority::soa(self);
+
+        let soa = match soa {
+            Ok(soa) => soa,
+            Err(e) => {
+                warn!("could not lookup SOA for authority: {}: {}", self.origin, e);
+                return 0
+            }
+        };
+
+        soa.iter().next().map_or(0, |soa| {
             if let RData::SOA(ref rdata) = *soa.rdata() {
                 rdata.minimum()
             } else {
@@ -145,7 +155,17 @@ impl FileAuthority {
 
     /// get the current serial number for the zone.
     pub fn serial(&self) -> u32 {
-        self.soa().iter().next().map_or_else(
+        let soa = Authority::soa(self);
+
+        let soa = match soa {
+            Ok(soa) => soa,
+            Err(e) => {
+                warn!("could not lookup SOA for authority: {}: {}", self.origin, e);
+                return 0
+            }
+        };
+
+        soa.iter().next().map_or_else(
             || {
                 warn!("no soa record found for zone: {}", self.origin);
                 0
@@ -162,7 +182,17 @@ impl FileAuthority {
 
     #[allow(unused)]
     fn increment_soa_serial(&mut self) -> u32 {
-        let opt_soa_serial = self.soa().iter().next().map(|soa| {
+        let soa = Authority::soa(self);
+
+        let soa = match soa {
+            Ok(soa) => soa,
+            Err(e) => {
+                warn!("could not lookup SOA for authority: {}: {}", self.origin, e);
+                return 0
+            }
+        };
+
+        let opt_soa_serial = soa.iter().next().map(|soa| {
             // TODO: can we get a mut reference to SOA directly?
             let mut soa: Record = soa.clone();
 
@@ -301,7 +331,7 @@ impl FileAuthority {
                     RecordType::DNSSEC(DNSSECRecordType::NSEC),
                     ttl,
                 );
-                let rdata = NSEC::new_cover_self(self.origin().clone().into(), vec);
+                let rdata = NSEC::new_cover_self(Authority::origin(self).clone().into(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
             }
@@ -524,11 +554,11 @@ impl Authority for FileAuthority {
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup {
+    ) -> LookupResult<AuthLookup> {
         let rr_key = RrKey::new(name.clone(), rtype);
 
         // Collect the records from each rr_set
-        let result: LookupRecords = match rtype {
+        let result: LookupResult<LookupRecords> = match rtype {
             RecordType::AXFR | RecordType::ANY => {
                 let result = AnyRecords::new(
                     is_secure,
@@ -537,13 +567,13 @@ impl Authority for FileAuthority {
                     rtype,
                     name.clone(),
                 );
-                LookupRecords::AnyRecords(result)
+                Ok(LookupRecords::AnyRecords(result))
             }
             _ => self
                 .records
                 .get(&rr_key)
-                .map_or(LookupRecords::NxDomain, |rr_set| {
-                    LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
+                .map_or(Err(LookupError::from(ResponseCode::NXDomain)), |rr_set| {
+                    Ok(LookupRecords::new(is_secure, supported_algorithms, rr_set.clone()))
                 }),
         };
 
@@ -551,18 +581,19 @@ impl Authority for FileAuthority {
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
-        //
-        // In addition, if a name of additional labels exists for the query naem, then the proper response is also
-        //   NameExists (NOERROR).
-        if result.is_nx_domain() {
-            if self.records.keys().any(|key| key.name() == name || name.zone_of(key.name())) {
-                return AuthLookup::NameExists;
-            } else {
-                return AuthLookup::NxDomain;
-            }
-        }
+        let result = match result {
+            Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
+                if self.records.keys().any(|key| key.name() == name) {
+                    return Err(LookupError::NameExists);
+                } else {
+                    return Err(LookupError::from(ResponseCode::NXDomain));
+                }
+            },
+            Err(e) => return Err(e),
+            o => o,
+        };
 
-        result.into()
+        result.map(AuthLookup::from)
     }
 
     // FIXME: move back to a suplied method in the trait
@@ -571,7 +602,7 @@ impl Authority for FileAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::Lookup {
+    ) -> LookupResult<Self::Lookup> {
         debug!("searching SqliteAuthority for: {}", query);
 
         let lookup_name = query.name();
@@ -581,39 +612,58 @@ impl Authority for FileAuthority {
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
-            if !self.is_axfr_allowed() {
-                return AuthLookup::Refused;
+            if !Authority::is_axfr_allowed(self) {
+                return Err(LookupError::from(ResponseCode::Refused));
             }
 
-            match self.zone_type() {
+            match Authority::zone_type(self) {
                 ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
-                _ => return AuthLookup::NxDomain, // TODO: this sould be an error.
+                _ => return Err(LookupError::from(ResponseCode::NXDomain)), // TODO: this sould be an error.
             }
         }
 
         // perform the actual lookup
         match record_type {
-            RecordType::SOA => {
-                self.lookup(self.origin(), record_type, is_secure, supported_algorithms)
-            }
+            RecordType::SOA => Authority::lookup(
+                self,
+                Authority::origin(self),
+                record_type,
+                is_secure,
+                supported_algorithms,
+            ),
             RecordType::AXFR => {
-                // FIXME: shouldn't these SOA's be secure? at least the first, perhaps not the last?
+                // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
                 let start_soa = self.soa_secure(is_secure, supported_algorithms);
                 let end_soa = self.soa();
                 let records =
                     self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
 
-                match start_soa {
-                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
+                let (start_soa, end_soa, records) = match (start_soa, end_soa, records) {
+                    (Err(e), _, _) => return Err(e),
+                    (_, Err(e), _) => return Err(e),
+                    (_, _, Err(e)) => return Err(e),
+                    (Ok(ss), Ok(es), Ok(r)) => (ss, es, r),
+                };
+
+                let lookup = match start_soa {
+                    l @ AuthLookup::Empty => l,
                     start_soa => AuthLookup::AXFR {
                         start_soa: start_soa.unwrap_records(),
                         records: records.unwrap_records(),
                         end_soa: end_soa.unwrap_records(),
                     },
-                }
+                };
+
+                Ok(lookup)
             }
-            _ => self.lookup(lookup_name, record_type, is_secure, supported_algorithms),
+            _ => Authority::lookup(
+                self,
+                lookup_name,
+                record_type,
+                is_secure,
+                supported_algorithms,
+            ),
         }
     }
 
@@ -630,9 +680,8 @@ impl Authority for FileAuthority {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup {
-        use trust_dns::rr::rdata::DNSSECRecordType;
-
+    ) -> LookupResult<AuthLookup> {
+        #[cfg(feature = "dnssec")]
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             use trust_dns::rr::rdata::DNSSECRecordType;
 
@@ -726,7 +775,7 @@ impl Authority for FileAuthority {
     /// * `signer` - Signer with associated private key
     #[cfg(feature = "dnssec")]
     fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use trust_dns::rr::rdata::DNSSECRData;
 
         // also add the key to the zone
         let zone_ttl = self.minimum_ttl();
@@ -794,12 +843,13 @@ mod tests {
         )
         .expect("failed to load file");
 
-        let lookup = authority.lookup(
+        let lookup = Authority::lookup(
+            &authority,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        );
+        ).expect("lookup failed");
 
         match lookup
             .into_iter()

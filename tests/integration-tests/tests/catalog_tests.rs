@@ -10,7 +10,7 @@ use trust_dns::rr::rdata::*;
 use trust_dns::rr::*;
 use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
-use trust_dns_server::authority::*;
+use trust_dns_server::authority::{Authority, Catalog, MessageRequest, ZoneType};
 use trust_dns_server::store::sqlite::SqliteAuthority;
 
 use trust_dns_integration::authority::create_example;
@@ -41,7 +41,8 @@ pub fn create_test() -> SqliteAuthority {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -84,7 +85,8 @@ pub fn create_test() -> SqliteAuthority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -107,7 +109,8 @@ pub fn create_test() -> SqliteAuthority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -265,7 +268,8 @@ fn test_axfr() {
             3600,
             1209600,
             3600,
-        ))).clone();
+        )))
+        .clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), Box::new(test));
@@ -309,7 +313,8 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
@@ -338,7 +343,8 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -353,7 +359,8 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(3600)
@@ -367,7 +374,8 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
     ];
 
     expected_set.sort();
