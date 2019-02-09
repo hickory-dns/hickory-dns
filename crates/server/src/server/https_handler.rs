@@ -58,7 +58,8 @@ where
                             )
                         })
                 })
-        }).map_err(|e| io::Error::new(io::ErrorKind::Other, format!("error in h2 handler: {}", e)))
+        })
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("error in h2 handler: {}", e)))
 }
 
 struct HttpsResponseHandle(::h2::server::SendResponse<::bytes::Bytes>);

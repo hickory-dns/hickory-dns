@@ -53,18 +53,22 @@ use tokio_udp::UdpSocket;
 use trust_dns::rr::Name;
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::rdata::key::KeyUsage;
-use trust_dns_server::authority::{Authority, AuthLookup, Catalog, ZoneType};
+use trust_dns_server::authority::{Authority, AuthorityObject, Catalog, ZoneType};
 use trust_dns_server::config::{Config, ZoneConfig};
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
 use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
+use trust_dns_server::store::forwarder::ForwardAuthority;
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use trust_dns_server::store::StoreConfig;
 
 #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
-fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Authority<Lookup = AuthLookup>>, String> {
+fn load_zone(
+    zone_dir: &Path,
+    zone_config: &ZoneConfig,
+) -> Result<Box<dyn AuthorityObject>, String> {
     use std::path::PathBuf;
 
     debug!("loading zone with config: {:#?}", zone_config);
@@ -81,7 +85,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
     }
 
     // load the zone
-    let mut authority: Box<dyn Authority<Lookup = AuthLookup>> = match zone_config.stores {
+    let mut authority: Box<dyn AuthorityObject> = match zone_config.stores {
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
                 warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
@@ -94,7 +98,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
                 is_dnssec_enabled,
                 Some(zone_dir),
                 config,
-            ).map(Box::new)?
+            )
+            .map(Box::new)?
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
@@ -106,7 +111,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
                 is_axfr_allowed,
                 Some(zone_dir),
                 config,
-            ).map(Box::new)?
+            )
+            .map(Box::new)?
         }
         None if zone_config.is_update_allowed() => {
             warn!(
@@ -133,7 +139,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
                 is_dnssec_enabled,
                 Some(zone_dir),
                 &config,
-            ).map(Box::new)?
+            )
+            .map(Box::new)?
         }
         None => {
             let config = FileConfig {
@@ -146,13 +153,14 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
                 is_axfr_allowed,
                 Some(zone_dir),
                 &config,
-            ).map(Box::new)?
+            )
+            .map(Box::new)?
         }
     };
 
     #[cfg(feature = "dnssec")]
     fn load_keys(
-        authority: &mut dyn Authority<Lookup = AuthLookup>,
+        authority: &mut dyn AuthorityObject,
         zone_name: Name,
         zone_config: &ZoneConfig,
     ) -> Result<(), String> {
@@ -194,7 +202,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Box<dyn Author
 
     #[cfg(not(feature = "dnssec"))]
     fn load_keys(
-        _authority: &mut dyn Authority<Lookup = AuthLookup>,
+        _authority: &mut dyn AuthorityObject,
         _zone_name: Name,
         _zone_config: &ZoneConfig,
     ) -> Result<(), String> {
@@ -265,43 +273,51 @@ pub fn main() {
                 .short("q")
                 .help("Disable INFO messages, WARN and ERROR will remain")
                 .conflicts_with(DEBUG_ARG),
-        ).arg(
+        )
+        .arg(
             Arg::with_name(DEBUG_ARG)
                 .long(DEBUG_ARG)
                 .short("d")
                 .help("Turn on DEBUG messages (default is only INFO)")
                 .conflicts_with(QUIET_ARG),
-        ).arg(
+        )
+        .arg(
             Arg::with_name(CONFIG_ARG)
                 .long(CONFIG_ARG)
                 .short("c")
                 .help("Path to configuration file")
                 .value_name("FILE")
                 .default_value("/etc/named.toml"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name(ZONEDIR_ARG)
                 .long(ZONEDIR_ARG)
                 .short("z")
                 .help("Path to the root directory for all zone files, see also config toml")
                 .value_name("DIR"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name(PORT_ARG)
                 .long(PORT_ARG)
                 .short("p")
                 .help("Listening port for DNS queries, overrides any value in config file")
                 .value_name(PORT_ARG),
-        ).arg(
+        )
+        .arg(
             Arg::with_name(TLS_PORT_ARG)
                 .long(TLS_PORT_ARG)
                 .help("Listening port for DNS over TLS queries, overrides any value in config file")
                 .value_name(TLS_PORT_ARG),
-        ).arg(
+        )
+        .arg(
             Arg::with_name(HTTPS_PORT_ARG)
                 .long(HTTPS_PORT_ARG)
                 .help(
                     "Listening port for DNS over HTTPS queries, overrides any value in config file",
-                ).value_name(HTTPS_PORT_ARG),
-        ).get_matches();
+                )
+                .value_name(HTTPS_PORT_ARG),
+        )
+        .get_matches();
 
     let args: Args = args.into();
 
@@ -341,6 +357,9 @@ pub fn main() {
             Err(error) => panic!("could not load zone {}: {}", zone_name, error),
         }
     }
+
+    // FIXME: need a configuration for Forwarders
+    catalog.upsert(Name::root().into(), Box::new(ForwardAuthority::new()));
 
     // TODO: support all the IPs asked to listen on...
     // TODO:, there should be the option to listen on any port, IP and protocol option...
@@ -475,8 +494,8 @@ fn config_tls(
             tls_cert_config.get_path()
         );
 
-        let tls_cert =
-            dnssec::load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
+            .expect("error loading tls certificate file");
 
         info!("listening for TLS on {:?}", tls_listener);
         server
@@ -515,13 +534,18 @@ fn config_https(
             tls_cert_config.get_path()
         );
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
-        let tls_cert =
-            dnssec::load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
+            .expect("error loading tls certificate file");
 
         info!("listening for HTTPS on {:?}", https_listener);
         server
-        // FIXME: need to passthrough the DNS authority name
-            .register_https_listener(https_listener, config.get_tcp_request_timeout(), tls_cert, "ns.example.com".to_string())
+            // FIXME: need to passthrough the DNS authority name
+            .register_https_listener(
+                https_listener,
+                config.get_tcp_request_timeout(),
+                tls_cert,
+                "ns.example.com".to_string(),
+            )
             .expect("could not register TLS listener");
     }
 }

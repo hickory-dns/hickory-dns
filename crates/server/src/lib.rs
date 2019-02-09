@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #![warn(missing_docs)]
-#![recursion_limit = "1024"]
+#![recursion_limit = "2048"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!

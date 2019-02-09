@@ -18,7 +18,7 @@ use futures::{future, Async, Future, Poll};
 use proto::error::ProtoError;
 use proto::op::Query;
 use proto::rr::rdata;
-use proto::rr::{Name, RData, RecordType, Record};
+use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
@@ -58,7 +58,11 @@ impl Lookup {
     }
 
     /// Return a new instance with the given records and deadline.
-    pub fn new_with_deadline(query: Query, records: Arc<Vec<Record>>, valid_until: Instant) -> Self {
+    pub fn new_with_deadline(
+        query: Query,
+        records: Arc<Vec<Record>>,
+        valid_until: Instant,
+    ) -> Self {
         Lookup {
             query,
             records,
@@ -76,12 +80,18 @@ impl Lookup {
         LookupIter(self.records.iter())
     }
 
+    /// Returns a borrowed iterator of the returned IPs
+    pub fn record_iter(&self) -> LookupRecordIter {
+        LookupRecordIter(self.records.iter())
+    }
+
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
     pub fn valid_until(&self) -> Instant {
         self.valid_until
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    #[doc(hidden)]
+    pub fn is_empty(&self) -> bool {
         self.records.is_empty()
     }
 
@@ -114,6 +124,17 @@ impl<'a> Iterator for LookupIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next().map(|r| r.rdata())
+    }
+}
+
+/// Borrowed view of set of RDatas returned from a Lookup
+pub struct LookupRecordIter<'a>(Iter<'a, Record>);
+
+impl<'a> Iterator for LookupRecordIter<'a> {
+    type Item = &'a Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
     }
 }
 
@@ -280,7 +301,8 @@ impl<'i> Iterator for SrvLookupIter<'i> {
         iter.filter_map(|rdata| match *rdata {
             RData::SRV(ref data) => Some(data),
             _ => None,
-        }).next()
+        })
+        .next()
     }
 }
 
@@ -342,7 +364,8 @@ macro_rules! lookup_type {
                 iter.filter_map(|rdata| match *rdata {
                     $r(ref data) => Some(data),
                     _ => None,
-                }).next()
+                })
+                .next()
             }
         }
 
@@ -462,7 +485,8 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()])),
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -473,15 +497,14 @@ pub mod tests {
 
     #[test]
     fn test_error() {
-        assert!(
-            LookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![error()])),
-            ).wait()
-            .is_err()
-        );
+        assert!(LookupFuture::lookup(
+            vec![Name::root()],
+            RecordType::A,
+            DnsRequestOptions::default(),
+            CachingClient::new(0, mock(vec![error()])),
+        )
+        .wait()
+        .is_err());
     }
 
     #[test]
@@ -492,7 +515,8 @@ pub mod tests {
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![empty()])),
-            ).wait()
+            )
+            .wait()
             .unwrap_err()
             .kind(),
             ResolveErrorKind::NoRecordsFound {

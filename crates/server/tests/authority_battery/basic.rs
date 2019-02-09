@@ -9,7 +9,7 @@ use trust_dns_server::authority::{AuthLookup, Authority, MessageRequest};
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).unwrap();
 
     match lookup
         .into_iter()
@@ -24,7 +24,7 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
 #[allow(clippy::unreadable_literal)]
 pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let lookup = authority.soa();
+    let lookup = authority.soa().unwrap();
 
     match lookup
         .into_iter()
@@ -46,7 +46,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let lookup = authority.ns(false, SupportedAlgorithms::new());
+    let lookup = authority.ns(false, SupportedAlgorithms::new()).unwrap();
 
     match lookup
         .into_iter()

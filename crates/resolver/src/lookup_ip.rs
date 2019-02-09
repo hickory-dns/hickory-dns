@@ -18,7 +18,7 @@ use failure::Fail;
 use futures::{future, Async, Future, Poll};
 
 use proto::op::Query;
-use proto::rr::{Name, RData, RecordType, Record};
+use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
 
 use config::LookupIpStrategy;
@@ -70,7 +70,8 @@ impl<'i> Iterator for LookupIpIter<'i> {
             RData::A(ip) => Some(IpAddr::from(ip)),
             RData::AAAA(ip) => Some(IpAddr::from(ip)),
             _ => None,
-        }).next()
+        })
+        .next()
     }
 }
 
@@ -274,12 +275,14 @@ fn ipv4_and_ipv6<C: DnsHandle + 'static>(
             client.clone(),
             options.clone(),
             hosts.clone(),
-        ).select(hosts_lookup(
+        )
+        .select(hosts_lookup(
             Query::query(name, RecordType::AAAA),
             client,
             options,
             hosts,
-        )).then(|sel_res| {
+        ))
+        .then(|sel_res| {
             match sel_res {
                 // Some ips returned, get the other record result, or else just return record
                 Ok((ips, remaining_query)) => {
@@ -354,7 +357,8 @@ fn rt_then_swap<C: DnsHandle + 'static>(
             client,
             options.clone(),
             hosts.clone(),
-        ).then(move |res| {
+        )
+        .then(move |res| {
             match res {
                 Ok(ips) => {
                     if ips.is_empty() {
@@ -391,7 +395,7 @@ pub mod tests {
 
     use proto::error::{ProtoError, ProtoResult};
     use proto::op::Message;
-    use proto::rr::{Name, RData, Record, RecordType};
+    use proto::rr::{Name, RData, Record};
     use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     use super::*;
@@ -453,7 +457,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -470,7 +475,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -489,7 +495,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message(), v4_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -507,7 +514,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![empty(), v4_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -522,7 +530,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![error(), v4_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -537,7 +546,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message(), empty()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -552,7 +562,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message(), error()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -570,7 +581,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -585,7 +597,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message(), empty()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -600,7 +613,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message(), error()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -618,7 +632,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -633,7 +648,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message(), empty()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -648,7 +664,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v6_message(), error()])),
                 Default::default(),
                 None,
-            ).wait()
+            )
+            .wait()
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use proto::op::Query;
-use proto::rr::{Record, RData};
+use proto::rr::Record;
 
 use config;
 use error::*;
@@ -255,7 +255,7 @@ mod tests {
     use std::time::*;
 
     use proto::op::Query;
-    use proto::rr::{Name, RecordType};
+    use proto::rr::{Name, RData, RecordType};
 
     use super::*;
 
@@ -280,11 +280,14 @@ mod tests {
     #[test]
     fn test_lookup_uses_positive_min_ttl() {
         let now = Instant::now();
- 
+
         let name = Name::from_str("www.example.com.").unwrap();
         let query = Query::query(name.clone(), RecordType::A);
         // record should have TTL of 1 second.
-        let ips_ttl = vec![(Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 1)];
+        let ips_ttl = vec![(
+            Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            1,
+        )];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
 
         // configure the cache with a minimum TTL of 2 seconds.
@@ -301,7 +304,10 @@ mod tests {
         assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(2));
 
         // record should have TTL of 3 seconds.
-        let ips_ttl = vec![(Record::from_rdata(name.clone(), 3, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 3)];
+        let ips_ttl = vec![(
+            Record::from_rdata(name.clone(), 3, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            3,
+        )];
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -354,7 +360,10 @@ mod tests {
         let name = Name::from_str("www.example.com.").unwrap();
         let query = Query::query(name.clone(), RecordType::A);
         // record should have TTL of 62 seconds.
-        let ips_ttl = vec![(Record::from_rdata(name.clone(), 62, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 62)];
+        let ips_ttl = vec![(
+            Record::from_rdata(name.clone(), 62, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            62,
+        )];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
 
         // configure the cache with a maximum TTL of 60 seconds.
@@ -371,7 +380,10 @@ mod tests {
         assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(60));
 
         // record should have TTL of 59 seconds.
-        let ips_ttl = vec![(Record::from_rdata(name.clone(), 59, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 59)];
+        let ips_ttl = vec![(
+            Record::from_rdata(name.clone(), 59, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            59,
+        )];
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -423,7 +435,10 @@ mod tests {
 
         let name = Name::from_str("www.example.com.").unwrap();
         let query = Query::query(name.clone(), RecordType::A);
-        let ips_ttl = vec![(Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 1)];
+        let ips_ttl = vec![(
+            Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            1,
+        )];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
         let mut lru = DnsLru::new(1, TtlConfig::default());
 
@@ -441,8 +456,14 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
         // TTL should be 1
         let ips_ttl = vec![
-            (Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 1),
-            (Record::from_rdata(name.clone(), 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))), 2)
+            (
+                Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+                1,
+            ),
+            (
+                Record::from_rdata(name.clone(), 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
+                2,
+            ),
         ];
         let ips = vec![
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
@@ -468,8 +489,14 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
         // TTL should be 1
         let ips_ttl = vec![
-            (Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 1),
-            (Record::from_rdata(name.clone(), 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))), 2)
+            (
+                Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+                1,
+            ),
+            (
+                Record::from_rdata(name.clone(), 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
+                2,
+            ),
         ];
         let ips = vec![
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
@@ -513,8 +540,14 @@ mod tests {
         let query = Query::query(name.clone(), RecordType::A);
         // TTL should be 500
         let ips_ttl = vec![
-            (Record::from_rdata(name.clone(), 400, RData::A(Ipv4Addr::new(127, 0, 0, 1))), 400),
-            (Record::from_rdata(name.clone(), 500, RData::A(Ipv4Addr::new(127, 0, 0, 2))), 500)
+            (
+                Record::from_rdata(name.clone(), 400, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+                400,
+            ),
+            (
+                Record::from_rdata(name.clone(), 500, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
+                500,
+            ),
         ];
         let ips = vec![
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
