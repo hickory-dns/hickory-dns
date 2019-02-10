@@ -159,7 +159,7 @@ pub enum RData {
     ///     /                   EXCHANGE                    /
     ///     /                                               /
     ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-    ////
+    ///
     /// where:
     ///
     /// PREFERENCE      A 16 bit integer which specifies the preference given to
@@ -312,7 +312,7 @@ pub enum RData {
     /// RNAME           A <domain-name> which specifies the mailbox of the
     ///                 person responsible for this zone.
     ///
-    //// SERIAL          The unsigned 32 bit version number of the original copy
+    /// SERIAL          The unsigned 32 bit version number of the original copy
     ///                 of the zone.  Zone transfers preserve this value.  This
     ///                 value wraps and should be compared using sequence space
     ///                 arithmetic.
