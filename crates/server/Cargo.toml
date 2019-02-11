@@ -96,7 +96,7 @@ tokio-io = "0.1"
 tokio-reactor = "0.1"
 tokio-rustls = { version = "0.9", optional = true }
 tokio-tcp = "0.1"
-tokio-timer = "0.2.9"
+tokio-timer = "0.2.10"
 tokio-udp = "0.1"
 toml = "0.4"
 trust-dns = { version = "0.16.0-alpha", path = "../client" }
