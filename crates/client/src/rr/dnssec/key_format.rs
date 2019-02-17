@@ -5,7 +5,9 @@ use openssl::rsa::Rsa;
 #[cfg(feature = "openssl")]
 use openssl::symm::Cipher;
 #[cfg(feature = "ring")]
-use ring::signature::Ed25519KeyPair;
+use ring::signature::{EcdsaKeyPair, Ed25519KeyPair};
+#[cfg(feature = "ring")]
+use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
 #[cfg(feature = "ring")]
 use untrusted::Input;
 
@@ -68,29 +70,40 @@ impl KeyFormat {
                 Ok(KeyPair::from_rsa(key)
                     .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
             }
-            #[cfg(feature = "openssl")]
-            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-                let key = match self {
-                    KeyFormat::Der => EcKey::private_key_from_der(bytes)
-                        .map_err(|e| format!("error reading EC as DER: {}", e))?,
-                    KeyFormat::Pem => {
-                        let key = EcKey::private_key_from_pem_passphrase(bytes, password);
+            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
+                #[cfg(feature = "openssl")]
+                KeyFormat::Der => {
+                    let key = EcKey::private_key_from_der(bytes)
+                        .map_err(|e| format!("error reading EC as DER: {}", e))?;
 
-                        key.map_err(|e| {
-                            format!("could not decode EC from PEM, bad password?: {}", e)
-                        })?
-                    }
-                    e => {
-                        return Err(format!(
-                            "unsupported key format with EC (DER or PEM only): \
-                             {:?}",
-                            e
-                        ).into());
-                    }
-                };
+                    Ok(KeyPair::from_ec_key(key)
+                        .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
+                }
+                #[cfg(feature = "openssl")]
+                KeyFormat::Pem => {
+                    let key = EcKey::private_key_from_pem_passphrase(bytes, password)
+                    .map_err(|e| {
+                        format!("could not decode EC from PEM, bad password?: {}", e)
+                    })?;
 
-                Ok(KeyPair::from_ec_key(key)
-                    .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
+                    Ok(KeyPair::from_ec_key(key)
+                        .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
+                }
+                #[cfg(feature = "ring")]
+                KeyFormat::Pkcs8 => {
+                    let ring_algorithm = if algorithm == Algorithm::ECDSAP256SHA256 {
+                        &ECDSA_P256_SHA256_FIXED_SIGNING
+                    } else {
+                        &ECDSA_P384_SHA384_FIXED_SIGNING
+                    };
+                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, Input::from(bytes))?;
+
+                    Ok(KeyPair::from_ecdsa(key))
+                }
+                e => Err(format!(
+                    "unsupported key format with EC: {:?}",
+                    e
+                ).into()),
             }
             Algorithm::ED25519 => match self {
                 #[cfg(feature = "ring")]
@@ -134,10 +147,14 @@ impl KeyFormat {
                 return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
             }
             #[cfg(feature = "openssl")]
-            Algorithm::RSASHA256
-            | Algorithm::RSASHA512
-            | Algorithm::ECDSAP256SHA256
-            | Algorithm::ECDSAP384SHA384 => KeyPair::generate(algorithm)?,
+            Algorithm::RSASHA256 | Algorithm::RSASHA512 => KeyPair::generate(algorithm)?,
+            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
+                #[cfg(feature = "openssl")]
+                KeyFormat::Der | KeyFormat::Pem => KeyPair::generate(algorithm)?,
+                #[cfg(feature = "ring")]
+                KeyFormat::Pkcs8 => return KeyPair::generate_pkcs8(algorithm),
+                e => return Err(format!("unsupported key format with EC: {:?}", e).into()),
+            }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
@@ -183,7 +200,7 @@ impl KeyFormat {
                 }
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(..) => panic!("should have returned early"),
+            KeyPair::ECDSA(..) | KeyPair::ED25519(..) => panic!("should have returned early"),
             #[cfg(not(feature = "openssl"))]
             KeyPair::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
@@ -278,6 +295,13 @@ mod tests {
     fn test_ec_encode_decode_pem() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
+    }
+
+    #[test]
+    #[cfg(feature = "ring")]
+    fn test_ec_encode_decode_pkcs8() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        encode_decode_with_format(KeyFormat::Pkcs8, algorithm, true, true);
     }
 
     #[test]

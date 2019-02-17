@@ -145,12 +145,34 @@ fn test_ecdsa_p256() {
 }
 
 #[test]
+#[cfg(feature = "dnssec-ring")]
+fn test_ecdsa_p256_pkcs8() {
+    generic_test(
+        confg_toml(),
+        "tests/named_test_configs/dnssec/ecdsa_p256.pk8",
+        KeyFormat::Pkcs8,
+        Algorithm::ECDSAP256SHA256,
+    );
+}
+
+#[test]
 #[cfg(feature = "dnssec-openssl")]
 fn test_ecdsa_p384() {
     generic_test(
         confg_toml(),
         "tests/named_test_configs/dnssec/ecdsa_p384.pem",
         KeyFormat::Pem,
+        Algorithm::ECDSAP384SHA384,
+    );
+}
+
+#[test]
+#[cfg(feature = "dnssec-ring")]
+fn test_ecdsa_p384_pkcs8() {
+    generic_test(
+        confg_toml(),
+        "tests/named_test_configs/dnssec/ecdsa_p384.pk8",
+        KeyFormat::Pkcs8,
         Algorithm::ECDSAP384SHA384,
     );
 }
