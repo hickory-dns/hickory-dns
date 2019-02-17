@@ -24,7 +24,11 @@ use openssl::sign::Signer;
 #[cfg(feature = "ring")]
 use ring::rand;
 #[cfg(feature = "ring")]
-use ring::signature::{Ed25519KeyPair, KeyPair as RingKeyPair};
+use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair};
+#[cfg(feature = "ring")]
+use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
+#[cfg(feature = "ring")]
+use untrusted::Input;
 
 use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -53,6 +57,9 @@ pub enum KeyPair<K> {
     #[cfg(not(feature = "openssl"))]
     #[doc(hidden)]
     Phantom(PhantomData<K>),
+    /// *ring* ECDSA keypair
+    #[cfg(feature = "ring")]
+    ECDSA(EcdsaKeyPair),
     /// ED25519 ecryption and hash defined keypair
     #[cfg(feature = "ring")]
     ED25519(Ed25519KeyPair),
@@ -83,6 +90,12 @@ impl<K> KeyPair<K> {
     #[cfg(feature = "openssl")]
     pub fn from_ec_pkey(pkey: PKey<K>) -> Self {
         KeyPair::EC(pkey)
+    }
+
+    /// Creates an ECDSA keypair with ring.
+    #[cfg(feature = "ring")]
+    pub fn from_ecdsa(ec_key: EcdsaKeyPair) -> Self {
+        KeyPair::ECDSA(ec_key)
     }
 
     /// Creates an ED25519 keypair.
@@ -142,6 +155,12 @@ impl<K: HasPublic> KeyPair<K> {
                     }).map_err(DnsSecError::from)?;
 
                 // Remove OpenSSL header byte
+                bytes.remove(0);
+                Ok(bytes)
+            }
+            #[cfg(feature = "ring")]
+            KeyPair::ECDSA(ref ec_key) => {
+                let mut bytes: Vec<u8> = ec_key.public_key().as_ref().to_vec();
                 bytes.remove(0);
                 Ok(bytes)
             }
@@ -402,6 +421,11 @@ impl<K: HasPrivate> KeyPair<K> {
                     })
             }
             #[cfg(feature = "ring")]
+            KeyPair::ECDSA(ref ec_key) => {
+                let rng = rand::SystemRandom::new();
+                Ok(ec_key.sign(&rng, Input::from(tbs.as_ref())).unwrap().as_ref().to_vec())
+            }
+            #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(feature = "openssl"))]
             KeyPair::Phantom(..) => panic!("Phantom disallowed"),
@@ -454,10 +478,22 @@ impl KeyPair<Private> {
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1
             | Algorithm::RSASHA256
-            | Algorithm::RSASHA512
-            | Algorithm::ECDSAP256SHA256
-            | Algorithm::ECDSAP384SHA384 => {
+            | Algorithm::RSASHA512 => {
                 Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+            }
+            #[cfg(feature = "ring")]
+            Algorithm::ECDSAP256SHA256 => {
+                let rng = rand::SystemRandom::new();
+                EcdsaKeyPair::generate_pkcs8(&ECDSA_P256_SHA256_FIXED_SIGNING, &rng)
+                    .map_err(|e| e.into())
+                    .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
+            }
+            #[cfg(feature = "ring")]
+            Algorithm::ECDSAP384SHA384 => {
+                let rng = rand::SystemRandom::new();
+                EcdsaKeyPair::generate_pkcs8(&ECDSA_P384_SHA384_FIXED_SIGNING, &rng)
+                    .map_err(|e| e.into())
+                    .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
@@ -492,11 +528,25 @@ mod tests {
         hash_test(Algorithm::ECDSAP256SHA256, KeyFormat::Der);
     }
 
+    #[cfg(feature = "ring")]
+    #[test]
+    fn test_ec_p256_pkcs8() {
+        public_key_test(Algorithm::ECDSAP256SHA256, KeyFormat::Pkcs8);
+        hash_test(Algorithm::ECDSAP256SHA256, KeyFormat::Pkcs8);
+    }
+
     #[cfg(feature = "openssl")]
     #[test]
     fn test_ec_p384() {
         public_key_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
         hash_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
+    }
+
+    #[cfg(feature = "ring")]
+    #[test]
+    fn test_ec_p384_pkcs8() {
+        public_key_test(Algorithm::ECDSAP384SHA384, KeyFormat::Pkcs8);
+        hash_test(Algorithm::ECDSAP384SHA384, KeyFormat::Pkcs8);
     }
 
     #[cfg(feature = "ring")]

@@ -41,6 +41,18 @@ enable_dnssec = true
 
 [[zones.keys]]
 # Requires --features=ring
+key_path = "./tests/named_test_configs/dnssec/ecdsa_p256.pk8"
+algorithm = "ECDSAP256SHA256"
+is_zone_signing_key = true
+
+[[zones.keys]]
+# Requires --features=ring
+key_path = "./tests/named_test_configs/dnssec/ecdsa_p384.pk8"
+algorithm = "ECDSAP384SHA384"
+is_zone_signing_key = true
+
+[[zones.keys]]
+# Requires --features=ring
 key_path = "./tests/named_test_configs/dnssec/ed25519.pk8"
 algorithm = "ED25519"
 is_zone_signing_key = true
