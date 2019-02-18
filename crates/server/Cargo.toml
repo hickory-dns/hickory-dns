@@ -88,7 +88,7 @@ rand = "0.6"
 rusqlite = { version = "0.16.0", features = ["bundled"] }
 rustls = { version = "0.15", optional = true }
 serde = "1.0.88"
-serde_derive = "1.0.87"
+serde_derive = "1.0.88"
 time = "0.1"
 tokio = "0.1.15"
 tokio-executor = "0.1.4"
