@@ -1,9 +1,12 @@
+extern crate futures;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
 use std::collections::*;
 use std::net::*;
+
+use futures::Future;
 
 use trust_dns::op::*;
 use trust_dns::rr::rdata::*;
@@ -141,9 +144,10 @@ fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .unwrap();
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -184,9 +188,10 @@ fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .unwrap();
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -223,9 +228,10 @@ fn test_catalog_nx_soa() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .unwrap();
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -287,9 +293,10 @@ fn test_axfr() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .expect("lookup failed");
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     let mut answers: Vec<Record> = result.answers().to_vec();
 
@@ -406,9 +413,10 @@ fn test_axfr_refused() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .expect("lookup failed");
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert!(result.answers().is_empty());

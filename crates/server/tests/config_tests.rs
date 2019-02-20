@@ -182,7 +182,8 @@ algorithm = \
          \"RSASHA256\"
 signer_name = \"ns.example.com.\"
 
-".parse()
+"
+    .parse()
     .unwrap();
     assert_eq!(
         config.get_zones()[0].get_keys()[0].key_path(),
@@ -245,7 +246,8 @@ fn test_parse_tls() {
     let config: Config = "
 tls_cert = { path = \"path/to/some.pkcs12\" }
 tls_listen_port = 8853
-  ".parse()
+  "
+    .parse()
     .unwrap();
 
     assert_eq!(config.get_tls_listen_port(), 8853);
@@ -285,3 +287,5 @@ define_test_config!(ipv4_only);
 define_test_config!(ipv6_only);
 define_test_config!(openssl_dnssec);
 define_test_config!(ring_dnssec);
+#[cfg(feature = "trust-dns-resolver")]
+define_test_config!(example_forwarder);

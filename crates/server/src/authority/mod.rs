@@ -12,36 +12,23 @@ use trust_dns::op::ResponseCode;
 /// Result of an Update operation
 pub type UpdateResult<T> = Result<T, ResponseCode>;
 
-/// The type of zone stored in a Catalog
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
-pub enum ZoneType {
-    /// This authority for a zone, i.e. the Primary
-    Master,
-    /// A secondary, i.e. replicated from the Master
-    Slave,
-    /// A cached zone with recursive resolver abilities
-    Hint,
-    /// A cached zone where all requests are forwarded to another Resolver
-    Forward,
-}
-
 mod auth_lookup;
 #[allow(clippy::module_inception)]
 mod authority;
 pub(crate) mod authority_object;
 mod catalog;
-pub(crate) mod lookup_object;
+mod error;
 pub(crate) mod message_request;
 mod message_response;
-mod result;
+mod zone_type;
 
 pub use self::auth_lookup::{
     AnyRecords, AuthLookup, AuthLookupIter, LookupRecords, LookupRecordsIter,
 };
 pub use self::authority::Authority;
-pub use self::authority_object::AuthorityObject;
+pub use self::authority_object::{AuthorityObject, BoxedLookupFuture, LookupObject};
 pub use self::catalog::Catalog;
-pub use self::lookup_object::LookupObject;
+pub use self::error::{LookupError, LookupResult};
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
-pub use self::result::{LookupError, LookupResult};
+pub use self::zone_type::ZoneType;

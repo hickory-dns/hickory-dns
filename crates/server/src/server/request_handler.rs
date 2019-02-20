@@ -7,24 +7,25 @@
 
 //! Request Handler for incoming requests
 
-use std::io;
 use std::net::SocketAddr;
+
+use futures::Future;
 
 use authority::MessageRequest;
 use server::ResponseHandler;
 
 /// An incoming request to the DNS catalog
-pub struct Request<'r> {
+pub struct Request {
     /// Message with the associated query or update data
-    pub message: MessageRequest<'r>,
+    pub message: MessageRequest,
     /// Source address of the Client
     pub src: SocketAddr,
 }
 
 /// Trait for handling incoming requests, and providing a message response.
 pub trait RequestHandler: Send + 'static {
-    // TODO: allow associated error type
-    // type Error;
+    /// A future for execution of the request
+    type ResponseFuture: Future<Item = (), Error = ()> + Send + 'static;
 
     /// Determine's what needs to happen given the type of request, i.e. Query or Update.
     ///
@@ -32,9 +33,9 @@ pub trait RequestHandler: Send + 'static {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - handle to which a return message should be sent
-    fn handle_request<'q, 'a, R: ResponseHandler + 'static>(
-        &'a self,
-        request: &'q Request,
+    fn handle_request<R: ResponseHandler>(
+        &self,
+        request: Request,
         response_handle: R,
-    ) -> io::Result<()>;
+    ) -> Self::ResponseFuture;
 }

@@ -56,30 +56,6 @@ impl AuthLookup {
         self.iter().count() == 0
     }
 
-    /// This is a non-existant domain name
-    pub fn is_nx_domain(&self) -> bool {
-        match *self {
-            AuthLookup::NxDomain => true,
-            _ => false,
-        }
-    }
-
-    /// This is a NameExists
-    pub fn is_name_exists(&self) -> bool {
-        match *self {
-            AuthLookup::NameExists => true,
-            _ => false,
-        }
-    }
-
-    /// This is a non-existant domain name
-    pub fn is_refused(&self) -> bool {
-        match *self {
-            AuthLookup::Refused => true,
-            _ => false,
-        }
-    }
-
     /// Conversion to an iterator
     pub fn iter(&self) -> AuthLookupIter {
         self.into_iter()
@@ -281,6 +257,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
 /// The result of a lookup
 #[derive(Debug)]
 pub enum LookupRecords {
+    /// The empty set of records
     Empty,
     /// The associate records
     Records {
@@ -316,7 +293,7 @@ impl LookupRecords {
     pub fn many(
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-        records: Vec<Arc<RecordSet>>
+        records: Vec<Arc<RecordSet>>,
     ) -> Self {
         LookupRecords::ManyRecords(is_secure, supported_algorithms, records)
     }
@@ -353,7 +330,12 @@ impl<'a> IntoIterator for &'a LookupRecords {
                 records,
             } => LookupRecordsIter::RecordsIter(records.records(*is_secure, *supported_algorithms)),
             LookupRecords::ManyRecords(is_secure, supported_algorithms, r) => {
-                LookupRecordsIter::ManyRecordsIter(r.iter().map(|r| r.records(*is_secure, *supported_algorithms)).collect(), None)
+                LookupRecordsIter::ManyRecordsIter(
+                    r.iter()
+                        .map(|r| r.records(*is_secure, *supported_algorithms))
+                        .collect(),
+                    None,
+                )
             }
             LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
         }
@@ -382,23 +364,21 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
     type Item = &'r Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-            match self {
-                LookupRecordsIter::Empty => None,
-                LookupRecordsIter::AnyRecordsIter(current) => current.next(),
-                LookupRecordsIter::RecordsIter(current) => current.next(),
-                LookupRecordsIter::ManyRecordsIter(set, ref mut current) => {
-                    loop {
-                        if let Some(o) = current.as_mut().and_then(|o| o.next()) {
-                            return Some(o)
-                        }
-
-                        *current = set.pop();
-                        if current.is_none() {
-                            return None
-                        }
-                    }
+        match self {
+            LookupRecordsIter::Empty => None,
+            LookupRecordsIter::AnyRecordsIter(current) => current.next(),
+            LookupRecordsIter::RecordsIter(current) => current.next(),
+            LookupRecordsIter::ManyRecordsIter(set, ref mut current) => loop {
+                if let Some(o) = current.as_mut().and_then(|o| o.next()) {
+                    return Some(o);
                 }
-            }
+
+                *current = set.pop();
+                if current.is_none() {
+                    return None;
+                }
+            },
+        }
     }
 }
 

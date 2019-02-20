@@ -135,7 +135,8 @@ impl ServiceInfo {
                 } else {
                     None
                 }
-            }).collect()
+            })
+            .collect()
     }
 }
 
@@ -168,14 +169,14 @@ mod tests {
         for name in response.iter() {
             println!("service: {}", name);
             let srvs = io_loop
-                .block_on(resolver.lookup_srv(name))
+                .block_on(resolver.lookup_srv(name.clone()))
                 .expect("failed to lookup name");
 
             for srv in srvs.iter() {
                 println!("service: {:#?}", srv);
 
                 let info = io_loop
-                    .block_on(resolver.service_info(name))
+                    .block_on(resolver.service_info(name.clone()))
                     .expect("info failed");
                 let info = info.to_map();
                 println!("info: {:#?}", info);

@@ -14,9 +14,9 @@ use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
-pub struct MessageRequest<'q> {
+pub struct MessageRequest {
     header: Header,
-    queries: Queries<'q>,
+    queries: Queries,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
@@ -24,7 +24,7 @@ pub struct MessageRequest<'q> {
     edns: Option<Edns>,
 }
 
-impl<'q> MessageRequest<'q> {
+impl MessageRequest {
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
         self.header.id()
@@ -175,7 +175,7 @@ impl<'q> MessageRequest<'q> {
     }
 }
 
-impl<'q> BinDecodable<'q> for MessageRequest<'q> {
+impl<'q> BinDecodable<'q> for MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
     fn read(decoder: &mut BinDecoder<'q>) -> ProtoResult<Self> {
@@ -211,13 +211,13 @@ impl<'q> BinDecodable<'q> for MessageRequest<'q> {
 
 /// A set of Queries with the associated serialized data
 #[derive(Debug, PartialEq)]
-pub struct Queries<'q> {
+pub struct Queries {
     queries: Vec<LowerQuery>,
-    original: &'q [u8],
+    original: Box<[u8]>,
 }
 
-impl<'q> Queries<'q> {
-    fn read_queries(decoder: &mut BinDecoder<'q>, count: usize) -> ProtoResult<Vec<LowerQuery>> {
+impl Queries {
+    fn read_queries(decoder: &mut BinDecoder, count: usize) -> ProtoResult<Vec<LowerQuery>> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(LowerQuery::read(decoder)?);
@@ -226,10 +226,13 @@ impl<'q> Queries<'q> {
     }
 
     /// Read queries from a decoder
-    pub fn read(decoder: &mut BinDecoder<'q>, num_queries: usize) -> ProtoResult<Self> {
+    pub fn read(decoder: &mut BinDecoder, num_queries: usize) -> ProtoResult<Self> {
         let queries_start = decoder.index();
         let queries = Self::read_queries(decoder, num_queries)?;
-        let original = decoder.slice_from(queries_start)?;
+        let original = decoder
+            .slice_from(queries_start)?
+            .to_vec()
+            .into_boxed_slice();
 
         Ok(Queries { queries, original })
     }
@@ -246,13 +249,13 @@ impl<'q> Queries<'q> {
 
     /// returns the bytes as they were seen from the Client
     pub fn as_bytes(&self) -> &[u8] {
-        self.original
+        self.original.as_ref()
     }
 
     pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount {
         QueriesEmitAndCount {
             length: self.queries.len(),
-            original: self.original,
+            original: self.original.as_ref(),
         }
     }
 }
@@ -269,7 +272,7 @@ impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
     }
 }
 
-impl<'q> BinEncodable for MessageRequest<'q> {
+impl BinEncodable for MessageRequest {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         message::emit_message_parts(
             &self.header,
@@ -307,7 +310,7 @@ pub trait UpdateRequest {
     fn sig0(&self) -> &[Record];
 }
 
-impl<'q> UpdateRequest for MessageRequest<'q> {
+impl UpdateRequest for MessageRequest {
     fn id(&self) -> u16 {
         MessageRequest::id(self)
     }

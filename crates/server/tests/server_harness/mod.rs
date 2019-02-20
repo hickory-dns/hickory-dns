@@ -56,7 +56,7 @@ where
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
-            "ht=trace,trust_dns_https=debug,trust_dns_proto=debug",
+            "trust_dns=debug,trust_dns_https=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
         ).arg("-d")
         .arg(&format!(
             "--config={}/tests/named_test_configs/{}",
@@ -101,7 +101,8 @@ where
 
             kill_named();
             panic!("timeout");
-        }).expect("could not start thread killer");
+        })
+        .expect("could not start thread killer");
 
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
@@ -152,7 +153,8 @@ where
                     info!("SRV: {}", output.trim_end());
                 }
             }
-        }).expect("no thread available");
+        })
+        .expect("no thread available");
 
     println!("running test...");
 
@@ -186,7 +188,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let record = &response.answers()[0];
 
     if let RData::A(ref address) = *record.rdata() {
-        assert!(address == &Ipv4Addr::new(127, 0, 0, 1))
+        assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")
     }
@@ -225,7 +227,8 @@ pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send
             } else {
                 panic!("wrong RDATA")
             }
-        }).find(|d| d.algorithm() == algorithm);
+        })
+        .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
     let response = query_message(
@@ -245,7 +248,8 @@ pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send
             } else {
                 panic!("wrong RDATA")
             }
-        }).filter(|rrsig| rrsig.algorithm() == algorithm)
+        })
+        .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }

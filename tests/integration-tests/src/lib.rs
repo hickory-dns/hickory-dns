@@ -13,14 +13,15 @@ extern crate trust_dns_server;
 
 use std::fmt;
 use std::io;
+use std::mem;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::task;
-use futures::{finished, Async, Future, Poll};
+use futures::{finished, future, task, Async, Future, Poll};
 use tokio_timer::Delay;
 
 use trust_dns::client::ClientConnection;
@@ -69,33 +70,51 @@ impl TestClientStream {
 
 #[derive(Clone, Default)]
 pub struct TestResponseHandler {
+    message_ready: Arc<AtomicBool>,
     buf: Arc<Mutex<Vec<u8>>>,
 }
 
 impl TestResponseHandler {
     pub fn new() -> Self {
         let buf = Arc::new(Mutex::new(Vec::with_capacity(512)));
-        TestResponseHandler { buf }
+        let message_ready = Arc::new(AtomicBool::new(false));
+        TestResponseHandler { message_ready, buf }
     }
 
-    pub fn into_inner(self) -> Vec<u8> {
-        Arc::try_unwrap(self.buf).unwrap().into_inner().unwrap()
+    fn into_inner(self) -> impl Future<Item = Vec<u8>, Error = ()> {
+        future::poll_fn(move || {
+            if self
+                .message_ready
+                .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
+                .is_ok()
+            {
+                let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
+                Ok(Async::Ready(bytes))
+            } else {
+                task::current().notify();
+                Ok(Async::NotReady)
+            }
+        })
     }
 
-    pub fn into_message(self) -> Message {
+    pub fn into_message(self) -> impl Future<Item = Message, Error = ()> {
         let bytes = self.into_inner();
-        let mut decoder = BinDecoder::new(&bytes);
-        Message::read(&mut decoder).expect("could not decode message")
+        bytes.map(|b| {
+            let mut decoder = BinDecoder::new(&b);
+            Message::read(&mut decoder).expect("could not decode message")
+        })
     }
 }
 
 impl ResponseHandler for TestResponseHandler {
-    fn send_response(self, response: MessageResponse) -> io::Result<()> {
+    fn send_response(&self, response: MessageResponse) -> io::Result<()> {
         let buf = &mut self.buf.lock().unwrap();
+        buf.clear();
         let mut encoder = BinEncoder::new(buf);
         response
             .destructive_emit(&mut encoder)
             .expect("could not encode");
+        self.message_ready.store(true, Ordering::Release);
         Ok(())
     }
 }
@@ -133,14 +152,20 @@ impl Stream for TestClientStream {
                     src: src_addr,
                 };
 
+                dbg!("catalog handling request");
                 let response_handler = TestResponseHandler::new();
                 self.catalog
                     .lock()
                     .unwrap()
-                    .handle_request(&request, response_handler.clone())
+                    .handle_request(request, response_handler.clone())
+                    .wait()
                     .unwrap();
 
-                let buf = response_handler.into_inner();
+                dbg!("catalog handled request");
+
+                let buf = response_handler.into_inner().wait().unwrap();
+                dbg!("catalog responded");
+
                 Ok(Async::Ready(Some(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
