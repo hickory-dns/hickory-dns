@@ -1,3 +1,4 @@
+extern crate futures;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -5,6 +6,8 @@ extern crate trust_dns_server;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 use std::sync::Arc;
+
+use futures::future::Future;
 
 use trust_dns::proto::rr::rdata::tlsa::*;
 use trust_dns::rr::dnssec::*;
@@ -89,7 +92,7 @@ _443._tcp.www.example.com. IN TLSA (
     // not validating everything, just one of each...
 
     // SOA
-    let soa_record = authority.soa().unwrap().iter().next().cloned().unwrap();
+    let soa_record = authority.soa().wait().unwrap().iter().next().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.rr_type());
     assert_eq!(&Name::from_str("isi.edu").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());
@@ -118,6 +121,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .cloned()
@@ -153,6 +157,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .cloned()
@@ -187,6 +192,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .cloned()
@@ -210,6 +216,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()
@@ -233,6 +240,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()
@@ -257,6 +265,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .cloned()
@@ -303,6 +312,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()
@@ -322,6 +332,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()
@@ -344,6 +355,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()
@@ -367,6 +379,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()
@@ -390,6 +403,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .wait()
         .unwrap()
         .iter()
         .next()

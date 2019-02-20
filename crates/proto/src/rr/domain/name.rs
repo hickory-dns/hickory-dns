@@ -1144,19 +1144,6 @@ pub trait IntoName: Sized {
     fn into_name(self) -> ProtoResult<Name>;
 }
 
-impl<'a> IntoName for &'a Name {
-    /// Clones this into a new `Name`
-    fn into_name(self) -> ProtoResult<Name> {
-        Ok(self.clone())
-    }
-}
-
-impl IntoName for Name {
-    fn into_name(self) -> ProtoResult<Name> {
-        Ok(self.clone())
-    }
-}
-
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
@@ -1168,6 +1155,15 @@ impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
+    }
+}
+
+impl<T> IntoName for T
+where
+    T: Into<Name>,
+{
+    fn into_name(self) -> ProtoResult<Name> {
+        Ok(self.into())
     }
 }
 
@@ -1537,10 +1533,7 @@ mod tests {
     #[test]
     fn test_into_name() {
         let name = Name::from_utf8("www.example.com").unwrap();
-        assert_eq!(
-            Name::from_utf8("www.example.com").unwrap(),
-            (&name).into_name().unwrap()
-        );
+        assert_eq!(Name::from_utf8("www.example.com").unwrap(), name);
         assert_eq!(
             Name::from_utf8("www.example.com").unwrap(),
             Name::from_utf8("www.example.com")

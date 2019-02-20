@@ -7,17 +7,25 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- UDP Sockets not being properly closed in timeout scenarios #635
+- (proto) UDP Sockets not being properly closed in timeout scenarios #635
 
 ### Added
 
-- support for the OPENPGPKEY and SSHFP record types #646 #647
+- (proto) support for the OPENPGPKEY and SSHFP record types #646 #647
+- (server) forwarding support in server with trust-dns-resolver (default feature) #674
+- (server) Authority trait for generic Authorities (File, Sqlite, Forwarder) #674
 
 ### Changed
 
-- *breaking* UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
-- *breaking* configuration for sqlite dynamic update different, see dnssec_with_update.toml for example #622
-- *breaking* util/dnskey_to_pem has been renamed to bind_dnskey_to_pem for clarity #622
+- *breaking* (proto) UdpClientStream and UdpClientConnection refactored to associate UDP sockets to single requests #635
+- *breaking* (server) configuration for sqlite dynamic update different, see dnssec_with_update.toml for example #622
+- *breaking* (util)/dnskey_to_pem has been renamed to bind_dnskey_to_pem for clarity #622
+- *breaking* (proto) Record::from_rdata no longer requires RecordType parameter #674
+- *breaking* (server) AuthLookup inner types simplified #674
+- *breaking* (server) RequestHandler now requires associated type for Future results of lookups #674
+- *breaking* (server) ResponseHandler now requires Clone and 'static #674
+- *breaking* (server) Catalog::lookup takes ownership of MessageRequest and returns a LookupFuture #674
+- *breaking* (server) MessageRequest and Queries no longer carrying lifetime parameters #674
 
 ## 0.15.0
 

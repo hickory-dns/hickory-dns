@@ -5,35 +5,70 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::borrow::Borrow;
+use futures::{Async, Future, Poll};
 
 use trust_dns::op::LowerQuery;
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns::rr::dnssec::SupportedAlgorithms;
 use trust_dns::rr::{LowerName, Name, Record, RecordType};
+use trust_dns_resolver::config::ResolverConfig;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
-use trust_dns_resolver::Resolver;
+use trust_dns_resolver::{AsyncResolver, BackgroundLookup};
 
-use authority::{Authority, LookupObject, LookupResult, MessageRequest, UpdateResult, ZoneType};
+use authority::{Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType};
+use store::forwarder::ForwardConfig;
 
+/// An authority that will forward resolutions to upstream resolvers.
+///
+/// This uses the trust-dns-resolver for resolving requests.
 pub struct ForwardAuthority {
     origin: LowerName,
-    /// FIXME: need to change Authority to be Async
-    resolver: Resolver,
+    resolver: AsyncResolver,
 }
 
 impl ForwardAuthority {
-    // FIXME: read from configuration
+    /// FIXME: drop this?
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
+        // FIXME: error here
+        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
+        let _bg = Box::new(bg);
+
         ForwardAuthority {
             origin: Name::root().into(),
-            resolver: Resolver::from_system_conf().unwrap(),
+            resolver,
         }
+    }
+
+    /// Read the Authority for the origin from the specified configuration
+    pub fn try_from_config(
+        origin: Name,
+        _zone_type: ZoneType,
+        config: &ForwardConfig,
+    ) -> Result<(Self, impl Future<Item = (), Error = ()>), String> {
+        info!("loading forwarder config: {}", origin);
+
+        let name_servers = config.name_servers.clone();
+        let options = config.options.unwrap_or_default();
+        let config = ResolverConfig::from_parts(None, vec![], name_servers);
+
+        let (resolver, bg) = AsyncResolver::new(config, options);
+
+        info!("forward resolver configured: {}: ", origin);
+
+        Ok((
+            ForwardAuthority {
+                origin: origin.into(),
+                resolver,
+            },
+            bg,
+        ))
     }
 }
 
 impl Authority for ForwardAuthority {
     type Lookup = ForwardLookup;
+    type LookupFuture = ForwardLookupFuture;
 
     /// Always Forward
     fn zone_type(&self) -> ZoneType {
@@ -65,15 +100,12 @@ impl Authority for ForwardAuthority {
         rtype: RecordType,
         _is_secure: bool,
         _supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> Self::LookupFuture {
         // FIXME: make this an error
         assert!(self.origin.zone_of(name));
 
-        Ok(ForwardLookup(
-            self.resolver
-                .lookup(&Borrow::<Name>::borrow(name).to_utf8(), rtype)
-                .unwrap(),
-        ))
+        info!("forwarding lookup: {} {}", name, rtype);
+        ForwardLookupFuture(self.resolver.lookup(name, rtype))
     }
 
     fn search(
@@ -81,13 +113,13 @@ impl Authority for ForwardAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Self::Lookup> {
-        self.lookup(
+    ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send> {
+        Box::new(self.lookup(
             query.name(),
             query.query_type(),
             is_secure,
             supported_algorithms,
-        )
+        ))
     }
 
     fn get_nsec_records(
@@ -95,7 +127,7 @@ impl Authority for ForwardAuthority {
         _name: &LowerName,
         _is_secure: bool,
         _supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Self::Lookup> {
+    ) -> Self::LookupFuture {
         unimplemented!()
     }
 }
@@ -109,5 +141,20 @@ impl LookupObject for ForwardLookup {
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
         Box::new(self.0.record_iter())
+    }
+}
+
+pub struct ForwardLookupFuture(BackgroundLookup);
+
+impl Future for ForwardLookupFuture {
+    type Item = ForwardLookup;
+    type Error = LookupError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.0.poll() {
+            Ok(Async::Ready(f)) => Ok(Async::Ready(ForwardLookup(f))),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(e) => Err(e.into()),
+        }
     }
 }

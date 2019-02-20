@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -249,6 +249,12 @@ impl<'a> From<&'a Name> for LowerName {
 impl From<LowerName> for Name {
     fn from(name: LowerName) -> Self {
         name.0
+    }
+}
+
+impl<'a> From<&'a LowerName> for Name {
+    fn from(name: &'a LowerName) -> Self {
+        name.0.clone()
     }
 }
 

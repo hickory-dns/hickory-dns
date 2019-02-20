@@ -5,12 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![cfg(feature = "trust-dns-resolver")]
+use trust_dns_resolver::config::{NameServerConfigGroup, ResolverOpts};
 
-//! Forwarding, resolver, related types
-
-mod authority;
-mod config;
-
-pub use self::authority::ForwardAuthority;
-pub use self::config::ForwardConfig;
+/// Configuration for master file based zones
+#[derive(Deserialize, PartialEq, Debug)]
+pub struct ForwardConfig {
+    /// upstream name_server configurations
+    pub name_servers: NameServerConfigGroup,
+    /// Resolver options
+    pub options: Option<ResolverOpts>,
+}

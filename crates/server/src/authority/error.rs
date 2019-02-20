@@ -5,10 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error;
 use std::fmt;
+use std::io;
 
 use trust_dns::op::ResponseCode;
+#[cfg(feature = "trust-dns-resolver")]
+use trust_dns_resolver::error::ResolveError;
 
+// TODO: should this implement Failure?
 /// A query could not be fullfilled
 #[derive(Debug, Eq, PartialEq)]
 pub enum LookupError {
@@ -16,6 +21,11 @@ pub enum LookupError {
     NameExists,
     /// There was an error performing the lookup
     ResponseCode(ResponseCode),
+    /// Resolve Error
+    #[cfg(feature = "trust-dns-resolver")]
+    ResolveError(String), /* TODO: what to do here? */
+    /// An underlying IO error occured
+    Io(String), /* TODO: what to do here? */
 }
 
 impl LookupError {
@@ -53,10 +63,16 @@ impl fmt::Display for LookupError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             LookupError::NameExists => write!(f, "NameExists"),
-            LookupError::ResponseCode(rc) => write!(f, "{}", rc),
+            LookupError::ResponseCode(rc) => write!(f, "response_code: {}", rc),
+            #[cfg(feature = "trust-dns-resolver")]
+            LookupError::ResolveError(e) => write!(f, "resolve_error: {}", e),
+            LookupError::Io(e) => write!(f, "io: {}", e),
         }
     }
 }
+
+// FIXME: better error impls
+impl error::Error for LookupError {}
 
 impl From<ResponseCode> for LookupError {
     fn from(code: ResponseCode) -> Self {
@@ -66,4 +82,24 @@ impl From<ResponseCode> for LookupError {
     }
 }
 
+#[cfg(feature = "trust-dns-resolver")]
+impl From<ResolveError> for LookupError {
+    fn from(e: ResolveError) -> Self {
+        LookupError::ResolveError(e.to_string())
+    }
+}
+
+impl From<io::Error> for LookupError {
+    fn from(e: io::Error) -> Self {
+        LookupError::Io(e.to_string())
+    }
+}
+
+impl From<LookupError> for io::Error {
+    fn from(e: LookupError) -> Self {
+        io::Error::new(io::ErrorKind::Other, Box::new(e))
+    }
+}
+
+/// Result of a Lookup in the Catalog and Authority
 pub type LookupResult<T> = Result<T, LookupError>;

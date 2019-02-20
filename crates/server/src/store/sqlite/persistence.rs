@@ -9,6 +9,7 @@
 
 use std::iter::Iterator;
 use std::path::Path;
+use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::{self, types::ToSql, Connection};
 use time;
@@ -23,7 +24,7 @@ pub const CURRENT_VERSION: i64 = 1;
 
 /// The Journal is the audit log of all changes to a zone after initial creation.
 pub struct Journal {
-    conn: Connection,
+    conn: Mutex<Connection>,
     version: i64,
 }
 
@@ -31,7 +32,10 @@ impl Journal {
     /// Constructs a new Journal, attaching to the specified Sqlite Connection
     pub fn new(conn: Connection) -> PersistenceResult<Journal> {
         let version = Self::select_schema_version(&conn)?;
-        Ok(Journal { conn, version })
+        Ok(Journal {
+            conn: Mutex::new(conn),
+            version,
+        })
     }
 
     /// Constructs a new Journal opening a Sqlite connection to the file at the specified path
@@ -47,8 +51,8 @@ impl Journal {
     }
 
     /// Returns a reference to the Sqlite Connection
-    pub fn conn(&self) -> &Connection {
-        &self.conn
+    pub fn conn(&self) -> MutexGuard<Connection> {
+        self.conn.lock().expect("conn poisoned")
     }
 
     /// Returns the current schema version of the journal
@@ -86,7 +90,7 @@ impl Journal {
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
         let soa_serial: i64 = i64::from(soa_serial);
 
-        let count = self.conn.execute(
+        let count = self.conn.lock().expect("conn poisoned").execute(
             "INSERT
                                           \
                                             INTO records (client_id, soa_serial, timestamp, \
@@ -137,7 +141,8 @@ impl Journal {
             "schema version mismatch, schema_up() resolves this"
         );
 
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.lock().expect("conn poisoned");
+        let mut stmt = conn.prepare(
             "SELECT _rowid_, record
                                             \
                                                FROM records
@@ -222,6 +227,8 @@ impl Journal {
 
         let count = self
             .conn
+            .lock()
+            .expect("conn poisoned")
             .execute("UPDATE tdns_schema SET version = $1", &[&new_version])?;
 
         //
@@ -246,7 +253,7 @@ impl Journal {
 
     /// initial schema, include the tdns_schema table for tracking the Journal version
     fn init_up(&self) -> PersistenceResult<i64> {
-        let count = self.conn.execute(
+        let count = self.conn.lock().expect("conn poisoned").execute(
             "CREATE TABLE tdns_schema (
                                           \
                                             version INTEGER NOT NULL
@@ -257,7 +264,7 @@ impl Journal {
         //
         assert_eq!(count, 0);
 
-        let count = self.conn.execute(
+        let count = self.conn.lock().expect("conn poisoned").execute(
             "INSERT INTO tdns_schema (version) VALUES (0)",
             None::<&dyn ToSql>,
         )?;
@@ -271,7 +278,7 @@ impl Journal {
     ///  authority. Each record is expected to be in the format of an update record
     fn records_up(&self) -> PersistenceResult<i64> {
         // we'll be using rowid for our primary key, basically: `rowid INTEGER PRIMARY KEY ASC`
-        let count = self.conn.execute(
+        let count = self.conn.lock().expect("conn poisoned").execute(
             "CREATE TABLE records (
                                           \
                                             client_id      INTEGER NOT NULL,

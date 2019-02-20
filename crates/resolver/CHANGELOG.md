@@ -12,10 +12,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - New option to execute queries concurrently, default is 2 #615
+- Lookup::record_iter for listing all records returned in request #674
 
 ### Changed
 
 - Added option to distrust Nameservers on SERVFAIL responses, continue resolution #613
+- *breaking* Record::from_rdata no longer requires RecordType parameter #674
+- LRU cache is now based on Query rather than just name #674
 
 ## 0.10.2
 

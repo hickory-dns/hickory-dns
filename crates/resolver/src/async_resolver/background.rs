@@ -36,6 +36,8 @@ pub(super) fn task(
     request_rx: mpsc::UnboundedReceiver<Request>,
 ) -> impl Future<Item = (), Error = ()> {
     future::lazy(move || {
+        debug!("trust-dns resolver running");
+
         let pool =
             NameServerPool::<ConnectionHandle, StandardConnection>::from_config(&config, &options);
         let either;

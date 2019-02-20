@@ -21,6 +21,7 @@
 //!    -p PORT, --port=PORT    Override the listening port
 //!    --tls-port=PORT         Override the listening port for TLS connections
 //! ```
+#![recursion_limit = "128"]
 
 extern crate chrono;
 #[macro_use]
@@ -31,6 +32,7 @@ extern crate log;
 #[cfg(feature = "dns-over-rustls")]
 extern crate rustls;
 extern crate tokio;
+extern crate tokio_executor;
 extern crate tokio_tcp;
 extern crate tokio_udp;
 extern crate trust_dns;
@@ -42,24 +44,26 @@ extern crate trust_dns_server;
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use clap::{Arg, ArgMatches};
 use futures::{future, Future};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
+use tokio::runtime::TaskExecutor;
 use tokio_tcp::TcpListener;
 use tokio_udp::UdpSocket;
 
-use trust_dns::rr::Name;
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::rdata::key::KeyUsage;
-use trust_dns_server::authority::{Authority, AuthorityObject, Catalog, ZoneType};
-use trust_dns_server::config::{Config, ZoneConfig};
+use trust_dns::rr::Name;
+use trust_dns_server::authority::{AuthorityObject, Catalog, ZoneType};
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
+use trust_dns_server::config::{Config, ZoneConfig};
 use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
+#[cfg(feature = "trust-dns-resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use trust_dns_server::store::StoreConfig;
@@ -68,6 +72,7 @@ use trust_dns_server::store::StoreConfig;
 fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
+    executor: &TaskExecutor,
 ) -> Result<Box<dyn AuthorityObject>, String> {
     use std::path::PathBuf;
 
@@ -113,6 +118,18 @@ fn load_zone(
                 config,
             )
             .map(Box::new)?
+        }
+        #[cfg(feature = "trust-dns-resolver")]
+        Some(StoreConfig::Forward(ref config)) => {
+            use futures::future::Executor;
+
+            let (forwarder, bg) = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
+
+            executor
+                .execute(bg)
+                .expect("failed to background forwarder");
+
+            Box::new(forwarder)
         }
         None if zone_config.is_update_allowed() => {
             warn!(
@@ -173,17 +190,19 @@ fn load_zone(
                     key_config.is_zone_update_auth()
                 );
                 if key_config.is_zone_signing_key() {
-                    let zone_signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
-                        format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                    })?;
+                    let zone_signer =
+                        key_config.try_into_signer(zone_name.clone()).map_err(|e| {
+                            format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                        })?;
                     authority
                         .add_zone_signing_key(zone_signer)
                         .expect("failed to add zone signing key to authority");
                 }
                 if key_config.is_zone_update_auth() {
-                    let update_auth_signer = key_config.try_into_signer(zone_name.clone()).map_err(|e| {
-                        format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                    })?;
+                    let update_auth_signer =
+                        key_config.try_into_signer(zone_name.clone()).map_err(|e| {
+                            format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                        })?;
                     let public_key = update_auth_signer
                         .key()
                         .to_sig0key_with_usage(update_auth_signer.algorithm(), KeyUsage::Host)
@@ -340,11 +359,13 @@ pub fn main() {
         .unwrap_or_else(|e| panic!("could not read config {}: {:?}", config_path.display(), e));
     let directory_config = config.get_directory().to_path_buf();
     let flag_zonedir = args.flag_zonedir.clone();
-    let zone_dir: &Path = flag_zonedir
+    let zone_dir: PathBuf = flag_zonedir
         .as_ref()
-        .map(Path::new)
-        .unwrap_or_else(|| &directory_config);
+        .map(PathBuf::from)
+        .unwrap_or_else(|| directory_config.clone());
 
+    let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
+    let executor = io_loop.executor();
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
@@ -352,14 +373,11 @@ pub fn main() {
             .get_zone()
             .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
-        match load_zone(zone_dir, zone) {
+        match load_zone(&zone_dir, zone, &executor) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(error) => panic!("could not load zone {}: {}", zone_name, error),
         }
     }
-
-    // FIXME: need a configuration for Forwarders
-    catalog.upsert(Name::root().into(), Box::new(ForwardAuthority::new()));
 
     // TODO: support all the IPs asked to listen on...
     // TODO:, there should be the option to listen on any port, IP and protocol option...
@@ -388,8 +406,6 @@ pub fn main() {
         .iter()
         .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tcp: {}", x)))
         .collect();
-
-    let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
@@ -424,7 +440,7 @@ pub fn main() {
                     &mut server,
                     &config,
                     _tls_cert_config,
-                    zone_dir,
+                    &zone_dir,
                     &listen_addrs,
                 );
 
@@ -435,7 +451,7 @@ pub fn main() {
                     &mut server,
                     &config,
                     _tls_cert_config,
-                    zone_dir,
+                    &zone_dir,
                     &listen_addrs,
                 );
             }

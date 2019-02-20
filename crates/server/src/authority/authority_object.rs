@@ -7,17 +7,17 @@
 
 //! All authority related types
 
+use futures::{future, Future, Poll};
+
 use trust_dns::op::LowerQuery;
 use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::{LowerName, Name, RecordType};
+use trust_dns::rr::{LowerName, Name, Record, RecordType};
 
-use authority::result::LookupResult;
-use authority::LookupObject;
-use authority::{Authority, MessageRequest, UpdateResult, ZoneType};
+use authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
 
 /// An Object safe Authority
-pub trait AuthorityObject: Send {
+pub trait AuthorityObject: Send + Sync {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
@@ -50,7 +50,7 @@ pub trait AuthorityObject: Send {
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>>;
+    ) -> BoxedLookupFuture;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -68,14 +68,10 @@ pub trait AuthorityObject: Send {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>>;
+    ) -> BoxedLookupFuture;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(
-        &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>> {
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> BoxedLookupFuture {
         self.lookup(
             self.origin(),
             RecordType::NS,
@@ -96,13 +92,13 @@ pub trait AuthorityObject: Send {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>>;
+    ) -> BoxedLookupFuture;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> LookupResult<Box<dyn LookupObject>> {
+    fn soa(&self) -> BoxedLookupFuture {
         // SOA should be origin|SOA
         self.lookup(
             self.origin(),
@@ -117,7 +113,7 @@ pub trait AuthorityObject: Send {
         &self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>> {
+    ) -> BoxedLookupFuture {
         self.lookup(
             self.origin(),
             RecordType::SOA,
@@ -151,8 +147,9 @@ pub trait AuthorityObject: Send {
 
 impl<A, L> AuthorityObject for A
 where
-    A: Authority<Lookup = L>,
-    L: LookupObject + 'static,
+    A: Authority<Lookup = L> + Send + Sync + 'static,
+    A::LookupFuture: Send + 'static,
+    L: LookupObject + Send + 'static,
 {
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
@@ -194,9 +191,9 @@ where
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>> {
+    ) -> BoxedLookupFuture {
         let lookup = Authority::lookup(self, name, rtype, is_secure, supported_algorithms);
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+        BoxedLookupFuture::from(lookup.map(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -215,9 +212,9 @@ where
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>> {
+    ) -> BoxedLookupFuture {
         let lookup = Authority::search(self, query, is_secure, supported_algorithms);
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+        BoxedLookupFuture::from(lookup.map(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
     /// Return the NSEC records based on the given name
@@ -232,9 +229,9 @@ where
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> LookupResult<Box<dyn LookupObject>> {
+    ) -> BoxedLookupFuture {
         let lookup = Authority::get_nsec_records(self, name, is_secure, supported_algorithms);
-        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
+        BoxedLookupFuture::from(lookup.map(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
@@ -247,5 +244,57 @@ where
 
     fn secure_zone(&mut self) -> DnsSecResult<()> {
         Authority::secure_zone(self)
+    }
+}
+
+/// An Object Safe Lookup for Authority
+pub trait LookupObject: Send {
+    /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
+    fn is_empty(&self) -> bool;
+
+    /// Conversion to an iterator
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a>;
+}
+
+struct EmptyLookup;
+
+impl LookupObject for EmptyLookup {
+    fn is_empty(&self) -> bool {
+        true
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
+        Box::new([].iter())
+    }
+}
+
+/// A boxed lookup future
+pub struct BoxedLookupFuture(
+    Box<dyn Future<Item = Box<dyn LookupObject>, Error = LookupError> + Send>,
+);
+
+impl BoxedLookupFuture {
+    /// Performs a conversion (boxes) into the future
+    pub fn from<T>(future: T) -> Self
+    where
+        T: Future<Item = Box<dyn LookupObject>, Error = LookupError> + Send + Sized + 'static,
+    {
+        BoxedLookupFuture(Box::new(future))
+    }
+
+    /// Creates an empty (i.e. no records) lookup future
+    pub fn empty() -> Self {
+        BoxedLookupFuture(Box::new(future::ok(
+            Box::new(EmptyLookup) as Box<dyn LookupObject>
+        )))
+    }
+}
+
+impl Future for BoxedLookupFuture {
+    type Item = Box<dyn LookupObject>;
+    type Error = LookupError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
     }
 }
