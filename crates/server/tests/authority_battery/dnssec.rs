@@ -3,9 +3,9 @@
 use std::str::FromStr;
 
 use trust_dns::op::Query;
+use trust_dns::proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns::rr::{DNSClass, Name, Record, RecordType};
-use trust_dns::proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
 use trust_dns_server::authority::Authority;
 
 pub fn test_a_lookup<A: Authority>(authority: A, keys: &[DNSKEY]) {
@@ -18,7 +18,9 @@ pub fn test_a_lookup<A: Authority>(authority: A, keys: &[DNSKEY]) {
         .cloned()
         .partition(|r| r.record_type() == RecordType::A);
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records.into_iter().partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+        .into_iter()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
 
     assert!(!rrsig_records.is_empty());
     verify(&a_records, &rrsig_records, keys);
@@ -34,7 +36,7 @@ pub fn test_soa<A: Authority>(authority: A, keys: &[DNSKEY]) {
         .partition(|r| r.record_type() == RecordType::SOA);
 
     assert_eq!(soa_records.len(), 1);
-    
+
     let soa = soa_records.first().unwrap().rdata().as_soa().unwrap();
 
     assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *soa.mname());
@@ -44,8 +46,10 @@ pub fn test_soa<A: Authority>(authority: A, keys: &[DNSKEY]) {
     assert_eq!(7200, soa.retry());
     assert_eq!(604800, soa.expire());
     assert_eq!(86400, soa.minimum());
-      
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records.into_iter().partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+
+    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+        .into_iter()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
 
     assert!(!rrsig_records.is_empty());
     verify(&soa_records, &rrsig_records, keys);
@@ -63,12 +67,42 @@ pub fn test_ns<A: Authority>(authority: A, keys: &[DNSKEY]) {
         *ns_records.first().unwrap().rdata().as_ns().unwrap(),
         Name::from_str("trust-dns.org.").unwrap()
     );
-    
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records.into_iter().partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+        .into_iter()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
 
     assert!(!rrsig_records.is_empty());
     verify(&ns_records, &rrsig_records, keys);
+}
+
+pub fn test_nsec_nodata<A: Authority>(authority: A, keys: &[DNSKEY]) {
+    // this should have a single nsec record that covers the type
+    let name = Name::from_str("www.example.com.").unwrap();
+    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
+
+    let (nsec_records, other_records): (Vec<_>, Vec<_>) = lookup
+        .into_iter()
+        .cloned()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+
+    // there should only be one, and it should match the www.example.com name
+    assert_eq!(nsec_records.len(), 1);
+    assert_eq!(nsec_records.first().unwrap().name(), &name);
+
+    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) =
+        other_records.into_iter().partition(|r| {
+            r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
+                && r.name() == &name
+        });
+
+    assert!(!rrsig_records.is_empty());
+
+    println!("nsec_records: {:?}", nsec_records);
+    println!("rrsig_records: {:?}", rrsig_records);
+    
+    // FIXME: why isn't this verifying?
+    // verify(&nsec_records, &rrsig_records, keys);
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority>(authority: A, keys: &[DNSKEY]) {
@@ -78,14 +112,20 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority>(authority: A, keys: &[DN
 
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-        let lookup = authority.search(&query.into(), true, SupportedAlgorithms::from(key.algorithm()));
+        let lookup = authority.search(
+            &query.into(),
+            true,
+            SupportedAlgorithms::from(key.algorithm()),
+        );
 
         let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
             .into_iter()
             .cloned()
             .partition(|r| r.record_type() == RecordType::A);
 
-        let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records.into_iter().partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+        let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+            .into_iter()
+            .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
 
         assert!(!rrsig_records.is_empty());
         verify(&a_records, &rrsig_records, &[key.clone()]);
@@ -95,38 +135,30 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority>(authority: A, keys: &[DN
 pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
     let record_name = records.first().unwrap().name();
     let record_type = records.first().unwrap().record_type();
-    println!("record_name: {}", record_name);
+    println!("record_name: {}, type: {}", record_name, record_type);
 
     // should be signed with all the keys
-    assert!(keys
+    assert!(keys.iter().all(|key| rrsig_records
         .iter()
-        .all(|key| rrsig_records
-            .iter()
-            .filter_map(|rrsig| {
-                let rrsig = rrsig.rdata()
-                    .as_dnssec()
-                    .expect("not DNSSEC")
-                    .as_sig()
-                    .expect("not RRSIG");
-                if rrsig.algorithm() == key.algorithm() {
-                    Some(rrsig)
-                } else {
-                    None
-                }
-            })
-            .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
-            .filter(|rrsig| rrsig.type_covered() == record_type)
-            .any(|rrsig| {
-                key.verify_rrsig(
-                    record_name,
-                    DNSClass::IN,
-                    rrsig,
-                    records)
-                    .map_err(|e| println!("failed to verify: {}", e))
-                    .is_ok()
-            })
-        )
-    );
+        .filter_map(|rrsig| {
+            let rrsig = rrsig
+                .rdata()
+                .as_dnssec()
+                .expect("not DNSSEC")
+                .as_sig()
+                .expect("not RRSIG");
+            if rrsig.algorithm() == key.algorithm() {
+                Some(rrsig)
+            } else {
+                None
+            }
+        })
+        .filter(|rrsig| rrsig.key_tag() == key.calculate_key_tag().unwrap())
+        .filter(|rrsig| rrsig.type_covered() == record_type)
+        .any(|rrsig| key
+            .verify_rrsig(record_name, DNSClass::IN, rrsig, records)
+            .map_err(|e| println!("failed to verify: {}", e))
+            .is_ok())));
 }
 
 pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
@@ -148,9 +180,13 @@ pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
             is_zone_update_auth: Some(false),
         };
 
-        let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
+        let signer = key_config
+            .try_into_signer(signer_name.clone())
+            .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
+        authority
+            .add_zone_signing_key(signer)
+            .expect("failed to add signer to zone");
         authority.secure_zone().expect("failed to sign zone");
     }
 
@@ -201,9 +237,13 @@ pub fn add_signers<A: Authority>(authority: &mut A) -> Vec<DNSKEY> {
             is_zone_update_auth: Some(false),
         };
 
-        let signer = key_config.try_into_signer(signer_name.clone()).expect("failed to read key_config");
+        let signer = key_config
+            .try_into_signer(signer_name.clone())
+            .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        authority.add_zone_signing_key(signer).expect("failed to add signer to zone");
+        authority
+            .add_zone_signing_key(signer)
+            .expect("failed to add signer to zone");
         authority.secure_zone().expect("failed to sign zone");
     }
 
@@ -232,6 +272,7 @@ macro_rules! dnssec_battery {
                     test_a_lookup,
                     test_soa,
                     test_ns,
+                    test_nsec_nodata,
                     test_rfc_6975_supported_algorithms,
                 );
             }

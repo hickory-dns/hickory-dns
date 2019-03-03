@@ -401,10 +401,10 @@ impl Catalog {
                     // see https://tools.ietf.org/html/rfc2308 for proper response construct
                     match records {
                         AuthLookup::NxDomain => {
-                            response_header.set_response_code(ResponseCode::NXDomain)
+                            response_header.set_response_code(ResponseCode::NXDomain);
                         }
                         AuthLookup::NameExists => {
-                            response_header.set_response_code(ResponseCode::NoError)
+                            response_header.set_response_code(ResponseCode::NoError);
                         }
                         AuthLookup::Refused => {
                             panic!("programming error, should have return Refused above")
@@ -414,7 +414,7 @@ impl Catalog {
                                 "programming error, should have return NoError with records above"
                             )
                         }
-                    };
+                    }
 
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                     let ns: AuthLookup = if is_dnssec {
