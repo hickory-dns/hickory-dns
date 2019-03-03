@@ -283,7 +283,7 @@ impl FileAuthority {
                             RecordType::DNSSEC(DNSSECRecordType::NSEC),
                             ttl,
                         );
-                        let rdata = NSEC::new(key.name.clone().into(), vec);
+                        let rdata = NSEC::new_cover_self(key.name.clone().into(), vec);
                         record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                         records.push(record);
 
@@ -301,7 +301,7 @@ impl FileAuthority {
                     RecordType::DNSSEC(DNSSECRecordType::NSEC),
                     ttl,
                 );
-                let rdata = NSEC::new(self.origin().clone().into(), vec);
+                let rdata = NSEC::new_cover_self(self.origin().clone().into(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
             }
