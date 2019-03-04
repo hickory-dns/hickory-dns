@@ -58,7 +58,7 @@ enum-as-inner = "0.2"
 failure = "0.1"
 futures = "^0.1.17"
 idna = "^0.1.4"
-lazy_static = "^1.0"
+lazy_static = "^1.3"
 log = "^0.4.1"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
 rand = "0.6"

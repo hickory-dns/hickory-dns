@@ -62,7 +62,7 @@ path = "src/lib.rs"
 cfg-if = "0.1"
 failure = "0.1"
 futures = "^0.1.17"
-lazy_static = "^1.0"
+lazy_static = "^1.3"
 log = "^0.4.1"
 lru-cache = "^0.1.1"
 resolv-conf = { version = "0.6.0", features = ["system"] }
