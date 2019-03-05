@@ -1280,15 +1280,10 @@ impl Authority for SqliteAuthority {
                 .filter(|rr_set| is_nsec_rrset(rr_set))
                 .skip_while(|rr_set| *name < rr_set.name().into())
                 .next()
-                .map(|rr_set| rr_set.clone())
-                .into()
+                .cloned()
         };
 
-        let mut proofs = Vec::with_capacity(2);
         let closest_proof = get_closest_nsec(name);
-        if let Some(closest_proof) = closest_proof {
-            proofs.push(closest_proof);
-        }
 
         // we need the wildcard proof, but make sure that it's still part of the zone.
         let wildcard = name.base_name();
@@ -1298,9 +1293,28 @@ impl Authority for SqliteAuthority {
             self.origin().clone()
         };
 
-        let wildcard_proof = get_closest_nsec(&wildcard);
-        if let Some(wildcard_proof) = wildcard_proof {
-            proofs.push(wildcard_proof);
+        // don't duplicate the record...
+        let wildcard_proof = if wildcard != *name {
+            get_closest_nsec(&wildcard)
+        } else {
+            None
+        };
+
+        // TODO: SmallVec here?
+        let mut proofs = Vec::with_capacity(2);
+
+        match (closest_proof, wildcard_proof) {
+            (Some(closest_proof), Some(wildcard_proof)) => {
+                // dedup with the wildcard proof
+                if wildcard_proof != closest_proof {
+                    proofs.push(closest_proof);
+                }
+                proofs.push(wildcard_proof);
+            }
+            (None, Some(proof)) | (Some(proof), None) => {
+                proofs.push(proof);
+            }
+            (None, None) => {}
         }
 
         LookupRecords::many(is_secure, supported_algorithms, proofs).into()

@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use trust_dns::op::Query;
 use trust_dns::proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
+use trust_dns::proto::xfer;
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns::rr::{DNSClass, Name, Record, RecordType};
 use trust_dns_server::authority::Authority;
@@ -81,7 +82,7 @@ pub fn test_nsec_nodata<A: Authority>(authority: A, keys: &[DNSKEY]) {
     let name = Name::from_str("www.example.com.").unwrap();
     let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
 
-    let (nsec_records, other_records): (Vec<_>, Vec<_>) = lookup
+    let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
@@ -90,19 +91,36 @@ pub fn test_nsec_nodata<A: Authority>(authority: A, keys: &[DNSKEY]) {
     assert_eq!(nsec_records.len(), 1);
     assert_eq!(nsec_records.first().unwrap().name(), &name);
 
-    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) =
-        other_records.into_iter().partition(|r| {
-            r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
-                && r.name() == &name
-        });
+    println!("nsec_records: {:?}", nsec_records);
+    
+    let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
-    assert!(!rrsig_records.is_empty());
+    let query = Query::query(name, RecordType::TXT);
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+}
+
+pub fn test_nsec_nxdomain<A: Authority>(authority: A, keys: &[DNSKEY]) {
+    // this should have a single nsec record that covers the type
+    let name = Name::from_str("nxdomain.example.com.").unwrap();
+    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
+
+    lookup.iter().for_each(|r| println!("{:?}", r));
+
+    let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
+        .into_iter()
+        .cloned()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+
+    // there should only be one, and it should match the www.example.com name
+    assert!(!nsec_records.is_empty());
+    //assert_eq!(nsec_records.first().unwrap().name(), &name);
 
     println!("nsec_records: {:?}", nsec_records);
-    println!("rrsig_records: {:?}", rrsig_records);
-    
-    // FIXME: why isn't this verifying?
-    // verify(&nsec_records, &rrsig_records, keys);
+
+    let nsecs: Vec<&Record> = nsec_records.iter().collect();
+
+    let query = Query::query(name, RecordType::A);
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority>(authority: A, keys: &[DNSKEY]) {
@@ -273,6 +291,7 @@ macro_rules! dnssec_battery {
                     test_soa,
                     test_ns,
                     test_nsec_nodata,
+                    test_nsec_nxdomain,
                     test_rfc_6975_supported_algorithms,
                 );
             }

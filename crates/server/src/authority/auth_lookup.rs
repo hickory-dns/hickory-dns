@@ -346,7 +346,7 @@ impl<'a> IntoIterator for &'a LookupRecords {
                 LookupRecordsIter::RecordsIter(r.records(*is_secure, *supported_algorithms))
             }
             LookupRecords::ManyRecords(is_secure, supported_algorithms, r) => {
-                LookupRecordsIter::ManyRecordsIter(r.into_iter().map(|r| r.records(*is_secure, *supported_algorithms)).collect(), None)
+                LookupRecordsIter::ManyRecordsIter(r.iter().map(|r| r.records(*is_secure, *supported_algorithms)).collect(), None)
             }
             LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
         }
