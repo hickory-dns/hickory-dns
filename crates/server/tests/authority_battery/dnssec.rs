@@ -87,35 +87,81 @@ pub fn test_nsec_nodata<A: Authority>(authority: A, keys: &[DNSKEY]) {
         .cloned()
         .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
 
+    println!("nsec_records: {:?}", nsec_records);
+
     // there should only be one, and it should match the www.example.com name
     assert_eq!(nsec_records.len(), 1);
     assert_eq!(nsec_records.first().unwrap().name(), &name);
 
-    println!("nsec_records: {:?}", nsec_records);
-    
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
     assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
 }
 
-pub fn test_nsec_nxdomain<A: Authority>(authority: A, keys: &[DNSKEY]) {
-    // this should have a single nsec record that covers the type
-    let name = Name::from_str("nxdomain.example.com.").unwrap();
+pub fn test_nsec_nxdomain_start<A: Authority>(authority: A, keys: &[DNSKEY]) {
+    // tests between the SOA and first record in the zone, where bbb is the first zone record
+    let name = Name::from_str("aaa.example.com.").unwrap();
     let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
-
-    lookup.iter().for_each(|r| println!("{:?}", r));
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
         .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
 
+    println!("nsec_records: {:?}", nsec_records);
+
     // there should only be one, and it should match the www.example.com name
     assert!(!nsec_records.is_empty());
-    //assert_eq!(nsec_records.first().unwrap().name(), &name);
+    // because the first record is from the SOA, the wildcard isn't necessary
+    //  that is `example.com.` -> `bbb.example.com.` proves there is no wildcard.
+    assert_eq!(nsec_records.len(), 1);
+
+    let nsecs: Vec<&Record> = nsec_records.iter().collect();
+
+    let query = Query::query(name, RecordType::A);
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+}
+
+pub fn test_nsec_nxdomain_middle<A: Authority>(authority: A, keys: &[DNSKEY]) {
+    // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
+    let name = Name::from_str("ccc.example.com.").unwrap();
+    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
+
+    let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
+        .into_iter()
+        .cloned()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
 
     println!("nsec_records: {:?}", nsec_records);
+
+    // there should only be one, and it should match the www.example.com name
+    assert!(!nsec_records.is_empty());
+    // one record covers between the names, the other is for the wildcard proof.
+    assert_eq!(nsec_records.len(), 2);
+
+    let nsecs: Vec<&Record> = nsec_records.iter().collect();
+
+    let query = Query::query(name, RecordType::A);
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+}
+
+pub fn test_nsec_nxdomain_wraps_end<A: Authority>(authority: A, keys: &[DNSKEY]) {
+    // wraps back to the begining of the zone, where www is the last zone record
+    let name = Name::from_str("zzz.example.com.").unwrap();
+    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
+
+    let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
+        .into_iter()
+        .cloned()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+
+    println!("nsec_records: {:?}", nsec_records);
+
+    // there should only be one, and it should match the www.example.com name
+    assert!(!nsec_records.is_empty());
+    // one record covers between the names, the other is for the wildcard proof.
+    assert_eq!(nsec_records.len(), 2);
 
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
@@ -291,7 +337,9 @@ macro_rules! dnssec_battery {
                     test_soa,
                     test_ns,
                     test_nsec_nodata,
-                    test_nsec_nxdomain,
+                    test_nsec_nxdomain_start,
+                    test_nsec_nxdomain_middle,
+                    test_nsec_nxdomain_wraps_end,
                     test_rfc_6975_supported_algorithms,
                 );
             }

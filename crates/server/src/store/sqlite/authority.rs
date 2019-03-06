@@ -1278,8 +1278,22 @@ impl Authority for SqliteAuthority {
             self.records
                 .values()
                 .filter(|rr_set| is_nsec_rrset(rr_set))
-                .skip_while(|rr_set| *name < rr_set.name().into())
-                .next()
+                // the name must be greater than the name in the nsec
+                .filter(|rr_set| *name >= rr_set.name().into())
+                // now find the next record where the covered name is greater
+                .find(|rr_set| {
+                    // there should only be one record
+                    rr_set.records(false, SupportedAlgorithms::default())
+                        .next()
+                        .and_then(|r| r.rdata().as_dnssec())
+                        .and_then(|r| r.as_nsec())
+                        .map_or(false, |r| {
+                            // the search name is less than the next NSEC record
+                            *name < r.next_domain_name().into() ||
+                            // this is the last record, and wraps to the beginning of the zone
+                            r.next_domain_name() < rr_set.name()
+                        })
+                })
                 .cloned()
         };
 
@@ -1300,22 +1314,20 @@ impl Authority for SqliteAuthority {
             None
         };
 
-        // TODO: SmallVec here?
-        let mut proofs = Vec::with_capacity(2);
-
-        match (closest_proof, wildcard_proof) {
+        let proofs = match (closest_proof, wildcard_proof) {
             (Some(closest_proof), Some(wildcard_proof)) => {
                 // dedup with the wildcard proof
                 if wildcard_proof != closest_proof {
-                    proofs.push(closest_proof);
+                    vec![wildcard_proof, closest_proof]
+                } else {
+                    vec![closest_proof]
                 }
-                proofs.push(wildcard_proof);
             }
             (None, Some(proof)) | (Some(proof), None) => {
-                proofs.push(proof);
+                vec![proof]
             }
-            (None, None) => {}
-        }
+            (None, None) => { vec![] }
+        };
 
         LookupRecords::many(is_secure, supported_algorithms, proofs).into()
     }

@@ -842,15 +842,23 @@ pub fn verify_nsec(query: &Query, nsecs: &[&Record]) -> bool {
     }
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
-    if nsecs.iter().filter(|r| query.name() != r.name()).any(|r| {
-        query.name() > r.name() && {
-            if let RData::DNSSEC(DNSSECRData::NSEC(ref rdata)) = *r.rdata() {
-                query.name() < rdata.next_domain_name()
-            } else {
-                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+    if nsecs
+        .iter()
+        .filter(|nsec| query.name() != nsec.name())
+        .any(|nsec| {
+            query.name() > nsec.name() && {
+                nsec.rdata()
+                    .as_dnssec()
+                    .and_then(|nsec| nsec.as_nsec())
+                    .map_or(false, |rdata| {
+                        // the query name is less than the next name
+                        // or this record wraps the end, i.e. is the last record
+                        query.name() < rdata.next_domain_name()
+                            || rdata.next_domain_name() < nsec.name()
+                    })
             }
-        }
-    }) {
+        })
+    {
         return true;
     }
 
