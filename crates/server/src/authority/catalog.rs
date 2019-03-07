@@ -440,7 +440,7 @@ impl Catalog {
 
                 return send_response(
                     response_edns,
-                    response.build(response_header, records.iter(), ns.iter(), soa.iter()),
+                    response.build(response_header, records.iter(), soa.iter(), ns.iter()),
                     response_handle,
                 );
             }
