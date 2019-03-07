@@ -98,7 +98,7 @@ where
     let response = io_loop
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
-    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
 // TODO: NSEC response code wrong in Trust-DNS? Issue #53

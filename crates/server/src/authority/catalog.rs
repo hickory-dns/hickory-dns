@@ -426,7 +426,6 @@ impl Catalog {
                         );
                         debug!("request: {} non-existent adding nsecs", request.id(),);
 
-                        response_header.set_response_code(ResponseCode::NoError);
                         nsecs
                     } else {
                         // place holder...
