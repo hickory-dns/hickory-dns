@@ -69,6 +69,14 @@ impl AuthLookup {
         }
     }
 
+    /// This is a NameExists
+    pub fn is_name_exists(&self) -> bool {
+        match *self {
+            AuthLookup::NameExists => true,
+            _ => false,
+        }
+    }
+
     /// This is a non-existant domain name
     pub fn is_refused(&self) -> bool {
         match *self {

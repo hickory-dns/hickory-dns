@@ -1229,8 +1229,11 @@ impl Authority for SqliteAuthority {
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
+        //
+        // In addition, if a name of additional labels exists for the query naem, then the proper response is also
+        //   NameExists (NOERROR).
         if result.is_nx_domain() {
-            if self.records.keys().any(|key| key.name() == name) {
+            if self.records.keys().any(|key| key.name() == name || name.zone_of(key.name())) {
                 return AuthLookup::NameExists;
             } else {
                 return AuthLookup::NxDomain;
