@@ -89,7 +89,7 @@ fn logger(config: &str) {
     let log_formatter = plain_formatter;
 
     builder.format(log_formatter);
-    builder.parse(config);
+    builder.parse_filters(config);
     builder.target(env_logger::Target::Stdout);
     builder.init();
 }

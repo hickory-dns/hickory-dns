@@ -168,16 +168,31 @@ impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
                         //  This is where NSEC (and possibly NSEC3) validation occurs
                         // As of now, only NSEC is supported.
                         if verified_message.answers().is_empty() {
+                            // get SOA name
+                            let soa_name = if let Some(soa_name) = verified_message
+                                .name_servers()
+                                .iter()
+                                // there should only be one
+                                .find(|rr| rr.record_type() == RecordType::SOA)
+                                .map(|rr| rr.name())
+                            {
+                                soa_name
+                            } else {
+                                return Err(ProtoError::from(
+                                    "could not validate negative response missing SOA",
+                                ));
+                            };
+
                             let nsecs = verified_message
                                 .name_servers()
                                 .iter()
                                 .filter(|rr| is_dnssec(rr, DNSSECRecordType::NSEC))
                                 .collect::<Vec<_>>();
 
-                            if !verify_nsec(&query, nsecs.as_slice()) {
+                            if !verify_nsec(&query, soa_name, nsecs.as_slice()) {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return Err(ProtoError::from(
-                                    "could not validate nxdomain with NSEC",
+                                    "could not validate negative response with NSEC",
                                 ));
                             }
                         }
@@ -824,46 +839,62 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
 /// ```
 #[allow(clippy::block_in_if_condition_stmt)]
 #[doc(hidden)]
-pub fn verify_nsec(query: &Query, nsecs: &[&Record]) -> bool {
+pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
+    // TODO: consider convering this to Result, and giving explicit reason for the failure
+
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if nsecs.iter().any(|r| {
-        query.name() == r.name() && {
-            if let RData::DNSSEC(DNSSECRData::NSEC(ref rdata)) = *r.rdata() {
+    if let Some(nsec) = nsecs.iter().find(|nsec| query.name() == nsec.name()) {
+        return nsec
+            .rdata()
+            .as_dnssec()
+            .and_then(|nsec| nsec.as_nsec())
+            .map_or(false, |rdata| {
+                // this should not be in the covered list
                 !rdata.type_bit_maps().contains(&query.query_type())
-            } else {
-                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
-            }
-        }
-    }) {
-        return true;
+            });
     }
 
-    // based on the WTF? above, we will ignore any NSEC records of the same name
-    if nsecs
-        .iter()
-        .filter(|nsec| query.name() != nsec.name())
-        .any(|nsec| {
-            query.name() > nsec.name() && {
+    let verify_nsec_coverage = |name: &Name| -> bool {
+        nsecs.iter().any(|nsec| {
+            // the query name must be greater than nsec's label (or equal in the case of wildcard)
+            name >= nsec.name() && {
                 nsec.rdata()
                     .as_dnssec()
                     .and_then(|nsec| nsec.as_nsec())
                     .map_or(false, |rdata| {
                         // the query name is less than the next name
                         // or this record wraps the end, i.e. is the last record
-                        query.name() < rdata.next_domain_name()
-                            || rdata.next_domain_name() < nsec.name()
+                        name < rdata.next_domain_name() || rdata.next_domain_name() < nsec.name()
                     })
             }
         })
-    {
-        return true;
+    };
+
+    if !verify_nsec_coverage(query.name()) {
+        // continue to validate there is no wildcard
+        return false;
     }
 
-    // TODO: need to validate ANY or *.domain record existance, which doesn't make sense since
-    //  that would have been returned in the request
-    // if we got here, then there are no matching NSEC records, no validation
-    false
+    // validate ANY or *.domain record existance
+
+    // we need the wildcard proof, but make sure that it's still part of the zone.
+    let wildcard = query.name().base_name();
+    let wildcard = if soa_name.zone_of(&wildcard) {
+        wildcard
+    } else {
+        soa_name.clone()
+    };
+
+    // don't need to validate the same name again
+    if wildcard == *query.name() {
+        // this was validated by the nsec coverage over the query.name()
+        true
+    } else {
+        // this is the final check, return it's value
+        //  if there is wildcard coverage, we're good.
+        verify_nsec_coverage(&wildcard)
+    }
 }

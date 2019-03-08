@@ -96,7 +96,7 @@ pub fn test_nsec_nodata<A: Authority>(authority: A, keys: &[DNSKEY]) {
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
 }
 
 pub fn test_nsec_nxdomain_start<A: Authority>(authority: A, keys: &[DNSKEY]) {
@@ -120,7 +120,7 @@ pub fn test_nsec_nxdomain_start<A: Authority>(authority: A, keys: &[DNSKEY]) {
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
 }
 
 pub fn test_nsec_nxdomain_middle<A: Authority>(authority: A, keys: &[DNSKEY]) {
@@ -143,7 +143,7 @@ pub fn test_nsec_nxdomain_middle<A: Authority>(authority: A, keys: &[DNSKEY]) {
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
 }
 
 pub fn test_nsec_nxdomain_wraps_end<A: Authority>(authority: A, keys: &[DNSKEY]) {
@@ -166,7 +166,7 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority>(authority: A, keys: &[DNSKEY])
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority>(authority: A, keys: &[DNSKEY]) {
