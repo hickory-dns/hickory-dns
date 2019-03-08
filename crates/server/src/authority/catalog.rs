@@ -353,6 +353,10 @@ impl Catalog {
                 response_header.set_id(request.id());
                 response_header.set_op_code(OpCode::Query);
                 response_header.set_message_type(MessageType::Response);
+                response_header.set_authoritative(match authority.zone_type() {
+                    ZoneType::Master | ZoneType::Slave => true,
+                    _ => false,
+                });
 
                 let (is_dnssec, supported_algorithms) =
                     request
@@ -384,7 +388,6 @@ impl Catalog {
                 //  and add records
                 let (ns, soa) = if !records.is_empty() {
                     response_header.set_response_code(ResponseCode::NoError);
-                    response_header.set_authoritative(true);
                     // get the NS records
                     let ns = authority.ns(is_dnssec, supported_algorithms);
                     // chain here to match type below...
@@ -398,10 +401,10 @@ impl Catalog {
                     // see https://tools.ietf.org/html/rfc2308 for proper response construct
                     match records {
                         AuthLookup::NxDomain => {
-                            response_header.set_response_code(ResponseCode::NXDomain)
+                            response_header.set_response_code(ResponseCode::NXDomain);
                         }
                         AuthLookup::NameExists => {
-                            response_header.set_response_code(ResponseCode::NoError)
+                            response_header.set_response_code(ResponseCode::NoError);
                         }
                         AuthLookup::Refused => {
                             panic!("programming error, should have return Refused above")
@@ -411,7 +414,7 @@ impl Catalog {
                                 "programming error, should have return NoError with records above"
                             )
                         }
-                    };
+                    }
 
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                     let ns: AuthLookup = if is_dnssec {
@@ -423,7 +426,6 @@ impl Catalog {
                         );
                         debug!("request: {} non-existent adding nsecs", request.id(),);
 
-                        response_header.set_response_code(ResponseCode::NoError);
                         nsecs
                     } else {
                         // place holder...
@@ -437,7 +439,7 @@ impl Catalog {
 
                 return send_response(
                     response_edns,
-                    response.build(response_header, records.iter(), ns.iter(), soa.iter()),
+                    response.build(response_header, records.iter(), soa.iter(), ns.iter()),
                     response_handle,
                 );
             }

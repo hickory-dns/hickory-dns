@@ -18,6 +18,7 @@
 
 use super::nsec3;
 use error::*;
+use rr::dnssec::rdata::DNSSECRecordType;
 use rr::{Name, RecordType};
 use serialize::binary::*;
 
@@ -52,12 +53,13 @@ pub struct NSEC {
 }
 
 impl NSEC {
-    /// Constructs a new NSET RData
+    /// Constructs a new NSEC RData, warning this won't gaurantee that the NSEC covers itself
+    ///  which it should at it's own name.
     ///
     /// # Arguments
     ///
     /// * `next_domain_name` - the name labels of the next ordered name in the zone
-    /// * `type_bit_maps` - a bit map of the types that don't exist at this name
+    /// * `type_bit_maps` - a bit map of the types that exist at this name
     ///
     /// # Returns
     ///
@@ -67,6 +69,23 @@ impl NSEC {
             next_domain_name,
             type_bit_maps,
         }
+    }
+
+    /// Constructs a new NSEC RData, this will add the NSEC itself as covered, generally
+    ///   correct for NSEC records generated at their own name
+    ///
+    /// # Arguments
+    ///
+    /// * `next_domain_name` - the name labels of the next ordered name in the zone
+    /// * `type_bit_maps` - a bit map of the types that exist at this name
+    ///
+    /// # Returns
+    ///
+    /// An NSEC RData for use in a Resource Record
+    pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: Vec<RecordType>) -> NSEC {
+        type_bit_maps.push(RecordType::DNSSEC(DNSSECRecordType::NSEC));
+
+        Self::new(next_domain_name, type_bit_maps)
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4.1.1)

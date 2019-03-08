@@ -138,7 +138,6 @@ impl From<u8> for CertUsage {
             3 => CertUsage::DomainIssued,
             4...254 => CertUsage::Unassigned(usage),
             255 => CertUsage::Private,
-            _ => panic!("programmer error, all CertUsage variants should be covered above"),
         }
     }
 }
@@ -196,7 +195,6 @@ impl From<u8> for Selector {
             1 => Selector::Spki,
             2...254 => Selector::Unassigned(selector),
             255 => Selector::Private,
-            _ => panic!("programmer error, all Selector variants should be covered above"),
         }
     }
 }
@@ -259,7 +257,6 @@ impl From<u8> for Matching {
             2 => Matching::Sha512,
             3...254 => Matching::Unassigned(matching),
             255 => Matching::Private,
-            _ => panic!("programmer error, all Matching variants should be covered above"),
         }
     }
 }

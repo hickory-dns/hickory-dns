@@ -162,21 +162,37 @@ impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
                         //  each rrset type needs to validated independently
                         debug!("validating message_response: {}", message_response.id());
                         verify_rrsets(&handle, message_response, dns_class)
-                    }).and_then(move |verified_message| {
+                    })
+                    .and_then(move |verified_message| {
                         // at this point all of the message is verified.
                         //  This is where NSEC (and possibly NSEC3) validation occurs
                         // As of now, only NSEC is supported.
                         if verified_message.answers().is_empty() {
+                            // get SOA name
+                            let soa_name = if let Some(soa_name) = verified_message
+                                .name_servers()
+                                .iter()
+                                // there should only be one
+                                .find(|rr| rr.record_type() == RecordType::SOA)
+                                .map(|rr| rr.name())
+                            {
+                                soa_name
+                            } else {
+                                return Err(ProtoError::from(
+                                    "could not validate negative response missing SOA",
+                                ));
+                            };
+
                             let nsecs = verified_message
                                 .name_servers()
                                 .iter()
                                 .filter(|rr| is_dnssec(rr, DNSSECRecordType::NSEC))
                                 .collect::<Vec<_>>();
 
-                            if !verify_nsec(&query, nsecs.as_slice()) {
+                            if !verify_nsec(&query, soa_name, nsecs.as_slice()) {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return Err(ProtoError::from(
-                                    "could not validate nxdomain with NSEC",
+                                    "could not validate negative response with NSEC",
                                 ));
                             }
                         }
@@ -218,7 +234,8 @@ fn verify_rrsets<H: DnsHandle>(
                                           (handle.request_depth <= 1 ||
                                            is_dnssec(rr, DNSSECRecordType::DNSKEY) ||
                                            is_dnssec(rr, DNSSECRecordType::DS))
-        }).map(|rr| (rr.name().clone(), rr.rr_type()))
+        })
+        .map(|rr| (rr.name().clone(), rr.rr_type()))
     {
         rrset_types.insert(rrset);
     }
@@ -264,7 +281,8 @@ fn verify_rrsets<H: DnsHandle>(
                 } else {
                     false
                 }
-            }).cloned()
+            })
+            .cloned()
             .collect();
 
         // if there is already an active validation going on, assume the other validation will
@@ -355,7 +373,8 @@ impl Future for VerifyRrsetsFuture {
                     .filter(|record| {
                         self.verified_rrsets
                             .contains(&(record.name().clone(), record.rr_type()))
-                    }).collect::<Vec<Record>>();
+                    })
+                    .collect::<Vec<Record>>();
 
                 let name_servers = message_result
                     .take_name_servers()
@@ -363,7 +382,8 @@ impl Future for VerifyRrsetsFuture {
                     .filter(|record| {
                         self.verified_rrsets
                             .contains(&(record.name().clone(), record.rr_type()))
-                    }).collect::<Vec<Record>>();
+                    })
+                    .collect::<Vec<Record>>();
 
                 let additionals = message_result
                     .take_additionals()
@@ -371,7 +391,8 @@ impl Future for VerifyRrsetsFuture {
                     .filter(|record| {
                         self.verified_rrsets
                             .contains(&(record.name().clone(), record.rr_type()))
-                    }).collect::<Vec<Record>>();
+                    })
+                    .collect::<Vec<Record>>();
 
                 // add the filtered records back to the message
                 message_result.insert_answers(answers);
@@ -423,7 +444,8 @@ where
                 verify_dnskey_rrset(handle, rrset),
             // RecordType::DNSSEC(DNSSECRecordType::DS) => verify_ds_rrset(handle, name, record_type, record_class, rrset, rrsigs),
             _ => Box::new(finished(rrset)),
-          }).map_err(|e| {
+          })
+            .map_err(|e| {
                 debug!("rrset failed validation: {}", e);
                 e
             }),
@@ -460,7 +482,8 @@ where
                 } else {
                     None
                 }
-            }).filter_map(|(i, rdata)| {
+            })
+            .filter_map(|(i, rdata)| {
                 if handle
                     .trust_anchor
                     .contains_dnskey_bytes(rdata.public_key())
@@ -470,7 +493,8 @@ where
                 } else {
                     None
                 }
-            }).collect::<Vec<usize>>();
+            })
+            .collect::<Vec<usize>>();
 
         if !anchored_keys.is_empty() {
             let mut rrset = rrset;
@@ -505,17 +529,19 @@ where
                     }
                 })
                 .filter(|&(_, key_rdata)| {
-                    ds_message.answers()
-                              .iter()
-                              .filter(|ds| is_dnssec(ds, DNSSECRecordType::DS))
-                              .filter_map(|ds| if let RData::DNSSEC(DNSSECRData::DS(ref ds_rdata)) = *ds.rdata() {
+                    ds_message
+                        .answers()
+                        .iter()
+                        .filter(|ds| is_dnssec(ds, DNSSECRecordType::DS))
+                        .filter_map(|ds| {
+                            if let RData::DNSSEC(DNSSECRData::DS(ref ds_rdata)) = *ds.rdata() {
                                 Some(ds_rdata)
-                              } else {
+                            } else {
                                 None
-                              })
-                              // must be convered by at least one DS record
-                              .any(|ds_rdata| ds_rdata.covers(&rrset.name, key_rdata)
-                                                      .unwrap_or(false))
+                            }
+                        })
+                        // must be convered by at least one DS record
+                        .any(|ds_rdata| ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false))
                 })
                 .map(|(i, _)| i)
                 .collect::<Vec<usize>>();
@@ -627,43 +653,47 @@ where
             } else {
                 panic!("expected a SIG here");
             }
-        }) {
+        })
+    {
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
         return Box::new(
             done(
-                rrsigs.into_iter()
-            // this filter is technically unnecessary, can probably remove it...
-            .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
-            .map(|rrsig|
-              if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.unwrap_rdata() {
-                // setting up the context explicitly.
-                sig
-              } else {
-                panic!("expected a SIG here");
-              }
-            )
-            .filter_map(|sig| {
-              let rrset = Arc::clone(&rrset);
+                rrsigs
+                    .into_iter()
+                    // this filter is technically unnecessary, can probably remove it...
+                    .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
+                    .map(|rrsig| {
+                        if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.unwrap_rdata() {
+                            // setting up the context explicitly.
+                            sig
+                        } else {
+                            panic!("expected a SIG here");
+                        }
+                    })
+                    .filter_map(|sig| {
+                        let rrset = Arc::clone(&rrset);
 
-              if rrset.records.iter()
-                              .any(|r| {
-                                if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
-                                  verify_rrset_with_dnskey(dnskey, &sig, &rrset).is_ok()
-                                } else {
-                                  panic!("expected a DNSKEY here: {:?}", r.rdata());
-                                }
-                              }) {
-                                Some(rrset)
-                              } else {
-                                None
-                              }
-                            })
-                            .next()
-                            .ok_or_else(|| ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))),
-            ).map(move |rrset| Arc::try_unwrap(rrset).expect("unable to unwrap Arc")),
+                        if rrset.records.iter().any(|r| {
+                            if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
+                                verify_rrset_with_dnskey(dnskey, &sig, &rrset).is_ok()
+                            } else {
+                                panic!("expected a DNSKEY here: {:?}", r.rdata());
+                            }
+                        }) {
+                            Some(rrset)
+                        } else {
+                            None
+                        }
+                    })
+                    .next()
+                    .ok_or_else(|| {
+                        ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
+                    }),
+            )
+            .map(move |rrset| Arc::try_unwrap(rrset).expect("unable to unwrap Arc")),
         );
     }
 
@@ -721,11 +751,11 @@ where
 
     // as long as any of the verifcations is good, then the RRSET is valid.
     let select = select_ok(verifications)
-                          // getting here means at least one of the rrsigs succeeded...
-                          .map(move |(rrset, rest)| {
-                              drop(rest); // drop all others, should free up Arc
-                              Arc::try_unwrap(rrset).expect("unable to unwrap Arc")
-                          });
+        // getting here means at least one of the rrsigs succeeded...
+        .map(move |(rrset, rest)| {
+            drop(rest); // drop all others, should free up Arc
+            Arc::try_unwrap(rrset).expect("unable to unwrap Arc")
+        });
 
     Box::new(select)
 }
@@ -808,38 +838,63 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
 ///  NSEC and RRSIG bits in an NSEC RR.
 /// ```
 #[allow(clippy::block_in_if_condition_stmt)]
-fn verify_nsec(query: &Query, nsecs: &[&Record]) -> bool {
+#[doc(hidden)]
+pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
+    // TODO: consider convering this to Result, and giving explicit reason for the failure
+
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if nsecs.iter().any(|r| {
-        query.name() == r.name() && {
-            if let RData::DNSSEC(DNSSECRData::NSEC(ref rdata)) = *r.rdata() {
+    if let Some(nsec) = nsecs.iter().find(|nsec| query.name() == nsec.name()) {
+        return nsec
+            .rdata()
+            .as_dnssec()
+            .and_then(|nsec| nsec.as_nsec())
+            .map_or(false, |rdata| {
+                // this should not be in the covered list
                 !rdata.type_bit_maps().contains(&query.query_type())
-            } else {
-                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
-            }
-        }
-    }) {
-        return true;
+            });
     }
 
-    // based on the WTF? above, we will ignore any NSEC records of the same name
-    if nsecs.iter().filter(|r| query.name() != r.name()).any(|r| {
-        query.name() > r.name() && {
-            if let RData::DNSSEC(DNSSECRData::NSEC(ref rdata)) = *r.rdata() {
-                query.name() < rdata.next_domain_name()
-            } else {
-                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+    let verify_nsec_coverage = |name: &Name| -> bool {
+        nsecs.iter().any(|nsec| {
+            // the query name must be greater than nsec's label (or equal in the case of wildcard)
+            name >= nsec.name() && {
+                nsec.rdata()
+                    .as_dnssec()
+                    .and_then(|nsec| nsec.as_nsec())
+                    .map_or(false, |rdata| {
+                        // the query name is less than the next name
+                        // or this record wraps the end, i.e. is the last record
+                        name < rdata.next_domain_name() || rdata.next_domain_name() < nsec.name()
+                    })
             }
-        }
-    }) {
-        return true;
+        })
+    };
+
+    if !verify_nsec_coverage(query.name()) {
+        // continue to validate there is no wildcard
+        return false;
     }
 
-    // TODO: need to validate ANY or *.domain record existance, which doesn't make sense since
-    //  that would have been returned in the request
-    // if we got here, then there are no matching NSEC records, no validation
-    false
+    // validate ANY or *.domain record existance
+
+    // we need the wildcard proof, but make sure that it's still part of the zone.
+    let wildcard = query.name().base_name();
+    let wildcard = if soa_name.zone_of(&wildcard) {
+        wildcard
+    } else {
+        soa_name.clone()
+    };
+
+    // don't need to validate the same name again
+    if wildcard == *query.name() {
+        // this was validated by the nsec coverage over the query.name()
+        true
+    } else {
+        // this is the final check, return it's value
+        //  if there is wildcard coverage, we're good.
+        verify_nsec_coverage(&wildcard)
+    }
 }

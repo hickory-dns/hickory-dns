@@ -70,6 +70,50 @@ pub fn test_update_errors<A: Authority>(mut authority: A) {
     assert!(authority.update(&update).is_err());
 }
 
+pub fn test_dots_in_name<A: Authority>(authority: A) {
+    let query = Query::query(Name::from_str("this.has.dots.example.com.").unwrap(), RecordType::A);
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    
+    assert_eq!(
+        *lookup
+            .into_iter()
+            .next()
+            .expect("A record not found in authity")
+            .rdata()
+            .as_a()
+            .expect("wrong rdata type returned"), 
+        Ipv4Addr::new(127, 0, 0, 3)
+    );
+
+    // the rest should all be NameExists
+    let query = Query::query(Name::from_str("has.dots.example.com.").unwrap(), RecordType::A);
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    
+    assert!(lookup.was_empty());
+    assert!(lookup.is_name_exists());
+
+    // the rest should all be NameExists
+    let query = Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A);
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    
+    assert!(lookup.was_empty());
+    assert!(lookup.is_name_exists());
+
+    // the rest should all be NameExists
+    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    
+    assert!(lookup.was_empty());
+    assert!(lookup.is_name_exists());
+
+    // and this should be an NXDOMAIN
+    let query = Query::query(Name::from_str("not.this.has.dots.example.com.").unwrap(), RecordType::A);
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    
+    assert!(lookup.was_empty());
+    assert!(lookup.is_nx_domain());
+}
+
 macro_rules! define_basic_test {
     ($new:ident; $( $f:ident, )*) => {
         $(
@@ -92,6 +136,7 @@ macro_rules! basic_battery {
                     test_soa,
                     test_ns,
                     test_update_errors,
+                    test_dots_in_name,
                 );
             }
         }

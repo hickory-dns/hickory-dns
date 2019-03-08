@@ -956,7 +956,7 @@ impl SqliteAuthority {
                             RecordType::DNSSEC(DNSSECRecordType::NSEC),
                             ttl,
                         );
-                        let rdata = NSEC::new(key.name.clone().into(), vec);
+                        let rdata = NSEC::new_cover_self(key.name.clone().into(), vec);
                         record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                         records.push(record);
 
@@ -974,7 +974,7 @@ impl SqliteAuthority {
                     RecordType::DNSSEC(DNSSECRecordType::NSEC),
                     ttl,
                 );
-                let rdata = NSEC::new(self.origin().clone().into(), vec);
+                let rdata = NSEC::new_cover_self(self.origin().clone().into(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
             }
@@ -1229,8 +1229,11 @@ impl Authority for SqliteAuthority {
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
+        //
+        // In addition, if a name of additional labels exists for the query naem, then the proper response is also
+        //   NameExists (NOERROR).
         if result.is_nx_domain() {
-            if self.records.keys().any(|key| key.name() == name) {
+            if self.records.keys().any(|key| key.name() == name || name.zone_of(key.name())) {
                 return AuthLookup::NameExists;
             } else {
                 return AuthLookup::NxDomain;
@@ -1247,34 +1250,99 @@ impl Authority for SqliteAuthority {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
+    #[cfg(feature = "dnssec")]
     fn get_nsec_records(
         &self,
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> AuthLookup {
-        #[cfg(feature = "dnssec")]
+        use trust_dns::rr::rdata::DNSSECRecordType;
+
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             use trust_dns::rr::rdata::DNSSECRecordType;
 
             rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC)
         }
 
-        #[cfg(not(feature = "dnssec"))]
-        fn is_nsec_rrset(_record: &RecordSet) -> bool {
-            // There's no way to create an NSEC record when DNSSEC is disabled
-            // at build time.
-            false
-        }
-
-        self.records
-            .values()
-            .filter(|rr_set| is_nsec_rrset(rr_set))
-            .skip_while(|rr_set| *name < rr_set.name().into())
-            .next()
-            .map_or(LookupRecords::NxDomain, |rr_set| {
+        // TODO: need a BorrowdRrKey
+        let rr_key = RrKey::new(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        let no_data = self.records
+            .get(&rr_key)
+            .map(|rr_set| {
                 LookupRecords::new(is_secure, supported_algorithms, rr_set.clone())
-            }).into()
+            });
+
+        if no_data.is_some() {
+            return no_data.unwrap().into()
+        }
+        
+        let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
+            self.records
+                .values()
+                .filter(|rr_set| is_nsec_rrset(rr_set))
+                // the name must be greater than the name in the nsec
+                .filter(|rr_set| *name >= rr_set.name().into())
+                // now find the next record where the covered name is greater
+                .find(|rr_set| {
+                    // there should only be one record
+                    rr_set.records(false, SupportedAlgorithms::default())
+                        .next()
+                        .and_then(|r| r.rdata().as_dnssec())
+                        .and_then(|r| r.as_nsec())
+                        .map_or(false, |r| {
+                            // the search name is less than the next NSEC record
+                            *name < r.next_domain_name().into() ||
+                            // this is the last record, and wraps to the beginning of the zone
+                            r.next_domain_name() < rr_set.name()
+                        })
+                })
+                .cloned()
+        };
+
+        let closest_proof = get_closest_nsec(name);
+
+        // we need the wildcard proof, but make sure that it's still part of the zone.
+        let wildcard = name.base_name();
+        let wildcard = if self.origin().zone_of(&wildcard) {
+            wildcard
+        } else {
+            self.origin().clone()
+        };
+
+        // don't duplicate the record...
+        let wildcard_proof = if wildcard != *name {
+            get_closest_nsec(&wildcard)
+        } else {
+            None
+        };
+
+        let proofs = match (closest_proof, wildcard_proof) {
+            (Some(closest_proof), Some(wildcard_proof)) => {
+                // dedup with the wildcard proof
+                if wildcard_proof != closest_proof {
+                    vec![wildcard_proof, closest_proof]
+                } else {
+                    vec![closest_proof]
+                }
+            }
+            (None, Some(proof)) | (Some(proof), None) => {
+                vec![proof]
+            }
+            (None, None) => { vec![] }
+        };
+
+        LookupRecords::many(is_secure, supported_algorithms, proofs).into()
+    }
+
+    #[cfg(not(feature = "dnssec"))]
+    fn get_nsec_records(
+        &self,
+        _name: &LowerName,
+        _is_secure: bool,
+        _supported_algorithms: SupportedAlgorithms,
+    ) -> AuthLookup {
+        AuthLookup::default()
     }
 
     #[cfg(feature = "dnssec")]
