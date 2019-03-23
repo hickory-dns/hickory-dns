@@ -147,6 +147,7 @@ impl SqliteAuthority {
                 root_dir,
                 &file_config,
             )?
+            .unwrap()
             .unwrap_records();
 
             let mut authority = SqliteAuthority::new(
