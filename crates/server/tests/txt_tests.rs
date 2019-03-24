@@ -5,7 +5,6 @@ extern crate trust_dns_server;
 
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
-use std::sync::Arc;
 
 use futures::future::Future;
 
@@ -14,7 +13,7 @@ use trust_dns::rr::dnssec::*;
 use trust_dns::rr::*;
 use trust_dns::serialize::txt::*;
 use trust_dns_server::authority::{Authority, ZoneType};
-use trust_dns_server::store::sqlite::SqliteAuthority;
+use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 #[test]
 #[allow(clippy::cyclomatic_complexity)]
@@ -77,22 +76,20 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     let (origin, records) = records.unwrap();
-    let authority = SqliteAuthority::new(
-        origin,
-        records
-            .into_iter()
-            .map(|(key, rrset)| (key, Arc::new(rrset)))
-            .collect(),
-        ZoneType::Master,
-        false,
-        false,
-        false,
-    );
+
+    let authority = InMemoryAuthority::new(origin, records, ZoneType::Master, false);
 
     // not validating everything, just one of each...
 
     // SOA
-    let soa_record = authority.soa().wait().unwrap().iter().next().cloned().unwrap();
+    let soa_record = authority
+        .soa()
+        .wait()
+        .unwrap()
+        .iter()
+        .next()
+        .cloned()
+        .unwrap();
     assert_eq!(RecordType::SOA, soa_record.rr_type());
     assert_eq!(&Name::from_str("isi.edu").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());

@@ -7,28 +7,23 @@
 
 //! All authority related types
 
-#[cfg(feature = "dnssec")]
-use std::borrow::Borrow;
 use std::collections::BTreeMap;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use futures::future::{self, Future, FutureResult, IntoFuture};
+use futures::future::Future;
 
 use trust_dns::op::LowerQuery;
 use trust_dns::op::ResponseCode;
 use trust_dns::proto::rr::dnssec::rdata::key::KEY;
-#[cfg(feature = "dnssec")]
-use trust_dns::proto::rr::dnssec::rdata::DNSSECRData;
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 #[cfg(feature = "dnssec")]
 use authority::UpdateRequest;
-use authority::{
-    AnyRecords, AuthLookup, Authority, LookupError, LookupRecords, LookupResult, MessageRequest,
-    UpdateResult, ZoneType,
-};
+use authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+use store::in_memory::InMemoryAuthority;
 use store::sqlite::{Journal, SqliteConfig};
 
 use error::{PersistenceErrorKind, PersistenceResult};
@@ -38,20 +33,10 @@ use error::{PersistenceErrorKind, PersistenceResult};
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a slave, or a cached zone.
 pub struct SqliteAuthority {
-    origin: LowerName,
-    class: DNSClass,
+    in_memory: InMemoryAuthority,
     journal: Option<Journal>,
-    records: BTreeMap<RrKey, Arc<RecordSet>>,
-    zone_type: ZoneType,
     allow_update: bool,
-    allow_axfr: bool,
     is_dnssec_enabled: bool,
-    // Private key mapped to the Record of the DNSKey
-    //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
-    //   server instance, but that requires requesting updates from the parent zone, which may or
-    //   may not support dynamic updates to register the new key... Trust-DNS will provide support
-    //   for this, in some form, perhaps alternate root zones...
-    secure_keys: Vec<Signer>,
 }
 
 impl SqliteAuthority {
@@ -59,10 +44,7 @@ impl SqliteAuthority {
     ///
     /// # Arguments
     ///
-    /// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`
-    ///              record.
-    /// * `records` - The map of the initial set of records in the zone.
-    /// * `zone_type` - The type of zone, i.e. is this authoritative?
+    /// * `in_memory` - InMemoryAuthority for all records.
     /// * `allow_update` - If true, then this zone accepts dynamic updates.
     /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
     ///                         (see `add_zone_signing_key()`)
@@ -70,24 +52,12 @@ impl SqliteAuthority {
     /// # Return value
     ///
     /// The new `Authority`.
-    pub fn new(
-        origin: Name,
-        records: BTreeMap<RrKey, Arc<RecordSet>>,
-        zone_type: ZoneType,
-        allow_update: bool,
-        allow_axfr: bool,
-        is_dnssec_enabled: bool,
-    ) -> Self {
+    pub fn new(in_memory: InMemoryAuthority, allow_update: bool, is_dnssec_enabled: bool) -> Self {
         Self {
-            origin: LowerName::new(&origin),
-            class: DNSClass::IN,
+            in_memory,
             journal: None,
-            records,
-            zone_type,
             allow_update,
-            allow_axfr,
             is_dnssec_enabled,
-            secure_keys: Vec::new(),
         }
     }
 
@@ -116,14 +86,9 @@ impl SqliteAuthority {
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
 
-            let mut authority = SqliteAuthority::new(
-                zone_name.clone(),
-                BTreeMap::new(),
-                zone_type,
-                config.allow_update,
-                allow_axfr,
-                enable_dnssec,
-            );
+            let in_memory =
+                InMemoryAuthority::new(zone_name.clone(), BTreeMap::new(), zone_type, allow_axfr);
+            let mut authority = SqliteAuthority::new(in_memory, config.allow_update, enable_dnssec);
             authority
                 .recover_with_journal(&journal)
                 .map_err(|e| format!("error recovering from journal: {}", e))?;
@@ -140,24 +105,16 @@ impl SqliteAuthority {
                 zone_file_path: config.zone_file_path.clone(),
             };
 
-            let records = FileAuthority::try_from_config(
+            let in_memory = FileAuthority::try_from_config(
                 zone_name.clone(),
                 zone_type,
                 allow_axfr,
                 root_dir,
                 &file_config,
             )?
-            .unwrap()
-            .unwrap_records();
+            .unwrap();
 
-            let mut authority = SqliteAuthority::new(
-                zone_name.clone(),
-                records,
-                zone_type,
-                config.allow_update,
-                allow_axfr,
-                enable_dnssec,
-            );
+            let mut authority = SqliteAuthority::new(in_memory, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
             info!("creating new journal: {:?}", journal_path);
@@ -188,7 +145,7 @@ impl SqliteAuthority {
     /// * `journal` - the journal from which to load the persisted zone.
     pub fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
         assert!(
-            self.records.is_empty(),
+            self.in_memory.records().is_empty(),
             "records should be empty during a recovery"
         );
 
@@ -198,7 +155,7 @@ impl SqliteAuthority {
             //  when recovering, if an AXFR is encountered, we should remove all the records in the
             //  authority.
             if record.rr_type() == RecordType::AXFR {
-                self.records.clear();
+                self.in_memory.clear();
             } else if let Err(error) = self.update_records(&[record], false) {
                 return Err(PersistenceErrorKind::Recovery(error.to_str()).into());
             }
@@ -220,7 +177,7 @@ impl SqliteAuthority {
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
             journal.insert_record(serial, Record::new().set_rr_type(RecordType::AXFR))?;
 
-            for rr_set in self.records.values() {
+            for rr_set in self.in_memory.records().values() {
                 // TODO: should we preserve rr_sets or not?
                 for record in rr_set.records_without_rrsigs() {
                     journal.insert_record(serial, record)?;
@@ -246,106 +203,6 @@ impl SqliteAuthority {
     /// Enables the zone for dynamic DNS updates
     pub fn set_allow_update(&mut self, allow_update: bool) {
         self.allow_update = allow_update;
-    }
-
-    /// Enables AXFRs of all the zones records
-    pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
-        self.allow_axfr = allow_axfr;
-    }
-
-    /// Retrieve the Signer, which contains the private keys, for this zone
-    pub fn secure_keys(&self) -> &[Signer] {
-        &self.secure_keys
-    }
-
-    /// Get all the
-    pub fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
-        &self.records
-    }
-
-    /// Returns the minimum ttl (as used in the SOA record)
-    pub fn minimum_ttl(&self) -> u32 {
-        let soa = match self.soa().wait(/*TODO: this works because the future here is always complete*/)
-        {
-            Ok(soa) => soa,
-            Err(e) => {
-                error!("error finding soa record for zone: {}: {}", self.origin, e);
-                return 0;
-            }
-        };
-
-        soa.iter().next().map_or(0, |soa| {
-            if let RData::SOA(ref rdata) = *soa.rdata() {
-                rdata.minimum()
-            } else {
-                0
-            }
-        })
-    }
-
-    /// get the current serial number for the zone.
-    pub fn serial(&self) -> u32 {
-        let soa = match self.soa().wait(/*TODO: this works because the future here is always complete*/)
-        {
-            Ok(soa) => soa,
-            Err(e) => {
-                error!("error finding soa record for zone: {}: {}", self.origin, e);
-                return 0;
-            }
-        };
-
-        soa.iter().next().map_or_else(
-            || {
-                warn!("no soa record found for zone: {}", self.origin);
-                0
-            },
-            |soa| {
-                if let RData::SOA(ref soa_rdata) = *soa.rdata() {
-                    soa_rdata.serial()
-                } else {
-                    panic!("This was not an SOA record"); // valid panic, never should happen
-                }
-            },
-        )
-    }
-
-    fn increment_soa_serial(&mut self) -> u32 {
-        let soa = match self.soa().wait(/*TODO: this works because the future here is always complete*/)
-        {
-            Ok(soa) => soa,
-            Err(e) => {
-                error!(
-                    "error finding soa record for zone while attempting increment: {}: {}",
-                    self.origin, e
-                );
-                return 0;
-            }
-        };
-
-        let opt_soa_serial = soa.iter().next().map(|soa| {
-            // TODO: can we get a mut reference to SOA directly?
-            let mut soa: Record = soa.clone();
-
-            let serial = if let RData::SOA(ref mut soa_rdata) = *soa.rdata_mut() {
-                soa_rdata.increment_serial();
-                soa_rdata.serial()
-            } else {
-                panic!("This was not an SOA record"); // valid panic, never should happen
-            };
-
-            (soa, serial)
-        });
-
-        if let Some((soa, serial)) = opt_soa_serial {
-            self.upsert(soa, serial);
-            serial
-        } else {
-            error!(
-                "no soa record found for zone while attempting increment: {}",
-                self.origin
-            );
-            0
-        }
     }
 
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -439,8 +296,8 @@ impl SqliteAuthority {
                 return Err(ResponseCode::FormErr);
             }
 
-            if !self.origin.zone_of(&require.name().into()) {
-                warn!("{} is not a zone_of {}", require.name(), self.origin);
+            if !self.origin().zone_of(&require.name().into()) {
+                warn!("{} is not a zone_of {}", require.name(), self.origin());
                 return Err(ResponseCode::NotZone);
             }
 
@@ -533,7 +390,7 @@ impl SqliteAuthority {
                         return Err(ResponseCode::FormErr);
                     }
                 }
-                class if class == self.class =>
+                class if class == self.class() =>
                 // zone     rrset    rr       RRset exists (value dependent)
                 {
                     if self
@@ -604,7 +461,7 @@ impl SqliteAuthority {
         if !self.allow_update {
             warn!(
                 "update attempted on non-updatable Authority: {}",
-                self.origin
+                self.origin()
             );
             return Err(ResponseCode::Refused);
         }
@@ -726,7 +583,7 @@ impl SqliteAuthority {
             }
 
             let class: DNSClass = rr.dns_class();
-            if class == self.class {
+            if class == self.class() {
                 match rr.rr_type() {
                     RecordType::ANY | RecordType::AXFR | RecordType::IXFR => {
                         return Err(ResponseCode::FormErr);
@@ -852,7 +709,7 @@ impl SqliteAuthority {
             let rr_key = RrKey::new(rr_name.clone(), rr.rr_type());
 
             match rr.dns_class() {
-                class if class == self.class => {
+                class if class == self.class() => {
                     // RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
                     //  the zone.  In case of duplicate RDATAs (which for SOA RRs is always
                     //  the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
@@ -871,7 +728,7 @@ impl SqliteAuthority {
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.rr_type() {
-                        t @ RecordType::SOA | t @ RecordType::NS if rr_name == self.origin => {
+                        t @ RecordType::SOA | t @ RecordType::NS if rr_name == *self.origin() => {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
                             continue;
@@ -888,18 +745,18 @@ impl SqliteAuthority {
                                 rr_name
                             );
                             let to_delete = self
-                                .records
+                                .records()
                                 .keys()
                                 .filter(|k| {
                                     !((k.record_type == RecordType::SOA
                                         || k.record_type == RecordType::NS)
-                                        && k.name != self.origin)
+                                        && k.name != *self.origin())
                                 })
                                 .filter(|k| k.name == rr_name)
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
                             for delete in to_delete {
-                                self.records.remove(&delete);
+                                self.records_mut().remove(&delete);
                                 updated = true;
                             }
                         }
@@ -911,7 +768,7 @@ impl SqliteAuthority {
 
                             // ANY      rrset    empty    Delete an RRset
                             if let RData::NULL(..) = *rr.rdata() {
-                                let deleted = self.records.remove(&rr_key);
+                                let deleted = self.records_mut().remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
                             } else {
@@ -924,7 +781,7 @@ impl SqliteAuthority {
                 DNSClass::NONE => {
                     info!("deleting specific record: {:?}", rr);
                     // NONE     rrset    rr       Delete an RR from an RRset
-                    if let Some(mut rrset) = self.records.get_mut(&rr_key) {
+                    if let Some(mut rrset) = self.records_mut().get_mut(&rr_key) {
                         // b/c this is an Arc, we need to clone, then remove, and replace the node.
                         let mut rrset_clone: RecordSet = RecordSet::clone(&*rrset);
                         let deleted = rrset_clone.remove(rr, serial);
@@ -959,230 +816,34 @@ impl SqliteAuthority {
 
         Ok(updated)
     }
+}
 
-    /// Inserts or updates a `Record` depending on it's existence in the authority.
-    ///
-    /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
-    ///
-    /// # Arguments
-    ///
-    /// * `record` - The `Record` to be inserted or updated.
-    /// * `serial` - Current serial number to be recorded against updates.
-    ///
-    /// # Return value
-    ///
-    /// Ok() on success or Err() with the `ResponseCode` associated with the error.
-    pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
-        assert_eq!(self.class, record.dns_class());
+impl Deref for SqliteAuthority {
+    type Target = InMemoryAuthority;
 
-        let rr_key = RrKey::new(record.name().into(), record.rr_type());
-        let records: &mut Arc<RecordSet> = self
-            .records
-            .entry(rr_key)
-            .or_insert_with(|| Arc::new(RecordSet::new(record.name(), record.rr_type(), serial)));
-
-        // because this is and Arc, we need to clone and then replace the entry
-        let mut records_clone = RecordSet::clone(&*records);
-        if records_clone.insert(record, serial) {
-            *records = Arc::new(records_clone);
-            true
-        } else {
-            false
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.in_memory
     }
+}
 
-    /// Dummy implementation for when DNSSEC is disabled.
-    #[cfg(feature = "dnssec")]
-    fn nsec_zone(&mut self) {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, NSEC};
-
-        // only create nsec records for secure zones
-        if self.secure_keys.is_empty() {
-            return;
-        }
-        debug!("generating nsec records: {}", self.origin);
-
-        // first remove all existing nsec records
-        let delete_keys: Vec<RrKey> = self
-            .records
-            .keys()
-            .filter(|k| k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC))
-            .cloned()
-            .collect();
-
-        for key in delete_keys {
-            self.records.remove(&key);
-        }
-
-        // now go through and generate the nsec records
-        let ttl = self.minimum_ttl();
-        let serial = self.serial();
-        let mut records: Vec<Record> = vec![];
-
-        {
-            let mut nsec_info: Option<(&Name, Vec<RecordType>)> = None;
-            for key in self.records.keys() {
-                match nsec_info {
-                    None => nsec_info = Some((key.name.borrow(), vec![key.record_type])),
-                    Some((name, ref mut vec)) if LowerName::new(name) == key.name => {
-                        vec.push(key.record_type)
-                    }
-                    Some((name, vec)) => {
-                        // names aren't equal, create the NSEC record
-                        let mut record = Record::with(
-                            name.clone(),
-                            RecordType::DNSSEC(DNSSECRecordType::NSEC),
-                            ttl,
-                        );
-                        let rdata = NSEC::new_cover_self(key.name.clone().into(), vec);
-                        record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
-                        records.push(record);
-
-                        // new record...
-                        nsec_info = Some((&key.name.borrow(), vec![key.record_type]))
-                    }
-                }
-            }
-
-            // the last record
-            if let Some((name, vec)) = nsec_info {
-                // names aren't equal, create the NSEC record
-                let mut record = Record::with(
-                    name.clone(),
-                    RecordType::DNSSEC(DNSSECRecordType::NSEC),
-                    ttl,
-                );
-                let rdata = NSEC::new_cover_self(self.origin().clone().into(), vec);
-                record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
-                records.push(record);
-            }
-        }
-
-        // insert all the nsec records
-        for record in records {
-            self.upsert(record, serial);
-        }
-    }
-
-    /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
-    #[cfg(feature = "dnssec")]
-    fn sign_zone(&mut self) -> DnsSecResult<()> {
-        use chrono::Utc;
-        use trust_dns::rr::dnssec::tbs;
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, SIG};
-
-        debug!("signing zone: {}", self.origin);
-        let inception = Utc::now();
-        let zone_ttl = self.minimum_ttl();
-
-        // TODO: should this be an error?
-        if self.secure_keys.is_empty() {
-            warn!("attempt to sign_zone for dnssec, but no keys available!")
-        }
-
-        // sign all record_sets, as of 0.12.1 this includes DNSKEY
-        for rr_set_orig in self.records.values_mut() {
-            let mut rr_set = RecordSet::clone(&*rr_set_orig);
-            // becuase the rrset is an Arc, it must be cloned before mutated
-
-            rr_set.clear_rrsigs();
-            let rrsig_temp = Record::with(
-                rr_set.name().clone(),
-                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-                zone_ttl,
-            );
-
-            for signer in &self.secure_keys {
-                debug!(
-                    "signing rr_set: {}, {} with: {}",
-                    rr_set.name(),
-                    rr_set.record_type(),
-                    signer.algorithm(),
-                );
-
-                let expiration = inception + signer.sig_duration();
-
-                let tbs = tbs::rrset_tbs(
-                    rr_set.name(),
-                    self.class,
-                    rr_set.name().num_labels(),
-                    rr_set.record_type(),
-                    signer.algorithm(),
-                    rr_set.ttl(),
-                    expiration.timestamp() as u32,
-                    inception.timestamp() as u32,
-                    signer.calculate_key_tag()?,
-                    signer.signer_name(),
-                    // TODO: this is a nasty clone... the issue is that the vec
-                    //  from records is of Vec<&R>, but we really want &[R]
-                    &rr_set
-                        .records_without_rrsigs()
-                        .cloned()
-                        .collect::<Vec<Record>>(),
-                );
-
-                // TODO, maybe chain these with some ETL operations instead?
-                let tbs = match tbs {
-                    Ok(tbs) => tbs,
-                    Err(err) => {
-                        error!("could not serialize rrset to sign: {}", err);
-                        continue;
-                    }
-                };
-
-                let signature = signer.sign(&tbs);
-                let signature = match signature {
-                    Ok(signature) => signature,
-                    Err(err) => {
-                        error!("could not sign rrset: {}", err);
-                        continue;
-                    }
-                };
-
-                let mut rrsig = rrsig_temp.clone();
-                rrsig.set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
-                    // type_covered: RecordType,
-                    rr_set.record_type(),
-                    // algorithm: Algorithm,
-                    signer.algorithm(),
-                    // num_labels: u8,
-                    rr_set.name().num_labels(),
-                    // original_ttl: u32,
-                    rr_set.ttl(),
-                    // sig_expiration: u32,
-                    expiration.timestamp() as u32,
-                    // sig_inception: u32,
-                    inception.timestamp() as u32,
-                    // key_tag: u16,
-                    signer.calculate_key_tag()?,
-                    // signer_name: Name,
-                    signer.signer_name().clone(),
-                    // sig: Vec<u8>
-                    signature,
-                ))));
-
-                rr_set.insert_rrsig(rrsig);
-            }
-
-            *rr_set_orig = Arc::new(rr_set);
-        }
-
-        Ok(())
+impl DerefMut for SqliteAuthority {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.in_memory
     }
 }
 
 impl Authority for SqliteAuthority {
-    type Lookup = AuthLookup;
-    type LookupFuture = FutureResult<Self::Lookup, LookupError>;
+    type Lookup = <InMemoryAuthority as Authority>::Lookup;
+    type LookupFuture = <InMemoryAuthority as Authority>::LookupFuture;
 
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
-        self.zone_type
+        self.in_memory.zone_type()
     }
 
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool {
-        self.allow_axfr
+        self.in_memory.is_axfr_allowed()
     }
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -1260,7 +921,7 @@ impl Authority for SqliteAuthority {
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName {
-        &self.origin
+        self.in_memory.origin()
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -1284,53 +945,8 @@ impl Authority for SqliteAuthority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
-        let rr_key = RrKey::new(name.clone(), rtype);
-
-        // Collect the records from each rr_set
-        let result: LookupResult<LookupRecords> = match rtype {
-            RecordType::AXFR | RecordType::ANY => {
-                let result = AnyRecords::new(
-                    is_secure,
-                    supported_algorithms,
-                    self.records.values().cloned().collect(),
-                    rtype,
-                    name.clone(),
-                );
-                Ok(LookupRecords::AnyRecords(result))
-            }
-            _ => self.records.get(&rr_key).map_or(
-                Err(LookupError::from(ResponseCode::NXDomain)),
-                |rr_set| {
-                    Ok(LookupRecords::new(
-                        is_secure,
-                        supported_algorithms,
-                        rr_set.clone(),
-                    ))
-                },
-            ),
-        };
-
-        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
-        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
-        //   always return empty sets. This is only important in the negative case, where other DNS authorities
-        //   generally return NoError and no results when other types exist at the same name. bah.
-        let result = match result {
-            Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
-                if self
-                    .records
-                    .keys()
-                    .any(|key| key.name() == name || name.zone_of(key.name()))
-                {
-                    return Err(LookupError::NameExists).into_future();
-                } else {
-                    return Err(LookupError::from(ResponseCode::NXDomain)).into_future();
-                }
-            }
-            Err(e) => return Err(e).into_future(),
-            o => o,
-        };
-
-        result.map(AuthLookup::from).into_future()
+        self.in_memory
+            .lookup(name, rtype, is_secure, supported_algorithms)
     }
 
     // FIXME: move back to a suplied method in the trait
@@ -1340,52 +956,8 @@ impl Authority for SqliteAuthority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send> {
-        debug!("searching SqliteAuthority for: {}", query);
-
-        let lookup_name = query.name();
-        let record_type: RecordType = query.query_type();
-
-        // if this is an AXFR zone transfer, verify that this is either the slave or master
-        //  for AXFR the first and last record must be the SOA
-        if RecordType::AXFR == record_type {
-            // TODO: support more advanced AXFR options
-            if !self.is_axfr_allowed() {
-                return Box::new(Err(LookupError::from(ResponseCode::Refused)).into_future());
-            }
-
-            match self.zone_type() {
-                ZoneType::Master | ZoneType::Slave => (),
-                // TODO: Forward?
-                _ => return Box::new(Err(LookupError::from(ResponseCode::NXDomain)).into_future()),
-            }
-        }
-
-        // perform the actual lookup
-        match record_type {
-            RecordType::SOA => {
-                Box::new(self.lookup(self.origin(), record_type, is_secure, supported_algorithms))
-            }
-            RecordType::AXFR => {
-                // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let lookup = self
-                    .soa_secure(is_secure, supported_algorithms)
-                    .join3(
-                        self.soa(),
-                        self.lookup(lookup_name, record_type, is_secure, supported_algorithms),
-                    )
-                    .map(|(start_soa, end_soa, records)| match start_soa {
-                        l @ AuthLookup::Empty => l,
-                        start_soa => AuthLookup::AXFR {
-                            start_soa: start_soa.unwrap_records(),
-                            records: records.unwrap_records(),
-                            end_soa: end_soa.unwrap_records(),
-                        },
-                    });
-
-                Box::new(lookup)
-            }
-            _ => Box::new(self.lookup(lookup_name, record_type, is_secure, supported_algorithms)),
-        }
+        self.in_memory
+            .search(query, is_secure, supported_algorithms)
     }
 
     /// Return the NSEC records based on the given name
@@ -1395,119 +967,18 @@ impl Authority for SqliteAuthority {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    #[cfg(feature = "dnssec")]
     fn get_nsec_records(
         &self,
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
-        use trust_dns::rr::rdata::DNSSECRecordType;
-
-        fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
-            rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC)
-        }
-
-        // TODO: need a BorrowdRrKey
-        let rr_key = RrKey::new(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC));
-        let no_data = self
-            .records
-            .get(&rr_key)
-            .map(|rr_set| LookupRecords::new(is_secure, supported_algorithms, rr_set.clone()));
-
-        if no_data.is_some() {
-            return future::result(Ok(no_data.unwrap().into()));
-        }
-
-        let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
-            self.records
-                .values()
-                .filter(|rr_set| is_nsec_rrset(rr_set))
-                // the name must be greater than the name in the nsec
-                .filter(|rr_set| *name >= rr_set.name().into())
-                // now find the next record where the covered name is greater
-                .find(|rr_set| {
-                    // there should only be one record
-                    rr_set
-                        .records(false, SupportedAlgorithms::default())
-                        .next()
-                        .and_then(|r| r.rdata().as_dnssec())
-                        .and_then(|r| r.as_nsec())
-                        .map_or(false, |r| {
-                            // the search name is less than the next NSEC record
-                            *name < r.next_domain_name().into() ||
-                            // this is the last record, and wraps to the beginning of the zone
-                            r.next_domain_name() < rr_set.name()
-                        })
-                })
-                .cloned()
-        };
-
-        let closest_proof = get_closest_nsec(name);
-
-        // we need the wildcard proof, but make sure that it's still part of the zone.
-        let wildcard = name.base_name();
-        let wildcard = if self.origin().zone_of(&wildcard) {
-            wildcard
-        } else {
-            self.origin().clone()
-        };
-
-        // don't duplicate the record...
-        let wildcard_proof = if wildcard != *name {
-            get_closest_nsec(&wildcard)
-        } else {
-            None
-        };
-
-        let proofs = match (closest_proof, wildcard_proof) {
-            (Some(closest_proof), Some(wildcard_proof)) => {
-                // dedup with the wildcard proof
-                if wildcard_proof != closest_proof {
-                    vec![wildcard_proof, closest_proof]
-                } else {
-                    vec![closest_proof]
-                }
-            }
-            (None, Some(proof)) | (Some(proof), None) => vec![proof],
-            (None, None) => vec![],
-        };
-
-        future::result(Ok(LookupRecords::many(
-            is_secure,
-            supported_algorithms,
-            proofs,
-        )
-        .into()))
+        self.in_memory
+            .get_nsec_records(name, is_secure, supported_algorithms)
     }
 
-    #[cfg(not(feature = "dnssec"))]
-    fn get_nsec_records(
-        &self,
-        _name: &LowerName,
-        _is_secure: bool,
-        _supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
-        future::result(Ok(AuthLookup::default()))
-    }
-
-    #[cfg(feature = "dnssec")]
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
-        // TODO: what TTL?
-        let record = Record::from_rdata(name, 86400, rdata);
-
-        let serial = self.serial();
-        if self.upsert(record, serial) {
-            Ok(())
-        } else {
-            Err("failed to add auth key".into())
-        }
-    }
-
-    #[cfg(not(feature = "dnssec"))]
-    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err("DNSSEC was not enabled during compilation.".into())
+        self.in_memory.add_update_auth_key(name, key)
     }
 
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
@@ -1515,49 +986,12 @@ impl Authority for SqliteAuthority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    #[cfg(feature = "dnssec")]
     fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        use trust_dns::rr::rdata::DNSSECRData;
-
-        // also add the key to the zone
-        let zone_ttl = self.minimum_ttl();
-        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
-        let dnskey = Record::from_rdata(
-            self.origin.clone().into(),
-            zone_ttl,
-            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
-        );
-
-        // TODO: also generate the CDS and CDNSKEY
-        let serial = self.serial();
-        self.upsert(dnskey, serial);
-        self.secure_keys.push(signer);
-        Ok(())
-    }
-
-    #[cfg(not(feature = "dnssec"))]
-    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
-        Err("DNSSEC was not enabled during compilation.".into())
+        self.in_memory.add_zone_signing_key(signer)
     }
 
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
-    #[cfg(feature = "dnssec")]
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        // TODO: only call nsec_zone after adds/deletes
-        // needs to be called before incrementing the soa serial, to make sur IXFR works properly
-        self.nsec_zone();
-
-        // need to resign any records at the current serial number and bump the number.
-        // first bump the serial number on the SOA, so that it is resigned with the new serial.
-        self.increment_soa_serial();
-
-        // TODO: should we auto sign here? or maybe up a level...
-        self.sign_zone()
-    }
-
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
-    #[cfg(not(feature = "dnssec"))]
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err("DNSSEC was not enabled during compilation.".into())
+        Authority::secure_zone(&mut self.in_memory)
     }
 }

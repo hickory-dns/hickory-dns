@@ -16,6 +16,9 @@ use futures::future::{self, Future, FutureResult, IntoFuture};
 
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns::rr::rdata::key::KEY;
+#[cfg(feature = "dnssec")]
+use trust_dns::rr::rdata::DNSSECRData;
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use authority::{
@@ -76,6 +79,16 @@ impl InMemoryAuthority {
         }
     }
 
+    /// Clears all records (including SOA, etc)
+    pub fn clear(&mut self) {
+        self.records.clear()
+    }
+
+    /// Get the DNSClass of the zone
+    pub fn class(&self) -> DNSClass {
+        self.class
+    }
+
     /// Enables AXFRs of all the zones records
     pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
         self.allow_axfr = allow_axfr;
@@ -86,9 +99,14 @@ impl InMemoryAuthority {
         &self.secure_keys
     }
 
-    /// Get all the
+    /// Get all the records
     pub fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
         &self.records
+    }
+
+    /// Get a mutable reference to the records
+    pub fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
+        &mut self.records
     }
 
     /// Returns the minimum ttl (as used in the SOA record)
@@ -140,7 +158,7 @@ impl InMemoryAuthority {
     }
 
     #[allow(unused)]
-    fn increment_soa_serial(&mut self) -> u32 {
+    pub(crate) fn increment_soa_serial(&mut self) -> u32 {
         let soa = Authority::soa(self).wait(/*TODO: this works because the future here is always complete*/);
 
         let soa = match soa {
@@ -407,11 +425,6 @@ impl InMemoryAuthority {
 
         Ok(())
     }
-
-    /// unwrap all the records
-    pub(crate) fn unwrap_records(self) -> BTreeMap<RrKey, Arc<RecordSet>> {
-        self.records
-    }
 }
 
 impl Authority for InMemoryAuthority {
@@ -564,7 +577,6 @@ impl Authority for InMemoryAuthority {
         result.map(AuthLookup::from).into_future()
     }
 
-    // FIXME: move back to a suplied method in the trait
     fn search(
         &self,
         query: &LowerQuery,
@@ -720,6 +732,25 @@ impl Authority for InMemoryAuthority {
         _supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
         future::result(Ok(AuthLookup::default()))
+    }
+
+    #[cfg(feature = "dnssec")]
+    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
+        let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
+        // TODO: what TTL?
+        let record = Record::from_rdata(name, 86400, rdata);
+
+        let serial = self.serial();
+        if self.upsert(record, serial) {
+            Ok(())
+        } else {
+            Err("failed to add auth key".into())
+        }
+    }
+
+    #[cfg(not(feature = "dnssec"))]
+    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
+        Err("DNSSEC was not enabled during compilation.".into())
     }
 
     /// By adding a secure key, this will implicitly enable dnssec for the zone.

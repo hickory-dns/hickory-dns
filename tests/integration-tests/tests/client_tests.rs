@@ -111,14 +111,12 @@ where
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
-    assert!(
-        response
-            .queries()
-            .first()
-            .expect("expected query")
-            .name()
-            .eq_case(&name)
-    );
+    assert!(response
+        .queries()
+        .first()
+        .expect("expected query")
+        .name()
+        .eq_case(&name));
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);
@@ -383,8 +381,10 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     use openssl::rsa::Rsa;
     use trust_dns::rr::dnssec::{Algorithm, KeyPair};
     use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, KEY};
+    use trust_dns_server::store::sqlite::SqliteAuthority;
 
-    let mut authority = create_example();
+    let authority = create_example();
+    let mut authority = SqliteAuthority::new(authority, true, false);
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
@@ -513,26 +513,22 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let RData::A(ip) = *rr.rdata() {
-                ip == Ipv4Addr::new(100, 10, 100, 10)
-            } else {
-                false
-            })
-    );
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let RData::A(ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(101, 11, 101, 11)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let RData::A(ip) = *rr.rdata() {
+            ip == Ipv4Addr::new(100, 10, 100, 10)
+        } else {
+            false
+        }));
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let RData::A(ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(101, 11, 101, 11)
+        } else {
+            false
+        }));
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
@@ -580,16 +576,14 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let RData::A(ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(101, 11, 101, 11)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let RData::A(ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(101, 11, 101, 11)
+        } else {
+            false
+        }));
 
     // check the it fails if tried again.
     let mut new = new;
@@ -605,16 +599,14 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let RData::A(ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(101, 11, 101, 11)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let RData::A(ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(101, 11, 101, 11)
+        } else {
+            false
+        }));
 }
 
 #[cfg(feature = "dnssec")]
@@ -661,16 +653,14 @@ fn test_delete_by_rdata() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(
-        result
-            .answers()
-            .iter()
-            .any(|rr| if let RData::A(ip) = rr.rdata() {
-                *ip == Ipv4Addr::new(100, 10, 100, 10)
-            } else {
-                false
-            })
-    );
+    assert!(result
+        .answers()
+        .iter()
+        .any(|rr| if let RData::A(ip) = rr.rdata() {
+            *ip == Ipv4Addr::new(100, 10, 100, 10)
+        } else {
+            false
+        }));
 }
 
 #[cfg(feature = "dnssec")]

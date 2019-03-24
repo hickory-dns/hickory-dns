@@ -238,9 +238,10 @@ fn create_sig0_ready_client(
     use openssl::rsa::Rsa;
     use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
     use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+    use trust_dns_server::store::sqlite::SqliteAuthority;
 
-    let mut authority = create_example();
-    authority.set_allow_update(true);
+    let authority = create_example();
+    let mut authority = SqliteAuthority::new(authority, true, false);
     let origin = authority.origin().clone();
 
     let trusted_name = Name::from_str("trusted.example.com").unwrap();
