@@ -14,22 +14,16 @@ use trust_dns::rr::*;
 use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
 use trust_dns_server::authority::{Authority, Catalog, MessageRequest, ZoneType};
-use trust_dns_server::store::sqlite::SqliteAuthority;
+use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::*;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_test() -> SqliteAuthority {
+pub fn create_test() -> InMemoryAuthority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
-    let mut records: SqliteAuthority = SqliteAuthority::new(
-        origin.clone(),
-        BTreeMap::new(),
-        ZoneType::Master,
-        false,
-        false,
-        false,
-    );
+    let mut records =
+        InMemoryAuthority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
     records.upsert(
         Record::new()
             .set_name(origin.clone())

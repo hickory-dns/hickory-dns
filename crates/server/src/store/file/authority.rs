@@ -8,7 +8,7 @@
 //! All authority related types
 
 use std::collections::BTreeMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 
 use futures::future::Future;
@@ -111,6 +111,12 @@ impl Deref for FileAuthority {
     }
 }
 
+impl DerefMut for FileAuthority {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 impl Authority for FileAuthority {
     type Lookup = <InMemoryAuthority as Authority>::Lookup;
     type LookupFuture = <InMemoryAuthority as Authority>::LookupFuture;
@@ -126,8 +132,9 @@ impl Authority for FileAuthority {
     }
 
     /// Perform a dynamic update of a zone
-    fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool> {
-        self.0.update(update)
+    fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+        use proto::op::ResponseCode;
+        Err(ResponseCode::NotImp)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
