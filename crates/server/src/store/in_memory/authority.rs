@@ -19,6 +19,7 @@ use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::rdata::key::KEY;
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::rdata::DNSSECRData;
+use trust_dns::rr::rdata::SOA;
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use authority::{
@@ -109,90 +110,70 @@ impl InMemoryAuthority {
         &mut self.records
     }
 
+    fn inner_soa(&self) -> Option<&SOA> {
+        let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);
+
+        self.records
+            .get(&rr_key)
+            .and_then(|rrset| rrset.records_without_rrsigs().next())
+            .and_then(|record| record.rdata().as_soa())
+    }
+
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn minimum_ttl(&self) -> u32 {
-        let soa = Authority::soa(self).wait(/*TODO: this works because the future here is always complete*/);
+        let soa = self.inner_soa();
 
         let soa = match soa {
-            Ok(soa) => soa,
-            Err(e) => {
-                warn!("could not lookup SOA for authority: {}: {}", self.origin, e);
+            Some(soa) => soa,
+            None => {
+                error!("could not lookup SOA for authority: {}", self.origin);
                 return 0;
             }
         };
 
-        soa.iter().next().map_or(0, |soa| {
-            if let RData::SOA(ref rdata) = *soa.rdata() {
-                rdata.minimum()
-            } else {
-                0
-            }
-        })
+        soa.minimum()
     }
 
     /// get the current serial number for the zone.
     pub fn serial(&self) -> u32 {
-        let soa = Authority::soa(self).wait(/*TODO: this works because the future here is always complete*/);
+        let soa = self.inner_soa();
 
         let soa = match soa {
-            Ok(soa) => soa,
-            Err(e) => {
-                warn!("could not lookup SOA for authority: {}: {}", self.origin, e);
+            Some(soa) => soa,
+            None => {
+                error!("could not lookup SOA for authority: {}", self.origin);
                 return 0;
             }
         };
 
-        soa.iter().next().map_or_else(
-            || {
-                warn!("no soa record found for zone: {}", self.origin);
-                0
-            },
-            |soa| {
-                if let RData::SOA(ref soa_rdata) = *soa.rdata() {
-                    soa_rdata.serial()
-                } else {
-                    panic!("This was not an SOA record"); // valid panic, never should happen
-                }
-            },
-        )
+        soa.serial()
     }
 
-    #[allow(unused)]
     pub(crate) fn increment_soa_serial(&mut self) -> u32 {
-        let soa = Authority::soa(self).wait(/*TODO: this works because the future here is always complete*/);
+        // we'll remove the SOA and then replace it
+        let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);
+        let record = self
+            .records
+            .remove(&rr_key)
+            // TODO: there should be an unwrap on rrset, but it's behind Arc
+            .and_then(|rrset| rrset.records_without_rrsigs().next().cloned());
 
-        let soa = match soa {
-            Ok(soa) => soa,
-            Err(e) => {
-                warn!("could not lookup SOA for authority: {}: {}", self.origin, e);
-                return 0;
-            }
+        let mut record = if let Some(record) = record {
+            record
+        } else {
+            error!("could not lookup SOA for authority: {}", self.origin);
+            return 0;
         };
 
-        let opt_soa_serial = soa.iter().next().map(|soa| {
-            // TODO: can we get a mut reference to SOA directly?
-            let mut soa: Record = soa.clone();
-
-            let serial = if let RData::SOA(ref mut soa_rdata) = *soa.rdata_mut() {
-                soa_rdata.increment_serial();
-                soa_rdata.serial()
-            } else {
-                panic!("This was not an SOA record"); // valid panic, never should happen
-            };
-
-            (soa, serial)
-        });
-
-        if let Some((soa, serial)) = opt_soa_serial {
-            self.upsert(soa, serial);
-            serial
+        let serial = if let RData::SOA(ref mut soa_rdata) = *record.rdata_mut() {
+            soa_rdata.increment_serial();
+            soa_rdata.serial()
         } else {
-            error!(
-                "no soa record found for zone while attempting increment: {}",
-                self.origin
-            );
-            0
-        }
+            panic!("This was not an SOA record"); // valid panic, never should happen
+        };
+
+        self.upsert(record, serial);
+        serial
     }
 
     /// Inserts or updates a `Record` depending on it's existence in the authority.
@@ -611,6 +592,7 @@ impl Authority for InMemoryAuthority {
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
                 let lookup = self
+                    // TODO: maybe switch this to be an soa_inner type call?
                     .soa_secure(is_secure, supported_algorithms)
                     .join3(
                         self.soa(),
