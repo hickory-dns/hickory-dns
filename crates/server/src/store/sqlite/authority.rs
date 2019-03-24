@@ -949,7 +949,6 @@ impl Authority for SqliteAuthority {
             .lookup(name, rtype, is_secure, supported_algorithms)
     }
 
-    // FIXME: move back to a suplied method in the trait
     fn search(
         &self,
         query: &LowerQuery,

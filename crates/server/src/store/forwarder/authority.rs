@@ -29,6 +29,7 @@ pub struct ForwardAuthority {
 impl ForwardAuthority {
     /// FIXME: drop this?
     #[allow(clippy::new_without_default)]
+    #[doc(hidden)]
     pub fn new() -> Self {
         // FIXME: error here
         let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
@@ -101,7 +102,7 @@ impl Authority for ForwardAuthority {
         _is_secure: bool,
         _supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
-        // FIXME: make this an error
+        // TODO: make this an error?
         assert!(self.origin.zone_of(name));
 
         info!("forwarding lookup: {} {}", name, rtype);

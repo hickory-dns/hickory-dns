@@ -563,8 +563,8 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             .wait();
 
         assert_eq!(
-            lookup.unwrap_err(),
-            LookupError::ResponseCode(ResponseCode::NXDomain)
+            *lookup.unwrap_err().as_responsecode().unwrap(),
+            ResponseCode::NXDomain
         );
     }
 }
@@ -617,8 +617,8 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             .search(&query.into(), false, SupportedAlgorithms::new())
             .wait();
         assert_eq!(
-            lookup.unwrap_err(),
-            LookupError::ResponseCode(ResponseCode::NXDomain)
+            *lookup.unwrap_err().as_responsecode().unwrap(),
+            ResponseCode::NXDomain
         );
 
         let query = Query::query(name.clone(), RecordType::AAAA);
@@ -626,8 +626,8 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             .search(&query.into(), false, SupportedAlgorithms::new())
             .wait();
         assert_eq!(
-            lookup.unwrap_err(),
-            LookupError::ResponseCode(ResponseCode::NXDomain)
+            *lookup.unwrap_err().as_responsecode().unwrap(),
+            ResponseCode::NXDomain
         );
     }
 }
