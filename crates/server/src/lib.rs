@@ -29,6 +29,8 @@
 
 extern crate bytes;
 extern crate chrono;
+#[macro_use]
+extern crate enum_as_inner;
 extern crate env_logger;
 extern crate failure;
 #[macro_use]

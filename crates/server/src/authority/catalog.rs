@@ -936,7 +936,7 @@ impl ResolveLookupState {
     > {
         #[allow(clippy::never_loop)]
         loop {
-            // FIXME: way more states to consider.
+            // TODO: way more states to consider.
             /* *self = */
             match self {
                 // In this state we await the records, on success we transition to getting
