@@ -7,15 +7,22 @@
 
 //! All authority related types
 
+use futures::Future;
+
 use trust_dns::op::LowerQuery;
+use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{LowerName, Name, RecordType};
-use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 
-use authority::{AuthLookup, MessageRequest, UpdateResult, ZoneType};
+use authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
 
 /// Authority implementations can be used with a `Catalog`
 pub trait Authority: Send {
+    /// Result of a lookup
+    type Lookup: Send + Sized + 'static;
+    /// The future type that will resolve to a Lookup
+    type LookupFuture: Future<Item = Self::Lookup, Error = LookupError> + Send;
+
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
@@ -48,7 +55,7 @@ pub trait Authority: Send {
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup;
+    ) -> Self::LookupFuture;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -66,54 +73,10 @@ pub trait Authority: Send {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup {
-        debug!("searching SqliteAuthority for: {}", query);
-
-        let lookup_name = query.name();
-        let record_type: RecordType = query.query_type();
-
-        // if this is an AXFR zone transfer, verify that this is either the slave or master
-        //  for AXFR the first and last record must be the SOA
-        if RecordType::AXFR == record_type {
-            // TODO: support more advanced AXFR options
-            if !self.is_axfr_allowed() {
-                return AuthLookup::Refused;
-            }
-
-            match self.zone_type() {
-                ZoneType::Master | ZoneType::Slave => (),
-                // TODO: Forward?
-                _ => return AuthLookup::NxDomain, // TODO: this sould be an error.
-            }
-        }
-
-        // perform the actual lookup
-        match record_type {
-            RecordType::SOA => {
-                self.lookup(self.origin(), record_type, is_secure, supported_algorithms)
-            }
-            RecordType::AXFR => {
-                // FIXME: shouldn't these SOA's be secure? at least the first, perhaps not the last?
-                let start_soa = self.soa_secure(is_secure, supported_algorithms);
-                let end_soa = self.soa();
-                let records =
-                    self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
-
-                match start_soa {
-                    l @ AuthLookup::NxDomain | l @ AuthLookup::NameExists => l,
-                    start_soa => AuthLookup::AXFR {
-                        start_soa: start_soa.unwrap_records(),
-                        records: records.unwrap_records(),
-                        end_soa: end_soa.unwrap_records(),
-                    },
-                }
-            }
-            _ => self.lookup(lookup_name, record_type, is_secure, supported_algorithms),
-        }
-    }
+    ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send>;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Self::LookupFuture {
         self.lookup(
             self.origin(),
             RecordType::NS,
@@ -134,13 +97,13 @@ pub trait Authority: Send {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup;
+    ) -> Self::LookupFuture;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> AuthLookup {
+    fn soa(&self) -> Self::LookupFuture {
         // SOA should be origin|SOA
         self.lookup(
             self.origin(),
@@ -151,7 +114,11 @@ pub trait Authority: Send {
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
+    fn soa_secure(
+        &self,
+        is_secure: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Self::LookupFuture {
         self.lookup(
             self.origin(),
             RecordType::SOA,
@@ -163,16 +130,22 @@ pub trait Authority: Send {
     // TODO: this should probably be a general purpose higher level component?
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err(DnsSecError::from("dynamic update not supported by this Authority type"))
+        Err(DnsSecError::from(
+            "dynamic update not supported by this Authority type",
+        ))
     }
 
     /// Add Signer
     fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
-        Err(DnsSecError::from("zone signing not supported by this Authority type"))
+        Err(DnsSecError::from(
+            "zone signing not supported by this Authority type",
+        ))
     }
 
     /// Sign the zone for DNSSEC
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err(DnsSecError::from("zone signing not supported by this Authority type"))
+        Err(DnsSecError::from(
+            "zone signing not supported by this Authority type",
+        ))
     }
 }

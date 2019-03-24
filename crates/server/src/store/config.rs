@@ -8,6 +8,8 @@
 //! Configuration for the stores
 
 use store::file::FileConfig;
+#[cfg(feature = "trust-dns-resolver")]
+use store::forwarder::ForwardConfig;
 use store::sqlite::SqliteConfig;
 
 /// Enumeration over all Store configurations
@@ -19,4 +21,7 @@ pub enum StoreConfig {
     File(FileConfig),
     /// Sqlite based configuration file
     Sqlite(SqliteConfig),
+    /// Forwarder, aka Resolver
+    #[cfg(feature = "trust-dns-resolver")]
+    Forward(ForwardConfig),
 }

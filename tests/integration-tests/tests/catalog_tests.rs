@@ -1,3 +1,4 @@
+extern crate futures;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
@@ -5,28 +6,24 @@ extern crate trust_dns_server;
 use std::collections::*;
 use std::net::*;
 
+use futures::Future;
+
 use trust_dns::op::*;
 use trust_dns::rr::rdata::*;
 use trust_dns::rr::*;
 use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
-use trust_dns_server::authority::*;
-use trust_dns_server::store::sqlite::SqliteAuthority;
+use trust_dns_server::authority::{Authority, Catalog, MessageRequest, ZoneType};
+use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::*;
 
 #[allow(clippy::unreadable_literal)]
-pub fn create_test() -> SqliteAuthority {
+pub fn create_test() -> InMemoryAuthority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
-    let mut records: SqliteAuthority = SqliteAuthority::new(
-        origin.clone(),
-        BTreeMap::new(),
-        ZoneType::Master,
-        false,
-        false,
-        false,
-    );
+    let mut records =
+        InMemoryAuthority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
     records.upsert(
         Record::new()
             .set_name(origin.clone())
@@ -41,7 +38,8 @@ pub fn create_test() -> SqliteAuthority {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -84,7 +82,8 @@ pub fn create_test() -> SqliteAuthority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -107,7 +106,8 @@ pub fn create_test() -> SqliteAuthority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -138,9 +138,10 @@ fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .unwrap();
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -181,9 +182,10 @@ fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .unwrap();
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -220,9 +222,10 @@ fn test_catalog_nx_soa() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .unwrap();
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -265,7 +268,8 @@ fn test_axfr() {
             3600,
             1209600,
             3600,
-        ))).clone();
+        )))
+        .clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), Box::new(test));
@@ -283,9 +287,10 @@ fn test_axfr() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .expect("lookup failed");
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     let mut answers: Vec<Record> = result.answers().to_vec();
 
@@ -309,7 +314,8 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
@@ -338,7 +344,8 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -353,7 +360,8 @@ fn test_axfr() {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(3600)
@@ -367,7 +375,8 @@ fn test_axfr() {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
     ];
 
     expected_set.sort();
@@ -398,9 +407,10 @@ fn test_axfr_refused() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question_req, None, response_handler.clone())
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
         .expect("lookup failed");
-    let result = response_handler.into_message();
+    let result = response_handler.into_message().wait().unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert!(result.answers().is_empty());

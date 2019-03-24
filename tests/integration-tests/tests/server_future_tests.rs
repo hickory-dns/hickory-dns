@@ -34,15 +34,12 @@ use trust_dns::udp::UdpClientConnection;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::DnsRequestSender;
 
-use trust_dns_server::authority::*;
+use trust_dns_server::authority::{Authority, Catalog};
 use trust_dns_server::ServerFuture;
 
 use trust_dns_integration::authority::create_example;
 
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
@@ -121,7 +118,8 @@ fn test_server_unknown_type() {
             &Name::from_str("www.example.com.").unwrap(),
             DNSClass::IN,
             RecordType::Unknown(65535),
-        ).expect("query failed for unknown");
+        )
+        .expect("query failed for unknown");
 
     assert_eq!(client_result.response_code(), ResponseCode::NoError);
     assert_eq!(
@@ -137,10 +135,7 @@ fn test_server_unknown_type() {
     server_thread.join().unwrap();;
 }
 
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 fn read_file(path: &str) -> Vec<u8> {
     use std::fs::File;
     use std::io::Read;
@@ -154,10 +149,7 @@ fn read_file(path: &str) -> Vec<u8> {
 }
 
 // TODO: move all this to future based clients
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 #[test]
 
 fn test_server_www_tls() {
@@ -206,16 +198,16 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     TcpClientConnection::new(ipaddr).unwrap()
 }
 
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
     use rustls::{Certificate, ClientConfig};
 
     let trust_chain = Certificate(cert_der);
     let mut config = ClientConfig::new();
-    config.root_store.add(&trust_chain).expect("bad certificate");
+    config
+        .root_store
+        .add(&trust_chain)
+        .expect("bad certificate");
 
     TlsClientConnection::new(ipaddr, dns_name, Arc::new(config))
 }
@@ -284,7 +276,8 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
         .block_on::<Box<Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
             server.register_socket(udp_socket);
             future::ok(())
-        }))).unwrap();
+        })))
+        .unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
@@ -300,7 +293,8 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     io_loop
         .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
             || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
-        ))).expect("tcp registration failed");
+        )))
+        .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
@@ -310,10 +304,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
 }
 
 // FIXME: need a rustls option
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
@@ -338,7 +329,8 @@ fn server_thread_tls(
                     pkcs12,
                 ))
             },
-        ))).expect("tcp registration failed");
+        )))
+        .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop

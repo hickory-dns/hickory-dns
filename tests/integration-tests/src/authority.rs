@@ -3,23 +3,17 @@ use std::collections::BTreeMap;
 use trust_dns::rr::*;
 
 use trust_dns_server::authority::ZoneType;
-use trust_dns_server::store::sqlite::SqliteAuthority;
+use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 #[allow(unused)]
 #[allow(clippy::unreadable_literal)]
-pub fn create_example() -> SqliteAuthority {
+pub fn create_example() -> InMemoryAuthority {
     use std::net::*;
     use trust_dns::rr::rdata::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
-    let mut records: SqliteAuthority = SqliteAuthority::new(
-        origin.clone(),
-        BTreeMap::new(),
-        ZoneType::Master,
-        false,
-        false,
-        false,
-    );
+    let mut records =
+        InMemoryAuthority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert(
         Record::new()
@@ -35,7 +29,8 @@ pub fn create_example() -> SqliteAuthority {
                 3600,
                 1209600,
                 3600,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -73,7 +68,8 @@ pub fn create_example() -> SqliteAuthority {
                 "$Id: example.com 4415 2015-08-24 \
                  20:12:23Z davids $"
                     .to_string(),
-            ]))).clone(),
+            ])))
+            .clone(),
         0,
     );
 
@@ -98,7 +94,8 @@ pub fn create_example() -> SqliteAuthority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -152,7 +149,8 @@ pub fn create_example() -> SqliteAuthority {
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))).clone(),
+            )))
+            .clone(),
         0,
     );
 
@@ -167,13 +165,13 @@ pub fn create_example() -> SqliteAuthority {
 
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
-pub fn create_secure_example() -> SqliteAuthority {
+pub fn create_secure_example() -> InMemoryAuthority {
     use chrono::Duration;
     use openssl::rsa::Rsa;
     use trust_dns::rr::dnssec::*;
     use trust_dns_server::authority::Authority;
 
-    let mut authority: SqliteAuthority = create_example();
+    let mut authority = create_example();
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();

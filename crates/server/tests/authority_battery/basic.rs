@@ -1,15 +1,17 @@
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
+use futures::future::Future;
+
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::dnssec::SupportedAlgorithms;
 use trust_dns::rr::{Name, RData, RecordType};
-use trust_dns_server::authority::{Authority, MessageRequest};
+use trust_dns_server::authority::{AuthLookup, Authority, MessageRequest};
 
-pub fn test_a_lookup<A: Authority>(authority: A) {
+pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap();
 
     match lookup
         .into_iter()
@@ -23,8 +25,8 @@ pub fn test_a_lookup<A: Authority>(authority: A) {
 }
 
 #[allow(clippy::unreadable_literal)]
-pub fn test_soa<A: Authority>(authority: A) {
-    let lookup = authority.soa();
+pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let lookup = authority.soa().wait().unwrap();
 
     match lookup
         .into_iter()
@@ -45,8 +47,8 @@ pub fn test_soa<A: Authority>(authority: A) {
     }
 }
 
-pub fn test_ns<A: Authority>(authority: A) {
-    let lookup = authority.ns(false, SupportedAlgorithms::new());
+pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let lookup = authority.ns(false, SupportedAlgorithms::new()).wait().unwrap();
 
     match lookup
         .into_iter()
@@ -59,7 +61,7 @@ pub fn test_ns<A: Authority>(authority: A) {
     }
 }
 
-pub fn test_update_errors<A: Authority>(mut authority: A) {
+pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
     use trust_dns::serialize::binary::BinDecodable;
 
     let message = Message::default();
@@ -70,9 +72,9 @@ pub fn test_update_errors<A: Authority>(mut authority: A) {
     assert!(authority.update(&update).is_err());
 }
 
-pub fn test_dots_in_name<A: Authority>(authority: A) {
+pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("this.has.dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap();
     
     assert_eq!(
         *lookup
@@ -87,30 +89,26 @@ pub fn test_dots_in_name<A: Authority>(authority: A) {
 
     // the rest should all be NameExists
     let query = Query::query(Name::from_str("has.dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
     
-    assert!(lookup.was_empty());
-    assert!(lookup.is_name_exists());
+    assert!(lookup.is_name_exists(), "lookup: {}", lookup);
 
     // the rest should all be NameExists
     let query = Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
     
-    assert!(lookup.was_empty());
     assert!(lookup.is_name_exists());
 
     // the rest should all be NameExists
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
     
-    assert!(lookup.was_empty());
     assert!(lookup.is_name_exists());
 
     // and this should be an NXDOMAIN
     let query = Query::query(Name::from_str("not.this.has.dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new());
+    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
     
-    assert!(lookup.was_empty());
     assert!(lookup.is_nx_domain());
 }
 

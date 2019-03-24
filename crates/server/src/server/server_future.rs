@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::{Future, Stream};
+use futures::{Async, Future, Poll, Stream};
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
@@ -24,10 +24,7 @@ use proto::tcp::TcpStream;
 use proto::udp::UdpStream;
 use proto::xfer::SerialMessage;
 use proto::BufStreamHandle;
-#[cfg(all(
-    feature = "dns-over-openssl",
-    not(feature = "dns-over-rustls")
-))]
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use trust_dns_openssl::tls_server::*;
 
 use authority::MessageRequest;
@@ -60,16 +57,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         // this spawns a ForEach future which handles all the requests into a Handler.
         tokio_executor::spawn(
             buf_stream
+                .map_err(|e| panic!("error in UDP request_stream handler: {}", e))
                 .for_each(move |message| {
                     let src_addr = message.addr();
+                    debug!("received udp request from: {}", src_addr);
                     self::handle_raw_request(message, handler.clone(), stream_handle.clone())
-                        .map_err(move |e| {
-                            debug!("error parsing UDP request src: {:?} error: {}", src_addr, e)
-                        }).ok();
-
-                    // continue processing...
-                    Ok(())
-                }).map_err(|e| panic!("error in UDP request_stream handler: {}", e)),
+                }),
         );
     }
 
@@ -116,22 +109,24 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // and spawn to the io_loop
                     tokio_executor::spawn(
                         timeout_stream
+                            .map_err(move |e| {
+                                debug!(
+                                    "error in TCP request_stream src: {:?} error: {}",
+                                    src_addr, e
+                                )
+                            })
                             .for_each(move |message| {
                                 self::handle_raw_request(
                                     message,
                                     handler.clone(),
                                     stream_handle.clone(),
                                 )
-                            }).map_err(move |e| {
-                                debug!(
-                                    "error in TCP request_stream src: {:?} error: {}",
-                                    src_addr, e
-                                )
                             }),
                     );
 
                     Ok(())
-                }).map_err(|e| panic!("error in inbound tcp_stream: {}", e)),
+                })
+                .map_err(|e| panic!("error in inbound tcp_stream: {}", e)),
         );
 
         Ok(())
@@ -173,10 +168,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    ))]
+    #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
     pub fn register_tls_listener(
         &self,
         listener: tokio_tcp::TcpListener,
@@ -209,7 +201,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                                 io::ErrorKind::ConnectionRefused,
                                 format!("tls error: {}", e),
                             )
-                        }).and_then(move |tls_stream| {
+                        })
+                        .and_then(move |tls_stream| {
                             let (buf_stream, stream_handle) =
                                 TlsStream::from_stream(tls_stream, src_addr);
                             let timeout_stream = TimeoutStream::new(buf_stream, timeout);
@@ -219,17 +212,21 @@ impl<T: RequestHandler> ServerFuture<T> {
                             // and spawn to the io_loop
                             tokio_executor::spawn(
                                 timeout_stream
+                                    .map_err(move |e| {
+                                        debug!(
+                                            "error in TLS request_stream src: {:?} error: {}",
+                                            src_addr, e
+                                        )
+                                    })
                                     .for_each(move |message| {
                                         self::handle_raw_request(
                                             message,
                                             handler.clone(),
                                             stream_handle.clone(),
                                         )
-                                    }).map_err(move |e| {
-                                        debug!(
-                                            "error in TLS request_stream src: {:?} error: {}",
-                                            src_addr, e
-                                        )
+                                    })
+                                    .map_err(move |_| {
+                                        debug!("error in TLS request_stream src: {:?}", src_addr)
                                     }),
                             );
 
@@ -239,7 +236,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // .map_err(move |e| {
                     //     debug!("error TLS handshake: {:?} error: {:?}", src_addr, e)
                     // })
-                }).map_err(|e| panic!("error in inbound tls_stream: {}", e))
+                })
+                .map_err(|e| panic!("error in inbound tls_stream: {}", e))
         }));
 
         Ok(())
@@ -258,10 +256,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(all(
-        feature = "dns-over-openssl",
-        not(feature = "dns-over-rustls")
-    ))]
+    #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
     pub fn register_tls_listener_std(
         &self,
         listener: std::net::TcpListener,
@@ -269,7 +264,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
         self.register_tls_listener(
-            tokio_tcp::TcpListener::from_std(listener, &Handle::current())?,
+            tokio_tcp::TcpListener::from_std(listener, &Handle::default())?,
             timeout,
             certificate_and_key,
         )
@@ -330,7 +325,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                                 io::ErrorKind::ConnectionRefused,
                                 format!("tls error: {}", e),
                             )
-                        }).and_then(move |tls_stream| {
+                        })
+                        .and_then(move |tls_stream| {
                             let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
                             let timeout_stream = TimeoutStream::new(buf_stream, timeout);
                             //let request_stream = RequestStream::new(timeout_stream, stream_handle);
@@ -339,17 +335,21 @@ impl<T: RequestHandler> ServerFuture<T> {
                             // and spawn to the io_loop
                             tokio_executor::spawn(
                                 timeout_stream
+                                    .map_err(move |e| {
+                                        debug!(
+                                            "error in TLS request_stream src: {:?} error: {}",
+                                            src_addr, e
+                                        )
+                                    })
                                     .for_each(move |message| {
                                         self::handle_raw_request(
                                             message,
                                             handler.clone(),
                                             stream_handle.clone(),
                                         )
-                                    }).map_err(move |e| {
-                                        debug!(
-                                            "error in TLS request_stream src: {:?} error: {}",
-                                            src_addr, e
-                                        )
+                                    })
+                                    .map_err(move |_| {
+                                        debug!("error in TLS request_stream src: {:?}", src_addr)
                                     }),
                             );
 
@@ -359,7 +359,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // .map_err(move |e| {
                     //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
                     // })
-                }).map_err(|e| panic!("error in inbound https_stream: {}", e))
+                })
+                .map_err(|e| panic!("error in inbound https_stream: {}", e))
         }));
 
         Ok(())
@@ -439,6 +440,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
             listener
                 .incoming()
+                .map_err(|e| warn!("error in inbound https_stream: {}", e))
                 .for_each(move |tcp_stream| {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
@@ -449,19 +451,16 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // take the created stream...
                     tls_acceptor
                         .accept(tcp_stream)
-                        .map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::ConnectionRefused,
-                                format!("tls error: {}", e),
-                            )
-                        }).and_then(move |tls_stream| {
+                        .map_err(|e| warn!("tls error: {}", e))
+                        .and_then(move |tls_stream| {
                             h2_handler(handler, tls_stream, src_addr, dns_hostname)
                         })
                     // FIXME: need to map this error to Ok, otherwise this is a DOS potential
                     // .map_err(move |e| {
                     //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
                     // })
-                }).map_err(|e| panic!("error in inbound https_stream: {}", e))
+                })
+                .map_err(|_| panic!("error in inbound https_stream"))
         }));
 
         Ok(())
@@ -472,7 +471,7 @@ pub(crate) fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     request_handler: Arc<Mutex<T>>,
     response_handler: BufStreamHandle,
-) -> io::Result<()> {
+) -> HandleRawRequest<T::ResponseFuture> {
     let src_addr = message.addr();
     let response_handler = ResponseHandle::new(message.addr(), response_handler);
 
@@ -481,16 +480,22 @@ pub(crate) fn handle_raw_request<T: RequestHandler>(
     //       the IO thread.
     // decode any messages that are ready
     let mut decoder = BinDecoder::new(message.bytes());
-    let message = MessageRequest::read(&mut decoder)?;
-    self::handle_request(message, src_addr, request_handler, response_handler)
+    match MessageRequest::read(&mut decoder) {
+        Ok(message) => {
+            let handle_request =
+                self::handle_request(message, src_addr, request_handler, response_handler);
+            HandleRawRequest::HandleRequest(handle_request)
+        }
+        Err(e) => HandleRawRequest::Result(e.into()),
+    }
 }
 
-pub(crate) fn handle_request<'q, R: ResponseHandler + 'static, T: RequestHandler>(
-    message: MessageRequest<'q>,
+pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
+    message: MessageRequest,
     src_addr: SocketAddr,
     request_handler: Arc<Mutex<T>>,
     response_handler: R,
-) -> io::Result<()> {
+) -> T::ResponseFuture {
     let request = Request {
         message,
         src: src_addr,
@@ -516,5 +521,26 @@ pub(crate) fn handle_request<'q, R: ResponseHandler + 'static, T: RequestHandler
     request_handler
         .lock()
         .expect("poisoned lock")
-        .handle_request(&request, response_handler)
+        .handle_request(request, response_handler)
+}
+
+#[must_use = "futures do nothing unless polled"]
+pub(crate) enum HandleRawRequest<F: Future<Item = (), Error = ()>> {
+    HandleRequest(F),
+    Result(io::Error),
+}
+
+impl<F: Future<Item = (), Error = ()>> Future for HandleRawRequest<F> {
+    type Item = ();
+    type Error = ();
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self {
+            HandleRawRequest::HandleRequest(f) => f.poll(),
+            HandleRawRequest::Result(res) => {
+                warn!("failed to handle message: {}", res);
+                Ok(Async::Ready(()))
+            }
+        }
+    }
 }

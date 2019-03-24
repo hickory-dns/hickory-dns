@@ -115,13 +115,12 @@ impl Record {
     /// # Arguments
     ///
     /// * `name` - name of the resource records
-    /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
     /// * `rdata` - record data to associate with the Record
-    pub fn from_rdata(name: Name, ttl: u32, record_type: RecordType, rdata: RData) -> Record {
+    pub fn from_rdata(name: Name, ttl: u32, rdata: RData) -> Record {
         Record {
             name_labels: name,
-            rr_type: record_type,
+            rr_type: rdata.to_record_type(),
             dns_class: DNSClass::IN,
             ttl,
             rdata,

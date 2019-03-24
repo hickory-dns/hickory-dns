@@ -12,23 +12,23 @@ use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
 
 use authority::message_request::QueriesEmitAndCount;
-use authority::{AuthLookupIter, Queries};
+use authority::Queries;
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
 pub struct MessageResponse<
     'q,
     'a,
-    A = AuthLookupIter<'a>,
-    N = AuthLookupIter<'a>,
-    S = AuthLookupIter<'a>,
+    A = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
+    N = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
+    S = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
 > where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
     S: Iterator<Item = &'a Record> + Send + 'a,
 {
     header: Header,
-    queries: Option<&'q Queries<'q>>,
+    queries: Option<&'q Queries>,
     answers: A,
     name_servers: N,
     soa: S,
@@ -42,8 +42,8 @@ enum EmptyOrQueries<'q> {
     Queries(QueriesEmitAndCount<'q>),
 }
 
-impl<'q> From<Option<&'q Queries<'q>>> for EmptyOrQueries<'q> {
-    fn from(option: Option<&'q Queries<'q>>) -> Self {
+impl<'q> From<Option<&'q Queries>> for EmptyOrQueries<'q> {
+    fn from(option: Option<&'q Queries>) -> Self {
         option.map_or(EmptyOrQueries::Empty, |q| {
             EmptyOrQueries::Queries(q.as_emit_and_count())
         })
@@ -96,7 +96,7 @@ where
 
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q> {
-    queries: Option<&'q Queries<'q>>,
+    queries: Option<&'q Queries>,
     sig0: Option<Vec<Record>>,
     edns: Option<Edns>,
 }
@@ -107,7 +107,7 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `queries` - any optional set of Queries to associate with the Response
-    pub fn new(queries: Option<&'q Queries<'q>>) -> MessageResponseBuilder<'q> {
+    pub fn new(queries: Option<&'q Queries>) -> MessageResponseBuilder<'q> {
         MessageResponseBuilder {
             queries,
             sig0: None,
@@ -154,13 +154,13 @@ impl<'q> MessageResponseBuilder<'q> {
     }
 
     /// Construct a Response with no associated records
-    pub fn build_no_records(self, header: Header) -> MessageResponse<'q, 'q> {
+    pub fn build_no_records(self, header: Header) -> MessageResponse<'q, 'static> {
         MessageResponse {
             header,
             queries: self.queries,
-            answers: Default::default(),
-            name_servers: Default::default(),
-            soa: Default::default(),
+            answers: Box::new(None.into_iter()),
+            name_servers: Box::new(None.into_iter()),
+            soa: Box::new(None.into_iter()),
             additionals: Default::default(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
@@ -179,7 +179,7 @@ impl<'q> MessageResponseBuilder<'q> {
         id: u16,
         op_code: OpCode,
         response_code: ResponseCode,
-    ) -> MessageResponse<'q, 'q> {
+    ) -> MessageResponse<'q, 'static> {
         let mut header = Header::default();
         header.set_message_type(MessageType::Response);
         header.set_id(id);
@@ -189,9 +189,9 @@ impl<'q> MessageResponseBuilder<'q> {
         MessageResponse {
             header,
             queries: self.queries,
-            answers: Default::default(),
-            name_servers: Default::default(),
-            soa: Default::default(),
+            answers: Box::new(None.into_iter()),
+            name_servers: Box::new(None.into_iter()),
+            soa: Box::new(None.into_iter()),
             additionals: Default::default(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,

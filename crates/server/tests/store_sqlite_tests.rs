@@ -1,3 +1,4 @@
+extern crate futures;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -25,7 +26,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
     let config = SqliteConfig {
         zone_file_path: master_file_path.to_string(),
         journal_file_path: journal_path.to_str().unwrap().to_string(),
-        allow_update: false,
+        allow_update: true,
     };
 
     SqliteAuthority::try_from_config(

@@ -147,7 +147,7 @@ impl<MF: MessageFinalizer> DnsRequestSender for UdpClientStream<MF> {
                 return UdpResponse(Timeout::new(
                     SingleUseUdpSocket::Errored(Some(err)),
                     self.timeout,
-                ))
+                ));
             }
         };
 
@@ -454,7 +454,6 @@ fn udp_client_stream_test(server_addr: IpAddr) {
                 message.add_answer(Record::from_rdata(
                     test_name_server.clone(),
                     0,
-                    RecordType::NULL,
                     RData::NULL(NULL::with(test_bytes.to_vec())),
                 ));
 

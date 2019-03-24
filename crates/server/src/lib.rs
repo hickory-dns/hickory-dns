@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![deny(missing_docs)]
-#![recursion_limit = "1024"]
+#![warn(missing_docs)]
+#![recursion_limit = "2048"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -29,8 +29,11 @@
 
 extern crate bytes;
 extern crate chrono;
+#[macro_use]
+extern crate enum_as_inner;
 extern crate env_logger;
 extern crate failure;
+#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate log;
@@ -63,6 +66,8 @@ extern crate trust_dns_https;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
 pub extern crate trust_dns_proto as proto;
+#[cfg(feature = "trust-dns-resolver")]
+extern crate trust_dns_resolver;
 #[cfg(feature = "dns-over-rustls")]
 extern crate trust_dns_rustls;
 

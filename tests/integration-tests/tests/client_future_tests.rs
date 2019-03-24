@@ -29,9 +29,9 @@ use trust_dns::error::ClientErrorKind;
 use trust_dns::op::ResponseCode;
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::dnssec::Signer;
-use trust_dns::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::Record;
+use trust_dns::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
@@ -45,6 +45,8 @@ use trust_dns_integration::{NeverReturnsClientStream, TestClientStream};
 
 #[test]
 fn test_query_nonet() {
+    // env_logger::init();
+
     let authority = create_example();
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
@@ -160,14 +162,12 @@ where
             .query(name.clone(), DNSClass::IN, RecordType::A)
             .map(move |response| {
                 println!("response records: {:?}", response);
-                assert!(
-                    response
-                        .queries()
-                        .first()
-                        .expect("expected query")
-                        .name()
-                        .eq_case(&name)
-                );
+                assert!(response
+                    .queries()
+                    .first()
+                    .expect("expected query")
+                    .name()
+                    .eq_case(&name));
 
                 let record = &response.answers()[0];
                 assert_eq!(record.name(), &name);
@@ -179,7 +179,8 @@ where
                 } else {
                     assert!(false);
                 }
-            }).map_err(|e| {
+            })
+            .map_err(|e| {
                 assert!(false, "query failed: {}", e);
             }),
     )
@@ -237,9 +238,10 @@ fn create_sig0_ready_client(
     use openssl::rsa::Rsa;
     use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
     use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+    use trust_dns_server::store::sqlite::SqliteAuthority;
 
-    let mut authority = create_example();
-    authority.set_allow_update(true);
+    let authority = create_example();
+    let mut authority = SqliteAuthority::new(authority, true, false);
     let origin = authority.origin().clone();
 
     let trusted_name = Name::from_str("trusted.example.com").unwrap();
@@ -683,7 +685,8 @@ fn test_delete_by_rdata() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        )).expect("query failed");
+        ))
+        .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
     assert!(result.answers().iter().any(|rr| *rr == record1));
@@ -756,7 +759,8 @@ fn test_delete_by_rdata_multi() {
             record1.name().clone(),
             record1.dns_class(),
             record1.rr_type(),
-        )).expect("query failed");
+        ))
+        .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
     assert!(!result.answers().iter().any(|rr| *rr == record1));

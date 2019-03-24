@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use futures::{future, Future};
 
 use trust_dns::op::{Message, Query};
-use trust_dns::rr::{Name, RData, Record, RecordType};
+use trust_dns::rr::{Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
@@ -44,11 +44,11 @@ impl<O: OnSend> DnsHandle for MockClientHandle<O> {
 }
 
 pub fn cname_record(name: Name, cname: Name) -> Record {
-    Record::from_rdata(name, 86400, RecordType::CNAME, RData::CNAME(cname))
+    Record::from_rdata(name, 86400, RData::CNAME(cname))
 }
 
 pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
-    Record::from_rdata(name, 86400, RecordType::A, RData::A(ip))
+    Record::from_rdata(name, 86400, RData::A(ip))
 }
 
 pub fn message(

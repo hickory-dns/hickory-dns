@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 extern crate chrono;
+extern crate env_logger;
 extern crate futures;
 #[macro_use]
 extern crate log;
@@ -157,7 +158,8 @@ fn test_nodata_where_name_exists() {
                 Name::from_str("www.example.com.").unwrap(),
                 DNSClass::IN,
                 RecordType::SRV,
-            )).unwrap();
+            ))
+            .unwrap();
         assert_eq!(msg.response_code(), ResponseCode::NoError);
         assert!(msg.answers().is_empty());
         assert!(true);
@@ -179,7 +181,8 @@ fn test_nxdomain_where_no_name_exists() {
                 Name::from_str("nxdomain.example.com.").unwrap(),
                 DNSClass::IN,
                 RecordType::SRV,
-            )).unwrap();
+            ))
+            .unwrap();
         assert_eq!(msg.response_code(), ResponseCode::NXDomain);
         assert!(msg.answers().is_empty());
         assert!(true);
@@ -243,5 +246,49 @@ fn test_server_continues_on_bad_data_tcp() {
         io_loop.spawn(bg);
 
         query_a(&mut io_loop, &mut client);
+    })
+}
+
+#[test]
+#[cfg(feature = "trust-dns-resolver")]
+fn test_forward() {
+    use server_harness::query_message;
+
+    env_logger::init();
+
+    named_test_harness("example_forwarder.toml", |port, _, _| {
+        let mut io_loop = Runtime::new().unwrap();
+        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        let (stream, sender) = TcpClientStream::new(addr);
+        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+
+        io_loop.spawn(bg);
+        let response = query_message(
+            &mut io_loop,
+            &mut client,
+            Name::from_str("www.example.com").unwrap(),
+            RecordType::A,
+        );
+        assert_eq!(
+            *response.answers()[0].rdata().as_a().unwrap(),
+            Ipv4Addr::new(93, 184, 216, 34)
+        );
+
+        // just tests that multiple queries work
+        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        let (stream, sender) = TcpClientStream::new(addr);
+        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+
+        io_loop.spawn(bg);
+        let response = query_message(
+            &mut io_loop,
+            &mut client,
+            Name::from_str("www.example.com").unwrap(),
+            RecordType::A,
+        );
+        assert_eq!(
+            *response.answers()[0].rdata().as_a().unwrap(),
+            Ipv4Addr::new(93, 184, 216, 34)
+        );
     })
 }
