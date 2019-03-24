@@ -1,6 +1,6 @@
 listen_addrs_ipv4 = ["0.0.0.0"]
 
-tls_cert = { path = "sec/example.p12", password = "mypass" }
+tls_cert = { path = "sec/example.p12", endpoint_name = "ns.example.com", password = "mypass" }
 
 [[zones]]
 zone = "example.com"

@@ -244,7 +244,7 @@ fn test_parse_tls() {
     assert_eq!(config.get_tls_cert(), None);
 
     let config: Config = "
-tls_cert = { path = \"path/to/some.pkcs12\" }
+tls_cert = { path = \"path/to/some.pkcs12\", endpoint_name = \"ns.example.com\" }
 tls_listen_port = 8853
   "
     .parse()
