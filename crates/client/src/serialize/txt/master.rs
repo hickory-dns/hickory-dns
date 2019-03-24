@@ -234,93 +234,15 @@ impl Parser {
                     //  tokens to pass into the processor
                     match t {
                         Token::EOL => {
-                            // call out to parsers for difference record types
-                            // all tokens as part of the Record should be chardata...
-                            let rdata = RData::parse(
-                                rtype.ok_or_else(|| {
-                                    ParseError::from(
-                                        ParseErrorKind::Message("record type not specified"),
-                                    )
-                                })?,
-                                record_parts.iter().map(|s| s.as_ref()),
-                                origin.as_ref(),
+                            self.flush_record(
+                                record_parts,
+                                &mut origin,
+                                &mut current_name,
+                                &mut rtype,
+                                &mut ttl,
+                                &mut class,
+                                &mut records,
                             )?;
-
-                            // verify that we have everything we need for the record
-                            let mut record = Record::new();
-                            // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
-                            //  might want to wait until RC.weak() stabilizes, as that would be needed for global
-                            //  memory where you want
-                            record.set_name(current_name.clone().ok_or_else(|| {
-                                ParseError::from(
-                                    ParseErrorKind::Message("record name not specified"),
-                                )
-                            })?);
-                            record.set_rr_type(rtype.unwrap());
-                            record.set_dns_class(class.ok_or_else(|| {
-                                ParseError::from(
-                                    ParseErrorKind::Message("record class not specified"),
-                                )
-                            })?);
-
-                            // slightly annoying, need to grab the TTL, then move rdata into the record,
-                            //  then check the Type again and have custom add logic.
-                            match rtype.unwrap() {
-                                RecordType::SOA => {
-                                    // TTL for the SOA is set internally...
-                                    // expire is for the SOA, minimum is default for records
-                                    if let RData::SOA(ref soa) = rdata {
-                                        // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                                        record.set_ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
-                                        if ttl.is_none() {
-                                            ttl = Some(soa.minimum());
-                                        } // TODO: should this only set it if it's not set?
-                                    } else {
-                                        assert!(
-                                            false,
-                                            "Invalid RData here, expected SOA: {:?}",
-                                            rdata
-                                        );
-                                    }
-                                }
-                                _ => {
-                                    record.set_ttl(ttl.ok_or_else(|| {
-                                        ParseError::from(
-                                            ParseErrorKind::Message("record ttl not specified"),
-                                        )
-                                    })?);
-                                }
-                            }
-
-                            // TODO validate record, e.g. the name of SRV record allows _ but others do not.
-
-                            // move the rdata into record...
-                            record.set_rdata(rdata);
-
-                            // add to the map
-                            let key = RrKey::new(LowerName::new(record.name()), record.rr_type());
-
-                            match rtype.unwrap() {
-                                RecordType::SOA => {
-                                    let set = record.into();
-                                    if records.insert(key, set).is_some() {
-                                        return Err(
-                                            ParseErrorKind::Message(
-                                                "SOA is already \
-                                                 specified",
-                                            ).into(),
-                                        );
-                                    }
-                                }
-                                _ => {
-                                    // add a Vec if it's not there, then add the record to the list
-                                    let set = records.entry(key).or_insert_with(
-                                        || RecordSet::new(record.name(), record.rr_type(), 0),
-                                    );
-                                    set.insert(record, 0);
-                                }
-                            }
-
                             State::StartLine
                         }
                         Token::CharData(part) => {
@@ -340,12 +262,106 @@ impl Parser {
             }
         }
 
+        //Extra flush at the end for the case of missing endline
+        if let State::Record(record_parts) = state {
+            self.flush_record(
+                record_parts,
+                &mut origin,
+                &mut current_name,
+                &mut rtype,
+                &mut ttl,
+                &mut class,
+                &mut records,
+            )?;
+        }
+
         //
         // build the Authority and return.
         let origin = origin.ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))
         })?;
         Ok((origin, records))
+    }
+
+    fn flush_record(
+        &self,
+        record_parts: Vec<String>,
+        origin: &mut Option<Name>,
+        current_name: &mut Option<Name>,
+        rtype: &mut Option<RecordType>,
+        ttl: &mut Option<u32>,
+        class: &mut Option<DNSClass>,
+        records: &mut BTreeMap<RrKey, RecordSet>,
+    ) -> ParseResult<()> {
+        // call out to parsers for difference record types
+        // all tokens as part of the Record should be chardata...
+        let rdata = RData::parse(
+            rtype.ok_or_else(|| {
+                ParseError::from(ParseErrorKind::Message("record type not specified"))
+            })?,
+            record_parts.iter().map(|s| s.as_ref()),
+            origin.as_ref(),
+        )?;
+
+        // verify that we have everything we need for the record
+        let mut record = Record::new();
+        // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
+        //  might want to wait until RC.weak() stabilizes, as that would be needed for global
+        //  memory where you want
+        record.set_name(current_name.clone().ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record name not specified"))
+        })?);
+        record.set_rr_type(rtype.unwrap());
+        record.set_dns_class(class.ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record class not specified"))
+        })?);
+
+        // slightly annoying, need to grab the TTL, then move rdata into the record,
+        //  then check the Type again and have custom add logic.
+        match rtype.unwrap() {
+            RecordType::SOA => {
+                // TTL for the SOA is set internally...
+                // expire is for the SOA, minimum is default for records
+                if let RData::SOA(ref soa) = rdata {
+                    // TODO, this looks wrong, get_expire() should be get_minimum(), right?
+                    record.set_ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
+                    if ttl.is_none() {
+                        *ttl = Some(soa.minimum());
+                    } // TODO: should this only set it if it's not set?
+                } else {
+                    assert!(false, "Invalid RData here, expected SOA: {:?}", rdata);
+                }
+            }
+            _ => {
+                record.set_ttl(ttl.ok_or_else(|| {
+                    ParseError::from(ParseErrorKind::Message("record ttl not specified"))
+                })?);
+            }
+        }
+
+        // TODO validate record, e.g. the name of SRV record allows _ but others do not.
+
+        // move the rdata into record...
+        record.set_rdata(rdata);
+
+        // add to the map
+        let key = RrKey::new(LowerName::new(record.name()), record.rr_type());
+        match rtype.unwrap() {
+            RecordType::SOA => {
+                let set = record.into();
+                if records.insert(key, set).is_some() {
+                    return Err(ParseErrorKind::Message("SOA is already specified").into());
+                }
+            }
+            _ => {
+                // add a Vec if it's not there, then add the record to the list
+                let set = records
+                    .entry(key)
+                    .or_insert_with(|| RecordSet::new(record.name(), record.rr_type(), 0));
+                set.insert(record, 0);
+            }
+        }
+        return Ok(());
     }
 
     /// parses the string following the rules from:

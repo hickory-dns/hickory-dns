@@ -3,7 +3,8 @@ extern crate trust_dns_server;
 
 use std::str::FromStr;
 
-use trust_dns::rr::Name;
+use trust_dns::rr::{LowerName, RecordType};
+use trust_dns::rr::{Name, RrKey};
 use trust_dns_server::authority::ZoneType;
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
 
@@ -21,9 +22,31 @@ fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthorit
         false,
         None,
         &config,
-    ).expect("failed to load file")
+    )
+    .expect("failed to load file")
 }
 
 basic_battery!(file);
 #[cfg(feature = "dnssec")]
 dnssec_battery!(file);
+
+#[test]
+fn test_all_lines_are_loaded() {
+    let config = FileConfig {
+        zone_file_path: "tests/named_test_configs/default/nonewline.zone".to_string(),
+    };
+
+    let authority = FileAuthority::try_from_config(
+        Name::from_str("example.com.").unwrap(),
+        ZoneType::Master,
+        false,
+        None,
+        &config,
+    )
+    .expect("failed to load");
+    let rrkey = RrKey {
+        record_type: RecordType::A,
+        name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap()),
+    };
+    assert!(authority.records().get(&rrkey).is_some())
+}
