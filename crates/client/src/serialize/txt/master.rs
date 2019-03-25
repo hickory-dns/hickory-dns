@@ -361,7 +361,7 @@ impl Parser {
                 set.insert(record, 0);
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     /// parses the string following the rules from:
