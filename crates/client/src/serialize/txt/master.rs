@@ -234,13 +234,13 @@ impl Parser {
                     //  tokens to pass into the processor
                     match t {
                         Token::EOL => {
-                            self.flush_record(
+                            Self::flush_record(
                                 record_parts,
-                                &mut origin,
-                                &mut current_name,
-                                &mut rtype,
+                                &origin,
+                                &current_name,
+                                rtype,
                                 &mut ttl,
-                                &mut class,
+                                class,
                                 &mut records,
                             )?;
                             State::StartLine
@@ -264,13 +264,13 @@ impl Parser {
 
         //Extra flush at the end for the case of missing endline
         if let State::Record(record_parts) = state {
-            self.flush_record(
+            Self::flush_record(
                 record_parts,
-                &mut origin,
-                &mut current_name,
-                &mut rtype,
+                &origin,
+                &current_name,
+                rtype,
                 &mut ttl,
-                &mut class,
+                class,
                 &mut records,
             )?;
         }
@@ -284,13 +284,12 @@ impl Parser {
     }
 
     fn flush_record(
-        &self,
         record_parts: Vec<String>,
-        origin: &mut Option<Name>,
-        current_name: &mut Option<Name>,
-        rtype: &mut Option<RecordType>,
+        origin: &Option<Name>,
+        current_name: &Option<Name>,
+        rtype: Option<RecordType>,
         ttl: &mut Option<u32>,
-        class: &mut Option<DNSClass>,
+        class: Option<DNSClass>,
         records: &mut BTreeMap<RrKey, RecordSet>,
     ) -> ParseResult<()> {
         // call out to parsers for difference record types
