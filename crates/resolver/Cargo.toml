@@ -64,7 +64,7 @@ failure = "0.1"
 futures = "^0.1.17"
 lazy_static = "^1.0"
 log = "^0.4.1"
-lru-cache = "^0.1.1"
+lru-cache = "^0.1.2"
 resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.15", optional = true}
 serde = { version = "1.0", optional = true }
