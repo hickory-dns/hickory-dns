@@ -546,7 +546,8 @@ fn config_https(
 
     for https_listener in https_listeners {
         info!(
-            "loading cert for DNS over TLS: {:?}",
+            "loading cert for DNS over TLS named {} from {:?}",
+            tls_cert_config.get_endpoint_name(),
             tls_cert_config.get_path()
         );
         // TODO: see about modifying native_tls to impl Clone for Pkcs12
@@ -555,12 +556,11 @@ fn config_https(
 
         info!("listening for HTTPS on {:?}", https_listener);
         server
-            // FIXME: need to passthrough the DNS authority name
             .register_https_listener(
                 https_listener,
                 config.get_tcp_request_timeout(),
                 tls_cert,
-                "ns.example.com".to_string(),
+                tls_cert_config.get_endpoint_name().to_string(),
             )
             .expect("could not register TLS listener");
     }
