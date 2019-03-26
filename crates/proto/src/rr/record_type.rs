@@ -42,6 +42,8 @@ pub enum RecordType {
     A,
     /// RFC 3596[2]	IPv6 address record
     AAAA,
+    /// ANAME draft-ietf-dnsop-aname
+    ANAME,
     //  AFSDB,      //	18	RFC 1183	AFS database record
     /// RFC 1035[1]	All cached records, aka ANY
     ANY,
@@ -246,6 +248,7 @@ impl From<RecordType> for &'static str {
         match rt {
             RecordType::A => "A",
             RecordType::AAAA => "AAAA",
+            RecordType::ANAME => "ANAME",
             RecordType::ANY => "ANY",
             RecordType::AXFR => "AXFR",
             RecordType::CAA => "CAA",
@@ -284,6 +287,8 @@ impl From<RecordType> for u16 {
         match rt {
             RecordType::A => 1,
             RecordType::AAAA => 28,
+            // FIXME: this value is not final
+            RecordType::ANAME => 259,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
             RecordType::CAA => 257,

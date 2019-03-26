@@ -119,6 +119,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 - [RFC 6761](https://tools.ietf.org/html/rfc6761): Special-Use Domain Names (resolver)
 - [RFC 6762](https://tools.ietf.org/html/rfc6762): mDNS Multicast DNS (experimental feature: `mdns`)
 - [RFC 6763](https://tools.ietf.org/html/rfc6763): DNS-SD Service Discovery (experimental feature: `mdns`)
+- [RFC ANAME](https://tools.ietf.org/html/draft-ietf-dnsop-aname-02): Address-specific DNS aliases (`ANAME`)
 
 ### Update operations
 - [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update

@@ -88,6 +88,21 @@ pub enum RData {
     AAAA(Ipv6Addr),
 
     /// ```text
+    /// 2.  The ANAME resource record
+    ///
+    ///   This document defines the "ANAME" DNS resource record type, with RR
+    ///   TYPE value [TBD].
+    ///
+    /// 2.1.  Presentation and wire format
+    ///
+    ///   The ANAME presentation format is identical to that of CNAME
+    ///   [RFC1033]:
+    ///
+    ///       owner ttl class ANAME target
+    /// ```
+    ANAME(Name),
+
+    /// ```text
     /// -- RFC 6844          Certification Authority Authorization     January 2013
     ///
     /// 5.1.  Syntax
@@ -497,6 +512,10 @@ impl RData {
                 debug!("reading AAAA");
                 rdata::aaaa::read(decoder).map(RData::AAAA)
             }
+            RecordType::ANAME => {
+                debug!("reading ANAME");
+                rdata::name::read(decoder).map(RData::ANAME)
+            }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
             }
@@ -597,11 +616,67 @@ impl RData {
     ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
+    ///
+    /// Canonical name form for all non-1035 records:
+    ///   [RFC 3579](https://tools.ietf.org/html/rfc3597)
+    /// ```text
+    ///  4.  Domain Name Compression
+    ///
+    ///   RRs containing compression pointers in the RDATA part cannot be
+    ///   treated transparently, as the compression pointers are only
+    ///   meaningful within the context of a DNS message.  Transparently
+    ///   copying the RDATA into a new DNS message would cause the compression
+    ///   pointers to point at the corresponding location in the new message,
+    ///   which now contains unrelated data.  This would cause the compressed
+    ///   name to be corrupted.
+    ///
+    ///   To avoid such corruption, servers MUST NOT compress domain names
+    ///   embedded in the RDATA of types that are class-specific or not well-
+    ///   known.  This requirement was stated in [RFC1123] without defining the
+    ///   term "well-known"; it is hereby specified that only the RR types
+    ///   defined in [RFC1035] are to be considered "well-known".
+    ///
+    ///   The specifications of a few existing RR types have explicitly allowed
+    ///   compression contrary to this specification: [RFC2163] specified that
+    ///   compression applies to the PX RR, and [RFC2535] allowed compression
+    ///   in SIG RRs and NXT RRs records.  Since this specification disallows
+    ///   compression in these cases, it is an update to [RFC2163] (section 4)
+    ///   and [RFC2535] (sections 4.1.7 and 5.2).
+    ///
+    ///   Receiving servers MUST decompress domain names in RRs of well-known
+    ///   type, and SHOULD also decompress RRs of type RP, AFSDB, RT, SIG, PX,
+    ///   NXT, NAPTR, and SRV (although the current specification of the SRV RR
+    ///   in [RFC2782] prohibits compression, [RFC2052] mandated it, and some
+    ///   servers following that earlier specification are still in use).
+    ///
+    ///   Future specifications for new RR types that contain domain names
+    ///   within their RDATA MUST NOT allow the use of name compression for
+    ///   those names, and SHOULD explicitly state that the embedded domain
+    ///   names MUST NOT be compressed.
+    ///
+    ///   As noted in [RFC1123], the owner name of an RR is always eligible for
+    ///   compression.
+    ///
+    ///   ...
+    ///   As a courtesy to implementors, it is hereby noted that the complete
+    ///    set of such previously published RR types that contain embedded
+    ///    domain names, and whose DNSSEC canonical form therefore involves
+    ///   downcasing according to the DNS rules for character comparisons,
+    ///   consists of the RR types NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR,
+    ///   HINFO, MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX, SRV,
+    ///   DNAME, and A6.
+    ///   ...
+    /// ```
     pub fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         match *self {
             RData::A(address) => rdata::a::emit(encoder, address),
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
-            RData::CAA(ref caa) => rdata::caa::emit(encoder, caa),
+            RData::ANAME(ref name) => {
+                encoder.with_canonical_names(|encoder| rdata::name::emit(encoder, name))
+            }
+            RData::CAA(ref caa) => {
+                encoder.with_canonical_names(|encoder| rdata::caa::emit(encoder, caa))
+            }
             // to_lowercase for rfc4034 and rfc6840
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
                 rdata::name::emit(encoder, name)
@@ -610,17 +685,25 @@ impl RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
             RData::NULL(ref null) => rdata::null::emit(encoder, null),
-            RData::OPENPGPKEY(ref openpgpkey) => rdata::openpgpkey::emit(encoder, openpgpkey),
+            RData::OPENPGPKEY(ref openpgpkey) => {
+                encoder.with_canonical_names(|encoder| rdata::openpgpkey::emit(encoder, openpgpkey))
+            }
             RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
             // to_lowercase for rfc4034 and rfc6840
             RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840
-            RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
-            RData::SSHFP(ref sshfp) => rdata::sshfp::emit(encoder, sshfp),
-            RData::TLSA(ref tlsa) => rdata::tlsa::emit(encoder, tlsa),
+            RData::SRV(ref srv) => {
+                encoder.with_canonical_names(|encoder| rdata::srv::emit(encoder, srv))
+            }
+            RData::SSHFP(ref sshfp) => {
+                encoder.with_canonical_names(|encoder| rdata::sshfp::emit(encoder, sshfp))
+            }
+            RData::TLSA(ref tlsa) => {
+                encoder.with_canonical_names(|encoder| rdata::tlsa::emit(encoder, tlsa))
+            }
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => rdata.emit(encoder),
+            RData::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
             RData::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
         }
     }
@@ -630,6 +713,7 @@ impl RData {
         match *self {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,
+            RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
             RData::MX(..) => RecordType::MX,
@@ -869,11 +953,11 @@ mod tests {
         }
     }
 
-    // TODO: this is kinda broken right now since it can't cover all types.
     fn record_type_from_rdata(rdata: &RData) -> ::rr::record_type::RecordType {
         match *rdata {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,
+            RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
             RData::MX(..) => RecordType::MX,

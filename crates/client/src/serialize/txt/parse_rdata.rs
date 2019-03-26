@@ -39,6 +39,7 @@ impl RDataParser for RData {
         let rdata = match record_type {
             RecordType::A => RData::A(a::parse(tokens)?),
             RecordType::AAAA => RData::AAAA(aaaa::parse(tokens)?),
+            RecordType::ANAME => RData::ANAME(name::parse(tokens, origin)?),
             RecordType::ANY => panic!("parsing ANY doesn't make sense"), // valid panic, never should happen
             RecordType::AXFR => panic!("parsing AXFR doesn't make sense"), // valid panic, never should happen
             RecordType::CAA => caa::parse(tokens).map(RData::CAA)?,

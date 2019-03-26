@@ -155,13 +155,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 ///   records are converted to lowercase.
 /// ```
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
-    let is_canonical_names = encoder.is_canonical_names();
-    encoder.set_canonical_names(true);
-    rdata.next_domain_name().emit(encoder)?;
-    nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())?;
-    encoder.set_canonical_names(is_canonical_names);
-
-    Ok(())
+    encoder.with_canonical_names(|encoder| {
+        rdata.next_domain_name().emit(encoder)?;
+        nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())?;
+    })
 }
 
 #[test]
