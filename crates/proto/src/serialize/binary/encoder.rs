@@ -187,6 +187,20 @@ impl<'a> BinEncoder<'a> {
         self.canonical_names
     }
 
+    /// Emit all names in canonical form, useful for https://tools.ietf.org/html/rfc3597
+    pub fn with_canonical_names<F: FnOnce(&mut Self) -> ProtoResult<()>>(
+        &mut self,
+        f: F,
+    ) -> ProtoResult<()> {
+        let was_canonical = self.is_canonical_names();
+        self.set_canonical_names(true);
+
+        let res = f(self);
+        self.set_canonical_names(was_canonical);
+
+        res
+    }
+
     // TODO: deprecate this...
     /// Reserve specified additional length in the internal buffer.
     pub fn reserve(&mut self, _additional: usize) -> ProtoResult<()> {
