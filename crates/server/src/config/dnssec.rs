@@ -195,6 +195,7 @@ impl Default for PrivateKeyType {
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct TlsCertConfig {
     path: String,
+    endpoint_name: String,
     cert_type: Option<CertType>,
     password: Option<String>,
     private_key: Option<String>,
@@ -205,6 +206,11 @@ impl TlsCertConfig {
     /// path to the pkcs12 der formated certificate file
     pub fn get_path(&self) -> &Path {
         Path::new(&self.path)
+    }
+
+    /// return the DNS name of the certificate hosted at the TLS endpoint
+    pub fn get_endpoint_name(&self) -> &str {
+        &self.endpoint_name
     }
 
     /// Returns the format type of the certificate file
