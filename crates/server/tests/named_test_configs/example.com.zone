@@ -12,3 +12,5 @@ www              A        127.0.0.1
 
 bbb              A        127.0.0.2
 this.has.dots    A        127.0.0.3
+
+cname            CNAME    www

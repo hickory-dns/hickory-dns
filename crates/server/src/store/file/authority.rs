@@ -49,10 +49,8 @@ impl FileAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
-    ) -> Self {
-        Self(InMemoryAuthority::new(
-            origin, records, zone_type, allow_axfr,
-        ))
+    ) -> Result<Self, String> {
+        InMemoryAuthority::new(origin, records, zone_type, allow_axfr).map(Self)
     }
 
     /// Read the Authority for the origin from the specified configuration
@@ -94,7 +92,7 @@ impl FileAuthority {
             records.len()
         );
 
-        Ok(FileAuthority::new(origin, records, zone_type, allow_axfr))
+        FileAuthority::new(origin, records, zone_type, allow_axfr)
     }
 
     /// Unwrap the InMemoryAuthority

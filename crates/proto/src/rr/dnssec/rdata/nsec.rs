@@ -157,7 +157,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
     encoder.with_canonical_names(|encoder| {
         rdata.next_domain_name().emit(encoder)?;
-        nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())?;
+        nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())
     })
 }
 
