@@ -143,34 +143,31 @@ impl Parser {
         let mut lexer = lexer;
         let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
-        let mut origin: Option<Name> = origin;
-        let mut current_name: Option<Name> = None;
-        let mut rtype: Option<RecordType> = None;
-        let mut ttl: Option<u32> = None;
-        let mut class: Option<DNSClass> = None;
+        let mut fields = ParserFields::new(origin);
         let mut state = State::StartLine;
 
         while let Some(t) = lexer.next_token()? {
             state = match state {
                 State::StartLine => {
                     // current_name is not reset on the next line b/c it might be needed from the previous
-                    rtype = None;
+                    fields.drop_rtype();
 
                     match t {
-                        // if Dollar, then $INCLUDE or $ORIGIN
+                        // if Dollar, then $INCLUDE or $ORIGIN or $TTL
                         Token::Include => unimplemented!(),
                         Token::Origin => State::Origin,
                         Token::Ttl => State::Ttl,
 
                         // if CharData, then Name then ttl_class_type
                         Token::CharData(data) => {
-                            current_name = Some(Name::parse(&data, origin.as_ref())?);
+                            let name = fields.parse_name(&data)?;
+                            fields.set_current_name(name);
                             State::TtlClassType
                         }
 
                         // @ is a placeholder for specifying the current origin
                         Token::At => {
-                            current_name = origin.clone(); // TODO a COW or RC would reduce copies...
+                            fields.flush_current_name();
                             State::TtlClassType
                         }
 
@@ -182,7 +179,7 @@ impl Parser {
                 }
                 State::Ttl => match t {
                     Token::CharData(data) => {
-                        ttl = Some(Self::parse_time(&data)?);
+                        fields.set_ttl(Self::parse_time(&data)?);
                         State::StartLine
                     }
                     _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
@@ -191,7 +188,8 @@ impl Parser {
                     match t {
                         Token::CharData(data) => {
                             // TODO an origin was specified, should this be legal? definitely confusing...
-                            origin = Some(Name::parse(&data, None)?);
+                            let origin = fields.parse_name(&data)?;
+                            fields.set_origin(origin);
                             State::StartLine
                         }
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
@@ -205,20 +203,23 @@ impl Parser {
                         // One of Class or Type (these cannot be overlapping!)
                         Token::CharData(data) => {
                             // if it's a number it's a ttl
-                            let result: ParseResult<u32> = Self::parse_time(&data);
-                            if result.is_ok() {
-                                ttl = result.ok();
-                                State::TtlClassType // hm, should this go to just ClassType?
-                            } else {
-                                // if can parse DNSClass, then class
-                                let result = DNSClass::from_str(&data);
-                                if result.is_ok() {
-                                    class = result.ok();
+                            match Self::parse_time(&data) {
+                                Ok(ttl) => {
+                                    fields.set_ttl(ttl);
                                     State::TtlClassType
-                                } else {
-                                    // if can parse RecordType, then RecordType
-                                    rtype = Some(RecordType::from_str(&data)?);
-                                    State::Record(vec![])
+                                }
+                                Err(_) => {
+                                    match DNSClass::from_str(&data) {
+                                        Ok(cls) => {
+                                            fields.set_class(cls);
+                                            State::TtlClassType
+                                        }
+                                        Err(_) => {
+                                            let rtype = RecordType::from_str(&data)?;
+                                            fields.set_rtype(rtype);
+                                            State::Record(vec![])
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -236,11 +237,7 @@ impl Parser {
                         Token::EOL => {
                             Self::flush_record(
                                 record_parts,
-                                &origin,
-                                &current_name,
-                                rtype,
-                                &mut ttl,
-                                class,
+                                &mut fields,
                                 &mut records,
                             )?;
                             State::StartLine
@@ -266,18 +263,14 @@ impl Parser {
         if let State::Record(record_parts) = state {
             Self::flush_record(
                 record_parts,
-                &origin,
-                &current_name,
-                rtype,
-                &mut ttl,
-                class,
+                &mut fields,
                 &mut records,
             )?;
         }
 
         //
         // build the Authority and return.
-        let origin = origin.ok_or_else(|| {
+        let origin = fields.origin.ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))
         })?;
         Ok((origin, records))
@@ -285,67 +278,15 @@ impl Parser {
 
     fn flush_record(
         record_parts: Vec<String>,
-        origin: &Option<Name>,
-        current_name: &Option<Name>,
-        rtype: Option<RecordType>,
-        ttl: &mut Option<u32>,
-        class: Option<DNSClass>,
+        fields: &mut ParserFields,
         records: &mut BTreeMap<RrKey, RecordSet>,
     ) -> ParseResult<()> {
-        // call out to parsers for difference record types
-        // all tokens as part of the Record should be chardata...
-        let rdata = RData::parse(
-            rtype.ok_or_else(|| {
-                ParseError::from(ParseErrorKind::Message("record type not specified"))
-            })?,
-            record_parts.iter().map(|s| s.as_ref()),
-            origin.as_ref(),
-        )?;
 
-        // verify that we have everything we need for the record
-        let mut record = Record::new();
-        // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
-        //  might want to wait until RC.weak() stabilizes, as that would be needed for global
-        //  memory where you want
-        record.set_name(current_name.clone().ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record name not specified"))
-        })?);
-        record.set_rr_type(rtype.unwrap());
-        record.set_dns_class(class.ok_or_else(|| {
-            ParseError::from(ParseErrorKind::Message("record class not specified"))
-        })?);
-
-        // slightly annoying, need to grab the TTL, then move rdata into the record,
-        //  then check the Type again and have custom add logic.
-        match rtype.unwrap() {
-            RecordType::SOA => {
-                // TTL for the SOA is set internally...
-                // expire is for the SOA, minimum is default for records
-                if let RData::SOA(ref soa) = rdata {
-                    // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                    record.set_ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
-                    if ttl.is_none() {
-                        *ttl = Some(soa.minimum());
-                    } // TODO: should this only set it if it's not set?
-                } else {
-                    assert!(false, "Invalid RData here, expected SOA: {:?}", rdata);
-                }
-            }
-            _ => {
-                record.set_ttl(ttl.ok_or_else(|| {
-                    ParseError::from(ParseErrorKind::Message("record ttl not specified"))
-                })?);
-            }
-        }
-
-        // TODO validate record, e.g. the name of SRV record allows _ but others do not.
-
-        // move the rdata into record...
-        record.set_rdata(rdata);
+        let record = fields.make_record(record_parts)?;
 
         // add to the map
         let key = RrKey::new(LowerName::new(record.name()), record.rr_type());
-        match rtype.unwrap() {
+        match record.rr_type() {
             RecordType::SOA => {
                 let set = record.into();
                 if records.insert(key, set).is_some() {
@@ -434,6 +375,115 @@ impl Parser {
         }
 
         Ok(value + collect) // collects the initial num, or 0 if it was already collected
+    }
+}
+
+
+struct ParserFields {
+    current_name: Option<Name>,
+    origin: Option<Name>,
+    rtype: Option<RecordType>,
+    ttl: Option<u32>,
+    class: Option<DNSClass>,
+}
+
+impl ParserFields {
+    fn new(origin: Option<Name>) -> Self {
+        Self {
+            origin,
+            current_name: None,
+            rtype: None,
+            ttl: None,
+            class: None,
+        }
+    }
+
+    fn drop_rtype(&mut self) {
+        self.rtype = None
+    }
+
+    fn set_class(&mut self, cls: DNSClass) {
+        self.class = Some(cls)
+    }
+
+    fn set_rtype(&mut self, rtype: RecordType) {
+        self.rtype = Some(rtype)
+    }
+
+    fn set_current_name(&mut self, name: Name) {
+        self.origin = Some(name)
+    }
+
+    //Sets current name to origin
+    //not sure about naming
+    fn flush_current_name(&mut self) {
+        self.current_name = self.origin.as_ref().cloned()
+    }
+
+    fn set_ttl(&mut self, ttl: u32) {
+        self.ttl = Some(ttl)
+    }
+
+    fn set_origin(&mut self, origin: Name) {
+        self.origin = Some(origin)
+    }
+
+    fn parse_name(&self, data: &str) -> ParseResult<Name> {
+        //Using `?` to convert ProtoError to ParseError
+        Ok(Name::parse(&data, self.origin.as_ref())?)
+    }
+
+    fn make_record(&mut self, record_parts: Vec<String>) -> ParseResult<Record> {
+        let mut record = Record::new();
+        let rtype = self.rtype.ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record type not specified"))
+        })?;
+        record.set_rr_type(rtype);
+
+        record.set_name(
+            self.current_name
+                .as_ref()
+                .cloned()
+                .ok_or_else(|| {
+                    ParseError::from(ParseErrorKind::Message("record name not specified"))
+                })?
+        );
+
+        record.set_dns_class(self.class.ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record class not specified"))
+        })?);
+
+        let rdata = RData::parse(
+            rtype,
+            record_parts.iter().map(|s| s.as_ref()),
+            self.origin.as_ref(),
+        )?;
+
+        let ttl: u32 = match rtype {
+            RecordType::SOA =>  {
+                if let RData::SOA(ref soa) = rdata {
+                    //using soa.expire as default TTL until specified otherwise
+                    if self.ttl.is_none() {
+                        self.set_ttl(soa.expire() as u32)
+                    }
+                    soa.minimum()
+                } else {
+                    //Maybe embed RData into RecordType to make it impossible?
+                    panic!("Invalid RData here, expected SOA: {:?}", rdata);
+                }
+            }
+            _ => {
+                self.ttl.ok_or_else(|| {
+                    ParseErrorKind::Message("record ttl is not specified")
+                })?
+            }
+        };
+        record.set_rdata(rdata);
+        record.set_ttl(ttl);
+
+        // verify that we have everything we need for the record
+
+        Ok(record)
     }
 }
 
