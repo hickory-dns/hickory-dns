@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use trust_dns::rr::*;
 
@@ -12,8 +12,8 @@ pub fn create_example() -> InMemoryAuthority {
     use trust_dns::rr::rdata::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
-    let mut records =
-        InMemoryAuthority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
+    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Master, false);
+
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert(
         Record::new()
@@ -150,6 +150,18 @@ pub fn create_example() -> InMemoryAuthority {
             .set_rdata(RData::AAAA(Ipv6Addr::new(
                 0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             )))
+            .clone(),
+        0,
+    );
+
+    // alias 86400 IN www
+    records.upsert(
+        Record::new()
+            .set_name(Name::from_str("alias.example.com.").unwrap())
+            .set_ttl(86400)
+            .set_rr_type(RecordType::CNAME)
+            .set_dns_class(DNSClass::IN)
+            .set_rdata(RData::CNAME(www_name.clone()))
             .clone(),
         0,
     );

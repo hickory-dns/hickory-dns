@@ -40,6 +40,7 @@ impl RDataParser for RData {
             RecordType::A => RData::A(a::parse(tokens)?),
             RecordType::AAAA => RData::AAAA(aaaa::parse(tokens)?),
             RecordType::ANAME => RData::ANAME(name::parse(tokens, origin)?),
+            // FIXME: these should be errors not panics...
             RecordType::ANY => panic!("parsing ANY doesn't make sense"), // valid panic, never should happen
             RecordType::AXFR => panic!("parsing AXFR doesn't make sense"), // valid panic, never should happen
             RecordType::CAA => caa::parse(tokens).map(RData::CAA)?,

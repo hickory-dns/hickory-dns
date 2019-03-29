@@ -151,6 +151,7 @@ impl FromStr for RecordType {
         match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
+            "ANAME" => Ok(RecordType::ANAME),
             "CAA" => Ok(RecordType::CAA),
             "CNAME" => Ok(RecordType::CNAME),
             "NULL" => Ok(RecordType::NULL),
@@ -183,6 +184,8 @@ impl From<u16> for RecordType {
         match value {
             1 => RecordType::A,
             28 => RecordType::AAAA,
+            // FIXME: wrong value here
+            258 => RecordType::ANAME,
             255 => RecordType::ANY,
             252 => RecordType::AXFR,
             257 => RecordType::CAA,

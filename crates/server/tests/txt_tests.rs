@@ -17,57 +17,48 @@ use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 #[test]
 #[allow(clippy::cyclomatic_complexity)]
-fn test_string() {
+fn test_zone() {
     let lexer = Lexer::new(
-        "@   IN  SOA     venera      action\\.domains (
-                               \
+        r###"
+@   IN  SOA     venera      action\.domains (
                             20     ; SERIAL
-                               7200   ; REFRESH
-                               \
+                            7200   ; REFRESH
                             600    ; RETRY
-                               3600000; EXPIRE
-                               \
+                            3600000; EXPIRE
                             60)    ; MINIMUM
 
-      NS      a.isi.edu.
-      NS      venera
-      \
-                            NS      vaxa
-      MX      10      venera
-      MX      20      vaxa
+        NS      a.isi.edu.
+        NS      venera
+        NS      vaxa
+        MX  10  venera
+        MX  20  vaxa
 
-\
-                            a       A       26.3.0.103
+a       A       26.3.0.103
         TXT     I am a txt record
-        \
-                            TXT     I am another txt record
-        TXT     \"I am a different\" \
-                            \"txt record\"
+        TXT     I am another txt record
+        TXT     "I am a different" "txt record"
         TXT     key=val
-aaaa    AAAA    \
-                            4321:0:1:2:3:4:567:89ab
+
+aaaa    AAAA    4321:0:1:2:3:4:567:89ab
 alias   CNAME   a
-103.0.3.26.IN-ADDR.ARPA.   \
-                            PTR a
-b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.\
-                            4.IP6.ARPA. PTR aaaa
+103.0.3.26.IN-ADDR.ARPA.   PTR a
+b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.4.IP6.ARPA. PTR aaaa
 
 _ldap._tcp.service SRV 1 2 3 short
 
 rust-❤️-🦀    A  192.0.2.1
 
-short 70 A      \
-                            26.3.0.104
-venera  A       10.1.0.52
-      A       128.9.0.32
+short 70     A  26.3.0.104
+venera       A  10.1.0.52
+             A  128.9.0.32
 
-nocerts       CAA 0 issue \";\"
-certs         CAA 0 issuewild \"example.net\"
+nocerts      CAA 0 issue ";"
+certs        CAA 0 issuewild "example.net"
 
 _443._tcp.www.example.com. IN TLSA (
       0 0 1 d2abde240d7cd3ee6b4b28c54df034b9
-            7983a1d16e8a410e4561cb106618e971 )
-",
+            7983a1d16e8a410e4561cb106618e971)
+"###,
     );
 
     let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
@@ -77,7 +68,7 @@ _443._tcp.www.example.com. IN TLSA (
 
     let (origin, records) = records.unwrap();
 
-    let authority = InMemoryAuthority::new(origin, records, ZoneType::Master, false);
+    let authority = InMemoryAuthority::new(origin, records, ZoneType::Master, false).unwrap();
 
     // not validating everything, just one of each...
 
@@ -420,4 +411,61 @@ _443._tcp.www.example.com. IN TLSA (
     } else {
         assert!(false);
     }
+}
+
+#[test]
+#[allow(clippy::cyclomatic_complexity)]
+fn test_bad_cname_at_soa() {
+    let lexer = Lexer::new(
+        r###"
+@   IN  SOA     venera      action\.domains (
+                            20     ; SERIAL
+                            7200   ; REFRESH
+                            600    ; RETRY
+                            3600000; EXPIRE
+                            60)    ; MINIMUM
+
+        CNAME   a
+a       A       127.0.0.1
+"###,
+    );
+
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+
+    if records.is_err() {
+        panic!("failed to parse: {:?}", records.err())
+    }
+
+    let (origin, records) = records.unwrap();
+
+    assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_err());
+}
+
+#[test]
+#[allow(clippy::cyclomatic_complexity)]
+fn test_bad_cname_at_a() {
+    let lexer = Lexer::new(
+        r###"
+@   IN  SOA     venera      action\.domains (
+                            20     ; SERIAL
+                            7200   ; REFRESH
+                            600    ; RETRY
+                            3600000; EXPIRE
+                            60)    ; MINIMUM
+
+a       CNAME   b
+a       A       127.0.0.1
+b       A       127.0.0.2
+"###,
+    );
+
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+
+    if records.is_err() {
+        panic!("failed to parse: {:?}", records.err())
+    }
+
+    let (origin, records) = records.unwrap();
+
+    assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_err());
 }

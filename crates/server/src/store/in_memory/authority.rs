@@ -66,14 +66,48 @@ impl InMemoryAuthority {
         records: BTreeMap<RrKey, RecordSet>,
         zone_type: ZoneType,
         allow_axfr: bool,
-    ) -> Self {
+    ) -> Result<Self, String> {
+        let mut this = Self::empty(origin.clone(), zone_type, allow_axfr);
+
+        // SOA must be present
+        let serial = records
+            .iter()
+            .find(|(key, _)| key.record_type == RecordType::SOA)
+            .and_then(|(_, rrset)| rrset.records_without_rrsigs().next())
+            .and_then(|record| record.rdata().as_soa())
+            .map(|soa| soa.serial())
+            .ok_or_else(|| format!("SOA record must be present: {}", origin))?;
+
+        let iter = records.into_iter().map(|(_key, record)| record);
+
+        // add soa to the records
+        for rrset in iter {
+            let name = rrset.name().clone();
+            let rr_type = rrset.record_type();
+
+            for record in rrset.records_without_rrsigs() {
+                if !this.upsert(record.clone(), serial) {
+                    return Err(format!(
+                        "Failed to insert {} {} to zone: {}",
+                        name, rr_type, origin
+                    ));
+                };
+            }
+        }
+
+        Ok(this)
+    }
+
+    /// Creates an empty Authority
+    ///
+    /// # Warning
+    ///
+    /// This is an invalid zone, SOA must be added
+    pub fn empty(origin: Name, zone_type: ZoneType, allow_axfr: bool) -> Self {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
-            records: records
-                .into_iter()
-                .map(|(key, rrset)| (key, Arc::new(rrset)))
-                .collect(),
+            records: BTreeMap::new(),
             zone_type,
             allow_axfr,
             secure_keys: Vec::new(),
@@ -190,6 +224,24 @@ impl InMemoryAuthority {
     /// Ok() on success or Err() with the `ResponseCode` associated with the error.
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(self.class, record.dns_class());
+
+        // check that CNAME is either not already present, or no other records are if it's a CNAME
+        let start_range_key =
+            RrKey::new(record.name().into(), RecordType::Unknown(u16::min_value()));
+        let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::max_value()));
+        if self
+            .records
+            .range(&start_range_key..&end_range_key)
+            // remember CNAME can be the only record at a particular label
+            .any(|(key, _)| {
+                // it's a CNAME but there's a record that's not a CNAME at this location
+                (record.record_type() == RecordType::CNAME && key.record_type != RecordType::CNAME) ||
+                // it's a different record, but there is already a CNAME here
+                (record.record_type() != RecordType::CNAME && key.record_type == RecordType::CNAME)
+            }) {
+            // consider making this an error?
+            return false;
+        }
 
         let rr_key = RrKey::new(record.name().into(), record.rr_type());
         let records: &mut Arc<RecordSet> = self
@@ -509,8 +561,6 @@ impl Authority for InMemoryAuthority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
-        let rr_key = RrKey::new(name.clone(), rtype);
-
         // Collect the records from each rr_set
         let result: LookupResult<LookupRecords> = match rtype {
             RecordType::AXFR | RecordType::ANY => {
@@ -523,16 +573,28 @@ impl Authority for InMemoryAuthority {
                 );
                 Ok(LookupRecords::AnyRecords(result))
             }
-            _ => self.records.get(&rr_key).map_or(
-                Err(LookupError::from(ResponseCode::NXDomain)),
-                |rr_set| {
-                    Ok(LookupRecords::new(
-                        is_secure,
-                        supported_algorithms,
-                        rr_set.clone(),
-                    ))
-                },
-            ),
+            _ => {
+                let start_range_key =
+                    RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
+                let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::max_value()));
+
+                self.records
+                    .range(&start_range_key..&end_range_key)
+                    // remember CNAME can be the only record at a particular label
+                    .find(|(key, _)| {
+                        key.record_type == rtype || key.record_type == RecordType::CNAME
+                    })
+                    .map_or(
+                        Err(LookupError::from(ResponseCode::NXDomain)),
+                        |(_key, rr_set)| {
+                            Ok(LookupRecords::new(
+                                is_secure,
+                                supported_algorithms,
+                                rr_set.clone(),
+                            ))
+                        },
+                    )
+            }
         };
 
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
@@ -609,6 +671,7 @@ impl Authority for InMemoryAuthority {
 
                 Box::new(lookup)
             }
+            // A standard Lookup path
             _ => Box::new(self.lookup(lookup_name, record_type, is_secure, supported_algorithms)),
         }
     }

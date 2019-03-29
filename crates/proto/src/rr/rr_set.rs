@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -310,10 +310,31 @@ impl RecordSet {
                 // if we got here, we're updating...
                 self.records.clear();
             }
+            // RFC 1034/1035
             // CNAME  compare only NAME, CLASS, and TYPE -- it is not possible
             //         to have more than one CNAME RR, even if their data fields
             //         differ.
-            RecordType::CNAME => {
+            //
+            // ANAME https://tools.ietf.org/html/draft-ietf-dnsop-aname-02
+            //    2.2.  Coexistence with other types
+            //
+            //   Only one ANAME <target> can be defined per <owner>.  An ANAME RRset
+            //   MUST NOT contain more than one resource record.
+            //
+            //   An ANAME's sibling address records are under the control of ANAME
+            //   processing (see Section 5) and are not first-class records in their
+            //   own right.  They MAY exist in zone files, but they can subsequently
+            //   be altered by ANAME processing.
+            //
+            //   ANAME records MAY freely coexist at the same owner name with other RR
+            //   types, except they MUST NOT coexist with CNAME or any other RR type
+            //   that restricts the types with which it can itself coexist.
+            //
+            //   Like other types, ANAME records can coexist with DNAME records at the
+            //   same owner name; in fact, the two can be used cooperatively to
+            //   redirect both the owner name address records (via ANAME) and
+            //   everything under it (via DNAME).
+            RecordType::CNAME | RecordType::ANAME => {
                 assert!(self.records.len() <= 1);
                 self.records.clear();
             }

@@ -4,7 +4,6 @@ extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
-use std::collections::BTreeMap;
 use std::net::*;
 use std::str::FromStr;
 
@@ -987,12 +986,9 @@ fn test_journal() {
     assert!(delete_rrset.was_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
-    let in_memory = InMemoryAuthority::new(
-        authority.origin().clone().into(),
-        BTreeMap::new(),
-        ZoneType::Master,
-        false,
-    );
+    let in_memory =
+        InMemoryAuthority::empty(authority.origin().clone().into(), ZoneType::Master, false);
+
     let mut recovered_authority = SqliteAuthority::new(in_memory, false, false);
     recovered_authority
         .recover_with_journal(authority.journal().expect("journal not Some"))
@@ -1038,12 +1034,9 @@ fn test_recovery() {
     authority.persist_to_journal().unwrap();
 
     let journal = authority.journal().unwrap();
-    let in_memory = InMemoryAuthority::new(
-        authority.origin().clone().into(),
-        BTreeMap::new(),
-        ZoneType::Master,
-        false,
-    );
+    let in_memory =
+        InMemoryAuthority::empty(authority.origin().clone().into(), ZoneType::Master, false);
+
     let mut recovered_authority = SqliteAuthority::new(in_memory, false, false);
 
     recovered_authority

@@ -87,7 +87,7 @@ impl SqliteAuthority {
                 .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
 
             let in_memory =
-                InMemoryAuthority::new(zone_name.clone(), BTreeMap::new(), zone_type, allow_axfr);
+                InMemoryAuthority::new(zone_name.clone(), BTreeMap::new(), zone_type, allow_axfr)?;
             let mut authority = SqliteAuthority::new(in_memory, config.allow_update, enable_dnssec);
             authority
                 .recover_with_journal(&journal)

@@ -11,12 +11,15 @@ use trust_dns_server::authority::{AuthLookup, Authority, MessageRequest};
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap();
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
 
     match lookup
         .into_iter()
         .next()
-        .expect("A record not found in authity")
+        .expect("A record not found in authority")
         .rdata()
     {
         RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
@@ -48,7 +51,10 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let lookup = authority.ns(false, SupportedAlgorithms::new()).wait().unwrap();
+    let lookup = authority
+        .ns(false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
 
     match lookup
         .into_iter()
@@ -59,6 +65,48 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
         RData::NS(name) => assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *name),
         _ => panic!("wrong rdata type returned"),
     }
+}
+
+pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(
+        Name::from_str("cname.example.com.").unwrap(),
+        RecordType::CNAME,
+    );
+
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let cname = lookup
+        .into_iter()
+        .next()
+        .expect("CNAME record not found in authority")
+        .rdata()
+        .as_cname()
+        .expect("Not an A record");
+
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
+}
+
+pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(Name::from_str("cname.example.com.").unwrap(), RecordType::A);
+
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    // for cname lookups, we have a cname returned in the answer, the catalog will perform additional lookups
+    let cname = lookup
+        .into_iter()
+        .next()
+        .expect("CNAME record not found in authority")
+        .rdata()
+        .as_cname()
+        .expect("Not an A record");
+
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
 }
 
 pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
@@ -73,9 +121,15 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
 }
 
 pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("this.has.dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap();
-    
+    let query = Query::query(
+        Name::from_str("this.has.dots.example.com.").unwrap(),
+        RecordType::A,
+    );
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
     assert_eq!(
         *lookup
             .into_iter()
@@ -83,32 +137,50 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
             .expect("A record not found in authity")
             .rdata()
             .as_a()
-            .expect("wrong rdata type returned"), 
+            .expect("wrong rdata type returned"),
         Ipv4Addr::new(127, 0, 0, 3)
     );
 
     // the rest should all be NameExists
-    let query = Query::query(Name::from_str("has.dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
-    
+    let query = Query::query(
+        Name::from_str("has.dots.example.com.").unwrap(),
+        RecordType::A,
+    );
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap_err();
+
     assert!(lookup.is_name_exists(), "lookup: {}", lookup);
 
     // the rest should all be NameExists
     let query = Query::query(Name::from_str("dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
-    
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap_err();
+
     assert!(lookup.is_name_exists());
 
     // the rest should all be NameExists
     let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
-    
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap_err();
+
     assert!(lookup.is_name_exists());
 
     // and this should be an NXDOMAIN
-    let query = Query::query(Name::from_str("not.this.has.dots.example.com.").unwrap(), RecordType::A);
-    let lookup = authority.search(&query.into(), false, SupportedAlgorithms::new()).wait().unwrap_err();
-    
+    let query = Query::query(
+        Name::from_str("not.this.has.dots.example.com.").unwrap(),
+        RecordType::A,
+    );
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap_err();
+
     assert!(lookup.is_nx_domain());
 }
 
@@ -133,6 +205,8 @@ macro_rules! basic_battery {
                     test_a_lookup,
                     test_soa,
                     test_ns,
+                    test_cname,
+                    test_cname_alias,
                     test_update_errors,
                     test_dots_in_name,
                 );
