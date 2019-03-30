@@ -28,7 +28,12 @@ pub enum AuthLookup {
     Empty,
     // TODO: change the result of a lookup to a set of chained iterators...
     /// Records
-    Records(LookupRecords),
+    Records {
+        /// Authoritative answers
+        answers: LookupRecords,
+        /// Optional set of LookupRecords
+        additionals: Option<LookupRecords>,
+    },
     /// Soa only differs from Records in that the lifetime on the name is from the authority, and not the query
     SOA(LookupRecords),
     /// An axfr starts with soa, chained to all the records, then another soa...
@@ -43,6 +48,14 @@ pub enum AuthLookup {
 }
 
 impl AuthLookup {
+    /// Construct and ansert with additional section
+    pub fn answers(answers: LookupRecords, additionals: Option<LookupRecords>) -> Self {
+        AuthLookup::Records {
+            answers,
+            additionals,
+        }
+    }
+
     /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
     pub fn is_empty(&self) -> bool {
         // FIXME: this needs to be cheap
@@ -64,8 +77,20 @@ impl AuthLookup {
     /// Does not panic, but will return no records if it is not of that type
     pub fn unwrap_records(self) -> LookupRecords {
         match self {
-            AuthLookup::Records(records) => records,
+            // TODO: this is ugly, what about the additionals?
+            AuthLookup::Records { answers, .. } => answers,
             _ => LookupRecords::default(),
+        }
+    }
+
+    /// Takes the additional records, leaving behind None
+    fn take_additionals(&mut self) -> Option<LookupRecords> {
+        match self {
+            AuthLookup::Records {
+                ref mut additionals,
+                ..
+            } => additionals.take(),
+            _ => None,
         }
     }
 }
@@ -78,6 +103,11 @@ impl LookupObject for AuthLookup {
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
         let boxed_iter = AuthLookup::iter(self);
         Box::new(boxed_iter)
+    }
+
+    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+        let additionals = AuthLookup::take_additionals(self);
+        additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
     }
 }
 
@@ -94,7 +124,10 @@ impl<'a> IntoIterator for &'a AuthLookup {
     fn into_iter(self) -> Self::IntoIter {
         match self {
             AuthLookup::Empty => AuthLookupIter::Empty,
-            AuthLookup::Records(r) | AuthLookup::SOA(r) => AuthLookupIter::Records(r.into_iter()),
+            // FIXME: what about the additionals? is IntoIterator a bad idea?
+            AuthLookup::Records { answers: r, .. } | AuthLookup::SOA(r) => {
+                AuthLookupIter::Records(r.into_iter())
+            }
             AuthLookup::AXFR {
                 start_soa,
                 records,
@@ -135,7 +168,10 @@ impl<'a> Default for AuthLookupIter<'a> {
 
 impl From<LookupRecords> for AuthLookup {
     fn from(lookup: LookupRecords) -> Self {
-        AuthLookup::Records(lookup)
+        AuthLookup::Records {
+            answers: lookup,
+            additionals: None,
+        }
     }
 }
 
@@ -293,8 +329,10 @@ impl LookupRecords {
     pub fn many(
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-        records: Vec<Arc<RecordSet>>,
+        mut records: Vec<Arc<RecordSet>>,
     ) -> Self {
+        // we're reversing the records because they are output in reverse order, via pop()
+        records.reverse();
         LookupRecords::ManyRecords(is_secure, supported_algorithms, records)
     }
 
@@ -394,5 +432,19 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
 impl From<AnyRecords> for LookupRecords {
     fn from(rrset_records: AnyRecords) -> Self {
         LookupRecords::AnyRecords(rrset_records)
+    }
+}
+
+impl LookupObject for LookupRecords {
+    fn is_empty(&self) -> bool {
+        LookupRecords::was_empty(self)
+    }
+
+    fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
+        Box::new(self.iter())
+    }
+
+    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+        None
     }
 }

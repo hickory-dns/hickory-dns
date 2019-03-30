@@ -143,6 +143,10 @@ impl LookupObject for ForwardLookup {
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
         Box::new(self.0.record_iter())
     }
+
+    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+        None
+    }
 }
 
 pub struct ForwardLookupFuture(BackgroundLookup);

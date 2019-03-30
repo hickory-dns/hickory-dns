@@ -471,3 +471,60 @@ fn test_cname_additionals() {
         &RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 }
+
+#[test]
+fn test_multiple_cname_additionals() {
+    let example = create_example();
+    let origin = example.origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), Box::new(example));
+
+    let mut question: Message = Message::new();
+
+    let mut query: Query = Query::new();
+    query.set_name(Name::from_str("alias2.example.com.").unwrap());
+    query.set_query_type(RecordType::A);
+
+    question.add_query(query);
+
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .wait()
+        .unwrap();
+    let result = response_handler.into_message().wait().unwrap();
+
+    assert_eq!(result.message_type(), MessageType::Response);
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+
+    let answers: &[Record] = result.answers();
+    assert_eq!(answers.len(), 1);
+    assert_eq!(answers.first().unwrap().rr_type(), RecordType::CNAME);
+    assert_eq!(
+        answers.first().unwrap().rdata(),
+        &RData::CNAME(Name::from_str("alias.example.com.").unwrap())
+    );
+
+    // we should have the intermediate record
+    let additionals: &[Record] = result.additionals();
+    assert!(!additionals.is_empty());
+    assert_eq!(additionals.first().unwrap().rr_type(), RecordType::CNAME);
+    assert_eq!(
+        additionals.first().unwrap().rdata(),
+        &RData::CNAME(Name::from_str("www.example.com.").unwrap())
+    );
+
+    // final record should be the actual
+    let additionals: &[Record] = result.additionals();
+    assert!(!additionals.is_empty());
+    assert_eq!(additionals.last().unwrap().rr_type(), RecordType::A);
+    assert_eq!(
+        additionals.last().unwrap().rdata(),
+        &RData::A(Ipv4Addr::new(93, 184, 216, 34))
+    );
+}

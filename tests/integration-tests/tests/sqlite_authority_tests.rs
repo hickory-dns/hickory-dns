@@ -1103,7 +1103,7 @@ fn test_axfr() {
         .unwrap();
 
     // just update this if the count goes up in the authority
-    assert_eq!(result.iter().count(), 10);
+    assert_eq!(result.iter().count(), 12);
 }
 
 #[test]

@@ -183,6 +183,53 @@ impl InMemoryAuthority {
         soa.serial()
     }
 
+    fn inner_lookup(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
+        let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
+        let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::max_value()));
+
+        self.records
+            .range(&start_range_key..&end_range_key)
+            // remember CNAME can be the only record at a particular label
+            .find(|(key, _)| key.record_type == record_type || key.record_type == RecordType::CNAME)
+            .map(|(_key, rr_set)| rr_set)
+    }
+
+    fn additional_search(
+        &self,
+        next_name: LowerName,
+        record_type: RecordType,
+    ) -> Option<Vec<Arc<RecordSet>>> {
+        let mut additionals: Vec<Arc<RecordSet>> = vec![];
+
+        // if it's a CNAME or other forwarding record, we'll be adding additional records
+
+        // loop and collect any additional records to send
+        let mut next_name = Some(next_name);
+        'cname_search: while let Some(search) = next_name.take() {
+            let additional = self.inner_lookup(&search, record_type);
+            let mut continue_name = None;
+
+            if let Some(additional) = additional {
+                continue_name = maybe_next_name(additional);
+                // assuming no crazy long chains...
+                if !additionals.contains(&additional) {
+                    additionals.push(additional.clone());
+                } else {
+                    // cycle detected
+                    break 'cname_search;
+                }
+            }
+
+            next_name = continue_name;
+        }
+
+        if !additionals.is_empty() {
+            Some(additionals)
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn increment_soa_serial(&mut self) -> u32 {
         // we'll remove the SOA and then replace it
         let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);
@@ -221,7 +268,7 @@ impl InMemoryAuthority {
     ///
     /// # Return value
     ///
-    /// Ok() on success or Err() with the `ResponseCode` associated with the error.
+    /// true if the value was inserted, false otherwise
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(self.class, record.dns_class());
 
@@ -460,6 +507,17 @@ impl InMemoryAuthority {
     }
 }
 
+fn maybe_next_name(record_set: &RecordSet) -> Option<LowerName> {
+    match record_set.record_type() {
+        RecordType::CNAME => record_set
+            .records_without_rrsigs()
+            .next()
+            .and_then(|record| record.rdata().as_cname().cloned())
+            .map(Into::into),
+        _ => None,
+    }
+}
+
 impl Authority for InMemoryAuthority {
     type Lookup = AuthLookup;
     type LookupFuture = FutureResult<Self::Lookup, LookupError>;
@@ -562,40 +620,40 @@ impl Authority for InMemoryAuthority {
         supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
         // Collect the records from each rr_set
-        let result: LookupResult<LookupRecords> = match rtype {
-            RecordType::AXFR | RecordType::ANY => {
-                let result = AnyRecords::new(
-                    is_secure,
-                    supported_algorithms,
-                    self.records.values().cloned().collect(),
-                    rtype,
-                    name.clone(),
-                );
-                Ok(LookupRecords::AnyRecords(result))
-            }
-            _ => {
-                let start_range_key =
-                    RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
-                let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::max_value()));
+        let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
+            match rtype {
+                RecordType::AXFR | RecordType::ANY => {
+                    let result = AnyRecords::new(
+                        is_secure,
+                        supported_algorithms,
+                        self.records.values().cloned().collect(),
+                        rtype,
+                        name.clone(),
+                    );
+                    (Ok(LookupRecords::AnyRecords(result)), None)
+                }
+                _ => {
+                    let answer = self.inner_lookup(name, rtype);
+                    let additionals = answer
+                        .and_then(|a| maybe_next_name(a))
+                        .and_then(|a| self.additional_search(a, rtype));
 
-                self.records
-                    .range(&start_range_key..&end_range_key)
-                    // remember CNAME can be the only record at a particular label
-                    .find(|(key, _)| {
-                        key.record_type == rtype || key.record_type == RecordType::CNAME
-                    })
-                    .map_or(
-                        Err(LookupError::from(ResponseCode::NXDomain)),
-                        |(_key, rr_set)| {
+                    // map the answer to a result
+                    let answer =
+                        answer.map_or(Err(LookupError::from(ResponseCode::NXDomain)), |rr_set| {
                             Ok(LookupRecords::new(
                                 is_secure,
                                 supported_algorithms,
                                 rr_set.clone(),
                             ))
-                        },
-                    )
-            }
-        };
+                        });
+
+                    let additionals = additionals
+                        .map(|a| LookupRecords::many(is_secure, supported_algorithms, a));
+
+                    (answer, additionals)
+                }
+            };
 
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
@@ -617,7 +675,9 @@ impl Authority for InMemoryAuthority {
             o => o,
         };
 
-        result.map(AuthLookup::from).into_future()
+        result
+            .map(|answers| AuthLookup::answers(answers, additionals))
+            .into_future()
     }
 
     fn search(
