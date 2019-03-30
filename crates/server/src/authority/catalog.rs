@@ -648,13 +648,18 @@ impl<R: ResponseHandler> Future for AuthorityLookup<R> {
     type Error = ();
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let (records, soa, ns) = try_ready!(self.state.poll(
+        let sections = try_ready!(self.state.poll(
             &self.request_params,
             self.response_params
                 .as_mut()
                 .expect("bad state, response_params should not be none here"),
             &self.authority
         ));
+
+        let records = sections.answers;
+        let soa = sections.soa;
+        let ns = sections.ns;
+        let additionals = sections.additionals;
 
         let response_params = self
             .response_params
@@ -669,7 +674,13 @@ impl<R: ResponseHandler> Future for AuthorityLookup<R> {
             response_edns
                 .as_ref()
                 .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-            response.build(response_header, records.iter(), ns.iter(), soa.iter()),
+            response.build(
+                response_header,
+                records.iter(),
+                ns.iter(),
+                soa.iter(),
+                additionals.iter(),
+            ),
             response_handle,
         )
         .map_err(|e| error!("error sending response: {}", e))
@@ -677,6 +688,13 @@ impl<R: ResponseHandler> Future for AuthorityLookup<R> {
 
         Ok(Async::Ready(()))
     }
+}
+
+struct LookupSections {
+    answers: Box<dyn LookupObject>,
+    soa: Box<dyn LookupObject>,
+    ns: Box<dyn LookupObject>,
+    additionals: Box<dyn LookupObject>,
 }
 
 #[must_use = "futures do nothing unless polled"]
@@ -692,14 +710,7 @@ impl AuthOrResolve {
         request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
         authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<
-        (
-            Box<dyn LookupObject>,
-            Box<dyn LookupObject>,
-            Box<dyn LookupObject>,
-        ),
-        (),
-    > {
+    ) -> Poll<LookupSections, ()> {
         match self {
             AuthOrResolve::AuthorityLookupState(a) => {
                 a.poll(request_params, response_params, authority)
@@ -744,14 +755,7 @@ impl AuthorityLookupState {
         request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
         authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<
-        (
-            Box<dyn LookupObject>,
-            Box<dyn LookupObject>,
-            Box<dyn LookupObject>,
-        ),
-        (),
-    > {
+    ) -> Poll<LookupSections, ()> {
         loop {
             *self = match self {
                 // In this state we await the records, on success we transition to getting
@@ -899,13 +903,21 @@ impl AuthorityLookupState {
                 }
                 // everything is done, return results.
                 AuthorityLookupState::Complete { records, soa, ns } => {
-                    return Ok(Async::Ready((
-                        records
-                            .take()
-                            .expect("AuthorityLookupState already complete"),
-                        soa.take().expect("AuthorityLookupState already complete"),
-                        ns.take().expect("AuthorityLookupState already complete"),
-                    )));
+                    let mut records = records
+                        .take()
+                        .expect("AuthorityLookupState already complete");
+                    let additionals = records.additionals();
+
+                    let sections = LookupSections {
+                        answers: records,
+                        soa: soa.take().expect("AuthorityLookupState already complete"),
+                        ns: ns.take().expect("AuthorityLookupState already complete"),
+                        additionals: additionals.unwrap_or_else(|| {
+                            Box::new(AuthLookup::default()) as Box<dyn LookupObject>
+                        }),
+                    };
+
+                    return Ok(Async::Ready(sections));
                 }
             }
         }
@@ -926,14 +938,7 @@ impl ResolveLookupState {
         _request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
         _authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<
-        (
-            Box<dyn LookupObject>,
-            Box<dyn LookupObject>,
-            Box<dyn LookupObject>,
-        ),
-        (),
-    > {
+    ) -> Poll<LookupSections, ()> {
         #[allow(clippy::never_loop)]
         loop {
             // TODO: way more states to consider.
@@ -951,11 +956,14 @@ impl ResolveLookupState {
 
                     response_params.response_header.set_authoritative(false);
 
-                    return Ok(Async::Ready((
-                        records,
-                        Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
-                        Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
-                    )));
+                    let sections = LookupSections {
+                        answers: records,
+                        soa: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+                        ns: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+                        additionals: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+                    };
+
+                    return Ok(Async::Ready(sections));
                 }
             }
         }

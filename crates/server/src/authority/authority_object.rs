@@ -254,6 +254,12 @@ pub trait LookupObject: Send {
 
     /// Conversion to an iterator
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a>;
+
+    // TODO: rename to take_additionals
+    /// For CNAME and similar records, this is an additional set of lookup records
+    ///
+    /// it is acceptable for this to return None after the first call.
+    fn additionals(&mut self) -> Option<Box<dyn LookupObject>>;
 }
 
 struct EmptyLookup;
@@ -265,6 +271,10 @@ impl LookupObject for EmptyLookup {
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
         Box::new([].iter())
+    }
+
+    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+        None
     }
 }
 

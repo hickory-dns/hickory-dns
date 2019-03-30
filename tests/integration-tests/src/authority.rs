@@ -166,6 +166,18 @@ pub fn create_example() -> InMemoryAuthority {
         0,
     );
 
+    // alias2 86400 IN www, multiple cname chains
+    records.upsert(
+        Record::new()
+            .set_name(Name::from_str("alias2.example.com.").unwrap())
+            .set_ttl(86400)
+            .set_rr_type(RecordType::CNAME)
+            .set_dns_class(DNSClass::IN)
+            .set_rdata(RData::CNAME(Name::from_str("alias.example.com.").unwrap()))
+            .clone(),
+        0,
+    );
+
     // www.example.com.	3600	IN	RRSIG	NSEC 8 3 3600 20150925215757 20150905040848 54108 example.com. ZKIVt1IN3O1FWZPSfrQAH7nHt7RUFDjcbh7NxnEqd/uTGCnZ6SrAEgrY E9GMmBwvRjoucphGtjkYOpPJPe5MlnTHoYCjxL4qmG3LsD2KD0bfPufa ibtlQZRrPglxZ92hBKK3ZiPnPRe7I9yni2UQSQA7XDi7CQySYyo490It AxdXjAo=
     // www.example.com.	3600	IN	NSEC	example.com. A TXT AAAA RRSIG NSEC
     // www.example.com.	86400	IN	RRSIG	TXT 8 3 86400 20150914142952 20150824191224 54108 example.com. LvODnPb7NLDZfHPBOrr/qLnOKA670vVYKQSk5Qkz3MPNKDVAFJqsP2Y6 UYcypSJZfcSjfIk2mU9dUiansU2ZL80OZJUsUobqJt5De748ovITYDJ7 afbohQzPg+4E1GIWMkJZ/VQD3B2pmr7J5rPn+vejxSQSoI93AIQaTpCU L5O/Bac=

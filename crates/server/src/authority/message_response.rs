@@ -22,17 +22,19 @@ pub struct MessageResponse<
     A = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
     N = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
     S = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
+    D = Box<dyn Iterator<Item = &'a Record> + Send + 'a>,
 > where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
     S: Iterator<Item = &'a Record> + Send + 'a,
+    D: Iterator<Item = &'a Record> + Send + 'a,
 {
     header: Header,
     queries: Option<&'q Queries>,
     answers: A,
     name_servers: N,
     soa: S,
-    additionals: Vec<&'a Record>,
+    additionals: D,
     sig0: Vec<Record>,
     edns: Option<Edns>,
 }
@@ -59,11 +61,12 @@ impl<'q> EmitAndCount for EmptyOrQueries<'q> {
     }
 }
 
-impl<'q, 'a, A, N, S> MessageResponse<'q, 'a, A, N, S>
+impl<'q, 'a, A, N, S, D> MessageResponse<'q, 'a, A, N, S, D>
 where
     A: Iterator<Item = &'a Record> + Send + 'a,
     N: Iterator<Item = &'a Record> + Send + 'a,
     S: Iterator<Item = &'a Record> + Send + 'a,
+    D: Iterator<Item = &'a Record> + Send + 'a,
 {
     /// Returns the header of the message
     pub fn header(&self) -> &Header {
@@ -86,7 +89,7 @@ where
             &mut EmptyOrQueries::from(self.queries),
             &mut self.answers,
             &mut name_servers,
-            &mut self.additionals.iter().cloned(),
+            &mut self.additionals,
             self.edns.as_ref(),
             &self.sig0,
             encoder,
@@ -126,13 +129,14 @@ impl<'q> MessageResponseBuilder<'q> {
     /// # Arguments
     ///
     /// * `header` - set of [Header]s for the Message
-    pub fn build<'a, A, N, S>(
+    pub fn build<'a, A, N, S, D>(
         self,
         header: Header,
         answers: A,
         name_servers: N,
         soa: S,
-    ) -> MessageResponse<'q, 'a, A::IntoIter, N::IntoIter, S::IntoIter>
+        additionals: D,
+    ) -> MessageResponse<'q, 'a, A::IntoIter, N::IntoIter, S::IntoIter, D::IntoIter>
     where
         A: IntoIterator<Item = &'a Record> + Send + 'a,
         A::IntoIter: Send,
@@ -140,6 +144,8 @@ impl<'q> MessageResponseBuilder<'q> {
         N::IntoIter: Send,
         S: IntoIterator<Item = &'a Record> + Send + 'a,
         S::IntoIter: Send,
+        D: IntoIterator<Item = &'a Record> + Send + 'a,
+        D::IntoIter: Send,
     {
         MessageResponse {
             header,
@@ -147,7 +153,7 @@ impl<'q> MessageResponseBuilder<'q> {
             answers: answers.into_iter(),
             name_servers: name_servers.into_iter(),
             soa: soa.into_iter(),
-            additionals: Default::default(),
+            additionals: additionals.into_iter(),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
         }
@@ -161,7 +167,7 @@ impl<'q> MessageResponseBuilder<'q> {
             answers: Box::new(None.into_iter()),
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
-            additionals: Default::default(),
+            additionals: Box::new(None.into_iter()),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
         }
@@ -192,7 +198,7 @@ impl<'q> MessageResponseBuilder<'q> {
             answers: Box::new(None.into_iter()),
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
-            additionals: Default::default(),
+            additionals: Box::new(None.into_iter()),
             sig0: self.sig0.unwrap_or_default(),
             edns: self.edns,
         }
@@ -230,7 +236,7 @@ mod tests {
                 answers: iter::repeat(&answer),
                 name_servers: iter::once(&answer),
                 soa: iter::once(&answer),
-                additionals: vec![],
+                additionals: iter::once(&answer),
                 sig0: vec![],
                 edns: None,
             };
@@ -266,7 +272,7 @@ mod tests {
                 answers: iter::empty(),
                 name_servers: iter::repeat(&answer),
                 soa: iter::repeat(&answer),
-                additionals: vec![],
+                additionals: iter::repeat(&answer),
                 sig0: vec![],
                 edns: None,
             };
