@@ -906,7 +906,7 @@ impl AuthorityLookupState {
                     let mut records = records
                         .take()
                         .expect("AuthorityLookupState already complete");
-                    let additionals = records.additionals();
+                    let additionals = records.take_additionals();
 
                     let sections = LookupSections {
                         answers: records,

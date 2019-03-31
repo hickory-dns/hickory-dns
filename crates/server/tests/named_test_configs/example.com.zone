@@ -1,16 +1,24 @@
 ; replace the trust-dns.org with your own name
-@               IN      SOA     trust-dns.org. root.trust-dns.org. (
+@   IN          SOA     trust-dns.org. root.trust-dns.org. (
                                 199609203       ; Serial
                                 28800   ; Refresh
                                 7200    ; Retry
                                 604800  ; Expire
                                 86400)  ; Minimum TTL
-                        NS      trust-dns.org.
 
-www              A        127.0.0.1
-                 AAAA     ::1
+                NS      trust-dns.org.
 
-bbb              A        127.0.0.2
-this.has.dots    A        127.0.0.3
+                MX      1 alias
 
-cname            CNAME    www
+                ANAME   www
+
+www             A       127.0.0.1
+                AAAA    ::1
+
+bbb             A       127.0.0.2
+this.has.dots   A       127.0.0.3
+
+alias           CNAME   www
+alias-chain     CNAME   alias
+
+aname-chain     ANAME   alias

@@ -84,7 +84,7 @@ impl AuthLookup {
     }
 
     /// Takes the additional records, leaving behind None
-    fn take_additionals(&mut self) -> Option<LookupRecords> {
+    pub fn take_additionals(&mut self) -> Option<LookupRecords> {
         match self {
             AuthLookup::Records {
                 ref mut additionals,
@@ -105,7 +105,7 @@ impl LookupObject for AuthLookup {
         Box::new(boxed_iter)
     }
 
-    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         let additionals = AuthLookup::take_additionals(self);
         additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
     }
@@ -444,7 +444,7 @@ impl LookupObject for LookupRecords {
         Box::new(self.iter())
     }
 
-    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
     }
 }
