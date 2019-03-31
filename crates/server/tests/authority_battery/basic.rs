@@ -1,4 +1,4 @@
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use futures::future::Future;
@@ -69,7 +69,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
 pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(
-        Name::from_str("cname.example.com.").unwrap(),
+        Name::from_str("alias.example.com.").unwrap(),
         RecordType::CNAME,
     );
 
@@ -90,12 +90,16 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
-    let query = Query::query(Name::from_str("cname.example.com.").unwrap(), RecordType::A);
+    let query = Query::query(Name::from_str("alias.example.com.").unwrap(), RecordType::A);
 
-    let lookup = authority
+    let mut lookup = authority
         .search(&query.into(), false, SupportedAlgorithms::new())
         .wait()
         .unwrap();
+
+    let additionals = lookup
+        .take_additionals()
+        .expect("no additionals in response");
 
     // for cname lookups, we have a cname returned in the answer, the catalog will perform additional lookups
     let cname = lookup
@@ -104,9 +108,198 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .expect("CNAME record not found in authority")
         .rdata()
         .as_cname()
-        .expect("Not an A record");
+        .expect("Not a CNAME record");
 
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
+
+    // assert the A record is in the additionals section
+    let a = additionals
+        .into_iter()
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+}
+
+pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(
+        Name::from_str("alias-chain.example.com.").unwrap(),
+        RecordType::A,
+    );
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = lookup
+        .take_additionals()
+        .expect("no additionals in response");
+
+    // for cname lookups, we have a cname returned in the answer, the catalog will perform additional lookups
+    let cname = lookup
+        .into_iter()
+        .next()
+        .expect("CNAME record not found in authority")
+        .rdata()
+        .as_cname()
+        .expect("Not a CNAME record");
+
+    assert_eq!(Name::from_str("alias.example.com.").unwrap(), *cname);
+
+    // assert the A record is in the additionals section
+    let mut additionals = additionals.into_iter();
+
+    let cname = additionals
+        .next()
+        .expect("CNAME record not found")
+        .rdata()
+        .as_cname()
+        .expect("Not an CNAME record");
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
+
+    let a = additionals
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+}
+
+/// In this the ANAME , should, return A and AAAA records in additional section
+/// the answer should be the A record
+pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::ANAME);
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = lookup
+        .take_additionals()
+        .expect("no additionals from ANAME");
+
+    let aname = lookup
+        .into_iter()
+        .next()
+        .expect("ANAME record not found in authority")
+        .rdata()
+        .as_aname()
+        .expect("Not an ANAME record");
+
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *aname);
+
+    // check that additionals contain the info
+    let a = additionals
+        .iter()
+        .find(|r| r.record_type() == RecordType::A)
+        .map(|r| r.rdata())
+        .and_then(|r| r.as_a())
+        .expect("A not found");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+
+    let aaaa = additionals
+        .iter()
+        .find(|r| r.record_type() == RecordType::AAAA)
+        .map(|r| r.rdata())
+        .and_then(|r| r.as_aaaa())
+        .expect("AAAA not found");
+    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+}
+
+/// In this test the A record that the ANAME resolves to should be returned as the answer,
+///
+/// The additionals should include the ANAME.
+pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::ANAME);
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = lookup.take_additionals().expect("no additionals for aname");
+
+    // the name should match the lookup, not the A records
+    let (name, a) = lookup
+        .into_iter()
+        .next()
+        .map(|r| (r.name(), r.rdata()))
+        .expect("Not an A record");
+
+    let a = a.as_a().expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(Name::from_str("example.com.").unwrap(), *name);
+
+    // check that additionals contain the info
+    let aname = additionals
+        .into_iter()
+        .next()
+        .expect("ANAME record not found in authority")
+        .rdata()
+        .as_aname()
+        .expect("Not an ANAME record");
+
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *aname);
+}
+
+/// In this test the A record that the ANAME resolves to should be returned as the answer, not at the apex
+///
+/// The additionals should include the ANAME, this one should include the CNAME chain as well.
+pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(
+        Name::from_str("aname-chain.example.com.").unwrap(),
+        RecordType::A,
+    );
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = lookup.take_additionals().expect("no additionals");
+
+    let (name, a) = lookup
+        .into_iter()
+        .next()
+        .map(|r| (r.name(), r.rdata()))
+        .expect("Not an A record");
+
+    let a = a.as_a().expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    assert_eq!(Name::from_str("aname-chain.example.com.").unwrap(), *name);
+
+    // the name should match the lookup, not the A records
+    let mut additionals = additionals.into_iter();
+
+    let aname = additionals
+        .next()
+        .expect("ANAME record not found in authority")
+        .rdata()
+        .as_aname()
+        .expect("Not an ANAME record");
+
+    assert_eq!(Name::from_str("alias.example.com.").unwrap(), *aname);
+
+    let cname = additionals
+        .next()
+        .expect("CNAME record not found")
+        .rdata()
+        .as_cname()
+        .expect("Not an CNAME record");
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
+
+    let a = additionals
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 }
 
 pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
@@ -184,6 +377,8 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert!(lookup.is_nx_domain());
 }
 
+// test some additional record collections
+
 macro_rules! define_basic_test {
     ($new:ident; $( $f:ident, )*) => {
         $(
@@ -207,6 +402,10 @@ macro_rules! basic_battery {
                     test_ns,
                     test_cname,
                     test_cname_alias,
+                    test_cname_chain,
+                    test_aname,
+                    test_aname_a_lookup,
+                    test_aname_chain,
                     test_update_errors,
                     test_dots_in_name,
                 );

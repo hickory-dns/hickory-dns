@@ -15,6 +15,7 @@ use trust_dns::serialize::txt::*;
 use trust_dns_server::authority::{Authority, ZoneType};
 use trust_dns_server::store::in_memory::InMemoryAuthority;
 
+// TODO: split this test up to test each thing separately
 #[test]
 #[allow(clippy::cyclomatic_complexity)]
 fn test_zone() {
@@ -442,7 +443,6 @@ a       A       127.0.0.1
 }
 
 #[test]
-#[allow(clippy::cyclomatic_complexity)]
 fn test_bad_cname_at_a() {
     let lexer = Lexer::new(
         r###"
@@ -468,4 +468,31 @@ b       A       127.0.0.2
     let (origin, records) = records.unwrap();
 
     assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_err());
+}
+
+#[test]
+fn test_aname_at_soa() {
+    let lexer = Lexer::new(
+        r###"
+@   IN  SOA     venera      action\.domains (
+                            20     ; SERIAL
+                            7200   ; REFRESH
+                            600    ; RETRY
+                            3600000; EXPIRE
+                            60)    ; MINIMUM
+
+        ANAME   a
+a       A       127.0.0.1
+"###,
+    );
+
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+
+    if records.is_err() {
+        panic!("failed to parse: {:?}", records.err())
+    }
+
+    let (origin, records) = records.unwrap();
+
+    assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_ok());
 }

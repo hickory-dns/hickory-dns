@@ -144,7 +144,7 @@ impl LookupObject for ForwardLookup {
         Box::new(self.0.record_iter())
     }
 
-    fn additionals(&mut self) -> Option<Box<dyn LookupObject>> {
+    fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
     }
 }

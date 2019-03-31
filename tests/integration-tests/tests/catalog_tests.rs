@@ -425,6 +425,7 @@ fn test_axfr_refused() {
 
 // }
 
+// TODO: these should be moved to the battery tests
 #[test]
 fn test_cname_additionals() {
     let example = create_example();

@@ -194,10 +194,18 @@ impl InMemoryAuthority {
             .map(|(_key, rr_set)| rr_set)
     }
 
+    /// Search for additional records to include in the response
+    ///
+    /// # Arguments
+    ///
+    /// * query_type - original type in the request query
+    /// * next_name - the name from the CNAME, ANAME, MX, etc. record that is being searched
+    /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the begging of the chain
     fn additional_search(
         &self,
+        query_type: RecordType,
         next_name: LowerName,
-        record_type: RecordType,
+        search_type: RecordType,
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
@@ -206,11 +214,11 @@ impl InMemoryAuthority {
         // loop and collect any additional records to send
         let mut next_name = Some(next_name);
         'cname_search: while let Some(search) = next_name.take() {
-            let additional = self.inner_lookup(&search, record_type);
+            let additional = self.inner_lookup(&search, query_type);
             let mut continue_name = None;
 
             if let Some(additional) = additional {
-                continue_name = maybe_next_name(additional);
+                continue_name = maybe_next_name(additional).map(|(name, _search_type)| name);
                 // assuming no crazy long chains...
                 if !additionals.contains(&additional) {
                     additionals.push(additional.clone());
@@ -272,20 +280,37 @@ impl InMemoryAuthority {
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(self.class, record.dns_class());
 
-        // check that CNAME is either not already present, or no other records are if it's a CNAME
+        /// returns true if an only if the label can not cooccupy space with the checked type
+        #[allow(clippy::nonminimal_bool)]
+        fn label_does_not_allow_multiple(
+            upsert_type: RecordType,
+            occupied_type: RecordType,
+            check_type: RecordType,
+        ) -> bool {
+            // it's a CNAME/ANAME but there's a record that's not a CNAME/ANAME at this location
+            (upsert_type == check_type && occupied_type != check_type) ||
+                // it's a different record, but there is already a CNAME/ANAME here
+                (upsert_type != check_type && occupied_type == check_type)
+        };
+
+        // check that CNAME and ANAME is either not already present, or no other records are if it's a CNAME
         let start_range_key =
             RrKey::new(record.name().into(), RecordType::Unknown(u16::min_value()));
         let end_range_key = RrKey::new(record.name().into(), RecordType::Unknown(u16::max_value()));
-        if self
+
+        let multiple_records_at_label_disallowed = self
             .records
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
             .any(|(key, _)| {
-                // it's a CNAME but there's a record that's not a CNAME at this location
-                (record.record_type() == RecordType::CNAME && key.record_type != RecordType::CNAME) ||
-                // it's a different record, but there is already a CNAME here
-                (record.record_type() != RecordType::CNAME && key.record_type == RecordType::CNAME)
-            }) {
+                label_does_not_allow_multiple(
+                    record.record_type(),
+                    key.record_type,
+                    RecordType::CNAME,
+                )
+            });
+
+        if multiple_records_at_label_disallowed {
             // consider making this an error?
             return false;
         }
@@ -507,13 +532,28 @@ impl InMemoryAuthority {
     }
 }
 
-fn maybe_next_name(record_set: &RecordSet) -> Option<LowerName> {
+/// Gets the next search name, and returns the RecordType that it originated from
+fn maybe_next_name(record_set: &RecordSet) -> Option<(LowerName, RecordType)> {
     match record_set.record_type() {
-        RecordType::CNAME => record_set
+        t @ RecordType::ANAME => record_set
+            .records_without_rrsigs()
+            .next()
+            .and_then(|record| record.rdata().as_aname().cloned())
+            .map(LowerName::from)
+            .map(|name| (name, t)),
+        t @ RecordType::CNAME => record_set
             .records_without_rrsigs()
             .next()
             .and_then(|record| record.rdata().as_cname().cloned())
-            .map(Into::into),
+            .map(LowerName::from)
+            .map(|name| (name, t)),
+        t @ RecordType::MX => record_set
+            .records_without_rrsigs()
+            .next()
+            .and_then(|record| record.rdata().as_mx())
+            .map(|mx| mx.exchange().clone())
+            .map(LowerName::from)
+            .map(|name| (name, t)),
         _ => None,
     }
 }
@@ -634,9 +674,11 @@ impl Authority for InMemoryAuthority {
                 }
                 _ => {
                     let answer = self.inner_lookup(name, rtype);
-                    let additionals = answer
-                        .and_then(|a| maybe_next_name(a))
-                        .and_then(|a| self.additional_search(a, rtype));
+                    let additionals = answer.and_then(|a| maybe_next_name(a)).and_then(
+                        |(search_name, search_type)| {
+                            self.additional_search(rtype, search_name, search_type)
+                        },
+                    );
 
                     // map the answer to a result
                     let answer =
