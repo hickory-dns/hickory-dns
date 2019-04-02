@@ -187,10 +187,19 @@ impl InMemoryAuthority {
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
         let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::max_value()));
 
+        fn aname_covers_type(key_type: RecordType, query_type: RecordType) -> bool {
+            (query_type == RecordType::A || query_type == RecordType::AAAA)
+                && key_type == RecordType::ANAME
+        }
+
         self.records
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
-            .find(|(key, _)| key.record_type == record_type || key.record_type == RecordType::CNAME)
+            .find(|(key, _)| {
+                key.record_type == record_type
+                    || key.record_type == RecordType::CNAME
+                    || aname_covers_type(key.record_type, record_type)
+            })
             .map(|(_key, rr_set)| rr_set)
     }
 
@@ -205,7 +214,7 @@ impl InMemoryAuthority {
         &self,
         query_type: RecordType,
         next_name: LowerName,
-        search_type: RecordType,
+        _search_type: RecordType,
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
@@ -218,7 +227,6 @@ impl InMemoryAuthority {
             let mut continue_name = None;
 
             if let Some(additional) = additional {
-                continue_name = maybe_next_name(additional).map(|(name, _search_type)| name);
                 // assuming no crazy long chains...
                 if !additionals.contains(&additional) {
                     additionals.push(additional.clone());
@@ -226,6 +234,9 @@ impl InMemoryAuthority {
                     // cycle detected
                     break 'cname_search;
                 }
+
+                continue_name =
+                    maybe_next_name(additional, query_type).map(|(name, _search_type)| name);
             }
 
             next_name = continue_name;
@@ -533,21 +544,26 @@ impl InMemoryAuthority {
 }
 
 /// Gets the next search name, and returns the RecordType that it originated from
-fn maybe_next_name(record_set: &RecordSet) -> Option<(LowerName, RecordType)> {
-    match record_set.record_type() {
-        t @ RecordType::ANAME => record_set
+fn maybe_next_name(
+    record_set: &RecordSet,
+    query_type: RecordType,
+) -> Option<(LowerName, RecordType)> {
+    match (record_set.record_type(), query_type) {
+        (t @ RecordType::ANAME, RecordType::A)
+        | (t @ RecordType::ANAME, RecordType::AAAA)
+        | (t @ RecordType::ANAME, RecordType::ANAME) => record_set
             .records_without_rrsigs()
             .next()
             .and_then(|record| record.rdata().as_aname().cloned())
             .map(LowerName::from)
             .map(|name| (name, t)),
-        t @ RecordType::CNAME => record_set
+        (t @ RecordType::CNAME, _) => record_set
             .records_without_rrsigs()
             .next()
             .and_then(|record| record.rdata().as_cname().cloned())
             .map(LowerName::from)
             .map(|name| (name, t)),
-        t @ RecordType::MX => record_set
+        (t @ RecordType::MX, _) => record_set
             .records_without_rrsigs()
             .next()
             .and_then(|record| record.rdata().as_mx())
@@ -655,30 +671,86 @@ impl Authority for InMemoryAuthority {
     fn lookup(
         &self,
         name: &LowerName,
-        rtype: RecordType,
+        query_type: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
         // Collect the records from each rr_set
         let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
-            match rtype {
+            match query_type {
                 RecordType::AXFR | RecordType::ANY => {
                     let result = AnyRecords::new(
                         is_secure,
                         supported_algorithms,
                         self.records.values().cloned().collect(),
-                        rtype,
+                        query_type,
                         name.clone(),
                     );
                     (Ok(LookupRecords::AnyRecords(result)), None)
                 }
                 _ => {
-                    let answer = self.inner_lookup(name, rtype);
-                    let additionals = answer.and_then(|a| maybe_next_name(a)).and_then(
-                        |(search_name, search_type)| {
-                            self.additional_search(rtype, search_name, search_type)
-                        },
-                    );
+                    // perform the lookup
+                    let answer = self.inner_lookup(name, query_type).cloned();
+
+                    // evaluate any cnames for additional inclusion
+                    let additionals_root_chain_type: Option<(_, _)> = answer
+                        .as_ref()
+                        .and_then(|a| maybe_next_name(&*a, query_type))
+                        .and_then(|(search_name, search_type)| {
+                            self.additional_search(query_type, search_name, search_type)
+                                .map(|adds| (adds, search_type))
+                        });
+
+                    // if the chain started with an ANAME, take the A or AAAA record from the list
+                    let (additionals, answer) = match (additionals_root_chain_type, answer) {
+                        (Some((additionals, RecordType::ANAME)), Some(answer)) => {
+                            // This should always be true...
+                            debug_assert_eq!(answer.record_type(), RecordType::ANAME);
+
+                            // in the case of ANAME the final record should be the A or AAAA record
+                            let (rdatas, a_aaaa_ttl) = {
+                                let last_record = additionals.last();
+                                let a_aaaa_ttl = last_record.map_or(u32::max_value(), |r| r.ttl());
+
+                                // grap the rdatas
+                                let rdatas: Option<Vec<RData>> = last_record
+                                    .and_then(|record| match record.record_type() {
+                                        RecordType::A | RecordType::AAAA => {
+                                            // the RRSIGS will be useless since we're changing the record type
+                                            Some(record.records_without_rrsigs())
+                                        }
+                                        _ => None,
+                                    })
+                                    .map(|records| {
+                                        records.map(|r| r.rdata()).cloned().collect::<Vec<_>>()
+                                    });
+
+                                (rdatas, a_aaaa_ttl)
+                            };
+
+                            // now build up a new RecordSet
+                            //   the name comes from the ANAME record
+                            //   according to the rfc the ttl is from the ANAME
+                            //   TODO: technically we should take the min of the potential CNAME chain
+                            let ttl = answer.ttl().min(a_aaaa_ttl);
+                            let mut new_answer = RecordSet::new(answer.name(), query_type, ttl);
+
+                            for rdata in rdatas.into_iter().flatten() {
+                                new_answer.add_rdata(rdata);
+                            }
+
+                            // prepend answer to additionals here (answer is the ANAME record)
+                            let additionals = std::iter::once(answer)
+                                .chain(additionals.into_iter())
+                                .collect();
+
+                            // return the new answer
+                            //   because the searched set was an Arc, we need to arc too
+                            (Some(additionals), Some(Arc::new(new_answer)))
+                        }
+                        (Some((additionals, _)), answer) => (Some(additionals), answer),
+                        (None, answer) => (None, answer),
+                    };
 
                     // map the answer to a result
                     let answer =
