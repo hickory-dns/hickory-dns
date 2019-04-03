@@ -185,7 +185,7 @@ impl From<u16> for RecordType {
             1 => RecordType::A,
             28 => RecordType::AAAA,
             // FIXME: wrong value here
-            258 => RecordType::ANAME,
+            2005 => RecordType::ANAME,
             255 => RecordType::ANY,
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
@@ -291,7 +291,7 @@ impl From<RecordType> for u16 {
             RecordType::A => 1,
             RecordType::AAAA => 28,
             // FIXME: this value is not final
-            RecordType::ANAME => 259,
+            RecordType::ANAME => 2005,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
