@@ -819,7 +819,6 @@ impl AuthorityLookupState {
                                     "request: {} non-existent adding nsecs",
                                     request_params.request.id()
                                 );
-                                dbg!("getting nsecs");
 
                                 // get NSEC records
                                 let nsecs = authority

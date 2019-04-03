@@ -222,7 +222,7 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .wait()
         .unwrap();
 
-    let additionals = dbg!(lookup.take_additionals().expect("no additionals for aname"));
+    let additionals = lookup.take_additionals().expect("no additionals for aname");
 
     // the name should match the lookup, not the A records
     let (name, a) = lookup

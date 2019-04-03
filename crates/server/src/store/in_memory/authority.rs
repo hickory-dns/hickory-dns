@@ -17,9 +17,9 @@ use futures::future::{self, Future, FutureResult, IntoFuture};
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::rdata::key::KEY;
-#[cfg(feature = "dnssec")]
-use trust_dns::rr::rdata::DNSSECRData;
 use trust_dns::rr::rdata::SOA;
+#[cfg(feature = "dnssec")]
+use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use authority::{
@@ -291,6 +291,21 @@ impl InMemoryAuthority {
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(self.class, record.dns_class());
 
+        #[cfg(feature = "dnssec")]
+        fn is_nsec(upsert_type: RecordType, occupied_type: RecordType) -> bool {
+            // NSEC is always allowed
+            upsert_type == RecordType::DNSSEC(DNSSECRecordType::NSEC)
+                || upsert_type == RecordType::DNSSEC(DNSSECRecordType::NSEC3)
+                || occupied_type == RecordType::DNSSEC(DNSSECRecordType::NSEC)
+                || occupied_type == RecordType::DNSSEC(DNSSECRecordType::NSEC3)
+        }
+
+        #[cfg(not(feature = "dnssec"))]
+        fn is_nsec(_upsert_type: RecordType, _occupied_type: RecordType) -> bool {
+            // TODO: we should make the DNSSec RecordTypes always visible
+            false
+        }
+
         /// returns true if an only if the label can not cooccupy space with the checked type
         #[allow(clippy::nonminimal_bool)]
         fn label_does_not_allow_multiple(
@@ -314,11 +329,12 @@ impl InMemoryAuthority {
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
             .any(|(key, _)| {
-                label_does_not_allow_multiple(
-                    record.record_type(),
-                    key.record_type,
-                    RecordType::CNAME,
-                )
+                !is_nsec(record.record_type(), key.record_type)
+                    && label_does_not_allow_multiple(
+                        record.record_type(),
+                        key.record_type,
+                        RecordType::CNAME,
+                    )
             });
 
         if multiple_records_at_label_disallowed {
@@ -432,7 +448,8 @@ impl InMemoryAuthority {
 
         // insert all the nsec records
         for record in records {
-            self.upsert(record, serial);
+            let upserted = self.upsert(record, serial);
+            debug_assert!(upserted);
         }
     }
 
@@ -884,6 +901,7 @@ impl Authority for InMemoryAuthority {
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
             self.records
                 .values()
+                .rev()
                 .filter(|rr_set| is_nsec_rrset(rr_set))
                 // the name must be greater than the name in the nsec
                 .filter(|rr_set| *name >= rr_set.name().into())
