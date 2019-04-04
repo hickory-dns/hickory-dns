@@ -184,8 +184,8 @@ impl From<u16> for RecordType {
         match value {
             1 => RecordType::A,
             28 => RecordType::AAAA,
-            // FIXME: wrong value here
-            2005 => RecordType::ANAME,
+            // TODO: wrong value here, see https://github.com/bluejekyll/trust-dns/issues/723
+            65305 => RecordType::ANAME,
             255 => RecordType::ANY,
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
@@ -290,8 +290,8 @@ impl From<RecordType> for u16 {
         match rt {
             RecordType::A => 1,
             RecordType::AAAA => 28,
-            // FIXME: this value is not final
-            RecordType::ANAME => 2005,
+            // TODO: wrong value here, see https://github.com/bluejekyll/trust-dns/issues/723
+            RecordType::ANAME => 65305,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
