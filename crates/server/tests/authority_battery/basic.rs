@@ -62,9 +62,94 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .expect("NS record not found in authity")
         .rdata()
     {
-        RData::NS(name) => assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *name),
+        RData::NS(name) => assert_eq!(Name::from_str("bbb.example.com.").unwrap(), *name),
         _ => panic!("wrong rdata type returned"),
     }
+}
+
+pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::NS);
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = dbg!(lookup
+        .take_additionals()
+        .expect("no additionals in response"));
+
+    let ns = lookup
+        .into_iter()
+        .next()
+        .expect("NS record not found in authority")
+        .rdata()
+        .as_ns()
+        .expect("Not an NS record");
+
+    assert_eq!(Name::from_str("bbb.example.com.").unwrap(), *ns);
+
+    let a = additionals
+        .into_iter()
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 2), *a);
+}
+
+pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(Name::from_str("example.com.").unwrap(), RecordType::MX);
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = dbg!(lookup
+        .take_additionals()
+        .expect("no additionals in response"));
+
+    let mx = lookup
+        .into_iter()
+        .next()
+        .expect("MX record not found in authority")
+        .rdata()
+        .as_mx()
+        .expect("Not an MX record");
+
+    assert_eq!(
+        Name::from_str("alias.example.com.").unwrap(),
+        *mx.exchange()
+    );
+
+    // assert the A record is in the additionals section
+    let mut additionals = additionals.into_iter();
+
+    let cname = additionals
+        .next()
+        .expect("CNAME record not found")
+        .rdata()
+        .as_cname()
+        .expect("Not an CNAME record");
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
+
+    let a = additionals
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+
+    let aaaa = additionals
+        .next()
+        .expect("AAAA record not found")
+        .rdata()
+        .as_aaaa()
+        .expect("Not an AAAA record");
+    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
 pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -179,9 +264,9 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .wait()
         .unwrap();
 
-    // let additionals = lookup
-    //     .take_additionals()
-    //     .expect("no additionals from ANAME");
+    let additionals = lookup
+        .take_additionals()
+        .expect("no additionals from ANAME");
 
     let aname = lookup
         .into_iter()
@@ -193,22 +278,22 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
 
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *aname);
 
-    // // check that additionals contain the info
-    // let a = additionals
-    //     .iter()
-    //     .find(|r| r.record_type() == RecordType::A)
-    //     .map(|r| r.rdata())
-    //     .and_then(|r| r.as_a())
-    //     .expect("A not found");
-    // assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+    // check that additionals contain the info
+    let a = additionals
+        .iter()
+        .find(|r| r.record_type() == RecordType::A)
+        .map(|r| r.rdata())
+        .and_then(|r| r.as_a())
+        .expect("A not found");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 
-    // let aaaa = additionals
-    //     .iter()
-    //     .find(|r| r.record_type() == RecordType::AAAA)
-    //     .map(|r| r.rdata())
-    //     .and_then(|r| r.as_aaaa())
-    //     .expect("AAAA not found");
-    // assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+    let aaaa = additionals
+        .iter()
+        .find(|r| r.record_type() == RecordType::AAAA)
+        .map(|r| r.rdata())
+        .and_then(|r| r.as_aaaa())
+        .expect("AAAA not found");
+    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
 /// In this test the A record that the ANAME resolves to should be returned as the answer,
@@ -391,6 +476,8 @@ macro_rules! basic_battery {
                     test_a_lookup,
                     test_soa,
                     test_ns,
+                    test_ns_lookup,
+                    test_mx,
                     test_cname,
                     test_cname_alias,
                     test_cname_chain,
