@@ -6,7 +6,7 @@
                                 604800  ; Expire
                                 86400)  ; Minimum TTL
 
-                NS      trust-dns.org.
+                NS      bbb
 
                 MX      1 alias
 

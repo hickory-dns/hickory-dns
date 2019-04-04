@@ -218,28 +218,37 @@ impl InMemoryAuthority {
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
-        // if it's a CNAME or other forwarding record, we'll be adding additional records
+        // if it's a CNAME or other forwarding record, we'll be adding additional records basd on the query_type
+        let mut query_types_arr = [query_type; 2];
+        let query_types: &[RecordType] = match query_type {
+            RecordType::ANAME | RecordType::NS | RecordType::MX | RecordType::SRV => {
+                query_types_arr[0] = RecordType::A;
+                query_types_arr[1] = RecordType::AAAA;
 
-        // loop and collect any additional records to send
-        let mut next_name = Some(next_name);
-        'cname_search: while let Some(search) = next_name.take() {
-            let additional = self.inner_lookup(&search, query_type);
-            let mut continue_name = None;
+                &query_types_arr[..]
+            }
+            _ => &query_types_arr[..1],
+        };
 
-            if let Some(additional) = additional {
-                // assuming no crazy long chains...
-                if !additionals.contains(&additional) {
-                    additionals.push(additional.clone());
-                } else {
-                    // cycle detected
-                    break 'cname_search;
+        for query_type in query_types {
+            // loop and collect any additional records to send
+            let mut next_name = Some(next_name.clone());
+            while let Some(search) = next_name.take() {
+                let additional = self.inner_lookup(&search, *query_type);
+                let mut continue_name = None;
+
+                if let Some(additional) = additional {
+                    // assuming no crazy long chains...
+                    if !additionals.contains(&additional) {
+                        additionals.push(additional.clone());
+                    }
+
+                    continue_name =
+                        maybe_next_name(additional, *query_type).map(|(name, _search_type)| name);
                 }
 
-                continue_name =
-                    maybe_next_name(additional, query_type).map(|(name, _search_type)| name);
+                next_name = continue_name;
             }
-
-            next_name = continue_name;
         }
 
         if !additionals.is_empty() {
@@ -574,19 +583,26 @@ fn maybe_next_name(
             .and_then(|record| record.rdata().as_aname().cloned())
             .map(LowerName::from)
             .map(|name| (name, t)),
+        (t @ RecordType::NS, RecordType::NS) => record_set
+            .records_without_rrsigs()
+            .next()
+            .and_then(|record| record.rdata().as_ns().cloned())
+            .map(LowerName::from)
+            .map(|name| (name, t)),
         (t @ RecordType::CNAME, _) => record_set
             .records_without_rrsigs()
             .next()
             .and_then(|record| record.rdata().as_cname().cloned())
             .map(LowerName::from)
             .map(|name| (name, t)),
-        (t @ RecordType::MX, _) => record_set
+        (t @ RecordType::MX, RecordType::MX) => record_set
             .records_without_rrsigs()
             .next()
             .and_then(|record| record.rdata().as_mx())
             .map(|mx| mx.exchange().clone())
             .map(LowerName::from)
             .map(|name| (name, t)),
+        // other additional collectors can be added here can be added here
         _ => None,
     }
 }
@@ -719,55 +735,66 @@ impl Authority for InMemoryAuthority {
                         });
 
                     // if the chain started with an ANAME, take the A or AAAA record from the list
-                    let (additionals, answer) = match (additionals_root_chain_type, answer) {
-                        (Some((additionals, RecordType::ANAME)), Some(answer)) => {
-                            // This should always be true...
-                            debug_assert_eq!(answer.record_type(), RecordType::ANAME);
+                    let (additionals, answer) =
+                        match (additionals_root_chain_type, answer, query_type) {
+                            (
+                                Some((additionals, RecordType::ANAME)),
+                                Some(answer),
+                                RecordType::A,
+                            )
+                            | (
+                                Some((additionals, RecordType::ANAME)),
+                                Some(answer),
+                                RecordType::AAAA,
+                            ) => {
+                                // This should always be true...
+                                debug_assert_eq!(answer.record_type(), RecordType::ANAME);
 
-                            // in the case of ANAME the final record should be the A or AAAA record
-                            let (rdatas, a_aaaa_ttl) = {
-                                let last_record = additionals.last();
-                                let a_aaaa_ttl = last_record.map_or(u32::max_value(), |r| r.ttl());
+                                // in the case of ANAME the final record should be the A or AAAA record
+                                let (rdatas, a_aaaa_ttl) = {
+                                    let last_record = additionals.last();
+                                    let a_aaaa_ttl =
+                                        last_record.map_or(u32::max_value(), |r| r.ttl());
 
-                                // grap the rdatas
-                                let rdatas: Option<Vec<RData>> = last_record
-                                    .and_then(|record| match record.record_type() {
-                                        RecordType::A | RecordType::AAAA => {
-                                            // the RRSIGS will be useless since we're changing the record type
-                                            Some(record.records_without_rrsigs())
-                                        }
-                                        _ => None,
-                                    })
-                                    .map(|records| {
-                                        records.map(|r| r.rdata()).cloned().collect::<Vec<_>>()
-                                    });
+                                    // grap the rdatas
+                                    let rdatas: Option<Vec<RData>> = last_record
+                                        .and_then(|record| match record.record_type() {
+                                            RecordType::A | RecordType::AAAA => {
+                                                // the RRSIGS will be useless since we're changing the record type
+                                                Some(record.records_without_rrsigs())
+                                            }
+                                            _ => None,
+                                        })
+                                        .map(|records| {
+                                            records.map(|r| r.rdata()).cloned().collect::<Vec<_>>()
+                                        });
 
-                                (rdatas, a_aaaa_ttl)
-                            };
+                                    (rdatas, a_aaaa_ttl)
+                                };
 
-                            // now build up a new RecordSet
-                            //   the name comes from the ANAME record
-                            //   according to the rfc the ttl is from the ANAME
-                            //   TODO: technically we should take the min of the potential CNAME chain
-                            let ttl = answer.ttl().min(a_aaaa_ttl);
-                            let mut new_answer = RecordSet::new(answer.name(), query_type, ttl);
+                                // now build up a new RecordSet
+                                //   the name comes from the ANAME record
+                                //   according to the rfc the ttl is from the ANAME
+                                //   TODO: technically we should take the min of the potential CNAME chain
+                                let ttl = answer.ttl().min(a_aaaa_ttl);
+                                let mut new_answer = RecordSet::new(answer.name(), query_type, ttl);
 
-                            for rdata in rdatas.into_iter().flatten() {
-                                new_answer.add_rdata(rdata);
+                                for rdata in rdatas.into_iter().flatten() {
+                                    new_answer.add_rdata(rdata);
+                                }
+
+                                // prepend answer to additionals here (answer is the ANAME record)
+                                let additionals = std::iter::once(answer)
+                                    .chain(additionals.into_iter())
+                                    .collect();
+
+                                // return the new answer
+                                //   because the searched set was an Arc, we need to arc too
+                                (Some(additionals), Some(Arc::new(new_answer)))
                             }
-
-                            // prepend answer to additionals here (answer is the ANAME record)
-                            let additionals = std::iter::once(answer)
-                                .chain(additionals.into_iter())
-                                .collect();
-
-                            // return the new answer
-                            //   because the searched set was an Arc, we need to arc too
-                            (Some(additionals), Some(Arc::new(new_answer)))
-                        }
-                        (Some((additionals, _)), answer) => (Some(additionals), answer),
-                        (None, answer) => (None, answer),
-                    };
+                            (Some((additionals, _)), answer, _) => (Some(additionals), answer),
+                            (None, answer, _) => (None, answer),
+                        };
 
                     // map the answer to a result
                     let answer =
