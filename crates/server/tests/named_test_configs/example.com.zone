@@ -22,3 +22,6 @@ alias           CNAME   www
 alias-chain     CNAME   alias
 
 aname-chain     ANAME   alias
+
+; _Service._Proto.Name TTL Class SRV Priority Weight Port Target
+server          SRV     1 1 443 alias

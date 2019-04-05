@@ -453,6 +453,59 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert!(lookup.is_nx_domain());
 }
 
+pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(
+        Name::from_str("server.example.com.").unwrap(),
+        RecordType::SRV,
+    );
+
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let additionals = dbg!(lookup
+        .take_additionals()
+        .expect("no additionals in response"));
+
+    let srv = lookup
+        .into_iter()
+        .next()
+        .expect("SRV record not found in authority")
+        .rdata()
+        .as_srv()
+        .expect("Not an SRV record");
+
+    assert_eq!(Name::from_str("alias.example.com.").unwrap(), *srv.target());
+
+    // assert the A record is in the additionals section
+    let mut additionals = additionals.into_iter();
+
+    let cname = additionals
+        .next()
+        .expect("CNAME record not found")
+        .rdata()
+        .as_cname()
+        .expect("Not an CNAME record");
+    assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
+
+    let a = additionals
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+
+    let aaaa = additionals
+        .next()
+        .expect("AAAA record not found")
+        .rdata()
+        .as_aaaa()
+        .expect("Not an AAAA record");
+    assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
+}
+
 // test some additional record collections
 
 macro_rules! define_basic_test {
@@ -486,6 +539,7 @@ macro_rules! basic_battery {
                     test_aname_chain,
                     test_update_errors,
                     test_dots_in_name,
+                    test_srv,
                 );
             }
         }

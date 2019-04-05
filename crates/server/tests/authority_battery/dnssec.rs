@@ -9,7 +9,7 @@ use trust_dns::proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
 use trust_dns::proto::xfer;
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns::rr::{DNSClass, Name, Record, RecordType};
-use trust_dns_server::authority::{Authority, AuthLookup};
+use trust_dns_server::authority::{AuthLookup, Authority};
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -77,7 +77,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
 
     assert_eq!(
         *ns_records.first().unwrap().rdata().as_ns().unwrap(),
-        Name::from_str("trust-dns.org.").unwrap()
+        Name::from_str("bbb.example.com.").unwrap()
     );
 
     let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
@@ -91,7 +91,10 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
 pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
-    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all()).wait().unwrap();
+    let lookup = authority
+        .get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all())
+        .wait()
+        .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -107,13 +110,20 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::TXT);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(
+        &query,
+        &Name::from_str("example.com.").unwrap(),
+        &nsecs
+    ));
 }
 
 pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // tests between the SOA and first record in the zone, where bbb is the first zone record
     let name = Name::from_str("aaa.example.com.").unwrap();
-    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all()).wait().unwrap();
+    let lookup = authority
+        .get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all())
+        .wait()
+        .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -131,13 +141,20 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(
+        &query,
+        &Name::from_str("example.com.").unwrap(),
+        &nsecs
+    ));
 }
 
 pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // follows the first record, nsec should cover between ccc and www, where bbb is the first zone record
     let name = Name::from_str("ccc.example.com.").unwrap();
-    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all()).wait().unwrap();
+    let lookup = authority
+        .get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all())
+        .wait()
+        .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -154,13 +171,23 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(
+        &query,
+        &Name::from_str("example.com.").unwrap(),
+        &nsecs
+    ));
 }
 
-pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
+    authority: A,
+    keys: &[DNSKEY],
+) {
     // wraps back to the begining of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
-    let lookup = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all()).wait().unwrap();
+    let lookup = authority
+        .get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all())
+        .wait()
+        .unwrap();
 
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
@@ -177,7 +204,11 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(authority
     let nsecs: Vec<&Record> = nsec_records.iter().collect();
 
     let query = Query::query(name, RecordType::A);
-    assert!(xfer::secure_dns_handle::verify_nsec(&query, &Name::from_str("example.com.").unwrap(), &nsecs));
+    assert!(xfer::secure_dns_handle::verify_nsec(
+        &query,
+        &Name::from_str("example.com.").unwrap(),
+        &nsecs
+    ));
 }
 
 pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
