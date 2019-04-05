@@ -460,107 +460,131 @@ impl InMemoryAuthority {
         }
     }
 
-    /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
+    /// Signs an RecordSet, and stores the RRSIGs in the RecordSet
+    ///
+    /// This will sign the RecordSet with all the registered keys in the zone
+    ///
+    /// # Arguments
+    ///
+    /// * `rr_set` - RecordSet to sign
+    /// * `secure_keys` - Set of keys to use to sign the RecordSet, see `self.signers()`
+    /// * `zone_ttl` - the zone TTL, see `self.minimum_ttl()`
+    /// * `zone_class` - DNSClass of the zone, see `self.zone_class()`
     #[cfg(feature = "dnssec")]
-    fn sign_zone(&mut self) -> DnsSecResult<()> {
+    fn sign_rrset(
+        rr_set: &mut RecordSet,
+        secure_keys: &[Signer],
+        zone_ttl: u32,
+        zone_class: DNSClass,
+    ) -> DnsSecResult<()> {
         use chrono::Utc;
         use trust_dns::rr::dnssec::tbs;
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, SIG};
 
-        debug!("signing zone: {}", self.origin);
         let inception = Utc::now();
-        let zone_ttl = self.minimum_ttl();
+
+        rr_set.clear_rrsigs();
+
+        let rrsig_temp = Record::with(
+            rr_set.name().clone(),
+            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+            zone_ttl,
+        );
+
+        for signer in secure_keys {
+            debug!(
+                "signing rr_set: {}, {} with: {}",
+                rr_set.name(),
+                rr_set.record_type(),
+                signer.algorithm(),
+            );
+
+            let expiration = inception + signer.sig_duration();
+
+            let tbs = tbs::rrset_tbs(
+                rr_set.name(),
+                zone_class,
+                rr_set.name().num_labels(),
+                rr_set.record_type(),
+                signer.algorithm(),
+                rr_set.ttl(),
+                expiration.timestamp() as u32,
+                inception.timestamp() as u32,
+                signer.calculate_key_tag()?,
+                signer.signer_name(),
+                // TODO: this is a nasty clone... the issue is that the vec
+                //  from records is of Vec<&R>, but we really want &[R]
+                &rr_set
+                    .records_without_rrsigs()
+                    .cloned()
+                    .collect::<Vec<Record>>(),
+            );
+
+            // TODO, maybe chain these with some ETL operations instead?
+            let tbs = match tbs {
+                Ok(tbs) => tbs,
+                Err(err) => {
+                    error!("could not serialize rrset to sign: {}", err);
+                    continue;
+                }
+            };
+
+            let signature = signer.sign(&tbs);
+            let signature = match signature {
+                Ok(signature) => signature,
+                Err(err) => {
+                    error!("could not sign rrset: {}", err);
+                    continue;
+                }
+            };
+
+            let mut rrsig = rrsig_temp.clone();
+            rrsig.set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
+                // type_covered: RecordType,
+                rr_set.record_type(),
+                // algorithm: Algorithm,
+                signer.algorithm(),
+                // num_labels: u8,
+                rr_set.name().num_labels(),
+                // original_ttl: u32,
+                rr_set.ttl(),
+                // sig_expiration: u32,
+                expiration.timestamp() as u32,
+                // sig_inception: u32,
+                inception.timestamp() as u32,
+                // key_tag: u16,
+                signer.calculate_key_tag()?,
+                // signer_name: Name,
+                signer.signer_name().clone(),
+                // sig: Vec<u8>
+                signature,
+            ))));
+
+            rr_set.insert_rrsig(rrsig);
+        }
+
+        Ok(())
+    }
+
+    /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
+    #[cfg(feature = "dnssec")]
+    fn sign_zone(&mut self) -> DnsSecResult<()> {
+        debug!("signing zone: {}", self.origin);
+
+        let minimum_ttl = self.minimum_ttl();
+        let secure_keys = &self.secure_keys;
+        let records = &mut self.records;
 
         // TODO: should this be an error?
-        if self.secure_keys.is_empty() {
+        if secure_keys.is_empty() {
             warn!("attempt to sign_zone for dnssec, but no keys available!")
         }
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
-        for rr_set_orig in self.records.values_mut() {
-            let mut rr_set = RecordSet::clone(&*rr_set_orig);
+        for mut rr_set_orig in records.values_mut() {
             // becuase the rrset is an Arc, it must be cloned before mutated
-
-            rr_set.clear_rrsigs();
-            let rrsig_temp = Record::with(
-                rr_set.name().clone(),
-                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-                zone_ttl,
-            );
-
-            for signer in &self.secure_keys {
-                debug!(
-                    "signing rr_set: {}, {} with: {}",
-                    rr_set.name(),
-                    rr_set.record_type(),
-                    signer.algorithm(),
-                );
-
-                let expiration = inception + signer.sig_duration();
-
-                let tbs = tbs::rrset_tbs(
-                    rr_set.name(),
-                    self.class,
-                    rr_set.name().num_labels(),
-                    rr_set.record_type(),
-                    signer.algorithm(),
-                    rr_set.ttl(),
-                    expiration.timestamp() as u32,
-                    inception.timestamp() as u32,
-                    signer.calculate_key_tag()?,
-                    signer.signer_name(),
-                    // TODO: this is a nasty clone... the issue is that the vec
-                    //  from records is of Vec<&R>, but we really want &[R]
-                    &rr_set
-                        .records_without_rrsigs()
-                        .cloned()
-                        .collect::<Vec<Record>>(),
-                );
-
-                // TODO, maybe chain these with some ETL operations instead?
-                let tbs = match tbs {
-                    Ok(tbs) => tbs,
-                    Err(err) => {
-                        error!("could not serialize rrset to sign: {}", err);
-                        continue;
-                    }
-                };
-
-                let signature = signer.sign(&tbs);
-                let signature = match signature {
-                    Ok(signature) => signature,
-                    Err(err) => {
-                        error!("could not sign rrset: {}", err);
-                        continue;
-                    }
-                };
-
-                let mut rrsig = rrsig_temp.clone();
-                rrsig.set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
-                    // type_covered: RecordType,
-                    rr_set.record_type(),
-                    // algorithm: Algorithm,
-                    signer.algorithm(),
-                    // num_labels: u8,
-                    rr_set.name().num_labels(),
-                    // original_ttl: u32,
-                    rr_set.ttl(),
-                    // sig_expiration: u32,
-                    expiration.timestamp() as u32,
-                    // sig_inception: u32,
-                    inception.timestamp() as u32,
-                    // key_tag: u16,
-                    signer.calculate_key_tag()?,
-                    // signer_name: Name,
-                    signer.signer_name().clone(),
-                    // sig: Vec<u8>
-                    signature,
-                ))));
-
-                rr_set.insert_rrsig(rrsig);
-            }
-
-            *rr_set_orig = Arc::new(rr_set);
+            let rr_set = Arc::make_mut(rr_set_orig);
+            Self::sign_rrset(rr_set, secure_keys, minimum_ttl, self.class)?;
         }
 
         Ok(())
@@ -790,6 +814,23 @@ impl Authority for InMemoryAuthority {
 
                                 for rdata in rdatas.into_iter().flatten() {
                                     new_answer.add_rdata(rdata);
+                                }
+
+                                // if DNSSEC is enabled, and the request had the DO set, sign the recordset
+                                #[cfg(feature = "dnssec")]
+                                {
+                                    // ANAME's are constructed on demand, so need to be signed before return
+                                    if is_secure {
+                                        Self::sign_rrset(
+                                            &mut new_answer,
+                                            self.secure_keys(),
+                                            self.minimum_ttl(),
+                                            self.class(),
+                                        )
+                                        // rather than failing the request, we'll just warn
+                                        .map_err(|e| warn!("failed to sign ANAME record: {}", e))
+                                        .ok();
+                                    }
                                 }
 
                                 // prepend answer to additionals here (answer is the ANAME record)

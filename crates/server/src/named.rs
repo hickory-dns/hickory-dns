@@ -68,7 +68,7 @@ use trust_dns_server::store::forwarder::ForwardAuthority;
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use trust_dns_server::store::StoreConfig;
 
-#[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
+#[cfg_attr(not(feature = "dnssec"), allow(unused_mut, unused))]
 fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,

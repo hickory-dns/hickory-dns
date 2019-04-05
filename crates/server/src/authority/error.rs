@@ -9,6 +9,7 @@ use std::error;
 use std::fmt;
 use std::io;
 
+#[cfg(feature = "trust-dns-resolver")]
 use failure::{Compat, Fail};
 
 use trust_dns::op::ResponseCode;
