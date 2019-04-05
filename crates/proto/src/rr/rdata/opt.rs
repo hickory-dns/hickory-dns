@@ -468,7 +468,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
             EdnsOption::DHU(..) => EdnsCode::DHU,
             #[cfg(feature = "dnssec")]
             EdnsOption::N3U(..) => EdnsCode::N3U,
-            EdnsOption::Unknown(code, _) => EdnsCode::Unknown(code),
+            EdnsOption::Unknown(code, _) => code.into(),
         }
     }
 }
