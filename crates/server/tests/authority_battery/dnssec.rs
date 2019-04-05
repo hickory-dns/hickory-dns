@@ -88,6 +88,30 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
     verify(&ns_records, &rrsig_records, keys);
 }
 
+pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+    let query = Query::query(
+        Name::from_str("aname-chain.example.com.").unwrap(),
+        RecordType::A,
+    );
+
+    let lookup = authority
+        .search(&query.into(), true, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    let (a_records, other_records): (Vec<_>, Vec<_>) = lookup
+        .into_iter()
+        .cloned()
+        .partition(|r| r.record_type() == RecordType::A);
+
+    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+        .into_iter()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+
+    assert!(!rrsig_records.is_empty());
+    verify(&a_records, &rrsig_records, keys);
+}
+
 pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
@@ -384,6 +408,7 @@ macro_rules! dnssec_battery {
                     test_a_lookup,
                     test_soa,
                     test_ns,
+                    test_aname_lookup,
                     test_nsec_nodata,
                     test_nsec_nxdomain_start,
                     test_nsec_nxdomain_middle,
