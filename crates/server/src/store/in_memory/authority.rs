@@ -222,9 +222,7 @@ impl InMemoryAuthority {
         let mut query_types_arr = [query_type; 2];
         let query_types: &[RecordType] = match query_type {
             RecordType::ANAME | RecordType::NS | RecordType::MX | RecordType::SRV => {
-                query_types_arr[0] = RecordType::A;
-                query_types_arr[1] = RecordType::AAAA;
-
+                query_types_arr = [RecordType::A, RecordType::AAAA];
                 &query_types_arr[..]
             }
             _ => &query_types_arr[..1],
@@ -575,6 +573,9 @@ fn maybe_next_name(
     query_type: RecordType,
 ) -> Option<(LowerName, RecordType)> {
     match (record_set.record_type(), query_type) {
+        // ANAME is similar to CNAME,
+        //  unlike CNAME, it is only something that continue to additional processing if the
+        //  the query was for address (A, AAAA, or ANAME itself) record types.
         (t @ RecordType::ANAME, RecordType::A)
         | (t @ RecordType::ANAME, RecordType::AAAA)
         | (t @ RecordType::ANAME, RecordType::ANAME) => record_set
@@ -589,6 +590,7 @@ fn maybe_next_name(
             .and_then(|record| record.rdata().as_ns().cloned())
             .map(LowerName::from)
             .map(|name| (name, t)),
+        // CNAME will continue to additional processing for any query type
         (t @ RecordType::CNAME, _) => record_set
             .records_without_rrsigs()
             .next()
@@ -600,6 +602,13 @@ fn maybe_next_name(
             .next()
             .and_then(|record| record.rdata().as_mx())
             .map(|mx| mx.exchange().clone())
+            .map(LowerName::from)
+            .map(|name| (name, t)),
+        (t @ RecordType::SRV, RecordType::SRV) => record_set
+            .records_without_rrsigs()
+            .next()
+            .and_then(|record| record.rdata().as_srv())
+            .map(|srv| srv.target().clone())
             .map(LowerName::from)
             .map(|name| (name, t)),
         // other additional collectors can be added here can be added here
