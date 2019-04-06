@@ -156,8 +156,8 @@ impl Journal {
             .query_and_then(
                 &[&row_id],
                 |row| -> Result<(i64, Record), rusqlite::Error> {
-                    let row_id: i64 = row.get_checked(0)?;
-                    let record_bytes: Vec<u8> = row.get_checked(1)?;
+                    let row_id: i64 = row.get(0)?;
+                    let record_bytes: Vec<u8> = row.get(1)?;
                     let mut decoder = BinDecoder::new(&record_bytes);
 
                     // todo add location to this...
