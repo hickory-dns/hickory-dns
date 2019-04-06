@@ -47,6 +47,7 @@ impl RDataParser for RData {
             RecordType::CNAME => RData::CNAME(name::parse(tokens, origin)?),
             RecordType::IXFR => panic!("parsing IXFR doesn't make sense"), // valid panic, never should happen
             RecordType::MX => RData::MX(mx::parse(tokens, origin)?),
+            RecordType::NAPTR => RData::NAPTR(naptr::parse(tokens, origin)?),
             RecordType::NULL => RData::NULL(null::parse(tokens)?),
             RecordType::NS => RData::NS(name::parse(tokens, origin)?),
             RecordType::OPENPGPKEY => RData::OPENPGPKEY(openpgpkey::parse(tokens)?),
