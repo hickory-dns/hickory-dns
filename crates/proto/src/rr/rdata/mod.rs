@@ -24,6 +24,7 @@ pub mod aaaa;
 pub mod caa;
 pub mod mx;
 pub mod name;
+pub mod naptr;
 pub mod null;
 pub mod openpgpkey;
 pub mod opt;
@@ -35,6 +36,7 @@ pub mod txt;
 
 pub use self::caa::CAA;
 pub use self::mx::MX;
+pub use self::naptr::NAPTR;
 pub use self::null::NULL;
 pub use self::openpgpkey::OPENPGPKEY;
 pub use self::opt::OPT;
