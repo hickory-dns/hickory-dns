@@ -8,12 +8,20 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - (proto) UDP Sockets not being properly closed in timeout scenarios #635
+- (server) CNAME resolutions #720
+- (server) NSEC evaluation for NODATA and NXDOMAIN responses #697
+- (server) Call add_update_auth_key in named.rs #683 (@Darkspirit)
 
 ### Added
 
 - (proto) support for the OPENPGPKEY and SSHFP record types #646 #647
+- (server/client) support ECDSA signing with ring #688 (@Darkspirit)
 - (server) forwarding support in server with trust-dns-resolver (default feature) #674
 - (server) Authority trait for generic Authorities (File, Sqlite, Forwarder) #674
+- (server) ANAME resolutions #720
+- (server) Additional section processing for ANAME, CNAME, MX, NS, and SRV #720
+- (server) Added endpoint name config to DoH and DoT TLS endpoint #714
+- (proto) NAPTR record data (no additional record processing support) #731
 
 ### Changed
 

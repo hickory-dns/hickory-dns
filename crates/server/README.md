@@ -11,6 +11,8 @@ This library contains basic implementations for DNS zone hosting. It is capable 
 - DNS over TLS (DoT)
 - DNS over HTTPS (DoH)
 - Forwarding stub resolver
+- ANAME resolution, for zone mapping aliass to A and AAAA records
+- Additionals section generation for aliasing record types
 
 ## Future goals
 

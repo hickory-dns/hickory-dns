@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-native-tls"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
