@@ -21,8 +21,8 @@ use std::{fmt, io};
 
 use super::LexerError;
 use failure::{Backtrace, Context, Fail};
-use serialize::txt::Token;
 use proto::error::{ProtoError, ProtoErrorKind};
+use serialize::txt::Token;
 
 /// An alias for parse results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -146,6 +146,12 @@ impl From<ErrorKind> for Error {
 impl From<Context<ErrorKind>> for Error {
     fn from(inner: Context<ErrorKind>) -> Error {
         Error { inner }
+    }
+}
+
+impl From<&'static str> for Error {
+    fn from(msg: &'static str) -> Error {
+        ErrorKind::Message(msg).into()
     }
 }
 

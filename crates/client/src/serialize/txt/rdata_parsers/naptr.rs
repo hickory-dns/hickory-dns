@@ -41,9 +41,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
         .map(|s| s.to_string())
         .map(|s| s.as_bytes().to_vec().into_boxed_slice())?;
     if !verify_flags(&flags) {
-        return Err(ParseError::from(format!(
-            "bad flags, must be in range [a-zA-Z0-9]"
-        )));
+        return Err(ParseError::from("bad flags, must be in range [a-zA-Z0-9]"));
     }
 
     let service = tokens
