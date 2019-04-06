@@ -24,6 +24,7 @@ pub mod aaaa;
 pub mod caa;
 pub mod mx;
 pub mod name;
+pub mod naptr;
 pub mod null;
 pub mod openpgpkey;
 pub mod soa;

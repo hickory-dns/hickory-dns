@@ -38,57 +38,58 @@ use rr::dnssec::rdata::DNSSECRecordType;
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
-    /// RFC 1035[1]	IPv4 Address record
+    /// RFC 1035[1] IPv4 Address record
     A,
-    /// RFC 3596[2]	IPv6 address record
+    /// RFC 3596[2] IPv6 address record
     AAAA,
     /// ANAME draft-ietf-dnsop-aname
     ANAME,
     //  AFSDB,      //	18	RFC 1183	AFS database record
-    /// RFC 1035[1]	All cached records, aka ANY
+    /// RFC 1035[1] All cached records, aka ANY
     ANY,
     //  APL,        //	42	RFC 3123	Address Prefix List
-    /// RFC 1035[1]	Authoritative Zone Transfer
+    /// RFC 1035[1] Authoritative Zone Transfer
     AXFR,
     /// RFC 6844 Certification Authority Authorization
     CAA,
     //  CERT,       //	37	RFC 4398	Certificate record
-    /// RFC 1035[1]	Canonical name record
+    /// RFC 1035[1] Canonical name record
     CNAME,
     //  DHCID,      //	49	RFC 4701	DHCP identifier
     //  DNAME,      //	39	RFC 2672	Delegation Name
     //  HIP,        //	55	RFC 5205	Host Identity Protocol
     //  IPSECKEY,   //	45	RFC 4025	IPsec Key
-    /// RFC 1996	Incremental Zone Transfer
+    /// RFC 1996 Incremental Zone Transfer
     IXFR,
     //  KX,         //	36	RFC 2230	Key eXchanger record
     //  LOC,        //	29	RFC 1876	Location record
-    /// RFC 1035[1]	Mail exchange record
+    /// RFC 1035[1] Mail exchange record
     MX,
-    //  NAPTR,      //	35	RFC 3403	Naming Authority Pointer
-    /// RFC 1035[1]	Name server record
+    /// RFC 3403 Naming Authority Pointer
+    NAPTR,
+    /// RFC 1035[1] Name server record
     NS,
-    /// RFC 1035[1]	Null server record, for testing
+    /// RFC 1035[1] Null server record, for testing
     NULL,
     /// RFC 7929	OpenPGP public key
     OPENPGPKEY,
     /// RFC 6891	Option
     OPT,
-    /// RFC 1035[1]	Pointer record
+    /// RFC 1035[1] Pointer record
     PTR,
     //  RP,         //	17	RFC 1183	Responsible person
     /// RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
     SOA,
-    /// RFC 2782	Service locator
+    /// RFC 2782 Service locator
     SRV,
-    /// RFC 4255	SSH Public Key Fingerprint
+    /// RFC 4255 SSH Public Key Fingerprint
     SSHFP,
     //  TA,         //	32768	N/A	DNSSEC Trust Authorities
     //  TKEY,       //	249	RFC 2930	Secret key record
-    ///	RFC 6698	TLSA certificate association
+    /// RFC 6698 TLSA certificate association
     TLSA,
     //  TSIG,       //	250	RFC 2845	Transaction Signature
-    /// RFC 1035[1]	Text record
+    /// RFC 1035[1] Text record
     TXT,
 
     /// A DNSSEC- or SIG(0)- specific record type.
@@ -156,6 +157,7 @@ impl FromStr for RecordType {
             "CNAME" => Ok(RecordType::CNAME),
             "NULL" => Ok(RecordType::NULL),
             "MX" => Ok(RecordType::MX),
+            "NAPTR" => Ok(RecordType::NAPTR),
             "NS" => Ok(RecordType::NS),
             "OPENPGPKEY" => Ok(RecordType::OPENPGPKEY),
             "PTR" => Ok(RecordType::PTR),
@@ -192,6 +194,7 @@ impl From<u16> for RecordType {
             5 => RecordType::CNAME,
             0 => RecordType::ZERO,
             15 => RecordType::MX,
+            35 => RecordType::NAPTR,
             2 => RecordType::NS,
             10 => RecordType::NULL,
             61 => RecordType::OPENPGPKEY,
@@ -259,8 +262,9 @@ impl From<RecordType> for &'static str {
             RecordType::ZERO => "",
             RecordType::IXFR => "IXFR",
             RecordType::MX => "MX",
-            RecordType::NULL => "NULL",
+            RecordType::NAPTR => "NAPTR",
             RecordType::NS => "NS",
+            RecordType::NULL => "NULL",
             RecordType::OPENPGPKEY => "OPENPGPKEY",
             RecordType::OPT => "OPT",
             RecordType::PTR => "PTR",
@@ -299,6 +303,7 @@ impl From<RecordType> for u16 {
             RecordType::ZERO => 0,
             RecordType::IXFR => 251,
             RecordType::MX => 15,
+            RecordType::NAPTR => 35,
             RecordType::NS => 2,
             RecordType::NULL => 10,
             RecordType::OPENPGPKEY => 61,
