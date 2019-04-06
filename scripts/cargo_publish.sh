@@ -16,3 +16,8 @@ for p in ${packages_ordered:?} ; do
     echo "====> publishing $p"
     cargo publish --verbose --locked --manifest-path crates/${p:?}/Cargo.toml
 done
+
+echo "====> dry-run publish util"
+cargo publish --verbose --locked --dry-run --manifest-path util/Cargo.toml
+echo "====> publishing util"
+cargo publish --verbose --locked --manifest-path util/Cargo.toml
