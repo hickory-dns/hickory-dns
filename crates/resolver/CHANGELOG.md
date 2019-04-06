@@ -8,11 +8,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 
 - Ignore UDP responses not from target src address #629 #630 #631 (@aep)
+- Improved NSEC validation of responses #697
 
 ### Added
 
 - New option to execute queries concurrently, default is 2 #615
 - Lookup::record_iter for listing all records returned in request #674
+- NAPTR record data (no additional record processing support) #731
 
 ### Changed
 
