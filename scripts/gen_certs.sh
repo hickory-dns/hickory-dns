@@ -6,7 +6,7 @@ OPENSSL=/usr/local/opt/openssl/bin/openssl
 
 trust_dns_dir=$(dirname $0)/..
 
-pushd $trust_dns_dir/tests
+pushd $trust_dns_dir/tests/test-data
 
 for i in ca.key ca.pem cert-key.pem cert.csr cert.pem cert.p12 ; do
     [ -f $i ] && echo "$i exists" && exit 1;
@@ -72,6 +72,7 @@ ${OPENSSL:?} genrsa -out cert-key.pem 4096
 ${OPENSSL:?} req -new -nodes -key cert-key.pem -out cert.csr \
              -verify \
              -config /tmp/cert.conf
+${OPENSSL:?} x509 -in ca.pem -inform pem -pubkey -noout > ca.pubkey
 
 echo "----> Signing Cert <----"
 ${OPENSSL:?} x509 -req -days 365 -in cert.csr -CA ca.pem -CAkey ca.key  -set_serial 0x8771f7bdee982fa6 -out cert.pem -extfile /tmp/cert.conf -extensions req_ext
