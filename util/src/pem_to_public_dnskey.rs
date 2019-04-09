@@ -107,7 +107,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn read_read_pem_into_key_pair() {
+    fn read_pem_into_key_pair() {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
 
         let path = [&server_path, "..", "tests", "test-data", "ca.pubkey"]
