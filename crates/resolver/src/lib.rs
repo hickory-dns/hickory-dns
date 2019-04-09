@@ -197,8 +197,6 @@ extern crate lru_cache;
 extern crate resolv_conf;
 #[cfg(feature = "serde-config")]
 #[macro_use]
-extern crate serde_derive;
-#[cfg(feature = "serde-config")]
 extern crate serde;
 extern crate smallvec;
 #[cfg(any(feature = "tokio", test))]

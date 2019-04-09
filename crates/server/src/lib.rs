@@ -38,9 +38,8 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate rusqlite;
-extern crate serde;
 #[macro_use]
-extern crate serde_derive;
+extern crate serde;
 #[cfg(feature = "dns-over-https")]
 extern crate h2;
 #[cfg(feature = "dns-over-https")]
