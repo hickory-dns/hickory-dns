@@ -411,7 +411,7 @@ impl ParserFields {
     }
 
     fn set_current_name(&mut self, name: Name) {
-        self.origin = Some(name)
+        self.current_name = Some(name)
     }
 
     //Sets current name to origin
