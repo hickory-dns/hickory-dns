@@ -12,6 +12,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use std::vec::IntoIter;
 
 use futures::{future, Async, Future, Poll};
 
@@ -135,6 +136,45 @@ impl<'a> Iterator for LookupRecordIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.0.next()
+    }
+}
+
+impl IntoIterator for Lookup {
+    type Item = RData;
+    type IntoIter = LookupIntoIter;
+
+    /// This is most likely not a free conversion, the RDatas will be cloned if data is
+    ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+    fn into_iter(self) -> Self::IntoIter {
+        LookupIntoIter {
+            records: Arc::try_unwrap(self.records).map(|r| r.into_iter()),
+            index: 0,
+        }
+    }
+}
+
+/// Borrowed view of set of RDatas returned from a Lookup
+///
+/// This is not usually a zero overhead Iterator, it may result in clones of the RData
+pub struct LookupIntoIter {
+    // the result of the try_unwrap on Arc
+    records: Result<IntoIter<Record>, Arc<Vec<Record>>>,
+    index: usize,
+}
+
+impl Iterator for LookupIntoIter {
+    type Item = RData;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.records {
+            // a zero overhead unwrap
+            Ok(ref mut iter) => iter.next().map(|r| r.unwrap_rdata()),
+            Err(ref records) => {
+                let rdata = records.get(self.index).map(|r| r.rdata());
+                self.index += 1;
+                rdata.cloned()
+            }
+        }
     }
 }
 
@@ -306,6 +346,33 @@ impl<'i> Iterator for SrvLookupIter<'i> {
     }
 }
 
+impl IntoIterator for SrvLookup {
+    type Item = rdata::SRV;
+    type IntoIter = SrvLookupIntoIter;
+
+    /// This is most likely not a free conversion, the RDatas will be cloned if data is
+    ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+    fn into_iter(self) -> Self::IntoIter {
+        SrvLookupIntoIter(self.0.into_iter())
+    }
+}
+
+/// Borrowed view of set of RDatas returned from a Lookup
+pub struct SrvLookupIntoIter(LookupIntoIter);
+
+impl Iterator for SrvLookupIntoIter {
+    type Item = rdata::SRV;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter: &mut _ = &mut self.0;
+        iter.filter_map(|rdata| match rdata {
+            RData::SRV(data) => Some(data),
+            _ => None,
+        })
+        .next()
+    }
+}
+
 /// A Future while resolves to the Lookup type
 pub struct SrvLookupFuture(LookupFuture);
 
@@ -330,7 +397,7 @@ impl Future for SrvLookupFuture {
 
 /// Creates a Lookup result type from the specified components
 macro_rules! lookup_type {
-    ($l:ident, $i:ident, $f:ident, $r:path, $t:path) => {
+    ($l:ident, $i:ident, $ii:ident, $f:ident, $r:path, $t:path) => {
         /// Contains the results of a lookup for the associated RecordType
         #[derive(Debug, Clone)]
         pub struct $l(Lookup);
@@ -369,6 +436,33 @@ macro_rules! lookup_type {
             }
         }
 
+        impl IntoIterator for $l {
+            type Item = $t;
+            type IntoIter = $ii;
+
+            /// This is most likely not a free conversion, the RDatas will be cloned if data is
+            ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+            fn into_iter(self) -> Self::IntoIter {
+                $ii(self.0.into_iter())
+            }
+        }
+
+        /// Borrowed view of set of RDatas returned from a Lookup
+        pub struct $ii(LookupIntoIter);
+
+        impl Iterator for $ii {
+            type Item = $t;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let iter: &mut _ = &mut self.0;
+                iter.filter_map(|rdata| match rdata {
+                    $r(data) => Some(data),
+                    _ => None,
+                })
+                .next()
+            }
+        }
+
         /// A Future while resolves to the Lookup type
         pub struct $f(LookupFuture);
 
@@ -397,6 +491,7 @@ macro_rules! lookup_type {
 lookup_type!(
     ReverseLookup,
     ReverseLookupIter,
+    ReverseLookupIntoIter,
     ReverseLookupFuture,
     RData::PTR,
     Name
@@ -404,6 +499,7 @@ lookup_type!(
 lookup_type!(
     Ipv4Lookup,
     Ipv4LookupIter,
+    Ipv4LookupIntoIter,
     Ipv4LookupFuture,
     RData::A,
     Ipv4Addr
@@ -411,14 +507,23 @@ lookup_type!(
 lookup_type!(
     Ipv6Lookup,
     Ipv6LookupIter,
+    Ipv6LookupIntoIter,
     Ipv6LookupFuture,
     RData::AAAA,
     Ipv6Addr
 );
-lookup_type!(MxLookup, MxLookupIter, MxLookupFuture, RData::MX, rdata::MX);
+lookup_type!(
+    MxLookup,
+    MxLookupIter,
+    MxLookupIntoIter,
+    MxLookupFuture,
+    RData::MX,
+    rdata::MX
+);
 lookup_type!(
     TxtLookup,
     TxtLookupIter,
+    TxtLookupIntoIter,
     TxtLookupFuture,
     RData::TXT,
     rdata::TXT
@@ -427,6 +532,7 @@ lookup_type!(
 #[cfg(test)]
 pub mod tests {
     use std::net::{IpAddr, Ipv4Addr};
+    use std::str::FromStr;
     use std::sync::{Arc, Mutex};
 
     use futures::{future, Future};
@@ -496,6 +602,24 @@ pub mod tests {
     }
 
     #[test]
+    fn test_lookup_into_iter() {
+        assert_eq!(
+            LookupFuture::lookup(
+                vec![Name::root()],
+                RecordType::A,
+                DnsRequestOptions::default(),
+                CachingClient::new(0, mock(vec![v4_message()])),
+            )
+            .wait()
+            .unwrap()
+            .into_iter()
+            .map(|r| r.to_ip_addr().unwrap())
+            .collect::<Vec<IpAddr>>(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+    }
+
+    #[test]
     fn test_error() {
         assert!(LookupFuture::lookup(
             vec![Name::root()],
@@ -524,5 +648,64 @@ pub mod tests {
                 valid_until: None,
             }
         );
+    }
+
+    #[test]
+    fn test_lookup_into_iter_arc() {
+        let mut lookup = LookupIntoIter {
+            records: Err(Arc::new(vec![
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    80,
+                    RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                ),
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    80,
+                    RData::A(Ipv4Addr::new(127, 0, 0, 2)),
+                ),
+            ])),
+            index: 0,
+        };
+
+        assert_eq!(
+            lookup.next().unwrap(),
+            RData::A(Ipv4Addr::new(127, 0, 0, 1))
+        );
+        assert_eq!(
+            lookup.next().unwrap(),
+            RData::A(Ipv4Addr::new(127, 0, 0, 2))
+        );
+        assert_eq!(lookup.next(), None);
+    }
+
+    #[test]
+    fn test_lookup_into_iter_vec() {
+        let mut lookup = LookupIntoIter {
+            records: Ok(vec![
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    80,
+                    RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                ),
+                Record::from_rdata(
+                    Name::from_str("www.example.com.").unwrap(),
+                    80,
+                    RData::A(Ipv4Addr::new(127, 0, 0, 2)),
+                ),
+            ]
+            .into_iter()),
+            index: 0,
+        };
+
+        assert_eq!(
+            lookup.next().unwrap(),
+            RData::A(Ipv4Addr::new(127, 0, 0, 1))
+        );
+        assert_eq!(
+            lookup.next().unwrap(),
+            RData::A(Ipv4Addr::new(127, 0, 0, 2))
+        );
+        assert_eq!(lookup.next(), None);
     }
 }

@@ -25,7 +25,7 @@ use config::LookupIpStrategy;
 use dns_lru::MAX_TTL;
 use error::*;
 use hosts::Hosts;
-use lookup::{Lookup, LookupEither, LookupIter};
+use lookup::{Lookup, LookupEither, LookupIntoIter, LookupIter};
 use lookup_state::CachingClient;
 use name_server::{ConnectionHandle, StandardConnection};
 
@@ -67,6 +67,34 @@ impl<'i> Iterator for LookupIpIter<'i> {
     fn next(&mut self) -> Option<Self::Item> {
         let iter: &mut _ = &mut self.0;
         iter.filter_map(|rdata| match *rdata {
+            RData::A(ip) => Some(IpAddr::from(ip)),
+            RData::AAAA(ip) => Some(IpAddr::from(ip)),
+            _ => None,
+        })
+        .next()
+    }
+}
+
+impl IntoIterator for LookupIp {
+    type Item = IpAddr;
+    type IntoIter = LookupIpIntoIter;
+
+    /// This is most likely not a free conversion, the RDatas will be cloned if data is
+    ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
+    fn into_iter(self) -> Self::IntoIter {
+        LookupIpIntoIter(self.0.into_iter())
+    }
+}
+
+/// Borrowed view of set of RDatas returned from a Lookup
+pub struct LookupIpIntoIter(LookupIntoIter);
+
+impl Iterator for LookupIpIntoIter {
+    type Item = IpAddr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter: &mut _ = &mut self.0;
+        iter.filter_map(|rdata| match rdata {
             RData::A(ip) => Some(IpAddr::from(ip)),
             RData::AAAA(ip) => Some(IpAddr::from(ip)),
             _ => None,
