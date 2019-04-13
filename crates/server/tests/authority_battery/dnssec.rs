@@ -112,6 +112,34 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
     verify(&a_records, &rrsig_records, keys);
 }
 
+pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
+    // check wildcard lookup
+    let query = Query::query(
+        Name::from_str("www.wildcard.example.com.").unwrap(),
+        RecordType::CNAME,
+    );
+    let lookup = authority
+        .search(&query.into(), true, SupportedAlgorithms::new())
+        .wait()
+        .expect("lookup of www.wildcard.example.com. failed");
+
+    let (cname_records, other_records): (Vec<_>, Vec<_>) = lookup
+        .into_iter()
+        .cloned()
+        .partition(|r| r.record_type() == RecordType::CNAME);
+
+    assert!(cname_records
+        .iter()
+        .all(|r| *r.name() == Name::from_str("www.wildcard.example.com.").unwrap()));
+
+    let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
+        .into_iter()
+        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+
+    assert!(!rrsig_records.is_empty());
+    verify(&cname_records, &rrsig_records, keys);
+}
+
 pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     // this should have a single nsec record that covers the type
     let name = Name::from_str("www.example.com.").unwrap();
@@ -409,6 +437,7 @@ macro_rules! dnssec_battery {
                     test_soa,
                     test_ns,
                     test_aname_lookup,
+                    test_wildcard,
                     test_nsec_nodata,
                     test_nsec_nxdomain_start,
                     test_nsec_nxdomain_middle,

@@ -453,6 +453,92 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert!(lookup.is_nx_domain());
 }
 
+pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    // check direct lookup
+    let query = Query::query(
+        Name::from_str("*.wildcard.example.com.").unwrap(),
+        RecordType::CNAME,
+    );
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .unwrap();
+
+    assert_eq!(
+        *lookup
+            .into_iter()
+            .next()
+            .expect("CNAME record not found in authority")
+            .rdata()
+            .as_cname()
+            .expect("wrong rdata type returned"),
+        Name::from_str("www.example.com.").unwrap()
+    );
+
+    // check wildcard lookup
+    let query = Query::query(
+        Name::from_str("www.wildcard.example.com.").unwrap(),
+        RecordType::CNAME,
+    );
+    let lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .expect("lookup of www.wildcard.example.com. failed");
+
+    assert_eq!(
+        *lookup
+            .into_iter()
+            .next()
+            .map(|r| {
+                assert_eq!(
+                    *r.name(),
+                    Name::from_str("www.wildcard.example.com.").unwrap()
+                );
+                r
+            })
+            .expect("CNAME record not found in authority")
+            .rdata()
+            .as_cname()
+            .expect("wrong rdata type returned"),
+        Name::from_str("www.example.com.").unwrap()
+    );
+}
+
+pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    // check wildcard lookup
+    let query = Query::query(
+        Name::from_str("www.wildcard.example.com.").unwrap(),
+        RecordType::A,
+    );
+    let mut lookup = authority
+        .search(&query.into(), false, SupportedAlgorithms::new())
+        .wait()
+        .expect("lookup of www.wildcard.example.com. failed");
+
+    // the name should match the lookup, not the A records
+    let additionals = lookup.take_additionals().expect("no additionals");
+
+    assert_eq!(
+        *lookup
+            .into_iter()
+            .next()
+            .expect("CNAME record not found in authority")
+            .rdata()
+            .as_cname()
+            .expect("wrong rdata type returned"),
+        Name::from_str("www.example.com.").unwrap()
+    );
+
+    let mut additionals = additionals.into_iter();
+    let a = additionals
+        .next()
+        .expect("A record not found")
+        .rdata()
+        .as_a()
+        .expect("Not an A record");
+    assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
+}
+
 pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(
         Name::from_str("server.example.com.").unwrap(),
@@ -539,6 +625,8 @@ macro_rules! basic_battery {
                     test_aname_chain,
                     test_update_errors,
                     test_dots_in_name,
+                    test_wildcard,
+                    test_wildcard_chain,
                     test_srv,
                 );
             }

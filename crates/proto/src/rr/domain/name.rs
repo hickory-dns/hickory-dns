@@ -756,6 +756,51 @@ impl Name {
     pub fn is_localhost(&self) -> bool {
         LOCALHOST_usage.zone_of(self)
     }
+
+    /// True if the first label of this name is the wildcard, i.e. '*'
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// assert!(!name.is_wildcard());
+    ///
+    /// let name = Name::from_str("*.example.com").unwrap();
+    /// assert!(name.is_wildcard());
+    ///
+    /// let name = Name::root();
+    /// assert!(!name.is_wildcard());
+    /// ```
+    pub fn is_wildcard(&self) -> bool {
+        self.labels.first().map_or(false, Label::is_wildcard)
+    }
+
+    /// Converts a name to a wildcard, by replacing the first label with `*`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap().into_wildcard();
+    /// assert_eq!(name, Name::from_str("*.example.com.").unwrap());
+    ///
+    /// // does nothing if the root
+    /// let name = Name::root().into_wildcard();
+    /// assert_eq!(name, Name::root());
+    /// ```
+    pub fn into_wildcard(mut self) -> Self {
+        let wildcard = Label::wildcard();
+        if let Some(first) = self.labels.first_mut() {
+            *first = wildcard;
+        }
+
+        self
+    }
 }
 
 trait LabelEnc {

@@ -45,7 +45,7 @@ impl Label {
     /// Translates this string into IDNA safe name, encoding to punycode as necessary.
     pub fn from_utf8(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label(Rc::from(WILDCARD.to_vec())));
+            return Ok(Label::wildcard());
         }
 
         // special case for SRV type records
@@ -71,7 +71,7 @@ impl Label {
     /// This will return an Error if the label is not an ascii string
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label(Rc::from(WILDCARD.to_vec())));
+            return Ok(Label::wildcard());
         }
 
         if !s.is_empty()
@@ -83,6 +83,11 @@ impl Label {
         } else {
             Err(format!("Malformed label: {}", s).into())
         }
+    }
+
+    /// Returns a new Label of the Wildcard, i.e. "*"
+    pub fn wildcard() -> Self {
+        Label(Rc::from(WILDCARD.to_vec()))
     }
 
     /// Converts this label to lowercase

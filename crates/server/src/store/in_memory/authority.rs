@@ -7,7 +7,6 @@
 
 //! All authority related types
 
-#[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -183,7 +182,14 @@ impl InMemoryAuthority {
         soa.serial()
     }
 
-    fn inner_lookup(&self, name: &LowerName, record_type: RecordType) -> Option<&Arc<RecordSet>> {
+    fn inner_lookup(
+        &self,
+        name: &LowerName,
+        record_type: RecordType,
+        and_rrsigs: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Option<Arc<RecordSet>> {
+        // this range covers all the records for any of the RecordTypes at a given label.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
         let end_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::max_value()));
 
@@ -192,7 +198,8 @@ impl InMemoryAuthority {
                 && key_type == RecordType::ANAME
         }
 
-        self.records
+        let lookup = self
+            .records
             .range(&start_range_key..&end_range_key)
             // remember CNAME can be the only record at a particular label
             .find(|(key, _)| {
@@ -200,7 +207,49 @@ impl InMemoryAuthority {
                     || key.record_type == RecordType::CNAME
                     || aname_covers_type(key.record_type, record_type)
             })
-            .map(|(_key, rr_set)| rr_set)
+            .map(|(_key, rr_set)| rr_set);
+
+        // TODO: maybe unwrap this recursion.
+        match lookup {
+            None => self.inner_lookup_wildcard(name, record_type, and_rrsigs, supported_algorithms),
+            l => l.cloned(),
+        }
+    }
+
+    fn inner_lookup_wildcard(
+        &self,
+        name: &LowerName,
+        record_type: RecordType,
+        and_rrsigs: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Option<Arc<RecordSet>> {
+        let wildcard = if name.is_wildcard() {
+            return None;
+        } else {
+            name.clone().into_wildcard()
+        };
+
+        self.inner_lookup(&wildcard, record_type, and_rrsigs, supported_algorithms)
+            // we need to change the name to the query name in the result set since this was a whildcard
+            .map(|rrset| {
+                let mut new_answer =
+                    RecordSet::new(name.borrow(), rrset.record_type(), rrset.ttl());
+
+                let (records, rrsigs): (Vec<&Record>, Vec<&Record>) = rrset
+                    .records(and_rrsigs, supported_algorithms)
+                    .partition(|r| r.record_type() != RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+
+                for record in records {
+                    new_answer.add_rdata(record.rdata().clone());
+                }
+
+                #[cfg(feature = "dnssec")]
+                for rrsig in rrsigs {
+                    new_answer.insert_rrsig(rrsig.clone())
+                }
+
+                Arc::new(new_answer)
+            })
     }
 
     /// Search for additional records to include in the response
@@ -215,6 +264,8 @@ impl InMemoryAuthority {
         query_type: RecordType,
         next_name: LowerName,
         _search_type: RecordType,
+        and_rrsigs: bool,
+        supported_algorithms: SupportedAlgorithms,
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
@@ -232,7 +283,8 @@ impl InMemoryAuthority {
             // loop and collect any additional records to send
             let mut next_name = Some(next_name.clone());
             while let Some(search) = next_name.take() {
-                let additional = self.inner_lookup(&search, *query_type);
+                let additional =
+                    self.inner_lookup(&search, *query_type, and_rrsigs, supported_algorithms);
                 let mut continue_name = None;
 
                 if let Some(additional) = additional {
@@ -242,7 +294,7 @@ impl InMemoryAuthority {
                     }
 
                     continue_name =
-                        maybe_next_name(additional, *query_type).map(|(name, _search_type)| name);
+                        maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
                 }
 
                 next_name = continue_name;
@@ -756,15 +808,22 @@ impl Authority for InMemoryAuthority {
                 }
                 _ => {
                     // perform the lookup
-                    let answer = self.inner_lookup(name, query_type).cloned();
+                    let answer =
+                        self.inner_lookup(name, query_type, is_secure, supported_algorithms);
 
                     // evaluate any cnames for additional inclusion
                     let additionals_root_chain_type: Option<(_, _)> = answer
                         .as_ref()
                         .and_then(|a| maybe_next_name(&*a, query_type))
                         .and_then(|(search_name, search_type)| {
-                            self.additional_search(query_type, search_name, search_type)
-                                .map(|adds| (adds, search_type))
+                            self.additional_search(
+                                query_type,
+                                search_name,
+                                search_type,
+                                is_secure,
+                                supported_algorithms,
+                            )
+                            .map(|adds| (adds, search_type))
                         });
 
                     // if the chain started with an ANAME, take the A or AAAA record from the list
@@ -799,7 +858,7 @@ impl Authority for InMemoryAuthority {
                                             _ => None,
                                         })
                                         .map(|records| {
-                                            records.map(|r| r.rdata()).cloned().collect::<Vec<_>>()
+                                            records.map(Record::rdata).cloned().collect::<Vec<_>>()
                                         });
 
                                     (rdatas, a_aaaa_ttl)
@@ -867,6 +926,7 @@ impl Authority for InMemoryAuthority {
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
+        // TODO: can we get rid of this?
         let result = match result {
             Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
                 if self

@@ -147,6 +147,17 @@ impl LowerName {
     pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
         self.0.emit_as_canonical(encoder, canonical)
     }
+
+    /// Pass through for Name::is_wildcard
+    pub fn is_wildcard(&self) -> bool {
+        self.0.is_wildcard()
+    }
+
+    /// Replaces the first label with the wildcard character, "*"
+    pub fn into_wildcard(self) -> Self {
+        let name = self.0.into_wildcard();
+        LowerName(name)
+    }
 }
 
 impl Hash for LowerName {
