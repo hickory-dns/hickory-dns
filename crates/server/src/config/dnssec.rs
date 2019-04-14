@@ -101,7 +101,7 @@ impl KeyConfig {
 
     /// Returns the password used to read the key
     pub fn password(&self) -> Option<&str> {
-        self.password.as_ref().map(|s| s.as_str())
+        self.password.as_ref().map(String::as_str)
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
@@ -220,12 +220,12 @@ impl TlsCertConfig {
 
     /// optional password for open the pkcs12, none assumes no password
     pub fn get_password(&self) -> Option<&str> {
-        self.password.as_ref().map(|s| s.as_str())
+        self.password.as_ref().map(String::as_str)
     }
 
     /// returns the path to the private key, as associated with the certificate
     pub fn get_private_key(&self) -> Option<&Path> {
-        self.private_key.as_ref().map(|s| s.as_str()).map(Path::new)
+        self.private_key.as_ref().map(String::as_str).map(Path::new)
     }
 
     /// returns the path to the private key

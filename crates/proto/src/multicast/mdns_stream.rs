@@ -429,7 +429,7 @@ pub mod tests {
 
         if let Err(error) = result {
             println!("Random address error: {:#?}", error);
-            assert!(false, "failed to get next random address");
+            panic!("failed to get next random address");
         }
     }
 
@@ -720,6 +720,6 @@ pub mod tests {
             }
         }
 
-        assert!(false, "server never got packet.");
+        panic!("server never got packet.");
     }
 }

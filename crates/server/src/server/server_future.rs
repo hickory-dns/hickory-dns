@@ -19,6 +19,7 @@ use tokio_reactor::Handle;
 use tokio_tcp;
 use tokio_udp;
 
+use proto::op::Edns;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
 use proto::tcp::TcpStream;
 use proto::udp::UdpStream;
@@ -506,10 +507,7 @@ pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
         request.message.id(),
         request.message.message_type(),
         request.message.op_code(),
-        request
-            .message
-            .edns()
-            .map_or(false, |edns| edns.dnssec_ok()),
+        request.message.edns().map_or(false, Edns::dnssec_ok),
         request
             .message
             .queries()

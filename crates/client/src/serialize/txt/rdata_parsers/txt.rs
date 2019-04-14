@@ -21,6 +21,6 @@ use rr::rdata::TXT;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TXT> {
-    let txt_data: Vec<String> = tokens.map(|s| s.to_string()).collect();
+    let txt_data: Vec<String> = tokens.map(ToString::to_string).collect();
     Ok(TXT::new(txt_data))
 }

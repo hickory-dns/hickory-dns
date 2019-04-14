@@ -13,6 +13,7 @@ use std::collections::HashMap;
 
 use futures::{Async, Future, Poll};
 
+use proto::rr::rdata::TXT;
 use proto::rr::{IntoName, Name, RecordType};
 use proto::xfer::DnsRequestOptions;
 
@@ -123,7 +124,7 @@ impl ServiceInfo {
     pub fn to_map<'s>(&'s self) -> HashMap<Cow<'s, str>, Option<Cow<'s, str>>> {
         self.0
             .iter()
-            .flat_map(|txt| txt.iter())
+            .flat_map(TXT::iter)
             .filter_map(|bytes| {
                 let mut split = bytes.split(|byte| *byte == b'=');
 

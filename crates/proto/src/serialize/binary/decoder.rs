@@ -124,7 +124,8 @@ impl<'a> BinDecoder<'a> {
                 } else {
                     true
                 }
-            }).map_err(|length| {
+            })
+            .map_err(|length| {
                 ProtoError::from(ProtoErrorKind::CharacterDataTooLong {
                     max: max_len.unwrap_or_default(),
                     len: length,
@@ -144,7 +145,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// The Vec of the specified length, otherwise an error
     pub fn read_vec(&mut self, len: usize) -> ProtoResult<Restrict<Vec<u8>>> {
-        self.read_slice(len).map(|s| s.map(|s| s.to_owned()))
+        self.read_slice(len).map(|s| s.map(ToOwned::to_owned))
     }
 
     /// Reads a slice out of the buffer, without allocating

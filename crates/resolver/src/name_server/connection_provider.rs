@@ -12,12 +12,12 @@ use std::time::Duration;
 use futures::{Future, Poll};
 use tokio_executor::{DefaultExecutor, Executor};
 
-use proto::error::ProtoError;
+use proto;
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientStream, MdnsQueryType};
 use proto::op::NoopMessageFinalizer;
 use proto::tcp::TcpClientStream;
-use proto::udp::{UdpResponse, UdpClientStream};
+use proto::udp::{UdpClientStream, UdpResponse};
 use proto::xfer::{
     self, BufDnsRequestStreamHandle, DnsExchange, DnsHandle, DnsMultiplexer,
     DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
@@ -26,7 +26,6 @@ use proto::xfer::{
 use trust_dns_https;
 
 use config::{NameServerConfig, Protocol, ResolverOpts};
-
 
 /// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
 pub trait ConnectionProvider: 'static + Clone + Send + Sync {
@@ -118,7 +117,7 @@ pub(crate) enum ConnectionHandleConnect {
 impl ConnectionHandleConnect {
     /// Establishes the connection, this is allowed to perform network operations,
     ///   suchas tokio::spawns of background tasks, etc.
-    fn connect(self) -> Result<ConnectionHandleConnected, ProtoError> {
+    fn connect(self) -> Result<ConnectionHandleConnected, proto::error::ProtoError> {
         use self::ConnectionHandleConnect::*;
 
         debug!("connecting: {:?}", self);
@@ -264,7 +263,8 @@ enum ConnectionHandleInner {
 impl ConnectionHandleInner {
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponseInner {
         loop {
-            let connected: Result<ConnectionHandleConnected, ProtoError> = match self {
+            let connected: Result<ConnectionHandleConnected, proto::error::ProtoError> = match self
+            {
                 // still need to connect, drop through
                 ConnectionHandleInner::Connect(conn) => {
                     conn.take().expect("already connected?").connect()
@@ -274,7 +274,7 @@ impl ConnectionHandleInner {
 
             match connected {
                 Ok(connected) => *self = ConnectionHandleInner::Connected(connected),
-                Err(e) => return ConnectionHandleResponseInner::Error(e),
+                Err(e) => return ConnectionHandleResponseInner::ProtoError(Some(e)),
             };
             // continue to return on send...
         }
@@ -297,6 +297,7 @@ impl DnsHandle for ConnectionHandle {
 }
 
 /// A wrapper type to switch over a connection that still needs to be made, or is already established
+#[must_use = "futures do nothing unless polled"]
 enum ConnectionHandleResponseInner {
     ConnectAndRequest {
         conn: ConnectionHandle,
@@ -306,12 +307,12 @@ enum ConnectionHandleResponseInner {
     Tcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
-    Error(ProtoError),
+    ProtoError(Option<proto::error::ProtoError>),
 }
 
 impl Future for ConnectionHandleResponseInner {
     type Item = DnsResponse;
-    type Error = ProtoError;
+    type Error = proto::error::ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         use self::ConnectionHandleResponseInner::*;
@@ -325,13 +326,15 @@ impl Future for ConnectionHandleResponseInner {
                     ref mut request,
                 } => match conn.0.lock() {
                     Ok(mut c) => c.send(request.take().expect("already sent request?")),
-                    Err(e) => Error(ProtoError::from(e)),
+                    Err(e) => ProtoError(Some(proto::error::ProtoError::from(e))),
                 },
                 Udp(ref mut resp) => return resp.poll(),
                 Tcp(ref mut resp) => return resp.poll(),
                 #[cfg(feature = "dns-over-https")]
                 Https(ref mut https) => return https.poll(),
-                Error(ref e) => return Err(e.clone()),
+                ProtoError(ref mut e) => {
+                    return Err(e.take().expect("futures cannot be polled once complete"))
+                }
             };
 
             // ok, connected, loop around and use poll the actual send request
@@ -340,11 +343,12 @@ impl Future for ConnectionHandleResponseInner {
 }
 
 /// A future response from a DNS request.
+#[must_use = "futures do nothing unless polled"]
 pub struct ConnectionHandleResponse(ConnectionHandleResponseInner);
 
 impl Future for ConnectionHandleResponse {
     type Item = DnsResponse;
-    type Error = ProtoError;
+    type Error = proto::error::ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.poll()

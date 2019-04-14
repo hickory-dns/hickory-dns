@@ -76,7 +76,7 @@ impl MessageRequest {
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
         ResponseCode::from(
-            self.edns.as_ref().map_or(0, |e| e.rcode_high()),
+            self.edns.as_ref().map_or(0, Edns::rcode_high),
             self.header.response_code(),
         )
     }
@@ -154,7 +154,7 @@ impl MessageRequest {
     ///
     /// the max payload value as it's defined in the EDNS section.
     pub fn max_payload(&self) -> u16 {
-        let max_size = self.edns.as_ref().map_or(512, |e| e.max_payload());
+        let max_size = self.edns.as_ref().map_or(512, Edns::max_payload);
         if max_size < 512 {
             512
         } else {
@@ -166,7 +166,7 @@ impl MessageRequest {
     ///
     /// the version as defined in the EDNS record
     pub fn version(&self) -> u8 {
-        self.edns.as_ref().map_or(0, |e| e.version())
+        self.edns.as_ref().map_or(0, Edns::version)
     }
 
     /// Returns the queries passed recieved from the client

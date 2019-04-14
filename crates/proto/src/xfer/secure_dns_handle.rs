@@ -152,7 +152,7 @@ impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
             let dns_class = request
                 .queries()
                 .first()
-                .map_or(DNSClass::IN, |q| q.query_class());
+                .map_or(DNSClass::IN, Query::query_class);
 
             return Box::new(
                 self.handle
@@ -174,7 +174,7 @@ impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
                                 .iter()
                                 // there should only be one
                                 .find(|rr| rr.record_type() == RecordType::SOA)
-                                .map(|rr| rr.name())
+                                .map(Record::name)
                             {
                                 soa_name
                             } else {
@@ -850,7 +850,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
         return nsec
             .rdata()
             .as_dnssec()
-            .and_then(|nsec| nsec.as_nsec())
+            .and_then(DNSSECRData::as_nsec)
             .map_or(false, |rdata| {
                 // this should not be in the covered list
                 !rdata.type_bit_maps().contains(&query.query_type())
@@ -863,7 +863,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
             name >= nsec.name() && {
                 nsec.rdata()
                     .as_dnssec()
-                    .and_then(|nsec| nsec.as_nsec())
+                    .and_then(DNSSECRData::as_nsec)
                     .map_or(false, |rdata| {
                         // the query name is less than the next name
                         // or this record wraps the end, i.e. is the last record

@@ -32,13 +32,13 @@ where
     let this_server_name: &String = this_server_name.borrow();
     match ::request::verify(this_server_name, &request) {
         Ok(_) => (),
-        Err(err) => return HttpsToMessageInner::Error(Some(err)).into(),
+        Err(err) => return HttpsToMessageInner::HttpsError(Some(err)).into(),
     }
 
     // attempt to get the content length
     let content_length: Option<ContentLength> = match request.headers().typed_get() {
         Ok(l) => l,
-        Err(err) => return HttpsToMessageInner::Error(Some(err.into())).into(),
+        Err(err) => return HttpsToMessageInner::HttpsError(Some(err.into())).into(),
     };
 
     let content_length: Option<usize> = content_length.map(|c| {
@@ -48,12 +48,15 @@ where
     });
 
     match *request.method() {
-        Method::GET => HttpsToMessageInner::Error(Some(
+        Method::GET => HttpsToMessageInner::HttpsError(Some(
             format!("GET unimplemented: {}", request.method()).into(),
-        )).into(),
+        ))
+        .into(),
         Method::POST => message_from_post(request, content_length).into(),
-        _ => HttpsToMessageInner::Error(Some(format!("bad method: {}", request.method()).into()))
-            .into(),
+        _ => HttpsToMessageInner::HttpsError(Some(
+            format!("bad method: {}", request.method()).into(),
+        ))
+        .into(),
     }
 }
 
@@ -85,9 +88,10 @@ where
     }
 }
 
+#[must_use = "futures do nothing unless polled"]
 enum HttpsToMessageInner<R> {
     FromPost(MessageFromPost<R>),
-    Error(Option<HttpsError>),
+    HttpsError(Option<HttpsError>),
 }
 
 impl<R> Future for HttpsToMessageInner<R>
@@ -100,7 +104,7 @@ where
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self {
             HttpsToMessageInner::FromPost(from_post) => from_post.poll(),
-            HttpsToMessageInner::Error(error) => {
+            HttpsToMessageInner::HttpsError(error) => {
                 Err(error.take().expect("cannot poll after complete"))
             }
         }
@@ -115,6 +119,7 @@ fn message_from_post<R>(request: Request<R>, length: Option<usize>) -> MessageFr
     }
 }
 
+#[must_use = "futures do nothing unless polled"]
 struct MessageFromPost<R> {
     stream: R,
     length: Option<usize>,

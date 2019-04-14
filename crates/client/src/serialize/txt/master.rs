@@ -298,7 +298,7 @@ impl Parser {
             rtype.ok_or_else(|| {
                 ParseError::from(ParseErrorKind::Message("record type not specified"))
             })?,
-            record_parts.iter().map(|s| s.as_ref()),
+            record_parts.iter().map(AsRef::as_ref),
             origin.as_ref(),
         )?;
 
@@ -328,7 +328,7 @@ impl Parser {
                         *ttl = Some(soa.minimum());
                     } // TODO: should this only set it if it's not set?
                 } else {
-                    assert!(false, "Invalid RData here, expected SOA: {:?}", rdata);
+                    panic!("Invalid RData here, expected SOA: {:?}", rdata);
                 }
             }
             _ => {
@@ -406,8 +406,7 @@ impl Parser {
                 // TODO, should these all be checked operations?
                 '0'...'9' => {
                     collect *= 10;
-                    collect += c.to_digit(10)
-                        .ok_or_else(|| ParseErrorKind::CharToInt(c))?;
+                    collect += c.to_digit(10).ok_or_else(|| ParseErrorKind::CharToInt(c))?;
                 }
                 'S' | 's' => {
                     value += collect;

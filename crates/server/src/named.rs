@@ -265,9 +265,9 @@ impl<'a> From<ArgMatches<'a>> for Args {
             flag_debug: matches.is_present(DEBUG_ARG),
             flag_config: matches
                 .value_of(CONFIG_ARG)
-                .map(|s| s.to_string())
+                .map(ToString::to_string)
                 .expect("config path should have had default"),
-            flag_zonedir: matches.value_of(ZONEDIR_ARG).map(|s| s.to_string()),
+            flag_zonedir: matches.value_of(ZONEDIR_ARG).map(ToString::to_string),
             flag_port: matches
                 .value_of(PORT_ARG)
                 .map(|s| u16::from_str_radix(s, 10).expect("bad port argument")),

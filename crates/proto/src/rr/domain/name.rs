@@ -837,14 +837,14 @@ impl<'a> Iterator for LabelIter<'a> {
     type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|s| s.borrow())
+        self.0.next().map(Borrow::borrow)
     }
 }
 
 impl<'a> ExactSizeIterator for LabelIter<'a> {}
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(|s| s.borrow())
+        self.0.next_back().map(Borrow::borrow)
     }
 }
 
@@ -948,7 +948,7 @@ impl Hash for Name {
         self.is_fqdn.hash(state);
 
         // this needs to be CaseInsensitive like PartialEq
-        for l in self.labels.iter().map(|l| l.to_lowercase()) {
+        for l in self.labels.iter().map(Label::to_lowercase) {
             l.hash(state);
         }
     }
@@ -1632,7 +1632,7 @@ mod tests {
         assert!(result.is_err());
         match *result.unwrap_err().kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 

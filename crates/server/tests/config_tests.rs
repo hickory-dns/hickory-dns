@@ -32,11 +32,7 @@ fn test_read_config() {
     let path: PathBuf = PathBuf::from(server_path).join("tests/named_test_configs/example.toml");
 
     if !path.exists() {
-        assert!(
-            false,
-            "can't locate example.toml and other configs: {:?}",
-            path
-        )
+        panic!("can't locate example.toml and other configs: {:?}", path)
     }
 
     println!("reading config");

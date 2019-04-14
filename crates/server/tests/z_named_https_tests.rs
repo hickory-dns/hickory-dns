@@ -73,8 +73,6 @@ fn test_example_https_toml_startup() {
 
         // a second request should work...
         query_a(&mut io_loop, &mut client);
-
-        assert!(true);
     })
 }
 

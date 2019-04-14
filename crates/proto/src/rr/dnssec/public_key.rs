@@ -75,7 +75,7 @@ fn verify_with_pkey(
     verifier.update(message)?;
     verifier
         .verify(signature)
-        .map_err(|e| e.into())
+        .map_err(Into::into)
         .and_then(|b| {
             if b {
                 Ok(())
@@ -135,13 +135,19 @@ impl<'k> Ec<'k> {
         // Key needs to be converted to OpenSSL format
         let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
         EcGroup::from_curve_name(curve)
-                .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
-                // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx).map(|point| (group, point) ))
-                .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
-                .and_then(PKey::from_ec_key)
-                .map_err(|e| e.into())
-                .map(|pkey| Ec{raw: public_key, pkey})
+            .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
+            // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
+            .and_then(|(group, mut ctx)| {
+                EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx)
+                    .map(|point| (group, point))
+            })
+            .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
+            .and_then(PKey::from_ec_key)
+            .map_err(Into::into)
+            .map(|pkey| Ec {
+                raw: public_key,
+                pkey,
+            })
     }
 }
 
@@ -263,7 +269,7 @@ impl PublicKey for Ec {
             Input::from(message),
             Input::from(signature),
         )
-        .map_err(|e| e.into())
+        .map_err(Into::into)
     }
 }
 
@@ -311,7 +317,7 @@ impl<'k> PublicKey for Ed25519<'k> {
         let signature = Input::from(signature);
         EdDSAParameters {}
             .verify(public_key, message, signature)
-            .map_err(|e| e.into())
+            .map_err(Into::into)
     }
 }
 
@@ -376,7 +382,7 @@ fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey<Public>> {
 
     OpenSslRsa::from_public_components(n, e)
         .and_then(PKey::from_rsa)
-        .map_err(|e| e.into())
+        .map_err(Into::into)
 }
 
 #[cfg(feature = "ring")]
@@ -412,7 +418,7 @@ impl<'k> PublicKey for Rsa<'k> {
             Input::from(message),
             Input::from(signature),
         )
-        .map_err(|e| e.into())
+        .map_err(Into::into)
     }
 }
 
