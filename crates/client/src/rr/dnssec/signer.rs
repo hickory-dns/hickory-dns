@@ -15,11 +15,13 @@ use proto::rr::dnssec::{tbs, TBS};
 
 #[cfg(feature = "dnssec")]
 use error::DnsSecResult;
-#[cfg(feature = "dnssec")]
-use rr::rdata::DNSSECRData;
 use op::{Message, MessageFinalizer};
 #[cfg(feature = "dnssec")]
+use rr::dnssec::Private;
+#[cfg(feature = "dnssec")]
 use rr::dnssec::{Algorithm, KeyPair};
+#[cfg(feature = "dnssec")]
+use rr::rdata::DNSSECRData;
 #[cfg(feature = "dnssec")]
 use rr::rdata::SIG;
 #[cfg(feature = "dnssec")]
@@ -31,8 +33,6 @@ use rr::Record;
 use rr::{DNSClass, Name, RecordType};
 #[cfg(feature = "dnssec")]
 use serialize::binary::BinEncoder;
-#[cfg(feature = "dnssec")]
-use rr::dnssec::Private;
 
 /// Use for performing signing and validation of DNSSec based components.
 ///
@@ -495,17 +495,18 @@ impl Signer {
     /// Extracts a public KEY from this Signer
     pub fn to_dnskey(&self) -> DnsSecResult<DNSKEY> {
         // TODO: this interface should allow for setting if this is a secure entry point vs. ZSK
-        self.key.to_public_bytes()
+        self.key
+            .to_public_bytes()
             .map(|bytes| DNSKEY::new(self.is_zone_signing_key, true, false, self.algorithm, bytes))
     }
 
     /// Test that this key is capable of signing and verifying data
     pub fn test_key(&self) -> DnsSecResult<()> {
         // use proto::rr::dnssec::PublicKey;
-        
+
         // // TODO: why doesn't this work for ecdsa_256 and 384?
         // let test_data = TBS::from(b"DEADBEEF" as &[u8]);
-        
+
         // let signature = self.sign(&test_data).map_err(|e| {println!("failed to sign, {:?}", e); e})?;
         // let pk = self.key.to_public_key()?;
         // pk.verify(self.algorithm, test_data.as_ref(), &signature).map_err(|e| {println!("failed to verify, {:?}", e); e})?;
@@ -587,9 +588,7 @@ mod tests {
 
     pub use super::*;
 
-    fn assert_send_and_sync<T: Send + Sync>() {
-        assert!(true)
-    }
+    fn assert_send_and_sync<T: Send + Sync>() {}
 
     #[test]
     fn test_send_and_sync() {
@@ -676,7 +675,8 @@ mod tests {
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
-            )))).clone();
+            ))))
+            .clone();
         let rrset = vec![
             Record::new()
                 .set_name(origin.clone())
@@ -700,11 +700,9 @@ mod tests {
         let pub_key = signer.key().to_public_bytes().unwrap();
         let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, Algorithm::RSASHA256).unwrap();
 
-        assert!(
-            pub_key
-                .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
-                .is_ok()
-        );
+        assert!(pub_key
+            .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
+            .is_ok());
     }
 
     fn get_rsa_from_vec(params: &[u32]) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
@@ -808,7 +806,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     signer.calculate_key_tag().unwrap(),
                     origin.clone(),
                     vec![],
-                )))).clone();
+                ))))
+                .clone();
             let rrset = vec![
                 Record::new()
                     .set_name(origin.clone())
@@ -837,7 +836,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     .set_dns_class(DNSClass::IN)
                     .set_rdata(RData::CNAME(
                         Name::parse("a.iana-servers.net.", None).unwrap(),
-                    )).clone(), // different type
+                    ))
+                    .clone(), // different type
                 Record::new()
                     .set_name(Name::parse("www.example.com.", None).unwrap())
                     .set_ttl(86400)

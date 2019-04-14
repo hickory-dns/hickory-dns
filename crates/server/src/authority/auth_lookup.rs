@@ -275,7 +275,7 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
                 }
             }
 
-            self.rrset = self.rrsets.next().map(|r| r.borrow());
+            self.rrset = self.rrsets.next().map(Borrow::borrow);
 
             // if there are no more RecordSets, then return
             self.rrset?;
@@ -407,7 +407,7 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
             LookupRecordsIter::AnyRecordsIter(current) => current.next(),
             LookupRecordsIter::RecordsIter(current) => current.next(),
             LookupRecordsIter::ManyRecordsIter(set, ref mut current) => loop {
-                if let Some(o) = current.as_mut().and_then(|o| o.next()) {
+                if let Some(o) = current.as_mut().and_then(Iterator::next) {
                     return Some(o);
                 }
 

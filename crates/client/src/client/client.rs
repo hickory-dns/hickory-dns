@@ -580,9 +580,7 @@ where
 }
 
 #[cfg(test)]
-fn assert_send_and_sync<T: Send + Sync>() {
-    assert!(true)
-}
+fn assert_send_and_sync<T: Send + Sync>() {}
 
 #[test]
 fn test_sync_client_send_and_sync() {

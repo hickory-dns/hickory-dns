@@ -5,7 +5,7 @@ use futures::future::Future;
 
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::dnssec::SupportedAlgorithms;
-use trust_dns::rr::{Name, RData, RecordType};
+use trust_dns::rr::{Name, RData, Record, RecordType};
 use trust_dns_server::authority::{AuthLookup, Authority, MessageRequest};
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -282,16 +282,16 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let a = additionals
         .iter()
         .find(|r| r.record_type() == RecordType::A)
-        .map(|r| r.rdata())
-        .and_then(|r| r.as_a())
+        .map(Record::rdata)
+        .and_then(RData::as_a)
         .expect("A not found");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 
     let aaaa = additionals
         .iter()
         .find(|r| r.record_type() == RecordType::AAAA)
-        .map(|r| r.rdata())
-        .and_then(|r| r.as_aaaa())
+        .map(Record::rdata)
+        .and_then(RData::as_aaaa)
         .expect("AAAA not found");
     assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }

@@ -139,7 +139,7 @@ impl Task {
             self.client_cache.clone(),
             DnsRequestOptions::default(),
             hosts,
-            finally_ip_addr.map(|r| r.unwrap_rdata()),
+            finally_ip_addr.map(Record::unwrap_rdata),
         )
     }
 

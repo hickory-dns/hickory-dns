@@ -124,7 +124,7 @@ impl<'a> Iterator for LookupIter<'a> {
     type Item = &'a RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|r| r.rdata())
+        self.0.next().map(Record::rdata)
     }
 }
 
@@ -147,7 +147,7 @@ impl IntoIterator for Lookup {
     ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
     fn into_iter(self) -> Self::IntoIter {
         LookupIntoIter {
-            records: Arc::try_unwrap(self.records).map(|r| r.into_iter()),
+            records: Arc::try_unwrap(self.records).map(IntoIterator::into_iter),
             index: 0,
         }
     }
@@ -168,9 +168,9 @@ impl Iterator for LookupIntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         match self.records {
             // a zero overhead unwrap
-            Ok(ref mut iter) => iter.next().map(|r| r.unwrap_rdata()),
+            Ok(ref mut iter) => iter.next().map(Record::unwrap_rdata),
             Err(ref records) => {
-                let rdata = records.get(self.index).map(|r| r.rdata());
+                let rdata = records.get(self.index).map(Record::rdata);
                 self.index += 1;
                 rdata.cloned()
             }

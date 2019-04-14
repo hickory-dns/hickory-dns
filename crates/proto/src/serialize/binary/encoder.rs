@@ -597,7 +597,7 @@ mod tests {
 
         match *error.kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 
@@ -611,7 +611,7 @@ mod tests {
 
         match *error.kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 
@@ -628,7 +628,7 @@ mod tests {
 
         match *error.kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
-            _ => assert!(false),
+            _ => panic!(),
         }
     }
 }

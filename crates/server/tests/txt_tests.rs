@@ -379,7 +379,7 @@ _443._tcp.www.example.com. IN TLSA (
         assert!(rdata.tag().is_issue());
         assert!(rdata.value().is_issuer());
     } else {
-        assert!(false);
+        panic!();
     }
 
     // TLSA
@@ -410,7 +410,7 @@ _443._tcp.www.example.com. IN TLSA (
             ]
         );
     } else {
-        assert!(false);
+        panic!();
     }
 }
 

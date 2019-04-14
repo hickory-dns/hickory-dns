@@ -138,8 +138,6 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);
-
-        assert!(true);
     })
 }
 
@@ -162,7 +160,6 @@ fn test_nodata_where_name_exists() {
             .unwrap();
         assert_eq!(msg.response_code(), ResponseCode::NoError);
         assert!(msg.answers().is_empty());
-        assert!(true);
     })
 }
 
@@ -185,7 +182,6 @@ fn test_nxdomain_where_no_name_exists() {
             .unwrap();
         assert_eq!(msg.response_code(), ResponseCode::NXDomain);
         assert!(msg.answers().is_empty());
-        assert!(true);
     })
 }
 

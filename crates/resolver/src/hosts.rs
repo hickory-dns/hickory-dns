@@ -10,9 +10,9 @@ use std::sync::Arc;
 use dns_lru;
 use lookup::Lookup;
 use proto::op::Query;
-#[cfg(any(unix, windows))]
-use proto::rr::{Record, RData};
 use proto::rr::{Name, RecordType};
+#[cfg(any(unix, windows))]
+use proto::rr::{RData, Record};
 
 #[derive(Debug, Default)]
 struct LookupType {
@@ -190,7 +190,7 @@ mod tests {
 
     fn tests_dir() -> String {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
-        format!{"{}/../resolver/tests", server_path}
+        format! {"{}/../resolver/tests", server_path}
     }
 
     #[test]
@@ -203,7 +203,7 @@ mod tests {
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
             .iter()
-            .map(|r| r.to_owned())
+            .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
 
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]);
@@ -212,7 +212,7 @@ mod tests {
             .lookup_static_host(&Query::query(name.clone(), RecordType::AAAA))
             .unwrap()
             .iter()
-            .map(|r| r.to_owned())
+            .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
 
         assert_eq!(
@@ -225,7 +225,7 @@ mod tests {
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
             .iter()
-            .map(|r| r.to_owned())
+            .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(255, 255, 255, 255))]);
 
@@ -234,7 +234,7 @@ mod tests {
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
             .iter()
-            .map(|r| r.to_owned())
+            .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 102))]);
 
@@ -243,7 +243,7 @@ mod tests {
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
             .iter()
-            .map(|r| r.to_owned())
+            .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))]);
 
@@ -252,7 +252,7 @@ mod tests {
             .lookup_static_host(&Query::query(name.clone(), RecordType::A))
             .unwrap()
             .iter()
-            .map(|r| r.to_owned())
+            .map(ToOwned::to_owned)
             .collect::<Vec<RData>>();
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))]);
     }

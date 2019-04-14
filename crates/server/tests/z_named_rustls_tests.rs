@@ -48,7 +48,8 @@ fn test_example_tls_toml_startup() {
             File::open(&format!(
                 "{}/tests/named_test_configs/sec/example.cert",
                 server_path
-            )).expect("failed to open cert")
+            ))
+            .expect("failed to open cert")
             .read_to_end(&mut cert_der)
             .expect("failed to read cert");
 
@@ -64,7 +65,8 @@ fn test_example_tls_toml_startup() {
             config.root_store.add(&cert).expect("bad certificate");
             let config = Arc::new(config);
 
-            let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
+            let (stream, sender) =
+                tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
 
             // ipv4 should succeed
@@ -76,14 +78,13 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
+            let (stream, sender) =
+                tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
             io_loop.spawn(bg);
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);
-
-            assert!(true);
         },
     )
 }

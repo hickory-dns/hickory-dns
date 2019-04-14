@@ -129,7 +129,14 @@ fn test_server_unknown_type() {
     assert!(client_result.answers().is_empty());
     assert!(!client_result.name_servers().is_empty());
     // SOA should be the first record in the response
-    assert_eq!(client_result.name_servers().first().expect("no SOA present").record_type(), RecordType::SOA);
+    assert_eq!(
+        client_result
+            .name_servers()
+            .first()
+            .expect("no SOA present")
+            .record_type(),
+        RecordType::SOA
+    );
 
     server_continue.store(false, Ordering::Relaxed);
     server_thread.join().unwrap();;
@@ -239,7 +246,7 @@ where
     if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
-        assert!(false);
+        panic!();
     }
 
     let mut ns: Vec<_> = response.name_servers().to_vec();

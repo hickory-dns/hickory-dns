@@ -93,7 +93,7 @@ impl DnsHandle for BasicDnsHandle {
         Box::new(
             receiver
                 .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
-                .map(|result| result.into_future())
+                .map(IntoFuture::into_future)
                 .flatten(),
         )
     }

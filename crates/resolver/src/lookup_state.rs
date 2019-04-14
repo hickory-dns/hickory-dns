@@ -95,10 +95,16 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
                 ResolverUsage::Loopback => match query.query_type() {
                     // TODO: look in hosts for these ips/names first...
                     RecordType::A => {
-                        return Box::new(future::ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())))
+                        return Box::new(future::ok(Lookup::from_rdata(
+                            query,
+                            LOCALHOST_V4.clone(),
+                        )))
                     }
                     RecordType::AAAA => {
-                        return Box::new(future::ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())))
+                        return Box::new(future::ok(Lookup::from_rdata(
+                            query,
+                            LOCALHOST_V6.clone(),
+                        )))
                     }
                     RecordType::PTR => {
                         return Box::new(future::ok(Lookup::from_rdata(query, LOCALHOST.clone())))
@@ -267,9 +273,13 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                         // - or -
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //    and it's an IP
-                        if ((self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
-                            (search_name.as_ref() == r.name() || self.query.name() == r.name())) || 
-                            (self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name()) {
+                        if ((self.query.query_type().is_any()
+                            || self.query.query_type() == r.rr_type())
+                            && (search_name.as_ref() == r.name() || self.query.name() == r.name()))
+                            || (self.query.query_type().is_srv()
+                                && r.rr_type().is_ip_addr()
+                                && search_name.as_ref() == r.name())
+                        {
                             Some((r, ttl))
                         } else {
                             None
@@ -324,7 +334,7 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                 .into_iter()
                 .find(|r| r.rr_type() == RecordType::SOA);
 
-            let ttl = if let Some(RData::SOA(soa)) = soa.map(|r| r.unwrap_rdata()) {
+            let ttl = if let Some(RData::SOA(soa)) = soa.map(Record::unwrap_rdata) {
                 Some(soa.minimum())
             } else {
                 // TODO: figure out a looping lookup to get SOA
@@ -429,7 +439,7 @@ enum QueryState<C: DnsHandle + 'static> {
     /// State of adding the item to the cache
     InsertCache(InsertCache),
     /// A state which should not occur
-    Error,
+    QueryError,
 }
 
 impl<C: DnsHandle + 'static> QueryState<C> {
@@ -455,7 +465,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
     ///
     /// This will panic if the current state is not FromCache.
     fn query_after_cache(&mut self) {
-        let from_cache_state = mem::replace(self, QueryState::Error);
+        let from_cache_state = mem::replace(self, QueryState::QueryError);
 
         // TODO: with specialization, could we define a custom query only on the FromCache type?
         match from_cache_state {
@@ -486,7 +496,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
         cname_ttl: u32,
     ) {
         // The error state, this query is complete...
-        let query_state = mem::replace(self, QueryState::Error);
+        let query_state = mem::replace(self, QueryState::QueryError);
 
         match query_state {
             QueryState::Query(QueryFuture {
@@ -508,7 +518,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
 
     fn cache(&mut self, rdatas: Records) {
         // The error state, this query is complete...
-        let query_state = mem::replace(self, QueryState::Error);
+        let query_state = mem::replace(self, QueryState::QueryError);
 
         match query_state {
             QueryState::Query(QueryFuture {
@@ -610,7 +620,7 @@ impl<C: DnsHandle + 'static> Future for QueryState<C> {
             QueryState::InsertCache(ref mut insert_cache) => {
                 return insert_cache.poll();
             }
-            QueryState::Error => panic!("invalid error state"),
+            QueryState::QueryError => panic!("invalid error state"),
         }
 
         // getting here means there are Aync::Ready available.
@@ -630,7 +640,7 @@ impl<C: DnsHandle + 'static> Future for QueryState<C> {
                 Some(records) => self.cache(records),
                 None => panic!("should have returned earlier"),
             },
-            QueryState::InsertCache(..) | QueryState::Error => {
+            QueryState::InsertCache(..) | QueryState::QueryError => {
                 panic!("should have returned earlier")
             }
         }
@@ -680,9 +690,14 @@ mod tests {
         let query = Query::new();
         cache.lock().unwrap().insert(
             query.clone(),
-            vec![
-                (Record::from_rdata(query.name().clone(), u32::max_value(), RData::A(Ipv4Addr::new(127, 0, 0, 1))), u32::max_value())
-            ],
+            vec![(
+                Record::from_rdata(
+                    query.name().clone(),
+                    u32::max_value(),
+                    RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                ),
+                u32::max_value(),
+            )],
             Instant::now(),
         );
 
@@ -762,7 +777,8 @@ mod tests {
             Default::default(),
             &mut client,
             cache.clone(),
-        ).wait()
+        )
+        .wait()
         .expect("lookup failed");
 
         assert_eq!(
@@ -796,7 +812,8 @@ mod tests {
             Default::default(),
             &mut client,
             cache.clone(),
-        ).wait()
+        )
+        .wait()
         .expect("lookup failed");
 
         assert_eq!(
@@ -843,7 +860,8 @@ mod tests {
             Default::default(),
             &mut client,
             cache.clone(),
-        ).wait()
+        )
+        .wait()
         .expect("lookup failed");
 
         assert_eq!(
@@ -972,7 +990,10 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST_V4.clone()]);
+            assert_eq!(
+                lookup.iter().cloned().collect::<Vec<_>>(),
+                vec![LOCALHOST_V4.clone()]
+            );
         }
 
         {
@@ -982,7 +1003,10 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST_V6.clone()]);
+            assert_eq!(
+                lookup.iter().cloned().collect::<Vec<_>>(),
+                vec![LOCALHOST_V6.clone()]
+            );
         }
 
         {
@@ -992,7 +1016,10 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST.clone()]);
+            assert_eq!(
+                lookup.iter().cloned().collect::<Vec<_>>(),
+                vec![LOCALHOST.clone()]
+            );
         }
 
         {
@@ -1005,38 +1032,38 @@ mod tests {
                 .wait()
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
-            assert_eq!(lookup.iter().cloned().collect::<Vec<_>>(), vec![LOCALHOST.clone()]);
+            assert_eq!(
+                lookup.iter().cloned().collect::<Vec<_>>(),
+                vec![LOCALHOST.clone()]
+            );
         }
 
-        assert!(
-            client
-                .lookup(
-                    Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
-                    Default::default()
-                ).wait()
-                .is_err()
-        );
+        assert!(client
+            .lookup(
+                Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
+                Default::default()
+            )
+            .wait()
+            .is_err());
 
-        assert!(
-            client
-                .lookup(
-                    Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::MX),
-                    Default::default()
-                ).wait()
-                .is_err()
-        );
+        assert!(client
+            .lookup(
+                Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::MX),
+                Default::default()
+            )
+            .wait()
+            .is_err());
 
-        assert!(
-            client
-                .lookup(
-                    Query::query(
-                        Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-                        RecordType::MX
-                    ),
-                    Default::default()
-                ).wait()
-                .is_err()
-        );
+        assert!(client
+            .lookup(
+                Query::query(
+                    Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                    RecordType::MX
+                ),
+                Default::default()
+            )
+            .wait()
+            .is_err());
     }
 
     #[test]
@@ -1045,17 +1072,16 @@ mod tests {
         let client = mock(vec![empty()]);
         let mut client = CachingClient { lru: cache, client };
 
-        assert!(
-            client
-                .lookup(
-                    Query::query(
-                        Name::from_ascii("horrible.invalid.").unwrap(),
-                        RecordType::A,
-                    ),
-                    Default::default()
-                ).wait()
-                .is_err()
-        );
+        assert!(client
+            .lookup(
+                Query::query(
+                    Name::from_ascii("horrible.invalid.").unwrap(),
+                    RecordType::A,
+                ),
+                Default::default()
+            )
+            .wait()
+            .is_err());
     }
 
     #[test]
@@ -1072,16 +1098,15 @@ mod tests {
         let client = mock(vec![error(), Ok(message)]);
         let mut client = CachingClient { lru: cache, client };
 
-        assert!(
-            client
-                .lookup(
-                    Query::query(
-                        Name::from_ascii("www.example.local.").unwrap(),
-                        RecordType::A,
-                    ),
-                    Default::default()
-                ).wait()
-                .is_ok()
-        );
+        assert!(client
+            .lookup(
+                Query::query(
+                    Name::from_ascii("www.example.local.").unwrap(),
+                    RecordType::A,
+                ),
+                Default::default()
+            )
+            .wait()
+            .is_ok());
     }
 }

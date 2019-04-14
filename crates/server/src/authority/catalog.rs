@@ -292,7 +292,7 @@ impl Catalog {
         //  the zone's class.
         let ztype = zones
             .first()
-            .map(|z| z.query_type())
+            .map(LowerQuery::query_type)
             .unwrap_or(RecordType::Unknown(0));
         if zones.len() != 1 || ztype != RecordType::SOA {
             warn!(
@@ -311,7 +311,7 @@ impl Catalog {
 
         if let Some(authority) = zones
             .first()
-            .map(|z| z.name())
+            .map(LowerQuery::name)
             .and_then(|name| self.find(name))
         {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
@@ -481,7 +481,7 @@ impl<R: ResponseHandler> Future for LookupFuture<R> {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
             // See if the lookup had anything
-            match self.lookup.as_mut().map(|l| l.poll()) {
+            match self.lookup.as_mut().map(Future::poll) {
                 Some(Ok(Async::NotReady)) => return Ok(Async::NotReady),
                 Some(Ok(Async::Ready(()))) => (),
                 Some(Err(())) => error!("unexpected error result in LookupFuture"),

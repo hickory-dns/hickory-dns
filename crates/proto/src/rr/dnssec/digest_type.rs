@@ -92,7 +92,7 @@ impl DigestType {
     /// Hash the data
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     pub fn hash(self, data: &[u8]) -> ProtoResult<Digest> {
-        hash::hash(self.to_openssl_digest()?, data).map_err(|e| e.into())
+        hash::hash(self.to_openssl_digest()?, data).map_err(Into::into)
     }
 
     /// Hash the data
@@ -115,12 +115,12 @@ impl DigestType {
 
         let digest_type = self.to_openssl_digest()?;
         hash::Hasher::new(digest_type)
-            .map_err(|e| e.into())
+            .map_err(Into::into)
             .and_then(|mut hasher| {
                 for d in data {
                     hasher.write_all(d)?;
                 }
-                hasher.finish().map_err(|e| e.into())
+                hasher.finish().map_err(Into::into)
             })
     }
 

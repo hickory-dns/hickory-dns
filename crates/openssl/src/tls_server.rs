@@ -113,7 +113,7 @@ pub fn read_key_from_pkcs8(path: &Path, password: Option<&str>) -> ProtoResult<P
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
-    match password.map(|p| p.as_bytes()) {
+    match password.map(str::as_bytes) {
         Some(password) => {
             PKey::private_key_from_pkcs8_passphrase(&buf, password).map_err(Into::into)
         }

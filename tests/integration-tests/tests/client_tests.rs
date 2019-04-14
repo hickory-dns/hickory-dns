@@ -126,7 +126,7 @@ where
     if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
-        assert!(false);
+        panic!();
     }
 }
 
@@ -186,7 +186,7 @@ where
     if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
-        assert!(false);
+        panic!();
     }
 }
 

@@ -16,9 +16,10 @@ use futures::future::{self, Future, FutureResult, IntoFuture};
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::rdata::key::KEY;
-use trust_dns::rr::rdata::SOA;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+use trust_dns::rr::rdata::DNSSECRData;
+use trust_dns::rr::rdata::DNSSECRecordType;
+use trust_dns::rr::rdata::SOA;
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use authority::{
@@ -74,7 +75,7 @@ impl InMemoryAuthority {
             .find(|(key, _)| key.record_type == RecordType::SOA)
             .and_then(|(_, rrset)| rrset.records_without_rrsigs().next())
             .and_then(|record| record.rdata().as_soa())
-            .map(|soa| soa.serial())
+            .map(SOA::serial)
             .ok_or_else(|| format!("SOA record must be present: {}", origin))?;
 
         let iter = records.into_iter().map(|(_key, record)| record);
@@ -235,7 +236,7 @@ impl InMemoryAuthority {
                 let mut new_answer =
                     RecordSet::new(name.borrow(), rrset.record_type(), rrset.ttl());
 
-                let (records, rrsigs): (Vec<&Record>, Vec<&Record>) = rrset
+                let (records, _rrsigs): (Vec<&Record>, Vec<&Record>) = rrset
                     .records(and_rrsigs, supported_algorithms)
                     .partition(|r| r.record_type() != RecordType::DNSSEC(DNSSECRecordType::RRSIG));
 
@@ -244,7 +245,7 @@ impl InMemoryAuthority {
                 }
 
                 #[cfg(feature = "dnssec")]
-                for rrsig in rrsigs {
+                for rrsig in _rrsigs {
                     new_answer.insert_rrsig(rrsig.clone())
                 }
 
@@ -1049,7 +1050,7 @@ impl Authority for InMemoryAuthority {
                         .records(false, SupportedAlgorithms::default())
                         .next()
                         .and_then(|r| r.rdata().as_dnssec())
-                        .and_then(|r| r.as_nsec())
+                        .and_then(DNSSECRData::as_nsec)
                         .map_or(false, |r| {
                             // the search name is less than the next NSEC record
                             *name < r.next_domain_name().into() ||
