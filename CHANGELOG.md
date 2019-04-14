@@ -22,6 +22,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - (server) Additional section processing for ANAME, CNAME, MX, NS, and SRV #720
 - (server) Added endpoint name config to DoH and DoT TLS endpoint #714
 - (proto) NAPTR record data (no additional record processing support) #731
+- (server) Added support for wildcard lookups, i.e. `*.example.com` in zone files
 
 ### Changed
 
