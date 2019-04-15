@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns"
-version = "0.16.0-alpha.3"
+version = "0.16.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -80,7 +80,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 tokio = "^0.1.15"
 tokio-tcp = "^0.1"
 trust-dns-https = {version = "0.3.0", path = "../https", optional = true }
-trust-dns-proto = {version = "0.7.0", path = "../proto", features = ["dnssec"]}
+trust-dns-proto = {version = "0.7.3", path = "../proto", features = ["dnssec"]}
 untrusted = { version = "^0.6", optional = true }
 webpki = { version = "0.19", optional = true }
 

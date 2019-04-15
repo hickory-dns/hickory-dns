@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-server"
-version = "0.16.0-alpha.3"
+version = "0.16.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -99,11 +99,11 @@ tokio-tcp = "0.1"
 tokio-timer = "0.2.10"
 tokio-udp = "0.1"
 toml = "0.5"
-trust-dns = { version = "0.16.0-alpha", path = "../client" }
+trust-dns = { version = "0.16.0", path = "../client" }
 trust-dns-https = { version = "0.3.0", path = "../https", optional = true }
-trust-dns-proto = { version = "0.7.0", path = "../proto" }
+trust-dns-proto = { version = "0.7.3", path = "../proto" }
 trust-dns-openssl = { version = "0.6.0", path = "../openssl", optional = true }
-trust-dns-resolver = { version = "0.11.0-alpha", path = "../resolver", features = ["serde-config"], optional = true }
+trust-dns-resolver = { version = "0.11.0", path = "../resolver", features = ["serde-config"], optional = true }
 trust-dns-rustls = { version = "0.6.0", path = "../rustls", optional = true }
 
 [dev-dependencies]

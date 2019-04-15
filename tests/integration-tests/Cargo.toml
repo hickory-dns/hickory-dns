@@ -77,12 +77,12 @@ tokio = "0.1.15"
 tokio-tcp = "0.1"
 tokio-timer = "0.2.10"
 tokio-udp = "0.1"
-trust-dns = { version = "0.16.0-alpha", path = "../../crates/client" }
+trust-dns = { version = "0.16.0", path = "../../crates/client" }
 trust-dns-https = { version = "0.3.0", path = "../../crates/https" }
 trust-dns-openssl = { version = "0.6.0", path = "../../crates/openssl" }
-trust-dns-proto = { version = "0.7.0", path = "../../crates/proto" }
-trust-dns-resolver = { version = "0.11.0-alpha", path = "../../crates/resolver" }
+trust-dns-proto = { version = "0.7.3", path = "../../crates/proto" }
+trust-dns-resolver = { version = "0.11.0", path = "../../crates/resolver" }
 trust-dns-rustls = { version = "0.6.0", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.16.0-alpha", path = "../../crates/server" }
+trust-dns-server = { version = "0.16.0", path = "../../crates/server" }
 webpki-roots = { version = "0.16", optional = true }
