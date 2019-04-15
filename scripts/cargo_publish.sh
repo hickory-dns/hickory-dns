@@ -11,6 +11,9 @@ packages_ordered="proto openssl native-tls rustls https client resolver server"
 cargo check
 
 for p in ${packages_ordered:?} ; do
+    cargo update -p trust-dns-proto
+    cargo update -p trust-dns
+    cargo update -p trust-dns-resolver
     echo "====> dry-run publish $p"
     cargo publish --verbose --locked --dry-run --manifest-path crates/${p:?}/Cargo.toml
     echo "====> publishing $p"
