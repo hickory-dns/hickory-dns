@@ -10,7 +10,7 @@
 # Trust-DNS
 
 A Rust based DNS client, server, and Resolver, built to be safe and secure from the
-ground up.
+ground up. The documentation for Trust-DNS is hosted at the [trust-dns/trust-dns-docs](https://github.com/trust-dns/trust-dns-docs).
 
 This repo consists of multiple crates:
 
