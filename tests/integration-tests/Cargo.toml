@@ -68,7 +68,7 @@ chrono = "0.4"
 env_logger = "0.6"
 lazy_static = "1.0"
 log = "0.4.1"
-futures = "0.1.26"
+futures = "0.1.27"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
 rand = "0.6"
 rusqlite = { version = "0.18.0", features = ["bundled"] }
