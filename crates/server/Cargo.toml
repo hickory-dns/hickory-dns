@@ -79,7 +79,7 @@ clap = "2.33"
 enum-as-inner = "0.2"
 env_logger = "0.6"
 failure = "0.1"
-futures = "0.1.26"
+futures = "0.1.27"
 h2 = { version = "0.1", optional = true }
 http = { version = "0.1", optional = true }
 lazy_static = "1.0"

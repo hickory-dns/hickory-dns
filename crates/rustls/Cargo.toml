@@ -44,7 +44,7 @@ name = "trust_dns_rustls"
 path = "src/lib.rs"
 
 [dependencies]
-futures = "^0.1.26"
+futures = "^0.1.27"
 log = "^0.4.1"
 rustls = "0.15"
 tokio-rustls = "0.9"
