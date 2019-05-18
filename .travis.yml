@@ -118,6 +118,7 @@ matrix:
     - rust: nightly
       env: NAME=rustfmt
            RUST_BACKTRACE=full
+           CARGO_BUILD_PIPELINING=true
       before_install:
         - cargo install rustfmt-nightly --force
       script:
