@@ -16,12 +16,12 @@
 
 //! pointer record from parent zone to child zone for dnskey proof
 
-use error::*;
-use rr::dnssec::{Algorithm, DigestType};
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dnssec::{Algorithm, DigestType};
+use crate::serialize::binary::*;
 
-use rr::dnssec::rdata::DNSKEY;
-use rr::Name;
+use crate::rr::dnssec::rdata::DNSKEY;
+use crate::rr::Name;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
 ///
@@ -243,7 +243,7 @@ pub fn test() {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test_covers() {
-    use rr::dnssec::rdata::DNSKEY;
+    use crate::rr::dnssec::rdata::DNSKEY;
 
     let name = Name::parse("www.example.com.", None).unwrap();
 

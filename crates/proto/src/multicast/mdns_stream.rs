@@ -20,10 +20,10 @@ use socket2::{self, Socket};
 use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
-use multicast::MdnsQueryType;
+use crate::multicast::MdnsQueryType;
 use crate::udp::UdpStream;
 use crate::xfer::SerialMessage;
-use BufStreamHandle;
+use crate::xfer::BufStreamHandle;
 
 pub const MDNS_PORT: u16 = 5353;
 lazy_static! {

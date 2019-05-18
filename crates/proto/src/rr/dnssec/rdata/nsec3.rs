@@ -18,10 +18,10 @@
 
 use std::collections::BTreeMap;
 
-use error::*;
-use rr::dnssec::Nsec3HashAlgorithm;
-use rr::RecordType;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dnssec::Nsec3HashAlgorithm;
+use crate::rr::RecordType;
+use crate::serialize::binary::*;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3)
 ///
@@ -491,7 +491,7 @@ pub(crate) fn encode_bit_maps(
 
 #[test]
 pub fn test() {
-    use rr::dnssec::rdata::DNSSECRecordType;
+    use crate::rr::dnssec::rdata::DNSSECRecordType;
 
     let rdata = NSEC3::new(
         Nsec3HashAlgorithm::SHA1,
@@ -525,7 +525,7 @@ pub fn test() {
 
 #[test]
 pub fn test_dups() {
-    use rr::dnssec::rdata::DNSSECRecordType;
+    use crate::rr::dnssec::rdata::DNSSECRecordType;
 
     let rdata_with_dups = NSEC3::new(
         Nsec3HashAlgorithm::SHA1,
