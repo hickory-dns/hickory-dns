@@ -21,7 +21,7 @@ use std::sync::Arc as Rc;
 
 use idna::uts46;
 
-use error::*;
+use crate::error::*;
 
 const WILDCARD: &[u8] = b"*";
 const IDNA_PREFIX: &[u8] = b"xn--";

@@ -16,7 +16,7 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use tokio_udp;
 
-use xfer::{BufStreamHandle, SerialMessage};
+use crate::xfer::{BufStreamHandle, SerialMessage};
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]

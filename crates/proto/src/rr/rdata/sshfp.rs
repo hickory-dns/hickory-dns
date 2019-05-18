@@ -7,8 +7,8 @@
 
 //! SSHFP records for SSH public key fingerprints
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
 ///

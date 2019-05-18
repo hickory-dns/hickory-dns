@@ -28,7 +28,7 @@ pub use self::restrict::{Restrict, RestrictedMath, Verified};
 #[cfg(test)]
 pub mod bin_tests;
 
-use error::*;
+use crate::error::*;
 
 /// A type which can be encoded into a DNS binary format
 pub trait BinEncodable {

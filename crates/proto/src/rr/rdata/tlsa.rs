@@ -7,8 +7,8 @@
 
 //! TLSA records for storing TLS certificate validation information
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
 ///

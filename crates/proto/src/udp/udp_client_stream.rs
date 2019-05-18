@@ -15,11 +15,11 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_timer::Timeout;
 use tokio_udp;
 
-use error::ProtoError;
-use op::message::NoopMessageFinalizer;
-use op::{Message, MessageFinalizer, OpCode};
-use udp::udp_stream::NextRandomUdpSocket;
-use xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
+use crate::error::ProtoError;
+use crate::op::message::NoopMessageFinalizer;
+use crate::op::{Message, MessageFinalizer, OpCode};
+use crate::udp::udp_stream::NextRandomUdpSocket;
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 
 /// A UDP client stream of DNS binary packets
 ///
@@ -389,16 +389,15 @@ fn test_udp_client_stream_ipv6() {
 
 #[cfg(test)]
 fn udp_client_stream_test(server_addr: IpAddr) {
-    use op::Query;
-    use rr::rdata::NULL;
-    use rr::{Name, RData, Record, RecordType};
+    use crate::op::Query;
+    use crate::rr::rdata::NULL;
+    use crate::rr::{Name, RData, Record, RecordType};
     use std::str::FromStr;
     use tokio::runtime::current_thread::Runtime;
 
     // use env_logger;
     // env_logger::try_init().ok();
 
-    use std;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     std::thread::Builder::new()

@@ -8,10 +8,10 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::vec;
 
-use rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
 #[cfg(feature = "dnssec")]
-use rr::dnssec::SupportedAlgorithms;
+use crate::rr::dnssec::SupportedAlgorithms;
 
 /// Set of resource records associated to a name and type
 #[derive(Clone, Debug, PartialEq)]
@@ -492,8 +492,8 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
     type Item = &'r Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use rr::dnssec::rdata::DNSSECRData;
-        use rr::dnssec::Algorithm;
+        use crate::rr::dnssec::rdata::DNSSECRData;
+        use crate::rr::dnssec::Algorithm;
 
         let supported_algorithms = self.supported_algorithms;
 
@@ -561,8 +561,8 @@ mod test {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use rr::rdata::SOA;
-    use rr::*;
+    use crate::rr::rdata::SOA;
+    use crate::rr::*;
 
     #[test]
     fn test_insert() {
@@ -808,9 +808,9 @@ mod test {
     #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
     #[allow(clippy::block_in_if_condition_stmt)]
     fn test_get_filter() {
-        use rr::dnssec::rdata::SIG;
-        use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};
-        use rr::dnssec::{Algorithm, SupportedAlgorithms};
+        use crate::rr::dnssec::rdata::SIG;
+        use crate::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};
+        use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
 
         let name = Name::root();
         let rsasha256 = SIG::new(

@@ -11,7 +11,7 @@
 
 use std::{fmt, io, sync};
 
-use rr::{Name, RecordType};
+use crate::rr::{Name, RecordType};
 
 #[cfg(not(feature = "openssl"))]
 use self::not_openssl::SslErrorStack;
@@ -67,7 +67,7 @@ pub enum ProtoErrorKind {
         display = "edns resource record label must be the root label (.): {}",
         _0
     )]
-    EdnsNameNotRoot(::rr::Name),
+    EdnsNameNotRoot(crate::rr::Name),
 
     /// The length of rdata read was not as expected
     #[fail(display = "incorrect rdata length read: {} expected: {}", read, len)]

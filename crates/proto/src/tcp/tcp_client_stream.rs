@@ -13,11 +13,9 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 
-use error::ProtoError;
-use tcp::TcpStream;
-use xfer::{DnsClientStream, SerialMessage};
-use BufDnsStreamHandle;
-use DnsStreamHandle;
+use crate::error::ProtoError;
+use crate::tcp::TcpStream;
+use crate::xfer::{BufDnsStreamHandle, DnsClientStream, DnsStreamHandle, SerialMessage};
 
 /// Tcp client stream
 ///

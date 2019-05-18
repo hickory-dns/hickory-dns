@@ -22,11 +22,11 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
-use rr::dnssec::rdata::DNSSECRecordType;
+use crate::rr::dnssec::rdata::DNSSECRecordType;
 
 // TODO: adopt proper restrictions on usage: https://tools.ietf.org/html/rfc6895 section 3.1
 //  add the data TYPEs, QTYPEs, and Meta-TYPEs

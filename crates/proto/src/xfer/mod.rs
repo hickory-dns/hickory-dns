@@ -7,11 +7,11 @@
 use std::fmt::{Debug, Display};
 use std::net::SocketAddr;
 
-use error::*;
+use crate::error::*;
 use futures::sync::mpsc::{SendError, UnboundedSender};
 use futures::sync::oneshot;
 use futures::{Future, Poll, Stream};
-use op::Message;
+use crate::op::Message;
 
 mod dns_exchange;
 pub mod dns_handle;

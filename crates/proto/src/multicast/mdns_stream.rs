@@ -21,8 +21,8 @@ use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
 use multicast::MdnsQueryType;
-use udp::UdpStream;
-use xfer::SerialMessage;
+use crate::udp::UdpStream;
+use crate::xfer::SerialMessage;
 use BufStreamHandle;
 
 pub const MDNS_PORT: u16 = 5353;

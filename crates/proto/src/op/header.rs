@@ -20,8 +20,8 @@ use std::convert::From;
 
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 /// Metadata for the `Message` struct.
 ///

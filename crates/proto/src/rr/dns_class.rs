@@ -13,8 +13,8 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 /// The DNS Record class
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]

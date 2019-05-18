@@ -22,13 +22,13 @@ use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
 use tokio_timer::Delay;
 
-use error::*;
-use op::{Message, MessageFinalizer, OpCode};
-use xfer::{
+use crate::error::*;
+use crate::op::{Message, MessageFinalizer, OpCode};
+use crate::xfer::{
     ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
     SerialMessage,
 };
-use DnsStreamHandle;
+use crate::DnsStreamHandle;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
@@ -242,7 +242,7 @@ where
 
         let error = ProtoError::from("stream closed before response received");
 
-        for (_, mut active_request) in self.active_requests.drain() {
+        for (_, active_request) in self.active_requests.drain() {
             if active_request.responses.is_empty() {
                 // complete the request, it's failed...
                 active_request.complete_with_error(error.clone());
@@ -431,7 +431,7 @@ where
                             Entry::Occupied(mut request_entry) => {
                                 // first add the response to the active_requests responses
                                 let complete = {
-                                    let mut active_request = request_entry.get_mut();
+                                    let active_request = request_entry.get_mut();
                                     active_request.add_response(message);
 
                                     // determine if this is complete
@@ -440,7 +440,7 @@ where
 
                                 // now check if the request is complete
                                 if complete {
-                                    let mut active_request = request_entry.remove();
+                                    let active_request = request_entry.remove();
                                     active_request.complete();
                                 }
                             }
