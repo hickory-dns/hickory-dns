@@ -17,12 +17,12 @@ use std::ops::Index;
 use std::slice::Iter;
 use std::str::FromStr;
 
-use error::*;
-use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
-use rr::domain::usage::LOCALHOST as LOCALHOST_usage;
+use crate::error::*;
+use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
+use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use serialize::binary::*;
+use crate::serialize::binary::*;
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Clone, Default, Debug, Eq)]
@@ -1240,10 +1240,10 @@ mod tests {
 
     use super::*;
 
-    use serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
+    use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
     #[allow(clippy::useless_attribute)]
     #[allow(unused)]
-    use serialize::binary::*;
+    use crate::serialize::binary::*;
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
@@ -1614,7 +1614,7 @@ mod tests {
 
     #[test]
     fn test_excessive_encoding_len() {
-        use error::ProtoErrorKind;
+        use crate::error::ProtoErrorKind;
 
         // u16 max value is where issues start being tickled...
         let mut buf = Vec::with_capacity(u16::max_value() as usize);

@@ -11,8 +11,8 @@ use futures::stream::{Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::{Async, Future, Poll};
 
-use error::*;
-use xfer::{DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, OneshotDnsRequest};
+use crate::error::*;
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, OneshotDnsRequest};
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///

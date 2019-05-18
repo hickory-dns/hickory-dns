@@ -20,9 +20,9 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use error::*;
-use rr::dnssec::Algorithm;
-use serialize::binary::{BinEncodable, BinEncoder};
+use crate::error::*;
+use crate::rr::dnssec::Algorithm;
+use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Used to specify the set of SupportedAlgorithms between a client and server
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]

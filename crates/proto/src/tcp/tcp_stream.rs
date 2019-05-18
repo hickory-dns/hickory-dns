@@ -19,8 +19,8 @@ use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_timer::Timeout;
 
-use error::*;
-use xfer::{BufStreamHandle, SerialMessage};
+use crate::error::*;
+use crate::xfer::{BufStreamHandle, SerialMessage};
 
 /// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {

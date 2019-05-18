@@ -18,16 +18,16 @@
 
 use std::cmp::Ordering;
 
-use error::*;
-use rr::dns_class::DNSClass;
-use rr::rdata::NULL;
+use crate::error::*;
+use crate::rr::dns_class::DNSClass;
+use crate::rr::rdata::NULL;
 #[allow(deprecated)]
-use rr::IntoRecordSet;
-use rr::Name;
-use rr::RData;
-use rr::RecordSet;
-use rr::RecordType;
-use serialize::binary::*;
+use crate::rr::IntoRecordSet;
+use crate::rr::Name;
+use crate::rr::RData;
+use crate::rr::RecordSet;
+use crate::rr::RecordType;
+use crate::serialize::binary::*;
 
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
@@ -417,13 +417,13 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use rr::dns_class::DNSClass;
-    use rr::record_data::RData;
-    use rr::record_type::RecordType;
-    use rr::Name;
+    use crate::rr::dns_class::DNSClass;
+    use crate::rr::record_data::RData;
+    use crate::rr::record_type::RecordType;
+    use crate::rr::Name;
     #[allow(clippy::useless_attribute)]
     #[allow(unused)]
-    use serialize::binary::*;
+    use crate::serialize::binary::*;
 
     #[test]
     fn test_emit_and_read() {

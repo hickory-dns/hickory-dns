@@ -7,8 +7,8 @@
 
 use std::net::SocketAddr;
 
-use error::ProtoResult;
-use op::Message;
+use crate::error::ProtoResult;
+use crate::op::Message;
 
 /// A DNS message in serialized form, with either the target address or source address
 pub struct SerialMessage {

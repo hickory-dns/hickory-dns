@@ -9,7 +9,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use op::Message;
+use crate::op::Message;
 
 /// A set of options for expressing options to how requests should be treated
 #[derive(Clone, Default)]

@@ -12,9 +12,9 @@ use futures::sync::oneshot;
 use futures::{Future, IntoFuture};
 use rand;
 
-use error::*;
-use op::{Message, MessageType, OpCode, Query};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
+use crate::error::*;
+use crate::op::{Message, MessageType, OpCode, Query};
+use crate::xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)

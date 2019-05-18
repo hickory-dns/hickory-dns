@@ -7,8 +7,8 @@
 
 //! OPENPGPKEY records for OpenPGP public keys
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
 ///

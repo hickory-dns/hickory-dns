@@ -22,9 +22,9 @@
 
 use std::str;
 
-use error::*;
-use rr::domain::Name;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::domain::Name;
+use crate::serialize::binary::*;
 use url::Url;
 
 /// The CAA RR Type
@@ -536,7 +536,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                 }
             }
             ParseNameKeyPairState::Key {
-                mut first_char,
+                first_char,
                 mut key,
                 key_values,
             } => {

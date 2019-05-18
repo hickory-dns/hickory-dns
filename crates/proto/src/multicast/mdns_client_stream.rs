@@ -10,10 +10,10 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
 
-use error::ProtoError;
+use crate::error::ProtoError;
+use crate::xfer::{DnsClientStream, SerialMessage};
 use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use multicast::{MdnsQueryType, MdnsStream};
-use xfer::{DnsClientStream, SerialMessage};
 use BufDnsStreamHandle;
 use DnsStreamHandle;
 

@@ -16,12 +16,12 @@
 
 //! Extended DNS options
 
-use error::*;
-use rr::rdata::opt::{self, EdnsCode, EdnsOption};
-use rr::rdata::OPT;
-use rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::error::*;
+use crate::rr::rdata::opt::{self, EdnsCode, EdnsOption};
+use crate::rr::rdata::OPT;
+use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
-use serialize::binary::{BinEncodable, BinEncoder};
+use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Edns implements the higher level concepts for working with extended dns as it is used to create or be
 /// created from OPT record data.
@@ -207,7 +207,7 @@ impl BinEncodable for Edns {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_encode_decode() {
-    use rr::dnssec::SupportedAlgorithms;
+    use crate::rr::dnssec::SupportedAlgorithms;
 
     let mut edns: Edns = Edns::new();
 

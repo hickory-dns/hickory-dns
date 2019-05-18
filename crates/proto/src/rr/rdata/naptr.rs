@@ -7,9 +7,9 @@
 
 //! Dynamic Delegation Discovery System
 
-use error::*;
-use rr::domain::Name;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::domain::Name;
+use crate::serialize::binary::*;
 
 /// [RFC 3403 DDDS DNS Database, October 2002](https://tools.ietf.org/html/rfc3403#section-4)
 ///

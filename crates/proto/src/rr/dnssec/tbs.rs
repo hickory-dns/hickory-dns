@@ -1,10 +1,10 @@
 //! hash functions for DNSSec operations
 
 use super::rdata::{sig, DNSSECRData, SIG};
-use error::*;
-use rr::dnssec::Algorithm;
-use rr::{DNSClass, Name, RData, Record, RecordType};
-use serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
+use crate::error::*;
+use crate::rr::dnssec::Algorithm;
+use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);

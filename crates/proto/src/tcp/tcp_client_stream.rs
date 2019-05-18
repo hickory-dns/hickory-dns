@@ -13,11 +13,9 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 
-use error::ProtoError;
-use tcp::TcpStream;
-use xfer::{DnsClientStream, SerialMessage};
-use BufDnsStreamHandle;
-use DnsStreamHandle;
+use crate::error::ProtoError;
+use crate::tcp::TcpStream;
+use crate::xfer::{BufDnsStreamHandle, DnsClientStream, DnsStreamHandle, SerialMessage};
 
 /// Tcp client stream
 ///
@@ -165,7 +163,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -212,7 +211,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();

@@ -17,14 +17,14 @@ use std::marker::PhantomData;
 
 use byteorder::{ByteOrder, NetworkEndian};
 
-use error::{ProtoErrorKind, ProtoResult};
+use crate::error::{ProtoErrorKind, ProtoResult};
 
 use super::BinEncodable;
-use op::Header;
+use crate::op::Header;
 
 // this is private to make sure there is no accidental access to the inner buffer.
 mod private {
-    use error::{ProtoErrorKind, ProtoResult};
+    use crate::error::{ProtoErrorKind, ProtoResult};
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
     pub struct MaximalBuf<'a> {
@@ -522,8 +522,8 @@ pub enum EncodeMode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use op::Message;
-    use serialize::binary::BinDecoder;
+    use crate::op::Message;
+    use crate::serialize::binary::BinDecoder;
 
     #[test]
     fn test_label_compression_regression() {

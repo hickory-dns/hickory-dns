@@ -17,11 +17,11 @@
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use super::{Digest, DigestType};
-use error::*;
+use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::Name;
+use crate::rr::Name;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use serialize::binary::{BinEncodable, BinEncoder};
+use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// ```text
 /// RFC 5155                         NSEC3                        March 2008
