@@ -38,12 +38,13 @@ environment:
   #   OPENSSL_VERSION: 1_1_0i
   #   OPENSSL_DIR: C:\OpenSSL
 
+  # FIXME: i686 builds are regularly having issues, disabling to reduce noise
   # Just checking the basics on i686/32bit
-  - TARGET: i686-pc-windows-msvc
-    ALL_FEATURES_SUITE: 1
-    BITS: 32
-    OPENSSL_VERSION: 1_1_0j
-    OPENSSL_DIR: C:\OpenSSL
+  # - TARGET: i686-pc-windows-msvc
+  #   ALL_FEATURES_SUITE: 1
+  #   BITS: 32
+  #   OPENSSL_VERSION: 1_1_0j
+  #   OPENSSL_DIR: C:\OpenSSL
 
 init:
   - ps: Disable-NetFirewallRule -DisplayName 'Core Networking - Group Policy (LSASS-Out)'
