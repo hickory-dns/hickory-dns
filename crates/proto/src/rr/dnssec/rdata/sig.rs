@@ -16,10 +16,10 @@
 
 //! signature record for signing queries, updates, and responses
 
-use error::*;
-use rr::dnssec::Algorithm;
-use rr::{Name, RecordType};
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dnssec::Algorithm;
+use crate::rr::{Name, RecordType};
+use crate::serialize::binary::*;
 
 /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
 ///

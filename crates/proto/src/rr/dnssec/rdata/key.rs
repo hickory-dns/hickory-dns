@@ -16,10 +16,10 @@
 
 //! public key record data for signing zone records
 
-use error::*;
-use rr::dnssec::Algorithm;
-use rr::record_data::RData;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dnssec::Algorithm;
+use crate::rr::record_data::RData;
+use crate::serialize::binary::*;
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3), Domain Name System Security Extensions, March 1999
 ///
