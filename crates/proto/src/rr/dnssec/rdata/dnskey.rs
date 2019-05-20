@@ -16,11 +16,11 @@
 
 //! public key record data for signing zone records
 
-use error::*;
-use rr::dnssec::{Algorithm, Digest, DigestType};
-use rr::record_data::RData;
-use rr::Name;
-use serialize::binary::{
+use crate::error::*;
+use crate::rr::dnssec::{Algorithm, Digest, DigestType};
+use crate::rr::record_data::RData;
+use crate::rr::Name;
+use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
 };
 

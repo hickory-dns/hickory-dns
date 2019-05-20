@@ -27,10 +27,10 @@ pub mod nsec3;
 pub mod nsec3param;
 pub mod sig;
 
-use error::*;
-use rr::rdata::null;
-use rr::rdata::NULL;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::rdata::null;
+use crate::rr::rdata::NULL;
+use crate::serialize::binary::*;
 
 pub use self::dnskey::DNSKEY;
 pub use self::ds::DS;

@@ -15,7 +15,8 @@ use tokio_tcp::TcpStream as TokioTcpStream;
 
 use crate::error::ProtoError;
 use crate::tcp::TcpStream;
-use crate::xfer::{BufDnsStreamHandle, DnsClientStream, DnsStreamHandle, SerialMessage};
+use crate::xfer::{DnsClientStream, SerialMessage};
+use crate::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// Tcp client stream
 ///
