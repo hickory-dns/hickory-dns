@@ -15,8 +15,8 @@
  */
 
 use byteorder::{ByteOrder, NetworkEndian};
-use error::{ProtoError, ProtoErrorKind, ProtoResult};
-use serialize::binary::Restrict;
+use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
+use crate::serialize::binary::Restrict;
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names

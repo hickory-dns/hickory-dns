@@ -22,12 +22,12 @@ use std::ops::Deref;
 use std::sync::Arc;
 
 use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
-use error::*;
-use rr::{Record, RecordType};
-use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
+use crate::error::*;
+use crate::rr::{Record, RecordType};
+use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
 
 #[cfg(feature = "dnssec")]
-use rr::dnssec::rdata::DNSSECRecordType;
+use crate::rr::dnssec::rdata::DNSSECRecordType;
 
 /// The basic request and response datastructure, used for all DNS protocols.
 ///

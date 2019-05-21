@@ -19,11 +19,11 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use error::*;
-use rr::dns_class::DNSClass;
-use rr::domain::Name;
-use rr::record_type::RecordType;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dns_class::DNSClass;
+use crate::rr::domain::Name;
+use crate::rr::record_type::RecordType;
+use crate::serialize::binary::*;
 
 /// Query struct for looking up resource records, basically a resource record without RDATA.
 ///

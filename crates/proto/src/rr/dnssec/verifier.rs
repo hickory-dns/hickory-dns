@@ -1,11 +1,11 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSec specification
 
-use error::*;
-use rr::dnssec::rdata::{DNSKEY, KEY, SIG};
-use rr::dnssec::Algorithm;
-use rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
-use rr::{DNSClass, Name, Record};
-use serialize::binary::BinEncodable;
+use crate::error::*;
+use crate::rr::dnssec::rdata::{DNSKEY, KEY, SIG};
+use crate::rr::dnssec::Algorithm;
+use crate::rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
+use crate::rr::{DNSClass, Name, Record};
+use crate::serialize::binary::BinEncodable;
 
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {

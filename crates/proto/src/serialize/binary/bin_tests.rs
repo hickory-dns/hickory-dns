@@ -15,7 +15,7 @@
  */
 
 use super::*;
-use error::*;
+use crate::error::*;
 use std::fmt::Debug;
 
 fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {

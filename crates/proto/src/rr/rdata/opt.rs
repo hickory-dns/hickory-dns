@@ -18,11 +18,11 @@
 
 use std::collections::HashMap;
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
-use rr::dnssec::SupportedAlgorithms;
+use crate::rr::dnssec::SupportedAlgorithms;
 
 /// The OPT record type is used for ExtendedDNS records.
 ///

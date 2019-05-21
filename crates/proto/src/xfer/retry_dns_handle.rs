@@ -9,9 +9,9 @@
 
 use futures::{Future, Poll};
 
-use error::ProtoError;
-use xfer::{DnsRequest, DnsResponse};
-use DnsHandle;
+use crate::error::ProtoError;
+use crate::xfer::{DnsRequest, DnsResponse};
+use crate::DnsHandle;
 
 /// Can be used to reattempt a queries if they fail
 ///
@@ -93,9 +93,9 @@ impl<H: DnsHandle> Future for RetrySendFuture<H> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use error::*;
+    use crate::error::*;
     use futures::*;
-    use op::*;
+    use crate::op::*;
     use std::cell::Cell;
     use DnsHandle;
 

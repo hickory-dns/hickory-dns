@@ -18,7 +18,7 @@
 
 use std::default::Default;
 
-use rr::dnssec::PublicKey;
+use crate::rr::dnssec::PublicKey;
 
 const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");

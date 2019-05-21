@@ -10,12 +10,11 @@ use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
 
-use error::ProtoError;
-use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
-use multicast::{MdnsQueryType, MdnsStream};
-use xfer::{DnsClientStream, SerialMessage};
-use BufDnsStreamHandle;
-use DnsStreamHandle;
+use crate::error::ProtoError;
+use crate::xfer::{DnsClientStream, SerialMessage};
+use crate::multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
+use crate::multicast::{MdnsQueryType, MdnsStream};
+use crate::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]

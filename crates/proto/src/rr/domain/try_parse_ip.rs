@@ -8,7 +8,7 @@
 use std::net::IpAddr;
 use std::str::FromStr;
 
-use rr::{Name, RData};
+use crate::rr::{Name, RData};
 
 /// Types of this trait will can be attempted for conversion to an IP address
 pub trait TryParseIp {

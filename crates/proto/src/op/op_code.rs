@@ -18,7 +18,7 @@
 
 use std::convert::From;
 
-use error::*;
+use crate::error::*;
 
 /// Operation code for queries, updates, and responses
 ///

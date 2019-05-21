@@ -19,8 +19,8 @@ use openssl::hash;
 #[cfg(feature = "ring")]
 use ring::digest;
 
-use error::*;
-use rr::dnssec::Algorithm;
+use crate::error::*;
+use crate::rr::dnssec::Algorithm;
 
 #[cfg(any(feature = "ring", feature = "openssl"))]
 use super::Digest;

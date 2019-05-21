@@ -16,9 +16,9 @@
 
 //! parameters used for the nsec3 hash method
 
-use error::*;
-use rr::dnssec::Nsec3HashAlgorithm;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dnssec::Nsec3HashAlgorithm;
+use crate::serialize::binary::*;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4)
 ///

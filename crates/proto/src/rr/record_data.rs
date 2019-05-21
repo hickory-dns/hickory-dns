@@ -25,8 +25,8 @@ use super::domain::Name;
 use super::rdata;
 use super::rdata::{CAA, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, TLSA, TXT};
 use super::record_type::RecordType;
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
@@ -902,12 +902,12 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use rr::domain::Name;
-    use rr::rdata::{MX, SOA, SRV, TXT};
-    use serialize::binary::bin_tests::test_emit_data_set;
+    use crate::rr::domain::Name;
+    use crate::rr::rdata::{MX, SOA, SRV, TXT};
+    use crate::serialize::binary::bin_tests::test_emit_data_set;
     #[allow(clippy::useless_attribute)]
     #[allow(unused)]
-    use serialize::binary::*;
+    use crate::serialize::binary::*;
 
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![
@@ -1072,7 +1072,7 @@ mod tests {
         }
     }
 
-    fn record_type_from_rdata(rdata: &RData) -> ::rr::record_type::RecordType {
+    fn record_type_from_rdata(rdata: &RData) -> crate::rr::record_type::RecordType {
         match *rdata {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,

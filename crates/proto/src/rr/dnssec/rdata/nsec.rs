@@ -17,10 +17,10 @@
 //! negative cache proof for non-existence
 
 use super::nsec3;
-use error::*;
-use rr::dnssec::rdata::DNSSECRecordType;
-use rr::{Name, RecordType};
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::dnssec::rdata::DNSSECRecordType;
+use crate::rr::{Name, RecordType};
+use crate::serialize::binary::*;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4)
 ///
@@ -163,8 +163,8 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
 
 #[test]
 pub fn test() {
-    use rr::dnssec::rdata::DNSSECRecordType;
-    use rr::RecordType;
+    use crate::rr::dnssec::rdata::DNSSECRecordType;
+    use crate::rr::RecordType;
     use std::str::FromStr;
 
     let rdata = NSEC::new(

@@ -16,9 +16,9 @@
 
 //! mail exchange, email, record
 
-use error::*;
-use rr::domain::Name;
-use serialize::binary::*;
+use crate::error::*;
+use crate::rr::domain::Name;
+use crate::serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///

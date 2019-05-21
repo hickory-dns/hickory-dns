@@ -34,8 +34,8 @@
 
 use std::net::Ipv6Addr;
 
-use serialize::binary::*;
-use error::*;
+use crate::serialize::binary::*;
+use crate::error::*;
 
 /// Read the RData from the given Decoder
 #[allow(clippy::many_single_char_names)]
@@ -73,7 +73,7 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
+    use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
     fn get_data() -> Vec<(Ipv6Addr, Vec<u8>)> {
         vec![

@@ -14,16 +14,16 @@ use std::sync::Arc;
 
 use futures::*;
 
-use error::*;
-use op::{OpCode, Query};
-use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
+use crate::error::*;
+use crate::op::{OpCode, Query};
+use crate::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 #[cfg(feature = "dnssec")]
-use rr::dnssec::Verifier;
-use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
-use rr::rdata::opt::EdnsOption;
-use rr::{DNSClass, Name, RData, Record, RecordType};
-use xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
-use DnsHandle;
+use crate::rr::dnssec::Verifier;
+use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
+use crate::rr::rdata::opt::EdnsOption;
+use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+use crate::xfer::dns_handle::DnsHandle;
 
 #[derive(Debug)]
 struct Rrset {

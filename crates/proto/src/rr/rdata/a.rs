@@ -42,8 +42,8 @@
 
 use std::net::Ipv4Addr;
 
-use error::*;
-use serialize::binary::*;
+use crate::error::*;
+use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
@@ -72,7 +72,7 @@ mod mytests {
     use std::str::FromStr;
 
     use super::*;
-    use serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
+    use crate::serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
     fn get_data() -> Vec<(Ipv4Addr, Vec<u8>)> {
         vec![

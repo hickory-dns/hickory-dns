@@ -12,7 +12,7 @@ use std::slice::{Iter, IterMut};
 
 use smallvec::SmallVec;
 
-use op::Message;
+use crate::op::Message;
 
 // TODO: this needs to have the IP addr of the remote system...
 // FIXME: see https://github.com/bluejekyll/trust-dns/issues/383 for removing vec of messages and instead returning a Stream

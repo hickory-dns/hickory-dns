@@ -11,7 +11,7 @@
 
 use std::ops::Deref;
 
-use rr::domain::Name;
+use crate::rr::domain::Name;
 
 
 lazy_static!{
@@ -27,17 +27,18 @@ lazy_static! {
     pub static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&*ARPA);
 }
 
-/// localhost.
-///
-/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-///
-/// ```text
-/// 6.3.  Domain Name Reservation Considerations for "localhost."
-/// 
-///    The domain "localhost." and any names falling within ".localhost."
-///    are special in the following ways:
-/// ```
 lazy_static! {
+    /// localhost.
+    ///
+    /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+    ///
+    /// ```text
+    /// 6.3.  Domain Name Reservation Considerations for "localhost."
+    ///
+    ///    The domain "localhost." and any names falling within ".localhost."
+    ///    are special in the following ways:
+    /// ```
+
     /// localhost. usage
     pub static ref LOCALHOST: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap());
 
@@ -48,20 +49,21 @@ lazy_static! {
     pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&*IP6_ARPA));
 }
 
-/// .local.
-///
-/// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
-///
-/// ```text
-/// This document specifies that the DNS top-level domain ".local." is a
-///   special domain with special semantics, namely that any fully
-///   qualified name ending in ".local." is link-local, and names within
-///   this domain are meaningful only on the link where they originate.
-///   This is analogous to IPv4 addresses in the 169.254/16 prefix or IPv6
-///   addresses in the FE80::/10 prefix, which are link-local and
-///   meaningful only on the link where they originate.
-/// ```
 lazy_static! {
+    /// .local.
+    ///
+    /// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
+    ///
+    /// ```text
+    /// This document specifies that the DNS top-level domain ".local." is a
+    ///   special domain with special semantics, namely that any fully
+    ///   qualified name ending in ".local." is link-local, and names within
+    ///   this domain are meaningful only on the link where they originate.
+    ///   This is analogous to IPv4 addresses in the 169.254/16 prefix or IPv6
+    ///   addresses in the FE80::/10 prefix, which are link-local and
+    ///   meaningful only on the link where they originate.
+    /// ```
+
     /// localhost. usage
     pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii("local.").unwrap());
 
@@ -91,19 +93,20 @@ lazy_static! {
     pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().append_domain(&*IP6_ARPA));
 }
 
-/// invalid.
-///
-/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-///
-/// ```text
-/// 6.4.  Domain Name Reservation Considerations for "invalid."
-/// 
-///    The domain "invalid." and any names falling within ".invalid." are
-///    special in the ways listed below.  In the text below, the term
-///    "invalid" is used in quotes to signify such names, as opposed to
-///    names that may be invalid for other reasons (e.g., being too long).
-/// ```
 lazy_static! {
+    /// invalid.
+    ///
+    /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+    ///
+    /// ```text
+    /// 6.4.  Domain Name Reservation Considerations for "invalid."
+    ///
+    ///    The domain "invalid." and any names falling within ".invalid." are
+    ///    special in the ways listed below.  In the text below, the term
+    ///    "invalid" is used in quotes to signify such names, as opposed to
+    ///    names that may be invalid for other reasons (e.g., being too long).
+    /// ```
+
     /// invalid. name usage
     pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap());
 }

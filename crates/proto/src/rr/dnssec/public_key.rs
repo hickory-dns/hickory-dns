@@ -30,15 +30,15 @@ use ring::signature::{EdDSAParameters, VerificationAlgorithm, ED25519_PUBLIC_KEY
 #[cfg(feature = "ring")]
 use untrusted::Input;
 
-use error::*;
-use rr::dnssec::Algorithm;
+use crate::error::*;
+use crate::rr::dnssec::Algorithm;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-use rr::dnssec::DigestType;
+use crate::rr::dnssec::DigestType;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::ec_public_key::ECPublicKey;
+use crate::rr::dnssec::ec_public_key::ECPublicKey;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::rsa_public_key::RSAPublicKey;
+use crate::rr::dnssec::rsa_public_key::RSAPublicKey;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn test_asn1_emit_integer() {
         fn test_case(source: &[u8], expected_data: &[u8]) {
-            use rr::dnssec::public_key::asn1_emit_integer;
+            use crate::rr::dnssec::public_key::asn1_emit_integer;
 
             let mut output = Vec::<u8>::new();
             asn1_emit_integer(&mut output, source);
