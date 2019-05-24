@@ -78,4 +78,4 @@ url = "1.6.0"
 
 [dev-dependencies]
 env_logger = "^0.6"
-tokio = "^0.1.15"
+tokio = "^0.1.20"

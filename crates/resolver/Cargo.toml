@@ -69,7 +69,7 @@ resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.15", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "^0.6"
-tokio = { version = "^0.1.15", optional = true }
+tokio = { version = "^0.1.20", optional = true }
 tokio-executor = "^0.1.7"
 trust-dns-https = { version = "0.3.0", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.6.0", path = "../native-tls", optional = true }
@@ -84,4 +84,4 @@ ipconfig = { version = "^0.2.0" }
 [dev-dependencies]
 env_logger = "^0.6"
 tokio-io = "^0.1"
-tokio = "^0.1.15"
+tokio = "^0.1.20"
