@@ -446,9 +446,8 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
-        use std;
         use std::time::{Duration, Instant};
-        use tokio_timer::{self, Delay};
+        use tokio_timer::Delay;
 
         let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -602,9 +601,8 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
-        use std;
         use std::time::{Duration, Instant};
-        use tokio_timer::{self, Delay};
+        use tokio_timer::Delay;
 
         let server_got_packet = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 

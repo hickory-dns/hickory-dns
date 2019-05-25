@@ -17,7 +17,7 @@ use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 // TODO: split this test up to test each thing separately
 #[test]
-#[allow(clippy::cyclomatic_complexity)]
+#[allow(clippy::cognitive_complexity)]
 fn test_zone() {
     let lexer = Lexer::new(
         r###"
@@ -415,7 +415,7 @@ _443._tcp.www.example.com. IN TLSA (
 }
 
 #[test]
-#[allow(clippy::cyclomatic_complexity)]
+#[allow(clippy::cognitive_complexity)]
 fn test_bad_cname_at_soa() {
     let lexer = Lexer::new(
         r###"

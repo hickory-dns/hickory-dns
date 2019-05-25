@@ -442,7 +442,7 @@ impl InMemoryAuthority {
     /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self) {
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, NSEC};
+        use trust_dns::rr::rdata::NSEC;
 
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
@@ -532,7 +532,7 @@ impl InMemoryAuthority {
     ) -> DnsSecResult<()> {
         use chrono::Utc;
         use trust_dns::rr::dnssec::tbs;
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, SIG};
+        use trust_dns::rr::rdata::SIG;
 
         let inception = Utc::now();
 
@@ -1019,8 +1019,6 @@ impl Authority for InMemoryAuthority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Self::LookupFuture {
-        use trust_dns::rr::rdata::DNSSECRecordType;
-
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC)
         }
@@ -1135,8 +1133,6 @@ impl Authority for InMemoryAuthority {
     /// * `signer` - Signer with associated private key
     #[cfg(feature = "dnssec")]
     fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        use trust_dns::rr::rdata::DNSSECRData;
-
         // also add the key to the zone
         let zone_ttl = self.minimum_ttl();
         let dnskey = signer.key().to_dnskey(signer.algorithm())?;

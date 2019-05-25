@@ -222,7 +222,6 @@ fn test_udp_stream_ipv6() {
 fn udp_stream_test(server_addr: IpAddr) {
     use tokio::runtime::current_thread::Runtime;
 
-    use std;
     use std::net::ToSocketAddrs;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

@@ -6,24 +6,24 @@ use proto::serialize::binary::BinEncodable;
 
 use radix_trie::{Trie, TrieKey};
 
-/// Reserved reverse IPs
-///
-/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-///
-/// ```text
-/// 6.1.  Domain Name Reservation Considerations for Private Addresses
-/// 
-///    The private-address [RFC1918] reverse-mapping domains listed below,
-///    and any names falling within those domains, are Special-Use Domain
-///    Names:
-/// 
-///      10.in-addr.arpa.      21.172.in-addr.arpa.  26.172.in-addr.arpa.
-///      16.172.in-addr.arpa.  22.172.in-addr.arpa.  27.172.in-addr.arpa.
-///      17.172.in-addr.arpa.  30.172.in-addr.arpa.  28.172.in-addr.arpa.
-///      18.172.in-addr.arpa.  23.172.in-addr.arpa.  29.172.in-addr.arpa.
-///      19.172.in-addr.arpa.  24.172.in-addr.arpa.  31.172.in-addr.arpa.
-///      20.172.in-addr.arpa.  25.172.in-addr.arpa.  168.192.in-addr.arpa.
-/// ```
+// Reserved reverse IPs
+//
+// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+//
+// ```text
+// 6.1.  Domain Name Reservation Considerations for Private Addresses
+// 
+//    The private-address [RFC1918] reverse-mapping domains listed below,
+//    and any names falling within those domains, are Special-Use Domain
+//    Names:
+// 
+//      10.in-addr.arpa.      21.172.in-addr.arpa.  26.172.in-addr.arpa.
+//      16.172.in-addr.arpa.  22.172.in-addr.arpa.  27.172.in-addr.arpa.
+//      17.172.in-addr.arpa.  30.172.in-addr.arpa.  28.172.in-addr.arpa.
+//      18.172.in-addr.arpa.  23.172.in-addr.arpa.  29.172.in-addr.arpa.
+//      19.172.in-addr.arpa.  24.172.in-addr.arpa.  31.172.in-addr.arpa.
+//      20.172.in-addr.arpa.  25.172.in-addr.arpa.  168.192.in-addr.arpa.
+// ```
 lazy_static! {
     /// 10.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&*IN_ADDR_ARPA));
@@ -67,17 +67,17 @@ lazy_static! {
     pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&*IN_ADDR_ARPA));
 }
 
-/// example., example.com., example.net., and example.org. 
-///
-/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-///
-/// ```text
-/// 6.5.  Domain Name Reservation Considerations for Example Domains
-/// 
-///    The domains "example.", "example.com.", "example.net.",
-///    "example.org.", and any names falling within those domains, are
-///    special in the following ways:
-/// ```
+// example., example.com., example.net., and example.org. 
+//
+// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+//
+// ```text
+// 6.5.  Domain Name Reservation Considerations for Example Domains
+// 
+//    The domains "example.", "example.com.", "example.net.",
+//    "example.org.", and any names falling within those domains, are
+//    special in the following ways:
+// ```
 lazy_static! {
     static ref COM: Label = Label::from_ascii("com").unwrap();
     static ref NET: Label = Label::from_ascii("net").unwrap();
@@ -94,16 +94,16 @@ lazy_static! {
     pub static ref EXAMPLE_ORG: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), ORG.clone()]).unwrap());
 }
 
-/// test.
-///
-/// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
-///
-/// ```text
-/// 6.2.  Domain Name Reservation Considerations for "test."
-/// 
-///    The domain "test.", and any names falling within ".test.", are
-///    special in the following ways:
-/// ```
+// test.
+//
+// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+//
+// ```text
+// 6.2.  Domain Name Reservation Considerations for "test."
+// 
+//    The domain "test.", and any names falling within ".test.", are
+//    special in the following ways:
+// ```
 lazy_static! {
     /// test. usage
     pub static ref TEST: ZoneUsage = ZoneUsage::test(Name::from_ascii("test.").unwrap());
@@ -157,7 +157,7 @@ impl<'n> TrieKey for TrieNameRef<'n> {
 pub struct UsageTrie(Trie<TrieName, &'static ZoneUsage>);
 
 impl UsageTrie {
-    #[allow(clippy::cyclomatic_complexity)]
+    #[allow(clippy::cognitive_complexity)]
     fn default() -> Self {
         let mut trie: Trie<TrieName, &'static ZoneUsage> = Trie::new();
 
