@@ -359,7 +359,6 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
-    use config::dnssec::{CertType, PrivateKeyType};
     use trust_dns_rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());

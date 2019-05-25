@@ -291,7 +291,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
-        use futures::{future, Stream};
+        use futures::future;
         use tokio_rustls::TlsAcceptor;
         use trust_dns_rustls::{tls_from_stream, tls_server};
 
@@ -415,7 +415,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         certificate_and_key: (Vec<Certificate>, PrivateKey),
         dns_hostname: String,
     ) -> io::Result<()> {
-        use futures::{future, Stream};
+        use futures::future;
         use tokio_rustls::TlsAcceptor;
 
         use server::https_handler::h2_handler;

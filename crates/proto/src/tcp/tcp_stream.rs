@@ -436,7 +436,6 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     use std::io::{Read, Write};
     use tokio::runtime::current_thread::Runtime;
 
-    use std;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     std::thread::Builder::new()

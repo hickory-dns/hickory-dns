@@ -236,7 +236,7 @@ fn create_sig0_ready_client(
     Name,
 ) {
     use openssl::rsa::Rsa;
-    use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+    use trust_dns::rr::dnssec::{Algorithm, KeyPair};
     use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 

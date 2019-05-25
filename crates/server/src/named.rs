@@ -74,8 +74,6 @@ fn load_zone(
     zone_config: &ZoneConfig,
     executor: &TaskExecutor,
 ) -> Result<Box<dyn AuthorityObject>, String> {
-    use std::path::PathBuf;
-
     debug!("loading zone with config: {:#?}", zone_config);
 
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
@@ -460,9 +458,9 @@ pub fn main() {
             banner();
             info!("awaiting connections...");
 
-            /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
-            /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
-            ///  request handling. It would generally be the case that n <= m.
+            // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
+            // Ideally the processing would be n-threads for recieving, which hand off to m-threads for
+            //  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
             future::empty()
         }));
