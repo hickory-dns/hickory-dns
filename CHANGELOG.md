@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.16.1
+
+- disables the `socket2/reuseport` feature except when `mdns` is enabled
+
 ## 0.16.0
 
 ### Fixed
