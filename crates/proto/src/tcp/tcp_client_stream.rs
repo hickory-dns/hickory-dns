@@ -11,10 +11,9 @@ use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_tcp::TcpStream as TokioTcpStream;
 
 use crate::error::ProtoError;
-use crate::tcp::TcpStream;
+use crate::tcp::{Connect, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
 use crate::{BufDnsStreamHandle, DnsStreamHandle};
 
@@ -26,7 +25,7 @@ pub struct TcpClientStream<S> {
     tcp_stream: TcpStream<S>,
 }
 
-impl TcpClientStream<TokioTcpStream> {
+impl<S: Connect + 'static + Send> TcpClientStream<S> {
     /// Constructs a new TcpStream for a client to the specified SocketAddr.
     ///
     /// Defaults to a 5 second timeout
@@ -35,7 +34,9 @@ impl TcpClientStream<TokioTcpStream> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(name_server: SocketAddr) -> (TcpClientConnect, Box<DnsStreamHandle + Send>) {
+    pub fn new(
+        name_server: SocketAddr,
+    ) -> (TcpClientConnect<S::Transport>, Box<DnsStreamHandle + Send>) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -48,8 +49,8 @@ impl TcpClientStream<TokioTcpStream> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> (TcpClientConnect, Box<DnsStreamHandle + Send>) {
-        let (stream_future, sender) = TcpStream::with_timeout(name_server, timeout);
+    ) -> (TcpClientConnect<S::Transport>, Box<DnsStreamHandle + Send>) {
+        let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
         let new_future = Box::new(
             stream_future
@@ -105,16 +106,26 @@ impl<S: AsyncRead + AsyncWrite + Send> Stream for TcpClientStream<S> {
 
 // TODO: create unboxed future for the TCP Stream
 /// A future that resolves to an TcpClientStream
-pub struct TcpClientConnect(
-    Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = ProtoError> + Send>,
-);
+pub struct TcpClientConnect<S>(Box<Future<Item = TcpClientStream<S>, Error = ProtoError>>);
 
-impl Future for TcpClientConnect {
-    type Item = TcpClientStream<TokioTcpStream>;
+impl<S> Future for TcpClientConnect<S> {
+    type Item = TcpClientStream<S>;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         self.0.poll()
+    }
+}
+
+#[cfg(feature = "tokio-compat")]
+use tokio_tcp;
+
+#[cfg(feature = "tokio-compat")]
+impl Connect for tokio_tcp::TcpStream {
+    type Transport = tokio_tcp::TcpStream;
+    type Future = tokio_tcp::ConnectFuture;
+    fn connect(addr: &SocketAddr) -> Self::Future {
+        tokio_tcp::TcpStream::connect(addr)
     }
 }
 
@@ -220,7 +231,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::new(server_addr);
+    let (stream, mut sender) = TcpClientStream::<tokio_tcp::TcpStream>::new(server_addr);
 
     let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 

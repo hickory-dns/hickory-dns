@@ -15,12 +15,23 @@ use std::time::Duration;
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::{Async, Future, Poll};
-use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_timer::Timeout;
 
 use crate::error::*;
 use crate::xfer::{BufStreamHandle, SerialMessage};
+
+/// Trait for TCP connection
+pub trait Connect
+where
+    Self: Sized,
+{
+    #[allow(missing_docs)]
+    type Transport: io::Read + io::Write + Send;
+    #[allow(missing_docs)]
+    type Future: Future<Item = Self::Transport, Error = io::Error> + Send;
+    /// connect to tcp
+    fn connect(addr: &SocketAddr) -> Self::Future;
+}
 
 /// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {
@@ -79,7 +90,7 @@ impl<S> TcpStream<S> {
     }
 }
 
-impl TcpStream<TokioTcpStream> {
+impl<S: Connect + 'static> TcpStream<S> {
     /// Creates a new future of the eventually establish a IO stream connection or fail trying.
     ///
     /// Defaults to a 5 second timeout
@@ -90,7 +101,7 @@ impl TcpStream<TokioTcpStream> {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error> + Send>,
+        Box<Future<Item = TcpStream<S::Transport>, Error = io::Error> + Send>,
         BufStreamHandle,
     )
     where
@@ -109,15 +120,14 @@ impl TcpStream<TokioTcpStream> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error> + Send>,
+        Box<Future<Item = TcpStream<S::Transport>, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
-
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let tcp = TokioTcpStream::connect(&name_server);
+        let tcp = S::connect(&name_server);
         let stream = Timeout::new(tcp, timeout)
             .map_err(move |e| {
                 debug!("timed out connecting to: {}", name_server);
@@ -127,7 +137,8 @@ impl TcpStream<TokioTcpStream> {
                         format!("timed out connecting to: {}", name_server),
                     )
                 })
-            }).map(move |tcp_stream| {
+            })
+            .map(move |tcp_stream| {
                 debug!("TCP connection established to: {}", name_server);
                 TcpStream {
                     socket: tcp_stream,
@@ -145,8 +156,8 @@ impl TcpStream<TokioTcpStream> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
-    /// Initializes a TcpStream with an existing tokio_tcp::TcpStream.
+impl<S> TcpStream<S> {
+    /// Initializes a TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
     ///
@@ -182,7 +193,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
+impl<S: io::Read + io::Write> Stream for TcpStream<S> {
     type Item = SerialMessage;
     type Error = io::Error;
 
@@ -450,7 +461,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -497,7 +509,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Runtime::new().unwrap();
@@ -505,7 +518,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, sender) = TcpStream::new::<ProtoError>(server_addr);
+    let (stream, sender) = TcpStream::<tokio_tcp::TcpStream>::new::<ProtoError>(server_addr);
 
     let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
