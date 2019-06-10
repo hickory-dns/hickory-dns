@@ -13,6 +13,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{Async, Future, Poll, Stream};
 use tokio_timer::Timeout;
+#[cfg(feature = "tokio-compat")]
 use tokio_udp;
 
 use crate::error::ProtoError;

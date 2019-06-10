@@ -57,7 +57,7 @@ tokio-reactor = "0.1"
 tokio-rustls = "0.9"
 tokio-tcp = "0.1"
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.7.3", path = "../proto", default-features = false }
+trust-dns-proto = { version = "0.7.4", path = "../proto", features = ["tokio-compat"], default-features = false }
 trust-dns-rustls = { version = "0.6.0", path = "../rustls", default-features = false }
 typed-headers = "0.1"
 webpki-roots = { version = "0.16" }
