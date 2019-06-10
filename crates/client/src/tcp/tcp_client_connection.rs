@@ -62,7 +62,7 @@ impl TcpClientConnection {
 impl ClientConnection for TcpClientConnection {
     type Sender = DnsMultiplexer<TcpClientStream<TcpStream>, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = DnsMultiplexerConnect<TcpClientConnect, TcpClientStream<TcpStream>, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<TcpClientConnect<TcpStream>, TcpClientStream<TcpStream>, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (tcp_client_stream, handle) =

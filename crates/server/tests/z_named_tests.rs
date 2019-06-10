@@ -11,6 +11,7 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate tokio;
+extern crate tokio_tcp;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -25,6 +26,7 @@ use std::net::*;
 use std::str::FromStr;
 
 use tokio::runtime::current_thread::Runtime;
+use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns::client::*;
 use trust_dns::op::ResponseCode;
@@ -43,7 +45,7 @@ fn test_example_toml_startup() {
     named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -51,7 +53,7 @@ fn test_example_toml_startup() {
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -64,7 +66,7 @@ fn test_ipv4_only_toml_startup() {
     named_test_harness("ipv4_only.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -73,7 +75,7 @@ fn test_ipv4_only_toml_startup() {
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -122,7 +124,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
     named_test_harness("ipv4_and_ipv6.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -131,7 +133,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -146,7 +148,7 @@ fn test_nodata_where_name_exists() {
     named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -168,7 +170,7 @@ fn test_nxdomain_where_no_name_exists() {
     named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -220,7 +222,7 @@ fn test_server_continues_on_bad_data_tcp() {
     named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -236,7 +238,7 @@ fn test_server_continues_on_bad_data_tcp() {
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -255,7 +257,7 @@ fn test_forward() {
     named_test_harness("example_forwarder.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
@@ -272,7 +274,7 @@ fn test_forward() {
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr);
+        let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
 
         io_loop.spawn(bg);
