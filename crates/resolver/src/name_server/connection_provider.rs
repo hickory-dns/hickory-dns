@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use futures::{Future, Poll};
 use tokio_executor::{DefaultExecutor, Executor};
+use tokio_tcp::TcpStream as TokioTcpStream;
 
 use proto;
 #[cfg(feature = "mdns")]
@@ -141,7 +142,8 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
             } => {
-                let (stream, handle) = TcpClientStream::with_timeout(socket_addr, timeout);
+                let (stream, handle) =
+                    TcpClientStream::<TokioTcpStream>::with_timeout(socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     Box::new(stream),
@@ -333,7 +335,7 @@ impl Future for ConnectionHandleResponseInner {
                 #[cfg(feature = "dns-over-https")]
                 Https(ref mut https) => return https.poll(),
                 ProtoError(ref mut e) => {
-                    return Err(e.take().expect("futures cannot be polled once complete"))
+                    return Err(e.take().expect("futures cannot be polled once complete"));
                 }
             };
 

@@ -14,6 +14,7 @@ use futures::task;
 use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
+#[cfg(feature = "tokio-compat")]
 use tokio_udp;
 
 use crate::xfer::{BufStreamHandle, SerialMessage};

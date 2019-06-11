@@ -6,6 +6,7 @@ extern crate openssl;
 #[cfg(feature = "dns-over-https-rustls")]
 extern crate rustls;
 extern crate tokio;
+extern crate tokio_tcp;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
@@ -23,6 +24,7 @@ use std::sync::{Arc, Mutex};
 use chrono::Duration;
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
+use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::error::ClientErrorKind;
@@ -95,7 +97,7 @@ fn test_query_udp_ipv6() {
 fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
     io_loop.spawn(bg);
 
@@ -113,7 +115,7 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
     io_loop.spawn(bg);
 
@@ -942,7 +944,8 @@ fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
+    let (stream, sender) =
+        TcpClientStream::<TokioTcpStream>::with_timeout(addr, std::time::Duration::from_millis(1));
     let (bg, client) = ClientFuture::with_timeout(
         Box::new(stream),
         sender,

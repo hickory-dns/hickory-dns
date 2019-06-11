@@ -67,7 +67,11 @@ fn standard_conn(
     port: u16,
 ) -> (
     ClientFuture<
-        DnsMultiplexerConnect<TcpClientConnect, TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexerConnect<
+            TcpClientConnect<TokioTcpStream>,
+            TcpClientStream<TokioTcpStream>,
+            Signer,
+        >,
         DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
         DnsMultiplexerSerialResponse,
     >,
