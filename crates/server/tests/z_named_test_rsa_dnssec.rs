@@ -82,7 +82,7 @@ fn standard_conn(
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     ClientFuture::new(stream, sender, None)
 }
 

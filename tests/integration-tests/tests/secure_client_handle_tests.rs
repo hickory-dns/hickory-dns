@@ -2,6 +2,7 @@
 
 extern crate futures;
 extern crate tokio;
+extern crate tokio_tcp;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -12,6 +13,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use tokio::runtime::current_thread::Runtime;
+use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns::client::{
     BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
@@ -22,9 +24,9 @@ use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 
-use trust_dns_proto::SecureDnsHandle;
-use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
 use trust_dns_proto::udp::{UdpClientStream, UdpResponse};
+use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
+use trust_dns_proto::SecureDnsHandle;
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_secure_example;
@@ -215,7 +217,8 @@ where
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let authority = create_secure_example();
 
@@ -251,10 +254,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(
-        SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>,
-        Runtime,
-    ),
+    F: Fn(SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -270,7 +270,8 @@ where
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
@@ -306,11 +307,12 @@ where
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let (bg, client) = ClientFuture::new(Box::new(stream), sender, None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);

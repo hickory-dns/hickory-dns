@@ -118,14 +118,14 @@ impl<S> Future for TcpClientConnect<S> {
 }
 
 #[cfg(feature = "tokio-compat")]
-use tokio_tcp;
+use tokio_tcp::{self, TcpStream as TokioTcpStream};
 
 #[cfg(feature = "tokio-compat")]
-impl Connect for tokio_tcp::TcpStream {
-    type Transport = tokio_tcp::TcpStream;
+impl Connect for TokioTcpStream {
+    type Transport = TokioTcpStream;
     type Future = tokio_tcp::ConnectFuture;
     fn connect(addr: &SocketAddr) -> Self::Future {
-        tokio_tcp::TcpStream::connect(addr)
+        TokioTcpStream::connect(addr)
     }
 }
 
@@ -231,7 +231,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::<tokio_tcp::TcpStream>::new(server_addr);
+    let (stream, mut sender) = TcpClientStream::<TokioTcpStream>::new(server_addr);
 
     let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
