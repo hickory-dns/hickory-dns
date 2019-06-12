@@ -25,9 +25,9 @@ pub trait Connect
 where
     Self: Sized,
 {
-    #[allow(missing_docs)]
+    /// TcpSteam
     type Transport: io::Read + io::Write + Send;
-    #[allow(missing_docs)]
+    /// Future returned by connect
     type Future: Future<Item = Self::Transport, Error = io::Error> + Send;
     /// connect to tcp
     fn connect(addr: &SocketAddr) -> Self::Future;
