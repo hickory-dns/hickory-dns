@@ -5,13 +5,13 @@ environment:
   - DEFAULT_SUITE: 1
     TARGET: x86_64-pc-windows-msvc
     BITS: 64
-    OPENSSL_VERSION: 1_1_0j
+    OPENSSL_VERSION: 1_1_0k
     OPENSSL_DIR: C:\OpenSSL
 
   - ALL_FEATURES_SUITE: 1
     TARGET: x86_64-pc-windows-msvc
     BITS: 64
-    OPENSSL_VERSION: 1_1_0j
+    OPENSSL_VERSION: 1_1_0k
     OPENSSL_DIR: C:\OpenSSL
 
   # - NO_DEFAULT_FEATURES_SUITE: 1
