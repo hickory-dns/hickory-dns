@@ -15,8 +15,9 @@
  */
 
 //! TCP protocol related components for DNS
-
+#[allow(clippy::all)]
 mod tcp_client_stream;
+#[allow(clippy::all)]
 mod tcp_stream;
 
 pub use self::tcp_client_stream::{TcpClientConnect, TcpClientStream};
