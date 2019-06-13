@@ -5,7 +5,7 @@ set -e
 ## This must run after OpenSSL installation
 
 echo "----> downloading bind"
-wget https://downloads.isc.org/isc/bind9/9.11.7/bind-9.11.7.tar.gz
+wget -O bind-9.11.7.tar.gz https://downloads.isc.org/isc/bind9/9.11.7/bind-9.11.7.tar.gz
 tar -xzf bind-9.11.7.tar.gz
 
 echo "----> compiling bind"

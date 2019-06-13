@@ -133,9 +133,10 @@ matrix:
     # compatiblity tests
     - rust: stable
       env: NAME=compatiblity
-           TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
+           TDNS_BIND_PATH="../../bind-9.11.7/bin/named/named"
            RUST_BACKTRACE=full
       before_install:
+        - sudo apt-get install -y python-ply
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
         - scripts/install_bind.sh
       script:
