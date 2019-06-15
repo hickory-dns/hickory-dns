@@ -98,6 +98,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
+    #[allow(clippy::new_ret_no_self)]
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
