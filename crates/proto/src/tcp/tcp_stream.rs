@@ -98,7 +98,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
-    #[allow(clippy::new_ret_no_self)]
+    #[allow(clippy::new_ret_no_self, clippy::type_complexity)]
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
@@ -117,6 +117,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
+    #[allow(clippy::type_complexity)]
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
