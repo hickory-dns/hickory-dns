@@ -67,7 +67,11 @@ fn standard_conn(
     port: u16,
 ) -> (
     ClientFuture<
-        DnsMultiplexerConnect<TcpClientConnect, TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexerConnect<
+            TcpClientConnect<TokioTcpStream>,
+            TcpClientStream<TokioTcpStream>,
+            Signer,
+        >,
         DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
         DnsMultiplexerSerialResponse,
     >,
@@ -78,7 +82,7 @@ fn standard_conn(
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     ClientFuture::new(stream, sender, None)
 }
 

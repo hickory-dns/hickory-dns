@@ -3,6 +3,7 @@
 extern crate futures;
 extern crate test;
 extern crate tokio;
+extern crate tokio_tcp;
 
 extern crate trust_dns;
 extern crate trust_dns_proto;
@@ -22,15 +23,16 @@ use std::time::Duration;
 use futures::Future;
 use test::Bencher;
 use tokio::runtime::current_thread::Runtime;
+use tokio_tcp::TcpStream;
 
-use trust_dns_proto::error::*;
-use trust_dns_proto::xfer::*;
 use trust_dns::client::*;
 use trust_dns::op::*;
-use trust_dns::rr::*;
 use trust_dns::rr::dnssec::Signer;
+use trust_dns::rr::*;
 use trust_dns::tcp::*;
 use trust_dns::udp::*;
+use trust_dns_proto::error::*;
+use trust_dns_proto::xfer::*;
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -186,7 +188,7 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TcpStream>::new(addr);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
     bench(b, mp);
 
@@ -214,15 +216,18 @@ fn bind_process() -> (NamedProcess, u16) {
     }
 
     let mut named = Command::new(bind_path)
-                      .current_dir(&working_dir)
-                      .stderr(Stdio::piped())
-                      .arg("-c").arg("../../server/benches/bind_conf/example.conf")
-                      //.arg("-d").arg("0")
-                      .arg("-D").arg("Trust-DNS cmp bench")
-                      .arg("-g")
-                      .arg("-p").arg(&format!("{}", test_port))
-                      .spawn()
-                      .expect("failed to start named");
+        .current_dir(&working_dir)
+        .stderr(Stdio::piped())
+        .arg("-c")
+        .arg("../../server/benches/bind_conf/example.conf")
+        //.arg("-d").arg("0")
+        .arg("-D")
+        .arg("Trust-DNS cmp bench")
+        .arg("-g")
+        .arg("-p")
+        .arg(&format!("{}", test_port))
+        .spawn()
+        .expect("failed to start named");
 
     mem::replace(&mut named.stderr, None).unwrap();
     let process = wrap_process(named, test_port);
@@ -256,7 +261,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr);
+    let (stream, sender) = TcpClientStream::<TcpStream>::new(addr);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
     bench(b, mp);
 

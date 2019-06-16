@@ -15,9 +15,8 @@
  */
 
 //! TCP protocol related components for DNS
-
 mod tcp_client_stream;
 mod tcp_stream;
 
 pub use self::tcp_client_stream::{TcpClientConnect, TcpClientStream};
-pub use self::tcp_stream::TcpStream;
+pub use self::tcp_stream::{Connect, TcpStream};
