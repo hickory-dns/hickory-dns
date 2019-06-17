@@ -4,6 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=bluejekyll/trust-dns)](https://dependabot.com)
+[![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discordapp.com/channels/590067103822774272/)
 
 ![Trust-DNS](logo.svg)
 
@@ -286,13 +287,17 @@ $> cargo build --release --features dns-over-rustls
 ...
 ```
 
-# FAQ
+## FAQ
 
 -   Why are you building another DNS server?
 
     Because of all the security advisories out there for BIND.
 Using Rust semantics it should be possible to develop a high performance and
 safe DNS Server that is more resilient to attacks.
+
+## Community
+
+For live discussions beyond this repository, please see this [Discord](https://discordapp.com/channels/590067103822774272).
 
 ## License
 
