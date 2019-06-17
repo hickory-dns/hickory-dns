@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=bluejekyll/trust-dns)](https://dependabot.com)
-[![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discordapp.com/channels/590067103822774272/)
+[![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discord.gg/89nxE4n)
 
 ![Trust-DNS](logo.svg)
 
@@ -297,7 +297,7 @@ safe DNS Server that is more resilient to attacks.
 
 ## Community
 
-For live discussions beyond this repository, please see this [Discord](https://discordapp.com/channels/590067103822774272).
+For live discussions beyond this repository, please see this [Discord](https://discord.gg/89nxE4n).
 
 ## License
 
