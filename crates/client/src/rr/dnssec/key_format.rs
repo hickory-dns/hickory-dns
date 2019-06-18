@@ -42,6 +42,9 @@ impl KeyFormat {
         let password = password.as_bytes();
 
         match algorithm {
+            Algorithm::Unknown(v) => { 
+                Err(format!("unknown algorithm: {}", v).into())
+            }
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
@@ -142,6 +145,9 @@ impl KeyFormat {
         // generate the key
         #[allow(unused)]
         let key_pair: KeyPair<Private> = match algorithm {
+            Algorithm::Unknown(v) => {
+                return Err(format!("unknown algorithm: {}", v).into())
+            }
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
