@@ -459,7 +459,6 @@ impl<'k> PublicKeyEnum<'k> {
             | Algorithm::RSASHA1NSEC3SHA1
             | Algorithm::RSASHA256
             | Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key)?)),
-            #[cfg(not(feature = "ring"))]
             _ => Err("public key algorithm not supported".into()),
         }
     }

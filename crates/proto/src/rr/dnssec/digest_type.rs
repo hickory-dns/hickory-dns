@@ -144,6 +144,8 @@ impl From<Algorithm> for DigestType {
             Algorithm::RSASHA512 => DigestType::SHA512,
             Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
             Algorithm::ED25519 => DigestType::ED25519,
+
+            Algorithm::Unknown(_) => DigestType::SHA512,
         }
     }
 }

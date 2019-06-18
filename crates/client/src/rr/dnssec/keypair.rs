@@ -445,6 +445,9 @@ impl KeyPair<Private> {
     /// RSA keys are hardcoded to 2048bits at the moment. Other keys have predefined sizes.
     pub fn generate(algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
+            Algorithm::Unknown(_) => { 
+                Err(DnsSecErrorKind::Message("unknown algorithm").into())
+            }
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1
@@ -479,6 +482,9 @@ impl KeyPair<Private> {
     #[cfg(feature = "ring")]
     pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
         match algorithm {
+            Algorithm::Unknown(_) => { 
+                Err(DnsSecErrorKind::Message("unknown algorithm").into())
+            }
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1

@@ -55,18 +55,20 @@ impl SupportedAlgorithms {
         supported
     }
 
-    fn pos(algorithm: Algorithm) -> u8 {
+    fn pos(algorithm: Algorithm) -> Option<u8> {
         // not using the values from the RFC's to keep the bit_map space condensed
-        let bit_pos: u8 = match algorithm {
-            Algorithm::RSASHA1 => 0,
-            Algorithm::RSASHA256 => 1,
-            Algorithm::RSASHA1NSEC3SHA1 => 2,
-            Algorithm::RSASHA512 => 3,
-            Algorithm::ECDSAP256SHA256 => 4,
-            Algorithm::ECDSAP384SHA384 => 5,
-            Algorithm::ED25519 => 6,
+        let bit_pos: Option<u8> = match algorithm {
+            Algorithm::RSASHA1 => Some(0),
+            Algorithm::RSASHA256 => Some(1),
+            Algorithm::RSASHA1NSEC3SHA1 => Some(2),
+            Algorithm::RSASHA512 => Some(3),
+            Algorithm::ECDSAP256SHA256 => Some(4),
+            Algorithm::ECDSAP384SHA384 => Some(5),
+            Algorithm::ED25519 => Some(6),
+            Algorithm::Unknown(_) => None,
         };
-        1u8 << bit_pos
+
+        bit_pos.map(|b| 1u8 << b)
     }
 
     fn from_pos(pos: u8) -> Option<Algorithm> {
@@ -85,14 +87,18 @@ impl SupportedAlgorithms {
 
     /// Set the specified algorithm as supported
     pub fn set(&mut self, algorithm: Algorithm) {
-        let bit_pos: u8 = Self::pos(algorithm);
-        self.bit_map |= bit_pos;
+        if let Some(bit_pos) = Self::pos(algorithm) { 
+            self.bit_map |= bit_pos;
+        }
     }
 
     /// Returns true if the algorithm is supported
     pub fn has(self, algorithm: Algorithm) -> bool {
-        let bit_pos: u8 = Self::pos(algorithm);
-        (bit_pos & self.bit_map) == bit_pos
+        if let Some(bit_pos) = Self::pos(algorithm) {
+            (bit_pos & self.bit_map) == bit_pos
+        } else { 
+            false
+        }
     }
 
     /// Return an Iterator over the supported set.
@@ -134,10 +140,9 @@ impl<'a> From<&'a [u8]> for SupportedAlgorithms {
         let mut supported = SupportedAlgorithms::new();
 
         for a in values.iter().map(|i| Algorithm::from_u8(*i)) {
-            if a.is_ok() {
-                supported.set(a.unwrap());
-            } else {
-                warn!("unrecognized algorithm: {}", a.unwrap_err());
+            match a { 
+                Algorithm::Unknown(v) => warn!("unrecognized algorithm: {}", v),
+                a => supported.set(a),
             }
         }
 

@@ -108,30 +108,33 @@ pub enum Algorithm {
     ECDSAP384SHA384,
     /// [draft-ietf-curdle-dnskey-eddsa-03](https://tools.ietf.org/html/draft-ietf-curdle-dnskey-eddsa-03)
     ED25519,
+    /// An unknown algorithm identifier
+    Unknown(u8),
 }
 
 impl Algorithm {
     /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    pub fn from_u8(value: u8) -> ProtoResult<Self> {
+    pub fn from_u8(value: u8) -> Self {
         match value {
-            5 => Ok(Algorithm::RSASHA1),
-            7 => Ok(Algorithm::RSASHA1NSEC3SHA1),
-            8 => Ok(Algorithm::RSASHA256),
-            10 => Ok(Algorithm::RSASHA512),
-            13 => Ok(Algorithm::ECDSAP256SHA256),
-            14 => Ok(Algorithm::ECDSAP384SHA384),
-            15 => Ok(Algorithm::ED25519),
-            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
+            5 => Algorithm::RSASHA1,
+            7 => Algorithm::RSASHA1NSEC3SHA1,
+            8 => Algorithm::RSASHA256,
+            10 => Algorithm::RSASHA512,
+            13 => Algorithm::ECDSAP256SHA256,
+            14 => Algorithm::ECDSAP384SHA384,
+            15 => Algorithm::ED25519,
+            _ => Algorithm::Unknown(value),
         }
     }
 
     /// length in bytes that the hash portion of this function will produce
-    pub fn hash_len(self) -> usize {
+    pub fn hash_len(self) -> Option<usize> {
         match self {
-            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
-            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => 32, // 256 bits
-            Algorithm::ECDSAP384SHA384 => 48,
-            Algorithm::RSASHA512 => 64, // 512 bites
+            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => Some(20), // 160 bits
+            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => Some(32), // 256 bits
+            Algorithm::ECDSAP384SHA384 => Some(48),
+            Algorithm::RSASHA512 => Some(64), // 512 bites
+            Algorithm::Unknown(_) => None,
         }
     }
 
@@ -151,6 +154,7 @@ impl Algorithm {
             Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
             Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
             Algorithm::ED25519 => "ED25519",
+            Algorithm::Unknown(_) => "Unknown",
         }
     }
 }
@@ -166,7 +170,7 @@ impl<'r> BinDecodable<'r> for Algorithm {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Algorithm> {
         let algorithm_id =
             decoder.read_u8()?.unverified(/*Algorithm is verified as safe in processing this*/);
-        Algorithm::from_u8(algorithm_id)
+        Ok(Algorithm::from_u8(algorithm_id))
     }
 }
 
@@ -186,6 +190,7 @@ impl From<Algorithm> for u8 {
             Algorithm::ECDSAP256SHA256 => 13,
             Algorithm::ECDSAP384SHA384 => 14,
             Algorithm::ED25519 => 15,
+            Algorithm::Unknown(v) => v
         }
     }
 }
@@ -209,7 +214,7 @@ fn test_into() {
     ] {
         assert_eq!(
             *algorithm,
-            Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap()
+            Algorithm::from_u8(Into::<u8>::into(*algorithm))
         )
     }
 }
