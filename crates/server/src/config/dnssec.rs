@@ -163,7 +163,7 @@ impl KeyConfig {
 #[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum CertType {
-    /// Pkcs12 formatted certifcates and private key (requries OpenSSL)
+    /// Pkcs12 formatted certificates and private key (requires OpenSSL)
     Pkcs12,
     /// PEM formatted Certificate chain
     Pem,
@@ -203,7 +203,7 @@ pub struct TlsCertConfig {
 }
 
 impl TlsCertConfig {
-    /// path to the pkcs12 der formated certificate file
+    /// path to the pkcs12 der formatted certificate file
     pub fn get_path(&self) -> &Path {
         Path::new(&self.path)
     }
@@ -235,7 +235,7 @@ impl TlsCertConfig {
 }
 
 /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
-/// these will be lookedup by $file.{key_name}.pem, for backward compatability
+/// these will be lookedup by $file.{key_name}.pem, for backward compatibility
 /// with previous versions of Trust-DNS, if enable_dnssec is enabled but
 /// supported_algorithms is not specified, it will default to "RSASHA256" and
 /// look for the $file.pem for the key. To control key length, or other options
@@ -284,7 +284,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         .unwrap_or(zone_name);
 
     // add the key to the zone
-    // TODO: allow the duration of signatutes to be customized
+    // TODO: allow the duration of signatures to be customized
     let dnskey = key
         .to_dnskey(algorithm)
         .map_err(|e| format!("error converting to dnskey: {}", e))?;

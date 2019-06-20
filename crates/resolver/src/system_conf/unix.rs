@@ -7,7 +7,7 @@
 
 //! System configuration loading
 //!
-//! This module is resposible for parsing and returning the configuration from
+//! This module is responsible for parsing and returning the configuration from
 //!  the host system. It will read from the default location on each operating
 //!  system, e.g. most Unixes have this written to `/etc/resolv.conf`
 

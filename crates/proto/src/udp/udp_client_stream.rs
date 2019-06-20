@@ -43,7 +43,7 @@ impl UdpClientStream<NoopMessageFinalizer> {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
+    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(name_server: SocketAddr) -> UdpClientConnect<NoopMessageFinalizer> {
@@ -106,7 +106,7 @@ impl<MF: MessageFinalizer> DnsRequestSender for UdpClientStream<MF> {
             panic!("can not send messages after stream is shutdown")
         }
 
-        // associated the ID for this request, b/c this connection is uniquw to socket port, the ID
+        // associated the ID for this request, b/c this connection is unique to socket port, the ID
         //   does not need to be globally unique
         message.set_id(random_query_id());
 
@@ -418,10 +418,10 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should recieve something within 5 seconds...
+        .unwrap(); // should receive something within 5 seconds...
     server
         .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should recieve something within 5 seconds...
+        .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
 
     let mut query = Message::new();

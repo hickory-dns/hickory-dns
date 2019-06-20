@@ -526,7 +526,7 @@ impl SqliteAuthority {
         }
 
         // getting here, we will always default to rejecting the request
-        //  the code will only ever explcitly return authrorized actions.
+        //  the code will only ever explicitly return authorized actions.
         Err(ResponseCode::Refused)
     }
 
@@ -930,7 +930,7 @@ impl Authority for SqliteAuthority {
     /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             preceed and follow all other records.
+    ///             precede and follow all other records.
     /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
     ///
     /// # Return value
@@ -987,7 +987,7 @@ impl Authority for SqliteAuthority {
         self.in_memory.add_zone_signing_key(signer)
     }
 
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
     fn secure_zone(&mut self) -> DnsSecResult<()> {
         Authority::secure_zone(&mut self.in_memory)
     }

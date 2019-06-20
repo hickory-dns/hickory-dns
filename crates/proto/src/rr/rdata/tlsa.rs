@@ -122,7 +122,7 @@ pub enum CertUsage {
     /// ```
     DomainIssued,
 
-    /// Unassined at the time of this implementation
+    /// Unassigned at the time of this implementation
     Unassigned(u8),
 
     /// Private usage

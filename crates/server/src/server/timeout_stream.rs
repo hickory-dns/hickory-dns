@@ -72,7 +72,7 @@ where
                             format!("could not register interest in Timeout: {}", e),
                         ));
                     }
-                    Ok(Async::NotReady) => (), // this is the exepcted state...
+                    Ok(Async::NotReady) => (), // this is the expected state...
                 }
 
                 drop(mem::replace(&mut self.timeout, timeout));

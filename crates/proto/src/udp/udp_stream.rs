@@ -37,7 +37,7 @@ impl UdpStream {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
+    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn new(
         name_server: SocketAddr,
@@ -73,7 +73,7 @@ impl UdpStream {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
+    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn with_bound(socket: tokio_udp::UdpSocket) -> (Self, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
@@ -128,7 +128,7 @@ impl Stream for UdpStream {
         }
 
         // For QoS, this will only accept one message and output that
-        // recieve all inbound messages
+        // receive all inbound messages
 
         // TODO: this should match edns settings
         let mut buf = [0u8; 2048];
@@ -243,10 +243,10 @@ fn udp_stream_test(server_addr: IpAddr) {
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
     server
         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should recieve something within 5 seconds...
+        .unwrap(); // should receive something within 5 seconds...
     server
         .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should recieve something within 5 seconds...
+        .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
 
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";

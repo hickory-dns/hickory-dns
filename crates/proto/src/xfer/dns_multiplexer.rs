@@ -92,10 +92,10 @@ impl ActiveRequest {
         ignore_send(self.completion.send(Err(error)));
     }
 
-    /// sends any registered responses to thethe requestor
+    /// sends any registered responses to the requestor
     ///
     /// Any error sending will be logged and ignored. This must only be called after associating a response,
-    ///   otherwise an error will alway be returned.
+    ///   otherwise an error will always be returned.
     fn complete(self) {
         if self.responses.is_empty() {
             self.complete_with_error("no responses received, should have timedout".into());
@@ -109,7 +109,7 @@ impl ActiveRequest {
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations. This should be used for underlying protocols that do not natively support
-///  multi-plexed sessions.
+///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsMultiplexer<S, MF, D = Box<DnsStreamHandle>>
 where

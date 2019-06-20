@@ -85,7 +85,7 @@ pub enum ProtoErrorKind {
     /// Label bytes exceeded the limit of 63
     #[fail(display = "label points to data not prior to idx: {} ptr: {}", _0, _1)]
     PointerNotPriorToLabel {
-        /// index of the label cotaining this pointer
+        /// index of the label containing this pointer
         idx: usize,
         /// location to which the pointer is directing
         ptr: u16,

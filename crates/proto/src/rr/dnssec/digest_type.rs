@@ -52,7 +52,7 @@ pub enum DigestType {
 }
 
 impl DigestType {
-    /// TODO: add an Unknown DigestType and make this infalible
+    /// TODO: add an Unknown DigestType and make this infallible
     /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {

@@ -116,7 +116,7 @@ impl Header {
         12 /* this is always 12 bytes */
     }
 
-    /// Sets the id of the message, for queries this shoudl be random.
+    /// Sets the id of the message, for queries this should be random.
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.id = id;
         self
@@ -134,7 +134,7 @@ impl Header {
         self
     }
 
-    /// From the server is specifies that it is an authoritative reqponse.
+    /// From the server is specifies that it is an authoritative response.
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.authoritative = authoritative;
         self
@@ -148,7 +148,7 @@ impl Header {
         self
     }
 
-    /// Specify that the resolver should recursiviley request data from upstream DNS nodes
+    /// Specify that the resolver should recursively request data from upstream DNS nodes
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.recursion_desired = recursion_desired;
         self
@@ -160,7 +160,7 @@ impl Header {
         self
     }
 
-    /// Specifies that the data is authnetic, i.e. the resolver believes all data to be valid through DNSSec
+    /// Specifies that the data is authentic, i.e. the resolver believes all data to be valid through DNSSec
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.authentic_data = authentic_data;
         self
@@ -172,7 +172,7 @@ impl Header {
         self
     }
 
-    /// The low responsed code (original response codes before EDNS extensions)
+    /// The low response code (original response codes before EDNS extensions)
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.response_code = response_code.low();
         self
@@ -445,7 +445,7 @@ impl<'r> BinDecodable<'r> for Header {
         let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
         let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
 
-        // TODO: We should pass these restrictions on, they can't be trusted, but that would seriosly complicate the Header type..
+        // TODO: We should pass these restrictions on, they can't be trusted, but that would seriously complicate the Header type..
         // TODO: perhaps the read methods for BinDecodable should return Restrict?
         let query_count = decoder.read_u16()?.unverified(/*this must be verified when reading queries*/);
         let answer_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);

@@ -656,7 +656,7 @@ pub struct KeyValue {
 }
 
 impl KeyValue {
-    /// Contstruct a new KeyValue pair
+    /// Construct a new KeyValue pair
     pub fn new<K: Into<String>, V: Into<String>>(key: K, value: V) -> Self {
         KeyValue {
             key: key.into(),
@@ -744,7 +744,7 @@ impl KeyValue {
 ///      remaining length of the enclosing Resource Record data field.
 /// ```
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
-    // the spec declares that other flags should be ignored for future compatability...
+    // the spec declares that other flags should be ignored for future compatibility...
     let issuer_critical: bool =
         decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
 
@@ -789,7 +789,7 @@ fn read_tag(decoder: &mut BinDecoder, len: Restrict<u8>) -> ProtoResult<String> 
     Ok(tag)
 }
 
-/// writes out the tag in bincary form to the buffer, returning the number of bytes written
+/// writes out the tag in binary form to the buffer, returning the number of bytes written
 fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
     let property = tag.as_str();
     let property = property.as_bytes();

@@ -30,7 +30,7 @@ use AsyncResolver;
 pub struct Resolver {
     // TODO: Mutex allows this to be Sync, another option would be to instantiate a thread_local, but that has other
     //   drawbacks. One major issues, is if this Resolver is shared across threads, it will cause all to block on any
-    //   query. A TLS on the otherhand would not, at the cost of only allowing a Resolver to be configured once per Thread
+    //   query. A TLS on the other hand would not, at the cost of only allowing a Resolver to be configured once per Thread
     runtime: Mutex<Runtime>,
     async_resolver: AsyncResolver,
 }

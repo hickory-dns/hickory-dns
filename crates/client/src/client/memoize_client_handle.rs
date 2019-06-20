@@ -16,7 +16,7 @@ use client::ClientHandle;
 use op::Query;
 
 // TODO: move to proto
-/// A ClienHandle for memoized (cached) responses to queries.
+/// A ClientHandle for memoized (cached) responses to queries.
 ///
 /// This wraps a ClientHandle, changing the implementation `send()` to store the response against
 ///  the Message.Query that was sent. This should reduce network traffic especially during things

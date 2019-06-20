@@ -25,7 +25,7 @@ pub trait ResponseHandler: Clone + Send + 'static {
     fn send_response(&self, response: MessageResponse) -> io::Result<()>;
 }
 
-/// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
+/// A handler for wrapping a BufStreamHandle, which will properly serialize the message and add the
 ///  associated destination.
 #[derive(Clone)]
 pub struct ResponseHandle {

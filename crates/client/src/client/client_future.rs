@@ -164,7 +164,7 @@ where
     }
 }
 
-/// Root ClientHandle implementaton returned by ClientFuture
+/// Root ClientHandle implementation returned by ClientFuture
 ///
 /// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
 ///  a DNSSEc chain validator.
@@ -240,7 +240,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     ///   servers when the zone has changed -- an interrupt as opposed to poll
     ///   model -- which it is hoped will reduce propagation delay while not
     ///   unduly increasing the masters' load.  This specification only allows
-    ///   slaves to be notified of SOA RR changes, but the architechture of
+    ///   slaves to be notified of SOA RR changes, but the architecture of
     ///   NOTIFY is intended to be extensible to other RR types.
     ///
     ///   1.3. This document intentionally gives more definition to the roles
@@ -251,7 +251,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     /// ```
     ///
     /// The below section describes how the Notify message should be constructed. The function
-    ///  implmentation accepts a Record, but the actual data of the record should be ignored by the
+    ///  implementation accepts a Record, but the actual data of the record should be ignored by the
     ///  server, i.e. the server should make a request subsequent to receiving this Notification for
     ///  the authority record, but could be used to decide to request an update or not:
     ///
@@ -377,7 +377,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         ClientResponse(self.send(message))
     }
 
-    /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
+    /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
     ///  depends on the server)
     ///
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -601,7 +601,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     /// * `dns_class` - the class of the SOA
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
-    /// operation attempts to delete all resource record sets the the specified name reguardless of
+    /// operation attempts to delete all resource record sets the specified name regardless of
     /// the record type.
     fn delete_all(
         &mut self,

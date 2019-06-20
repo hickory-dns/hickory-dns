@@ -117,7 +117,7 @@ pub(crate) enum ConnectionHandleConnect {
 
 impl ConnectionHandleConnect {
     /// Establishes the connection, this is allowed to perform network operations,
-    ///   suchas tokio::spawns of background tasks, etc.
+    ///   such as tokio::spawns of background tasks, etc.
     fn connect(self) -> Result<ConnectionHandleConnected, proto::error::ProtoError> {
         use self::ConnectionHandleConnect::*;
 

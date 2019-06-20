@@ -352,7 +352,7 @@ impl PartialEq for Record {
     }
 }
 
-/// returns the value of the compare if the items are greater or lesser, but coninues on equal
+/// returns the value of the compare if the items are greater or lesser, but continues on equal
 macro_rules! compare_or_equal {
     ($x:ident, $y:ident, $z:ident) => {
         match $x.$z.partial_cmp(&$y.$z) {

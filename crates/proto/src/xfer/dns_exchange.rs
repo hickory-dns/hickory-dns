@@ -48,7 +48,7 @@ where
         (stream, message_sender)
     }
 
-    /// Wrapps a stream where a sender and receiver have already been established
+    /// Wraps a stream where a sender and receiver have already been established
     pub fn from_stream_with_receiver(
         stream: S,
         receiver: UnboundedReceiver<OneshotDnsRequest<R>>,

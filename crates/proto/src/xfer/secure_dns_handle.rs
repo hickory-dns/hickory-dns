@@ -55,7 +55,7 @@ impl<H> SecureDnsHandle<H>
 where
     H: DnsHandle + 'static,
 {
-    /// Create a new SecureDnsHandle wrapping the speicified handle.
+    /// Create a new SecureDnsHandle wrapping the specified handle.
     ///
     /// This uses the compiled in TrustAnchor default trusted keys.
     ///
@@ -65,7 +65,7 @@ where
         Self::with_trust_anchor(handle, TrustAnchor::default())
     }
 
-    /// Create a new SecureDnsHandle wrapping the speicified handle.
+    /// Create a new SecureDnsHandle wrapping the specified handle.
     ///
     /// This allows a custom TrustAnchor to be define.
     ///
@@ -83,7 +83,7 @@ where
     }
 
     /// An internal function used to clone the handle, but maintain some information back to the
-    ///  original handle, such as the request_depth such that infinite recurssion does
+    ///  original handle, such as the request_depth such that infinite recursion does
     ///  not occur.
     fn clone_with_context(&self) -> Self {
         SecureDnsHandle {
@@ -213,7 +213,7 @@ struct VerifyRrsetsFuture {
     verified_rrsets: HashSet<(Name, RecordType)>,
 }
 
-/// this pulls all records returned in a Message respons and returns a future which will
+/// this pulls all records returned in a Message response and returns a future which will
 ///  validate all of them.
 fn verify_rrsets<H: DnsHandle>(
     handle: &SecureDnsHandle<H>,
@@ -228,7 +228,7 @@ fn verify_rrsets<H: DnsHandle>(
         .filter(|rr| {
             !is_dnssec(rr, DNSSECRecordType::RRSIG) &&
                              // if we are at a depth greater than 1, we are only interested in proving evaluation chains
-                             //   this means that only DNSKEY and DS are intersting at that point.
+                             //   this means that only DNSKEY and DS are interesting at that point.
                              //   this protects against looping over things like NS records and DNSKEYs in responses.
                              // TODO: is there a cleaner way to prevent cycles in the evaluations?
                                           (handle.request_depth <= 1 ||
@@ -540,7 +540,7 @@ where
                                 None
                             }
                         })
-                        // must be convered by at least one DS record
+                        // must be covered by at least one DS record
                         .any(|ds_rdata| ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false))
                 })
                 .map(|(i, _)| i)
@@ -562,7 +562,7 @@ where
     Box::new(valid_dnskey)
 }
 
-/// Preseves the specified indexes in vec, all others will be removed
+/// Preserves the specified indexes in vec, all others will be removed
 ///
 /// # Arguments
 ///
@@ -573,11 +573,11 @@ where
     I: IntoIterator<Item = usize>,
     <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
-    // this removes all indexes theat were not part of the anchored keys
+    // this removes all indexes that were not part of the anchored keys
     let mut indexes_iter = indexes.into_iter().rev();
     let mut i = indexes_iter.next();
     for j in (0..vec.len()).rev() {
-        // check the next indext to preserve
+        // check the next index to preserve
         if i.map_or(false, |i| i > j) {
             i = indexes_iter.next();
         }
@@ -703,7 +703,7 @@ where
     //         we could check for the strongest RRSIG and only use that...
     //         though, since the entire package isn't signed any RRSIG could have been injected,
     //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
-    //         succeptable until that algorithm is removed as an option.
+    //         susceptible until that algorithm is removed as an option.
     //        dns over TLS will mitigate this.
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
     let verifications = rrsigs.into_iter()
@@ -749,7 +749,7 @@ where
         })));
     }
 
-    // as long as any of the verifcations is good, then the RRSET is valid.
+    // as long as any of the verifications is good, then the RRSET is valid.
     let select = select_ok(verifications)
         // getting here means at least one of the rrsigs succeeded...
         .map(move |(rrset, rest)| {
@@ -840,7 +840,7 @@ fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
 #[allow(clippy::block_in_if_condition_stmt)]
 #[doc(hidden)]
 pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
-    // TODO: consider convering this to Result, and giving explicit reason for the failure
+    // TODO: consider converting this to Result, and giving explicit reason for the failure
 
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
@@ -878,7 +878,7 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
         return false;
     }
 
-    // validate ANY or *.domain record existance
+    // validate ANY or *.domain record existence
 
     // we need the wildcard proof, but make sure that it's still part of the zone.
     let wildcard = query.name().base_name();

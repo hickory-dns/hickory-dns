@@ -37,7 +37,7 @@ impl ResolverConfig {
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn google() -> Self {
@@ -181,7 +181,7 @@ impl ResolverConfig {
 impl Default for ResolverConfig {
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
     fn default() -> Self {
         ResolverConfig::google()
     }
@@ -249,7 +249,7 @@ pub struct NameServerConfig {
     pub socket_addr: SocketAddr,
     /// The protocol to use when communicating with the NameServer.
     pub protocol: Protocol,
-    /// SPKI name, only relavent for TLS connections
+    /// SPKI name, only relevant for TLS connections
     pub tls_dns_name: Option<String>,
 }
 
@@ -261,7 +261,7 @@ pub struct NameServerConfigGroup(Vec<NameServerConfig>);
 impl NameServerConfigGroup {
     /// Creates a new NameServerConfigGroup with a default size of 2
     pub fn new() -> Self {
-        // this might be a nice oportunity for SmallVec
+        // this might be a nice opportunity for SmallVec
         //   most name_server configs will be 2.
         Self::with_capacity(2)
     }
@@ -338,7 +338,7 @@ impl NameServerConfigGroup {
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
     pub fn google() -> Self {
         Self::from_ips_clear(
             &[
@@ -501,7 +501,7 @@ impl Default for LookupIpStrategy {
 #[allow(dead_code)] // TODO: remove after all params are supported
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
-    ///  that must appear before a query is assumted to include the TLD. The default is one, which
+    ///  that must appear before a query is assumed to include the TLD. The default is one, which
     ///  means that `www` would never be assumed to be a TLD, and would always be appended to either
     ///  the search
     pub ndots: usize,
@@ -559,7 +559,7 @@ pub struct ResolverOpts {
 }
 
 impl Default for ResolverOpts {
-    /// Default values for the Reolver configuration.
+    /// Default values for the Resolver configuration.
     ///
     /// This follows the resolv.conf defaults as defined in the [Linux man pages](http://man7.org/linux/man-pages/man5/resolv.conf.5.html)
     fn default() -> Self {

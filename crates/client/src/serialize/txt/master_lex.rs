@@ -35,7 +35,7 @@ impl<'a> Lexer<'a> {
             // max chars in a single lex, helps with issues in the lexer...
             assert!(i < 4095); // keeps the bounds of the loop defined (nothing lasts forever)
 
-            // This is to get around mutibility rules such that we can peek at the iter without moving next...
+            // This is to get around mutability rules such that we can peek at the iter without moving next...
             let ch: Option<char> = self.peek();
 
             // handy line for debugging
@@ -285,7 +285,7 @@ impl<'a> Lexer<'a> {
 
         if !ch.is_control() {
             if ch.is_numeric() {
-                // in this case it's an excaped octal: \DDD
+                // in this case it's an escaped octal: \DDD
                 let d1: u32 = self
                     .txt
                     .next()
@@ -317,7 +317,7 @@ impl<'a> Lexer<'a> {
 
                 Ok(ch)
             } else {
-                // this is an excaped char: \X
+                // this is an escaped char: \X
                 self.txt.next(); // gobble the char
                 Ok(ch)
             }

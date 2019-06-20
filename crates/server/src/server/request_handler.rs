@@ -27,7 +27,7 @@ pub trait RequestHandler: Send + 'static {
     /// A future for execution of the request
     type ResponseFuture: Future<Item = (), Error = ()> + Send + 'static;
 
-    /// Determine's what needs to happen given the type of request, i.e. Query or Update.
+    /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
     /// # Arguments
     ///

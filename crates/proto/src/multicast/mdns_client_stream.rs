@@ -23,7 +23,7 @@ pub struct MdnsClientStream {
 }
 
 impl MdnsClientStream {
-    /// associates the socket to the well-known ipv4 multicast addess
+    /// associates the socket to the well-known ipv4 multicast address
     pub fn new_ipv4(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -32,7 +32,7 @@ impl MdnsClientStream {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
-    /// associates the socket to the well-known ipv6 multicast addess
+    /// associates the socket to the well-known ipv6 multicast address
     pub fn new_ipv6(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -47,7 +47,7 @@ impl MdnsClientStream {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
+    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::new_ret_no_self)]
     pub fn new(

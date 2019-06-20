@@ -387,7 +387,7 @@ impl<'a> BinEncoder<'a> {
         self.emit_iter(&mut iter)
     }
 
-    /// emits all items in the iterator, return the number emited
+    /// emits all items in the iterator, return the number emitted
     pub fn emit_iter<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
         &mut self,
         iter: &mut I,

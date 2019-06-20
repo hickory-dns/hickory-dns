@@ -207,7 +207,7 @@ impl ZoneConfig {
     }
 
     // TODO this is a little ugly for the parse, b/c there is no terminal char
-    /// retuns the name of the Zone, i.e. the `example.com` of `www.example.com.`
+    /// returns the name of the Zone, i.e. the `example.com` of `www.example.com.`
     pub fn get_zone(&self) -> ProtoResult<Name> {
         Name::parse(&self.zone, Some(&Name::new()))
     }

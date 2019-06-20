@@ -11,7 +11,7 @@ impl<T> Restrict<T> {
         Restrict(restricted)
     }
 
-    /// It is the responsibility of th function to verfy the contained type is valid.
+    /// It is the responsibility of this function to verify the contained type is valid.
     ///
     /// ```
     /// use trust_dns_proto::serialize::binary::Restrict;
@@ -32,7 +32,7 @@ impl<T> Restrict<T> {
         }
     }
 
-    /// It is the responsibility of th function to verfy the contained type is valid.
+    /// It is the responsibility of this function to verify the contained type is valid.
     ///
     /// ```
     /// use trust_dns_proto::serialize::binary::Restrict;

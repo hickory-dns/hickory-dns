@@ -64,7 +64,7 @@ pub enum ReadTcpState {
         /// Buffer of the length to read
         bytes: [u8; 2],
     },
-    /// Currently reading the byts of the DNS packet
+    /// Currently reading the bytes of the DNS packet
     Bytes {
         /// Current position while reading the buffer
         pos: usize,
@@ -176,7 +176,7 @@ impl<S> TcpStream<S> {
         (stream, message_sender)
     }
 
-    /// Wrapps a stream where a sender and receiver have already been established
+    /// Wraps a stream where a sender and receiver have already been established
     pub fn from_stream_with_receiver(
         stream: S,
         peer_addr: SocketAddr,
@@ -426,7 +426,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
-//  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
+//  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
 //  but not 3?
 // #[cfg(not(target_os = "linux"))]
 fn test_tcp_client_stream_ipv4() {
@@ -480,10 +480,10 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
             socket
                 .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap(); // should recieve something within 5 seconds...
+                .unwrap(); // should receive something within 5 seconds...
             socket
                 .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap(); // should recieve something within 5 seconds...
+                .unwrap(); // should receive something within 5 seconds...
 
             for _ in 0..send_recv_times {
                 // wait for some bytes...

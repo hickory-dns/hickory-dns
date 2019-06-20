@@ -148,7 +148,7 @@ impl Message {
         message
     }
 
-    /// Truncates a Message, this blindly removes all response fields and sets trucation to `true`
+    /// Truncates a Message, this blindly removes all response fields and sets truncated to `true`
     pub fn truncate(&self) -> Self {
         let mut truncated: Message = Message::new();
         truncated.set_id(self.id());
@@ -304,7 +304,7 @@ impl Message {
         self.name_servers = records;
     }
 
-    /// A an addtional Record to the message
+    /// Add an additional Record to the message
     pub fn add_additional(&mut self, record: Record) -> &mut Self {
         self.additionals.push(record);
         self
@@ -320,7 +320,7 @@ impl Message {
         self.additionals = records;
     }
 
-    /// Add the EDNS section the the Message
+    /// Add the EDNS section to the Message
     pub fn set_edns(&mut self, edns: Edns) -> &mut Self {
         self.edns = Some(edns);
         self
@@ -612,7 +612,7 @@ impl Message {
     /// Encodes the Message into a buffer
     pub fn to_vec(&self) -> Result<Vec<u8>, ProtoError> {
         // TODO: this feels like the right place to verify the max packet size of the message,
-        //  will need to update the header for trucation and the lengths if we send less than the
+        //  will need to update the header for truncation and the lengths if we send less than the
         //  full response. This needs to conform with the EDNS settings of the server...
         let mut buffer = Vec::with_capacity(512);
         {
@@ -655,7 +655,7 @@ impl Deref for Message {
         &self.header
     }
 }
-/// A trait for performing final ammendments to a Message before it is sent.
+/// A trait for performing final amendments to a Message before it is sent.
 ///
 /// An example of this is a SIG0 signer, which needs the final form of the message,
 ///  but then needs to attach additional data to the body of the message.
@@ -665,7 +665,7 @@ pub trait MessageFinalizer: Send + Sync + 'static {
     ///
     /// # Arguments
     ///
-    /// * `message` - messge to process
+    /// * `message` - message to process
     /// * `current_time` - the current time as specified by the system, it's not recommended to read the current time as that makes testing complicated.
     ///
     /// # Return

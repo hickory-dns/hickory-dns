@@ -159,7 +159,7 @@ where
 
         // TODO: should we allow mDNS to be used for standard lookups as well?
 
-        // it wasn't a local query, continue with standard looup path
+        // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
         Box::new(
             // First try the UDP connections
@@ -230,10 +230,10 @@ where
 
                         // TODO: restrict this size to a maximum # of NameServers to try
                         // get a stable view for trying all connections
-                        //   we split into chunks of the numeber of parallel requests to issue
+                        //   we split into chunks of the number of parallel requests to issue
                         let mut conns: Vec<NameServer<C, P>> = conns.clone();
                         let request = request.take();
-                        let request = request.expect("bad state, mesage should never be None");
+                        let request = request.expect("bad state, message should never be None");
                         let request_loop = request.clone();
 
                         let loop_future = future::loop_fn(

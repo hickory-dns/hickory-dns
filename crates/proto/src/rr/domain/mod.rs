@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Domain name associated types, suchas Name and Label.
+//! Domain name associated types, such as Name and Label.
 
 mod label;
 mod name;

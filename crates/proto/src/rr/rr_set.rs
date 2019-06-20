@@ -298,7 +298,7 @@ impl RecordSet {
                                     return false;
                                 }
                             } else {
-                                // not panicking here, b/c this is a bad record from the client or something, ingnore
+                                // not panicking here, b/c this is a bad record from the client or something, ignore
                                 info!("wrong rdata for SOA update: {:?}", record.rdata());
                                 return false;
                             }

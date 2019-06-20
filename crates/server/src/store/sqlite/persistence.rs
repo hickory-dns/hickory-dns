@@ -236,7 +236,7 @@ impl Journal {
         Ok(())
     }
 
-    /// initilizes the schema for the Journal
+    /// initializes the schema for the Journal
     pub fn schema_up(&mut self) -> PersistenceResult<i64> {
         while self.version < CURRENT_VERSION {
             match self.version + 1 {

@@ -198,7 +198,7 @@ impl SIG {
     /// # Arguments
     ///
     /// * `type_covered` - The `RecordType` which this signature covers, should be NULL for SIG(0).
-    /// * `algorithm` - The `Algorithm` used to generat the the `signature`.
+    /// * `algorithm` - The `Algorithm` used to generate the `signature`.
     /// * `num_labels` - The number of labels in the name, should be less 1 for *.name labels,
     ///                  see `Name::num_labels()`.
     /// * `original_ttl` - The TTL for the RRSet stored in the zone, should be 0 for SIG(0).
@@ -331,7 +331,7 @@ impl SIG {
     ///  while the current TTL field is not.
     ///
     ///  NOTE:  The "original TTL" must be restored into the covered RRs when
-    ///  the signature is verified (see Section 8).  This generaly implies
+    ///  the signature is verified (see Section 8).  This generally implies
     ///  that all RRs for a particular type, name, and class, that is, all the
     ///  RRs in any particular RRset, must have the same TTL to start with.
     /// ```
@@ -521,7 +521,7 @@ pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
     Ok(())
 }
 
-/// specifically for outputing the RData for an RRSIG, with signer_name in canonical form
+/// specifically for outputting the RData for an RRSIG, with signer_name in canonical form
 #[allow(clippy::too_many_arguments)]
 pub fn emit_pre_sig(
     encoder: &mut BinEncoder,
