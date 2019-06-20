@@ -1,6 +1,6 @@
 //! DNS high level transit implimentations.
 //!
-//! Primarily there are two types in this module of interest, the `DnsMultiplexer` type and the `DnsHandle` type. `DnsMultiplexer` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsMultiplexer` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsReqeustOptions`, to the delivery of messages via a `DnsMultiplexer`.
+//! Primarily there are two types in this module of interest, the `DnsMultiplexer` type and the `DnsHandle` type. `DnsMultiplexer` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsMultiplexer` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsRequestOptions`, to the delivery of messages via a `DnsMultiplexer`.
 //!
 //! TODO: this module needs some serious refactoring and normalization.
 
@@ -166,14 +166,14 @@ pub trait DnsRequestSender:
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
-    /// After this is called, the next time `poll` is called on the stream it would be correct to return `Ok(Async::Ready(()))`. This is not required though, if there are say outstanding requests that are not yet comlete, then it would be correct to first wait for those results.
+    /// After this is called, the next time `poll` is called on the stream it would be correct to return `Ok(Async::Ready(()))`. This is not required though, if there are say outstanding requests that are not yet complete, then it would be correct to first wait for those results.
     fn shutdown(&mut self);
 
     /// Returns true if the stream has been shutdown with `shutdown`
     fn is_shutdown(&self) -> bool;
 }
 
-/// Used for assiacting a name_server to a DnsRequestStreamHandle
+/// Used for associating a name_server to a DnsRequestStreamHandle
 pub struct BufDnsRequestStreamHandle<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,
@@ -237,7 +237,7 @@ where
 }
 
 // TODO: this future should return the origin message in the response on errors
-/// A OneshotDnsRequest createa a channel for a response to message
+/// A OneshotDnsRequest creates a channel for a response to message
 pub struct OneshotDnsRequest<F>
 where
     F: Future<Item = DnsResponse, Error = ProtoError> + Send,

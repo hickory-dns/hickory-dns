@@ -43,7 +43,7 @@ pub trait Authority: Send {
     /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             preceed and follow all other records.
+    ///             precede and follow all other records.
     /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
     ///
     /// # Return value
@@ -101,7 +101,7 @@ pub trait Authority: Send {
 
     /// Returns the SOA of the authority.
     ///
-    /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
+    /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
     fn soa(&self) -> Self::LookupFuture {
         // SOA should be origin|SOA

@@ -7,7 +7,7 @@
 
 //! Labels are used as the internal components of a Name.
 //!
-//! A label is stored internally as ascii, where all unicode characters are converted to punycode interenally.
+//! A label is stored internally as ascii, where all unicode characters are converted to punycode internally.
 
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
@@ -129,7 +129,7 @@ impl Label {
         &self.0
     }
 
-    /// Performs the equivelence operation disregarding case
+    /// Performs the equivalence operation disregarding case
     pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
         self.0.eq_ignore_ascii_case(&other.0)
     }

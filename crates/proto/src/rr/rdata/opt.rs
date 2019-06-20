@@ -222,7 +222,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
                 state = OptReadState::Data {
                     code,
                     length,
-                    // TODO: this cean be replaced with decoder.read_vec(), right?
+                    // TODO: this can be replaced with decoder.read_vec(), right?
                     //  the current version allows for malformed opt to be skipped...
                     collected: Vec::<u8>::with_capacity(length),
                 };

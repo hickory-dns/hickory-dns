@@ -80,7 +80,7 @@
 //!
 //! ## Querying
 //!
-//! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `trust-dns-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for differnet types.
+//! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `trust-dns-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for different types.
 //!
 //! ```rust
 //! use std::net::Ipv4Addr;
@@ -105,7 +105,7 @@
 //! //  there are many fields to a Message, DnsResponse can be dereferenced into
 //! //  a Message. It's beyond the scope of these examples
 //! //  to explain all the details of a Message. See trust_dns::op::message::Message for more details.
-//! //  generally we will be insterested in the Message::answers
+//! //  generally we will be interested in the Message::answers
 //! let answers: &[Record] = response.answers();
 //!
 //! // Records are generic objects which can contain any data.
@@ -118,7 +118,7 @@
 //! }
 //! ```
 //!
-//! In the above example we successfully queried for a A record. There are many other types, each can be independenly queried and the associated `trust_dns::rr::record_data::RData` has a variant with the deserialized data for the record stored.
+//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `trust_dns::rr::record_data::RData` has a variant with the deserialized data for the record stored.
 //!
 //! ## Dynamic update
 //!
@@ -179,7 +179,7 @@
 //!                           key,
 //!                           Name::from_str("update.example.com.").unwrap());
 //!
-//! // Create the DNS client, see above for creating a the connection
+//! // Create the DNS client, see above for creating the connection
 //! let client = SyncClient::with_signer(conn, signer);
 //!
 //! // At this point we should have a client capable of sending signed SIG(0) records.

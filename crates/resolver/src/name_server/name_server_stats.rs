@@ -79,7 +79,7 @@ impl Ord for NameServerStats {
             return Ordering::Greater;
         }
 
-        // at this point we'll go with the lesser of successes to make sure there is ballance
+        // at this point we'll go with the lesser of successes to make sure there is balance
         self_successes.cmp(&other_successes)
     }
 }

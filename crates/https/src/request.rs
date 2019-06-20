@@ -18,7 +18,7 @@ use trust_dns_proto::error::ProtoError;
 
 use HttpsResult;
 
-/// Create a new Reqeust for an http/2 dns-message request
+/// Create a new Request for an http/2 dns-message request
 ///
 /// ```text
 /// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
@@ -29,7 +29,7 @@ use HttpsResult;
 /// [RFC4648].
 /// ```
 pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()>> {
-    // TODO: this is basically the GET version, but it is more expesive than POST
+    // TODO: this is basically the GET version, but it is more expensive than POST
     //   perhaps add an option if people want better HTTP caching options.
 
     // let query = BASE64URL_NOPAD.encode(&message);

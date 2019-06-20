@@ -45,7 +45,7 @@ pub struct MdnsStream {
 }
 
 impl MdnsStream {
-    /// associates the socket to the well-known ipv4 multicast addess
+    /// associates the socket to the well-known ipv4 multicast address
     pub fn new_ipv4(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -57,7 +57,7 @@ impl MdnsStream {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
-    /// associates the socket to the well-known ipv6 multicast addess
+    /// associates the socket to the well-known ipv6 multicast address
     pub fn new_ipv6(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -93,7 +93,7 @@ impl MdnsStream {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
+    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn new(
         multicast_addr: SocketAddr,
@@ -177,7 +177,7 @@ impl MdnsStream {
         socket.bind(&socket2::SockAddr::from(multicast_addr))
     }
 
-    /// On unixes we bind to the multicast address, which causes multicst packets to be filtered
+    /// On unixes we bind to the multicast address, which causes multicast packets to be filtered
     #[cfg(unix)]
     fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
         socket.bind(&socket2::SockAddr::from(*multicast_addr))
@@ -201,7 +201,7 @@ impl MdnsStream {
             ));
         }
 
-        // binding the UdpSocket to the multicast address tells the OS to filter all packets on thsi socket to just this
+        // binding the UdpSocket to the multicast address tells the OS to filter all packets on this socket to just this
         //   multicast address
         // TODO: allow the binding interface to be specified
         let socket = match ip_addr {
@@ -367,7 +367,7 @@ impl Future for NextRandomUdpSocket {
                 let port = rand_port_range.sample(&mut rand); // the range is [0 ... u16::max]
 
                 // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
-                //  the MDNS_PORT is used to signal to remote processes that this is capable of recieving multicast packets
+                //  the MDNS_PORT is used to signal to remote processes that this is capable of receiving multicast packets
                 //  i.e. is joined to the multicast address.
                 if port == MDNS_PORT {
                     trace!("unlucky, got MDNS_PORT");

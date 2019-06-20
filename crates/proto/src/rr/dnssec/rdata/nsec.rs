@@ -53,7 +53,7 @@ pub struct NSEC {
 }
 
 impl NSEC {
-    /// Constructs a new NSEC RData, warning this won't gaurantee that the NSEC covers itself
+    /// Constructs a new NSEC RData, warning this won't guarantee that the NSEC covers itself
     ///  which it should at it's own name.
     ///
     /// # Arguments

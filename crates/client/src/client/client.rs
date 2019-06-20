@@ -559,7 +559,7 @@ where
         self
     }
 
-    /// Associate a signer to produce a SIG0 for all udpate requests
+    /// Associate a signer to produce a SIG0 for all update requests
     ///
     /// This is necessary for signed update requests to update trust-dns-server entries
     ///

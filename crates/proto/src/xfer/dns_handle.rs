@@ -44,7 +44,7 @@ impl DnsStreamHandle for StreamHandle {
     }
 }
 
-/// Root DnsHandle implementaton returned by DnsMultiplexer
+/// Root DnsHandle implementation returned by DnsMultiplexer
 ///
 /// This can be used directly to perform queries. See `trust_dns::client::SecureDnsHandle` for
 ///  a DNSSEc chain validator.
@@ -89,7 +89,7 @@ impl DnsHandle for BasicDnsHandle {
             }
         };
 
-        // conver the oneshot into a Box of a Future message and error.
+        // convert the oneshot into a Box of a Future message and error.
         Box::new(
             receiver
                 .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
@@ -104,7 +104,7 @@ pub trait DnsHandle: 'static + Clone + Send {
     /// The associated response from the response future, this should resolve to the Response message
     type Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send;
 
-    /// Ony returns true if and only if this DNS handle is validating DNSSec.
+    /// Only returns true if and only if this DNS handle is validating DNSSec.
     ///
     /// If the DnsHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
     fn is_verifying_dnssec(&self) -> bool {

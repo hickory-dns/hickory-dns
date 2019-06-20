@@ -459,7 +459,7 @@ pub fn main() {
             info!("awaiting connections...");
 
             // TODO: how to do threads? should we do a bunch of listener threads and then query threads?
-            // Ideally the processing would be n-threads for recieving, which hand off to m-threads for
+            // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
             //  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
             future::empty()

@@ -24,7 +24,7 @@ pub enum MdnsQueryType {
     /// The querier is fully compliant with [rfc6762](https://tools.ietf.org/html/rfc6762#section-5). (servers, clients)
     ///
     /// mDNS capable clients will sent messages with many queries, and they will expect many responses. Two UDP sockets will be
-    ///   created, one for recieving multicast traffic, the other used for sending queries and direct responses. This requires
+    ///   created, one for receiving multicast traffic, the other used for sending queries and direct responses. This requires
     ///   port 5353 to be available on the system (many modern OSes already have mDNSResponders running taking this port).
     Continuous,
     /// The querier operates under the OneShot semantics, but also joins the multicast group. (non-compliant servers, clients)

@@ -48,7 +48,7 @@ pub enum AuthLookup {
 }
 
 impl AuthLookup {
-    /// Construct and ansert with additional section
+    /// Construct an answer with additional section
     pub fn answers(answers: LookupRecords, additionals: Option<LookupRecords>) -> Self {
         AuthLookup::Records {
             answers,
@@ -380,7 +380,7 @@ impl<'a> IntoIterator for &'a LookupRecords {
     }
 }
 
-/// Iteratof over lookup records
+/// Iterator over lookup records
 pub enum LookupRecordsIter<'r> {
     /// An iteration over batch record type results
     AnyRecordsIter(AnyRecordsIter<'r>),

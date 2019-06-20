@@ -135,7 +135,7 @@ mod test {
         );
         let test1 = Message::new();
         let result = handle.send(test1).wait().expect("should have succeeded");
-        assert_eq!(result.id(), 1); // this is checking the number of iterations the TestCient ran
+        assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
     }
 
     #[test]

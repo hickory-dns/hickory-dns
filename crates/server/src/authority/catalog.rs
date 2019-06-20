@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// TODO, I've implemented this as a seperate entity from the cache, but I wonder if the cache
+// TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::borrow::Borrow;
@@ -67,7 +67,7 @@ fn send_response<R: ResponseHandler>(
 impl RequestHandler for Catalog {
     type ResponseFuture = HandleRequest;
 
-    /// Determine's what needs to happen given the type of request, i.e. Query or Update.
+    /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
     /// # Arguments
     ///

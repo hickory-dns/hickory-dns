@@ -51,7 +51,7 @@ mod background;
 /// The background task manages the name server pool and other state used
 /// to drive lookups. When this future is spawned on an executor, it will
 /// first construct and configure the necessary client state, before checking
-/// for any incoming lookup requests, handling them, and and yielding. It will
+/// for any incoming lookup requests, handling them, and yielding. It will
 /// continue to do so as long as there are still any [`AsyncResolver`] handle
 /// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
 /// background future will finish.
@@ -756,7 +756,7 @@ mod tests {
     fn test_domain_search() {
         env_logger::try_init().ok();
 
-        // domain is good now, shoudl be combined with the name to form www.example.com
+        // domain is good now, should be combined with the name to form www.example.com
         let domain = Name::from_str("example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),

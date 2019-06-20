@@ -14,7 +14,7 @@ use crate::op::Message;
 /// A set of options for expressing options to how requests should be treated
 #[derive(Clone, Default)]
 pub struct DnsRequestOptions {
-    /// When true, the underlying DNS protocols will not return on the first response recieved.
+    /// When true, the underlying DNS protocols will not return on the first response received.
     ///
     /// Setting this option will cause the underlying protocol to await the timeout, and then return all Responses.
     pub expects_multiple_responses: bool,
@@ -23,9 +23,9 @@ pub struct DnsRequestOptions {
     // TODO: add EDNS options here?
 }
 
-/// A DNS reqeust object
+/// A DNS request object
 ///
-/// This wraps a DNS Message for requests. It also has request options associated for contolling certain features of the DNS protocol handlers.
+/// This wraps a DNS Message for requests. It also has request options associated for controlling certain features of the DNS protocol handlers.
 #[derive(Clone)]
 pub struct DnsRequest {
     message: Message,

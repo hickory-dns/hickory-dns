@@ -169,7 +169,7 @@ impl MessageRequest {
         self.edns.as_ref().map_or(0, Edns::version)
     }
 
-    /// Returns the queries passed recieved from the client
+    /// Returns the queries passed received from the client
     pub fn raw_queries(&self) -> &Queries {
         &self.queries
     }

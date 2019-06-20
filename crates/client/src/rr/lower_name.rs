@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! domain name, aka labels, implementaton
+//! domain name, aka labels, implementation
 
 use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq};

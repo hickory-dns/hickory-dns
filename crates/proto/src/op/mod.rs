@@ -15,7 +15,7 @@
  */
 
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
-//! be used to gether to either query or update resource records sets.
+//! be used together to either query or update resource records sets.
 
 mod edns;
 pub mod header;

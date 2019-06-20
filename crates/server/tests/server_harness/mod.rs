@@ -180,7 +180,7 @@ pub fn query_message<C: ClientHandle>(
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
-//  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
+//  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
 pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com").unwrap();
@@ -195,7 +195,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
-//  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
+//  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
 pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
     io_loop: &mut Runtime,

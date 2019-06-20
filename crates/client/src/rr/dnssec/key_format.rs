@@ -179,7 +179,7 @@ impl KeyFormat {
             KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
                 match self {
                     KeyFormat::Der => {
-                        // to avoid accientally storing a key where there was an expectation that it was password protected
+                        // to avoid accidentally storing a key where there was an expectation that it was password protected
                         if password.is_some() {
                             return Err(format!("Can only password protect PEM: {:?}", self).into());
                         }
@@ -236,7 +236,7 @@ impl KeyFormat {
             KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
                 match self {
                     KeyFormat::Der => {
-                        // to avoid accientally storing a key where there was an expectation that it was password protected
+                        // to avoid accidentally storing a key where there was an expectation that it was password protected
                         if password.is_some() {
                             return Err(format!("Can only password protect PEM: {:?}", self).into());
                         }
@@ -361,7 +361,7 @@ mod tests {
             ok_empty_pass,
             true,
         );
-        // TODO: disabled for now... add back in if ring suports passwords on pkcs8
+        // TODO: disabled for now... add back in if ring supports passwords on pkcs8
         // encode_decode_with_password(key_format,
         //                             password,
         //                             no_password,

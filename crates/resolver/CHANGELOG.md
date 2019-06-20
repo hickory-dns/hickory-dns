@@ -42,10 +42,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- Fix two separate integer overflows from substractions #585 (@oherrala)
+- Fix two separate integer overflows from subtractions #585 (@oherrala)
 - strictly enforce name and label lengths during label parsing #584
 - enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
-- CAA now properly performs case-incesitive compares #587 (@oherrala)
+- CAA now properly performs case-insensitive compares #587 (@oherrala)
 - overhauled rdata parsers with Restrict type to reduce potential of overflowing operations #586
 - Propagate TTLs for NXDOMAIN responses #485 (@hawkw)
 - LookupIpFuture implementation to be proper in regards to loop control #480 (@hawkw)

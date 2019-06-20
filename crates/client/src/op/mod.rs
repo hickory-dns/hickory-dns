@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
-//! be used to gether to either query or update resource records sets.
+//! be used together to either query or update resource records sets.
 
 mod lower_query;
 pub mod update_message;

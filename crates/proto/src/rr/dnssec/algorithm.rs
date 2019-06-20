@@ -94,9 +94,9 @@ use crate::serialize::binary::*;
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum Algorithm {
-    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
+    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatibility
     RSASHA1,
-    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
+    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatibility
     RSASHA1NSEC3SHA1,
     /// RSA public key with SHA256 hash
     RSASHA256,

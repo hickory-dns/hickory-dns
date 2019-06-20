@@ -441,37 +441,37 @@ impl ZoneUsage {
         &self.name
     }
   
-    /// Returnes the UserUsage of this zone
+    /// Returns the UserUsage of this zone
     pub fn user(&self) -> UserUsage {
         self.user
     }
 
-    /// Returnes the AppUsage of this zone
+    /// Returns the AppUsage of this zone
     pub fn app(&self) -> AppUsage {
         self.app
     }
 
-    /// Returnes the ResolverUsage of this zone
+    /// Returns the ResolverUsage of this zone
     pub fn resolver(&self) -> ResolverUsage {
         self.resolver
     }
 
-    /// Returnes the CacheUsage of this zone
+    /// Returns the CacheUsage of this zone
     pub fn cache(&self) -> CacheUsage {
         self.cache
     }
 
-    /// Returnes the AuthUsage of this zone
+    /// Returns the AuthUsage of this zone
     pub fn auth(&self) -> AuthUsage {
         self.auth
     }
 
-    /// Returnes the OpUsage of this zone
+    /// Returns the OpUsage of this zone
     pub fn op(&self) -> OpUsage {
         self.op
     }
 
-    /// Returnes the RegistryUsage of this zone
+    /// Returns the RegistryUsage of this zone
     pub fn registry(&self) -> RegistryUsage {
         self.registry
     }

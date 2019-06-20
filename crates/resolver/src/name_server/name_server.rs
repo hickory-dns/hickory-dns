@@ -134,7 +134,7 @@ where
             Err(e) => return Box::new(future::err(e)) as Self::Response,
         };
 
-        // Becuase a Poisoned lock error could have occured, make sure to create a new Mutex...
+        // Because a Poisoned lock error could have occurred, make sure to create a new Mutex...
         Box::new(
             client
                 .send(request)
@@ -171,7 +171,7 @@ where
                     // this transitions the state to failure
                     state2.fail(Instant::now());
 
-                    // recrod the failure
+                    // record the failure
                     stats2.next_failure();
 
                     // These are connection failures, not lookup failures, that is handled in the resolver layer
@@ -192,7 +192,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
         // otherwise, run our evaluation to determine the next to be returned from the Heap
         //   this will prefer established connections, we should try other connections after
         //   some number to make sure that all are used. This is more important for when
-        //   letency is started to be used.
+        //   latency is started to be used.
         match self
             .state
             .cmp(&other.state)

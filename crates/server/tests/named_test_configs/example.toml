@@ -2,14 +2,14 @@
 ## This is an example configuration file for the Trust-DNS named server.
 ##
 ## The format is in TOML: https://github.com/toml-lang/toml which was chosen
-##  as the configuration format for Trust-DNS. While Trust-DNS is inteaded to
+##  as the configuration format for Trust-DNS. While Trust-DNS is intended to
 ##  be a drop-in replacement for BIND9, it will not support the named.conf files
 ##  directly. At some point, there will be a binary tool for converting the
 ##  BIND9 configuration files over to Trust-DNS TOML.
 ##
 ## Many of these options are available as both command line options and
 ##  configuration options in these files. In that case, the command line option
-##  will take presidence.
+##  will take precedence.
 ##
 ## Comments with two hash marks, ##, document the config parameter
 ## Comments with one hash mark, #, is an example line and should be the default
@@ -34,7 +34,7 @@
 ## DNS over TLS certificate information.
 # tls_cert = { path = "path/to/some.pkcs12", password = "if_encrypted" }
 
-## port on which to listent, default 853 (should not be 53)
+## port on which to listen, default 853 (should not be 53)
 # tls_listen_port = 853
 
 ## directory: path on the host filesystem to where zone files are stored.
@@ -92,7 +92,7 @@ file = "example.com.zone"
 # enable_dnssec = false
 
 ## set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
-## these will be lookedup by $file.{key_name}.pem, for backward compatability
+## these will be lookedup by $file.{key_name}.pem, for backward compatibility
 ## with previous versions of Trust-DNS, if enable_dnssec is enabled but
 ## supported_algorithms is not specified, it will default to "RSASHA256" and
 ## look for the $file.pem for the key. To control key length, or other options

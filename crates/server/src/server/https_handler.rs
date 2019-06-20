@@ -51,7 +51,7 @@ where
                                 .map_err(|e| warn!("could not decode message: {}", e))
                         })
                         .and_then(move |message| {
-                            debug!("reieved message: {:?}", message);
+                            debug!("received message: {:?}", message);
 
                             server_future::handle_request(
                                 message,

@@ -231,7 +231,7 @@ impl InMemoryAuthority {
         };
 
         self.inner_lookup(&wildcard, record_type, and_rrsigs, supported_algorithms)
-            // we need to change the name to the query name in the result set since this was a whildcard
+            // we need to change the name to the query name in the result set since this was a wildcard
             .map(|rrset| {
                 let mut new_answer =
                     RecordSet::new(name.borrow(), rrset.record_type(), rrset.ttl());
@@ -270,7 +270,7 @@ impl InMemoryAuthority {
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
-        // if it's a CNAME or other forwarding record, we'll be adding additional records basd on the query_type
+        // if it's a CNAME or other forwarding record, we'll be adding additional records based on the query_type
         let mut query_types_arr = [query_type; 2];
         let query_types: &[RecordType] = match query_type {
             RecordType::ANAME | RecordType::NS | RecordType::MX | RecordType::SRV => {
@@ -418,11 +418,11 @@ impl InMemoryAuthority {
         }
     }
 
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
     pub fn secure_zone(&mut self) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
-        // needs to be called before incrementing the soa serial, to make sur IXFR works properly
+        // needs to be called before incrementing the soa serial, to make sure IXFR works properly
         self.nsec_zone();
 
         // need to resign any records at the current serial number and bump the number.
@@ -433,7 +433,7 @@ impl InMemoryAuthority {
         self.sign_zone()
     }
 
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(not(feature = "dnssec"))]
     pub fn secure_zone(&mut self) -> Result<(), &str> {
         Err("DNSSEC was not enabled during compilation.")
@@ -635,7 +635,7 @@ impl InMemoryAuthority {
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
         for mut rr_set_orig in records.values_mut() {
-            // becuase the rrset is an Arc, it must be cloned before mutated
+            // because the rrset is an Arc, it must be cloned before mutated
             let rr_set = Arc::make_mut(rr_set_orig);
             Self::sign_rrset(rr_set, secure_keys, minimum_ttl, self.class)?;
         }
@@ -781,7 +781,7 @@ impl Authority for InMemoryAuthority {
     /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
     ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
     ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
-    ///             preceed and follow all other records.
+    ///             precede and follow all other records.
     /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
     ///
     /// # Return value
@@ -1155,11 +1155,11 @@ impl Authority for InMemoryAuthority {
         Err("DNSSEC was not enabled during compilation.".into())
     }
 
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
     fn secure_zone(&mut self) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
-        // needs to be called before incrementing the soa serial, to make sur IXFR works properly
+        // needs to be called before incrementing the soa serial, to make sure IXFR works properly
         self.nsec_zone();
 
         // need to resign any records at the current serial number and bump the number.
@@ -1170,7 +1170,7 @@ impl Authority for InMemoryAuthority {
         self.sign_zone()
     }
 
-    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(not(feature = "dnssec"))]
     fn secure_zone(&mut self) -> DnsSecResult<()> {
         Err("DNSSEC was not enabled during compilation.".into())

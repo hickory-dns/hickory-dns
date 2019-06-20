@@ -553,7 +553,7 @@ impl MessageFinalizer for Signer {
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
             current_time,
             key_tag,
-            // can probably get rid of this clone if the owndership is correct
+            // can probably get rid of this clone if the ownership is correct
             self.signer_name().clone(),
             Vec::new(),
         );
@@ -609,7 +609,7 @@ mod tests {
             // unsigned numbers of seconds since the start of 1 January 1970, GMT
             inception_time,
             signer.calculate_key_tag().unwrap(),
-            // can probably get rid of this clone if the owndership is correct
+            // can probably get rid of this clone if the ownership is correct
             signer.signer_name().clone(),
             Vec::new(),
         )

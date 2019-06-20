@@ -236,7 +236,7 @@ impl DnsLru {
             }
         });
 
-        // in this case, we can preemtively remove out of data elements
+        // in this case, we can preemptively remove out of data elements
         // this assumes time is always moving forward, this would only not be true in contrived situations where now
         //  is not current time, like tests...
         if out_of_date {

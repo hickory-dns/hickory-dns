@@ -44,10 +44,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Fixed
 
-- Fix two separate integer overflows from substractions #585 (@oherrala)
+- Fix two separate integer overflows from subtractions #585 (@oherrala)
 - strictly enforce name and label lengths during label parsing #584
 - enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
-- CAA now properly performs case-incesitive compares #587 (@oherrala)
+- CAA now properly performs case-insensitive compares #587 (@oherrala)
 - overhauled rdata parsers with Restrict type to reduce potential of overflowing operations #586
 
 ### Added
@@ -112,7 +112,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Trust-DNS Util crate for dnssec management tools (@briansmith)
 - Integration tests for Server to validate all supported DNSSec key types
 - *breaking* Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates (replaces `openssl` and `ring` features)
-- Clarified `tls` feature with `tls-openssl`, and `tls` in server (in preperation for `tls-rustls`)
+- Clarified `tls` feature with `tls-openssl`, and `tls` in server (in preparation for `tls-rustls`)
 - Support for rfc6844, CAA record type #234
 - Support for rfc6698, TLSA record type #285
 - Clippy validation in CI #288 (@little-dude)
@@ -142,7 +142,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Removed the `NativeTls` and `OpenSSL` `ClientConnection` variants, use the Rustls impls or the tokio based `TlsClientStream` instead. This was required for `SyncClient` being `Send + Sync`
 - Server: no longer auto-generate keys on startup #218
 - All deprecated APIs removed from -proto #262
-- Server: removed deprated RSA config loading options, see reference test cargo.tomls #276 (@briansmith)
+- Server: removed deprecated RSA config loading options, see reference test cargo.tomls #276 (@briansmith)
 
 ## 0.12.0
 

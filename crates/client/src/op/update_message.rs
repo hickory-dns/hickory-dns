@@ -17,7 +17,7 @@ use client::client_future::MAX_PAYLOAD_LEN;
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
 ///
-/// Generally rather than constructin this by hand, see the update methods on `Client`
+/// Generally rather than constructing this by hand, see the update methods on `Client`
 pub trait UpdateMessage: Debug {
     /// see `Header::id`
     fn id(&self) -> u16;
@@ -30,7 +30,7 @@ pub trait UpdateMessage: Debug {
     /// These must exist, or not, for the Update request to go through.
     fn add_pre_requisite(&mut self, record: Record);
 
-    /// Add all the Records from the Iterator to the pre-reqisites section
+    /// Add all the Records from the Iterator to the pre-requisites section
     fn add_pre_requisites<R, I>(&mut self, records: R)
     where
         R: IntoIterator<Item = Record, IntoIter = I>,
@@ -45,7 +45,7 @@ pub trait UpdateMessage: Debug {
         R: IntoIterator<Item = Record, IntoIter = I>,
         I: Iterator<Item = Record>;
 
-    /// Add Records to the additional Section of hte UpdateMessage
+    /// Add Records to the additional Section of the UpdateMessage
     fn add_additional(&mut self, record: Record);
 
     /// Returns the Zones to be updated, generally should only be one.
@@ -57,7 +57,7 @@ pub trait UpdateMessage: Debug {
     /// Returns the records to be updated
     fn updates(&self) -> &[Record];
 
-    /// Returns the additonal records
+    /// Returns the additional records
     fn additionals(&self) -> &[Record];
 
     /// This is used to authenticate update messages.
@@ -193,7 +193,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name) -> Message {
     message
 }
 
-/// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
+/// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
 ///  depends on the server)
 ///
 /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -405,7 +405,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name) -> Message {
 
     // the class must be none for delete
     rrset.set_dns_class(DNSClass::NONE);
-    // the TTL shoudl be 0
+    // the TTL should be 0
     rrset.set_ttl(0);
     message.add_updates(rrset);
 
@@ -473,7 +473,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
 
     // the class must be none for an rrset delete
     record.set_dns_class(DNSClass::ANY);
-    // the TTL shoudl be 0
+    // the TTL should be 0
     record.set_ttl(0);
     // the rdata must be null to delete all rrsets
     record.set_rdata(RData::NULL(NULL::new()));
@@ -511,7 +511,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
 /// * `dns_class` - the class of the SOA
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
-/// operation attempts to delete all resource record sets the the specified name reguardless of
+/// operation attempts to delete all resource record sets the specified name regardless of
 /// the record type.
 pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass) -> Message {
     assert!(zone_origin.zone_of(&name_of_records));
@@ -531,7 +531,7 @@ pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass)
         .set_recursion_desired(false);
     message.add_zone(zone);
 
-    // the TTL shoudl be 0
+    // the TTL should be 0
     // the rdata must be null to delete all rrsets
     // the record type must be any
     let mut record = Record::with(name_of_records, RecordType::ANY, 0);

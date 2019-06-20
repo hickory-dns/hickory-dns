@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! domain name, aka labels, implementaton
+//! domain name, aka labels, implementation
 
 use std::borrow::Borrow;
 use std::char;
@@ -401,7 +401,7 @@ impl Name {
         self.labels.iter().fold(dots, |acc, item| acc + item.len())
     }
 
-    /// Returns whether the length of the labels, in bytes is 0. In practive, since '.' counts as
+    /// Returns whether the length of the labels, in bytes is 0. In practice, since '.' counts as
     /// 1, this is never the case so the method returns false.
     pub fn is_empty(&self) -> bool {
         false
@@ -507,7 +507,7 @@ impl Name {
 
         let mut state = ParseState::Label;
 
-        // short cirtuit root parse
+        // short circuit root parse
         if local == "." {
             name.set_fqdn(true);
             return Ok(name);
@@ -618,7 +618,7 @@ impl Name {
 
                 // before we write the label, let's look for the current set of labels.
                 if let Some(loc) = label_ptr {
-                    // reset back to the begining of this label, and then write the pointer...
+                    // reset back to the beginning of this label, and then write the pointer...
                     encoder.set_offset(*label_idx);
                     encoder.trim();
 
@@ -1038,7 +1038,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
             // In order to reduce the size of messages, the domain system utilizes a
             // compression scheme which eliminates the repetition of domain names in a
             // message.  In this scheme, an entire domain name or a list of labels at
-            // the end of a domain name is replaced with a pointer to a prior occurance
+            // the end of a domain name is replaced with a pointer to a prior occurrence
             // of the same name.
             //
             // The pointer takes the form of a two octet sequence:

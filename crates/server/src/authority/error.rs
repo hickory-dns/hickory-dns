@@ -17,7 +17,7 @@ use trust_dns::op::ResponseCode;
 use trust_dns_resolver::error::ResolveError;
 
 // TODO: should this implement Failure?
-/// A query could not be fullfilled
+/// A query could not be fulfilled
 #[derive(Debug, EnumAsInner)]
 pub enum LookupError {
     /// A record at the same Name as the query exists, but not of the queried RecordType
@@ -27,12 +27,12 @@ pub enum LookupError {
     /// Resolve Error
     #[cfg(feature = "trust-dns-resolver")]
     ResolveError(Compat<ResolveError>),
-    /// An underlying IO error occured
+    /// An underlying IO error occurred
     Io(io::Error),
 }
 
 impl LookupError {
-    /// Create a lookup error, speicifying that a name exists at the location, but no matching RecordType
+    /// Create a lookup error, specifying that a name exists at the location, but no matching RecordType
     pub fn for_name_exists() -> Self {
         LookupError::NameExists
     }
@@ -45,7 +45,7 @@ impl LookupError {
         }
     }
 
-    /// This is a non-existant domain name
+    /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
         match *self {
             LookupError::ResponseCode(ResponseCode::NXDomain) => true,
@@ -53,7 +53,7 @@ impl LookupError {
         }
     }
 
-    /// This is a non-existant domain name
+    /// This is a non-existent domain name
     pub fn is_refused(&self) -> bool {
         match *self {
             LookupError::ResponseCode(ResponseCode::Refused) => true,

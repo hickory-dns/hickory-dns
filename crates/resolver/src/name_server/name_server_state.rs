@@ -24,7 +24,7 @@ enum NameServerStateInner {
     /// For some reason the connection failed. For UDP this would generally be a timeout
     ///  for TCP this could be either Connection could never be established, or it
     ///  failed at some point after. The Failed state should *not* be entered due to an
-    ///  error contained in a Message recieved from the server. In All cases to reestablish
+    ///  error contained in a Message received from the server. In All cases to reestablish
     ///  a new connection will need to be created.
     Failed { when: Instant },
 }

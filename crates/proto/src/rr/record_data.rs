@@ -72,7 +72,7 @@ pub enum RData {
     ///
     /// A records cause no additional section processing.  The RDATA section of
     /// an A line in a master file is an Internet address expressed as four
-    /// decimal numbers separated by dots without any imbedded spaces (e.g.,
+    /// decimal numbers separated by dots without any embedded spaces (e.g.,
     /// "10.2.0.52" or "192.0.5.6").
     /// ```
     A(Ipv4Addr),
@@ -280,7 +280,7 @@ pub enum RData {
     ///      As stated in the DDDS algorithm, The regular expressions MUST NOT
     ///      be used in a cumulative fashion, that is, they should only be
     ///      applied to the original string held by the client, never to the
-    ///      domain name p  roduced by a previous NAPTR rewrite.  The latter is
+    ///      domain name produced by a previous NAPTR rewrite.  The latter is
     ///      tempting in some applications but experience has shown such use to
     ///      be extremely fault sensitive, very error prone, and extremely
     ///      difficult to debug.
@@ -468,7 +468,7 @@ pub enum RData {
     /// bound on the TTL field for all RRs in a zone.  Note that this use of
     /// MINIMUM should occur when the RRs are copied into the response and not
     /// when the zone is loaded from a master file or via a zone transfer.  The
-    /// reason for this provison is to allow future dynamic update facilities to
+    /// reason for this provision is to allow future dynamic update facilities to
     /// change the SOA RR with known semantics.
     /// ```
     SOA(SOA),

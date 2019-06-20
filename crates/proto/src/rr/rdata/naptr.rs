@@ -218,7 +218,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NAPTR> {
     ))
 }
 
-/// Declares the method for emiting this type
+/// Declares the method for emitting this type
 pub fn emit(encoder: &mut BinEncoder, naptr: &NAPTR) -> ProtoResult<()> {
     naptr.order.emit(encoder)?;
     naptr.preference.emit(encoder)?;

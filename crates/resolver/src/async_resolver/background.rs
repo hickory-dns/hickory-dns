@@ -106,7 +106,7 @@ impl Task {
 
             // if ndots are greater than 4, then we can't assume the name is an IpAddr
             //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
-            //   but `:` is not a valid DNS character, so techinically this will fail parsing.
+            //   but `:` is not a valid DNS character, so technically this will fail parsing.
             //   TODO: should we always do search before returning this?
             if self.options.ndots > 4 {
                 finally_ip_addr = Some(record);

@@ -43,7 +43,7 @@ where
     type Error = F::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        // try and get a mutable refence to execute the future
+        // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
         if self.result.lock().expect("poisoned").is_some() {

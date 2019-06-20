@@ -260,7 +260,7 @@ impl Future for HttpsSerialResponseInner {
                 } => {
                     let response_stream =
                         try_ready!(response_future.poll().map_err(|err| ProtoError::from(
-                            format!("recieved a stream error: {}", err)
+                            format!("received a stream error: {}", err)
                         )));
 
                     debug!("got response: {:#?}", response_stream);
@@ -397,7 +397,7 @@ impl HttpsClientStreamBuilder {
         HttpsClientStreamBuilder { client_config }
     }
 
-    /// Add a custom trusted peer certificate or certificate auhtority.
+    /// Add a custom trusted peer certificate or certificate authority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca(&mut self, ca: Certificate) {
