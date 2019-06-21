@@ -234,7 +234,7 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     authority: A,
     keys: &[DNSKEY],
 ) {
-    // wraps back to the begining of the zone, where www is the last zone record
+    // wraps back to the beginning of the zone, where www is the last zone record
     let name = Name::from_str("zzz.example.com.").unwrap();
     let lookup = authority
         .get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all())

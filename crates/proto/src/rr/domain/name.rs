@@ -1324,7 +1324,7 @@ mod tests {
 
     #[test]
     fn test_recursive_pointer() {
-        // points to an invalid begining label marker
+        // points to an invalid beginning label marker
         let bytes = vec![0xC0, 0x01];
         let mut d = BinDecoder::new(&bytes);
 
