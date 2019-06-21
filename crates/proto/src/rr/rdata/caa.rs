@@ -778,7 +778,7 @@ fn read_tag(decoder: &mut BinDecoder, len: Restrict<u8>) -> ProtoResult<String> 
             .pop()?
             .map(char::from)
             .verify_unwrap(|ch| match ch {
-                'a'...'z' | 'A'...'Z' | '0'...'9' => true,
+                'a'..='z' | 'A'..='Z' | '0'..='9' => true,
                 _ => false,
             })
             .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
