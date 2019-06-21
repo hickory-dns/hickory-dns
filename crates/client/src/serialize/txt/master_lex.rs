@@ -140,7 +140,7 @@ impl<'a> Lexer<'a> {
                 State::Dollar => {
                     match ch {
                         // even this is a little broad for what's actually possible in a dollar...
-                        Some('A'...'Z') => {
+                        Some('A'..='Z') => {
                             self.txt.next();
                             Self::push_to_str(&mut char_data, ch.unwrap())?;
                         }

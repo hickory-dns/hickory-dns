@@ -136,7 +136,7 @@ impl From<u8> for CertUsage {
             1 => CertUsage::Service,
             2 => CertUsage::TrustAnchor,
             3 => CertUsage::DomainIssued,
-            4...254 => CertUsage::Unassigned(usage),
+            4..=254 => CertUsage::Unassigned(usage),
             255 => CertUsage::Private,
         }
     }
@@ -193,7 +193,7 @@ impl From<u8> for Selector {
         match selector {
             0 => Selector::Full,
             1 => Selector::Spki,
-            2...254 => Selector::Unassigned(selector),
+            2..=254 => Selector::Unassigned(selector),
             255 => Selector::Private,
         }
     }
@@ -255,7 +255,7 @@ impl From<u8> for Matching {
             0 => Matching::Raw,
             1 => Matching::Sha256,
             2 => Matching::Sha512,
-            3...254 => Matching::Unassigned(matching),
+            3..=254 => Matching::Unassigned(matching),
             255 => Matching::Private,
         }
     }

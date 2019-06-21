@@ -404,7 +404,7 @@ impl Parser {
         for c in ttl_str.chars() {
             match c {
                 // TODO, should these all be checked operations?
-                '0'...'9' => {
+                '0'..='9' => {
                     collect *= 10;
                     collect += c.to_digit(10).ok_or_else(|| ParseErrorKind::CharToInt(c))?;
                 }
