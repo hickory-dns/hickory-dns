@@ -43,7 +43,7 @@ where
 impl<F, S>
     ClientFuture<
         DnsMultiplexerConnect<F, S, Signer>,
-        DnsMultiplexer<S, Signer, Box<DnsStreamHandle>>,
+        DnsMultiplexer<S, Signer, Box<dyn DnsStreamHandle>>,
         DnsMultiplexerSerialResponse,
     >
 where
@@ -60,7 +60,7 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: F,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<dyn DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
@@ -78,7 +78,7 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: F,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<dyn DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
     ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {

@@ -112,7 +112,7 @@ where
     C: DnsHandle,
     P: ConnectionProvider<ConnHandle = C>,
 {
-    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.options.validate

@@ -188,7 +188,7 @@ pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle =
 }
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
-    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -217,7 +217,7 @@ where
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    query: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
+    query: Box<dyn Future<Item = Lookup, Error = ResolveError> + Send>,
 }
 
 impl<C: DnsHandle + 'static> LookupFuture<C> {
@@ -239,7 +239,7 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
         });
 
-        let query: Box<Future<Item = Lookup, Error = ResolveError> + Send> = match name {
+        let query: Box<dyn Future<Item = Lookup, Error = ResolveError> + Send> = match name {
             Ok(name) => {
                 Box::new(client_cache.lookup(Query::query(name, record_type), options.clone()))
             }
@@ -550,7 +550,7 @@ pub mod tests {
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
+        type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::new(future::result(
