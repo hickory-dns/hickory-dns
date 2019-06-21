@@ -153,7 +153,7 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut BasicClientHandle<R>) -> Box<Future<Item = (), Error = ()>>
+fn test_query<R>(client: &mut BasicClientHandle<R>) -> Box<dyn Future<Item = (), Error = ()>>
 where
     R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
 {

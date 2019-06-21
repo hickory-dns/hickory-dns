@@ -69,7 +69,7 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
         &mut self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
+    ) -> Box<dyn Future<Item = Lookup, Error = ResolveError> + Send> {
         // see https://tools.ietf.org/html/rfc6761
         //
         // ```text
@@ -179,7 +179,7 @@ enum Records {
     NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
     CnameChain {
-        next: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
+        next: Box<dyn Future<Item = Lookup, Error = ResolveError> + Send>,
         min_ttl: u32,
     },
     /// Already cached, chained queries
@@ -431,7 +431,7 @@ enum QueryState<C: DnsHandle + 'static> {
     Query(QueryFuture<C>),
     /// CNAME lookup (internally it is making cached queries
     CnameChain(
-        Box<Future<Item = Lookup, Error = ResolveError> + Send>,
+        Box<dyn Future<Item = Lookup, Error = ResolveError> + Send>,
         Query,
         u32,
         Arc<Mutex<DnsLru>>,
@@ -492,7 +492,7 @@ impl<C: DnsHandle + 'static> QueryState<C> {
 
     fn cname(
         &mut self,
-        future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
+        future: Box<dyn Future<Item = Lookup, Error = ResolveError> + Send>,
         cname_ttl: u32,
     ) {
         // The error state, this query is complete...
@@ -935,7 +935,7 @@ mod tests {
 
         let mut query_future = QueryFuture {
             message_future: Box::new(future::err(ProtoError::from("no message_future in test")))
-                as Box<Future<Item = DnsResponse, Error = ProtoError> + Send>,
+                as Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>,
             query: Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             cache: lru,
             dnssec: false,
