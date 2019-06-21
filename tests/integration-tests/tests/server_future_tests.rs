@@ -280,7 +280,7 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
+        .block_on::<Box<dyn Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
             server.register_socket(udp_socket);
             future::ok(())
         })))
@@ -298,7 +298,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
+        .block_on::<Box<dyn Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
             || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
         )))
         .expect("tcp registration failed");

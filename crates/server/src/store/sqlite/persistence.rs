@@ -98,7 +98,7 @@ impl Journal {
                                           \
                                             VALUES ($1, $2, $3, $4)",
             &[
-                &client_id as &ToSql,
+                &client_id as &dyn ToSql,
                 &soa_serial,
                 &timestamp,
                 &serial_record,

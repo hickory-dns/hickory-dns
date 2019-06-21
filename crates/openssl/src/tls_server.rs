@@ -45,7 +45,7 @@ pub fn read_cert_pkcs12(
     })?;
     let pkcs12 = Pkcs12::from_der(&pkcs12_bytes).map_err(|e| {
         ProtoError::from(format!(
-            "badly formated pkcs12 from: {}: {}",
+            "badly formatted pkcs12 from: {}: {}",
             path.display(),
             e
         ))

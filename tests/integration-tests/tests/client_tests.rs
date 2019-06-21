@@ -52,7 +52,7 @@ impl ClientConnection for TestClientConnection {
     type Sender = DnsMultiplexer<TestClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<Future<Item = TestClientStream, Error = ProtoError> + Send>,
+        Box<dyn Future<Item = TestClientStream, Error = ProtoError> + Send>,
         TestClientStream,
         Signer,
     >;

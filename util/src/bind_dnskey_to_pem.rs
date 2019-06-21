@@ -139,7 +139,7 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
             BigNum::from_slice(
                 &BASE64
                     .decode(value.as_bytes())
-                    .unwrap_or_else(|_| panic!("badly formated line, expected base64: {}", line)),
+                    .unwrap_or_else(|_| panic!("badly formatted line, expected base64: {}", line)),
             ).unwrap(),
         );
 

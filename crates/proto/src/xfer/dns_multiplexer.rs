@@ -111,7 +111,7 @@ impl ActiveRequest {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexer<S, MF, D = Box<DnsStreamHandle>>
+pub struct DnsMultiplexer<S, MF, D = Box<dyn DnsStreamHandle>>
 where
     D: Send + 'static,
     S: DnsClientStream + 'static,
@@ -125,7 +125,7 @@ where
     is_shutdown: bool,
 }
 
-impl<S, MF> DnsMultiplexer<S, MF, Box<DnsStreamHandle>>
+impl<S, MF> DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>
 where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer,
@@ -141,7 +141,7 @@ where
     #[allow(clippy::new_ret_no_self)]
     pub fn new<F>(
         stream: F,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<dyn DnsStreamHandle>,
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
     where
@@ -162,7 +162,7 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout<F>(
         stream: F,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<dyn DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
@@ -263,7 +263,7 @@ where
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     stream: F,
-    stream_handle: Option<Box<DnsStreamHandle>>,
+    stream_handle: Option<Box<dyn DnsStreamHandle>>,
     timeout_duration: Duration,
     signer: Option<Arc<MF>>,
 }
@@ -274,7 +274,7 @@ where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Item = DnsMultiplexer<S, MF, Box<DnsStreamHandle>>;
+    type Item = DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {

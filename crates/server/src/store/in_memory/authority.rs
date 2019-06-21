@@ -954,7 +954,7 @@ impl Authority for InMemoryAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send> {
+    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send> {
         debug!("searching InMemoryAuthority for: {}", query);
 
         let lookup_name = query.name();
