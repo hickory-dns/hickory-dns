@@ -97,7 +97,7 @@ where
 }
 
 impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
-    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         // This handler is always verifying...
@@ -209,7 +209,7 @@ impl<H: DnsHandle> DnsHandle for SecureDnsHandle<H> {
 /// A future to verify all RRSets in a returned Message.
 struct VerifyRrsetsFuture {
     message_result: Option<DnsResponse>,
-    rrsets: SelectAll<Box<Future<Item = Rrset, Error = ProtoError> + Send>>,
+    rrsets: SelectAll<Box<dyn Future<Item = Rrset, Error = ProtoError> + Send>>,
     verified_rrsets: HashSet<(Name, RecordType)>,
 }
 
@@ -219,7 +219,7 @@ fn verify_rrsets<H: DnsHandle>(
     handle: &SecureDnsHandle<H>,
     message_result: DnsResponse,
     dns_class: DNSClass,
-) -> Box<Future<Item = DnsResponse, Error = ProtoError> + Send> {
+) -> Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send> {
     let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
     for rrset in message_result
         .answers()
@@ -256,7 +256,7 @@ fn verify_rrsets<H: DnsHandle>(
 
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
-    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = ProtoError> + Send>> =
+    let mut rrsets: Vec<Box<dyn Future<Item = Rrset, Error = ProtoError> + Send>> =
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
@@ -418,7 +418,7 @@ fn verify_rrset<H>(
     handle: SecureDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ProtoError> + Send>
+) -> Box<dyn Future<Item = Rrset, Error = ProtoError> + Send>
 where
     H: DnsHandle,
 {
@@ -460,7 +460,7 @@ where
 fn verify_dnskey_rrset<H>(
     mut handle: SecureDnsHandle<H>,
     rrset: Rrset,
-) -> Box<Future<Item = Rrset, Error = ProtoError> + Send>
+) -> Box<dyn Future<Item = Rrset, Error = ProtoError> + Send>
 where
     H: DnsHandle,
 {
@@ -631,7 +631,7 @@ fn verify_default_rrset<H>(
     handle: &SecureDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ProtoError> + Send>
+) -> Box<dyn Future<Item = Rrset, Error = ProtoError> + Send>
 where
     H: DnsHandle,
 {

@@ -180,7 +180,7 @@ impl Authority for FileAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send> {
+    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send> {
         self.0.search(query, is_secure, supported_algorithms)
     }
 

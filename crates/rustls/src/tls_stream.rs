@@ -66,7 +66,7 @@ pub fn tls_connect(
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Box<Future<Item = TlsStream<ClientSession>, Error = io::Error> + Send>,
+    Box<dyn Future<Item = TlsStream<ClientSession>, Error = io::Error> + Send>,
     BufStreamHandle,
 ) {
     let (message_sender, outbound_messages) = unbounded();
@@ -77,7 +77,7 @@ pub fn tls_connect(
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream: Box<Future<Item = TlsStream<ClientSession>, Error = io::Error> + Send> = Box::new(
+    let stream: Box<dyn Future<Item = TlsStream<ClientSession>, Error = io::Error> + Send> = Box::new(
         tcp.and_then(move |tcp_stream| {
             let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from);
 

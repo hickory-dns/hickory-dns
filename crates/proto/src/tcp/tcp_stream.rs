@@ -102,7 +102,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = TcpStream<S::Transport>, Error = io::Error> + Send>,
+        Box<dyn Future<Item = TcpStream<S::Transport>, Error = io::Error> + Send>,
         BufStreamHandle,
     )
     where
@@ -122,7 +122,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        Box<Future<Item = TcpStream<S::Transport>, Error = io::Error> + Send>,
+        Box<dyn Future<Item = TcpStream<S::Transport>, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();

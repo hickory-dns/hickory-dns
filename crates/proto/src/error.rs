@@ -214,7 +214,7 @@ impl Clone for ProtoError {
 }
 
 impl Fail for ProtoError {
-    fn cause(&self) -> Option<&Fail> {
+    fn cause(&self) -> Option<&dyn Fail> {
         self.inner.cause()
     }
 

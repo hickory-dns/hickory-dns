@@ -36,7 +36,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         name_server: SocketAddr,
-    ) -> (TcpClientConnect<S::Transport>, Box<DnsStreamHandle + Send>) {
+    ) -> (TcpClientConnect<S::Transport>, Box<dyn DnsStreamHandle + Send>) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -49,7 +49,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> (TcpClientConnect<S::Transport>, Box<DnsStreamHandle + Send>) {
+    ) -> (TcpClientConnect<S::Transport>, Box<dyn DnsStreamHandle + Send>) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
         let new_future = Box::new(
@@ -106,7 +106,7 @@ impl<S: AsyncRead + AsyncWrite + Send> Stream for TcpClientStream<S> {
 
 // TODO: create unboxed future for the TCP Stream
 /// A future that resolves to an TcpClientStream
-pub struct TcpClientConnect<S>(Box<Future<Item = TcpClientStream<S>, Error = ProtoError> + Send>);
+pub struct TcpClientConnect<S>(Box<dyn Future<Item = TcpClientStream<S>, Error = ProtoError> + Send>);
 
 impl<S> Future for TcpClientConnect<S> {
     type Item = TcpClientStream<S>;

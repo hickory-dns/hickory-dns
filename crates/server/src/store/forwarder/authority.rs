@@ -114,7 +114,7 @@ impl Authority for ForwardAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send> {
+    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send> {
         Box::new(self.lookup(
             query.name(),
             query.query_type(),

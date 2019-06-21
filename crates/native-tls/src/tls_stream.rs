@@ -116,7 +116,7 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<Future<Item = TlsStream, Error = io::Error> + Send>,
+        Box<dyn Future<Item = TlsStream, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();

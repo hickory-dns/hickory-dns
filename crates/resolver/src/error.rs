@@ -91,7 +91,7 @@ impl Clone for ResolveError {
 }
 
 impl Fail for ResolveError {
-    fn cause(&self) -> Option<&Fail> {
+    fn cause(&self) -> Option<&dyn Fail> {
         self.inner.cause()
     }
 

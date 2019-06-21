@@ -32,7 +32,7 @@ pub fn tls_client_connect(
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+    Box<dyn Future<Item = TlsClientStream, Error = ProtoError> + Send>,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) = tls_connect(name_server, dns_name, client_config);

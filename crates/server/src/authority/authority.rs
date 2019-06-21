@@ -73,7 +73,7 @@ pub trait Authority: Send {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<Future<Item = Self::Lookup, Error = LookupError> + Send>;
+    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send>;
 
     /// Get the NS, NameServer, record for the zone
     fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Self::LookupFuture {

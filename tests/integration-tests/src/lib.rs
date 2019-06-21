@@ -53,7 +53,7 @@ impl TestClientStream {
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
-        Box<Future<Item = Self, Error = ProtoError> + Send>,
+        Box<dyn Future<Item = Self, Error = ProtoError> + Send>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -195,7 +195,7 @@ pub struct NeverReturnsClientStream {
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
     pub fn new() -> (
-        Box<Future<Item = Self, Error = ProtoError> + Send>,
+        Box<dyn Future<Item = Self, Error = ProtoError> + Send>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -262,7 +262,7 @@ impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<Future<Item = NeverReturnsClientStream, Error = ProtoError> + Send>,
+        Box<dyn Future<Item = NeverReturnsClientStream, Error = ProtoError> + Send>,
         NeverReturnsClientStream,
         Signer,
     >;

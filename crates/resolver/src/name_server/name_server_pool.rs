@@ -132,7 +132,7 @@ where
     C: DnsHandle + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Response = Box<Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let opts = self.options;
@@ -187,7 +187,7 @@ enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'st
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
-    DoSend(Box<Future<Item = DnsResponse, Error = ProtoError> + Send>),
+    DoSend(Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>),
 }
 
 impl<C, P> Future for TrySend<C, P>
@@ -318,7 +318,7 @@ mod mdns {
 
 pub enum Local {
     #[allow(dead_code)]
-    ResolveFuture(Box<Future<Item = DnsResponse, Error = ProtoError> + Send>),
+    ResolveFuture(Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>),
     NotMdns(DnsRequest),
 }
 
@@ -336,7 +336,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Box<Future<Item = DnsResponse, Error = ProtoError> + Send> {
+    fn take_future(self) -> Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
