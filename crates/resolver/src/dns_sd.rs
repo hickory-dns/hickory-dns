@@ -81,7 +81,7 @@ pub struct ListServices(ReverseLookup);
 impl ListServices {
     /// Returns an iterator over the list of returned names of services.
     ///
-    /// Each name can be queried for additional information. To lookup service entries see `AsyncResolver::srv_lookup`. To get parameters associated with the service, see `DnsSdFuture::service_info`.
+    /// Each name can be queried for additional information. To lookup service entries see [`AsyncResolver::lookup_srv`]. To get parameters associated with the service, see `DnsSdFuture::service_info`.
     pub fn iter(&self) -> ListServicesIter {
         ListServicesIter(self.0.iter())
     }
