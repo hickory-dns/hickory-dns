@@ -24,9 +24,9 @@ use AsyncResolver;
 ///
 /// For forward (A) lookups, hostname -> IP address, see: `Resolver::lookup_ip`
 ///
-/// Special note about resource consumption. The Resolver and all Trust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`trust_dns_resolver::ResolverFuture`]. To allow the Resolver to be [`Send`] + [`Sync`], the construction of the `ResolverFuture` is lazy, this means some of the features of the `ResolverFuture`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the Trust-DNS Resolver are desired, please use the tokio based `ResolverFuture`.
+/// Special note about resource consumption. The Resolver and all Trust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`AsyncResolver`]. To allow the `Resolver` to be [`Send`] + [`Sync`], the construction of the `AsyncResolver` is lazy, this means some of the features of the `AsyncResolver`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the Trust-DNS Resolver are desired, please use the tokio based [`AsyncResolver`].
 ///
-/// *Note: Threaded/Sync usage*: In multithreaded scenarios, the internal Tokio Runtime will block on an internal Mutex for the tokio Runtime in use. For higher performance, it's recommended to use the `AsyncResolver`.
+/// *Note: Threaded/Sync usage*: In multithreaded scenarios, the internal Tokio Runtime will block on an internal Mutex for the tokio Runtime in use. For higher performance, it's recommended to use the [`AsyncResolver`].
 pub struct Resolver {
     // TODO: Mutex allows this to be Sync, another option would be to instantiate a thread_local, but that has other
     //   drawbacks. One major issues, is if this Resolver is shared across threads, it will cause all to block on any

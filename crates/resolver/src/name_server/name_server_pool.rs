@@ -22,7 +22,7 @@ use name_server;
 
 /// A pool of NameServers
 ///
-/// This is not expected to be used directly, see `ResolverFuture`.
+/// This is not expected to be used directly, see [`AsyncResolver`].
 #[derive(Clone)]
 pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
