@@ -142,7 +142,7 @@ impl Resolver {
     /// * `service` - service to lookup, e.g. ldap or http
     /// * `protocol` - wire protocol, e.g. udp or tcp
     /// * `name` - zone or other name at which the service is located.
-    #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
+    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
     pub fn lookup_service(
         &self,
         service: &str,

@@ -284,7 +284,7 @@ impl AsyncResolver {
     /// * `service` - service to lookup, e.g. ldap or http
     /// * `protocol` - wire protocol, e.g. udp or tcp
     /// * `name` - zone or other name at which the service is located.
-    #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
+    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
     pub fn lookup_service(
         &self,
         service: &str,
@@ -314,7 +314,7 @@ impl AsyncResolver {
     lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
     lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
     lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
-    #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
+    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
     lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
