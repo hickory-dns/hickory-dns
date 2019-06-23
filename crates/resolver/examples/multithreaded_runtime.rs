@@ -23,7 +23,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            AsyncResolver::from_system_conf().expect("Failed to create ResolverFuture")
+            AsyncResolver::from_system_conf().expect("Failed to create AsyncResolver")
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

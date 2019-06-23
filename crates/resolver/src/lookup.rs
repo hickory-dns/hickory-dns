@@ -207,7 +207,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEi
     }
 }
 
-/// The Future returned from ResolverFuture when performing a lookup.
+/// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
 pub struct LookupFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
 where
