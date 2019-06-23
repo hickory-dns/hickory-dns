@@ -164,6 +164,7 @@ impl Resolver {
     lookup_fn!(ipv4_lookup, lookup::Ipv4Lookup);
     lookup_fn!(ipv6_lookup, lookup::Ipv6Lookup);
     lookup_fn!(mx_lookup, lookup::MxLookup);
+    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
     lookup_fn!(srv_lookup, lookup::SrvLookup);
     lookup_fn!(txt_lookup, lookup::TxtLookup);
 }
