@@ -68,7 +68,6 @@ impl Resolver {
     /// # Arguments
     /// * `config` - configuration for the resolver
     /// * `options` - resolver options for performing lookups
-    /// * `client_connection` - ClientConnection for establishing the connection to the DNS server
     ///
     /// # Returns
     ///
