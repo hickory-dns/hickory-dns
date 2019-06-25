@@ -318,7 +318,7 @@ impl SrvLookup {
 
     /// Returns the list of IPs associated with the SRV record.
     ///
-    /// *Note*: the lack of any IPs does not necessarily meant that there are no IPs available for the service, only that they were not included in the original request. A subsequent query for the IPs via the `srv.target()` should resolve to the IPs.
+    /// *Note*: That Trust-DNS performs a recursive lookup on SRV records for IPs if they were not included in the original request. If there are no IPs associated to the result, a subsequent query for the IPs via the `srv.target()` should not resolve to the IPs.
     pub fn ip_iter(&self) -> LookupIpIter {
         LookupIpIter(self.0.iter())
     }
