@@ -37,8 +37,7 @@ impl Hosts {
         read_hosts_conf(hosts_path()).unwrap_or_default()
     }
 
-    /// lookup_static_host looks up the addresses
-    /// for the given host from the system hosts file.
+    /// Look up the addresses for the given host from the system hosts file.
     pub fn lookup_static_host(&self, query: &Query) -> Option<Lookup> {
         if !self.by_name.is_empty() {
             if let Some(val) = self.by_name.get(query.name()) {
