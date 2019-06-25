@@ -253,20 +253,20 @@ pub struct NameServerConfig {
     pub tls_dns_name: Option<String>,
 }
 
-/// A set of name_servers to associate with a ResolverConfiguration
+/// A set of name_servers to associate with a [`ResolverConfig`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
 pub struct NameServerConfigGroup(Vec<NameServerConfig>);
 
 impl NameServerConfigGroup {
-    /// Creates a new NameServerConfigGroup with a default size of 2
+    /// Creates a new `NameServerConfigGroup` with a default size of 2
     pub fn new() -> Self {
         // this might be a nice opportunity for SmallVec
         //   most name_server configs will be 2.
         Self::with_capacity(2)
     }
 
-    /// Creates a new NameServiceConfigGroup with the specified capacity
+    /// Creates a new `NameServiceConfigGroup` with the specified capacity
     pub fn with_capacity(capacity: usize) -> Self {
         NameServerConfigGroup(Vec::with_capacity(capacity))
     }
@@ -428,7 +428,7 @@ impl NameServerConfigGroup {
         )
     }
 
-    /// Merges this set of NameServerConfigs with the other
+    /// Merges this set of [`NameServerConfig`]s with the other
     ///
     /// ```
     /// use std::net::{SocketAddr, Ipv4Addr};
@@ -489,7 +489,7 @@ pub enum LookupIpStrategy {
 }
 
 impl Default for LookupIpStrategy {
-    /// Returns Ipv4AndIpv6 as the default.
+    /// Returns [`LookupIpStrategy::Ipv4AndIpv6`] as the default.
     fn default() -> Self {
         LookupIpStrategy::Ipv4thenIpv6
     }

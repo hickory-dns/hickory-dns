@@ -43,7 +43,7 @@ macro_rules! lookup_fn {
 ///
 /// # Arguments
 ///
-/// * `query` - a str which parses to a domain name, failure to parse will return an error
+/// * `query` - a `&str` which parses to a domain name, failure to parse will return an error
 pub fn $p(&self, query: &str) -> ResolveResult<$l> {
     let lookup = self.async_resolver.$p(query);
     self.runtime.lock()?.block_on(lookup)
@@ -72,7 +72,7 @@ impl Resolver {
     ///
     /// # Returns
     ///
-    /// A new Resolver or an error if there was an error with the configuration.
+    /// A new `Resolver` or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
         let mut builder = runtime::Builder::new();
         builder.core_threads(1);
@@ -94,7 +94,7 @@ impl Resolver {
     ///
     /// # Returns
     ///
-    /// A new Resolver or an error if there was an error with the configuration.
+    /// A new `Resolver` or an error if there was an error with the configuration.
     pub fn default() -> io::Result<Self> {
         Self::new(ResolverConfig::default(), ResolverOpts::default())
     }

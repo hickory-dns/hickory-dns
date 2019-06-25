@@ -201,10 +201,10 @@ impl Name {
         self
     }
 
-    /// Appends the `domain` to `self`, making the new Name an FQDN
+    /// Appends the `domain` to `self`, making the new `Name` an FQDN
     ///
-    /// This is an alias for append_name with the added effect of marking the new Name as
-    ///  a fully-qualified-domain-name.
+    /// This is an alias for `append_name` with the added effect of marking the new `Name` as
+    /// a fully-qualified-domain-name.
     ///
     /// # Examples
     ///
@@ -297,7 +297,7 @@ impl Name {
         }
     }
 
-    /// same as zone_of allows for case sensitive call
+    /// same as `zone_of` allows for case sensitive call
     pub fn zone_of_case(&self, name: &Self) -> bool {
         let self_len = self.labels.len();
         let name_len = name.labels.len();
@@ -478,8 +478,8 @@ impl Name {
         Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
     }
 
-    /// First attempts to decode via from_utf8, if that fails IDNA checks, than falls back to
-    ///   ascii decoding.
+    /// First attempts to decode via `from_utf8`, if that fails IDNA checks, than falls back to
+    /// ascii decoding.
     ///
     /// # Examples
     ///
@@ -972,7 +972,7 @@ impl<'r> BinDecodable<'r> for Name {
     /// parses the chain of labels
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
-    /// This will consume the portions of the Vec which it is reading...
+    /// This will consume the portions of the `Vec` which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
         read_inner(decoder, None)
     }
