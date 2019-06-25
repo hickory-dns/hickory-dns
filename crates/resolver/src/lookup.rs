@@ -71,7 +71,7 @@ impl Lookup {
         }
     }
 
-    /// Returns a reference to the Query that was used to produce this result.
+    /// Returns a reference to the `Query` that was used to produce this result.
     pub fn query(&self) -> &Query {
         &self.query
     }
@@ -117,7 +117,7 @@ impl Lookup {
     }
 }
 
-/// Borrowed view of set of RDatas returned from a Lookup
+/// Borrowed view of set of [`RData`]s returned from a Lookup
 pub struct LookupIter<'a>(Iter<'a, Record>);
 
 impl<'a> Iterator for LookupIter<'a> {
@@ -128,7 +128,7 @@ impl<'a> Iterator for LookupIter<'a> {
     }
 }
 
-/// Borrowed view of set of RDatas returned from a Lookup
+/// Borrowed view of set of [`RData`]s returned from a Lookup
 pub struct LookupRecordIter<'a>(Iter<'a, Record>);
 
 impl<'a> Iterator for LookupRecordIter<'a> {
@@ -143,7 +143,7 @@ impl IntoIterator for Lookup {
     type Item = RData;
     type IntoIter = LookupIntoIter;
 
-    /// This is most likely not a free conversion, the RDatas will be cloned if data is
+    /// This is most likely not a free conversion, the `RData`s will be cloned if data is
     ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
     fn into_iter(self) -> Self::IntoIter {
         LookupIntoIter {
@@ -153,9 +153,9 @@ impl IntoIterator for Lookup {
     }
 }
 
-/// Borrowed view of set of RDatas returned from a Lookup
+/// Borrowed view of set of [`RData`]s returned from a [`Lookup`].
 ///
-/// This is not usually a zero overhead Iterator, it may result in clones of the RData
+/// This is not usually a zero overhead `Iterator`, it may result in clones of the [`RData`].
 pub struct LookupIntoIter {
     // the result of the try_unwrap on Arc
     records: Result<IntoIter<Record>, Arc<Vec<Record>>>,

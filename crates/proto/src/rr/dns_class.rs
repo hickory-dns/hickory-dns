@@ -60,7 +60,7 @@ impl FromStr for DNSClass {
 }
 
 impl DNSClass {
-    /// Convert from u16 to DNSClass
+    /// Convert from `u16` to `DNSClass`
     ///
     /// ```
     /// use trust_dns_proto::rr::dns_class::DNSClass;
@@ -101,7 +101,7 @@ impl<'r> BinDecodable<'r> for DNSClass {
 
 // TODO make these a macro or annotation
 
-/// Convert from DNSClass to &str
+/// Convert from `DNSClass` to `&str`
 ///
 /// ```
 /// use trust_dns_proto::rr::dns_class::DNSClass;
@@ -122,7 +122,7 @@ impl From<DNSClass> for &'static str {
     }
 }
 
-/// Convert from DNSClass to u16
+/// Convert from `DNSClass` to `u16`
 ///
 /// ```
 /// use trust_dns_proto::rr::dns_class::DNSClass;

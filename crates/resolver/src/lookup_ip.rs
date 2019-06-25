@@ -41,7 +41,7 @@ impl LookupIp {
         LookupIpIter(self.0.iter())
     }
 
-    /// Returns a reference to the Query that was used to produce this result.
+    /// Returns a reference to the `Query` that was used to produce this result.
     pub fn query(&self) -> &Query {
         self.0.query()
     }

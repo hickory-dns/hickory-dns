@@ -177,7 +177,7 @@ impl Display for ResponseCode {
     }
 }
 
-/// Convert from ResponseCode to u16
+/// Convert from `ResponseCode` to `u16`
 ///
 /// ```
 /// use std::convert::From;
@@ -221,7 +221,7 @@ impl From<ResponseCode> for u16 {
     }
 }
 
-/// Convert from u16 to ResponseCode
+/// Convert from `u16` to `ResponseCode`
 ///
 /// ```
 /// use std::convert::From;

@@ -239,7 +239,7 @@ impl<'r> BinDecodable<'r> for RecordType {
 
 // TODO make these a macro...
 
-/// Convert from RecordType to &str
+/// Convert from `RecordType` to `&str`
 ///
 /// ```
 /// use std::convert::From;
@@ -282,7 +282,7 @@ impl From<RecordType> for &'static str {
     }
 }
 
-/// Convert from RecordType to &str
+/// Convert from `RecordType` to `u16`
 ///
 /// ```
 /// use std::convert::From;

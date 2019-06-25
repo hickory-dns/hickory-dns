@@ -53,7 +53,7 @@ pub enum OpCode {
     Update,
 }
 
-/// Convert from OpCode to u8
+/// Convert from `OpCode` to `u8`
 ///
 /// ```
 /// use std::convert::From;
@@ -79,7 +79,7 @@ impl From<OpCode> for u8 {
     }
 }
 
-/// Convert from u8 to OpCode
+/// Convert from `u8` to `OpCode`
 ///
 /// ```
 /// use std::convert::From;
