@@ -117,10 +117,10 @@ impl<S> Future for TcpClientConnect<S> {
     }
 }
 
-#[cfg(any(feature = "tokio-compat", test))]
+#[cfg(feature = "tokio-compat")]
 use tokio_tcp::TcpStream as TokioTcpStream;
 
-#[cfg(any(feature = "tokio-compat", test))]
+#[cfg(feature = "tokio-compat")]
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
     type Future = tokio_tcp::ConnectFuture;

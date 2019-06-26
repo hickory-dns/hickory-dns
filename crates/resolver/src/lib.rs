@@ -199,7 +199,7 @@ extern crate resolv_conf;
 #[macro_use]
 extern crate serde;
 extern crate smallvec;
-#[cfg(any(feature = "tokio", test))]
+#[cfg(feature = "tokio")]
 extern crate tokio;
 extern crate tokio_executor;
 extern crate tokio_tcp;
@@ -226,7 +226,7 @@ pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server;
-#[cfg(any(feature = "tokio", test))]
+#[cfg(feature = "tokio")]
 mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
@@ -237,7 +237,7 @@ pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
 pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
 pub use hosts::Hosts;
-#[cfg(any(feature = "tokio", test))]
+#[cfg(feature = "tokio")]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
