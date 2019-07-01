@@ -182,7 +182,7 @@ presume that the trust-dns repos have already been synced to the local system:
   # note for openssl that a minimum version of 1.0.2 is required for TLS, 
   #  if this is an issue, TLS can be disabled (on the client), see below.
   $ apt-get install openssl
-  $ apt-get install libssl-dev
+  $ apt-get install libssl-dev pkg-config
 ```
 
 ## Testing
