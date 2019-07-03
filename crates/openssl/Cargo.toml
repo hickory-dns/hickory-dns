@@ -42,7 +42,7 @@ name = "trust_dns_openssl"
 path = "src/lib.rs"
 
 [dependencies]
-futures = "0.1.27"
+futures = "0.1.28"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 tokio-openssl = "0.3"
 tokio-tcp = "0.1"
