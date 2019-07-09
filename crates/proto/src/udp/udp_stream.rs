@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::io;
+use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use futures::stream::{Fuse, Peekable, Stream};
@@ -14,18 +15,31 @@ use futures::task;
 use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
-use tokio_udp;
 
 use crate::xfer::{BufStreamHandle, SerialMessage};
 
+/// Trait for UdpSocket
+pub trait UdpSocket
+where
+    Self: Sized,
+{
+    /// UdpSocket
+    fn bind(addr: &SocketAddr) -> io::Result<Self>;
+    /// Receive data from the socket and returns the number of bytes read and the address from
+    /// where the data came on success.
+    fn poll_recv_from(&mut self, buf: &mut [u8]) -> Poll<(usize, SocketAddr), io::Error>;
+    /// Send data to the given address.
+    fn poll_send_to(&mut self, buf: &[u8], target: &SocketAddr) -> Poll<(), io::Error>;
+}
+
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpStream {
-    socket: tokio_udp::UdpSocket,
+pub struct UdpStream<S> {
+    socket: S,
     outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
 }
 
-impl UdpStream {
+impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// This method is intended for client connections, see `with_bound` for a method better for
     ///  straight listening. It is expected that the resolver wrapper will be responsible for
     ///  creating and managing new UdpStreams such that each new client would have a random port
@@ -42,7 +56,7 @@ impl UdpStream {
     pub fn new(
         name_server: SocketAddr,
     ) -> (
-        Box<dyn Future<Item = UdpStream, Error = io::Error> + Send>,
+        Box<Future<Item = UdpStream<S>, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -73,9 +87,9 @@ impl UdpStream {
     ///
     /// # Return
     ///
-    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
+    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound(socket: tokio_udp::UdpSocket) -> (Self, BufStreamHandle) {
+    pub fn with_bound(socket: S) -> (Self, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
@@ -89,7 +103,7 @@ impl UdpStream {
 
     #[allow(unused)]
     pub(crate) fn from_parts(
-        socket: tokio_udp::UdpSocket,
+        socket: S,
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
@@ -99,7 +113,7 @@ impl UdpStream {
     }
 }
 
-impl Stream for UdpStream {
+impl<S: UdpSocket> Stream for UdpStream<S> {
     type Item = SerialMessage;
     type Error = io::Error;
 
@@ -143,13 +157,14 @@ impl Stream for UdpStream {
 }
 
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct NextRandomUdpSocket {
+pub(crate) struct NextRandomUdpSocket<S> {
     bind_address: IpAddr,
+    marker: PhantomData<S>,
 }
 
-impl NextRandomUdpSocket {
+impl<S> NextRandomUdpSocket<S> {
     /// Creates a future for randomly binding to a local socket address for client connections.
-    pub(crate) fn new(name_server: &SocketAddr) -> NextRandomUdpSocket {
+    pub(crate) fn new(name_server: &SocketAddr) -> NextRandomUdpSocket<S> {
         let zero_addr: IpAddr = match *name_server {
             SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
@@ -157,12 +172,13 @@ impl NextRandomUdpSocket {
 
         NextRandomUdpSocket {
             bind_address: zero_addr,
+            marker: PhantomData,
         }
     }
 }
 
-impl Future for NextRandomUdpSocket {
-    type Item = tokio_udp::UdpSocket;
+impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
+    type Item = S;
     type Error = io::Error;
 
     /// polls until there is an available next random UDP port.
@@ -177,9 +193,9 @@ impl Future for NextRandomUdpSocket {
             let zero_addr = SocketAddr::new(self.bind_address, port);
 
             // TODO: allow TTL to be adjusted...
-            match tokio_udp::UdpSocket::bind(&zero_addr) {
+            match S::bind(&zero_addr) {
                 Ok(socket) => {
-                    debug!("created socket: {:?}", socket);
+                    debug!("created socket successfully");
                     return Ok(Async::Ready(socket));
                 }
                 Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
@@ -199,7 +215,10 @@ fn test_next_random_socket() {
     use tokio::runtime::current_thread::Runtime;
 
     let mut io_loop = Runtime::new().unwrap();
-    let (stream, _) = UdpStream::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
+    let (stream, _) = UdpStream::<tokio_udp::UdpSocket>::new(SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        52,
+    ));
     drop(
         io_loop
             .block_on(stream)
@@ -216,6 +235,24 @@ fn test_udp_stream_ipv4() {
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_udp_stream_ipv6() {
     udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+}
+#[cfg(feature = "tokio-compat")]
+use tokio_udp;
+
+#[cfg(feature = "tokio-compat")]
+impl UdpSocket for tokio_udp::UdpSocket {
+    fn bind(addr: &SocketAddr) -> io::Result<Self> {
+        tokio_udp::UdpSocket::bind(addr)
+    }
+    fn poll_recv_from(&mut self, buf: &mut [u8]) -> Poll<(usize, SocketAddr), io::Error> {
+        self.poll_recv_from(buf)
+    }
+    fn poll_send_to(&mut self, buf: &[u8], target: &SocketAddr) -> Poll<(), io::Error> {
+        self.poll_send_to(buf, target).map(|x| match x {
+            Async::Ready(_) => Async::Ready(()),
+            Async::NotReady => Async::NotReady,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -286,7 +323,7 @@ fn udp_stream_test(server_addr: IpAddr) {
     let socket =
         tokio_udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap())
             .expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::with_bound(socket);
+    let (mut stream, sender) = UdpStream::<tokio_udp::UdpSocket>::with_bound(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {

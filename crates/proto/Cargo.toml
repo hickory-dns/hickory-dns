@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-proto"
-version = "0.7.4"
+version = "0.7.5"
 edition = "2018"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
@@ -39,7 +39,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring", "untrusted"]
 dnssec = ["data-encoding"]
-tokio-compat = ["tokio-tcp", "tokio-reactor"]
+tokio-compat = ["tokio-reactor", "tokio-tcp", "tokio-udp"]
 default = ["tokio-compat"]
 
 serde-config = ["serde"]
@@ -74,7 +74,7 @@ tokio-io = "^0.1"
 tokio-reactor = { version = "^0.1", optional = true}
 tokio-tcp = { version = "^0.1", optional = true }
 tokio-timer = "0.2.10"
-tokio-udp = "^0.1"
+tokio-udp = { version = "^0.1", optional = true }
 untrusted = { version = "^0.6", optional = true }
 url = "1.6.0"
 

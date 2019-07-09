@@ -203,6 +203,7 @@ extern crate smallvec;
 extern crate tokio;
 extern crate tokio_executor;
 extern crate tokio_tcp;
+extern crate tokio_udp;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 #[cfg(feature = "dns-over-native-tls")]

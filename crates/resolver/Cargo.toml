@@ -72,10 +72,11 @@ smallvec = "^0.6"
 tokio = { version = "^0.1.15", optional = true }
 tokio-executor = "^0.1.7"
 tokio-tcp = "^0.1"
+tokio-udp = "^0.1"
 trust-dns-https = { version = "0.3.0", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.6.0", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.6.0", path = "../openssl", optional = true }
-trust-dns-proto = { version = "0.7.3", path = "../proto" }
+trust-dns-proto = { version = "0.7.5", path = "../proto" }
 trust-dns-rustls = { version = "0.6.0", path = "../rustls", optional = true }
 webpki-roots = { version = "^0.16", optional = true }
 

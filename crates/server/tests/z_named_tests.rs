@@ -12,6 +12,7 @@ extern crate futures;
 extern crate log;
 extern crate tokio;
 extern crate tokio_tcp;
+extern crate tokio_udp;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -27,6 +28,7 @@ use std::str::FromStr;
 
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns::client::*;
 use trust_dns::op::ResponseCode;
@@ -192,7 +194,7 @@ fn test_server_continues_on_bad_data_udp() {
     named_test_harness("example.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let stream = UdpClientStream::new(addr);
+        let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
         let (bg, mut client) = ClientFuture::connect(stream);
 
         io_loop.spawn(bg);
@@ -209,7 +211,7 @@ fn test_server_continues_on_bad_data_udp() {
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let stream = UdpClientStream::new(addr);
+        let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
         let (bg, mut client) = ClientFuture::connect(stream);
         io_loop.spawn(bg);
 

@@ -18,6 +18,8 @@ use client::ClientConnection;
 use error::*;
 use rr::dnssec::Signer;
 
+use tokio_udp::UdpSocket;
+
 /// UDP based DNS Client connection
 ///
 /// Use with `trust_dns::client::Client` impls
@@ -39,19 +41,19 @@ impl UdpClientConnection {
 
     /// Allows a custom timeout
     pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> ClientResult<Self> {
-        Ok(UdpClientConnection {name_server, timeout})
+        Ok(UdpClientConnection {
+            name_server,
+            timeout,
+        })
     }
 }
 
 impl ClientConnection for UdpClientConnection {
-    type Sender = UdpClientStream<Signer>;
+    type Sender = UdpClientStream<UdpSocket, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = UdpClientConnect<Signer>;
+    type SenderFuture = UdpClientConnect<UdpSocket, Signer>;
 
-    fn new_stream(
-        &self,
-        signer: Option<Arc<Signer>>,
-    ) -> Self::SenderFuture {
+    fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         UdpClientStream::with_timeout_and_signer(self.name_server, self.timeout, signer)
     }
 }

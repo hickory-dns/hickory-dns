@@ -7,18 +7,18 @@
 
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{Async, Future, Poll, Stream};
 use tokio_timer::Timeout;
-use tokio_udp;
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{Message, MessageFinalizer, OpCode};
-use crate::udp::udp_stream::NextRandomUdpSocket;
+use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 
 /// A UDP client stream of DNS binary packets
@@ -26,17 +26,19 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 /// This stream will create a new UDP socket for every request. This is to avoid potential cache
 ///   poisoning during use by UDP based attacks.
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpClientStream<MF = NoopMessageFinalizer>
+pub struct UdpClientStream<S, MF = NoopMessageFinalizer>
 where
+    S: Send,
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
     timeout: Duration,
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
+    marker: PhantomData<S>,
 }
 
-impl UdpClientStream<NoopMessageFinalizer> {
+impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
     /// it is expected that the resolver wrapper will be responsible for creating and managing
     ///  new UdpClients such that each new client would have a random port (reduce chance of cache
     ///  poisoning)
@@ -46,11 +48,11 @@ impl UdpClientStream<NoopMessageFinalizer> {
     /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(name_server: SocketAddr) -> UdpClientConnect<NoopMessageFinalizer> {
+    pub fn new(name_server: SocketAddr) -> UdpClientConnect<S, NoopMessageFinalizer> {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
-    /// Constructs a new TcpStream for a client to the specified SocketAddr.
+    /// Constructs a new UdpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
     ///
@@ -59,12 +61,12 @@ impl UdpClientStream<NoopMessageFinalizer> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> UdpClientConnect<NoopMessageFinalizer> {
+    ) -> UdpClientConnect<S, NoopMessageFinalizer> {
         Self::with_timeout_and_signer(name_server, timeout, None)
     }
 }
 
-impl<MF: MessageFinalizer> UdpClientStream<MF> {
+impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
     /// Constructs a new TcpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
@@ -75,16 +77,17 @@ impl<MF: MessageFinalizer> UdpClientStream<MF> {
         name_server: SocketAddr,
         timeout: Duration,
         signer: Option<Arc<MF>>,
-    ) -> UdpClientConnect<MF> {
+    ) -> UdpClientConnect<S, MF> {
         UdpClientConnect {
             name_server: Some(name_server),
             timeout,
             signer,
+            marker: PhantomData::<S>,
         }
     }
 }
 
-impl<MF: MessageFinalizer> Display for UdpClientStream<MF> {
+impl<S: Send, MF: MessageFinalizer> Display for UdpClientStream<S, MF> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(formatter, "UDP({})", self.name_server)
     }
@@ -98,8 +101,10 @@ fn random_query_id() -> u16 {
     Standard.sample(&mut rand)
 }
 
-impl<MF: MessageFinalizer> DnsRequestSender for UdpClientStream<MF> {
-    type DnsResponseFuture = UdpResponse;
+impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
+    for UdpClientStream<S, MF>
+{
+    type DnsResponseFuture = UdpResponse<S>;
 
     fn send_message(&mut self, mut message: DnsRequest) -> Self::DnsResponseFuture {
         if self.is_shutdown {
@@ -174,7 +179,7 @@ impl<MF: MessageFinalizer> DnsRequestSender for UdpClientStream<MF> {
 }
 
 // TODO: is this impl necessary? there's nothing being driven here...
-impl<MF: MessageFinalizer> Stream for UdpClientStream<MF> {
+impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
     type Item = ();
     type Error = ProtoError;
 
@@ -189,9 +194,9 @@ impl<MF: MessageFinalizer> Stream for UdpClientStream<MF> {
 }
 
 /// A future that resolves to
-pub struct UdpResponse(Timeout<SingleUseUdpSocket>);
+pub struct UdpResponse<S>(Timeout<SingleUseUdpSocket<S>>);
 
-impl UdpResponse {
+impl<S> UdpResponse<S> {
     /// creates a new future for the request
     ///
     /// # Arguments
@@ -206,7 +211,7 @@ impl UdpResponse {
     }
 }
 
-impl Future for UdpResponse {
+impl<S: UdpSocket> Future for UdpResponse<S> {
     type Item = DnsResponse;
     type Error = ProtoError;
 
@@ -216,21 +221,23 @@ impl Future for UdpResponse {
 }
 
 /// A future that resolves to an UdpClientStream
-pub struct UdpClientConnect<MF = NoopMessageFinalizer>
+pub struct UdpClientConnect<S, MF = NoopMessageFinalizer>
 where
+    S: Send,
     MF: MessageFinalizer,
 {
     name_server: Option<SocketAddr>,
     timeout: Duration,
     signer: Option<Arc<MF>>,
+    marker: PhantomData<S>,
 }
 
-impl<MF: MessageFinalizer> Future for UdpClientConnect<MF> {
-    type Item = UdpClientStream<MF>;
+impl<S: Send, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
+    type Item = UdpClientStream<S, MF>;
     type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(Async::Ready(UdpClientStream {
+        Ok(Async::Ready(UdpClientStream::<S, MF> {
             name_server: self
                 .name_server
                 .take()
@@ -238,20 +245,21 @@ impl<MF: MessageFinalizer> Future for UdpClientConnect<MF> {
             is_shutdown: false,
             timeout: self.timeout,
             signer: self.signer.take(),
+            marker: PhantomData,
         }))
     }
 }
 
-enum SingleUseUdpSocket {
+enum SingleUseUdpSocket<S> {
     StartSend(Option<SerialMessage>, u16),
-    Connect(Option<SerialMessage>, NextRandomUdpSocket, u16),
-    Send(Option<SerialMessage>, Option<tokio_udp::UdpSocket>, u16),
-    AwaitResponse(Option<SerialMessage>, tokio_udp::UdpSocket, u16),
+    Connect(Option<SerialMessage>, NextRandomUdpSocket<S>, u16),
+    Send(Option<SerialMessage>, Option<S>, u16),
+    AwaitResponse(Option<SerialMessage>, S, u16),
     Response(Option<Message>),
     Errored(Option<ProtoError>),
 }
 
-impl Future for SingleUseUdpSocket {
+impl<S: UdpSocket> Future for SingleUseUdpSocket<S> {
     type Item = DnsResponse;
     type Error = ProtoError;
 
@@ -375,6 +383,8 @@ impl Future for SingleUseUdpSocket {
 use std::net::Ipv6Addr;
 #[cfg(test)]
 use std::net::{IpAddr, Ipv4Addr};
+#[cfg(test)]
+use tokio_udp;
 
 #[test]
 fn test_udp_client_stream_ipv4() {
@@ -476,7 +486,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
     let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
-    let mut stream: UdpClientStream = io_loop.block_on(stream).ok().unwrap();
+    let mut stream: UdpClientStream<tokio_udp::UdpSocket> = io_loop.block_on(stream).ok().unwrap();
     let mut worked_once = false;
 
     for i in 0..send_recv_times {

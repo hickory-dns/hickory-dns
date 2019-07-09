@@ -63,7 +63,7 @@ impl Hosts {
             .or_insert_with(LookupType::default);
 
         let new_lookup = {
-            let mut old_lookup = match record_type {
+            let old_lookup = match record_type {
                 RecordType::A => lookup_type.a.get_or_insert_with(|| {
                     let query = Query::query(name.clone(), record_type);
                     Lookup::new_with_max_ttl(query, Arc::new(vec![]))

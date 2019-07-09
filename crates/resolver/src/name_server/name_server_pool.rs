@@ -16,9 +16,9 @@ use proto::op::ResponseCode;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use config::{ResolverConfig, ResolverOpts};
-use name_server::{NameServer, ConnectionHandle, ConnectionProvider, StandardConnection};
 #[cfg(feature = "mdns")]
 use name_server;
+use name_server::{ConnectionHandle, ConnectionProvider, NameServer, StandardConnection};
 
 /// A pool of NameServers
 ///
@@ -56,7 +56,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
                     *options,
                     conn_provider.clone(),
                 )
-            }).collect();
+            })
+            .collect();
 
         let stream_conns: Vec<NameServer<C, P>> = config
             .name_servers()
@@ -68,7 +69,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
                     *options,
                     conn_provider.clone(),
                 )
-            }).collect();
+            })
+            .collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
@@ -231,7 +233,7 @@ where
                         // TODO: restrict this size to a maximum # of NameServers to try
                         // get a stable view for trying all connections
                         //   we split into chunks of the number of parallel requests to issue
-                        let mut conns: Vec<NameServer<C, P>> = conns.clone();
+                        let conns: Vec<NameServer<C, P>> = conns.clone();
                         let request = request.take();
                         let request = request.expect("bad state, message should never be None");
                         let request_loop = request.clone();
@@ -385,8 +387,8 @@ mod tests {
     use proto::xfer::{DnsHandle, DnsRequestOptions};
 
     use super::*;
-    use config::Protocol;
     use config::NameServerConfig;
+    use config::Protocol;
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout
@@ -423,7 +425,8 @@ mod tests {
                     .block_on(pool.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
-                    )).is_err(),
+                    ))
+                    .is_err(),
                 "iter: {}",
                 i
             );
@@ -435,7 +438,8 @@ mod tests {
                     .block_on(pool.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
-                    )).is_ok(),
+                    ))
+                    .is_ok(),
                 "iter: {}",
                 i
             );

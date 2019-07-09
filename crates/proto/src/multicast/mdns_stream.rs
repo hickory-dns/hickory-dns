@@ -39,7 +39,7 @@ pub struct MdnsStream {
     /// Multicast address used for mDNS queries
     multicast_addr: SocketAddr,
     /// This is used for sending and (directly) receiving messages
-    datagram: Option<UdpStream>,
+    datagram: Option<UdpStream<UdpSocket>>,
     /// In one-shot multicast, this will not join the multicast group
     multicast: Option<UdpSocket>,
 }

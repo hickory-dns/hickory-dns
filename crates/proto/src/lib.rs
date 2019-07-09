@@ -43,6 +43,7 @@ extern crate tokio_io;
 #[cfg(feature = "tokio-compat")]
 extern crate tokio_tcp;
 extern crate tokio_timer;
+#[cfg(feature = "tokio-compat")]
 extern crate tokio_udp;
 #[cfg(feature = "ring")]
 extern crate untrusted;
