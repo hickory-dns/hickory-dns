@@ -3,6 +3,7 @@
 extern crate futures;
 extern crate tokio;
 extern crate tokio_tcp;
+extern crate tokio_udp;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -14,6 +15,7 @@ use std::sync::{Arc, Mutex};
 
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns::client::{
     BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
@@ -254,7 +256,10 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>, Runtime),
+    F: Fn(
+        SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse<TokioUdpSocket>>>>,
+        Runtime,
+    ),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

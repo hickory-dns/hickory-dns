@@ -634,7 +634,7 @@ impl InMemoryAuthority {
         }
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
-        for mut rr_set_orig in records.values_mut() {
+        for rr_set_orig in records.values_mut() {
             // because the rrset is an Arc, it must be cloned before mutated
             let rr_set = Arc::make_mut(rr_set_orig);
             Self::sign_rrset(rr_set, secure_keys, minimum_ttl, self.class)?;

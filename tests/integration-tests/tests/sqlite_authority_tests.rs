@@ -889,7 +889,7 @@ fn test_zone_signing() {
             continue;
         }
 
-        let mut inner_results = authority
+        let inner_results = authority
             .lookup(
                 &authority.origin(),
                 RecordType::AXFR,

@@ -211,10 +211,12 @@
 //!
 //! ```rust
 //! # extern crate tokio;
+//! # extern crate tokio_udp;
 //! # extern crate trust_dns;
 //!
 //! use std::net::{Ipv4Addr, SocketAddr};
 //! use std::str::FromStr;
+//! use tokio_udp::UdpSocket;
 //! use tokio::runtime::current_thread::Runtime;
 //!
 //! use trust_dns::udp::UdpClientStream;
@@ -228,7 +230,7 @@
 //!
 //! // We need a connection, TCP and UDP are supported by DNS servers
 //! //   (tcp construction is slightly different as it needs a multiplexer)
-//! let stream = UdpClientStream::new(([8,8,8,8], 53).into());
+//! let stream = UdpClientStream::<UdpSocket>::new(([8,8,8,8], 53).into());
 //!
 //! // Create a new client, the bg is a background future which handles
 //! //   the multiplexing of the DNS requests to the server.
@@ -281,6 +283,7 @@ extern crate tokio_openssl;
 extern crate tokio_tcp;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
+extern crate tokio_udp;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 pub extern crate trust_dns_proto as proto;

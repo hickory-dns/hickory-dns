@@ -12,6 +12,7 @@ use std::time::Duration;
 use futures::{Future, Poll};
 use tokio_executor::{DefaultExecutor, Executor};
 use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_udp::UdpSocket as TokioUdpSocket;
 
 use proto;
 #[cfg(feature = "mdns")]
@@ -127,7 +128,7 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
             } => {
-                let stream = UdpClientStream::with_timeout(socket_addr, timeout);
+                let stream = UdpClientStream::<TokioUdpSocket>::with_timeout(socket_addr, timeout);
                 let (stream, handle) = DnsExchange::connect(stream);
 
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
@@ -231,7 +232,7 @@ impl ConnectionHandleConnect {
 /// A representation of an established connection
 #[derive(Clone)]
 enum ConnectionHandleConnected {
-    Udp(xfer::BufDnsRequestStreamHandle<UdpResponse>),
+    Udp(xfer::BufDnsRequestStreamHandle<UdpResponse<TokioUdpSocket>>),
     Tcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
@@ -305,7 +306,7 @@ enum ConnectionHandleResponseInner {
         conn: ConnectionHandle,
         request: Option<DnsRequest>,
     },
-    Udp(xfer::OneshotDnsResponseReceiver<UdpResponse>),
+    Udp(xfer::OneshotDnsResponseReceiver<UdpResponse<TokioUdpSocket>>),
     Tcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),

@@ -4,6 +4,7 @@ extern crate futures;
 extern crate test;
 extern crate tokio;
 extern crate tokio_tcp;
+extern crate tokio_udp;
 
 extern crate trust_dns;
 extern crate trust_dns_proto;
@@ -24,6 +25,7 @@ use futures::Future;
 use test::Bencher;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream;
+use tokio_tcp::UdpSocket;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
@@ -61,7 +63,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .unwrap()
             .next()
             .unwrap();
-        let stream = UdpClientStream::new(addr);
+        let stream = UdpClientStream::<UdpSocket>::new(addr);
         let (bg, mut client) = ClientFuture::connect(stream);
         io_loop.spawn(bg);
 
@@ -158,7 +160,7 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr);
+    let stream = UdpClientStream::<UdpSocket>::new(addr);
     bench(b, stream);
 
     // cleaning up the named process
@@ -175,7 +177,7 @@ fn trust_dns_udp_bench_prof(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr);
+    let stream = UdpClientStream::<UdpSocket>::new(addr);
     bench(b, stream);
 }
 
@@ -244,7 +246,7 @@ fn bind_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr);
+    let stream = UdpClientStream::<UdpSocket>::new(addr);
     bench(b, stream);
 
     // cleaning up the named process

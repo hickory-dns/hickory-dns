@@ -7,6 +7,7 @@ extern crate openssl;
 extern crate rustls;
 extern crate tokio;
 extern crate tokio_tcp;
+extern crate tokio_udp;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
@@ -25,6 +26,7 @@ use chrono::Duration;
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::error::ClientErrorKind;
@@ -66,7 +68,7 @@ fn test_query_nonet() {
 fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream = UdpClientStream::new(addr);
+    let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
     let (bg, mut client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
 
@@ -84,7 +86,7 @@ fn test_query_udp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr);
+    let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
     let (bg, mut client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
 
@@ -926,7 +928,8 @@ fn test_timeout_query_udp() {
         .next()
         .unwrap();
 
-    let stream = UdpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
+    let stream =
+        UdpClientStream::<TokioUdpSocket>::with_timeout(addr, std::time::Duration::from_millis(1));
     let (bg, client) = ClientFuture::connect(stream);
     io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
