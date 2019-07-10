@@ -90,7 +90,7 @@ rusqlite = { version = "0.19.0", features = ["bundled"] }
 rustls = { version = "0.15", optional = true }
 serde = { version = "1.0.94", features = ["derive"] }
 time = "0.1"
-tokio = "0.1.15"
+tokio = "0.1.22"
 tokio-executor = "0.1.7"
 tokio-io = "0.1"
 tokio-reactor = "0.1"
