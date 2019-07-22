@@ -151,7 +151,9 @@ matrix:
         - cargo install cargo-audit
         - cargo check
       script:
-        - cargo audit
+        # --ignore ref: https://github.com/crossbeam-rs/crossbeam/issues/401
+        # tokio -> tokio-threadpool -> crossbeam-deque -> crossbeam-epoch -> memoffset
+        - cargo audit --ignore RUSTSEC-2019-0011
 
   allow_failures:
     - rust: nightly
