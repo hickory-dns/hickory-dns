@@ -83,7 +83,7 @@ futures = "0.1.28"
 h2 = { version = "0.1", optional = true }
 http = { version = "0.1", optional = true }
 lazy_static = "1.0"
-log = "0.4.7"
+log = "0.4.8"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rand = "0.7"
 rusqlite = { version = "0.20.0", features = ["bundled"] }
