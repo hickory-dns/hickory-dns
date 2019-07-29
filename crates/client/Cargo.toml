@@ -70,7 +70,7 @@ data-encoding-macro = "0.1.7"
 failure = "0.1"
 futures = "^0.1.28"
 lazy_static = "^1.0"
-log = "^0.4.7"
+log = "^0.4.8"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.2"
 rand = "0.7"
