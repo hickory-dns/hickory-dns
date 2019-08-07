@@ -11,7 +11,6 @@
 
 //! Trust-DNS Protocol library
 
-extern crate byteorder;
 #[cfg(feature = "dnssec")]
 extern crate data_encoding;
 #[macro_use]

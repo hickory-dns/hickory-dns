@@ -15,8 +15,6 @@
  */
 use std::marker::PhantomData;
 
-use byteorder::{ByteOrder, NetworkEndian};
-
 use crate::error::{ProtoErrorKind, ProtoResult};
 
 use super::BinEncodable;
@@ -312,29 +310,17 @@ impl<'a> BinEncoder<'a> {
 
     /// Writes a u16 in network byte order to the buffer
     pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
-        let mut bytes = [0; 2];
-        {
-            NetworkEndian::write_u16(&mut bytes, data);
-        }
-        self.write_slice(&bytes)
+        self.write_slice(&data.to_be_bytes())
     }
 
     /// Writes an i32 in network byte order to the buffer
     pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
-        let mut bytes = [0; 4];
-        {
-            NetworkEndian::write_i32(&mut bytes, data);
-        }
-        self.write_slice(&bytes)
+        self.write_slice(&data.to_be_bytes())
     }
 
     /// Writes an u32 in network byte order to the buffer
     pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
-        let mut bytes = [0; 4];
-        {
-            NetworkEndian::write_u32(&mut bytes, data);
-        }
-        self.write_slice(&bytes)
+        self.write_slice(&data.to_be_bytes())
     }
 
     fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
