@@ -75,7 +75,7 @@ tokio-tcp = { version = "^0.1", optional = true }
 tokio-timer = "0.2.10"
 tokio-udp = { version = "^0.1", optional = true }
 untrusted = { version = "^0.6", optional = true }
-url = "2.0.0"
+url = "2.1.0"
 
 [dev-dependencies]
 env_logger = "^0.6"
