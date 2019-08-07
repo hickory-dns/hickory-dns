@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use byteorder::{ByteOrder, NetworkEndian};
 use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 use crate::serialize::binary::Restrict;
 
@@ -193,7 +192,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u16 from the buffer
     pub fn read_u16(&mut self) -> ProtoResult<Restrict<u16>> {
-        Ok(self.read_slice(2)?.map(|s| NetworkEndian::read_u16(s)))
+        Ok(self.read_slice(2)?.map(|s| u16::from_be_bytes([s[0], s[1]])))
     }
 
     /// Reads the next four bytes into i32.
@@ -205,7 +204,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the i32 from the buffer
     pub fn read_i32(&mut self) -> ProtoResult<Restrict<i32>> {
-        Ok(self.read_slice(4)?.map(|s| NetworkEndian::read_i32(s)))
+        Ok(self.read_slice(4)?.map(|s| i32::from_be_bytes([s[0], s[1], s[2], s[3]])))
     }
 
     /// Reads the next four bytes into u32.
@@ -217,7 +216,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u32 from the buffer
     pub fn read_u32(&mut self) -> ProtoResult<Restrict<u32>> {
-        Ok(self.read_slice(4)?.map(|s| NetworkEndian::read_u32(s)))
+        Ok(self.read_slice(4)?.map(|s| u32::from_be_bytes([s[0], s[1], s[2], s[3]])))
     }
 }
 
