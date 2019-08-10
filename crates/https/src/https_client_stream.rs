@@ -16,9 +16,9 @@ use h2::client::{Handshake, SendRequest};
 use h2::{self, RecvStream};
 use http::header;
 use http::{Response, StatusCode};
-use rustls::{Certificate, ClientConfig, ClientSession};
+use rustls::{Certificate, ClientConfig};
 use tokio_executor;
-use tokio_rustls::{Connect, TlsConnector, TlsStream as TokioTlsStream};
+use tokio_rustls::{client::TlsStream as TokioTlsClientStream, Connect, TlsConnector};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
@@ -471,7 +471,7 @@ enum HttpsClientConnectState {
         name_server: SocketAddr,
     },
     H2Handshake {
-        handshake: Handshake<TokioTlsStream<TokioTcpStream, ClientSession>>,
+        handshake: Handshake<TokioTlsClientStream<TokioTcpStream>>,
         name_server_name: Arc<String>,
         name_server: SocketAddr,
     },

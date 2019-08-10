@@ -9,8 +9,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use futures::Future;
-use rustls::{ClientConfig, ClientSession};
-use tokio_rustls::TlsStream as TokioTlsStream;
+use rustls::ClientConfig;
 use tokio_tcp::TcpStream as TokioTcpStream;
 
 use trust_dns_proto::error::ProtoError;
@@ -19,7 +18,7 @@ use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use tls_stream::tls_connect;
 
-pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream, ClientSession>>;
+pub type TlsClientStream = TcpClientStream<tokio_rustls::client::TlsStream<TokioTcpStream>>;
 
 /// Creates a new TlsStream to the specified name_server
 ///
