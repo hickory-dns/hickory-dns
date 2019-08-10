@@ -37,7 +37,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 
 [features]
 dnssec-openssl = ["dnssec", "openssl"]
-dnssec-ring = ["dnssec", "ring", "untrusted"]
+dnssec-ring = ["dnssec", "ring"]
 dnssec = ["data-encoding"]
 tokio-compat = ["tokio-reactor", "tokio-tcp", "tokio-udp"]
 default = ["tokio-compat"]
@@ -64,7 +64,7 @@ lazy_static = "^1.0"
 log = "^0.4.8"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
 rand = "0.7"
-ring = { version = "0.14", optional = true }
+ring = { version = "0.16", optional = true }
 serde = { version = "1.0", optional = true }
 smallvec = "^0.6"
 socket2 = { version = "^0.3.10" }
@@ -74,7 +74,6 @@ tokio-reactor = { version = "^0.1", optional = true}
 tokio-tcp = { version = "^0.1", optional = true }
 tokio-timer = "0.2.10"
 tokio-udp = { version = "^0.1", optional = true }
-untrusted = { version = "^0.6", optional = true }
 url = "2.1.0"
 
 [dev-dependencies]
