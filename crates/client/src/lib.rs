@@ -287,8 +287,6 @@ extern crate tokio_udp;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 pub extern crate trust_dns_proto as proto;
-#[cfg(feature = "ring")]
-extern crate untrusted;
 #[cfg(feature = "dns-over-https")]
 extern crate webpki;
 

@@ -5,11 +5,7 @@ use openssl::rsa::Rsa;
 #[cfg(feature = "openssl")]
 use openssl::symm::Cipher;
 #[cfg(feature = "ring")]
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair};
-#[cfg(feature = "ring")]
-use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
-#[cfg(feature = "ring")]
-use untrusted::Input;
+use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
 
 use error::*;
 use rr::dnssec::Algorithm;
@@ -99,7 +95,7 @@ impl KeyFormat {
                     } else {
                         &ECDSA_P384_SHA384_FIXED_SIGNING
                     };
-                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, Input::from(bytes))?;
+                    let key = EcdsaKeyPair::from_pkcs8(ring_algorithm, bytes)?;
 
                     Ok(KeyPair::from_ecdsa(key))
                 }
@@ -111,7 +107,7 @@ impl KeyFormat {
             Algorithm::ED25519 => match self {
                 #[cfg(feature = "ring")]
                 KeyFormat::Pkcs8 => {
-                    let key = Ed25519KeyPair::from_pkcs8(Input::from(bytes))?;
+                    let key = Ed25519KeyPair::from_pkcs8(bytes)?;
 
                     Ok(KeyPair::from_ed25519(key))
                 }

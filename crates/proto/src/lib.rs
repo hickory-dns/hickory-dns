@@ -44,8 +44,6 @@ extern crate tokio_tcp;
 extern crate tokio_timer;
 #[cfg(feature = "tokio-compat")]
 extern crate tokio_udp;
-#[cfg(feature = "ring")]
-extern crate untrusted;
 extern crate url;
 
 pub mod error;

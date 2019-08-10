@@ -74,7 +74,7 @@ log = "^0.4.8"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.2"
 rand = "0.7"
-ring = { version = "0.16", optional = true }
+ring = { version = "0.16", optional = true, features = ["std"]}
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 tokio = "^0.1.22"
