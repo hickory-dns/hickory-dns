@@ -22,13 +22,9 @@ use openssl::rsa::Rsa as OpenSslRsa;
 use openssl::sign::Signer;
 
 #[cfg(feature = "ring")]
-use ring::rand;
-#[cfg(feature = "ring")]
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair};
-#[cfg(feature = "ring")]
-use ring::signature::{ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
-#[cfg(feature = "ring")]
-use untrusted::Input;
+use ring::{rand,
+           signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair,
+                       ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING}};
 
 use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -424,7 +420,7 @@ impl<K: HasPrivate> KeyPair<K> {
             KeyPair::ECDSA(ref ec_key) => {
                 let rng = rand::SystemRandom::new();
                 Ok(ec_key
-                    .sign(&rng, Input::from(tbs.as_ref()))
+                    .sign(&rng, tbs.as_ref())
                     .unwrap()
                     .as_ref()
                     .to_vec())

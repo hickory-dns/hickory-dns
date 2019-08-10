@@ -24,11 +24,7 @@ use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::sign::Verifier;
 #[cfg(feature = "ring")]
-use ring::signature;
-#[cfg(feature = "ring")]
-use ring::signature::{EdDSAParameters, VerificationAlgorithm, ED25519_PUBLIC_KEY_LEN};
-#[cfg(feature = "ring")]
-use untrusted::Input;
+use ring::signature::{self, ED25519_PUBLIC_KEY_LEN};
 
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
@@ -263,13 +259,8 @@ impl PublicKey for Ec {
             Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
-        signature::verify(
-            alg,
-            Input::from(self.prefixed_bytes()),
-            Input::from(message),
-            Input::from(signature),
-        )
-        .map_err(Into::into)
+        let public_key = signature::UnparsedPublicKey::new(alg, self.prefixed_bytes());
+        public_key.verify(message, signature).map_err(Into::into)
     }
 }
 
@@ -312,12 +303,8 @@ impl<'k> PublicKey for Ed25519<'k> {
     }
 
     fn verify(&self, _: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
-        let public_key = Input::from(self.raw);
-        let message = Input::from(message);
-        let signature = Input::from(signature);
-        EdDSAParameters {}
-            .verify(public_key, message, signature)
-            .map_err(Into::into)
+        let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, self.raw);
+        public_key.verify(message, signature).map_err(Into::into)
     }
 }
 
@@ -406,19 +393,18 @@ impl<'k> PublicKey for Rsa<'k> {
         let alg = match algorithm {
             Algorithm::RSASHA256 => &signature::RSA_PKCS1_2048_8192_SHA256,
             Algorithm::RSASHA512 => &signature::RSA_PKCS1_2048_8192_SHA512,
-            Algorithm::RSASHA1 => &signature::RSA_PKCS1_2048_8192_SHA1,
+            Algorithm::RSASHA1 => &signature::RSA_PKCS1_2048_8192_SHA1_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into())
             }
             _ => unreachable!("non-RSA algorithm passed to RSA verify()"),
         };
-        signature::primitive::verify_rsa(
-            alg,
-            (Input::from(self.pkey.n()), Input::from(self.pkey.e())),
-            Input::from(message),
-            Input::from(signature),
-        )
-        .map_err(Into::into)
+        let public_key = signature::RsaPublicKeyComponents {
+            n: self.pkey.n(),
+            e: self.pkey.e(),
+        };
+        public_key.verify(alg, message, signature)
+            .map_err(Into::into)
     }
 }
 

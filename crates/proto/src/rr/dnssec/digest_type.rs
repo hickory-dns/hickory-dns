@@ -81,7 +81,7 @@ impl DigestType {
     #[cfg(feature = "ring")]
     pub fn to_ring_digest_alg(self) -> ProtoResult<&'static digest::Algorithm> {
         match self {
-            DigestType::SHA1 => Ok(&digest::SHA1),
+            DigestType::SHA1 => Ok(&digest::SHA1_FOR_LEGACY_USE_ONLY),
             DigestType::SHA256 => Ok(&digest::SHA256),
             DigestType::SHA384 => Ok(&digest::SHA384),
             DigestType::SHA512 => Ok(&digest::SHA512),
