@@ -19,7 +19,7 @@ use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc as Rc;
 
-use idna::uts46;
+use idna;
 
 use crate::error::*;
 
@@ -53,16 +53,14 @@ impl Label {
             return Self::from_ascii(s);
         }
 
-        match uts46::to_ascii(
-            s,
-            uts46::Flags {
-                use_std3_ascii_rules: true,
-                transitional_processing: true,
-                verify_dns_length: true,
-            },
-        ) {
+        match idna::Config::default()
+            .use_std3_ascii_rules(true)
+            .transitional_processing(true)
+            .verify_dns_length(true)
+            .to_ascii(s)
+        {
             Ok(puny) => Self::from_ascii(&puny),
-            Err(e) => Err(format!("Label contains invalid characters: {:?}", e).into()),
+            e => Err(format!("Label contains invalid characters: {:?}", e).into()),
         }
     }
 
@@ -233,14 +231,11 @@ impl Display for Label {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
             let label = String::from_utf8_lossy(self.borrow());
-            let (label, e) = uts46::to_unicode(
-                &label,
-                uts46::Flags {
-                    use_std3_ascii_rules: false,
-                    transitional_processing: false,
-                    verify_dns_length: false,
-                },
-            );
+            let (label, e) = idna::Config::default()
+                .use_std3_ascii_rules(false)
+                .transitional_processing(false)
+                .verify_dns_length(false)
+                .to_unicode(&label);
 
             if e.is_ok() {
                 return f.write_str(&label);
