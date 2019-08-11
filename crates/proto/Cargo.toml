@@ -59,7 +59,7 @@ data-encoding = { version = "2.1.0", optional = true }
 enum-as-inner = "0.2"
 failure = "0.1"
 futures = "^0.1.28"
-idna = "^0.1.4"
+idna = "^0.2.0"
 lazy_static = "^1.0"
 log = "^0.4.8"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
