@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-rustls"
-version = "0.6.4"
+version = "0.7.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -50,7 +50,7 @@ rustls = "0.16"
 tokio-rustls = "0.10"
 tokio-tcp = "^0.1"
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.7.5", path = "../proto", features = ["tokio-compat"], default-features = false }
+trust-dns-proto = { version = "0.8.0", path = "../proto", features = ["tokio-compat"], default-features = false }
 webpki = "0.21"
 
 [dev-dependencies]
