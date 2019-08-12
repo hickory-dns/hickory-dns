@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.17.0
+
+### Added
+
+- (all) Licenses copied into all crates #832 (@divinerapier)
+- `UdpSocket` for compatibility with Tokio, when not using non-Tokio executors #824 (@chunyingw)
+- `Connect` for Tcp connection compatibility with Tokio, when not using non-Tokio executors #794 (@chunyingw)
+
+### Changes
+
+- *breaking* (client) TcpClientConnect requires generic stream param #794 (@chunyingw)
+- *breaking* (client) UdpClientStream requires generic socket param #824 (@chunyingw)
+- *breaking* (proto) UdpStream and UdpClientStream requires generic socket #824 (@chunyingw)
+- *breaking* (proto) TcpStream and TcpClientStream require generic stream param #794 (@chunyingw)
+- Algorithm::from_u8 is now infallible #800 (@zackangelo)
+- Algorithm::hash_len now returns Option #800 (@zackangelo)
+
+### Removed
+
+- `byteorder` dep dropped in favor of `std` implementations #844 (@lukaslueg)
+
 ## 0.16.1
 
 - disables the `socket2/reuseport` feature except when `mdns` is enabled

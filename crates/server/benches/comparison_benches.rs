@@ -25,7 +25,7 @@ use futures::Future;
 use test::Bencher;
 use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpStream;
-use tokio_tcp::UdpSocket;
+use tokio_udp::UdpSocket;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
