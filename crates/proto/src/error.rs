@@ -25,6 +25,7 @@ use ring::error::Unspecified;
 use failure::{Backtrace, Context, Fail};
 use tokio_executor::SpawnError;
 use tokio_timer::Error as TimerError;
+use tokio_timer::timeout::Elapsed;
 
 /// An alias for results returned by functions of this crate
 pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
@@ -34,7 +35,7 @@ pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 pub enum ProtoErrorKind {
     /// An error caused by a canceled future
     #[fail(display = "future was canceled: {:?}", _0)]
-    Canceled(::futures::sync::oneshot::Canceled),
+    Canceled(futures::channel::oneshot::Canceled),
 
     /// Character data length exceeded the limit
     #[fail(display = "char data length exceeds {}: {}", _0, _1)]
@@ -183,6 +184,10 @@ pub enum ProtoErrorKind {
     #[fail(display = "request timed out")]
     Timeout,
 
+    /// A request timeout elapsed
+    #[fail(display = "request time elapsed before data received")]
+    Elapsed,
+
     /// An url parsing error
     #[fail(display = "url parsing error")]
     UrlParsing,
@@ -294,26 +299,32 @@ impl From<TimerError> for ProtoError {
     }
 }
 
-impl From<tokio_timer::timeout::Error<ProtoError>> for ProtoError {
-    fn from(e: tokio_timer::timeout::Error<ProtoError>) -> Self {
-        if e.is_elapsed() {
-            return ProtoError::from(ProtoErrorKind::Timeout);
-        }
-
-        if e.is_inner() {
-            return e.into_inner().expect("invalid state, not a ProtoError");
-        }
-
-        if e.is_timer() {
-            return ProtoError::from(
-                e.into_timer()
-                    .expect("invalid state, not a tokio_timer::Error"),
-            );
-        }
-
-        ProtoError::from("unknown error with tokio_timer")
+impl From<Elapsed> for ProtoError {
+    fn from(e: Elapsed) -> ProtoError {
+        e.context(ProtoErrorKind::Elapsed).into()
     }
 }
+
+// impl From<tokio_timer::Error<ProtoError>> for ProtoError {
+//     fn from(e: tokio_timer::Error<ProtoError>) -> Self {
+//         if e.is_elapsed() {
+//             return ProtoError::from(ProtoErrorKind::Timeout);
+//         }
+
+//         if e.is_inner() {
+//             return e.into_inner().expect("invalid state, not a ProtoError");
+//         }
+
+//         if e.is_timer() {
+//             return ProtoError::from(
+//                 e.into_timer()
+//                     .expect("invalid state, not a tokio_timer::Error"),
+//             );
+//         }
+
+//         ProtoError::from("unknown error with tokio_timer")
+//     }
+// }
 
 impl From<::url::ParseError> for ProtoError {
     fn from(e: ::url::ParseError) -> ProtoError {
@@ -396,6 +407,7 @@ impl Clone for ProtoErrorKind {
             DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
             DomainNameTooLong(len) => DomainNameTooLong(len),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
+            Elapsed => Elapsed,
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),
             PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },

@@ -6,10 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
+use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
+use std::pin::Pin;
+use std::task::Context;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{Future, Poll, Stream, TryFutureExt, StreamExt};
 use tokio_io::{AsyncRead, AsyncWrite};
 
 use crate::error::ProtoError;
@@ -52,9 +55,9 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     ) -> (TcpClientConnect<S::Transport>, Box<dyn DnsStreamHandle + Send>) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
-        let new_future = Box::new(
+        let new_future = Box::pin(
             stream_future
-                .map(move |tcp_stream| TcpClientStream { tcp_stream })
+                .map_ok(move |tcp_stream| TcpClientStream { tcp_stream })
                 .map_err(ProtoError::from),
         );
 
@@ -64,7 +67,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     }
 }
 
-impl<S> TcpClientStream<S> {
+impl<S: AsyncRead + AsyncWrite + Send> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
         TcpClientStream { tcp_stream }
@@ -77,44 +80,39 @@ impl<S: AsyncRead + AsyncWrite + Send> Display for TcpClientStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Send> DnsClientStream for TcpClientStream<S> {
+impl<S: AsyncRead + AsyncWrite + Send + Unpin> DnsClientStream for TcpClientStream<S> {
     fn name_server_addr(&self) -> SocketAddr {
         self.tcp_stream.peer_addr()
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Send> Stream for TcpClientStream<S> {
-    type Item = SerialMessage;
-    type Error = ProtoError;
+impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
+    type Item = Result<SerialMessage, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match try_ready!(self.tcp_stream.poll().map_err(ProtoError::from)) {
-            Some(message) => {
-                // this is busted if the tcp connection doesn't have a peer
-                let peer = self.tcp_stream.peer_addr();
-                if message.addr() != peer {
-                    // FIXME: this should be an error...
-                    warn!("{} does not match name_server: {}", message.addr(), peer)
-                }
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let message = try_ready_stream!(self.tcp_stream.poll_next_unpin(cx));
 
-                Ok(Async::Ready(Some(message)))
-            }
-            None => Ok(Async::Ready(None)),
+        // this is busted if the tcp connection doesn't have a peer
+        let peer = self.tcp_stream.peer_addr();
+        if message.addr() != peer {
+            // FIXME: this should be an error...
+            warn!("{} does not match name_server: {}", message.addr(), peer)
         }
+
+        Poll::Ready(Some(Ok(message)))
     }
 }
 
 // TODO: create unboxed future for the TCP Stream
 /// A future that resolves to an TcpClientStream
-pub struct TcpClientConnect<S>(Box<dyn Future<Item = TcpClientStream<S>, Error = ProtoError> + Send>);
+pub struct TcpClientConnect<S>(Pin<Box<dyn Future<Output = Result<TcpClientStream<S>, ProtoError>> + Send + Unpin + 'static>>);
 
 impl<S> Future for TcpClientConnect<S> {
-    type Item = TcpClientStream<S>;
-    type Error = ProtoError;
+    type Output = Result<TcpClientStream<S>, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
-    }
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.as_mut().poll(cx)
+     }
 }
 
 #[cfg(feature = "tokio-compat")]
@@ -123,7 +121,9 @@ use tokio_tcp::TcpStream as TokioTcpStream;
 #[cfg(feature = "tokio-compat")]
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
-    type Future = tokio_tcp::ConnectFuture;
+    // TODO: changet Tokio's TcpStream to return a concrete type
+    type Future = impl Future<Output = io::Result<TokioTcpStream>>;
+    
     fn connect(addr: &SocketAddr) -> Self::Future {
         TokioTcpStream::connect(addr)
     }
@@ -241,11 +241,9 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future())
-            .ok()
-            .expect("future iteration run failed");
+            .block_on(stream.into_future());
         stream = stream_tmp;
-        let buffer = buffer.expect("no buffer received");
+        let buffer = buffer.expect("no buffer received").expect("error recieving buffer");
         assert_eq!(buffer.bytes(), TEST_BYTES);
     }
 

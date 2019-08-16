@@ -55,10 +55,11 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
+async-trait = "0.1.11"
 data-encoding = { version = "2.1.0", optional = true }
 enum-as-inner = "0.3"
 failure = "0.1"
-futures = "^0.1.28"
+futures-preview = "0.3.0-alpha"
 idna = "^0.2.0"
 lazy_static = "^1.0"
 log = "^0.4.8"
@@ -68,14 +69,15 @@ ring = { version = "0.16", optional = true, features = ["std"] }
 serde = { version = "1.0", optional = true }
 smallvec = "^0.6"
 socket2 = { version = "^0.3.10" }
-tokio-executor = "0.1.8"
-tokio-io = "^0.1"
-tokio-reactor = { version = "^0.1", optional = true}
-tokio-tcp = { version = "^0.1", optional = true }
-tokio-timer = "0.2.10"
-tokio-udp = { version = "^0.1", optional = true }
+tokio-executor = "0.2.0-alpha"
+tokio-io = "0.2.0-alpha"
+tokio-reactor = { version = "0.2.0-alpha", optional = true}
+tokio-sync = "0.2.0-alpha"
+tokio-tcp = { version = "0.2.0-alpha", optional = true }
+tokio-timer = "0.3.0-alpha"
+tokio-udp = { version = "0.2.0-alpha", optional = true }
 url = "2.1.0"
 
 [dev-dependencies]
 env_logger = "^0.6"
-tokio = "^0.1.22"
+tokio = "0.2.0-alpha"

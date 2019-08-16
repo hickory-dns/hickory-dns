@@ -11,13 +11,15 @@ use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::pin::Pin;
+use std::task::Context;
 
-use futures::{Async, Future, Poll, Stream};
-use tokio_timer::Timeout;
+use futures::{Future, Poll, Stream};
+use tokio_timer::timeout::{Elapsed, Timeout};
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
-use crate::op::{Message, MessageFinalizer, OpCode};
+use crate::op::{MessageFinalizer, OpCode};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 
@@ -104,7 +106,7 @@ fn random_query_id() -> u16 {
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
-    type DnsResponseFuture = UdpResponse<S>;
+    type DnsResponseFuture = UdpResponse;
 
     fn send_message(&mut self, mut message: DnsRequest) -> Self::DnsResponseFuture {
         if self.is_shutdown {
@@ -123,10 +125,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             Err(err) => {
                 let err: ProtoError = err;
 
-                return UdpResponse(Timeout::new(
-                    SingleUseUdpSocket::Errored(Some(err)),
-                    self.timeout,
-                ));
+                return UdpResponse::complete(SingleUseUdpSocket::errored(err));
             }
         };
 
@@ -138,10 +137,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             if let Some(ref signer) = self.signer {
                 if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return UdpResponse(Timeout::new(
-                        SingleUseUdpSocket::Errored(Some(e)),
-                        self.timeout,
-                    ));
+                    return UdpResponse::complete(SingleUseUdpSocket::errored(e));
                 }
             }
         }
@@ -149,24 +145,18 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
-                return UdpResponse(Timeout::new(
-                    SingleUseUdpSocket::Errored(Some(err)),
-                    self.timeout,
-                ));
+                return UdpResponse::complete(SingleUseUdpSocket::errored(err));
             }
         };
 
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
-        UdpResponse::new(message, message_id, self.timeout)
+        UdpResponse::new::<S>(message, message_id, self.timeout)
     }
 
     fn error_response(err: ProtoError) -> Self::DnsResponseFuture {
-        UdpResponse(Timeout::new(
-            SingleUseUdpSocket::Errored(Some(err)),
-            Duration::from_secs(5), // this should never be triggered
-        ))
+        UdpResponse::complete(SingleUseUdpSocket::errored(err))
     }
 
     fn shutdown(&mut self) {
@@ -180,43 +170,47 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 
 // TODO: is this impl necessary? there's nothing being driven here...
 impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
-    type Item = ();
-    type Error = ProtoError;
+    type Item = Result<(), ProtoError>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
         // Technically the Stream doesn't actually do anything.
         if self.is_shutdown {
-            Ok(Async::Ready(None))
+            Poll::Ready(None)
         } else {
-            Ok(Async::Ready(Some(())))
+            Poll::Ready(Some(Ok(())))
         }
     }
 }
 
 /// A future that resolves to
-pub struct UdpResponse<S>(Timeout<SingleUseUdpSocket<S>>);
+pub struct UdpResponse(Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, Elapsed>> + Send>>);
 
-impl<S> UdpResponse<S> {
+impl UdpResponse {
     /// creates a new future for the request
     ///
     /// # Arguments
     ///
     /// * `request` - Serialized message being sent
     /// * `message_id` - Id of the message that was encoded in the serial message
-    fn new(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
-        UdpResponse(Timeout::new(
-            SingleUseUdpSocket::StartSend(Some(request), message_id),
+    fn new<S: UdpSocket + Send + Unpin + 'static>(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
+        UdpResponse(Box::pin(Timeout::new(
+            SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
             timeout,
-        ))
+        )))
+    }
+
+    /// ad already completed future
+    fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
+        // FIXME: this constructure isn't really necessary
+        UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
     }
 }
 
-impl<S: UdpSocket> Future for UdpResponse<S> {
-    type Item = DnsResponse;
-    type Error = ProtoError;
+impl Future for UdpResponse {
+    type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(ProtoError::from)
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.as_mut().poll(cx).map_err(ProtoError::from).map(|r| r.and_then(|r| r))
     }
 }
 
@@ -232,12 +226,12 @@ where
     marker: PhantomData<S>,
 }
 
-impl<S: Send, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
-    type Item = UdpClientStream<S, MF>;
-    type Error = ProtoError;
+impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
+    type Output = Result<UdpClientStream<S, MF>, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        Ok(Async::Ready(UdpClientStream::<S, MF> {
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+        // TODO: this doesn't need to be a future?
+        Poll::Ready(Ok(UdpClientStream::<S, MF> {
             name_server: self
                 .name_server
                 .take()
@@ -250,141 +244,91 @@ impl<S: Send, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     }
 }
 
-enum SingleUseUdpSocket<S> {
-    StartSend(Option<SerialMessage>, u16),
-    Connect(Option<SerialMessage>, NextRandomUdpSocket<S>, u16),
-    Send(Option<SerialMessage>, Option<S>, u16),
-    AwaitResponse(Option<SerialMessage>, S, u16),
-    Response(Option<Message>),
-    Errored(Option<ProtoError>),
-}
+struct SingleUseUdpSocket;
 
-impl<S: UdpSocket> Future for SingleUseUdpSocket<S> {
-    type Item = DnsResponse;
-    type Error = ProtoError;
+impl SingleUseUdpSocket {
+    async fn send_serial_message<S: UdpSocket>(msg: SerialMessage, msg_id: u16) -> Result<DnsResponse, ProtoError> {
+        let name_server = msg.addr();
+        let mut socket: S = NextRandomUdpSocket::new(&name_server).await?;
+        let bytes = msg.bytes();
+        let addr = &msg.addr();
+        let len_sent: usize = socket.send_to(bytes, addr).await?;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        if bytes.len() != len_sent {
+            return Err(ProtoError::from(format!("Not all bytes of message sent, {} of {}", len_sent, bytes.len())))
+        }
+
+        // TODO: limit the max number of attempted messages? this relies on a timeout to die...
         loop {
-            *self = match *self {
-                SingleUseUdpSocket::StartSend(ref mut msg, msg_id) => {
-                    // get a new socket to use
-                    let msg = msg.take();
-                    let name_server = msg
-                        .as_ref()
-                        .expect("SingleUseUdpSocket::StartSend invalid state: msg")
-                        .addr();
-                    SingleUseUdpSocket::Connect(msg, NextRandomUdpSocket::new(&name_server), msg_id)
-                }
-                SingleUseUdpSocket::Connect(ref mut msg, ref mut future_socket, msg_id) => {
-                    let socket = try_ready!(future_socket.poll());
-                    // TODO: connect the socket here on merge into master
+            // TODO: consider making this heap based? need to verify it matches EDNS settings
+            let mut recv_buf = [0u8; 2048];
 
-                    // send the message, and then await the response
-                    SingleUseUdpSocket::Send(msg.take(), Some(socket), msg_id)
-                }
-                SingleUseUdpSocket::Send(ref mut msg, ref mut socket, msg_id) => {
-                    try_ready!(socket
-                        .as_mut()
-                        .expect("SingleUseUdpSocket::Send invalid state: socket1")
-                        .poll_send_to(
-                            msg.as_ref()
-                                .expect("SingleUseUdpSocket::Send invalid state: msg1")
-                                .bytes(),
-                            &msg.as_ref()
-                                .expect("SingleUseUdpSocket::Send invalid state: msg2")
-                                .addr()
-                        ));
+            let (len, src) = socket.recv_from(&mut recv_buf).await?;
+            let response = SerialMessage::new(recv_buf.iter().take(len).cloned().collect(), src);
 
-                    // message is sent, await the response
-                    SingleUseUdpSocket::AwaitResponse(
-                        msg.take(),
-                        socket
-                            .take()
-                            .expect("SingleUseUdpSocket::Send invalid state: socket2"),
-                        msg_id,
-                    )
-                }
-                SingleUseUdpSocket::AwaitResponse(ref mut request, ref mut socket, msg_id) => {
-                    // TODO: consider making this heap based? need to verify it matches EDNS settings
-                    let mut buf = [0u8; 2048];
+            // compare expected src to received packet
+            let request_target = msg.addr();
 
-                    let (len, src) = try_ready!(socket.poll_recv_from(&mut buf));
-                    let response = SerialMessage::new(buf.iter().take(len).cloned().collect(), src);
+            if response.addr() != request_target {
+                warn!(
+                    "ignoring response from {} because it does not match name_server: {}.",
+                    response.addr(),
+                    request_target,
+                );
 
-                    // compare expected src to received packet
-                    let request_target = request
-                        .as_ref()
-                        .expect("SingleUseUdpSocket::AwaitResponse invalid state: msg")
-                        .addr();
+                // await an answer from the correct NameServer
+                continue;
+            }
 
-                    if response.addr() != request_target {
+            // TODO: match query strings from request and response?
+
+            match response.to_message() {
+                Ok(message) => {
+                    if msg_id == message.id() {
+                        debug!("received message id: {}", message.id());
+                        return Ok(DnsResponse::from(message))
+                    } else {
+                        // on wrong id, attempted poison?
                         warn!(
-                            "ignoring response from {} because it does not match name_server: {}.",
-                            response.addr(),
-                            request_target
+                            "expected message id: {} got: {}, dropped",
+                            msg_id,
+                            message.id()
                         );
 
-                        // await an answer from the correct NameServer
+                        //SingleUseUdpSocket::AwaitResponse(msg.take(), socket.take(), msg_id)
                         continue;
                     }
-
-                    // TODO: match query strings from request and response?
-
-                    match response.to_message() {
-                        Ok(message) => {
-                            if msg_id == message.id() {
-                                debug!("received message id: {}", message.id());
-                                SingleUseUdpSocket::Response(Some(message))
-                            } else {
-                                // on wrong id, attempted poison?
-                                warn!(
-                                    "expected message id: {} got: {}, dropped",
-                                    msg_id,
-                                    message.id()
-                                );
-
-                                //SingleUseUdpSocket::AwaitResponse(msg.take(), socket.take(), msg_id)
-                                continue;
-                            }
-                        }
-                        Err(e) => {
-                            // on errors deserializing, continue
-                            warn!(
-                                "dropped malformed message waiting for id: {} err: {}",
-                                msg_id, e
-                            );
-                            //SingleUseUdpSocket::AwaitResponse(msg.take(), socket.take(), msg_id)
-                            continue;
-                        }
-                    }
                 }
-                SingleUseUdpSocket::Response(ref mut response) => {
-                    // finally return the message
-                    return Ok(Async::Ready(
-                        response
-                            .take()
-                            .expect("SingleUseUdpSocket::Send invalid state: already complete")
-                            .into(),
-                    ));
-                }
-                SingleUseUdpSocket::Errored(ref mut error) => {
-                    // finally return the error
-                    return Err(error
-                        .take()
-                        .expect("SingleUseUdpSocket::Errored invalid state: already complete"));
+                Err(e) => {
+                    // on errors deserializing, continue
+                    warn!(
+                        "dropped malformed message waiting for id: {} err: {}",
+                        msg_id, e
+                    );
+                    //SingleUseUdpSocket::AwaitResponse(msg.take(), socket.take(), msg_id)
+                    continue;
                 }
             }
         }
     }
+
+    // FIXME: this is unnecessary
+    async fn errored(err: ProtoError) -> Result<DnsResponse, ProtoError> {
+        futures::future::err(err).await
+    }
 }
 
+#[cfg(test)]
+mod tests {
+
 #[cfg(not(target_os = "linux"))]
-#[cfg(test)]
 use std::net::Ipv6Addr;
-#[cfg(test)]
 use std::net::{IpAddr, Ipv4Addr};
-#[cfg(test)]
 use tokio_udp;
+
+use crate::op::Message;
+use super::*;
+
 
 #[test]
 fn test_udp_client_stream_ipv4() {
@@ -397,7 +341,6 @@ fn test_udp_client_stream_ipv6() {
     udp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
 
-#[cfg(test)]
 fn udp_client_stream_test(server_addr: IpAddr) {
     use crate::op::Query;
     use crate::rr::rdata::NULL;
@@ -517,4 +460,5 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     server_handle.join().expect("server thread failed");
 
     assert!(worked_once);
+}
 }
