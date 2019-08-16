@@ -11,12 +11,14 @@ use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::Context;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use futures::stream::Stream;
-use futures::sync::oneshot;
-use futures::{task, Async, Future, Poll};
+use futures::stream::{Stream, StreamExt};
+use futures::channel::oneshot;
+use futures::{ready, Future, FutureExt, Poll};
 use rand;
 use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
@@ -63,8 +65,10 @@ impl ActiveRequest {
     }
 
     /// polls the timeout and converts the error
-    fn poll_timeout(&mut self) -> Poll<(), ProtoError> {
-        self.timeout.poll().map_err(ProtoError::from)
+    fn poll_timeout(&mut self, cx: &mut Context) -> Poll<Result<(), ProtoError>> {
+        let timeout = Pin::new(&mut self.timeout);
+        // FIXME: change return to infallible
+        timeout.poll(cx).map(|r| Ok(r))
     }
 
     /// Returns true of the other side canceled the request
@@ -127,7 +131,7 @@ where
 
 impl<S, MF> DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>
 where
-    S: DnsClientStream + 'static,
+    S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer,
 {
     /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
@@ -145,7 +149,7 @@ where
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
     where
-        F: Future<Item = S, Error = ProtoError> + Send + 'static,
+        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
@@ -167,7 +171,7 @@ where
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
     where
-        F: Future<Item = S, Error = ProtoError> + Send + 'static,
+        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
         DnsMultiplexerConnect {
             stream,
@@ -179,7 +183,7 @@ where
 
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
-    fn drop_cancelled(&mut self) {
+    fn drop_cancelled(&mut self, cx: &mut Context) {
         let mut canceled = HashMap::<u16, ProtoError>::new();
         for (&id, ref mut active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
@@ -187,13 +191,13 @@ where
             }
 
             // check for timeouts...
-            match active_req.poll_timeout() {
-                Ok(Async::Ready(_)) => {
+            match active_req.poll_timeout(cx) {
+                Poll::Ready(Ok(_)) => {
                     debug!("request timed out: {}", id);
                     canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
                 }
-                Ok(Async::NotReady) => (),
-                Err(e) => {
+                Poll::Pending => (),
+                Poll::Ready(Err(e)) => {
                     error!("unexpected error from timeout: {}", e);
                     canceled.insert(id, ProtoError::from("error registering timeout"));
                 }
@@ -215,20 +219,22 @@ where
     }
 
     /// creates random query_id, validates against all active queries
-    fn next_random_query_id(&self) -> Async<u16> {
+    fn next_random_query_id(&self) -> Poll<u16> {
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
             let id: u16 = Standard.sample(&mut rand); // the range is [0 ... u16::max]
 
             if !self.active_requests.contains_key(&id) {
-                return Async::Ready(id);
+                return Poll::Ready(id);
             }
         }
 
-        warn!("could not get next random query id, delaying");
-        task::current().notify();
-        Async::NotReady
+        // FIXME: need a Waker here, right?
+        panic!("could not get next random query id, delaying");
+        //task::current().notify();
+
+        Poll::Pending
     }
 
     /// Closes all outstanding completes with a closed stream error
@@ -258,8 +264,8 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsMultiplexerConnect<F, S, MF>
 where
-    F: Future<Item = S, Error = ProtoError> + Send + 'static,
-    S: Stream<Item = SerialMessage, Error = ProtoError>,
+    F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+    S: Stream<Item = Result<SerialMessage, ProtoError>> + Unpin,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     stream: F,
@@ -270,17 +276,16 @@ where
 
 impl<F, S, MF> Future for DnsMultiplexerConnect<F, S, MF>
 where
-    F: Future<Item = S, Error = ProtoError> + Send + 'static,
-    S: DnsClientStream + 'static,
+    F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+    S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Item = DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>;
-    type Error = ProtoError;
+    type Output = Result<DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        let stream: S = try_ready!(self.stream.poll());
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let stream: S = ready!(self.stream.poll_unpin(cx))?;
 
-        Ok(Async::Ready(DnsMultiplexer {
+        Poll::Ready(Ok(DnsMultiplexer {
             stream,
             timeout_duration: self.timeout_duration,
             stream_handle: self
@@ -306,7 +311,7 @@ where
 
 impl<S, MF> DnsRequestSender for DnsMultiplexer<S, MF>
 where
-    S: DnsClientStream + 'static,
+    S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     type DnsResponseFuture = DnsMultiplexerSerialResponse;
@@ -318,8 +323,8 @@ where
 
         // get next query_id
         let query_id: u16 = match self.next_random_query_id() {
-            Async::Ready(id) => id,
-            Async::NotReady => {
+            Poll::Ready(id) => id,
+            Poll::Pending => {
                 return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(
                     "id space exhausted, consider filing an issue",
                 ))).into()
@@ -401,19 +406,18 @@ where
 
 impl<S, MF> Stream for DnsMultiplexer<S, MF>
 where
-    S: DnsClientStream + 'static,
+    S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Item = ();
-    type Error = ProtoError;
+    type Item = Result<(), ProtoError>;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         // Always drop the cancelled queries first
-        self.drop_cancelled();
+        self.drop_cancelled(cx);
 
         if self.is_shutdown && self.active_requests.is_empty() {
             debug!("stream is done: {}", self);
-            return Ok(Async::Ready(None));
+            return Poll::Ready(None);
         }
 
         // Collect all inbound requests, max 100 at a time for QoS
@@ -421,8 +425,8 @@ where
         // TODO: make the QoS configurable
         let mut messages_received = 0;
         for i in 0..QOS_MAX_RECEIVE_MSGS {
-            match self.stream.poll()? {
-                Async::Ready(Some(buffer)) => {
+            match self.stream.poll_next_unpin(cx)? {
+                Poll::Ready(Some(buffer)) => {
                     messages_received = i;
 
                     //   deserialize or log decode_error
@@ -450,12 +454,12 @@ where
                         Err(e) => debug!("error decoding message: {}", e),
                     }
                 }
-                Async::Ready(None) => {
+                Poll::Ready(None) => {
                     debug!("io_stream closed by other side: {}", self.stream);
                     self.stream_closed_close_all();
-                    return Ok(Async::Ready(None));
+                    return Poll::Ready(None);
                 }
-                Async::NotReady => break,
+                Poll::Pending => break,
             }
         }
 
@@ -463,11 +467,12 @@ where
         // was hit then "yield". This'll make sure that the future is
         // woken up immediately on the next turn of the event loop.
         if messages_received == QOS_MAX_RECEIVE_MSGS {
-            task::current().notify();
+            // FIXME: this was a task::current().notify(); is this right?
+            cx.waker().wake_by_ref();
         }
 
         // Finally, return not ready to keep the 'driver task' alive.
-        Ok(Async::NotReady)
+        Poll::Pending
     }
 }
 
@@ -483,11 +488,10 @@ impl DnsMultiplexerSerialResponse {
 }
 
 impl Future for DnsMultiplexerSerialResponse {
-    type Item = DnsResponse;
-    type Error = ProtoError;
+    type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.poll_unpin(cx)
     }
 }
 
@@ -503,23 +507,20 @@ enum DnsMultiplexerSerialResponseInner {
 }
 
 impl Future for DnsMultiplexerSerialResponseInner {
-    type Item = DnsResponse;
-    type Error = ProtoError;
+    type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match *self {
             // The inner type of the completion might have been an error
             //   we need to unwrap that, and translate to be the Future's error
-            DnsMultiplexerSerialResponseInner::Completion(complete) => match try_ready!(
-                complete
-                    .poll()
+            DnsMultiplexerSerialResponseInner::Completion(ref mut complete) => {
+                complete.poll_unpin(cx).map(|r| r
                     .map_err(|_| ProtoError::from("the completion was canceled"))
-            ) {
-                Ok(response) => Ok(Async::Ready(response)),
-                Err(err) => Err(err),
-            },
-            DnsMultiplexerSerialResponseInner::Err(err) => {
-                Err(err.take().expect("cannot poll after complete"))
+                    .and_then(|r| r)
+                )
+            }
+            DnsMultiplexerSerialResponseInner::Err(ref mut err) => {
+                Poll::Ready(Err(err.take().expect("cannot poll after complete")))
             }
         }
     }

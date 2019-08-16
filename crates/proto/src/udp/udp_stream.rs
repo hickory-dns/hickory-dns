@@ -8,35 +8,42 @@
 use std::io;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::pin::Pin;
+use std::sync::Arc;
+use std::task::Context;
 
-use futures::stream::{Fuse, Peekable, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::task;
-use futures::{Async, Future, Poll};
+use async_trait::async_trait;
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::lock::Mutex;
+use futures::stream::{Fuse, Peekable, Stream, StreamExt};
+use futures::{ready, Future, Poll, TryFutureExt};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 
 use crate::xfer::{BufStreamHandle, SerialMessage};
 
 /// Trait for UdpSocket
+#[async_trait]
 pub trait UdpSocket
 where
-    Self: Sized,
+    Self: Sized + Unpin,
 {
     /// UdpSocket
     fn bind(addr: &SocketAddr) -> io::Result<Self>;
     /// Receive data from the socket and returns the number of bytes read and the address from
     /// where the data came on success.
-    fn poll_recv_from(&mut self, buf: &mut [u8]) -> Poll<(usize, SocketAddr), io::Error>;
+    async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
     /// Send data to the given address.
-    fn poll_send_to(&mut self, buf: &[u8], target: &SocketAddr) -> Poll<(), io::Error>;
+    async fn send_to(&mut self, buf: &[u8], target: &SocketAddr) -> io::Result<usize>;
 }
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpStream<S> {
-    socket: S,
+pub struct UdpStream<S: Send> {
+    socket: Arc<Mutex<S>>,
+    sending: Option<Pin<Box<dyn Future<Output = io::Result<usize>> + Send>>>,
     outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+    receiving: Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>,
 }
 
 impl<S: UdpSocket + Send + 'static> UdpStream<S> {
@@ -56,7 +63,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     pub fn new(
         name_server: SocketAddr,
     ) -> (
-        Box<dyn Future<Item = UdpStream<S>, Error = io::Error> + Send>,
+        Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -68,9 +75,11 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream = Box::new(next_socket.map(move |socket| UdpStream {
-            socket,
+        let stream = Box::new(next_socket.map_ok(move |socket| UdpStream {
+            socket: Arc::new(Mutex::new(socket)),
+            sending: None,
             outbound_messages: outbound_messages.fuse().peekable(),
+            receiving: None,
         }));
 
         (stream, message_sender)
@@ -94,8 +103,10 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = UdpStream {
-            socket,
+            socket: Arc::new(Mutex::new(socket)),
+            sending: None,
             outbound_messages: outbound_messages.fuse().peekable(),
+            receiving: None,
         };
 
         (stream, message_sender)
@@ -107,52 +118,99 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
-            socket,
+            socket: Arc::new(Mutex::new(socket)),
+            sending: None,
             outbound_messages: outbound_messages.fuse().peekable(),
+            receiving: None,
         }
     }
 }
 
-impl<S: UdpSocket> Stream for UdpStream<S> {
-    type Item = SerialMessage;
-    type Error = io::Error;
+impl<S: Send> UdpStream<S> {
+    fn pollable_split(&mut self) -> (
+        &mut Arc<Mutex<S>>, 
+        &mut Option<Pin<Box<dyn Future<Output = io::Result<usize>> + Send>>>,
+        &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+        &mut Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>) {
+        (&mut self.socket, &mut self.sending, &mut self.outbound_messages, &mut self.receiving)
+    }
+}
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
+    type Item = Result<SerialMessage, io::Error>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        let (socket, sending, outbound_messages, receiving) = self.pollable_split();
+        let mut outbound_messages = Pin::new(outbound_messages);
+
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.
         loop {
+            // if there's something currently sending, send it
+            if let Some(ref mut sending) = sending {
+                ready!(sending.as_mut().poll(cx))?;
+            }
+
+            *sending = None;
+
             // first try to send
-            match self
-                .outbound_messages
-                .peek()
-                .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
+            match outbound_messages.as_mut().poll_next(cx)
             {
-                Async::Ready(Some(ref message)) => {
+                Poll::Ready(Some(message)) => {
+                    let socket = Arc::clone(socket);
+                    let sending_fut = async {
+                        let message = message;
+                        let socket = socket;
+                        let mut socket = socket.lock().await;
+                        let addr = &message.addr();
+                        socket.send_to(message.bytes(), addr).await
+                    };
+
                     // will return if the socket will block
-                    try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));
+                    *sending = Some(Box::pin(sending_fut));
                 }
                 // now we get to drop through to the receives...
                 // TODO: should we also return None if there are no more messages to send?
-                Async::NotReady | Async::Ready(None) => break,
+                Poll::Pending | Poll::Ready(None) => break,
             }
-
-            // now pop the request which is already sent
-            // If it were an Err, it was returned on peeking.
-            self.outbound_messages.poll().expect("Impossible");
         }
 
         // For QoS, this will only accept one message and output that
         // receive all inbound messages
 
         // TODO: this should match edns settings
-        let mut buf = [0u8; 2048];
+        loop {
+            let msg = if let Some(receiving) = receiving {
+                // TODO: should we drop this packet if it's not from the same src as dest?
+                let msg = ready!(receiving.as_mut().poll(cx))?;
 
-        // TODO: should we drop this packet if it's not from the same src as dest?
-        let (len, src) = try_ready!(self.socket.poll_recv_from(&mut buf));
-        Ok(Async::Ready(Some(SerialMessage::new(
-            buf.iter().take(len).cloned().collect(),
-            src,
-        ))))
+                Some(Poll::Ready(Some(Ok(msg))))
+            } else {
+                None
+            };
+ 
+            *receiving = None;
+
+            if let Some(msg) = msg {
+                return msg;
+            }
+
+            let socket = Arc::clone(socket);
+            let receive_future = async {
+                let socket = socket;
+
+                let mut buf = [0u8; 2048];
+                let mut socket = socket.lock().await;
+                let (len, src) = socket.recv_from(&mut buf).await?;
+                
+                Ok(SerialMessage::new(
+                    buf.iter().take(len).cloned().collect(),
+                    src,
+                ))
+            };
+
+            *receiving = Some(Box::pin(receive_future));
+        }
     }
 }
 
@@ -178,13 +236,12 @@ impl<S> NextRandomUdpSocket<S> {
 }
 
 impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
-    type Item = S;
-    type Error = io::Error;
+    type Output = Result<S, io::Error>;
 
     /// polls until there is an available next random UDP port.
     ///
     /// if there is no port available after 10 attempts, returns NotReady
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let rand_port_range = Uniform::new_inclusive(1025_u16, u16::max_value());
         let mut rand = rand::thread_rng();
 
@@ -196,7 +253,7 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
             match S::bind(&zero_addr) {
                 Ok(socket) => {
                     debug!("created socket successfully");
-                    return Ok(Async::Ready(socket));
+                    return Poll::Ready(Ok(socket));
                 }
                 Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
             }
@@ -204,9 +261,11 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 
         debug!("could not get next random port, delaying");
 
-        task::current().notify();
+        // FIXME: this replaced task::current().notify();
+        cx.waker().wake_by_ref();
+
         // returning NotReady here, perhaps the next poll there will be some more socket available.
-        Ok(Async::NotReady)
+        Poll::Pending
     }
 }
 
@@ -240,18 +299,18 @@ fn test_udp_stream_ipv6() {
 use tokio_udp;
 
 #[cfg(feature = "tokio-compat")]
+#[async_trait]
 impl UdpSocket for tokio_udp::UdpSocket {
     fn bind(addr: &SocketAddr) -> io::Result<Self> {
         tokio_udp::UdpSocket::bind(addr)
     }
-    fn poll_recv_from(&mut self, buf: &mut [u8]) -> Poll<(usize, SocketAddr), io::Error> {
-        self.poll_recv_from(buf)
+    
+    async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        self.recv_from(buf).await
     }
-    fn poll_send_to(&mut self, buf: &[u8], target: &SocketAddr) -> Poll<(), io::Error> {
-        self.poll_send_to(buf, target).map(|x| match x {
-            Async::Ready(_) => Async::Ready(()),
-            Async::NotReady => Async::NotReady,
-        })
+
+    async fn send_to(&mut self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
+        self.send_to(buf, target).await
     }
 }
 
@@ -331,9 +390,9 @@ fn udp_stream_test(server_addr: IpAddr) {
         sender
             .unbounded_send(SerialMessage::new(test_bytes.to_vec(), server_addr))
             .unwrap();
-        let (buffer_and_addr, stream_tmp) = io_loop.block_on(stream.into_future()).ok().unwrap();
+        let (buffer_and_addr, stream_tmp) = io_loop.block_on(stream.into_future());
         stream = stream_tmp;
-        let message = buffer_and_addr.expect("no buffer received");
+        let message = buffer_and_addr.expect("no buffer received").expect("error receiving buffer");
         assert_eq!(message.bytes(), test_bytes);
         assert_eq!(message.addr(), server_addr);
     }
