@@ -88,7 +88,7 @@ openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rand = "0.7"
 rusqlite = { version = "0.20.0", features = ["bundled"] }
 rustls = { version = "0.16", optional = true }
-serde = { version = "1.0.98", features = ["derive"] }
+serde = { version = "1.0.99", features = ["derive"] }
 time = "0.1"
 tokio = "0.1.22"
 tokio-executor = "0.1.8"
