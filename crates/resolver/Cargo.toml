@@ -35,7 +35,7 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["tokio"]
+default = ["tokio", "failure-backtrace"]
 dns-over-native-tls = ["dns-over-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl"]
@@ -54,13 +54,15 @@ serde-config = ["serde", "trust-dns-proto/serde-config"]
 
 mdns = ["trust-dns-proto/mdns"]
 
+failure-backtrace = ["failure/backtrace"]
+
 [lib]
 name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
 cfg-if = "0.1"
-failure = "0.1"
+failure = { version = "0.1", default-features = false }
 futures = "^0.1.28"
 lazy_static = "^1.0"
 log = "^0.4.8"

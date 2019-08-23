@@ -34,7 +34,9 @@ travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
-#[features]
+[features]
+default = ["failure-backtrace"]
+failure-backtrace = ["failure/backtrace"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
@@ -46,7 +48,7 @@ path = "src/lib.rs"
 [dependencies]
 bytes = "0.4"
 data-encoding = "2.1.0"
-failure = "0.1"
+failure = { version = "0.1", default-features = false }
 futures = "0.1.28"
 h2 = "0.1"
 http = "0.1"

@@ -40,12 +40,14 @@ dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
 dnssec = ["data-encoding"]
 tokio-compat = ["tokio-reactor", "tokio-tcp", "tokio-udp"]
-default = ["tokio-compat"]
+default = ["tokio-compat", "failure-backtrace"]
 
 serde-config = ["serde"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["socket2/reuseport"]
+
+failure-backtrace = ["failure/backtrace"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
@@ -57,7 +59,7 @@ path = "src/lib.rs"
 [dependencies]
 data-encoding = { version = "2.1.0", optional = true }
 enum-as-inner = "0.2"
-failure = "0.1"
+failure = { version = "0.1", default-features = false }
 futures = "^0.1.28"
 idna = "^0.2.0"
 lazy_static = "^1.0"
