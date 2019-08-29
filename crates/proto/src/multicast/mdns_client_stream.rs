@@ -28,7 +28,7 @@ impl MdnsClientStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
-    ) -> (MdnsClientConnect, Box<DnsStreamHandle + Send>) {
+    ) -> (MdnsClientConnect, Box<dyn DnsStreamHandle + Send>) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
@@ -37,7 +37,7 @@ impl MdnsClientStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
-    ) -> (MdnsClientConnect, Box<DnsStreamHandle + Send>) {
+    ) -> (MdnsClientConnect, Box<dyn DnsStreamHandle + Send>) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
@@ -56,7 +56,7 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
-    ) -> (MdnsClientConnect, Box<DnsStreamHandle + Send>) {
+    ) -> (MdnsClientConnect, Box<dyn DnsStreamHandle + Send>) {
         let (stream_future, sender) =
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
@@ -102,7 +102,7 @@ impl Stream for MdnsClientStream {
 }
 
 /// A future that resolves to an MdnsClientStream
-pub struct MdnsClientConnect(Box<Future<Item = MdnsClientStream, Error = ProtoError> + Send>);
+pub struct MdnsClientConnect(Box<dyn Future<Item = MdnsClientStream, Error = ProtoError> + Send>);
 
 impl Future for MdnsClientConnect {
     type Item = MdnsClientStream;

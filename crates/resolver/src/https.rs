@@ -17,7 +17,7 @@ pub(crate) fn new_https_stream(
     dns_name: String,
 ) -> (
     Box<
-        Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError>
+        dyn Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError>
             + Send,
     >,
     BufDnsRequestStreamHandle<HttpsSerialResponse>,

@@ -408,12 +408,12 @@ impl<S: io::Read + io::Write> Stream for TcpStream<S> {
         if let Some(buffer) = ret_buf {
             debug!("returning buffer");
             let src_addr = self.peer_addr;
-            return Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))));
+            Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))))
         } else {
             debug!("bottomed out");
             // at a minimum the outbound_messages should have been polled,
             //  which will wake this future up later...
-            return Ok(Async::NotReady);
+            Ok(Async::NotReady)
         }
     }
 }

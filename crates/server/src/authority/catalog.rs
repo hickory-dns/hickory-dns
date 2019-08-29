@@ -320,11 +320,11 @@ impl Catalog {
                     error!("slave forwarding for update not yet implemented");
                     response_header.set_response_code(ResponseCode::NotImp);
 
-                    return send_response(
+                    send_response(
                         response_edns,
                         response.build_no_records(response_header),
                         response_handle,
-                    );
+                    )
                 }
                 ZoneType::Master => {
                     let update_result = authority.update(update);
@@ -338,30 +338,30 @@ impl Catalog {
                         }
                     }
 
-                    return send_response(
+                    send_response(
                         response_edns,
                         response.build_no_records(response_header),
                         response_handle,
-                    );
+                    )
                 }
                 _ => {
                     response_header.set_response_code(ResponseCode::NotAuth);
 
-                    return send_response(
+                    send_response(
                         response_edns,
                         response.build_no_records(response_header),
                         response_handle,
-                    );
+                    )
                 }
             }
         } else {
             response_header.set_response_code(ResponseCode::NXDomain);
 
-            return send_response(
+            send_response(
                 response_edns,
                 response.build_no_records(response_header),
                 response_handle,
-            );
+            )
         }
     }
 

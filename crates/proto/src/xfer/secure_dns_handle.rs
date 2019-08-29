@@ -648,8 +648,8 @@ where
         .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
         .any(|rrsig| {
             if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
-                return RecordType::DNSSEC(DNSSECRecordType::DNSKEY) == rrset.record_type
-                    && sig.signer_name() == &rrset.name;
+                RecordType::DNSSEC(DNSSECRecordType::DNSKEY) == rrset.record_type
+                    && sig.signer_name() == &rrset.name
             } else {
                 panic!("expected a SIG here");
             }

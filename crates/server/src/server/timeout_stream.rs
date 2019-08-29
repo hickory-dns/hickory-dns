@@ -82,23 +82,23 @@ where
             Ok(Async::NotReady) => {
                 if let Some(ref mut timeout) = self.timeout {
                     match timeout.poll() {
-                        Ok(Async::NotReady) => return Ok(Async::NotReady),
+                        Ok(Async::NotReady) => Ok(Async::NotReady),
                         Ok(Async::Ready(())) => {
                             debug!("timeout on stream");
-                            return Err(io::Error::new(
+                            Err(io::Error::new(
                                 io::ErrorKind::TimedOut,
                                 format!("nothing ready in {:?}", self.timeout_duration),
-                            ));
+                            ))
                         }
                         Err(_) => {
-                            return Err(io::Error::new(
+                            Err(io::Error::new(
                                 io::ErrorKind::Other,
                                 "timer internal error",
-                            ));
+                            ))
                         }
                     }
                 } else {
-                    return Ok(Async::NotReady);
+                    Ok(Async::NotReady)
                 }
             }
         }
