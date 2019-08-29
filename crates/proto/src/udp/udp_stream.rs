@@ -56,7 +56,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     pub fn new(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = UdpStream<S>, Error = io::Error> + Send>,
+        Box<dyn Future<Item = UdpStream<S>, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();

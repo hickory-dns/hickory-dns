@@ -191,7 +191,7 @@ pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<T
     if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
-        return Err(format!("could not determine name from {}", rrsig.name()).into());
+        Err(format!("could not determine name from {}", rrsig.name()).into())
     }
 }
 

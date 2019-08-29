@@ -40,7 +40,7 @@ pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+    Box<dyn Future<Item = TlsClientStream, Error = ProtoError> + Send>,
     BufDnsStreamHandle,
 ) {
     let (stream, handle) = tls_client_connect(socket_addr, dns_name, CLIENT_CONFIG.clone());

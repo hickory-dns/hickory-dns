@@ -51,7 +51,7 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
+        Box<dyn Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
@@ -63,7 +63,7 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
+        Box<dyn Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
@@ -102,7 +102,7 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
+        Box<dyn Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -460,7 +460,7 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Runtime::new().unwrap();
-                let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+                let mut timeout: Box<dyn Future<Item = (), Error = tokio_timer::Error> + Send> =
                     Box::new(future::lazy(|| {
                         Delay::new(Instant::now() + Duration::from_millis(100))
                     }));
@@ -530,7 +530,7 @@ pub mod tests {
         let (stream, sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+        let mut timeout: Box<dyn Future<Item = (), Error = tokio_timer::Error> + Send> =
             Box::new(future::lazy(|| {
                 Delay::new(Instant::now() + Duration::from_millis(100))
             }));
@@ -615,7 +615,7 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut io_loop = Runtime::new().unwrap();
-                let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+                let mut timeout: Box<dyn Future<Item = (), Error = tokio_timer::Error> + Send> =
                     Box::new(future::lazy(|| {
                         Delay::new(Instant::now() + Duration::from_millis(100))
                     }));
@@ -674,7 +674,7 @@ pub mod tests {
         let (stream, sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> =
+        let mut timeout: Box<dyn Future<Item = (), Error = tokio_timer::Error> + Send> =
             Box::new(future::lazy(|| {
                 Delay::new(Instant::now() + Duration::from_millis(100))
             }));
