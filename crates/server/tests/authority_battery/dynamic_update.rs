@@ -563,7 +563,7 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             .wait();
 
         assert_eq!(
-            *lookup.unwrap_err().as_responsecode().unwrap(),
+            *lookup.unwrap_err().as_response_code().unwrap(),
             ResponseCode::NXDomain
         );
     }
@@ -617,7 +617,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             .search(&query.into(), false, SupportedAlgorithms::new())
             .wait();
         assert_eq!(
-            *lookup.unwrap_err().as_responsecode().unwrap(),
+            *lookup.unwrap_err().as_response_code().unwrap(),
             ResponseCode::NXDomain
         );
 
@@ -626,7 +626,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             .search(&query.into(), false, SupportedAlgorithms::new())
             .wait();
         assert_eq!(
-            *lookup.unwrap_err().as_responsecode().unwrap(),
+            *lookup.unwrap_err().as_response_code().unwrap(),
             ResponseCode::NXDomain
         );
     }
