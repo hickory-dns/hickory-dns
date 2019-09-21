@@ -65,10 +65,8 @@ impl ActiveRequest {
     }
 
     /// polls the timeout and converts the error
-    fn poll_timeout(&mut self, cx: &mut Context) -> Poll<Result<(), ProtoError>> {
-        let timeout = Pin::new(&mut self.timeout);
-        // FIXME: change return to infallible
-        timeout.poll(cx).map(|r| Ok(r))
+    fn poll_timeout(&mut self, cx: &mut Context) -> Poll<()> {
+        self.timeout.poll_unpin(cx)
     }
 
     /// Returns true of the other side canceled the request
@@ -192,15 +190,11 @@ where
 
             // check for timeouts...
             match active_req.poll_timeout(cx) {
-                Poll::Ready(Ok(_)) => {
+                Poll::Ready(()) => {
                     debug!("request timed out: {}", id);
                     canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
                 }
                 Poll::Pending => (),
-                Poll::Ready(Err(e)) => {
-                    error!("unexpected error from timeout: {}", e);
-                    canceled.insert(id, ProtoError::from("error registering timeout"));
-                }
             }
         }
 
@@ -229,10 +223,6 @@ where
                 return Poll::Ready(id);
             }
         }
-
-        // FIXME: need a Waker here, right?
-        panic!("could not get next random query id, delaying");
-        //task::current().notify();
 
         Poll::Pending
     }
@@ -321,6 +311,7 @@ where
             panic!("can not send messages after stream is shutdown")
         }
 
+        // TODO: handle the pending case with future::poll_fn
         // get next query_id
         let query_id: u16 = match self.next_random_query_id() {
             Poll::Ready(id) => id,

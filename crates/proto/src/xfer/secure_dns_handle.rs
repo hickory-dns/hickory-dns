@@ -45,7 +45,7 @@ struct Rrset {
 #[must_use = "queries can only be sent through a DnsHandle"]
 pub struct SecureDnsHandle<H>
 where
-    H: DnsHandle + 'static,
+    H: DnsHandle + Unpin + 'static,
 {
     handle: H,
     trust_anchor: Arc<TrustAnchor>,
@@ -100,7 +100,7 @@ where
 }
 
 impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
-    type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         // This handler is always verifying...
@@ -157,7 +157,7 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
                 .first()
                 .map_or(DNSClass::IN, Query::query_class);
 
-            return Box::new(
+            return 
                 self.handle
                     .send(request)
                     .and_then(move |message_response| {
@@ -201,11 +201,10 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
                         }
 
                         future::ok(verified_message)
-                    }),
-            );
+                    }).boxed();
         }
 
-        Box::new(self.handle.send(request))
+        self.handle.send(request).boxed()
     }
 }
 

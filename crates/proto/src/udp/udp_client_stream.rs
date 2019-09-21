@@ -201,7 +201,7 @@ impl UdpResponse {
 
     /// ad already completed future
     fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
-        // FIXME: this constructure isn't really necessary
+        // TODO: this constructure isn't really necessary
         UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
     }
 }

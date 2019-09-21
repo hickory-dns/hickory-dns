@@ -1,6 +1,15 @@
-use std::sync::{Arc, Mutex};
+// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
-use futures::{future, sync::mpsc, Async, Future, Poll, Stream};
+use std::sync::{Arc, Mutex};
+use std::pin::Pin;
+use std::task::Context;
+
+use futures::{future, ready, channel::mpsc, Future, FutureExt, Poll, StreamExt};
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
 use proto::{
@@ -9,14 +18,14 @@ use proto::{
     xfer::{DnsRequestOptions, RetryDnsHandle},
 };
 
-use config::{ResolverConfig, ResolverOpts};
-use dns_lru::{self, DnsLru};
-use hosts::Hosts;
-use lookup::{Lookup, LookupEither, LookupFuture};
-use lookup_ip::LookupIpFuture;
-use lookup_state::CachingClient;
-use name_server::{ConnectionHandle, NameServerPool, StandardConnection};
-use proto::op::Query;
+use crate::config::{ResolverConfig, ResolverOpts};
+use crate::dns_lru::{self, DnsLru};
+use crate::hosts::Hosts;
+use crate::lookup::{Lookup, LookupEither, LookupFuture};
+use crate::lookup_ip::LookupIpFuture;
+use crate::lookup_state::CachingClient;
+use crate::name_server::{ConnectionHandle, NameServerPool, StandardConnection};
+use crate::proto::op::Query;
 
 use super::Request;
 
@@ -34,8 +43,8 @@ pub(super) fn task(
     options: ResolverOpts,
     lru: Arc<Mutex<DnsLru>>,
     request_rx: mpsc::UnboundedReceiver<Request>,
-) -> impl Future<Item = (), Error = ()> {
-    future::lazy(move || {
+) -> impl Future<Output = ()> + Send {
+    future::lazy(move |_| {
         debug!("trust-dns resolver running");
 
         let pool =
@@ -64,6 +73,7 @@ pub(super) fn task(
             None
         };
 
+        trace!("handle passed back");
         Task {
             config,
             options,
@@ -71,7 +81,7 @@ pub(super) fn task(
             hosts,
             request_rx,
         }
-    })
+    }).flatten()
 }
 
 type ClientCache = CachingClient<LookupEither<ConnectionHandle, StandardConnection>>;
@@ -190,22 +200,19 @@ impl Task {
 }
 
 impl Future for Task {
-    type Item = ();
-    type Error = ();
+    type Output = ();
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            let poll = self.request_rx.poll().map_err(|e| {
-                error!("AsyncResolver poisoned: {:?}", e);
-            });
-            match try_ready!(poll) {
+            let poll = self.request_rx.poll_next_unpin(cx);
+            match ready!(poll) {
                 None => {
-                    // mpsc::UnboundedReceiver::poll() returns `None` when the sender
+                    // mpsc::UnboundedReceiver::poll(cx) returns `None` when the sender
                     // has been dropped.
                     trace!("AsyncResolver dropped, shutting down background task.");
                     // Return `Ready` so the background future finishes, as no handles
                     // are using it any longer.
-                    return Ok(Async::Ready(()));
+                    return Poll::Ready(());
                 }
                 Some(Request::Lookup {
                     name,
@@ -213,6 +220,7 @@ impl Future for Task {
                     options,
                     tx,
                 }) => {
+                    trace!("AsyncResolver performing lookup");
                     let future = self.lookup(name, record_type, options);
                     // tx.send() will return an error if the oneshot was canceled, but
                     // we don't actually care, so just drop the future.
@@ -223,6 +231,7 @@ impl Future for Task {
                     maybe_ip,
                     tx,
                 }) => {
+                    trace!("AsyncResolver performing lookup_ip");
                     let future = self.lookup_ip(maybe_name, maybe_ip);
                     // tx.send() will return an error if the oneshot was canceled, but
                     // we don't actually care, so just drop the future.

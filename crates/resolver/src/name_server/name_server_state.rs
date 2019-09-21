@@ -136,7 +136,7 @@ impl Eq for NameServerState {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use name_server::NameServerState;
+    use crate::name_server::NameServerState;
 
     #[test]
     fn test_state_cmp() {

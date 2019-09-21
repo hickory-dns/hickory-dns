@@ -156,7 +156,7 @@ pub trait DnsRequestSender:
     Stream<Item = Result<(), ProtoError>> + 'static + Display + Send + Unpin
 {
     /// A future that resolves to a response serial message
-    type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send;
+    type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
 
     /// Send a message, and return a future of the response
     ///

@@ -2,6 +2,7 @@
 name = "trust-dns-resolver"
 version = "0.12.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
+edition = "2018"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -61,7 +62,7 @@ path = "src/lib.rs"
 [dependencies]
 cfg-if = "0.1"
 failure = "0.1"
-futures = "^0.1.28"
+futures-preview = "0.3.0-alpha"
 lazy_static = "^1.0"
 log = "^0.4.8"
 lru-cache = "^0.1.2"
@@ -69,10 +70,10 @@ resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "^0.6"
-tokio = { version = "^0.1.22", optional = true }
-tokio-executor = "^0.1.8"
-tokio-tcp = "^0.1"
-tokio-udp = "^0.1"
+tokio = { version = "0.2.0-alpha", optional = true }
+tokio-executor = "0.2.0-alpha"
+tokio-tcp = "0.2.0-alpha"
+tokio-udp = "0.2.0-alpha"
 trust-dns-https = { version = "0.4.0", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.7.0", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.7.0", path = "../openssl", optional = true }
@@ -85,5 +86,5 @@ ipconfig = { version = "^0.2.0" }
 
 [dev-dependencies]
 env_logger = "^0.6"
-tokio-io = "^0.1"
-tokio = "^0.1.22"
+tokio-io = "0.2.0-alpha"
+tokio = "0.2.0-alpha"
