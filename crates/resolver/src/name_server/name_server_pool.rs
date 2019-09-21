@@ -5,20 +5,21 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::pin::Pin;
 use std::sync::{Arc, Mutex, TryLockError};
+use std::task::Context;
 
-use futures::future::Loop;
-use futures::{future, task, Async, Future, IntoFuture, Poll};
+use futures::{future, Future, FutureExt, Poll, TryFutureExt};
 use smallvec::SmallVec;
 
 use proto::error::ProtoError;
 use proto::op::ResponseCode;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
-use config::{ResolverConfig, ResolverOpts};
+use crate::config::{ResolverConfig, ResolverOpts};
 #[cfg(feature = "mdns")]
-use name_server;
-use name_server::{ConnectionHandle, ConnectionProvider, NameServer, StandardConnection};
+use crate::name_server;
+use crate::name_server::{ConnectionHandle, ConnectionProvider, NameServer, StandardConnection};
 
 /// A pool of NameServers
 ///
@@ -134,7 +135,7 @@ where
     C: DnsHandle + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let opts = self.options;
@@ -163,22 +164,21 @@ where
 
         // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
-        Box::new(
-            // First try the UDP connections
-            Self::try_send(opts, datagram_conns, request)
-                .and_then(move |response| {
-                    // handling promotion from datagram to stream base on truncation in message
-                    if ResponseCode::NoError == response.response_code() && response.truncated() {
-                        // TCP connections should not truncate
-                        future::Either::A(Self::try_send(opts, stream_conns1, tcp_message1))
-                    } else {
-                        // Return the result from the UDP connection
-                        future::Either::B(future::ok(response))
-                    }
-                })
-                // if UDP fails, try TCP
-                .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)),
-        )
+
+        // First try the UDP connections
+        Box::pin(Self::try_send(opts, datagram_conns, request)
+            .and_then(move |response| {
+                // handling promotion from datagram to stream base on truncation in message
+                if ResponseCode::NoError == response.response_code() && response.truncated() {
+                    // TCP connections should not truncate
+                    future::Either::Left(Self::try_send(opts, stream_conns1, tcp_message1))
+                } else {
+                    // Return the result from the UDP connection
+                    future::Either::Right(future::ok(response))
+                }
+            })
+            // if UDP fails, try TCP
+            .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)))
     }
 }
 
@@ -189,7 +189,7 @@ enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'st
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
-    DoSend(Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>),
+    DoSend(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
 
 impl<C, P> Future for TrySend<C, P>
@@ -197,12 +197,11 @@ where
     C: DnsHandle + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Item = DnsResponse;
-    type Error = ProtoError;
+    type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         // TODO: this resolves an odd unsized issue with the loop_fn future
-        let future;
+        let inner_future;
 
         match *self {
             TrySend::Lock {
@@ -211,16 +210,19 @@ where
                 ref mut request,
             } => {
                 // pull a lock on the shared connections, lock releases at the end of the method
+                // FIXME: replace with futures lock
                 let conns = conns.try_lock();
                 match conns {
                     Err(TryLockError::Poisoned(_)) => {
                         // TODO: what to do on poisoned errors? this is non-recoverable, right?
-                        return Err(ProtoError::from("Lock Poisoned"));
+                        return Poll::Ready(Err(ProtoError::from("Lock Poisoned")));
                     }
                     Err(TryLockError::WouldBlock) => {
                         // since there is nothing registered with Tokio, we need to yield...
-                        task::current().notify();
-                        return Ok(Async::NotReady);
+                        // FIXME: is this correct
+                        cx.waker().wake_by_ref();
+                        //task::current().notify();
+                        return Poll::Pending;
                     }
                     Ok(mut conns) => {
                         let opts = *opts;
@@ -238,58 +240,63 @@ where
                         let request = request.expect("bad state, message should never be None");
                         let request_loop = request.clone();
 
-                        let loop_future = future::loop_fn(
-                            (
-                                conns,
-                                request_loop,
-                                ProtoError::from("No connections available"),
-                            ),
-                            move |(mut conns, request, err)| {
-                                let request_cont = request.clone();
-
-                                // construct the parallel requests, 2 is the default
-                                let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
-                                let count = conns.len().min(opts.num_concurrent_reqs.max(1));
-                                for conn in conns.drain(..count) {
-                                    par_conns.push(conn);
-                                }
-
-                                // construct the requests to send
-                                let requests = if par_conns.is_empty() {
-                                    None
-                                } else {
-                                    Some(
-                                        par_conns
-                                            .into_iter()
-                                            .map(move |mut conn| conn.send(request.clone())),
-                                    )
-                                };
-
-                                // execute all the requests
-                                requests.ok_or_else(move || err).into_future().and_then(
-                                    |requests| {
-                                        futures::select_ok(requests)
-                                            .and_then(|(sent, _)| Ok(Loop::Break(sent)))
-                                            .or_else(move |err| {
-                                                Ok(Loop::Continue((conns, request_cont, err)))
-                                            })
-                                    },
-                                )
-                            },
-                        );
-
-                        future = Box::new(loop_future);
+                        let loop_future = parallel_conn_loop(conns, request_loop, opts).boxed();
+                        inner_future = loop_future;
                     }
                 }
             }
-            TrySend::DoSend(ref mut future) => return future.poll(),
+            TrySend::DoSend(ref mut future) => return future.as_mut().poll(cx),
         }
 
         // can only get here if we were in the TrySend::Lock state
-        *self = TrySend::DoSend(future);
+        *self = TrySend::DoSend(inner_future);
 
-        task::current().notify();
-        Ok(Async::NotReady)
+        cx.waker().wake_by_ref();
+        //        task::current().notify();
+        Poll::Pending
+    }
+}
+
+// TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
+/// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
+async fn parallel_conn_loop<C, P>(
+    mut conns: Vec<NameServer<C, P>>,
+    request: DnsRequest,
+    opts: ResolverOpts,
+) -> Result<DnsResponse, ProtoError>
+where
+    C: DnsHandle + 'static,
+    P: ConnectionProvider<ConnHandle = C> + 'static,
+{
+    let mut err = ProtoError::from("No connections available");
+
+    loop {
+        let request_cont = request.clone();
+
+        // construct the parallel requests, 2 is the default
+        let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
+        let count = conns.len().min(opts.num_concurrent_reqs.max(1));
+        for conn in conns.drain(..count) {
+            par_conns.push(conn);
+        }
+
+        // construct the requests to send
+        let requests = if par_conns.is_empty() {
+            return Err(err);
+        } else {
+            par_conns
+                .into_iter()
+                .map(move |mut conn| conn.send(request_cont.clone()))
+        };
+
+        match future::select_ok(requests).await {
+            Ok((sent, _)) => return Ok(sent),
+            // consider a debug msg here
+            Err(e) => {
+                err = e;
+                continue;
+            }
+        };
     }
 }
 
@@ -320,7 +327,7 @@ mod mdns {
 
 pub enum Local {
     #[allow(dead_code)]
-    ResolveFuture(Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>),
+    ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>),
     NotMdns(DnsRequest),
 }
 
@@ -338,7 +345,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send> {
+    fn take_future(self) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
@@ -359,18 +366,14 @@ impl Local {
 }
 
 impl Future for Local {
-    type Item = DnsResponse;
-    type Error = ProtoError;
+    type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match *self {
-                Local::ResolveFuture(ref mut ns) => ns.poll(),
-                // TODO: making this a panic for now
-                Local::NotMdns(..) => {
-                    panic!("Local queries that are not mDNS should not be polled")
-                }
-                //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
-            }
+            Local::ResolveFuture(ref mut ns) => ns.as_mut().poll(cx),
+            // TODO: making this a panic for now
+            Local::NotMdns(..) => panic!("Local queries that are not mDNS should not be polled"), //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
+        }
     }
 }
 
@@ -387,8 +390,8 @@ mod tests {
     use proto::xfer::{DnsHandle, DnsRequestOptions};
 
     use super::*;
-    use config::NameServerConfig;
-    use config::Protocol;
+    use crate::config::NameServerConfig;
+    use crate::config::Protocol;
 
     #[ignore]
     // because of there is a real connection that needs a reasonable timeout

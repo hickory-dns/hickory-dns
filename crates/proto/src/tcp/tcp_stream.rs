@@ -147,7 +147,6 @@ impl<S: Connect + 'static> TcpStream<S> {
                 )
             })
             .map(move |tcp_stream: Result<Result<S::Transport, io::Error>, _>| {
-                // FIXME: this unwrap is wrong, how do we flatten Result in this context?
                 tcp_stream.and_then(|tcp_stream| tcp_stream).map(|tcp_stream| {
                 debug!("TCP connection established to: {}", name_server);
                 TcpStream {

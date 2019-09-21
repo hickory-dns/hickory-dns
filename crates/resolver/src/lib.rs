@@ -181,11 +181,13 @@
 #![warn(missing_docs)]
 #![recursion_limit = "128"]
 
+#![feature(async_await)]
+#![feature(type_alias_impl_trait)]
+
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
 extern crate cfg_if;
 extern crate failure;
-#[macro_use]
 extern crate futures;
 #[cfg(target_os = "windows")]
 extern crate ipconfig;

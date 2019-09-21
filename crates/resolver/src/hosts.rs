@@ -7,12 +7,13 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use dns_lru;
-use lookup::Lookup;
 use proto::op::Query;
 use proto::rr::{Name, RecordType};
 #[cfg(any(unix, windows))]
 use proto::rr::{RData, Record};
+
+use crate::dns_lru;
+use crate::lookup::Lookup;
 
 #[derive(Debug, Default)]
 struct LookupType {

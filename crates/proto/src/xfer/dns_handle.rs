@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
+use std::pin::Pin;
 
 use futures::future::{Future, FutureExt, TryFutureExt};
 use futures::channel::mpsc::UnboundedSender;
@@ -66,7 +67,7 @@ impl BasicDnsHandle {
 }
 
 impl DnsHandle for BasicDnsHandle {
-    type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
     fn send<R: Into<DnsRequest>>(
         &mut self,
@@ -90,16 +91,15 @@ impl DnsHandle for BasicDnsHandle {
         };
 
         // convert the oneshot into a Box of a Future message and error.
-        Box::new(
-            receiver
-                .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
-                .map(|r| r.and_then(|r| r)),
-        )
+        Box::pin(receiver
+            .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
+            .map(|r| r.and_then(|r| r)))
+
     }
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait DnsHandle: 'static + Clone + Send {
+pub trait DnsHandle: 'static + Clone + Send + Unpin {
     /// The associated response from the response future, this should resolve to the Response message
     type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
 

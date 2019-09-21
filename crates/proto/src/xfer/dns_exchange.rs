@@ -24,7 +24,7 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsRespo
 pub struct DnsExchange<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     io_stream: S,
     outbound_messages: Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>,
@@ -33,7 +33,7 @@ where
 impl<S, R> DnsExchange<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     /// Initializes a TcpStream with an existing tokio_tcp::TcpStream.
     ///
@@ -84,7 +84,7 @@ where
 impl<S, R> Future for DnsExchange<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Output = Result<(), ProtoError>;
 
@@ -160,13 +160,13 @@ pub struct DnsExchangeConnect<F, S, R>(DnsExchangeConnectInner<F, S, R>)
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send;
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
 
 impl<F, S, R> DnsExchangeConnect<F, S, R>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     fn connect(
         connect_future: F,
@@ -183,7 +183,7 @@ impl<F, S, R> Future for DnsExchangeConnect<F, S, R>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Output = Result<DnsExchange<S, R>, ProtoError>;
 
@@ -196,7 +196,7 @@ enum DnsExchangeConnectInner<F, S, R>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     Connecting {
         connect_future: F,
@@ -212,7 +212,7 @@ impl<F, S, R> Future for DnsExchangeConnectInner<F, S, R>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Output = Result<DnsExchange<S, R>, ProtoError>;
 

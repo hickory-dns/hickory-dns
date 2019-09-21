@@ -737,7 +737,7 @@ where
     let place = encoder.place::<Header>()?;
 
     let query_count = queries.emit(encoder)?;
-    // FIXME: need to do some on max records
+    // TODO: need to do something on max records
     //  return offset of last emitted record.
     let answer_count = count_was_truncated(answers.emit(encoder))?;
     let nameserver_count = count_was_truncated(name_servers.emit(encoder))?;

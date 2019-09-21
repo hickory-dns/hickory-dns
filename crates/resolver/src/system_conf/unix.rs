@@ -21,8 +21,8 @@ use std::time::Duration;
 
 use resolv_conf;
 
-use config::*;
-use proto::rr::Name;
+use crate::config::*;
+use crate::proto::rr::Name;
 
 const DEFAULT_PORT: u16 = 53;
 

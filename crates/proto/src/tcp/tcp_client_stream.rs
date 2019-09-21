@@ -95,7 +95,7 @@ impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
         // this is busted if the tcp connection doesn't have a peer
         let peer = self.tcp_stream.peer_addr();
         if message.addr() != peer {
-            // FIXME: this should be an error...
+            // TODO: this should be an error, right?
             warn!("{} does not match name_server: {}", message.addr(), peer)
         }
 

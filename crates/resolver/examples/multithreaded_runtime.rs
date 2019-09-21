@@ -63,5 +63,5 @@ fn main() {
     // Once we have finished using the runtime, we can ask it to shut down when it's done.
     let shutdown = runtime.shutdown_on_idle();
     // Wait for the runtime to complete shutting down.
-    shutdown.wait().expect("Failed when shutting down runtime");
+    //shutdown.wait().expect("Failed when shutting down runtime");
 }

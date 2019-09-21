@@ -45,7 +45,7 @@ impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Pin<Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();

@@ -21,12 +21,12 @@ use crate::DnsHandle;
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
-pub struct RetryDnsHandle<H: DnsHandle> {
+pub struct RetryDnsHandle<H: DnsHandle + Unpin + Send> {
     handle: H,
     attempts: usize,
 }
 
-impl<H: DnsHandle> RetryDnsHandle<H> {
+impl<H: DnsHandle + Unpin> RetryDnsHandle<H> {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
     /// # Arguments
@@ -40,9 +40,9 @@ impl<H: DnsHandle> RetryDnsHandle<H> {
 
 impl<H> DnsHandle for RetryDnsHandle<H>
 where
-    H: DnsHandle + Unpin + 'static,
+    H: DnsHandle + Send + Unpin + 'static,
 {
-    type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
@@ -51,7 +51,7 @@ where
         //  obviously it would be nice to be lazy about this...
         let future = self.handle.send(request.clone());
 
-        Box::new(RetrySendFuture {
+        Box::pin(RetrySendFuture {
             request,
             handle: self.handle.clone(),
             future,

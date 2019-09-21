@@ -13,8 +13,10 @@ use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use std::vec::IntoIter;
+use std::pin::Pin;
+use std::task::Context;
 
-use futures::{future, Async, Future, Poll};
+use futures::{future, Future, FutureExt, Poll};
 
 use proto::error::ProtoError;
 use proto::op::Query;
@@ -25,11 +27,11 @@ use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use proto::SecureDnsHandle;
 use proto::{DnsHandle, RetryDnsHandle};
 
-use dns_lru::MAX_TTL;
-use error::*;
-use lookup_ip::LookupIpIter;
-use lookup_state::CachingClient;
-use name_server::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
+use crate::dns_lru::MAX_TTL;
+use crate::error::*;
+use crate::lookup_ip::LookupIpIter;
+use crate::lookup_state::CachingClient;
+use crate::name_server::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
@@ -188,7 +190,7 @@ pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle =
 }
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
-    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -217,7 +219,7 @@ where
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    query: Box<dyn Future<Item = Lookup, Error = ResolveError> + Send>,
+    query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
 }
 
 impl<C: DnsHandle + 'static> LookupFuture<C> {
@@ -239,11 +241,11 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
         });
 
-        let query: Box<dyn Future<Item = Lookup, Error = ResolveError> + Send> = match name {
+        let query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> = match name {
             Ok(name) => {
-                Box::new(client_cache.lookup(Query::query(name, record_type), options.clone()))
+                client_cache.lookup(Query::query(name, record_type), options.clone()).boxed()
             }
-            Err(err) => Box::new(future::err(err)),
+            Err(err) => future::err(err).boxed(),
         };
 
         LookupFuture {
@@ -257,33 +259,35 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
 }
 
 impl<C: DnsHandle + 'static> Future for LookupFuture<C> {
-    type Item = Lookup;
-    type Error = ResolveError;
+    type Output = Result<Lookup, ResolveError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
             // Try polling the underlying DNS query.
-            let query = self.query.poll();
+            let query = self.query.as_mut().poll_unpin(cx);
 
             // Determine whether or not we will attempt to retry the query.
             let should_retry = match query {
                 // If the query is NotReady, yield immediately.
-                Ok(Async::NotReady) => return Ok(Async::NotReady),
+                Poll::Pending => return Poll::Pending,
                 // If the query returned a successful lookup, we will attempt
                 // to retry if the lookup is empty. Otherwise, we will return
                 // that lookup.
-                Ok(Async::Ready(ref lookup)) => lookup.records.len() == 0,
+                Poll::Ready(Ok(ref lookup)) => lookup.records.len() == 0,
                 // If the query failed, we will attempt to retry.
-                Err(_) => true,
+                Poll::Ready(Err(_)) => true,
             };
 
             if should_retry {
                 if let Some(name) = self.names.pop() {
+                    let record_type = self.record_type;
+                    let options = self.options.clone();
+
                     // If there's another name left to try, build a new query
                     // for that next name and continue looping.
                     self.query = self
                         .client_cache
-                        .lookup(Query::query(name, self.record_type), self.options.clone());
+                        .lookup(Query::query(name, record_type), options);
                     // Continue looping with the new query. It will be polled
                     // on the next iteration of the loop.
                     continue;
@@ -383,14 +387,13 @@ impl From<LookupFuture> for SrvLookupFuture {
 }
 
 impl Future for SrvLookupFuture {
-    type Item = SrvLookup;
-    type Error = ResolveError;
+    type Output = Result<SrvLookup, ResolveError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.poll() {
-            Ok(Async::Ready(lookup)) => Ok(Async::Ready(SrvLookup(lookup))),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(e) => Err(e),
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.0.poll_unpin(cx) {
+            Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(SrvLookup(lookup))),
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
         }
     }
 }
@@ -473,14 +476,13 @@ macro_rules! lookup_type {
         }
 
         impl Future for $f {
-            type Item = $l;
-            type Error = ResolveError;
+            type Output = Result<$l, ResolveError>;
 
-            fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-                match self.0.poll() {
-                    Ok(Async::Ready(lookup)) => Ok(Async::Ready($l(lookup))),
-                    Ok(Async::NotReady) => Ok(Async::NotReady),
-                    Err(e) => Err(e),
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+                match self.0.poll_unpin(cx) {
+                    Poll::Ready(Ok(lookup)) => Poll::Ready(Ok($l(lookup))),
+                    Poll::Pending => Poll::Pending,
+                    Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
                 }
             }
         }
@@ -536,6 +538,7 @@ pub mod tests {
     use std::sync::{Arc, Mutex};
 
     use futures::{future, Future};
+    use futures::executor::block_on;
 
     use proto::error::{ProtoErrorKind, ProtoResult};
     use proto::op::Message;
@@ -550,12 +553,12 @@ pub mod tests {
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
+        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-            Box::new(future::result(
+            future::ready(
                 self.messages.lock().unwrap().pop().unwrap_or_else(empty),
-            ))
+            ).boxed()
         }
     }
 
@@ -586,13 +589,12 @@ pub mod tests {
     #[test]
     fn test_lookup() {
         assert_eq!(
-            LookupFuture::lookup(
+            block_on(LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()])),
-            )
-            .wait()
+            ))
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -604,13 +606,12 @@ pub mod tests {
     #[test]
     fn test_lookup_into_iter() {
         assert_eq!(
-            LookupFuture::lookup(
+            block_on(LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()])),
-            )
-            .wait()
+            ))
             .unwrap()
             .into_iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -621,26 +622,24 @@ pub mod tests {
 
     #[test]
     fn test_error() {
-        assert!(LookupFuture::lookup(
+        assert!(block_on(LookupFuture::lookup(
             vec![Name::root()],
             RecordType::A,
             DnsRequestOptions::default(),
             CachingClient::new(0, mock(vec![error()])),
-        )
-        .wait()
+        ))
         .is_err());
     }
 
     #[test]
     fn test_empty_no_response() {
         assert_eq!(
-            *LookupFuture::lookup(
+            *block_on(LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![empty()])),
-            )
-            .wait()
+            ))
             .unwrap_err()
             .kind(),
             ResolveErrorKind::NoRecordsFound {

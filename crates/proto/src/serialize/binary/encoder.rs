@@ -127,7 +127,7 @@ impl<'a> BinEncoder<'a> {
 
         BinEncoder {
             offset: offset as usize,
-            // FIXME: add max_size to signature
+            // TODO: add max_size to signature
             buffer: private::MaximalBuf::new(u16::max_value(), buf),
             name_pointers: Vec::new(),
             mode,

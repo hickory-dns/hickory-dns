@@ -13,12 +13,12 @@ use std::sync::Mutex;
 use proto::rr::RecordType;
 use tokio::runtime::{self, Runtime};
 
-use config::{ResolverConfig, ResolverOpts};
-use error::*;
-use lookup;
-use lookup::Lookup;
-use lookup_ip::LookupIp;
-use AsyncResolver;
+use crate::config::{ResolverConfig, ResolverOpts};
+use crate::error::*;
+use crate::lookup;
+use crate::lookup::Lookup;
+use crate::lookup_ip::LookupIp;
+use crate::AsyncResolver;
 
 /// The Resolver is used for performing DNS queries.
 ///
@@ -76,7 +76,7 @@ impl Resolver {
         let mut builder = runtime::Builder::new();
         builder.core_threads(1);
 
-        let mut runtime = builder.build()?;
+        let runtime = builder.build()?;
         let (async_resolver, bg) = AsyncResolver::new(config, options);
 
         runtime.spawn(bg);

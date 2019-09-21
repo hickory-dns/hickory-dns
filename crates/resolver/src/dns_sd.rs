@@ -66,10 +66,10 @@ impl Future for ListServicesFuture {
     type Item = ListServices;
     type Error = ResolveError;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.poll() {
-            Ok(Async::Ready(lookup)) => Ok(Async::Ready(ListServices(lookup))),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.0.poll(cx) {
+            Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(ListServices(lookup))),
+            Poll::Pending => Poll::Pending,
             Err(e) => Err(e),
         }
     }
@@ -105,10 +105,10 @@ impl Future for ServiceInfoFuture {
     type Item = ServiceInfo;
     type Error = ResolveError;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.poll() {
-            Ok(Async::Ready(lookup)) => Ok(Async::Ready(ServiceInfo(lookup))),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.0.poll(cx) {
+            Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(ServiceInfo(lookup))),
+            Poll::Pending => Poll::Pending,
             Err(e) => Err(e),
         }
     }
