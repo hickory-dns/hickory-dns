@@ -19,10 +19,10 @@
 use std::{fmt, io};
 
 use failure::{Backtrace, Context, Fail};
-use futures::sync::mpsc::SendError;
+use futures::channel::mpsc::SendError;
 use proto::error::{ProtoError, ProtoErrorKind};
 
-use error::{DnsSecError, DnsSecErrorKind};
+use crate::error::{DnsSecError, DnsSecErrorKind};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
@@ -135,8 +135,8 @@ impl From<&'static str> for Error {
     }
 }
 
-impl<T: Send + Sync + 'static> From<SendError<T>> for Error {
-    fn from(e: SendError<T>) -> Self {
+impl From<SendError> for Error {
+    fn from(e: SendError) -> Self {
         e.context(ErrorKind::Message("error sending to mpsc"))
             .into()
     }

@@ -26,17 +26,17 @@ use ring::{rand,
            signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair,
                        ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING}};
 
-use error::*;
+use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::DigestType;
-use rr::dnssec::{Algorithm, PublicKeyBuf};
-use rr::dnssec::{HasPrivate, HasPublic, Private, TBS};
-use rr::rdata::key::KeyUsage;
+use crate::rr::dnssec::DigestType;
+use crate::rr::dnssec::{Algorithm, PublicKeyBuf};
+use crate::rr::dnssec::{HasPrivate, HasPublic, Private, TBS};
+use crate::rr::rdata::key::KeyUsage;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::DS;
-use rr::rdata::{DNSKEY, KEY};
+use crate::rr::rdata::DS;
+use crate::rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::Name;
+use crate::rr::Name;
 
 /// A public and private key pair, the private portion is not required.
 ///

@@ -9,9 +9,9 @@
 
 use std::str::FromStr;
 
-use error::*;
-use rr::rdata::naptr::{verify_flags, NAPTR};
-use rr::Name;
+use crate::error::*;
+use crate::rr::rdata::naptr::{verify_flags, NAPTR};
+use crate::rr::Name;
 
 /// Parse the RData from a set of Tokens
 ///

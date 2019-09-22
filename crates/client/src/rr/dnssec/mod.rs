@@ -39,9 +39,9 @@ pub use self::dnssec::tbs;
 pub use self::dnssec::TBS;
 pub use self::dnssec::Verifier;
 
-pub use error::DnsSecError;
-pub use error::DnsSecErrorKind;
-pub use error::DnsSecResult;
+pub use crate::error::DnsSecError;
+pub use crate::error::DnsSecErrorKind;
+pub use crate::error::DnsSecResult;
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub use openssl::hash::DigestBytes as Digest;

@@ -14,9 +14,9 @@ use std::time::Duration;
 use proto::udp::{UdpClientConnect, UdpClientStream};
 use proto::xfer::DnsRequestSender;
 
-use client::ClientConnection;
-use error::*;
-use rr::dnssec::Signer;
+use crate::client::ClientConnection;
+use crate::error::*;
+use crate::rr::dnssec::Signer;
 
 use tokio_udp::UdpSocket;
 

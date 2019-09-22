@@ -15,10 +15,11 @@ use std::ops::Index;
 use std::str::FromStr;
 
 use proto::error::*;
-use rr::{Label, Name};
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use serialize::binary::*;
+
+use crate::rr::{Label, Name};
+use crate::serialize::binary::*;
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]

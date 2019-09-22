@@ -9,9 +9,9 @@ use std::fmt::{self, Display};
 
 use proto::error::*;
 
-use op::Query;
-use rr::{DNSClass, LowerName, RecordType};
-use serialize::binary::*;
+use crate::op::Query;
+use crate::rr::{DNSClass, LowerName, RecordType};
+use crate::serialize::binary::*;
 
 /// Identical to [`trust_dns::op::Query`], except that the Name is guaranteed to be in lower case form
 #[derive(Clone, Debug, PartialEq)]

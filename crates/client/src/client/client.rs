@@ -21,13 +21,13 @@ use proto::error::ProtoError;
 use proto::xfer::{DnsRequestSender, DnsResponse};
 
 #[cfg(feature = "dnssec")]
-use client::SecureClientHandle;
-use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
-use error::*;
-use rr::dnssec::Signer;
+use crate::client::SecureClientHandle;
+use crate::client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
+use crate::error::*;
+use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
-use rr::dnssec::TrustAnchor;
-use rr::{DNSClass, Name, Record, RecordSet, RecordType};
+use crate::rr::dnssec::TrustAnchor;
+use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 /// Client trait which implements basic DNS Client operations.
 ///
@@ -44,11 +44,11 @@ use rr::{DNSClass, Name, Record, RecordSet, RecordType};
 /// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
 pub trait Client {
     /// The result future that will resolve into a DnsResponse
-    type Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send;
+    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The actual DNS request sender, aka Connection
     type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
     /// A future that resolves into the Sender after connection
-    type SenderFuture: Future<Item = Self::Sender, Error = ProtoError> + 'static + Send;
+    type SenderFuture: Future<Output = Result<Self::Sender, ProtoError>> + 'static + Send + Unpin;
     /// A handle to send messages to the Sender
     type Handle: ClientHandle;
 
@@ -584,8 +584,8 @@ fn assert_send_and_sync<T: Send + Sync>() {}
 
 #[test]
 fn test_sync_client_send_and_sync() {
-    use tcp::TcpClientConnection;
-    use udp::UdpClientConnection;
+    use crate::tcp::TcpClientConnection;
+    use crate::udp::UdpClientConnection;
     assert_send_and_sync::<SyncClient<UdpClientConnection>>();
     assert_send_and_sync::<SyncClient<TcpClientConnection>>();
 }

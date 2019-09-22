@@ -16,8 +16,8 @@
 
 //! Parse for Name text form
 
-use error::*;
-use rr::domain::Name;
+use crate::error::*;
+use crate::rr::domain::Name;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(

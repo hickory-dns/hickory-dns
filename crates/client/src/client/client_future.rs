@@ -7,8 +7,10 @@
 
 use std::sync::Arc;
 use std::time::Duration;
+use std::pin::Pin;
+use std::task::Context;
 
-use futures::{Future, Poll};
+use futures::{Future, FutureExt, Poll};
 use proto::error::ProtoError;
 use proto::xfer::{
     BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
@@ -17,10 +19,10 @@ use proto::xfer::{
 };
 use rand;
 
-use error::*;
-use op::{Message, MessageType, OpCode, Query, update_message};
-use rr::dnssec::Signer;
-use rr::{DNSClass, Name, Record, RecordSet, RecordType};
+use crate::error::*;
+use crate::op::{Message, MessageType, OpCode, Query, update_message};
+use crate::rr::dnssec::Signer;
+use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
 pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -33,9 +35,9 @@ pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientFuture<SenderFuture, Sender, Response>
 where
-    SenderFuture: Future<Item = Sender, Error = ProtoError> + 'static + Send,
+    SenderFuture: Future<Output = Result<Sender, ProtoError>> + 'static + Send + Unpin,
     Sender: DnsRequestSender<DnsResponseFuture = Response> + 'static,
-    Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     inner: InnerClientFuture<SenderFuture, Sender, Response>,
 }
@@ -47,8 +49,8 @@ impl<F, S>
         DnsMultiplexerSerialResponse,
     >
 where
-    F: Future<Item = S, Error = ProtoError> + Send + 'static,
-    S: DnsClientStream + Send + 'static,
+    F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
+    S: DnsClientStream + Send + Unpin + 'static,
 {
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
@@ -89,9 +91,9 @@ where
 
 impl<F, S, R> ClientFuture<F, S, R>
 where
-    F: Future<Item = S, Error = ProtoError> + 'static + Send,
+    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
@@ -117,25 +119,25 @@ where
 
 impl<SenderFuture, Sender, Response> Future for ClientFuture<SenderFuture, Sender, Response>
 where
-    SenderFuture: Future<Item = Sender, Error = ProtoError> + Send,
+    SenderFuture: Future<Output = Result<Sender, ProtoError>> + Send + Unpin,
     Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
+    Response: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
 {
-    type Item = ();
-    type Error = ();
+    type Output = ();
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         self.inner
-            .poll()
+            .poll_unpin(cx)
             .map_err(|e| warn!("poll errored in background ClientFuture: {}", e))
+            .map(|_: Result<(), ()>| ())
     }
 }
 
 enum InnerClientFuture<SenderFuture, Sender, Response>
 where
-    SenderFuture: Future<Item = Sender, Error = ProtoError> + 'static + Send,
+    SenderFuture: Future<Output = Result<Sender, ProtoError>> + 'static + Send + Unpin,
     Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     DnsExchangeConnect(DnsExchangeConnect<SenderFuture, Sender, Response>),
     DnsExchange(DnsExchange<Sender, Response>),
@@ -143,19 +145,18 @@ where
 
 impl<SenderFuture, Sender, Response> Future for InnerClientFuture<SenderFuture, Sender, Response>
 where
-    SenderFuture: Future<Item = Sender, Error = ProtoError> + Send,
+    SenderFuture: Future<Output = Result<Sender, ProtoError>> + Send + Unpin,
     Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Item = DnsResponse, Error = ProtoError> + Send,
+    Response: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
 {
-    type Item = ();
-    type Error = ProtoError;
+    type Output = Result<(), ProtoError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
             // we're either awaiting the connection, or we're always returning the exchange's result
-            let next = match self {
-                InnerClientFuture::DnsExchangeConnect(connect) => try_ready!(connect.poll()),
-                InnerClientFuture::DnsExchange(exchange) => return exchange.poll(),
+            let next = match *self {
+                InnerClientFuture::DnsExchangeConnect(ref mut connect) => ready!(connect.poll_unpin(cx))?,
+                InnerClientFuture::DnsExchange(ref mut exchange) => return exchange.poll_unpin(cx),
             };
 
             // asign the next and final state
@@ -170,14 +171,14 @@ where
 ///  a DNSSEc chain validator.
 pub struct BasicClientHandle<Resp>
 where
-    Resp: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
 {
     message_sender: BufDnsRequestStreamHandle<Resp>,
 }
 
 impl<Resp> DnsHandle for BasicClientHandle<Resp>
 where
-    Resp: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Response = OneshotDnsResponseReceiver<Resp>;
 
@@ -188,7 +189,7 @@ where
 
 impl<Resp> Clone for BasicClientHandle<Resp>
 where
-    Resp: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
 {
     fn clone(&self) -> Self {
         Self {
@@ -619,16 +620,15 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
 /// A future result of a Client Request
 pub struct ClientResponse<R>(R)
 where
-    R: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static;
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
 
 impl<R> Future for ClientResponse<R>
 where
-    R: Future<Item = DnsResponse, Error = ProtoError> + Send + 'static,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
-    type Item = DnsResponse;
-    type Error = ClientError;
+    type Output = Result<DnsResponse, ClientError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll().map_err(ClientError::from)
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.poll_unpin(cx).map_err(ClientError::from)
     }
 }

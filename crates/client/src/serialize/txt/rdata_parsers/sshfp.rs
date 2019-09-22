@@ -6,16 +6,22 @@
 // copied, modified, or distributed except according to those terms.
 
 //! SSHFP records for SSH public key fingerprints
+use data_encoding::{Encoding, Specification};
 
-use error::*;
-use rr::rdata::SSHFP;
 
-const HEX: ::data_encoding::Encoding = new_encoding! {
-    symbols: "0123456789abcdef",
-    ignore: " \t\r\n",
-    translate_from: "ABCDEF",
-    translate_to: "abcdef",
-};
+use crate::error::*;
+use crate::rr::rdata::SSHFP;
+
+lazy_static! {
+    static ref HEX: Encoding = {
+        let mut spec = Specification::new();
+        spec.symbols.push_str("0123456789abcdef");
+        spec.ignore.push_str(" \t\r\n");
+        spec.translate.from.push_str("ABCDEF");
+        spec.translate.to.push_str("abcdef");
+        spec.encoding().expect("error in sshfp HEX encoding")
+    };
+}
 
 /// Parse the RData from a set of Tokens
 ///
@@ -67,9 +73,9 @@ fn test_parsing() {
     assert!(parse(vec!["1", "-1"].into_iter()).is_err());
     assert!(parse(vec!["1", "1", "abcd", "foo"].into_iter()).is_err());
 
-    use rr::rdata::sshfp::Algorithm::*;
-    use rr::rdata::sshfp::FingerprintType::*;
-    use rr::rdata::sshfp::{Algorithm, FingerprintType};
+    use crate::rr::rdata::sshfp::Algorithm::*;
+    use crate::rr::rdata::sshfp::FingerprintType::*;
+    use crate::rr::rdata::sshfp::{Algorithm, FingerprintType};
 
     fn test_parsing(input: Vec<&str>, a: Algorithm, ft: FingerprintType, f: &[u8]) {
         assert!(parse(input.into_iter())

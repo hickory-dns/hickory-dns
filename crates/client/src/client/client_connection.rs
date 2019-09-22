@@ -20,16 +20,16 @@ use futures::Future;
 use proto::error::ProtoError;
 use proto::xfer::{DnsRequestSender, DnsResponse};
 
-use rr::dnssec::Signer;
+use crate::rr::dnssec::Signer;
 
 /// Trait for client connections
-pub trait ClientConnection: 'static + Sized + Send {
+pub trait ClientConnection: 'static + Sized + Send + Unpin {
     /// The associated DNS RequestSender type.
     type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
     /// Response type of the RequestSender
-    type Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send;
+    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// A future that resolves to the RequestSender
-    type SenderFuture: Future<Item = Self::Sender, Error = ProtoError> + 'static + Send;
+    type SenderFuture: Future<Output = Result<Self::Sender, ProtoError>> + 'static + Send + Unpin;
 
     /// Construct a new stream for use in the Client
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture;

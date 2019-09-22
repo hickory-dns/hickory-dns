@@ -9,7 +9,7 @@ use std::char;
 use std::iter::Peekable;
 use std::str::Chars;
 
-use error::*;
+use crate::error::*;
 
 /// A Lexer for Zone files
 pub struct Lexer<'a> {

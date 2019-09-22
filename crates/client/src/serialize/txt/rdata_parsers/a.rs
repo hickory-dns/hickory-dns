@@ -18,7 +18,8 @@
 
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use error::*;
+
+use crate::error::*;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<Ipv4Addr> {

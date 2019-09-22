@@ -7,8 +7,8 @@
 
 //! OPENPGPKEY records for OpenPGP public keys
 
-use error::*;
-use rr::rdata::OPENPGPKEY;
+use crate::error::*;
+use crate::rr::rdata::OPENPGPKEY;
 
 /// Parse the RData from a set of tokens.
 ///
