@@ -16,10 +16,10 @@
 
 //! record data enum variants
 
-use error::*;
-use rr::rdata::DNSSECRecordType;
-use rr::{Name, RData, RecordType};
-use serialize::txt::rdata_parsers::*;
+use crate::error::*;
+use crate::rr::rdata::DNSSECRecordType;
+use crate::rr::{Name, RData, RecordType};
+use crate::serialize::txt::rdata_parsers::*;
 
 pub trait RDataParser: Sized {
     fn parse<'i, I: Iterator<Item = &'i str>>(

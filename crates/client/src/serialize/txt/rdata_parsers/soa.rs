@@ -17,9 +17,9 @@
 //! Parser for SOA text form
 use std::str::FromStr;
 
-use error::*;
-use rr::domain::Name;
-use rr::rdata::SOA;
+use crate::error::*;
+use crate::rr::domain::Name;
+use crate::rr::rdata::SOA;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(

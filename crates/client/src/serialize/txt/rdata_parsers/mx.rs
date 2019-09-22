@@ -16,9 +16,9 @@
 
 //! mail exchange, email, record
 
-use error::*;
-use rr::domain::Name;
-use rr::rdata::MX;
+use crate::error::*;
+use crate::rr::domain::Name;
+use crate::rr::rdata::MX;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(

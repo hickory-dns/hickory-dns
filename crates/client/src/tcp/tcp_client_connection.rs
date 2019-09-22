@@ -15,9 +15,9 @@ use tokio_tcp::TcpStream;
 use proto::tcp::{TcpClientConnect, TcpClientStream};
 use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
-use client::ClientConnection;
-use error::*;
-use rr::dnssec::Signer;
+use crate::client::ClientConnection;
+use crate::error::*;
+use crate::rr::dnssec::Signer;
 
 /// Tcp client connection
 ///

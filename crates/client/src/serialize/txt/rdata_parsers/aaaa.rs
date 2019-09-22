@@ -19,7 +19,7 @@
 use std::net::Ipv6Addr;
 use std::str::FromStr;
 
-use error::*;
+use crate::error::*;
 
 
 /// Parse the RData from a set of Tokens

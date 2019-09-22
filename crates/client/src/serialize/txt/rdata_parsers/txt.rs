@@ -16,8 +16,8 @@
 
 //! text records for storing arbitrary data
 
-use error::*;
-use rr::rdata::TXT;
+use crate::error::*;
+use crate::rr::rdata::TXT;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TXT> {

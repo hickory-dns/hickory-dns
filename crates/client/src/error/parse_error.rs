@@ -19,10 +19,11 @@
 
 use std::{fmt, io};
 
-use super::LexerError;
 use failure::{Backtrace, Context, Fail};
 use proto::error::{ProtoError, ProtoErrorKind};
-use serialize::txt::Token;
+
+use super::LexerError;
+use crate::serialize::txt::Token;
 
 /// An alias for parse results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;

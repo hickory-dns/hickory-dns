@@ -17,9 +17,9 @@
 //! service records for identify port mapping for specific services on a host
 use std::str::FromStr;
 
-use error::*;
-use rr::domain::Name;
-use rr::rdata::SRV;
+use crate::error::*;
+use crate::rr::domain::Name;
+use crate::rr::rdata::SRV;
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(

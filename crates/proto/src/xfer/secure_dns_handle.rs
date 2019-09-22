@@ -112,7 +112,7 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
 
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::new(future::err(ProtoError::from("exceeded max validation depth")));
+            return Box::pin(future::err(ProtoError::from("exceeded max validation depth")));
         }
 
         // dnssec only matters on queries.
@@ -158,7 +158,7 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
                 .map_or(DNSClass::IN, Query::query_class);
 
             return 
-                self.handle
+                Box::pin(self.handle
                     .send(request)
                     .and_then(move |message_response| {
                         // group the record sets by name and type
@@ -201,10 +201,10 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
                         }
 
                         future::ok(verified_message)
-                    }).boxed();
+                    }));
         }
 
-        self.handle.send(request).boxed()
+        Box::pin(self.handle.send(request))
     }
 }
 

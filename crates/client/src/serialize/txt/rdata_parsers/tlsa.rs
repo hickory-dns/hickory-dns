@@ -8,17 +8,23 @@
 
 
 //! tlsa records for storing TLS authentication records
+use data_encoding::{Encoding, Specification};
 
-use error::*;
-use rr::rdata::TLSA;
-use rr::rdata::tlsa::CertUsage;
+use crate::error::*;
+use crate::rr::rdata::TLSA;
+use crate::rr::rdata::tlsa::CertUsage;
 
-const HEX: ::data_encoding::Encoding = new_encoding!{
-    symbols: "0123456789abcdef",
-    ignore: " \t\r\n",
-    translate_from: "ABCDEF",
-    translate_to: "abcdef",
-};
+// TODO: dedup with sshfp
+lazy_static! {
+    static ref HEX: Encoding = {
+        let mut spec = Specification::new();
+        spec.symbols.push_str("0123456789abcdef");
+        spec.ignore.push_str(" \t\r\n");
+        spec.translate.from.push_str("ABCDEF");
+        spec.translate.to.push_str("abcdef");
+        spec.encoding().expect("error in tlsa HEX encoding")
+    };
+}
 
 fn to_u8(data: &str) -> ParseResult<u8> {
     u8::from_str_radix(data, 10).map_err(ParseError::from)

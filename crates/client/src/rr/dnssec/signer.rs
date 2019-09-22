@@ -14,25 +14,25 @@ use proto::error::{ProtoErrorKind, ProtoResult};
 use proto::rr::dnssec::{tbs, TBS};
 
 #[cfg(feature = "dnssec")]
-use error::DnsSecResult;
-use op::{Message, MessageFinalizer};
+use crate::error::DnsSecResult;
+use crate::op::{Message, MessageFinalizer};
 #[cfg(feature = "dnssec")]
-use rr::dnssec::Private;
+use crate::rr::dnssec::Private;
 #[cfg(feature = "dnssec")]
-use rr::dnssec::{Algorithm, KeyPair};
+use crate::rr::dnssec::{Algorithm, KeyPair};
 #[cfg(feature = "dnssec")]
-use rr::rdata::DNSSECRData;
+use crate::rr::rdata::DNSSECRData;
 #[cfg(feature = "dnssec")]
-use rr::rdata::SIG;
+use crate::rr::rdata::SIG;
 #[cfg(feature = "dnssec")]
-use rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
+use crate::rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
 #[cfg(feature = "dnssec")]
-use rr::RData;
-use rr::Record;
+use crate::rr::RData;
+use crate::rr::Record;
 #[cfg(feature = "dnssec")]
-use rr::{DNSClass, Name, RecordType};
+use crate::rr::{DNSClass, Name, RecordType};
 #[cfg(feature = "dnssec")]
-use serialize::binary::BinEncoder;
+use crate::serialize::binary::BinEncoder;
 
 /// Use for performing signing and validation of DNSSec based components.
 ///

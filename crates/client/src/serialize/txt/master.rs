@@ -16,10 +16,10 @@
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
-use error::*;
-use rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-use serialize::txt::master_lex::{Lexer, Token};
-use serialize::txt::parse_rdata::RDataParser;
+use crate::error::*;
+use crate::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use crate::serialize::txt::master_lex::{Lexer, Token};
+use crate::serialize::txt::parse_rdata::RDataParser;
 
 /// ```text
 /// 5. MASTER FILES

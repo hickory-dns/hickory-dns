@@ -7,7 +7,7 @@
 
 use std::cmp::Ordering;
 
-use rr::{LowerName, RecordType};
+use crate::rr::{LowerName, RecordType};
 
 /// Accessor key for RRSets in the Authority.
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]

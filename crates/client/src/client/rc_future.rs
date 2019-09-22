@@ -6,26 +6,28 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::sync::{Arc, Mutex};
+use std::pin::Pin;
+use std::task::Context;
 
-use futures::{Async, Fuse, Future, IntoFuture, Poll};
+use futures::{future::Fuse, Future, FutureExt, Poll, ready};
 
 #[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>
 where
-    F: Future + Send,
-    F::Item: Clone + Send,
+    F: Future + Send + Unpin,
+    F::Output: Clone + Send,
 {
     rc_future: Arc<Mutex<Fuse<F>>>,
-    result: Arc<Mutex<Option<Poll<F::Item, F::Error>>>>,
+    result: Arc<Mutex<Option<Poll<F::Output>>>>,
 }
 
-pub fn rc_future<I>(future: I) -> RcFuture<I::Future>
+pub fn rc_future<F>(future: F) -> RcFuture<F>
 where
-    I: IntoFuture,
-    <I as IntoFuture>::Item: Clone + Send,
-    <I as IntoFuture>::Future: Send,
+    F: Future + Unpin,
+    F::Output: Clone + Send,
+    F: Send,
 {
-    let rc_future = Arc::new(Mutex::new(future.into_future().fuse()));
+    let rc_future = Arc::new(Mutex::new(future.fuse()));
 
     RcFuture {
         rc_future,
@@ -35,14 +37,12 @@ where
 
 impl<F> Future for RcFuture<F>
 where
-    F: Future + Send,
-    F::Item: Clone + Send,
-    F::Error: Clone + Send,
+    F: Future + Send + Unpin,
+    F::Output: Clone + Send,
 {
-    type Item = F::Item;
-    type Error = F::Error;
+    type Output = F::Output;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
@@ -57,8 +57,8 @@ where
         }
 
         // TODO convert this to try_borrow_mut when that stabilizes...
-        match self.rc_future.lock().expect("poisoned").poll() {
-            result @ Ok(Async::NotReady) => result,
+        match self.rc_future.lock().expect("poisoned").poll_unpin(cx) {
+            result @ Poll::Pending => result,
             result => {
                 let mut store = self.result.lock().expect("poisoned");
                 *store = Some(result.clone());
@@ -70,8 +70,8 @@ where
 
 impl<F> Clone for RcFuture<F>
 where
-    F: Future + Send,
-    F::Item: Clone + Send,
+    F: Future + Send + Unpin,
+    F::Output: Clone + Send + Unpin,
 {
     fn clone(&self) -> Self {
         RcFuture {
@@ -82,30 +82,35 @@ where
 }
 
 #[cfg(test)]
-use futures::{failed, finished};
+mod tests {
+    use futures::executor::block_on;
+    use futures::future;
 
-#[test]
-fn test_rc_future() {
-    let future = finished::<usize, usize>(1_usize);
+    use super::*;
 
-    let rc = rc_future(future);
+    #[test]
+    fn test_rc_future() {
+        let future = future::ok::<usize, usize>(1_usize);
 
-    let i = rc.clone().wait().ok().unwrap();
-    assert_eq!(i, 1);
+        let rc = rc_future(future);
 
-    let i = rc.wait().ok().unwrap();
-    assert_eq!(i, 1);
-}
+        let i = block_on(rc.clone()).ok().unwrap();
+        assert_eq!(i, 1);
 
-#[test]
-fn test_rc_future_failed() {
-    let future = failed::<usize, usize>(2);
+        let i = block_on(rc).ok().unwrap();
+        assert_eq!(i, 1);
+    }
 
-    let rc = rc_future(future);
+    #[test]
+    fn test_rc_future_failed() {
+        let future = future::err::<usize, usize>(2);
 
-    let i = rc.clone().wait().err().unwrap();
-    assert_eq!(i, 2);
+        let rc = rc_future(future);
 
-    let i = rc.wait().err().unwrap();
-    assert_eq!(i, 2);
+        let i = block_on(rc.clone()).err().unwrap();
+        assert_eq!(i, 2);
+
+        let i = block_on(rc).err().unwrap();
+        assert_eq!(i, 2);
+    }
 }
