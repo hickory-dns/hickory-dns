@@ -952,7 +952,7 @@ impl Authority for SqliteAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send> {
+    ) -> Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send> {
         self.in_memory
             .search(query, is_secure, supported_algorithms)
     }

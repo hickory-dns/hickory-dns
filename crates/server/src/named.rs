@@ -412,7 +412,7 @@ pub fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
-    let server_future: Box<dyn Future<Item = (), Error = ()> + Send> =
+    let server_future: Box<dyn Future<Output = Result<(), ()>> + Send> =
         Box::new(future::lazy(move || {
             // load all the listeners
             for udp_socket in udp_sockets {

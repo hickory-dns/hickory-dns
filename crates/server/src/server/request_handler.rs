@@ -25,7 +25,7 @@ pub struct Request {
 /// Trait for handling incoming requests, and providing a message response.
 pub trait RequestHandler: Send + 'static {
     /// A future for execution of the request
-    type ResponseFuture: Future<Item = (), Error = ()> + Send + 'static;
+    type ResponseFuture: Future<Output = Result<(), ()>> + Send + 'static;
 
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///

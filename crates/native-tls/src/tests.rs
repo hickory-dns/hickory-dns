@@ -17,7 +17,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
-use futures::Stream;
+use futures::StreamExt;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
 use tokio::runtime::current_thread::Runtime;
@@ -26,7 +26,7 @@ use trust_dns_proto::xfer::SerialMessage;
 
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
-use {TlsStream, TlsStreamBuilder};
+use crate::{TlsStream, TlsStreamBuilder};
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
@@ -200,12 +200,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future())
-            .ok()
-            .expect("future iteration run failed");
+            .block_on(stream.into_future());
         stream = stream_tmp;
         let message = buffer.expect("no buffer received");
-        assert_eq!(message.bytes(), TEST_BYTES);
+        assert_eq!(message.expect("message destructure failed").bytes(), TEST_BYTES);
     }
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

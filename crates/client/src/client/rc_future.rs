@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::pin::Pin;
 use std::task::Context;
 
-use futures::{future::Fuse, Future, FutureExt, Poll, ready};
+use futures::{future::Fuse, Future, FutureExt, Poll};
 
 #[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>

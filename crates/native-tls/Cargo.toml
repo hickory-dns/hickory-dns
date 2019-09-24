@@ -2,6 +2,7 @@
 name = "trust-dns-native-tls"
 version = "0.7.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
+edition = "2018"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -44,15 +45,15 @@ name = "trust_dns_native_tls"
 path = "src/lib.rs"
 
 [dependencies]
-futures = "0.1.28"
+futures-preview = "0.3.0-alpha"
 native-tls = "0.2"
-tokio-tcp = "0.1"
-tokio-tls = "0.2"
+tokio-tcp = "0.2.0-alpha"
+tokio-tls = "0.3.0-alpha"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.8.0", path = "../proto", features = ["tokio-compat"], default-features = false }
 
 [dev-dependencies]
-tokio = "0.1.22"
+tokio = "0.2.0-alpha"
 
 ## Commented out until MTLS support is complete
 # [target.'cfg(target_os = "linux")'.dependencies]
