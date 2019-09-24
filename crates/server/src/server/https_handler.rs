@@ -25,7 +25,7 @@ pub fn h2_handler<T, I>(
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Arc<String>,
-) -> impl Future<Item = (), Error = ()>
+) -> impl Future<Output = Result<(), ()>>
 where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite,

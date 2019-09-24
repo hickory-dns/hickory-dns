@@ -18,6 +18,8 @@
 
 #![deny(missing_docs)]
 
+#![feature(async_await)]
+
 extern crate futures;
 extern crate native_tls;
 #[cfg(test)]

@@ -523,12 +523,12 @@ pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
 }
 
 #[must_use = "futures do nothing unless polled"]
-pub(crate) enum HandleRawRequest<F: Future<Item = (), Error = ()>> {
+pub(crate) enum HandleRawRequest<F: Future<Output = Result<(), ()>>> {
     HandleRequest(F),
     Result(io::Error),
 }
 
-impl<F: Future<Item = (), Error = ()>> Future for HandleRawRequest<F> {
+impl<F: Future<Output = Result<(), ()>>> Future for HandleRawRequest<F> {
     type Item = ();
     type Error = ();
 

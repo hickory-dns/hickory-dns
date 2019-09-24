@@ -75,7 +75,7 @@ fn standard_conn(
         DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
         DnsMultiplexerSerialResponse,
     >,
-    BasicClientHandle<impl Future<Item = DnsResponse, Error = ProtoError>>,
+    BasicClientHandle<impl Future<Output = Result<DnsResponse, ProtoError>>>,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()

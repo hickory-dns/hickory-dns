@@ -8,8 +8,9 @@
 //! TlsClientStream for DNS over TLS
 
 use std::net::SocketAddr;
+use std::pin::Pin;
 
-use futures::Future;
+use futures::{Future, TryFutureExt};
 use native_tls::Certificate;
 #[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
@@ -20,7 +21,7 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
-use TlsStreamBuilder;
+use crate::TlsStreamBuilder;
 
 /// TlsClientStream secure DNS over TCP stream
 ///
@@ -60,14 +61,14 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<dyn Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
 
-        let new_future = Box::new(
+        let new_future = Box::pin(
             stream_future
-                .map(TcpClientStream::from_stream)
+                .map_ok(TcpClientStream::from_stream)
                 .map_err(ProtoError::from),
         );
 

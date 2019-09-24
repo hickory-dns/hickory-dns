@@ -197,7 +197,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
-pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
+pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Send>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,
@@ -255,7 +255,7 @@ pub fn query_all_dnssec<R: Future<Item = DnsResponse, Error = ProtoError> + Send
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_with_rfc6975<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
+pub fn query_all_dnssec_with_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,
@@ -264,7 +264,7 @@ pub fn query_all_dnssec_with_rfc6975<R: Future<Item = DnsResponse, Error = Proto
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_wo_rfc6975<R: Future<Item = DnsResponse, Error = ProtoError> + Send>(
+pub fn query_all_dnssec_wo_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,

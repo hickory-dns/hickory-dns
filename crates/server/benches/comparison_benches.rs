@@ -117,9 +117,9 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 /// Runs the bench tesk using the specified client
 fn bench<F, S, R>(b: &mut Bencher, stream: F)
 where
-    F: Future<Item = S, Error = ProtoError> + 'static + Send,
+    F: Future<Output = Result<S, ProtoError>> + 'static + Send,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
 {
     let mut io_loop = Runtime::new().unwrap();
     let (bg, mut client) = ClientFuture::connect(stream);

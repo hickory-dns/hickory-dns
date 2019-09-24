@@ -21,7 +21,7 @@ pub trait Authority: Send {
     /// Result of a lookup
     type Lookup: Send + Sized + 'static;
     /// The future type that will resolve to a Lookup
-    type LookupFuture: Future<Item = Self::Lookup, Error = LookupError> + Send;
+    type LookupFuture: Future<Output = Result<Self::Lookup, LookupError>> + Send;
 
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
@@ -73,7 +73,7 @@ pub trait Authority: Send {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send>;
+    ) -> Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>;
 
     /// Get the NS, NameServer, record for the zone
     fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Self::LookupFuture {

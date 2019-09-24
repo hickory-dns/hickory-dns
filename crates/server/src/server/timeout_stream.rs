@@ -44,7 +44,7 @@ impl<S> TimeoutStream<S> {
 
 impl<S, I> Stream for TimeoutStream<S>
 where
-    S: Stream<Item = I, Error = io::Error>,
+    S: Stream<Item = Result<I, io::Error>>,
 {
     type Item = I;
     type Error = io::Error;

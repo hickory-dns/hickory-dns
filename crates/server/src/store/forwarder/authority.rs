@@ -46,7 +46,7 @@ impl ForwardAuthority {
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,
-    ) -> Result<(Self, impl Future<Item = (), Error = ()>), String> {
+    ) -> Result<(Self, impl Future<Output = Result<(), ()>>), String> {
         info!("loading forwarder config: {}", origin);
 
         let name_servers = config.name_servers.clone();
@@ -114,7 +114,7 @@ impl Authority for ForwardAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<dyn Future<Item = Self::Lookup, Error = LookupError> + Send> {
+    ) -> Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send> {
         Box::new(self.lookup(
             query.name(),
             query.query_type(),

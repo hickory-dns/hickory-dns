@@ -165,13 +165,13 @@ impl RequestHandler for Catalog {
 /// Future response to handle a request
 #[must_use = "futures do nothing unless polled"]
 pub enum HandleRequest {
-    LookupFuture(Box<dyn Future<Item = (), Error = ()> + Send>),
+    LookupFuture(Box<dyn Future<Output = Result<(), ()>> + Send>),
     Result(io::Result<()>),
 }
 
 impl HandleRequest {
     fn lookup<R: ResponseHandler>(lookup_future: LookupFuture<R>) -> Self {
-        let lookup = Box::new(lookup_future) as Box<dyn Future<Item = (), Error = ()> + Send>;
+        let lookup = Box::new(lookup_future) as Box<dyn Future<Output = Result<(), ()>> + Send>;
         HandleRequest::LookupFuture(lookup)
     }
 
