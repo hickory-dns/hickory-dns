@@ -69,10 +69,10 @@ pub fn default() {
     logger(&rust_log);
 }
 
-/// appends trust-dns-server info to RUST_LOG
+/// appends trust-dns-server error to RUST_LOG
 pub fn quiet() {
     let mut rust_log = get_env();
-    rust_log.push_str(&all_trust_dns("info"));
+    rust_log.push_str(&all_trust_dns("error"));
     logger(&rust_log);
 }
 
