@@ -10,6 +10,7 @@
 use std::collections::BTreeMap;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 
 use futures::future::Future;
 
@@ -18,9 +19,9 @@ use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
 
-use authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
-use store::file::FileConfig;
-use store::in_memory::InMemoryAuthority;
+use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::store::file::FileConfig;
+use crate::store::in_memory::InMemoryAuthority;
 
 /// FileAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -160,8 +161,8 @@ impl Authority for FileAuthority {
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
-        self.0.lookup(name, rtype, is_secure, supported_algorithms)
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+        Box::pin(self.0.lookup(name, rtype, is_secure, supported_algorithms))
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -180,12 +181,12 @@ impl Authority for FileAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send> {
-        self.0.search(query, is_secure, supported_algorithms)
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+        Box::pin(self.0.search(query, is_secure, supported_algorithms))
     }
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Self::LookupFuture {
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.0.ns(is_secure, supported_algorithms)
     }
 
@@ -201,7 +202,7 @@ impl Authority for FileAuthority {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.0
             .get_nsec_records(name, is_secure, supported_algorithms)
     }
@@ -210,7 +211,7 @@ impl Authority for FileAuthority {
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> Self::LookupFuture {
+    fn soa(&self) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.0.soa()
     }
 
@@ -219,7 +220,7 @@ impl Authority for FileAuthority {
         &self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.0.soa_secure(is_secure, supported_algorithms)
     }
 
@@ -241,11 +242,14 @@ impl Authority for FileAuthority {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use authority::ZoneType;
     use std::net::Ipv4Addr;
     use std::str::FromStr;
+
+    use futures::executor::block_on;
     use trust_dns::rr::RData;
+
+    use crate::authority::ZoneType;
+    use super::*;
 
     #[test]
     fn test_load_zone() {
@@ -261,14 +265,13 @@ mod tests {
         )
         .expect("failed to load file");
 
-        let lookup = Authority::lookup(
+        let lookup = block_on(Authority::lookup(
             &authority,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .expect("lookup failed");
 
         match lookup

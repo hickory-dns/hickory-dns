@@ -45,6 +45,7 @@ extern crate trust_dns_server;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
 use futures::{future, Future};
@@ -121,14 +122,9 @@ fn load_zone(
         }
         #[cfg(feature = "trust-dns-resolver")]
         Some(StoreConfig::Forward(ref config)) => {
-            use futures::future::Executor;
-
             let (forwarder, bg) = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
 
-            executor
-                .execute(bg)
-                .expect("failed to background forwarder");
-
+            executor.spawn(bg);
             Box::new(forwarder)
         }
         #[cfg(feature = "sqlite")]
@@ -412,8 +408,8 @@ pub fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
-    let server_future: Box<dyn Future<Output = Result<(), ()>> + Send> =
-        Box::new(future::lazy(move || {
+    let server_future: Pin<Box<dyn Future<Output = ()> + Send>> =
+        Box::pin(future::lazy(move |_| {
             // load all the listeners
             for udp_socket in udp_sockets {
                 info!("listening for UDP on {:?}", udp_socket);
@@ -465,17 +461,11 @@ pub fn main() {
             // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
             //  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
-            future::empty()
+            ()
         }));
 
-    if let Err(e) = io_loop.block_on(server_future.map_err(|_| {
-        io::Error::new(
-            io::ErrorKind::Interrupted,
-            "Server stopping due to interruption",
-        )
-    })) {
-        error!("failed to listen: {}", e);
-    }
+    io_loop.spawn(server_future);
+    io_loop.shutdown_on_idle();
 
     // we're exiting for some reason...
     info!("Trust-DNS {} stopping", trust_dns::version());

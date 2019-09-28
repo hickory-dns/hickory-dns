@@ -5,9 +5,12 @@ extern crate trust_dns_server;
 
 use std::io;
 use std::time::Duration;
-use futures::{Async, Poll};
+use std::pin::Pin;
+use std::task::Context;
+
+use futures::Poll;
 #[allow(deprecated)]
-use futures::stream::{iter, Stream};
+use futures::stream::{iter, Stream, StreamExt, TryStreamExt};
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_server::server::TimeoutStream;
@@ -21,36 +24,27 @@ fn test_no_timeout() {
 
     let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360));
 
-    let (val, timeout_stream) = core.block_on(timeout_stream.into_future())
-        .ok()
-        .expect("first run failed");
-    assert_eq!(val, Some(1));
+    let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
+    assert_eq!(val.expect("nothing in stream").ok(), Some(1));
 
-    let error = core.block_on(timeout_stream.into_future());
-    assert!(error.is_err());
+    let (error, timeout_stream) = core.block_on(timeout_stream.into_future());
+    assert!(error.expect("nothing in stream").is_err());
 
-    let (_, timeout_stream) = error.err().unwrap();
+    let (val, timeout_stream) = core.block_on(timeout_stream.into_future());
+    assert_eq!(val.expect("nothing in stream").ok(), Some(2));
 
-    let (val, timeout_stream) = core.block_on(timeout_stream.into_future())
-        .ok()
-        .expect("third run failed");
-    assert_eq!(val, Some(2));
-
-    let (val, _) = core.block_on(timeout_stream.into_future())
-        .ok()
-        .expect("fourth run failed");
+    let (val, _) = core.block_on(timeout_stream.into_future());
     assert!(val.is_none())
 }
 
 struct NeverStream {}
 
 impl Stream for NeverStream {
-    type Item = ();
-    type Error = io::Error;
+    type Item = Result<(), io::Error>;
 
     // somehow insert a timeout here...
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        Ok(Async::NotReady)
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        Poll::Pending
     }
 }
 
@@ -59,5 +53,5 @@ fn test_timeout() {
     let mut core = Runtime::new().expect("could not get core");
     let timeout_stream = TimeoutStream::new(NeverStream {}, Duration::from_millis(1));
 
-    assert!(core.block_on(timeout_stream.into_future()).is_err());
+    assert!(core.block_on(timeout_stream.into_future()).0.expect("nothing in stream").is_err());
 }

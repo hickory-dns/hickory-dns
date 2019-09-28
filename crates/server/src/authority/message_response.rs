@@ -11,8 +11,8 @@ use proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
 
-use authority::message_request::QueriesEmitAndCount;
-use authority::Queries;
+use crate::authority::message_request::QueriesEmitAndCount;
+use crate::authority::Queries;
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]

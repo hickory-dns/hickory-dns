@@ -7,14 +7,17 @@
 
 //! All authority related types
 
-use futures::{future, Future, Poll};
+use std::pin::Pin;
+use std::task::Context;
+
+use futures::{future, Future, FutureExt, Poll, TryFutureExt};
 
 use trust_dns::op::LowerQuery;
 use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{LowerName, Name, Record, RecordType};
 
-use authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
 
 /// An Object safe Authority
 pub trait AuthorityObject: Send + Sync {
@@ -193,7 +196,7 @@ where
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
         let lookup = Authority::lookup(self, name, rtype, is_secure, supported_algorithms);
-        BoxedLookupFuture::from(lookup.map(|l| Box::new(l) as Box<dyn LookupObject>))
+        BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -214,7 +217,7 @@ where
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
         let lookup = Authority::search(self, query, is_secure, supported_algorithms);
-        BoxedLookupFuture::from(lookup.map(|l| Box::new(l) as Box<dyn LookupObject>))
+        BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
     /// Return the NSEC records based on the given name
@@ -231,7 +234,7 @@ where
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
         let lookup = Authority::get_nsec_records(self, name, is_secure, supported_algorithms);
-        BoxedLookupFuture::from(lookup.map(|l| Box::new(l) as Box<dyn LookupObject>))
+        BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
@@ -279,31 +282,30 @@ impl LookupObject for EmptyLookup {
 
 /// A boxed lookup future
 pub struct BoxedLookupFuture(
-    Box<dyn Future<Item = Box<dyn LookupObject>, Error = LookupError> + Send>,
+    Pin<Box<dyn Future<Output = Result<Box<dyn LookupObject>, LookupError>> + Send>>,
 );
 
 impl BoxedLookupFuture {
     /// Performs a conversion (boxes) into the future
     pub fn from<T>(future: T) -> Self
     where
-        T: Future<Item = Box<dyn LookupObject>, Error = LookupError> + Send + Sized + 'static,
+        T: Future<Output = Result<Box<dyn LookupObject>, LookupError>> + Send + Sized + 'static,
     {
-        BoxedLookupFuture(Box::new(future))
+        BoxedLookupFuture(Box::pin(future))
     }
 
     /// Creates an empty (i.e. no records) lookup future
     pub fn empty() -> Self {
-        BoxedLookupFuture(Box::new(future::ok(
+        BoxedLookupFuture(Box::pin(future::ok(
             Box::new(EmptyLookup) as Box<dyn LookupObject>
         )))
     }
 }
 
 impl Future for BoxedLookupFuture {
-    type Item = Box<dyn LookupObject>;
-    type Error = LookupError;
+    type Output = Result<Box<dyn LookupObject>, LookupError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.as_mut().poll(cx)
     }
 }

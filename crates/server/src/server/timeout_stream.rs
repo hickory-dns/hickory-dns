@@ -1,13 +1,15 @@
 use std::io;
 use std::mem;
+use std::pin::Pin;
+use std::task::Context;
 use std::time::{Duration, Instant};
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{Future, FutureExt, Poll, Stream, StreamExt};
 use tokio_timer::Delay;
 
 /// This wraps the underlying Stream in a timeout.
 ///
-/// Any `Ok(Async::Ready(_))` from the underlying Stream will reset the timeout.
+/// Any `Ok(Poll::Ready(_))` from the underlying Stream will reset the timeout.
 pub struct TimeoutStream<S> {
     stream: S,
     timeout_duration: Duration,
@@ -44,61 +46,51 @@ impl<S> TimeoutStream<S> {
 
 impl<S, I> Stream for TimeoutStream<S>
 where
-    S: Stream<Item = Result<I, io::Error>>,
+    S: Stream<Item = Result<I, io::Error>> + Unpin,
 {
-    type Item = I;
-    type Error = io::Error;
+    type Item = Result<I, io::Error>;
 
     // somehow insert a timeout here...
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match self.stream.poll() {
-            r @ Ok(Async::Ready(_)) | r @ Err(_) => {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        match self.stream.poll_next_unpin(cx) {
+            r @ Poll::Ready(_) => {
                 // reset the timeout to wait for the next request...
-                let mut timeout = Self::timeout(self.timeout_duration);
+                let timeout = if let Some(mut timeout) = Self::timeout(self.timeout_duration) {
+                    // ensure that interest in the Timeout is registered
+                    match timeout.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            warn!("timeout fired immediately!");
+                            return Poll::Ready(Some(Err(io::Error::new(
+                                io::ErrorKind::TimedOut,
+                                "timeout fired immediately!",
+                            ))));
+                        }
+                        Poll::Pending => (), // this is the expected state...
+                    }
 
-                // ensure that interest in the Timeout is registered
-                match timeout.poll() {
-                    Ok(Async::Ready(_)) => {
-                        warn!("timeout fired immediately!");
-                        return Err(io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            "timeout fired immediately!",
-                        ));
-                    }
-                    Err(e) => {
-                        error!("could not register interest in Timeout: {}", e);
-                        return Err(io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            format!("could not register interest in Timeout: {}", e),
-                        ));
-                    }
-                    Ok(Async::NotReady) => (), // this is the expected state...
-                }
+                    Some(timeout)
+                } else {
+                    None
+                };
 
                 drop(mem::replace(&mut self.timeout, timeout));
 
                 r
             }
-            Ok(Async::NotReady) => {
+            Poll::Pending => {
                 if let Some(ref mut timeout) = self.timeout {
-                    match timeout.poll() {
-                        Ok(Async::NotReady) => Ok(Async::NotReady),
-                        Ok(Async::Ready(())) => {
+                    match timeout.poll_unpin(cx) {
+                        Poll::Pending => return Poll::Pending,
+                        Poll::Ready(()) => {
                             debug!("timeout on stream");
-                            Err(io::Error::new(
+                            return Poll::Ready(Some(Err(io::Error::new(
                                 io::ErrorKind::TimedOut,
                                 format!("nothing ready in {:?}", self.timeout_duration),
-                            ))
-                        }
-                        Err(_) => {
-                            Err(io::Error::new(
-                                io::ErrorKind::Other,
-                                "timer internal error",
-                            ))
+                            ))));
                         }
                     }
                 } else {
-                    Ok(Async::NotReady)
+                    return Poll::Pending;
                 }
             }
         }

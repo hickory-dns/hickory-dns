@@ -738,9 +738,9 @@ macro_rules! define_update_test {
         $(
             #[test]
             fn $f () {
-                let mut authority = ::$new("tests/named_test_configs/example.com.zone", module_path!(), stringify!($f));
-                let keys = ::authority_battery::dynamic_update::add_auth(&mut authority);
-                ::authority_battery::dynamic_update::$f(authority, &keys);
+                let mut authority = crate::$new("tests/named_test_configs/example.com.zone", module_path!(), stringify!($f));
+                let keys = crate::authority_battery::dynamic_update::add_auth(&mut authority);
+                crate::authority_battery::dynamic_update::$f(authority, &keys);
             }
         )*
     }

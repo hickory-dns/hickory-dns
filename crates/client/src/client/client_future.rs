@@ -182,7 +182,7 @@ where
 {
     type Response = OneshotDnsResponseReceiver<Resp>;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> Self::Response {
         self.message_sender.send(request)
     }
 }
