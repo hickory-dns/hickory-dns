@@ -1,7 +1,7 @@
 pub mod mut_message_client;
 
 use std::env;
-use std::io::*;
+use std::io::{self, BufRead, BufReader, stdout, Write};
 use std::mem;
 use std::net::*;
 use std::panic::{catch_unwind, UnwindSafe};
@@ -70,6 +70,8 @@ where
         .spawn()
         .expect("failed to start named");
 
+    println!("server starting");
+
     let mut named_out = BufReader::new(mem::replace(&mut named.stdout, None).expect("no stdout"));
 
     // forced thread killer
@@ -127,7 +129,8 @@ where
             .read_line(&mut output)
             .expect("could not read stdout");
         if !output.is_empty() {
-            info!("SRV: {}", output.trim_end());
+            // uncomment for debugging
+            // println!("SRV: {}", output.trim_end());
         }
         if output.contains("awaiting connections...") {
             found = true;
@@ -137,6 +140,7 @@ where
 
     stdout().flush().unwrap();
     assert!(found);
+    println!("server started");
 
     // spawn a thread to capture stdout
     let succeeded_clone = succeeded.clone();
@@ -150,7 +154,8 @@ where
                     .read_line(&mut output)
                     .expect("could not read stdout");
                 if !output.is_empty() {
-                    info!("SRV: {}", output.trim_end());
+                    // uncomment for debugging
+                    // println!("SRV: {}", output.trim_end());
                 }
             }
         })
@@ -197,7 +202,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
-pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Send>(
+pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,
@@ -255,7 +260,7 @@ pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Se
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_with_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send>(
+pub fn query_all_dnssec_with_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,
@@ -264,7 +269,7 @@ pub fn query_all_dnssec_with_rfc6975<R: Future<Output = Result<DnsResponse, Prot
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_wo_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send>(
+pub fn query_all_dnssec_wo_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,

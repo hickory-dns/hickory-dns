@@ -9,6 +9,7 @@ use std::net::Ipv4Addr;
 use std::str::FromStr;
 
 use futures::future::Future;
+use futures::executor::block_on;
 
 use trust_dns::rr::{Name, RecordType};
 use trust_dns_server::authority::{Authority, LookupObject};
@@ -19,14 +20,13 @@ use trust_dns_server::store::forwarder::ForwardAuthority;
 fn test_lookup() {
     let forwarder = ForwardAuthority::new();
 
-    let lookup = forwarder
+    let lookup = block_on(forwarder
         .lookup(
             &Name::from_str("www.example.com.").unwrap().into(),
             RecordType::A,
             false,
             Default::default(),
-        )
-        .wait()
+        ))
         .unwrap();
 
     let address = lookup.iter().next().expect("no addresses returned!");

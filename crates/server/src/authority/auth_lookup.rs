@@ -9,10 +9,12 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use authority::LookupObject;
-use proto::rr::dnssec::SupportedAlgorithms;
-use proto::rr::{Record, RecordSet, RecordType, RrsetRecords};
 use trust_dns::rr::LowerName;
+
+use crate::authority::LookupObject;
+use crate::proto::rr::dnssec::SupportedAlgorithms;
+use crate::proto::rr::{Record, RecordSet, RecordType, RrsetRecords};
+
 
 /// The result of a lookup on an Authority
 ///

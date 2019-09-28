@@ -9,8 +9,10 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::pin::Pin;
+use std::task::Context;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{future, Future, FutureExt, Poll, Stream, StreamExt, TryStreamExt};
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
@@ -28,8 +30,8 @@ use proto::BufStreamHandle;
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use trust_dns_openssl::tls_server::*;
 
-use authority::MessageRequest;
-use server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
+use crate::authority::MessageRequest;
+use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
 
 // TODO, would be nice to have a Slab for buffers here...
 
@@ -58,7 +60,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         // this spawns a ForEach future which handles all the requests into a Handler.
         tokio_executor::spawn(
             buf_stream
-                .map_err(|e| panic!("error in UDP request_stream handler: {}", e))
+                .map(|r: Result<_, _>| match r {
+                    Ok(t) => t,
+                    Err(e) => panic!("error in UDP request_stream handler: {}", e),
+                })
+                // TODO: use for_each_concurrent
                 .for_each(move |message| {
                     let src_addr = message.addr();
                     debug!("received udp request from: {}", src_addr);
@@ -99,6 +105,17 @@ impl<T: RequestHandler> ServerFuture<T> {
             listener
                 .incoming()
                 .for_each(move |tcp_stream| {
+                    let tcp_stream = match tcp_stream {
+                        Ok(t) => t,
+                        Err(e) => {
+                            debug!(
+                                "error receiving TCP request_stream error: {}", e
+                            );
+
+                            return future::ready(());
+                        },
+                    };
+
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
@@ -110,24 +127,25 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // and spawn to the io_loop
                     tokio_executor::spawn(
                         timeout_stream
-                            .map_err(move |e| {
-                                debug!(
-                                    "error in TCP request_stream src: {:?} error: {}",
-                                    src_addr, e
-                                )
-                            })
                             .for_each(move |message| {
-                                self::handle_raw_request(
-                                    message,
-                                    handler.clone(),
-                                    stream_handle.clone(),
-                                )
+                                message.map(|message| {
+                                    Box::pin(self::handle_raw_request(
+                                        message,
+                                        handler.clone(),
+                                        stream_handle.clone(),
+                                    )) as Pin<Box<dyn Future<Output = ()> + Send>>
+                                }).unwrap_or_else(|e| {
+                                    debug!(
+                                        "error in TCP request_stream src: {:?} error: {}",
+                                        src_addr, e
+                                    );
+                                    Box::pin(future::ready(())) as Pin<Box<dyn Future<Output = ()> + Send>>
+                                })
                             }),
                     );
 
-                    Ok(())
+                    future::ready(())
                 })
-                .map_err(|e| panic!("error in inbound tcp_stream: {}", e)),
         );
 
         Ok(())
@@ -312,6 +330,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         tokio_executor::spawn(future::lazy(move || {
             listener
                 .incoming()
+                // TODO: use for_each_concurrent
                 .for_each(move |tcp_stream| {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
@@ -528,16 +547,16 @@ pub(crate) enum HandleRawRequest<F: Future<Output = Result<(), ()>>> {
     Result(io::Error),
 }
 
-impl<F: Future<Output = Result<(), ()>>> Future for HandleRawRequest<F> {
-    type Item = ();
-    type Error = ();
+// TODO: output ()
+impl<F: Future<Output = Result<(), ()>> + Unpin> Future for HandleRawRequest<F> {
+    type Output = ();
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self {
-            HandleRawRequest::HandleRequest(f) => f.poll(),
-            HandleRawRequest::Result(res) => {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match *self {
+            HandleRawRequest::HandleRequest(ref mut f) => f.poll_unpin(cx).map(|_: Result<_,_>| ()),
+            HandleRawRequest::Result(ref res) => {
                 warn!("failed to handle message: {}", res);
-                Ok(Async::Ready(()))
+                Poll::Ready(())
             }
         }
     }

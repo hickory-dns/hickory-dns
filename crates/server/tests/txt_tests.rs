@@ -7,6 +7,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use futures::future::Future;
+use futures::executor::block_on;
 
 use trust_dns::proto::rr::rdata::tlsa::*;
 use trust_dns::rr::dnssec::*;
@@ -74,9 +75,8 @@ _443._tcp.www.example.com. IN TLSA (
     // not validating everything, just one of each...
 
     // SOA
-    let soa_record = authority
-        .soa()
-        .wait()
+    let soa_record = block_on(authority
+        .soa())
         .unwrap()
         .iter()
         .next()
@@ -103,14 +103,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // NS
-    let mut ns_records: Vec<Record> = authority
+    let mut ns_records: Vec<Record> = block_on(authority
         .lookup(
             &Name::from_str("isi.edu").unwrap().into(),
             RecordType::NS,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .cloned()
@@ -139,14 +138,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // MX
-    let mut mx_records: Vec<Record> = authority
+    let mut mx_records: Vec<Record> = block_on(authority
         .lookup(
             &Name::from_str("isi.edu").unwrap().into(),
             RecordType::MX,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .cloned()
@@ -174,14 +172,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // A
-    let a_record: Record = authority
+    let a_record: Record = block_on(authority
         .lookup(
             &Name::from_str("a.isi.edu").unwrap().into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .cloned()
@@ -198,14 +195,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // AAAA
-    let aaaa_record: Record = authority
+    let aaaa_record: Record = block_on(authority
         .lookup(
             &Name::from_str("aaaa.isi.edu").unwrap().into(),
             RecordType::AAAA,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()
@@ -222,14 +218,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // SHORT
-    let short_record: Record = authority
+    let short_record: Record = block_on(authority
         .lookup(
             &Name::from_str("short.isi.edu").unwrap().into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()
@@ -247,14 +242,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // TXT
-    let mut txt_records: Vec<Record> = authority
+    let mut txt_records: Vec<Record> = block_on(authority
         .lookup(
             &Name::from_str("a.isi.edu").unwrap().into(),
             RecordType::TXT,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .cloned()
@@ -294,14 +288,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // PTR
-    let ptr_record: Record = authority
+    let ptr_record: Record = block_on(authority
         .lookup(
             &Name::from_str("103.0.3.26.in-addr.arpa").unwrap().into(),
             RecordType::PTR,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()
@@ -314,14 +307,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // SRV
-    let srv_record: Record = authority
+    let srv_record: Record = block_on(authority
         .lookup(
             &Name::from_str("_ldap._tcp.service.isi.edu").unwrap().into(),
             RecordType::SRV,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()
@@ -337,14 +329,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // IDNA name: rust-❤️-🦀    A  192.0.2.1
-    let idna_record: Record = authority
+    let idna_record: Record = block_on(authority
         .lookup(
             &Name::from_str("rust-❤️-🦀.isi.edu").unwrap().into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()
@@ -361,14 +352,13 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // CAA
-    let caa_record: Record = authority
+    let caa_record: Record = block_on(authority
         .lookup(
             &Name::parse("nocerts.isi.edu.", None).unwrap().into(),
             RecordType::CAA,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()
@@ -383,7 +373,7 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // TLSA
-    let tlsa_record: Record = authority
+    let tlsa_record: Record = block_on(authority
         .lookup(
             &Name::parse("_443._tcp.www.example.com.", None)
                 .unwrap()
@@ -391,8 +381,7 @@ _443._tcp.www.example.com. IN TLSA (
             RecordType::TLSA,
             false,
             SupportedAlgorithms::new(),
-        )
-        .wait()
+        ))
         .unwrap()
         .iter()
         .next()

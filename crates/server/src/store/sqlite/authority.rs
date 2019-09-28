@@ -10,6 +10,7 @@
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::pin::Pin;
 
 use futures::future::Future;
 
@@ -20,12 +21,11 @@ use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 #[cfg(feature = "dnssec")]
-use authority::UpdateRequest;
-use authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
-use store::in_memory::InMemoryAuthority;
-use store::sqlite::{Journal, SqliteConfig};
-
-use error::{PersistenceErrorKind, PersistenceResult};
+use crate::authority::UpdateRequest;
+use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::error::{PersistenceErrorKind, PersistenceResult};
+use crate::store::in_memory::InMemoryAuthority;
+use crate::store::sqlite::{Journal, SqliteConfig};
 
 /// SqliteAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -69,7 +69,7 @@ impl SqliteAuthority {
         root_dir: Option<&Path>,
         config: &SqliteConfig,
     ) -> Result<Self, String> {
-        use store::file::{FileAuthority, FileConfig};
+        use crate::store::file::{FileAuthority, FileConfig};
 
         let zone_name: Name = origin;
 
@@ -253,6 +253,8 @@ impl SqliteAuthority {
     ///   zone     rrset    rr       RRset exists (value dependent)
     /// ```
     pub fn verify_prerequisites(&self, pre_requisites: &[Record]) -> UpdateResult<()> {
+        use futures::executor::block_on;
+
         //   3.2.5 - Pseudocode for Prerequisite Section Processing
         //
         //      for rr in prerequisites
@@ -305,14 +307,14 @@ impl SqliteAuthority {
                         match require.rr_type() {
                             // ANY      ANY      empty    Name is in use
                             RecordType::ANY => {
-                                if self
+                                /*TODO: this works because the future here is always complete*/
+                                if block_on(self
                                     .lookup(
                                         &required_name,
                                         RecordType::ANY,
                                         false,
                                         SupportedAlgorithms::new(),
-                                    )
-                                    .wait(/*TODO: this works because the future here is always complete*/)
+                                    ))
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -323,14 +325,14 @@ impl SqliteAuthority {
                             }
                             // ANY      rrset    empty    RRset exists (value independent)
                             rrset => {
-                                if self
+                                /*TODO: this works because the future here is always complete*/
+                                if block_on(self
                                     .lookup(
                                         &required_name,
                                         rrset,
                                         false,
                                         SupportedAlgorithms::new(),
-                                    )
-                                    .wait(/*TODO: this works because the future here is always complete*/)
+                                    ))
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -349,14 +351,14 @@ impl SqliteAuthority {
                         match require.rr_type() {
                             // NONE     ANY      empty    Name is not in use
                             RecordType::ANY => {
-                                if !self
+                                /*TODO: this works because the future here is always complete*/
+                                if !block_on(self
                                     .lookup(
                                         &required_name,
                                         RecordType::ANY,
                                         false,
                                         SupportedAlgorithms::new(),
-                                    )
-                                    .wait(/*TODO: this works because the future here is always complete*/)
+                                    ))
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -367,14 +369,14 @@ impl SqliteAuthority {
                             }
                             // NONE     rrset    empty    RRset does not exist
                             rrset => {
-                                if !self
+                                /*TODO: this works because the future here is always complete*/
+                                if !block_on(self
                                     .lookup(
                                         &required_name,
                                         rrset,
                                         false,
                                         SupportedAlgorithms::new(),
-                                    )
-                                    .wait(/*TODO: this works because the future here is always complete*/)
+                                    ))
                                     .unwrap_or_default()
                                     .was_empty()
                                 {
@@ -391,14 +393,14 @@ impl SqliteAuthority {
                 class if class == self.class() =>
                 // zone     rrset    rr       RRset exists (value dependent)
                 {
-                    if self
+                    /*TODO: this works because the future here is always complete*/
+                    if block_on(self
                         .lookup(
                             &required_name,
                             require.rr_type(),
                             false,
                             SupportedAlgorithms::new(),
-                        )
-                        .wait(/*TODO: this works because the future here is always complete*/)
+                        ))
                         .unwrap_or_default()
                         .iter()
                         .find(|rr| *rr == require)
@@ -942,7 +944,7 @@ impl Authority for SqliteAuthority {
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.in_memory
             .lookup(name, rtype, is_secure, supported_algorithms)
     }
@@ -952,7 +954,7 @@ impl Authority for SqliteAuthority {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send> {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.in_memory
             .search(query, is_secure, supported_algorithms)
     }
@@ -969,7 +971,7 @@ impl Authority for SqliteAuthority {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.in_memory
             .get_nsec_records(name, is_secure, supported_algorithms)
     }

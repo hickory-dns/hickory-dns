@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! All authority related types
+use std::pin::Pin;
 
 use futures::Future;
 
@@ -14,7 +15,7 @@ use trust_dns::proto::rr::dnssec::rdata::key::KEY;
 use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
 use trust_dns::rr::{LowerName, Name, RecordType};
 
-use authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
 
 /// Authority implementations can be used with a `Catalog`
 pub trait Authority: Send {
@@ -55,7 +56,7 @@ pub trait Authority: Send {
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture;
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -73,10 +74,10 @@ pub trait Authority: Send {
         query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>;
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Self::LookupFuture {
+    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.lookup(
             self.origin(),
             RecordType::NS,
@@ -97,13 +98,13 @@ pub trait Authority: Send {
         name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture;
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> Self::LookupFuture {
+    fn soa(&self) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         // SOA should be origin|SOA
         self.lookup(
             self.origin(),
@@ -118,7 +119,7 @@ pub trait Authority: Send {
         &self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Self::LookupFuture {
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.lookup(
             self.origin(),
             RecordType::SOA,

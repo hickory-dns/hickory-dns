@@ -419,9 +419,9 @@ macro_rules! define_dnssec_test {
         $(
             #[test]
             fn $f () {
-                let mut authority = ::$new("tests/named_test_configs/example.com.zone", module_path!(), stringify!($f));
-                let keys = ::authority_battery::dnssec::add_signers(&mut authority);
-                ::authority_battery::dnssec::$f(authority, &keys);
+                let mut authority = crate::$new("tests/named_test_configs/example.com.zone", module_path!(), stringify!($f));
+                let keys = crate::authority_battery::dnssec::add_signers(&mut authority);
+                crate::authority_battery::dnssec::$f(authority, &keys);
             }
         )*
     }
