@@ -2,6 +2,7 @@
 name = "trust-dns-rustls"
 version = "0.7.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
+edition = "2018"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -44,15 +45,16 @@ name = "trust_dns_rustls"
 path = "src/lib.rs"
 
 [dependencies]
-futures = "^0.1.28"
-log = "^0.4.8"
+futures-preview = "0.3.0-alpha"
+log = "0.4.8"
 rustls = "0.16"
-tokio-rustls = "0.10"
-tokio-tcp = "^0.1"
+tokio-io = "0.2.0-alpha"
+tokio-rustls = "0.12.0-alpha.1"
+tokio-tcp = "0.2.0-alpha"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.8.0", path = "../proto", features = ["tokio-compat"], default-features = false }
 webpki = "0.21"
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = "0.1.22"
+tokio = "0.2.0-alpha"

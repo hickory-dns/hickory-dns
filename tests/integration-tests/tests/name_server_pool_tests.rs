@@ -353,7 +353,7 @@ impl OnSend for OnSendBarrier {
     fn on_send(
         &mut self,
         response: Result<DnsResponse, ProtoError>,
-    ) -> Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send> {
+    ) -> Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send> {
         self.barrier.fetch_sub(1, Ordering::Relaxed);
 
         // loop until the barrier is 0

@@ -68,7 +68,7 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<dyn Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+        Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);

@@ -222,8 +222,8 @@ fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> T
 fn client_thread_www<C: ClientConnection>(conn: C)
 where
     C::Sender: DnsRequestSender<DnsResponseFuture = C::Response>,
-    C::Response: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
-    C::SenderFuture: Future<Item = C::Sender, Error = ProtoError> + 'static + Send,
+    C::Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    C::SenderFuture: Future<Output = Result<C::Sender, ProtoError>> + 'static + Send,
 {
     let name = Name::from_str("www.example.com").unwrap();
     let client = SyncClient::new(conn);
@@ -280,7 +280,7 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<dyn Future<Item = (), Error = ()> + Send>>(Box::new(future::lazy(|| {
+        .block_on::<Box<dyn Future<Output = Result<(), ()>> + Send>>(Box::new(future::lazy(|| {
             server.register_socket(udp_socket);
             future::ok(())
         })))
@@ -298,7 +298,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<dyn Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
+        .block_on::<Box<dyn Future<Output = Result<(), io::Error>> + Send>>(Box::new(future::lazy(
             || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
         )))
         .expect("tcp registration failed");
@@ -323,7 +323,7 @@ fn server_thread_tls(
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<Future<Item = (), Error = io::Error> + Send>>(Box::new(future::lazy(
+        .block_on::<Box<Future<Output = Result<(), io::Error>> + Send>>(Box::new(future::lazy(
             || {
                 let pkcs12 = Pkcs12::from_der(&pkcs12_der)
                     .expect("bad pkcs12 der")
