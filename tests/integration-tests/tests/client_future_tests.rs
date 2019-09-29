@@ -155,9 +155,9 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut BasicClientHandle<R>) -> Box<dyn Future<Item = (), Error = ()>>
+fn test_query<R>(client: &mut BasicClientHandle<R>) -> Box<dyn Future<Output = Result<(), ()>>>
 where
-    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
@@ -229,14 +229,14 @@ fn create_sig0_ready_client(
 ) -> (
     ClientFuture<
         DnsMultiplexerConnect<
-            Box<dyn Future<Item = TestClientStream, Error = ProtoError> + Send>,
+            Box<Future<Output = Result<TestClientStream, ProtoError>> + Send>,
             TestClientStream,
             Signer,
         >,
         DnsMultiplexer<TestClientStream, Signer>,
         DnsMultiplexerSerialResponse,
     >,
-    BasicClientHandle<impl Future<Item = DnsResponse, Error = ProtoError>>,
+    BasicClientHandle<impl Future<Output = Result<DnsResponse, ProtoError>>>,
     Name,
 ) {
     use openssl::rsa::Rsa;
@@ -876,7 +876,7 @@ fn test_delete_all() {
 
 fn test_timeout_query<R>(mut client: BasicClientHandle<R>, mut io_loop: Runtime)
 where
-    R: Future<Item = DnsResponse, Error = ProtoError> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
 {
     let name = Name::from_str("www.example.com").unwrap();
 

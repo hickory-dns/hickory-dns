@@ -8,10 +8,12 @@
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::pin::Pin;
 
-use futures::sync::mpsc::unbounded;
-use futures::{Future, IntoFuture};
+use futures::channel::mpsc::unbounded;
+use futures::{future, Future, TryFutureExt};
 use rustls::ClientConfig;
+use tokio_io;
 use tokio_rustls::TlsConnector;
 use tokio_tcp::TcpStream as TokioTcpStream;
 use webpki::{DNSName, DNSNameRef};
@@ -27,7 +29,7 @@ pub type TlsStream<S> = TcpStream<S>;
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S>(stream: S, peer_addr: SocketAddr) -> (TlsStream<S>, BufStreamHandle) {
+pub fn tls_from_stream<S: tokio_io::AsyncRead + tokio_io::AsyncWrite>(stream: S, peer_addr: SocketAddr) -> (TlsStream<S>, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
@@ -66,7 +68,7 @@ pub fn tls_connect(
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Box<dyn Future<Item = TlsStream<TokioTlsClientStream>, Error = io::Error> + Send>,
+    Pin<Box<dyn Future<Output = Result<TlsStream<TokioTlsClientStream>, io::Error>> + Send + Unpin>>,
     BufStreamHandle,
 ) {
     let (message_sender, outbound_messages) = unbounded();
@@ -77,17 +79,17 @@ pub fn tls_connect(
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream: Box<dyn Future<Item = TlsStream<TokioTlsClientStream>, Error = io::Error> + Send> = Box::new(
+    let stream = Box::pin(
         tcp.and_then(move |tcp_stream| {
             let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from);
 
-            dns_name
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name"))
-                .into_future()
+            future::ready(
+                dns_name
+                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")))
                 .and_then(move |dns_name| {
                     tls_connector
                         .connect(dns_name.as_ref(), tcp_stream)
-                        .map(move |s| {
+                        .map_ok(move |s| {
                             TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
                         })
                         .map_err(|e| {

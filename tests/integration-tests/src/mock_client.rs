@@ -35,7 +35,7 @@ impl<O: OnSend> MockClientHandle<O> {
 }
 
 impl<O: OnSend> DnsHandle for MockClientHandle<O> {
-    type Response = Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send>;
+    type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>;
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         self.on_send
@@ -77,7 +77,7 @@ pub trait OnSend: Clone + Send + Sync + 'static {
     fn on_send(
         &mut self,
         response: Result<DnsResponse, ProtoError>,
-    ) -> Box<dyn Future<Item = DnsResponse, Error = ProtoError> + Send> {
+    ) -> Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send> {
         Box::new(future::result(response))
     }
 }

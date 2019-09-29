@@ -49,7 +49,7 @@ impl ClientConnection for TlsClientConnection {
     type Sender = DnsMultiplexer<TlsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<dyn Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+        Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>,
         TlsClientStream,
         Signer,
     >;

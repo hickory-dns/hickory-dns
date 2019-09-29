@@ -53,7 +53,7 @@ impl TestClientStream {
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
-        Box<dyn Future<Item = Self, Error = ProtoError> + Send>,
+        Box<dyn Future<Output = Result<Self, ProtoError>> + Send>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -97,7 +97,7 @@ impl TestResponseHandler {
         })
     }
 
-    pub fn into_message(self) -> impl Future<Item = Message, Error = ()> {
+    pub fn into_message(self) -> impl Future<Output = Result<Message, ()>> {
         let bytes = self.into_inner();
         bytes.map(|b| {
             let mut decoder = BinDecoder::new(&b);
@@ -195,7 +195,7 @@ pub struct NeverReturnsClientStream {
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
     pub fn new() -> (
-        Box<dyn Future<Item = Self, Error = ProtoError> + Send>,
+        Box<dyn Future<Output = Result<Self, ProtoError>> + Send>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
@@ -262,7 +262,7 @@ impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<dyn Future<Item = NeverReturnsClientStream, Error = ProtoError> + Send>,
+        Box<dyn Future<Output = Result<NeverReturnsClientStream, ProtoError>> + Send>,
         NeverReturnsClientStream,
         Signer,
     >;

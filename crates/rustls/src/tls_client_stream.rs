@@ -7,8 +7,9 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::pin::Pin;
 
-use futures::Future;
+use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;
 use tokio_tcp::TcpStream as TokioTcpStream;
 
@@ -16,7 +17,7 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
-use tls_stream::tls_connect;
+use crate::tls_stream::tls_connect;
 
 pub type TlsClientStream = TcpClientStream<tokio_rustls::client::TlsStream<TokioTcpStream>>;
 
@@ -31,14 +32,14 @@ pub fn tls_client_connect(
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Box<dyn Future<Item = TlsClientStream, Error = ProtoError> + Send>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send + Unpin>>,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) = tls_connect(name_server, dns_name, client_config);
 
-    let new_future = Box::new(
+    let new_future = Box::pin(
         stream_future
-            .map(TcpClientStream::from_stream)
+            .map_ok(TcpClientStream::from_stream)
             .map_err(ProtoError::from),
     );
 
