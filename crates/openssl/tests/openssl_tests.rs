@@ -21,7 +21,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
-use futures::Stream;
+use futures::StreamExt;
 use openssl::pkey::*;
 use openssl::ssl::*;
 use openssl::x509::store::X509StoreBuilder;
@@ -220,11 +220,9 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future())
-            .ok()
-            .expect("future iteration run failed");
+            .block_on(stream.into_future());
         stream = stream_tmp;
-        let message = buffer.expect("no buffer received");
+        let message = buffer.expect("no buffer received").expect("error receiving bytes");
         assert_eq!(message.bytes(), TEST_BYTES);
     }
 
