@@ -17,7 +17,7 @@ pub use openssl::pkcs12::{ParsedPkcs12, Pkcs12};
 pub use openssl::pkey::{PKey, Private};
 pub use openssl::stack::Stack;
 pub use openssl::x509::X509;
-pub use tokio_openssl::SslAcceptorExt;
+pub use tokio_openssl::accept;
 
 /// Read the certificate from the specified path.
 ///

@@ -8,8 +8,9 @@
 use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
+use std::pin::Pin;
 
-use futures::Future;
+use futures::{Future, TryFutureExt};
 #[cfg(feature = "mtls")]
 use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
@@ -68,14 +69,14 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send + Unpin>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
 
-        let new_future = Box::new(
+        let new_future = Box::pin(
             stream_future
-                .map(TcpClientStream::from_stream)
+                .map_ok(TcpClientStream::from_stream)
                 .map_err(ProtoError::from),
         );
 
