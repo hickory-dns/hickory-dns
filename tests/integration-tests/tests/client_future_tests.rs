@@ -6,8 +6,8 @@ extern crate openssl;
 #[cfg(feature = "dns-over-https-rustls")]
 extern crate rustls;
 extern crate tokio;
-extern crate tokio_tcp;
-extern crate tokio_udp;
+extern crate tokio_net;
+extern crate tokio_net;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
@@ -25,8 +25,8 @@ use std::sync::{Arc, Mutex};
 use chrono::Duration;
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
-use tokio_tcp::TcpStream as TokioTcpStream;
-use tokio_udp::UdpSocket as TokioUdpSocket;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::error::ClientErrorKind;

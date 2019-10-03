@@ -56,9 +56,9 @@ extern crate tokio_io;
 extern crate tokio_reactor;
 #[cfg(feature = "dns-over-rustls")]
 extern crate tokio_rustls;
-extern crate tokio_tcp;
+extern crate tokio_net;
 extern crate tokio_timer;
-extern crate tokio_udp;
+extern crate tokio_net;
 extern crate toml;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-https")]

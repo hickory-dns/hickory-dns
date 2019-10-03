@@ -7,11 +7,8 @@ use openssl::symm::Cipher;
 #[cfg(feature = "ring")]
 use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
 
-use error::*;
-use rr::dnssec::Algorithm;
-use rr::dnssec::KeyPair;
-
-use rr::dnssec::Private;
+use crate::error::*;
+use crate::rr::dnssec::{Algorithm, KeyPair, Private};
 
 /// The format of the binary key
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

@@ -247,7 +247,7 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
 struct SingleUseUdpSocket;
 
 impl SingleUseUdpSocket {
-    async fn send_serial_message<S: UdpSocket>(msg: SerialMessage, msg_id: u16) -> Result<DnsResponse, ProtoError> {
+    async fn send_serial_message<S: UdpSocket + Send>(msg: SerialMessage, msg_id: u16) -> Result<DnsResponse, ProtoError> {
         let name_server = msg.addr();
         let mut socket: S = NextRandomUdpSocket::new(&name_server).await?;
         let bytes = msg.bytes();
@@ -324,7 +324,7 @@ mod tests {
 #[cfg(not(target_os = "linux"))]
 use std::net::Ipv6Addr;
 use std::net::{IpAddr, Ipv4Addr};
-use tokio_udp;
+use tokio_net::udp;
 
 use crate::op::Message;
 use super::*;
@@ -429,7 +429,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
     let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
-    let mut stream: UdpClientStream<tokio_udp::UdpSocket> = io_loop.block_on(stream).ok().unwrap();
+    let mut stream: UdpClientStream<udp::UdpSocket> = io_loop.block_on(stream).ok().unwrap();
     let mut worked_once = false;
 
     for i in 0..send_recv_times {

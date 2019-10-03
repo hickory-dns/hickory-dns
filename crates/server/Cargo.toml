@@ -82,7 +82,7 @@ enum-as-inner = "0.3"
 env_logger = "0.6"
 failure = "0.1"
 futures-preview = "0.3.0-alpha"
-h2 = { version = "0.1", optional = true }
+h2 = { version = "0.2.0-alpha", optional = true }
 http = { version = "0.1", optional = true }
 lazy_static = "1.0"
 log = "0.4.8"
@@ -95,10 +95,8 @@ time = "0.1"
 tokio = "0.2.0-alpha"
 tokio-executor = "0.2.0-alpha"
 tokio-io = "0.2.0-alpha"
-tokio-reactor = "0.2.0-alpha"
 tokio-rustls = { version = "0.10", optional = true }
-tokio-tcp = "0.2.0-alpha"
-tokio-udp = "0.2.0-alpha"
+tokio-net = "0.2.0-alpha"
 tokio-timer = "0.3.0-alpha"
 toml = "0.5"
 trust-dns = { version = "0.17.0", path = "../client" }

@@ -49,8 +49,8 @@ futures-preview = "0.3.0-alpha"
 log = "0.4.8"
 rustls = "0.16"
 tokio-io = "0.2.0-alpha"
-tokio-rustls = "0.12.0-alpha.1"
-tokio-tcp = "0.2.0-alpha"
+tokio-rustls = "0.12.0-alpha"
+tokio-net = "0.2.0-alpha"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.8.0", path = "../proto", features = ["tokio-compat"], default-features = false }
 webpki = "0.21"

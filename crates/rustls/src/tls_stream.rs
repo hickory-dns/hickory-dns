@@ -10,16 +10,16 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::pin::Pin;
 
-use futures::channel::mpsc::unbounded;
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::{future, Future, TryFutureExt};
 use rustls::ClientConfig;
 use tokio_io;
 use tokio_rustls::TlsConnector;
-use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 use webpki::{DNSName, DNSNameRef};
 
 use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::xfer::BufStreamHandle;
+use trust_dns_proto::xfer::{BufStreamHandle, SerialMessage};
 
 pub type TokioTlsClientStream = tokio_rustls::client::TlsStream<TokioTcpStream>;
 pub type TokioTlsServerStream = tokio_rustls::server::TlsStream<TokioTcpStream>;
@@ -68,7 +68,7 @@ pub fn tls_connect(
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsStream<TokioTlsClientStream>, io::Error>> + Send + Unpin>>,
+    Pin<Box<dyn Future<Output = Result<TlsStream<TokioTlsClientStream>, io::Error>> + Send>>,
     BufStreamHandle,
 ) {
     let (message_sender, outbound_messages) = unbounded();
@@ -79,34 +79,23 @@ pub fn tls_connect(
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream = Box::pin(
-        tcp.and_then(move |tcp_stream| {
-            let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from);
-
-            future::ready(
-                dns_name
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name")))
-                .and_then(move |dns_name| {
-                    tls_connector
-                        .connect(dns_name.as_ref(), tcp_stream)
-                        .map_ok(move |s| {
-                            TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-                        })
-                        .map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::ConnectionRefused,
-                                format!("tls error: {}", e),
-                            )
-                        })
-                })
-        })
-        .map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        }),
-    );
+    let stream = Box::pin(connect(tls_connector, name_server, dns_name, outbound_messages));
 
     (stream, message_sender)
+}
+
+async fn connect(tls_connector: TlsConnector, name_server: SocketAddr, dns_name: String, outbound_messages: UnboundedReceiver<SerialMessage>) -> io::Result<TcpStream<TokioTlsClientStream>> {
+    let tcp = TokioTcpStream::connect(&name_server).await?;
+
+    let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name"))?;
+
+    let s = tls_connector.connect(dns_name.as_ref(), tcp).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+                format!("tls error: {}", e),
+            )
+    }).await?;
+
+    Ok(TcpStream::from_stream_with_receiver(s, name_server, outbound_messages))
 }

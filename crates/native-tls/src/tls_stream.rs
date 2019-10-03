@@ -15,7 +15,7 @@ use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::{Future, TryFutureExt};
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
-use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use trust_dns_proto::tcp::TcpStream;

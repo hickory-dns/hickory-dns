@@ -347,7 +347,7 @@ where
         }
 
         // store a Timeout for this message before sending
-        let timeout = Delay::new(Instant::now() + self.timeout_duration);
+        let timeout = tokio_timer::delay(Instant::now() + self.timeout_duration);
 
         let (complete, receiver) = oneshot::channel();
 

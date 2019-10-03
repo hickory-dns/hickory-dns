@@ -14,6 +14,7 @@ use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
 
+use async_trait::async_trait;
 use futures::stream::{Fuse, Peekable, Stream, StreamExt};
 use futures::{ready, Future, FutureExt, Poll, TryFutureExt};
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
@@ -23,16 +24,16 @@ use crate::error::*;
 use crate::xfer::{BufStreamHandle, SerialMessage};
 
 /// Trait for TCP connection
+#[async_trait]
 pub trait Connect
 where
     Self: Sized,
 {
     /// TcpSteam
     type Transport: tokio_io::AsyncRead + tokio_io::AsyncWrite + Send;
-    /// Future returned by connect
-    type Future: Future<Output = Result<Self::Transport, io::Error>> + Send + Unpin;
+    
     /// connect to tcp
-    fn connect(addr: &SocketAddr) -> Self::Future;
+    async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport>;
 }
 
 /// Current state while writing to the remote of the TCP connection
@@ -137,8 +138,14 @@ impl<S: Connect + 'static> TcpStream<S> {
         let message_sender = BufStreamHandle::new(message_sender);
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
+        let stream_fut = Self::connect(name_server, timeout, outbound_messages);
+
+        (stream_fut, message_sender)
+    }
+
+    async fn connect(name_server: SocketAddr, timeout: Duration, outbound_messages: UnboundedReceiver<SerialMessage>) -> Result<TcpStream<S::Transport>, io::Error> {
         let tcp = S::connect(&name_server);
-        let stream_fut = Timeout::new(tcp, timeout)
+        Timeout::new(tcp, timeout)
             .map_err(move |_| {
                 debug!("timed out connecting to: {}", name_server);
                 io::Error::new(
@@ -160,9 +167,7 @@ impl<S: Connect + 'static> TcpStream<S> {
                     peer_addr: name_server,
                 }
                 })
-            });
-
-        (stream_fut, message_sender)
+            }).await
     }
 }
 

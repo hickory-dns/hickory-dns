@@ -14,7 +14,7 @@ use futures::{Future, TryFutureExt};
 use native_tls::Certificate;
 #[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
-use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_tls::TlsStream as TokioTlsStream;
 
 use trust_dns_proto::error::ProtoError;

@@ -9,9 +9,6 @@
 #![warn(missing_docs)]
 #![recursion_limit = "2048"]
 
-#![feature(async_await)]
-#![feature(type_alias_impl_trait)]
-
 //! Trust-DNS Protocol library
 
 extern crate async_trait;
@@ -43,10 +40,8 @@ extern crate tokio_executor;
 extern crate tokio_io;
 extern crate tokio_sync;
 #[cfg(feature = "tokio-compat")]
-extern crate tokio_tcp;
+extern crate tokio_net;
 extern crate tokio_timer;
-#[cfg(feature = "tokio-compat")]
-extern crate tokio_udp;
 extern crate url;
 
 macro_rules! try_ready_stream {
