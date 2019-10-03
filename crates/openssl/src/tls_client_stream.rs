@@ -15,7 +15,7 @@ use futures::{Future, TryFutureExt};
 use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
 use tokio_openssl::SslStream as TokioTlsStream;
-use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;

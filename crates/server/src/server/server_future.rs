@@ -19,7 +19,7 @@ use rustls::{Certificate, PrivateKey};
 use tokio_executor;
 use tokio_reactor::Handle;
 use tokio_tcp;
-use tokio_udp;
+use tokio_net::udp;
 
 use proto::op::Edns;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
@@ -49,7 +49,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&self, socket: tokio_udp::UdpSocket) {
+    pub fn register_socket(&self, socket: udp::UdpSocket) {
         debug!("registered udp: {:?}", socket);
 
         // create the new UdpStream
@@ -76,7 +76,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket_std(&self, socket: std::net::UdpSocket) {
         self.register_socket(
-            tokio_udp::UdpSocket::from_std(socket, &Handle::default()).expect("bad handle?"),
+            udp::UdpSocket::from_std(socket, &Handle::default()).expect("bad handle?"),
         )
     }
 

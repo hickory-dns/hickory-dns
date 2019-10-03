@@ -24,7 +24,7 @@ extern crate futures;
 extern crate native_tls;
 #[cfg(test)]
 extern crate tokio;
-extern crate tokio_tcp;
+extern crate tokio_net;
 extern crate tokio_tls;
 extern crate trust_dns_proto;
 

@@ -33,8 +33,8 @@ extern crate log;
 extern crate rustls;
 extern crate tokio;
 extern crate tokio_executor;
-extern crate tokio_tcp;
-extern crate tokio_udp;
+extern crate tokio_net;
+extern crate tokio_net;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
@@ -51,8 +51,8 @@ use clap::{Arg, ArgMatches};
 use futures::{future, Future};
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
-use tokio_tcp::TcpListener;
-use tokio_udp::UdpSocket;
+use tokio_net::TcpListener;
+use tokio_net::udp::UdpSocket;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::rdata::key::KeyUsage;

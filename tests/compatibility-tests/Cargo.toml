@@ -48,7 +48,7 @@ path = "src/lib.rs"
 chrono = "^0.4"
 data-encoding = "2.1.0"
 env_logger = "0.6"
-futures = "^0.1.28"
-openssl = { version = "^0.10", features = ["v102", "v110"] }
+futures-preview = "0.3.0-alpha"
+openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.7"
 trust-dns = { version = "0.17.0", path="../../crates/client", features = ["dnssec-openssl"] }

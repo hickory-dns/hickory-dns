@@ -10,14 +10,16 @@
 use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::pin::Pin;
+use std::task::Context;
 
 use bytes::Bytes;
-use futures::{Async, Future, Poll, Stream};
+use futures::{Future, FutureExt, Poll, Stream, StreamExt};
 use h2;
 use http::{Method, Request};
 use typed_headers::{ContentLength, HeaderMapExt};
 
-use HttpsError;
+use crate::HttpsError;
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
 ///
@@ -25,12 +27,12 @@ use HttpsError;
 ///   perform a conversion to a Message, only collects all the bytes.
 pub fn message_from<R>(this_server_name: Arc<String>, request: Request<R>) -> HttpsToMessage<R>
 where
-    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send + Debug,
+    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug,
 {
     debug!("Received request: {:#?}", request);
 
     let this_server_name: &String = this_server_name.borrow();
-    match ::request::verify(this_server_name, &request) {
+    match crate::request::verify(this_server_name, &request) {
         Ok(_) => (),
         Err(err) => return HttpsToMessageInner::HttpsError(Some(err)).into(),
     }
@@ -78,13 +80,12 @@ impl<R> From<MessageFromPost<R>> for HttpsToMessage<R> {
 
 impl<R> Future for HttpsToMessage<R>
 where
-    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send,
+    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Unpin,
 {
-    type Item = Bytes;
-    type Error = HttpsError;
+    type Output = Result<Bytes, HttpsError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        self.0.poll()
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.poll_unpin(cx)
     }
 }
 
@@ -96,16 +97,15 @@ enum HttpsToMessageInner<R> {
 
 impl<R> Future for HttpsToMessageInner<R>
 where
-    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send,
+    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Unpin,
 {
-    type Item = Bytes;
-    type Error = HttpsError;
+    type Output = Result<Bytes, HttpsError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self {
-            HttpsToMessageInner::FromPost(from_post) => from_post.poll(),
-            HttpsToMessageInner::HttpsError(error) => {
-                Err(error.take().expect("cannot poll after complete"))
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match *self {
+            HttpsToMessageInner::FromPost(ref mut from_post) => from_post.poll_unpin(cx),
+            HttpsToMessageInner::HttpsError(ref mut error) => {
+                Poll::Ready(Err(error.take().expect("cannot poll after complete")))
             }
         }
     }
@@ -127,18 +127,17 @@ struct MessageFromPost<R> {
 
 impl<R> Future for MessageFromPost<R>
 where
-    R: Stream<Item = Bytes, Error = h2::Error> + 'static + Send,
+    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Unpin,
 {
-    type Item = Bytes;
-    type Error = HttpsError;
+    type Output = Result<Bytes, HttpsError>;
 
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
-            let bytes = match self.stream.poll() {
-                Ok(Async::NotReady) => return Ok(Async::NotReady),
-                Ok(Async::Ready(Some(bytes))) => bytes,
-                Ok(Async::Ready(None)) => return Err("not all bytes received".into()),
-                Err(e) => return Err(e.into()),
+            let bytes = match self.stream.next().poll_unpin(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Some(Ok(bytes))) => bytes,
+                Poll::Ready(None) => return Poll::Ready(Err("not all bytes received".into())),
+                Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(e.into())),
             };
 
             let bytes = if let Some(length) = self.length {
@@ -155,15 +154,15 @@ where
             };
 
             //let message = Message::from_vec(&bytes)?;
-            return Ok(Async::Ready(bytes));
+            return Poll::Ready(Ok(bytes));
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use request;
     use trust_dns_proto::op::Message;
+    use crate::request;
 
     use super::*;
 
@@ -171,20 +170,21 @@ mod tests {
     struct TestBytesStream(Vec<Result<Bytes, h2::Error>>);
 
     impl Stream for TestBytesStream {
-        type Item = Bytes;
-        type Error = h2::Error;
+        type Item = Result<Bytes, h2::Error>;
 
-        fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
             match self.0.pop() {
-                Some(Ok(bytes)) => Ok(Async::Ready(Some(bytes))),
-                Some(Err(err)) => Err(err),
-                None => Ok(Async::Ready(None)),
+                Some(Ok(bytes)) => Poll::Ready(Some(Ok(bytes))),
+                Some(Err(err)) => Poll::Ready(Some(Err(err))),
+                None => Poll::Ready(None),
             }
         }
     }
 
     #[test]
     fn test_from_post() {
+        use futures::executor::block_on;
+
         let message = Message::new();
         let msg_bytes = message.to_vec().unwrap();
         let len = msg_bytes.len();
@@ -192,9 +192,9 @@ mod tests {
         let request = request::new("ns.example.com", len).unwrap();
         let request = request.map(|()| stream);
 
-        let mut from_post = message_from(Arc::new("ns.example.com".to_string()), request);
-        let bytes = match from_post.poll() {
-            Ok(Async::Ready(bytes)) => bytes,
+        let from_post = message_from(Arc::new("ns.example.com".to_string()), request);
+        let bytes = match block_on(from_post) {
+            Ok(bytes) => bytes,
             e => panic!("{:#?}", e),
         };
 

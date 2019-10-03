@@ -11,8 +11,8 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate tokio;
-extern crate tokio_tcp;
-extern crate tokio_udp;
+extern crate tokio_net;
+extern crate tokio_net;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -27,8 +27,8 @@ use std::net::*;
 use std::str::FromStr;
 
 use tokio::runtime::current_thread::Runtime;
-use tokio_tcp::TcpStream as TokioTcpStream;
-use tokio_udp::UdpSocket as TokioUdpSocket;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns::client::*;
 use trust_dns::op::ResponseCode;

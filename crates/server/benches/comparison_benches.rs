@@ -3,8 +3,8 @@
 extern crate futures;
 extern crate test;
 extern crate tokio;
-extern crate tokio_tcp;
-extern crate tokio_udp;
+extern crate tokio_net;
+extern crate tokio_net;
 
 extern crate trust_dns;
 extern crate trust_dns_proto;
@@ -24,8 +24,8 @@ use std::time::Duration;
 use futures::Future;
 use test::Bencher;
 use tokio::runtime::current_thread::Runtime;
-use tokio_tcp::TcpStream;
-use tokio_udp::UdpSocket;
+use tokio_net::tcp::TcpStream;
+use tokio_net::udp::UdpSocket;
 
 use trust_dns::client::*;
 use trust_dns::op::*;

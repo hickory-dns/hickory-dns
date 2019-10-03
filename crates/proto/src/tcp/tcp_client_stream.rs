@@ -12,6 +12,7 @@ use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
 
+use async_trait::async_trait;
 use futures::{Future, Poll, Stream, TryFutureExt, StreamExt};
 use tokio_io::{AsyncRead, AsyncWrite};
 
@@ -105,7 +106,7 @@ impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
 
 // TODO: create unboxed future for the TCP Stream
 /// A future that resolves to an TcpClientStream
-pub struct TcpClientConnect<S>(Pin<Box<dyn Future<Output = Result<TcpClientStream<S>, ProtoError>> + Send + Unpin + 'static>>);
+pub struct TcpClientConnect<S>(Pin<Box<dyn Future<Output = Result<TcpClientStream<S>, ProtoError>> + Send + 'static>>);
 
 impl<S> Future for TcpClientConnect<S> {
     type Output = Result<TcpClientStream<S>, ProtoError>;
@@ -116,16 +117,15 @@ impl<S> Future for TcpClientConnect<S> {
 }
 
 #[cfg(feature = "tokio-compat")]
-use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 
 #[cfg(feature = "tokio-compat")]
+#[async_trait]
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
-    // TODO: changet Tokio's TcpStream to return a concrete type
-    type Future = impl Future<Output = io::Result<TokioTcpStream>>;
     
-    fn connect(addr: &SocketAddr) -> Self::Future {
-        TokioTcpStream::connect(addr)
+    async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport> {
+        TokioTcpStream::connect(addr).await
     }
 }
 

@@ -2,9 +2,9 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio;
-extern crate tokio_tcp;
+extern crate tokio_net;
 extern crate tokio_timer;
-extern crate tokio_udp;
+extern crate tokio_net;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_openssl;
@@ -22,9 +22,9 @@ use std::time::{Duration, Instant};
 
 use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
-use tokio_tcp::TcpListener;
+use tokio_net::TcpListener;
 use tokio_timer::Delay;
-use tokio_udp::UdpSocket;
+use tokio_net::udp::UdpSocket;
 
 use trust_dns::client::*;
 use trust_dns::op::*;

@@ -22,7 +22,7 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
 use tokio_reactor::Handle;
-use tokio_udp::UdpSocket;
+use tokio_net::udp::UdpSocket;
 
 use crate::multicast::MdnsQueryType;
 use crate::udp::UdpStream;

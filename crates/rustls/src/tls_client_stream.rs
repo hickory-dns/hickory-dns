@@ -11,7 +11,7 @@ use std::pin::Pin;
 
 use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;
-use tokio_tcp::TcpStream as TokioTcpStream;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;

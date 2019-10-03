@@ -2,8 +2,8 @@
 
 extern crate futures;
 extern crate tokio;
-extern crate tokio_tcp;
-extern crate tokio_udp;
+extern crate tokio_net;
+extern crate tokio_net;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -14,8 +14,8 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use tokio::runtime::current_thread::Runtime;
-use tokio_tcp::TcpStream as TokioTcpStream;
-use tokio_udp::UdpSocket as TokioUdpSocket;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns::client::{
     BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,

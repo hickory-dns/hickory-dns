@@ -18,7 +18,7 @@ use crate::client::ClientConnection;
 use crate::error::*;
 use crate::rr::dnssec::Signer;
 
-use tokio_udp::UdpSocket;
+use tokio_net::udp::UdpSocket;
 
 /// UDP based DNS Client connection
 ///

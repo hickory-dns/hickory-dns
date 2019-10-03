@@ -69,15 +69,14 @@ chrono = "0.4"
 env_logger = "0.6"
 lazy_static = "1.0"
 log = "0.4.8"
-futures = "0.1.28"
+futures-preview = "0.3.0-alpha"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
 rand = "0.7"
 rusqlite = { version = "0.20.0", features = ["bundled"] }
 rustls = { version = "0.16" }
-tokio = "0.1.22"
-tokio-tcp = "0.1"
-tokio-timer = "0.2.10"
-tokio-udp = "0.1"
+tokio = "0.2.0-alpha"
+tokio-net = "0.2.0-alpha"
+tokio-timer = "0.3.0-alpha"
 trust-dns = { version = "0.17.0", path = "../../crates/client" }
 trust-dns-https = { version = "0.4.0", path = "../../crates/https" }
 trust-dns-openssl = { version = "0.7.0", path = "../../crates/openssl" }

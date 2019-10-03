@@ -89,10 +89,10 @@ impl TestResponseHandler {
                 .is_ok()
             {
                 let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
-                Ok(Async::Ready(bytes))
+                Ok(Poll::Ready(bytes))
             } else {
                 task::current().notify();
-                Ok(Async::NotReady)
+                Ok(Poll::Pending)
             }
         })
     }
@@ -135,14 +135,14 @@ impl Stream for TestClientStream {
     type Item = SerialMessage;
     type Error = ProtoError;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match self
             .outbound_messages
             .poll()
             .map_err(|_| ProtoError::from("Server stopping due to interruption"))?
         {
             // already handled above, here to make sure the poll() pops the next message
-            Async::Ready(Some(bytes)) => {
+            Poll::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
@@ -166,13 +166,13 @@ impl Stream for TestClientStream {
                 let buf = response_handler.into_inner().wait().unwrap();
                 dbg!("catalog responded");
 
-                Ok(Async::Ready(Some(SerialMessage::new(buf, src_addr))))
+                Ok(Poll::Ready(Some(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
             // TODO: should we also return None if there are no more messages to send?
             _ => {
                 task::current().notify();
-                Ok(Async::NotReady)
+                Ok(Poll::Pending)
             }
         }
     }
@@ -226,18 +226,18 @@ impl Stream for NeverReturnsClientStream {
     type Item = SerialMessage;
     type Error = ProtoError;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         println!("still not returning");
 
         // poll the timer forever...
-        if let Ok(Async::NotReady) = self.timeout.poll() {
-            return Ok(Async::NotReady);
+        if let Ok(Poll::Pending) = self.timeout.poll() {
+            return Ok(Poll::Pending);
         }
 
         self.timeout.reset(Instant::now() + Duration::from_secs(1));
 
         match self.timeout.poll() {
-            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Ok(Poll::Pending) => Ok(Poll::Pending),
             _ => panic!("timeout fired early"),
         }
     }

@@ -204,8 +204,8 @@ extern crate smallvec;
 #[cfg(feature = "tokio")]
 extern crate tokio;
 extern crate tokio_executor;
-extern crate tokio_tcp;
-extern crate tokio_udp;
+extern crate tokio_net;
+extern crate tokio_net;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 #[cfg(feature = "dns-over-native-tls")]

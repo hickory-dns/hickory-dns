@@ -13,8 +13,8 @@ use std::pin::Pin;
 
 use futures::{Future, FutureExt, Poll, TryFutureExt};
 use tokio_executor::{DefaultExecutor, Executor};
-use tokio_tcp::TcpStream as TokioTcpStream;
-use tokio_udp::UdpSocket as TokioUdpSocket;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
 use proto;
 #[cfg(feature = "mdns")]

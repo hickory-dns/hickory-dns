@@ -580,11 +580,11 @@ mod tests {
     use self::openssl::pkey::Private;
     use self::openssl::rsa::Rsa;
 
-    use op::{Message, Query};
-    use rr::dnssec::*;
-    use rr::rdata::key::KeyUsage;
-    use rr::rdata::{DNSSECRData, SIG};
-    use rr::{DNSClass, Name, Record, RecordType};
+    use crate::op::{Message, Query};
+    use crate::rr::dnssec::*;
+    use crate::rr::rdata::key::KeyUsage;
+    use crate::rr::rdata::{DNSSECRData, SIG};
+    use crate::rr::{DNSClass, Name, Record, RecordType};
 
     pub use super::*;
 
