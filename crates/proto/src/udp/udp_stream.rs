@@ -386,7 +386,7 @@ fn udp_stream_test(server_addr: IpAddr) {
     };
 
     let socket =
-        udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap())
+        io_loop.block_on(udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap()))
             .expect("could not create socket"); // some random address...
     let (mut stream, sender) = UdpStream::<udp::UdpSocket>::with_bound(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();

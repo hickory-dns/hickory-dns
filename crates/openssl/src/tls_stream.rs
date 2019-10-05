@@ -17,8 +17,8 @@ use openssl::ssl::{ConnectConfiguration, SslConnector, SslContextBuilder, SslMet
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::{X509Ref, X509};
-use tokio_openssl::{self, SslStream as TokioTlsStream};
 use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
@@ -126,13 +126,23 @@ pub fn tls_stream_from_existing_tls_stream(
     (stream, message_sender)
 }
 
-async fn connect(tls_config: ConnectConfiguration, dns_name: String, tcp_stream: TokioTcpStream) -> Result<TokioTlsStream<TokioTcpStream>, io::Error> {
-    let result = tokio_openssl::connect(tls_config, &dns_name, tcp_stream).await;
+async fn connect_tls(
+    tls_config: ConnectConfiguration,
+    dns_name: String,
+    name_server: SocketAddr,
+) -> Result<TokioTlsStream<TokioTcpStream>, io::Error> {
+    let tcp = TokioTcpStream::connect(&name_server).await.map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            format!("tls error: {}", e),
+        )
+    })?;
+    let result = tokio_openssl::connect(tls_config, &dns_name, tcp).await;
 
     result.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
+            format!("tls error: {}", e),
         )
     })
 }
@@ -232,25 +242,13 @@ impl TlsStreamBuilder {
             }
         };
 
-        let tcp = TokioTcpStream::connect(&name_server);
-
-        // TODO: this clone can go way when the fn becomes 
+        // TODO: this clone can go way when the fn becomes
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream = Box::pin(
-            tcp.and_then(move |tcp_stream| {
-                connect(tls_config, dns_name, tcp_stream)
-                    .map_ok(move |s| {
-                        TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-                    })
-            }).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("tls error: {}", e),
-                )
-            }),
-        );
+        let stream = Box::pin(connect_tls(tls_config, dns_name, name_server).map_ok(move |s| {
+            TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
+        }));
 
         (stream, message_sender)
     }

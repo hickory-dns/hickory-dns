@@ -277,12 +277,11 @@ extern crate rustls;
 #[cfg(feature = "serde-config")]
 extern crate serde;
 extern crate tokio;
+extern crate tokio_net;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
-extern crate tokio_net;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
-extern crate tokio_net;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 pub extern crate trust_dns_proto as proto;

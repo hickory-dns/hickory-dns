@@ -33,7 +33,6 @@ extern crate chrono;
 extern crate enum_as_inner;
 extern crate env_logger;
 extern crate failure;
-#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate log;
@@ -52,13 +51,11 @@ extern crate rustls;
 extern crate time;
 extern crate tokio;
 extern crate tokio_executor;
+extern crate tokio_net;
 extern crate tokio_io;
-extern crate tokio_reactor;
 #[cfg(feature = "dns-over-rustls")]
 extern crate tokio_rustls;
-extern crate tokio_net;
 extern crate tokio_timer;
-extern crate tokio_net;
 extern crate toml;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-https")]

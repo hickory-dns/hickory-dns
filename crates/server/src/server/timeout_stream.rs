@@ -4,7 +4,7 @@ use std::pin::Pin;
 use std::task::Context;
 use std::time::{Duration, Instant};
 
-use futures::{Future, FutureExt, Poll, Stream, StreamExt};
+use futures::{FutureExt, Poll, Stream, StreamExt};
 use tokio_timer::Delay;
 
 /// This wraps the underlying Stream in a timeout.
@@ -37,7 +37,7 @@ impl<S> TimeoutStream<S> {
 
     fn timeout(timeout_duration: Duration) -> Option<Delay> {
         if timeout_duration > Duration::from_millis(0) {
-            Some(Delay::new(Instant::now() + timeout_duration))
+            Some(tokio_timer::delay(Instant::now() + timeout_duration))
         } else {
             None
         }

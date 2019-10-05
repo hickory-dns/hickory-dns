@@ -12,14 +12,13 @@ use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
 
-use futures::{future, Future, FutureExt, Poll, Stream, StreamExt, TryStreamExt};
+use futures::{future, Future, FutureExt, Poll, StreamExt};
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio_executor;
-use tokio_reactor::Handle;
-use tokio_tcp;
-use tokio_net::udp;
+use tokio_net::driver::Handle;
+use tokio_net::{tcp, udp};
 
 use proto::op::Edns;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
@@ -94,7 +93,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     pub fn register_listener(
         &self,
-        listener: tokio_tcp::TcpListener,
+        listener: tcp::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
         let handler = self.handler.clone();
@@ -169,7 +168,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
     ) -> io::Result<()> {
         self.register_listener(
-            tokio_tcp::TcpListener::from_std(listener, &Handle::default())?,
+            tcp::TcpListener::from_std(listener, &Handle::default())?,
             timeout,
         )
     }
@@ -190,7 +189,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
     pub fn register_tls_listener(
         &self,
-        listener: tokio_tcp::TcpListener,
+        listener: tcp::TcpListener,
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
@@ -283,7 +282,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
         self.register_tls_listener(
-            tokio_tcp::TcpListener::from_std(listener, &Handle::default())?,
+            tcp::TcpListener::from_std(listener, &Handle::default())?,
             timeout,
             certificate_and_key,
         )
@@ -305,7 +304,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(feature = "dns-over-rustls")]
     pub fn register_tls_listener(
         &self,
-        listener: tokio_tcp::TcpListener,
+        listener: tcp::TcpListener,
         timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
@@ -405,7 +404,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ))]
     pub fn register_https_listener(
         &self,
-        listener: tokio_tcp::TcpListener,
+        listener: tcp::TcpListener,
         timeout: Duration,
         pkcs12: ParsedPkcs12,
     ) -> io::Result<()> {
@@ -428,7 +427,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(feature = "dns-over-https-rustls")]
     pub fn register_https_listener(
         &self,
-        listener: tokio_tcp::TcpListener,
+        listener: tcp::TcpListener,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),

@@ -518,8 +518,8 @@ impl KeyPair<Private> {
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg(test)]
 mod tests {
-    use rr::dnssec::TBS;
-    use rr::dnssec::*;
+    use crate::rr::dnssec::TBS;
+    use crate::rr::dnssec::*;
 
     #[cfg(feature = "openssl")]
     #[test]

@@ -35,7 +35,7 @@ where
     S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    /// Initializes a TcpStream with an existing tokio_tcp::TcpStream.
+    /// Initializes a TcpStream with an existing tcp::TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
     ///

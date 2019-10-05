@@ -593,8 +593,8 @@ fn test_sync_client_send_and_sync() {
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_secure_client_send_and_sync() {
-    use tcp::TcpClientConnection;
-    use udp::UdpClientConnection;
+    use crate::tcp::TcpClientConnection;
+    use crate::udp::UdpClientConnection;
     assert_send_and_sync::<SecureSyncClient<UdpClientConnection>>();
     assert_send_and_sync::<SecureSyncClient<TcpClientConnection>>();
 }
