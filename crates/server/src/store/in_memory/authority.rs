@@ -12,7 +12,7 @@ use std::collections::BTreeMap;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::future::{self, Future, FutureExt, TryFutureExt};
+use futures::future::{self, Future, TryFutureExt};
 
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};

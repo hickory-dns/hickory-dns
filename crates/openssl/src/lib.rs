@@ -16,8 +16,6 @@
 
 //! TLS protocol related components for DNS over TLS
 
-#![feature(async_await)]
-
 extern crate futures;
 extern crate openssl;
 extern crate tokio_openssl;

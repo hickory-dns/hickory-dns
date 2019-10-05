@@ -10,7 +10,7 @@
 use std::pin::Pin;
 use std::task::Context;
 
-use futures::{future, Future, FutureExt, Poll, TryFutureExt};
+use futures::{future, Future, Poll, TryFutureExt};
 
 use trust_dns::op::LowerQuery;
 use trust_dns::proto::rr::dnssec::rdata::key::KEY;

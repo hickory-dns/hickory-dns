@@ -181,9 +181,6 @@
 #![warn(missing_docs)]
 #![recursion_limit = "128"]
 
-#![feature(async_await)]
-#![feature(type_alias_impl_trait)]
-
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
 extern crate cfg_if;
@@ -204,7 +201,6 @@ extern crate smallvec;
 #[cfg(feature = "tokio")]
 extern crate tokio;
 extern crate tokio_executor;
-extern crate tokio_net;
 extern crate tokio_net;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;

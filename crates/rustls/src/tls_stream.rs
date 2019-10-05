@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::pin::Pin;
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::{future, Future, TryFutureExt};
+use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;
 use tokio_io;
 use tokio_rustls::TlsConnector;
@@ -75,16 +75,15 @@ pub fn tls_connect(
     let message_sender = BufStreamHandle::new(message_sender);
 
     let tls_connector = TlsConnector::from(client_config);
-    let tcp = TokioTcpStream::connect(&name_server);
-
+    
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream = Box::pin(connect(tls_connector, name_server, dns_name, outbound_messages));
+    let stream = Box::pin(connect_tls(tls_connector, name_server, dns_name, outbound_messages));
 
     (stream, message_sender)
 }
 
-async fn connect(tls_connector: TlsConnector, name_server: SocketAddr, dns_name: String, outbound_messages: UnboundedReceiver<SerialMessage>) -> io::Result<TcpStream<TokioTlsClientStream>> {
+async fn connect_tls(tls_connector: TlsConnector, name_server: SocketAddr, dns_name: String, outbound_messages: UnboundedReceiver<SerialMessage>) -> io::Result<TcpStream<TokioTlsClientStream>> {
     let tcp = TokioTcpStream::connect(&name_server).await?;
 
     let dns_name = DNSNameRef::try_from_ascii_str(&dns_name).map(DNSName::from)

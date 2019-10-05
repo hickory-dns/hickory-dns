@@ -10,14 +10,14 @@
 use std::io;
 use std::mem;
 use std::net::SocketAddr;
-use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
+use std::time::Duration;
 
 use async_trait::async_trait;
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Fuse, Peekable, Stream, StreamExt};
 use futures::{ready, Future, FutureExt, Poll, TryFutureExt};
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use tokio_timer::Timeout;
 
 use crate::error::*;
@@ -31,7 +31,7 @@ where
 {
     /// TcpSteam
     type Transport: tokio_io::AsyncRead + tokio_io::AsyncWrite + Send;
-    
+
     /// connect to tcp
     async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport>;
 }
@@ -92,8 +92,20 @@ impl<S> TcpStream<S> {
         self.peer_addr
     }
 
-    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>, &mut Option<WriteTcpState>, &mut ReadTcpState) {
-        (&mut self.socket, &mut self.outbound_messages, &mut self.send_state, &mut self.read_state)
+    fn pollable_split(
+        &mut self,
+    ) -> (
+        &mut S,
+        &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+        &mut Option<WriteTcpState>,
+        &mut ReadTcpState,
+    ) {
+        (
+            &mut self.socket,
+            &mut self.outbound_messages,
+            &mut self.send_state,
+            &mut self.read_state,
+        )
     }
 }
 
@@ -143,7 +155,11 @@ impl<S: Connect + 'static> TcpStream<S> {
         (stream_fut, message_sender)
     }
 
-    async fn connect(name_server: SocketAddr, timeout: Duration, outbound_messages: UnboundedReceiver<SerialMessage>) -> Result<TcpStream<S::Transport>, io::Error> {
+    async fn connect(
+        name_server: SocketAddr,
+        timeout: Duration,
+        outbound_messages: UnboundedReceiver<SerialMessage>,
+    ) -> Result<TcpStream<S::Transport>, io::Error> {
         let tcp = S::connect(&name_server);
         Timeout::new(tcp, timeout)
             .map_err(move |_| {
@@ -153,21 +169,26 @@ impl<S: Connect + 'static> TcpStream<S> {
                     format!("timed out connecting to: {}", name_server),
                 )
             })
-            .map(move |tcp_stream: Result<Result<S::Transport, io::Error>, _>| {
-                tcp_stream.and_then(|tcp_stream| tcp_stream).map(|tcp_stream| {
-                debug!("TCP connection established to: {}", name_server);
-                TcpStream {
-                    socket: tcp_stream,
-                    outbound_messages: outbound_messages.fuse().peekable(),
-                    send_state: None,
-                    read_state: ReadTcpState::LenBytes {
-                        pos: 0,
-                        bytes: [0u8; 2],
-                    },
-                    peer_addr: name_server,
-                }
-                })
-            }).await
+            .map(
+                move |tcp_stream: Result<Result<S::Transport, io::Error>, _>| {
+                    tcp_stream
+                        .and_then(|tcp_stream| tcp_stream)
+                        .map(|tcp_stream| {
+                            debug!("TCP connection established to: {}", name_server);
+                            TcpStream {
+                                socket: tcp_stream,
+                                outbound_messages: outbound_messages.fuse().peekable(),
+                                send_state: None,
+                                read_state: ReadTcpState::LenBytes {
+                                    pos: 0,
+                                    bytes: [0u8; 2],
+                                },
+                                peer_addr: name_server,
+                            }
+                        })
+                },
+            )
+            .await
     }
 }
 
@@ -258,18 +279,12 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
                                 Some(WriteTcpState::LenBytes { pos, length, bytes }),
                             );
                         } else {
-                            mem::replace(
-                                send_state,
-                                Some(WriteTcpState::Bytes { pos: 0, bytes }),
-                            );
+                            mem::replace(send_state, Some(WriteTcpState::Bytes { pos: 0, bytes }));
                         }
                     }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
                         if pos < bytes.len() {
-                            mem::replace(
-                                send_state,
-                                Some(WriteTcpState::Bytes { pos, bytes }),
-                            );
+                            mem::replace(send_state, Some(WriteTcpState::Bytes { pos, bytes }));
                         } else {
                             // At this point we successfully delivered the entire message.
                             //  flush
@@ -408,9 +423,7 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
             // this will move to the next state,
             //  if it was a completed receipt of bytes, then it will move out the bytes
             if let Some(state) = new_state {
-                if let ReadTcpState::Bytes { pos, bytes } =
-                    mem::replace(read_state, state)
-                {
+                if let ReadTcpState::Bytes { pos, bytes } = mem::replace(read_state, state) {
                     debug!("returning bytes");
                     assert_eq!(pos, bytes.len());
                     ret_buf = Some(bytes);
@@ -432,124 +445,130 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
     }
 }
 
-#[cfg(not(target_os = "linux"))]
 #[cfg(test)]
-use std::net::Ipv6Addr;
-#[cfg(test)]
-use std::net::{IpAddr, Ipv4Addr};
+mod tests {
+    #[cfg(not(target_os = "linux"))]
+    use std::net::Ipv6Addr;
+    use std::net::{IpAddr, Ipv4Addr};
 
-#[test]
-// this fails on linux for some reason. It appears that a buffer somewhere is dirty
-//  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
-//  but not 3?
-// #[cfg(not(target_os = "linux"))]
-fn test_tcp_client_stream_ipv4() {
-    tcp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
-}
+    use tokio_net::tcp;
 
-#[test]
-#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-fn test_tcp_client_stream_ipv6() {
-    tcp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
-}
+    use super::*;
 
-#[cfg(test)]
-const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
-#[cfg(test)]
-const TEST_BYTES_LEN: usize = 8;
-
-#[cfg(test)]
-fn tcp_client_stream_test(server_addr: IpAddr) {
-    use std::io::{Read, Write};
-    use tokio::runtime::current_thread::Runtime;
-
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone.clone();
-            for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                    return;
-                }
-            }
-
-            panic!("timeout");
-        })
-        .unwrap();
-
-    // TODO: need a timeout on listen
-    let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
-    let server_addr = server.local_addr().unwrap();
-
-    let send_recv_times = 4;
-
-    // an in and out server
-    let server_handle = std::thread::Builder::new()
-        .name("test_tcp_client_stream:server".to_string())
-        .spawn(move || {
-            let (mut socket, _) = server.accept().expect("accept failed");
-
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap(); // should receive something within 5 seconds...
-            socket
-                .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap(); // should receive something within 5 seconds...
-
-            for _ in 0..send_recv_times {
-                // wait for some bytes...
-                let mut len_bytes = [0_u8; 2];
-                socket
-                    .read_exact(&mut len_bytes)
-                    .expect("SERVER: receive failed");
-                let length =
-                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
-                assert_eq!(length as usize, TEST_BYTES_LEN);
-
-                let mut buffer = [0_u8; TEST_BYTES_LEN];
-                socket.read_exact(&mut buffer).unwrap();
-
-                // println!("read bytes iter: {}", i);
-                assert_eq!(&buffer, TEST_BYTES);
-
-                // bounce them right back...
-                socket
-                    .write_all(&len_bytes)
-                    .expect("SERVER: send length failed");
-                socket
-                    .write_all(&buffer)
-                    .expect("SERVER: send buffer failed");
-                // println!("wrote bytes iter: {}", i);
-                std::thread::yield_now();
-            }
-        })
-        .unwrap();
-
-    // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Runtime::new().unwrap();
-
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, sender) = TcpStream::<tokio_tcp::TcpStream>::new::<ProtoError>(server_addr);
-
-    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
-
-    for _ in 0..send_recv_times {
-        // test once
-        sender
-            .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
-            .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future());
-        stream = stream_tmp;
-        let message = buffer.expect("no buffer received").expect("error receiving buffer");
-        assert_eq!(message.bytes(), TEST_BYTES);
+    #[test]
+    // this fails on linux for some reason. It appears that a buffer somewhere is dirty
+    //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
+    //  but not 3?
+    // #[cfg(not(target_os = "linux"))]
+    fn test_tcp_client_stream_ipv4() {
+        tcp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-    server_handle.join().expect("server thread failed");
+    #[test]
+    #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
+    fn test_tcp_client_stream_ipv6() {
+        tcp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+    }
+
+    #[cfg(test)]
+    const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
+    #[cfg(test)]
+    const TEST_BYTES_LEN: usize = 8;
+
+    #[cfg(test)]
+    fn tcp_client_stream_test(server_addr: IpAddr) {
+        use std::io::{Read, Write};
+        use tokio::runtime::current_thread::Runtime;
+
+        let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let succeeded_clone = succeeded.clone();
+        std::thread::Builder::new()
+            .name("thread_killer".to_string())
+            .spawn(move || {
+                let succeeded = succeeded_clone.clone();
+                for _ in 0..15 {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
+                }
+
+                panic!("timeout");
+            })
+            .unwrap();
+
+        // TODO: need a timeout on listen
+        let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
+        let server_addr = server.local_addr().unwrap();
+
+        let send_recv_times = 4;
+
+        // an in and out server
+        let server_handle = std::thread::Builder::new()
+            .name("test_tcp_client_stream:server".to_string())
+            .spawn(move || {
+                let (mut socket, _) = server.accept().expect("accept failed");
+
+                socket
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap(); // should receive something within 5 seconds...
+                socket
+                    .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap(); // should receive something within 5 seconds...
+
+                for _ in 0..send_recv_times {
+                    // wait for some bytes...
+                    let mut len_bytes = [0_u8; 2];
+                    socket
+                        .read_exact(&mut len_bytes)
+                        .expect("SERVER: receive failed");
+                    let length =
+                        u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
+                    assert_eq!(length as usize, TEST_BYTES_LEN);
+
+                    let mut buffer = [0_u8; TEST_BYTES_LEN];
+                    socket.read_exact(&mut buffer).unwrap();
+
+                    // println!("read bytes iter: {}", i);
+                    assert_eq!(&buffer, TEST_BYTES);
+
+                    // bounce them right back...
+                    socket
+                        .write_all(&len_bytes)
+                        .expect("SERVER: send length failed");
+                    socket
+                        .write_all(&buffer)
+                        .expect("SERVER: send buffer failed");
+                    // println!("wrote bytes iter: {}", i);
+                    std::thread::yield_now();
+                }
+            })
+            .unwrap();
+
+        // setup the client, which is going to run on the testing thread...
+        let mut io_loop = Runtime::new().unwrap();
+
+        // the tests should run within 5 seconds... right?
+        // TODO: add timeout here, so that test never hangs...
+        // let timeout = Timeout::new(Duration::from_secs(5));
+        let (stream, sender) = TcpStream::<tcp::TcpStream>::new::<ProtoError>(server_addr);
+
+        let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
+
+        for _ in 0..send_recv_times {
+            // test once
+            sender
+                .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
+                .expect("send failed");
+            let (buffer, stream_tmp) = io_loop.block_on(stream.into_future());
+            stream = stream_tmp;
+            let message = buffer
+                .expect("no buffer received")
+                .expect("error receiving buffer");
+            assert_eq!(message.bytes(), TEST_BYTES);
+        }
+
+        succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+        server_handle.join().expect("server thread failed");
+    }
 }

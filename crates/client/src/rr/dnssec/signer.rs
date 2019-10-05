@@ -778,10 +778,10 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         extern crate openssl;
         use self::openssl::rsa::Rsa;
 
-        use rr::dnssec::tbs::*;
-        use rr::dnssec::*;
-        use rr::rdata::{DNSSECRData, SIG};
-        use rr::*;
+        use crate::rr::dnssec::tbs::*;
+        use crate::rr::dnssec::*;
+        use crate::rr::rdata::{DNSSECRData, SIG};
+        use crate::rr::*;
 
         #[test]
         fn test_rrset_tbs() {
