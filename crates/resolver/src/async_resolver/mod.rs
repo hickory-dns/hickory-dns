@@ -9,13 +9,14 @@
 use std::fmt;
 use std::net::IpAddr;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::task::Context;
 
 use futures::{
     self, future,
     channel::{mpsc, oneshot},
     Future, FutureExt, Poll, TryFutureExt,
+    lock::Mutex,
 };
 use proto::error::ProtoResult;
 use proto::rr::domain::TryParseIp;

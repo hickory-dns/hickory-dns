@@ -41,13 +41,12 @@ extern crate trust_dns_openssl;
 extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
-use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
-use futures::{future, Future, TryFutureExt};
+use futures::{future, Future};
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
 use tokio_net::tcp::TcpListener;

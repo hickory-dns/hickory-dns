@@ -8,7 +8,6 @@ extern crate trust_dns_server;
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 
-use futures::future::Future;
 use futures::executor::block_on;
 
 use trust_dns::rr::{Name, RecordType};
