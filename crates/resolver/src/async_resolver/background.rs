@@ -5,11 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::pin::Pin;
 use std::task::Context;
 
 use futures::{future, ready, channel::mpsc, Future, FutureExt, Poll, StreamExt};
+use futures::lock::Mutex;
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
 use proto::{

@@ -1,7 +1,7 @@
 pub mod mut_message_client;
 
 use std::env;
-use std::io::{self, BufRead, BufReader, stdout, Write};
+use std::io::{BufRead, BufReader, stdout, Write};
 use std::mem;
 use std::net::*;
 use std::panic::{catch_unwind, UnwindSafe};

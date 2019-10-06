@@ -243,7 +243,7 @@ enum ConnectionHandleConnected {
 impl DnsHandle for ConnectionHandleConnected {
     type Response = ConnectionHandleResponseInner;
 
-    fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> ConnectionHandleResponseInner {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> ConnectionHandleResponseInner {
         match self {
             ConnectionHandleConnected::Udp(ref mut conn) => {
                 ConnectionHandleResponseInner::Udp(conn.send(request))
@@ -266,7 +266,7 @@ enum ConnectionHandleInner {
 }
 
 impl ConnectionHandleInner {
-    fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> ConnectionHandleResponseInner {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> ConnectionHandleResponseInner {
         loop {
             let connected: Result<ConnectionHandleConnected, proto::error::ProtoError> = match self
             {

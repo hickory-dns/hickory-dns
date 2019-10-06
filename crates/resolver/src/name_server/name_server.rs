@@ -120,7 +120,7 @@ where
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         let distrust_nx_responses = self.options.distrust_nx_responses;
 
         // grab a reference to the stats for this NameServer

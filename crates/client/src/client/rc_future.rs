@@ -5,11 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::pin::Pin;
 use std::task::Context;
 
 use futures::{future::Fuse, Future, FutureExt, Poll};
+use futures::lock::Mutex;
 
 #[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>
@@ -17,8 +18,7 @@ where
     F: Future + Send + Unpin,
     F::Output: Clone + Send,
 {
-    rc_future: Arc<Mutex<Fuse<F>>>,
-    result: Arc<Mutex<Option<Poll<F::Output>>>>,
+    future_and_result: Arc<Mutex<(Fuse<F>, Option<F::Output>)>>,
 }
 
 pub fn rc_future<F>(future: F) -> RcFuture<F>
@@ -27,11 +27,10 @@ where
     F::Output: Clone + Send,
     F: Send,
 {
-    let rc_future = Arc::new(Mutex::new(future.fuse()));
+    let future_and_result = Arc::new(Mutex::new((future.fuse(), None)));
 
     RcFuture {
-        rc_future,
-        result: Arc::new(Mutex::new(None)),
+        future_and_result,
     }
 }
 
@@ -46,24 +45,29 @@ where
         // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
-        if self.result.lock().expect("poisoned").is_some() {
-            return self
-                .result
-                .lock()
-                .expect("poisoned")
-                .as_ref()
-                .unwrap()
-                .clone();
-        }
+        if let Some(mut future_and_result) = self.future_and_result.try_lock() {
+            let (ref mut future, ref mut stored_result) = *future_and_result;
+            
+            // if pending it's either done, or it's actually pending
+            match future.poll_unpin(cx) {
+                Poll::Pending => (),
+                Poll::Ready(result) => {
+                    *stored_result = Some(result.clone());
+                    return Poll::Ready(result);
+                }
+            };
 
-        // TODO convert this to try_borrow_mut when that stabilizes...
-        match self.rc_future.lock().expect("poisoned").poll_unpin(cx) {
-            result @ Poll::Pending => result,
-            result => {
-                let mut store = self.result.lock().expect("poisoned");
-                *store = Some(result.clone());
-                result
+            // check if someone else stored the result
+            if let Some(result) = stored_result.as_ref() {
+                return Poll::Ready(result.clone());
+            } else {
+                // the poll on the future should wake this thread
+                return Poll::Pending
             }
+        } else {
+            // TODO: track wakers in a queue instead...
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
         }
     }
 }
@@ -75,8 +79,7 @@ where
 {
     fn clone(&self) -> Self {
         RcFuture {
-            rc_future: Arc::clone(&self.rc_future),
-            result: Arc::clone(&self.result),
+            future_and_result: Arc::clone(&self.future_and_result),
         }
     }
 }

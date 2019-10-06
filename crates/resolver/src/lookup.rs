@@ -200,7 +200,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEi
         }
     }
 
-    fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]

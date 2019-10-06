@@ -43,7 +43,7 @@ impl Stream for NeverStream {
     type Item = Result<(), io::Error>;
 
     // somehow insert a timeout here...
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
         Poll::Pending
     }
 }

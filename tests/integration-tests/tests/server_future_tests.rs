@@ -24,7 +24,6 @@ use futures::{future, Future};
 use futures::executor::block_on;
 use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpListener;
-use tokio_timer::Delay;
 use tokio_net::udp::UdpSocket;
 
 use trust_dns::client::*;

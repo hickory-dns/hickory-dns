@@ -10,12 +10,13 @@
 use std::borrow::Cow;
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
-use std::sync::{Arc, Mutex, TryLockError};
+use std::sync::Arc;
 use std::time::Instant;
 use std::pin::Pin;
 use std::task::Context;
 
 use futures::{future, Future, FutureExt, Poll};
+use futures::lock::Mutex;
 
 use proto::op::{Message, Query, ResponseCode};
 use proto::rr::domain::usage::{
@@ -48,7 +49,6 @@ lazy_static! {
 #[derive(Clone, Debug)]
 #[doc(hidden)]
 pub struct CachingClient<C: DnsHandle> {
-    // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     lru: Arc<Mutex<DnsLru>>,
     client: C,
 }
@@ -147,20 +147,13 @@ impl Future for FromCache {
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         // first transition any polling that is needed (mutable refs...)
-        // FIXME: replace lock with FutureLock....
         match self.cache.try_lock() {
-            Err(TryLockError::WouldBlock) => {
-                // FIXME: is this waker correct
+            None => {
                 cx.waker().wake_by_ref();
                 // task::current().notify(); // yield
                 Poll::Pending
             }
-            // TODO: need to figure out a way to recover from this.
-            // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
-            Err(TryLockError::Poisoned(poison)) => {
-                Poll::Ready(Err(ResolveErrorKind::Msg(format!("poisoned: {}", poison)).into()))
-            }
-            Ok(mut lru) => Poll::Ready(Ok(lru.get(&self.query, Instant::now()))),
+            Some(mut lru) => Poll::Ready(Ok(lru.get(&self.query, Instant::now()))),
         }
     }
 }
@@ -396,20 +389,13 @@ impl Future for InsertCache {
         let (rdatas, query, cache) = self.split();
         
         // first transition any polling that is needed (mutable refs...)
-        // FIXME: replace this with a futures lock
         match cache.try_lock() {
-            Err(TryLockError::WouldBlock) => {
-                // FIXME: is this right?
+            None => {
                 cx.waker().wake_by_ref();
                 // task::current().notify(); // yield
                 Poll::Pending
             }
-            // TODO: need to figure out a way to recover from this.
-            // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
-            Err(TryLockError::Poisoned(poison)) => {
-                Poll::Ready(Err(ResolveErrorKind::Msg(format!("poisoned: {}", poison)).into()))
-            }
-            Ok(mut lru) => {
+            Some(mut lru) => {
                 // this will put this object into an inconsistent state, but no one should call poll again...
                 let query = mem::replace(query, Query::new());
                 let rdata = mem::replace(rdatas, Records::NoData { ttl: None });
@@ -704,7 +690,7 @@ mod tests {
     fn test_from_cache() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         let query = Query::new();
-        cache.lock().unwrap().insert(
+        cache.try_lock().unwrap().insert(
             query.clone(),
             vec![(
                 Record::from_rdata(
