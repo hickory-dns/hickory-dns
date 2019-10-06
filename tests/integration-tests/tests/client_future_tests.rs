@@ -7,7 +7,6 @@ extern crate openssl;
 extern crate rustls;
 extern crate tokio;
 extern crate tokio_net;
-extern crate tokio_net;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
@@ -20,10 +19,11 @@ extern crate webpki_roots;
 use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use std::pin::Pin;
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
-use futures::Future;
+use futures::{Future, TryFutureExt};
 use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
@@ -155,16 +155,16 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut BasicClientHandle<R>) -> Box<dyn Future<Output = Result<(), ()>>>
+fn test_query<R>(client: &mut BasicClientHandle<R>) -> Pin<Box<dyn Future<Output = Result<(), ()>>>>
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
-    Box::new(
+    Box::pin(
         client
             .query(name.clone(), DNSClass::IN, RecordType::A)
-            .map(move |response| {
+            .map_ok(move |response| {
                 println!("response records: {:?}", response);
                 assert!(response
                     .queries()
@@ -876,7 +876,7 @@ fn test_delete_all() {
 
 fn test_timeout_query<R>(mut client: BasicClientHandle<R>, mut io_loop: Runtime)
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let name = Name::from_str("www.example.com").unwrap();
 

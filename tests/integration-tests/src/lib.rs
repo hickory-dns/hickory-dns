@@ -18,10 +18,13 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::task::{Context, Poll};
+use std::pin::Pin;
 
-use futures::stream::{Fuse, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::{finished, future, task, Async, Future, Poll};
+use futures::executor::block_on;
+use futures::stream::{Fuse, Stream, StreamExt};
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::{future, Future, FutureExt, TryFutureExt};
 use tokio_timer::Delay;
 
 use trust_dns::client::ClientConnection;
@@ -53,13 +56,13 @@ impl TestClientStream {
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
-        Box<dyn Future<Output = Result<Self, ProtoError>> + Send>,
+        Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream = Box::new(finished(TestClientStream {
+        let stream = Box::pin(future::ok(TestClientStream {
             catalog,
             outbound_messages: outbound_messages.fuse(),
         }));
@@ -81,25 +84,24 @@ impl TestResponseHandler {
         TestResponseHandler { message_ready, buf }
     }
 
-    fn into_inner(self) -> impl Future<Item = Vec<u8>, Error = ()> {
-        future::poll_fn(move || {
+    fn into_inner(self) -> impl Future<Output = Result<Vec<u8>, ()>> {
+        future::poll_fn(move |_| {
             if self
                 .message_ready
                 .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()
             {
                 let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
-                Ok(Poll::Ready(bytes))
+                Poll::Ready(Ok(bytes))
             } else {
-                task::current().notify();
-                Ok(Poll::Pending)
+                Poll::Pending
             }
         })
     }
 
     pub fn into_message(self) -> impl Future<Output = Result<Message, ()>> {
         let bytes = self.into_inner();
-        bytes.map(|b| {
+        bytes.map_ok(|b| {
             let mut decoder = BinDecoder::new(&b);
             Message::read(&mut decoder).expect("could not decode message")
         })
@@ -132,14 +134,13 @@ impl DnsClientStream for TestClientStream {
 }
 
 impl Stream for TestClientStream {
-    type Item = SerialMessage;
-    type Error = ProtoError;
+    type Item = Result<SerialMessage, ProtoError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         match self
             .outbound_messages
-            .poll()
-            .map_err(|_| ProtoError::from("Server stopping due to interruption"))?
+            .next()
+            .poll_unpin(cx)
         {
             // already handled above, here to make sure the poll() pops the next message
             Poll::Ready(Some(bytes)) => {
@@ -154,25 +155,24 @@ impl Stream for TestClientStream {
 
                 dbg!("catalog handling request");
                 let response_handler = TestResponseHandler::new();
-                self.catalog
+                block_on(self.catalog
                     .lock()
                     .unwrap()
-                    .handle_request(request, response_handler.clone())
-                    .wait()
+                    .handle_request(request, response_handler.clone()))
                     .unwrap();
 
                 dbg!("catalog handled request");
 
-                let buf = response_handler.into_inner().wait().unwrap();
+                let buf = block_on(response_handler.into_inner()).unwrap();
                 dbg!("catalog responded");
 
-                Ok(Poll::Ready(Some(SerialMessage::new(buf, src_addr))))
+                Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
             // TODO: should we also return None if there are no more messages to send?
             _ => {
-                task::current().notify();
-                Ok(Poll::Pending)
+                cx.waker().wake_by_ref();
+                Poll::Pending
             }
         }
     }
@@ -195,14 +195,14 @@ pub struct NeverReturnsClientStream {
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
     pub fn new() -> (
-        Box<dyn Future<Output = Result<Self, ProtoError>> + Send>,
+        Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
         StreamHandle,
     ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream = Box::new(finished(NeverReturnsClientStream {
-            timeout: Delay::new(Instant::now() + Duration::from_secs(1)),
+        let stream = Box::pin(future::ok(NeverReturnsClientStream {
+            timeout: tokio_timer::delay(Instant::now() + Duration::from_secs(1)),
             outbound_messages: outbound_messages.fuse(),
         }));
 
@@ -223,21 +223,20 @@ impl DnsClientStream for NeverReturnsClientStream {
 }
 
 impl Stream for NeverReturnsClientStream {
-    type Item = SerialMessage;
-    type Error = ProtoError;
+    type Item = Result<SerialMessage, ProtoError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         println!("still not returning");
 
         // poll the timer forever...
-        if let Ok(Poll::Pending) = self.timeout.poll() {
-            return Ok(Poll::Pending);
+        if let Poll::Pending = self.timeout.poll_unpin(cx) {
+            return Poll::Pending;
         }
 
         self.timeout.reset(Instant::now() + Duration::from_secs(1));
 
-        match self.timeout.poll() {
-            Ok(Poll::Pending) => Ok(Poll::Pending),
+        match self.timeout.poll_unpin(cx) {
+            Poll::Pending => Poll::Pending,
             _ => panic!("timeout fired early"),
         }
     }
@@ -262,7 +261,7 @@ impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<dyn Future<Output = Result<NeverReturnsClientStream, ProtoError>> + Send>,
+        Pin<Box<dyn Future<Output = Result<NeverReturnsClientStream, ProtoError>> + Send>>,
         NeverReturnsClientStream,
         Signer,
     >;
@@ -270,6 +269,6 @@ impl ClientConnection for NeverReturnsClientConnection {
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
-        DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer)
+        DnsMultiplexer::new(Box::pin(client_stream), Box::new(handle), signer)
     }
 }

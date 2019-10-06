@@ -10,6 +10,7 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::pin::Pin;
 
 use futures::Future;
 
@@ -49,7 +50,7 @@ impl ClientConnection for TlsClientConnection {
     type Sender = DnsMultiplexer<TlsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
         TlsClientStream,
         Signer,
     >;
@@ -61,6 +62,6 @@ impl ClientConnection for TlsClientConnection {
             self.client_config.clone(),
         );
 
-        DnsMultiplexer::new(Box::new(tls_client_stream), Box::new(handle), signer)
+        DnsMultiplexer::new(Box::pin(tls_client_stream), Box::new(handle), signer)
     }
 }

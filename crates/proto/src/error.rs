@@ -184,10 +184,6 @@ pub enum ProtoErrorKind {
     #[fail(display = "request timed out")]
     Timeout,
 
-    /// A request timeout elapsed
-    #[fail(display = "request time elapsed before data received")]
-    Elapsed,
-
     /// An url parsing error
     #[fail(display = "url parsing error")]
     UrlParsing,
@@ -301,7 +297,7 @@ impl From<TimerError> for ProtoError {
 
 impl From<Elapsed> for ProtoError {
     fn from(e: Elapsed) -> ProtoError {
-        e.context(ProtoErrorKind::Elapsed).into()
+        e.context(ProtoErrorKind::Timeout).into()
     }
 }
 
@@ -407,7 +403,6 @@ impl Clone for ProtoErrorKind {
             DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
             DomainNameTooLong(len) => DomainNameTooLong(len),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
-            Elapsed => Elapsed,
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),
             PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },

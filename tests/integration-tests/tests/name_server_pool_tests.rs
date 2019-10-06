@@ -11,8 +11,10 @@ use std::sync::{
     atomic::{AtomicIsize, Ordering},
     Arc,
 };
+use std::task::Poll;
+use std::pin::Pin;
 
-use futures::future::{self, Future, Loop};
+use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::op::Query;
@@ -36,7 +38,7 @@ impl Default for MockConnProvider<DefaultOnSend> {
     }
 }
 
-impl<O: OnSend> ConnectionProvider for MockConnProvider<O> {
+impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
     type ConnHandle = MockClientHandle<O>;
 
     fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
@@ -56,7 +58,7 @@ fn mock_nameserver(
 }
 
 #[cfg(test)]
-fn mock_nameserver_on_send<O: OnSend>(
+fn mock_nameserver_on_send<O: OnSend + Unpin>(
     messages: Vec<ProtoResult<DnsResponse>>,
     options: ResolverOpts,
     on_send: O,
@@ -89,7 +91,7 @@ fn mock_nameserver_pool(
 }
 
 #[cfg(test)]
-fn mock_nameserver_pool_on_send<O: OnSend>(
+fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     udp: Vec<MockedNameServer<O>>,
     tcp: Vec<MockedNameServer<O>>,
     _mdns: Option<MockedNameServer<O>>,
@@ -353,26 +355,26 @@ impl OnSend for OnSendBarrier {
     fn on_send(
         &mut self,
         response: Result<DnsResponse, ProtoError>,
-    ) -> Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send> {
+    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>> {
         self.barrier.fetch_sub(1, Ordering::Relaxed);
 
-        // loop until the barrier is 0
-        let loop_future = future::loop_fn(
-            (self.barrier.clone(), response),
-            move |(barrier, response)| {
-                let remaining = barrier.load(Ordering::Relaxed);
-
-                match remaining {
-                    0 => response.map(Loop::Break),
-                    i if i > 0 => Ok(Loop::Continue((barrier, response))),
-                    i if i < 0 => panic!("more concurrency than expected: {}", i),
-                    _ => panic!("all other cases handled"),
-                }
-            },
-        );
-
-        Box::new(loop_future)
+        let barrier = self.barrier.clone();
+        let loop_future = wait_for(barrier, response);
+        
+        Box::pin(loop_future)
     }
+}
+
+async fn wait_for(barrier: Arc<AtomicIsize>, response: Result<DnsResponse, ProtoError>) -> Result<DnsResponse, ProtoError> {
+    future::poll_fn(move |_|
+        if barrier.load(Ordering::Relaxed) > 0 {
+            Poll::Pending
+        } else {
+            Poll::Ready(())
+        }
+    ).await;
+
+    response
 }
 
 #[test]

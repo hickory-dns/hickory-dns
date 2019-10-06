@@ -12,7 +12,6 @@ extern crate futures;
 extern crate log;
 extern crate tokio;
 extern crate tokio_net;
-extern crate tokio_net;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
