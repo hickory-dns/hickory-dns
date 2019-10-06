@@ -12,6 +12,7 @@ use std::net::*;
 #[cfg(feature = "dnssec")]
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
+use std::pin::Pin;
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
@@ -52,7 +53,7 @@ impl ClientConnection for TestClientConnection {
     type Sender = DnsMultiplexer<TestClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>,
+        Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
         TestClientStream,
         Signer,
     >;
@@ -60,7 +61,7 @@ impl ClientConnection for TestClientConnection {
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
 
-        DnsMultiplexer::new(Box::new(client_stream), Box::new(handle), signer)
+        DnsMultiplexer::new(Box::pin(client_stream), Box::new(handle), signer)
     }
 }
 

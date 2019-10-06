@@ -34,7 +34,6 @@ extern crate rustls;
 extern crate tokio;
 extern crate tokio_executor;
 extern crate tokio_net;
-extern crate tokio_net;
 extern crate trust_dns;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
@@ -48,10 +47,10 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
-use futures::{future, Future};
+use futures::{future, Future, TryFutureExt};
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
-use tokio_net::TcpListener;
+use tokio_net::tcp::TcpListener;
 use tokio_net::udp::UdpSocket;
 
 #[cfg(feature = "dnssec")]
@@ -361,7 +360,7 @@ pub fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|| directory_config.clone());
 
-    let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
+    let io_loop = Runtime::new().expect("error when creating tokio Runtime");
     let executor = io_loop.executor();
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
@@ -397,11 +396,11 @@ pub fn main() {
         .collect();
     let udp_sockets: Vec<UdpSocket> = sockaddrs
         .iter()
-        .map(|x| UdpSocket::bind(x).unwrap_or_else(|_| panic!("could not bind to udp: {}", x)))
+        .map(|x| io_loop.block_on(UdpSocket::bind(x)).unwrap_or_else(|_| panic!("could not bind to udp: {}", x)))
         .collect();
     let tcp_listeners: Vec<TcpListener> = sockaddrs
         .iter()
-        .map(|x| TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tcp: {}", x)))
+        .map(|x| io_loop.block_on(TcpListener::bind(x)).unwrap_or_else(|_| panic!("could not bind to tcp: {}", x)))
         .collect();
 
     // now, run the server, based on the config

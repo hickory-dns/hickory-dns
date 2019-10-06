@@ -4,7 +4,6 @@ extern crate rustls;
 extern crate tokio;
 extern crate tokio_net;
 extern crate tokio_timer;
-extern crate tokio_net;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_openssl;
@@ -19,10 +18,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
+use std::pin::Pin;
 
 use futures::{future, Future};
+use futures::executor::block_on;
 use tokio::runtime::current_thread::Runtime;
-use tokio_net::TcpListener;
+use tokio_net::tcp::TcpListener;
 use tokio_timer::Delay;
 use tokio_net::udp::UdpSocket;
 
@@ -45,7 +46,7 @@ use trust_dns_integration::tls_client_connection::TlsClientConnection;
 #[test]
 fn test_server_www_udp() {
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
-    let udp_socket = UdpSocket::bind(&addr).unwrap();
+    let udp_socket = block_on(UdpSocket::bind(&addr)).unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
     println!("udp_socket on port: {}", ipaddr);
@@ -72,7 +73,7 @@ fn test_server_www_udp() {
 #[test]
 fn test_server_www_tcp() {
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
-    let tcp_listener = TcpListener::bind(&addr).unwrap();
+    let tcp_listener = block_on(TcpListener::bind(&addr)).unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
     println!("tcp_listner on port: {}", ipaddr);
@@ -98,8 +99,10 @@ fn test_server_www_tcp() {
 
 #[test]
 fn test_server_unknown_type() {
+    use futures::executor::block_on;
+
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
-    let udp_socket = UdpSocket::bind(&addr).unwrap();
+    let udp_socket = block_on(UdpSocket::bind(&addr)).unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
     println!("udp_socket on port: {}", ipaddr);
@@ -280,16 +283,15 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<dyn Future<Output = Result<(), ()>> + Send>>(Box::new(future::lazy(|| {
+        .block_on::<Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>>(Box::pin(future::lazy(|_| {
             server.register_socket(udp_socket);
-            future::ok(())
+            Ok(())
         })))
         .unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
-            .block_on(Delay::new(Instant::now() + Duration::from_millis(10)))
-            .unwrap();
+            .block_on(tokio_timer::delay(Instant::now() + Duration::from_millis(10)));
     }
 }
 
@@ -298,15 +300,14 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<dyn Future<Output = Result<(), io::Error>> + Send>>(Box::new(future::lazy(
-            || future::result(server.register_listener(tcp_listener, Duration::from_secs(30))),
+        .block_on::<Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send>>>(Box::pin(future::lazy(
+            |_| server.register_listener(tcp_listener, Duration::from_secs(30)),
         )))
         .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop
-            .block_on(Delay::new(Instant::now() + Duration::from_millis(10)))
-            .unwrap();
+            .block_on(tokio_timer::delay(Instant::now() + Duration::from_millis(10)));
     }
 }
 

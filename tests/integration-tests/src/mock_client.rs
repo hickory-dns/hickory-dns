@@ -1,5 +1,6 @@
 use std::net::Ipv4Addr;
 use std::sync::{Arc, Mutex};
+use std::pin::Pin;
 
 use futures::{future, Future};
 
@@ -34,8 +35,8 @@ impl<O: OnSend> MockClientHandle<O> {
     }
 }
 
-impl<O: OnSend> DnsHandle for MockClientHandle<O> {
-    type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>;
+impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         self.on_send
@@ -77,8 +78,8 @@ pub trait OnSend: Clone + Send + Sync + 'static {
     fn on_send(
         &mut self,
         response: Result<DnsResponse, ProtoError>,
-    ) -> Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send> {
-        Box::new(future::result(response))
+    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>> {
+        Box::pin(future::ready(response))
     }
 }
 
