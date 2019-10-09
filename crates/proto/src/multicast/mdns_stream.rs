@@ -21,7 +21,7 @@ use futures::lock::Mutex;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
-use tokio_reactor::Handle;
+use tokio_net::driver::Handle;
 use tokio_net::udp::UdpSocket;
 
 use crate::multicast::MdnsQueryType;
