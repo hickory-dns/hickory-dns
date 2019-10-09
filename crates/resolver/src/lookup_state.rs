@@ -8,15 +8,14 @@
 //! Caching related functionality for the Resolver.
 
 use std::borrow::Cow;
-use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::pin::Pin;
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
-use std::pin::Pin;
-use std::task::Context;
 
-use futures::{future, Future, FutureExt, Poll};
 use futures::lock::Mutex;
+use futures::{future, Future, FutureExt};
 
 use proto::op::{Message, Query, ResponseCode};
 use proto::rr::domain::usage::{
@@ -31,17 +30,29 @@ use crate::dns_lru::DnsLru;
 use crate::error::*;
 use crate::lookup::Lookup;
 
-const MAX_QUERY_DEPTH: u8 = 7; // arbitrarily chosen number...
-
-// FIXME: need to figure this out...
-// task_local! {
-//     static QUERY_DEPTH: RefCell<u8> = RefCell::new(0)
-// }
+const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
 lazy_static! {
     static ref LOCALHOST: RData = RData::PTR(Name::from_ascii("localhost.").unwrap());
     static ref LOCALHOST_V4: RData = RData::A(Ipv4Addr::new(127, 0, 0, 1));
     static ref LOCALHOST_V6: RData = RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+}
+
+struct DepthTracker {
+    query_depth: Arc<AtomicU8>
+}
+
+impl DepthTracker {
+    fn track(query_depth: Arc<AtomicU8>) -> Self {
+        dbg!(query_depth.fetch_add(1, Ordering::Release));
+        Self{ query_depth }
+    }
+}
+
+impl Drop for DepthTracker {
+    fn drop(&mut self) {
+        dbg!(self.query_depth.fetch_sub(1, Ordering::Release));
+    }
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -51,9 +62,10 @@ lazy_static! {
 pub struct CachingClient<C: DnsHandle> {
     lru: Arc<Mutex<DnsLru>>,
     client: C,
+    query_depth: Arc<AtomicU8>,
 }
 
-impl<C: DnsHandle + 'static> CachingClient<C> {
+impl<C: DnsHandle + Send + 'static> CachingClient<C> {
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C) -> Self {
         Self::with_cache(
@@ -63,7 +75,12 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
     }
 
     pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C) -> Self {
-        CachingClient { lru, client }
+        let query_depth = Arc::new(AtomicU8::new(0));
+        CachingClient {
+            lru,
+            client,
+            query_depth,
+        }
     }
 
     /// Perform a lookup against this caching client, looking first in the cache for a result
@@ -97,16 +114,10 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
                 ResolverUsage::Loopback => match query.query_type() {
                     // TODO: look in hosts for these ips/names first...
                     RecordType::A => {
-                        return future::ok(Lookup::from_rdata(
-                            query,
-                            LOCALHOST_V4.clone(),
-                        )).boxed()
+                        return future::ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())).boxed()
                     }
                     RecordType::AAAA => {
-                        return future::ok(Lookup::from_rdata(
-                            query,
-                            LOCALHOST_V6.clone(),
-                        )).boxed()
+                        return future::ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())).boxed()
                     }
                     RecordType::PTR => {
                         return future::ok(Lookup::from_rdata(query, LOCALHOST.clone())).boxed()
@@ -127,81 +138,96 @@ impl<C: DnsHandle + 'static> CachingClient<C> {
             }
         }
 
-        QueryState::lookup(
-            query,
-            options,
-            &mut self.client,
-            self.lru.clone(),
-        ).boxed()
+        Box::pin(Self::inner_lookup(query, options, self.clone()))
     }
-}
 
-struct FromCache {
-    query: Query,
-    options: DnsRequestOptions,
-    cache: Arc<Mutex<DnsLru>>,
-}
+    async fn inner_lookup(
+        query: Query,
+        options: DnsRequestOptions,
+        mut client: Self,
+    ) -> Result<Lookup, ResolveError> {
+        let _tracker = DepthTracker::track(client.query_depth.clone());
+        let is_dnssec = client.client.is_verifying_dnssec();
 
-impl Future for FromCache {
-    type Output = Result<Option<Lookup>, ResolveError>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         // first transition any polling that is needed (mutable refs...)
-        match self.cache.try_lock() {
-            None => {
-                cx.waker().wake_by_ref();
-                // task::current().notify(); // yield
-                Poll::Pending
+        if let Some(cached_lookup) = Self::from_cache(&query, &client.lru).await {
+            return Ok(cached_lookup);
+        };
+
+        let response_message = client.client.lookup(query.clone(), options.clone()).await?;
+
+        // TODO: take all records and cache them?
+        //  if it's DNSSec they must be signed, otherwise?
+        let records = match response_message.response_code() {
+            ResponseCode::NXDomain => Ok(Self::handle_nxdomain(
+                is_dnssec,
+                response_message,
+                false, /* false b/c DNSSec should not cache NXDomain */
+            )),
+            ResponseCode::NoError => {
+                Self::handle_noerror(&mut client, options, is_dnssec, &query, response_message)
             }
-            Some(mut lru) => Poll::Ready(Ok(lru.get(&self.query, Instant::now()))),
+            r => Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into()),
+        }?;
+
+        // after the request, evaluate if we have additional queries to perform
+        match records {
+            Records::CnameChain {
+                next: future,
+                min_ttl: ttl,
+            } => Self::cname(query, future, &client.lru, ttl).await,
+            records => Self::cache(query, records, &client.lru).await,
         }
     }
-}
 
-/// This is the Future responsible for performing an actual query.
-struct QueryFuture<C: DnsHandle + 'static> {
-    message_future: <C as DnsHandle>::Response,
-    query: Query,
-    cache: Arc<Mutex<DnsLru>>,
-    /// is this a DNSSec validating client?
-    dnssec: bool, // TODO: move to DnsRequestOptions?
-    options: DnsRequestOptions,
-    client: CachingClient<C>,
-}
-
-enum Records {
-    /// The records exists, a vec of rdata with ttl
-    Exists(Vec<(Record, u32)>),
-    /// Records do not exist, ttl for negative caching
-    NoData { ttl: Option<u32> },
-    /// Future lookup for recursive cname records
-    CnameChain {
-        next: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
-        min_ttl: u32,
-    },
-    /// Already cached, chained queries
-    Chained { cached: Lookup, min_ttl: u32 },
-}
-
-impl<C: DnsHandle + 'static> QueryFuture<C> {
-    fn next_query(&mut self, query: Query, cname_ttl: u32, message: DnsResponse) -> Records {
-        // FIXME: add max depth back
-        // if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
-        //     // TODO: This should return an error
-        //     self.handle_nxdomain(message, true)
-        // } else {
-            // tracking the depth of our queries, to prevent infinite CNAME recursion
-            // FIXME: replace max depth
-            // QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
-
-            Records::CnameChain {
-                next: self.client.lookup(query, self.options.clone()),
-                min_ttl: cname_ttl,
-            }
-        // }
+    /// Check if this query is already cached
+    async fn from_cache(query: &Query, cache: &Mutex<DnsLru>) -> Option<Lookup> {
+        let mut lru = cache.lock().await;
+        lru.get(query, Instant::now())
     }
 
-    fn handle_noerror(&mut self, mut response: DnsResponse) -> Poll<Result<Records, ResolveError>> {
+    /// See https://tools.ietf.org/html/rfc2308
+    ///
+    /// For now we will regard NXDomain to strictly mean the query failed
+    ///  and a record for the name, regardless of CNAME presence, what have you
+    ///  ultimately does not exist.
+    ///
+    /// This also handles empty responses in the same way. When performing DNSSec enabled queries, we should
+    ///  never enter here, and should never cache unless verified requests.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - message to extract SOA, etc, from for caching failed requests
+    /// * `valid_nsec` - species that in DNSSec mode, this request is safe to cache
+    fn handle_nxdomain(is_dnssec: bool, mut message: DnsResponse, valid_nsec: bool) -> Records {
+        if valid_nsec || !is_dnssec {
+            //  if there were validated NSEC records
+            let soa = message
+                .take_name_servers()
+                .into_iter()
+                .find(|r| r.rr_type() == RecordType::SOA);
+
+            let ttl = if let Some(RData::SOA(soa)) = soa.map(Record::unwrap_rdata) {
+                Some(soa.minimum())
+            } else {
+                // TODO: figure out a looping lookup to get SOA
+                None
+            };
+
+            Records::NoData { ttl }
+        } else {
+            Records::NoData { ttl: None }
+        }
+    }
+
+    /// Handle the case where there is no error returned
+    fn handle_noerror(
+        client: &mut Self,
+        options: DnsRequestOptions,
+        is_dnssec: bool,
+        query: &Query,
+        mut response: DnsResponse,
+    ) -> Result<Records, ResolveError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
 
@@ -209,8 +235,8 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
         let (search_name, cname_ttl, was_cname) = {
             // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
             let (search_name, cname_ttl, was_cname) =
-                if self.query.query_type().is_any() || self.query.query_type().is_cname() {
-                    (Cow::Borrowed(self.query.name()), INITIAL_TTL, false)
+                if query.query_type().is_any() || query.query_type().is_cname() {
+                    (Cow::Borrowed(query.name()), INITIAL_TTL, false)
                 } else {
                     // Folds any cnames from the answers section, into the final cname in the answers section
                     //   this works by folding the last CNAME found into the final folded result.
@@ -219,7 +245,7 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                     //
                     // TODO: should this include the additionals?
                     response.messages().flat_map(Message::answers).fold(
-                        (Cow::Borrowed(self.query.name()), INITIAL_TTL, false),
+                        (Cow::Borrowed(query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
                             match *r.rdata() {
                                 RData::CNAME(ref cname) => {
@@ -267,15 +293,14 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
 
                     // TODO: disable name validation with ResolverOpts? glibc feature...
                     // restrict to the RData type requested
-                    if self.query.query_class() == r.dns_class() {
+                    if query.query_class() == r.dns_class() {
                         // standard evaluation, it's an any type or it's the requested type and the search_name matches
                         // - or -
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //    and it's an IP
-                        if ((self.query.query_type().is_any()
-                            || self.query.query_type() == r.rr_type())
-                            && (search_name.as_ref() == r.name() || self.query.name() == r.name()))
-                            || (self.query.query_type().is_srv()
+                        if ((query.query_type().is_any() || query.query_type() == r.rr_type())
+                            && (search_name.as_ref() == r.name() || query.name() == r.name()))
+                            || (query.query_type().is_srv()
                                 && r.rr_type().is_ip_addr()
                                 && search_name.as_ref() == r.name())
                         {
@@ -290,7 +315,7 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
                 .collect::<Vec<_>>();
 
             if !records.is_empty() {
-                return Poll::Ready(Ok(Records::Exists(records)));
+                return Ok(Records::Exists(records));
             }
 
             (search_name.into_owned(), cname_ttl, was_cname)
@@ -300,356 +325,82 @@ impl<C: DnsHandle + 'static> QueryFuture<C> {
         //    for now, we'll make the API require the user to perform a follow up to the lookups.
         // It was a CNAME, but not included in the request...
         if was_cname {
-            let next_query = Query::query(search_name, self.query.query_type());
-            Poll::Ready(Ok(
-                self.next_query(next_query, cname_ttl, response),
+            let next_query = Query::query(search_name, query.query_type());
+            Ok(Self::next_query(
+                client, options, is_dnssec, next_query, cname_ttl, response,
             ))
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSec, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
-            Poll::Ready(Ok(self.handle_nxdomain(response, true)))
+            Ok(Self::handle_nxdomain(is_dnssec, response, true))
         }
     }
 
-    /// See https://tools.ietf.org/html/rfc2308
-    ///
-    /// For now we will regard NXDomain to strictly mean the query failed
-    ///  and a record for the name, regardless of CNAME presence, what have you
-    ///  ultimately does not exist.
-    ///
-    /// This also handles empty responses in the same way. When performing DNSSec enabled queries, we should
-    ///  never enter here, and should never cache unless verified requests.
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - message to extract SOA, etc, from for caching failed requests
-    /// * `valid_nsec` - species that in DNSSec mode, this request is safe to cache
-    fn handle_nxdomain(&self, mut message: DnsResponse, valid_nsec: bool) -> Records {
-        if valid_nsec || !self.dnssec {
-            //  if there were validated NSEC records
-            let soa = message
-                .take_name_servers()
-                .into_iter()
-                .find(|r| r.rr_type() == RecordType::SOA);
-
-            let ttl = if let Some(RData::SOA(soa)) = soa.map(Record::unwrap_rdata) {
-                Some(soa.minimum())
-            } else {
-                // TODO: figure out a looping lookup to get SOA
-                None
-            };
-
-            Records::NoData { ttl }
-        } else {
-            Records::NoData { ttl: None }
-        }
-    }
-}
-
-impl<C: DnsHandle + 'static> Future for QueryFuture<C> {
-    type Output = Result<Records, ResolveError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match self.message_future.poll_unpin(cx) {
-            Poll::Ready(Ok(message)) => {
-                // TODO: take all records and cache them?
-                //  if it's DNSSec they must be signed, otherwise?
-
-                match message.response_code() {
-                    ResponseCode::NXDomain => Poll::Ready(Ok(self.handle_nxdomain(
-                        message, false, /* false b/c DNSSec should not cache NXDomain */
-                    ))),
-                    ResponseCode::NoError => self.handle_noerror(message),
-                    r => Poll::Ready(Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into())),
-                }
-            }
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(err)) => Poll::Ready(Err(err.into())),
-        }
-    }
-}
-
-struct InsertCache {
-    rdatas: Records,
-    query: Query,
-    cache: Arc<Mutex<DnsLru>>,
-}
-
-impl InsertCache {
-    fn split(&mut self) -> (&mut Records, &mut Query, &Arc<Mutex<DnsLru>>) {
-        (&mut self.rdatas, &mut self.query, &self.cache)
-    }
-}
-
-impl Future for InsertCache {
-    type Output = Result<Lookup, ResolveError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let (rdatas, query, cache) = self.split();
-        
-        // first transition any polling that is needed (mutable refs...)
-        match cache.try_lock() {
-            None => {
-                cx.waker().wake_by_ref();
-                // task::current().notify(); // yield
-                Poll::Pending
-            }
-            Some(mut lru) => {
-                // this will put this object into an inconsistent state, but no one should call poll again...
-                let query = mem::replace(query, Query::new());
-                let rdata = mem::replace(rdatas, Records::NoData { ttl: None });
-
-                match rdata {
-                    Records::Exists(rdata) => {
-                        Poll::Ready(Ok(lru.insert(query, rdata, Instant::now())))
-                    }
-                    Records::Chained {
-                        cached: lookup,
-                        min_ttl: ttl,
-                    } => Poll::Ready(Ok(lru.duplicate(
-                        query,
-                        lookup,
-                        ttl,
-                        Instant::now(),
-                    ))),
-                    Records::NoData { ttl: Some(ttl) } => {
-                        Poll::Ready(Err(lru.negative(query, ttl, Instant::now())))
-                    }
-                    Records::NoData { ttl: None } | Records::CnameChain { .. } => {
-                        Poll::Ready(Err(DnsLru::nx_error(query, None)))
-                    }
-                }
-            }
-        }
-    }
-}
-
-enum QueryState<C: DnsHandle + 'static> {
-    /// In the FromCache state we evaluate cache entries for any results
-    FromCache(FromCache, C),
-    /// In the query state there is an active query that's been started, see Self::lookup()
-    Query(QueryFuture<C>),
-    /// CNAME lookup (internally it is making cached queries
-    CnameChain(
-        Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
-        Query,
-        u32,
-        Arc<Mutex<DnsLru>>,
-    ),
-    /// State of adding the item to the cache
-    InsertCache(InsertCache),
-    /// A state which should not occur
-    QueryError,
-}
-
-impl<C: DnsHandle + 'static> QueryState<C> {
-    pub(crate) fn lookup(
-        query: Query,
+    // TODO: merge this with cname
+    fn next_query(
+        client: &mut Self,
         options: DnsRequestOptions,
-        client: &mut C,
-        cache: Arc<Mutex<DnsLru>>,
-    ) -> QueryState<C> {
-        QueryState::FromCache(
-            FromCache {
-                query,
-                options,
-                cache,
-            },
-            client.clone(),
-        )
-    }
-
-    /// Query after a failed cache lookup
-    ///
-    /// # Panics
-    ///
-    /// This will panic if the current state is not FromCache.
-    fn query_after_cache(&mut self) {
-        let from_cache_state = mem::replace(self, QueryState::QueryError);
-
-        // TODO: with specialization, could we define a custom query only on the FromCache type?
-        match from_cache_state {
-            QueryState::FromCache(from_cache, mut client) => {
-                let cache = from_cache.cache;
-                let query = from_cache.query;
-                let options = from_cache.options;
-                let message_future = client.lookup(query.clone(), options.clone());
-                mem::replace(
-                    self,
-                    QueryState::Query(QueryFuture {
-                        message_future,
-                        query,
-                        cache: cache.clone(),
-                        dnssec: client.is_verifying_dnssec(),
-                        options,
-                        client: CachingClient::with_cache(cache, client),
-                    }),
-                );
-            }
-            _ => panic!("bad state, expected FromCache"),
-        }
-    }
-
-    fn cname(
-        &mut self,
-        future: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+        is_dnssec: bool,
+        query: Query,
         cname_ttl: u32,
-    ) {
-        // The error state, this query is complete...
-        let query_state = mem::replace(self, QueryState::QueryError);
-
-        match query_state {
-            QueryState::Query(QueryFuture {
-                message_future: _m,
-                query,
-                cache,
-                dnssec: _d,
-                options: _o,
-                client: _c,
-            }) => {
-                mem::replace(
-                    self,
-                    QueryState::CnameChain(future, query, cname_ttl, cache),
-                );
+        message: DnsResponse,
+    ) -> Records {
+        // tracking the depth of our queries, to prevent infinite CNAME recursion
+        if dbg!(client.query_depth.load(Ordering::Acquire)) >= MAX_QUERY_DEPTH {
+            // TODO: This should return an error
+            Self::handle_nxdomain(is_dnssec, message, true)
+        } else {
+            Records::CnameChain {
+                next: client.lookup(query, options),
+                min_ttl: cname_ttl,
             }
-            _ => panic!("bad state, expected Query"),
         }
     }
 
-    fn cache(&mut self, rdatas: Records) {
+    async fn cname(
+        query: Query,
+        future: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+        cache: &Mutex<DnsLru>,
+        cname_ttl: u32,
+    ) -> Result<Lookup, ResolveError> {
         // The error state, this query is complete...
-        let query_state = mem::replace(self, QueryState::QueryError);
 
-        match query_state {
-            QueryState::Query(QueryFuture {
-                message_future: _m,
-                query,
-                cache,
-                dnssec: _d,
-                options: _o,
-                client: _c,
-            }) => {
-                match rdatas {
-                    // There are Cnames to lookup
-                    Records::CnameChain { .. } => {
-                        panic!("CnameChain should have been polled in poll(cx) of QueryState");
-                    }
-                    rdatas => {
-                        mem::replace(
-                            self,
-                            QueryState::InsertCache(InsertCache {
-                                rdatas,
-                                query,
-                                cache,
-                            }),
-                        );
-                    }
-                }
+        let lookup = future.await?;
+        let mut cache = cache.lock().await;
+
+        Ok(cache.duplicate(query, lookup, cname_ttl, Instant::now()))
+    }
+
+    async fn cache(
+        query: Query,
+        records: Records,
+        cache: &Mutex<DnsLru>,
+    ) -> Result<Lookup, ResolveError> {
+        // The error state, this query is complete...
+        let mut lru = cache.lock().await;
+
+        // this will put this object into an inconsistent state, but no one should call poll again...
+        match records {
+            Records::Exists(rdata) => Ok(lru.insert(query, rdata, Instant::now())),
+            Records::NoData { ttl: Some(ttl) } => Err(lru.negative(query, ttl, Instant::now())),
+            Records::NoData { ttl: None } | Records::CnameChain { .. } => {
+                Err(DnsLru::nx_error(query, None))
             }
-            QueryState::CnameChain(_, query, _, cache) => {
-                match rdatas {
-                    // There are Cnames to lookup
-                    Records::CnameChain { .. } => {
-                        panic!("CnameChain should have been polled in poll(cx) of QueryState");
-                    }
-                    rdatas => {
-                        mem::replace(
-                            self,
-                            QueryState::InsertCache(InsertCache {
-                                rdatas,
-                                query,
-                                cache,
-                            }),
-                        );
-                    }
-                }
-            }
-            _ => panic!("bad state, expected Query"),
         }
     }
 }
 
-impl<C: DnsHandle + 'static> Future for QueryState<C> {
-    type Output = Result<Lookup, ResolveError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        // first transition any polling that is needed (mutable refs...)
-        let records: Option<Records>;
-        match *self {
-            QueryState::FromCache(ref mut from_cache, ..) => {
-                match from_cache.poll_unpin(cx) {
-                    // need to query since it wasn't in the cache
-                    Poll::Ready(Ok(None)) => (), // handled below
-                    Poll::Ready(Ok(Some(ips))) => return Poll::Ready(Ok(ips)),
-                    Poll::Pending => return Poll::Pending,
-                    Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
-                };
-
-                records = None;
-            }
-            QueryState::Query(ref mut query, ..) => {
-                let poll = query.poll_unpin(cx);
-                match poll {
-                    Poll::Pending => {
-                        return Poll::Pending;
-                    }
-                    Poll::Ready(Ok(rdatas)) => records = Some(rdatas), // handled in next match
-                    Poll::Ready(Err(e)) => {
-                        return Poll::Ready(Err(e));
-                    }
-                }
-            }
-            QueryState::CnameChain(ref mut future, _, ttl, _) => {
-                let poll = future.as_mut().poll(cx);
-                match poll {
-                    Poll::Pending => {
-                        return Poll::Pending;
-                    }
-                    Poll::Ready(Ok(lookup)) => {
-                        records = Some(Records::Chained {
-                            cached: lookup,
-                            min_ttl: ttl,
-                        });
-                    }
-                    Poll::Ready(Err(e)) => {
-                        return Poll::Ready(Err(e));
-                    }
-                }
-            }
-            QueryState::InsertCache(ref mut insert_cache) => {
-                return insert_cache.poll_unpin(cx);
-            }
-            QueryState::QueryError => panic!("invalid error state"),
-        }
-
-        // getting here means there are Aync::Ready available.
-        match *self {
-            QueryState::FromCache(..) => self.query_after_cache(),
-            QueryState::Query(..) => match records {
-                Some(Records::CnameChain {
-                    next: future,
-                    min_ttl: ttl,
-                }) => self.cname(future, ttl),
-                Some(records) => {
-                    self.cache(records);
-                }
-                None => panic!("should have returned earlier"),
-            },
-            QueryState::CnameChain(..) => match records {
-                Some(records) => self.cache(records),
-                None => panic!("should have returned earlier"),
-            },
-            QueryState::InsertCache(..) | QueryState::QueryError => {
-                panic!("should have returned earlier")
-            }
-        }
-
-        // FIXME: is this correct?
-        cx.waker().wake_by_ref();
-        // task::current().notify(); // yield
-        Poll::Pending
-    }
+enum Records {
+    /// The records exists, a vec of rdata with ttl
+    Exists(Vec<(Record, u32)>),
+    /// Records do not exist, ttl for negative caching
+    NoData { ttl: Option<u32> },
+    /// Future lookup for recursive cname records
+    CnameChain {
+        next: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+        min_ttl: u32,
+    },
 }
 
 // see also the lookup_tests.rs in integration-tests crate
@@ -659,10 +410,8 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use futures::future;
     use futures::executor::block_on;
-
-    use proto::error::{ProtoError, ProtoResult};
+    use proto::error::ProtoResult;
     use proto::op::{Message, Query};
     use proto::rr::rdata::SRV;
     use proto::rr::{Name, Record};
@@ -673,12 +422,17 @@ mod tests {
     #[test]
     fn test_empty_cache() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
-        let mut client = mock(vec![empty()]);
+        let client = mock(vec![empty()]);
+        let client = CachingClient::with_cache(cache, client);
 
         assert_eq!(
-            *block_on(QueryState::lookup(Query::new(), Default::default(), &mut client, cache))
-                .unwrap_err()
-                .kind(),
+            *block_on(CachingClient::inner_lookup(
+                Query::new(),
+                Default::default(),
+                client,
+            ))
+            .unwrap_err()
+            .kind(),
             ResolveErrorKind::NoRecordsFound {
                 query: Query::new(),
                 valid_until: None,
@@ -703,10 +457,15 @@ mod tests {
             Instant::now(),
         );
 
-        let mut client = mock(vec![empty()]);
+        let client = mock(vec![empty()]);
+        let client = CachingClient::with_cache(cache, client);
 
-        let ips = block_on(QueryState::lookup(Query::new(), Default::default(), &mut client, cache))
-            .unwrap();
+        let ips = block_on(CachingClient::inner_lookup(
+            Query::new(),
+            Default::default(),
+            client,
+        ))
+        .unwrap();
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
@@ -718,10 +477,15 @@ mod tests {
     fn test_no_cache_insert() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         // first should come from client...
-        let mut client = mock(vec![v4_message()]);
+        let client = mock(vec![v4_message()]);
+        let client = CachingClient::with_cache(cache.clone(), client);
 
-        let ips = block_on(QueryState::lookup(Query::new(), Default::default(), &mut client, cache.clone()))
-            .unwrap();
+        let ips = block_on(CachingClient::inner_lookup(
+            Query::new(),
+            Default::default(),
+            client,
+        ))
+        .unwrap();
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
@@ -729,10 +493,15 @@ mod tests {
         );
 
         // next should come from cache...
-        let mut client = mock(vec![empty()]);
+        let client = mock(vec![empty()]);
+        let client = CachingClient::with_cache(cache, client);
 
-        let ips = block_on(QueryState::lookup(Query::new(), Default::default(), &mut client, cache))
-            .unwrap();
+        let ips = block_on(CachingClient::inner_lookup(
+            Query::new(),
+            Default::default(),
+            client,
+        ))
+        .unwrap();
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
@@ -769,13 +538,13 @@ mod tests {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
-        let mut client = mock(vec![error(), cname_message()]);
+        let client = mock(vec![error(), cname_message()]);
+        let client = CachingClient::with_cache(cache, client);
 
-        let ips = block_on(QueryState::lookup(
+        let ips = block_on(CachingClient::inner_lookup(
             Query::query(Name::from_str("www.example.com.").unwrap(), query_type),
             Default::default(),
-            &mut client,
-            cache.clone(),
+            client,
         ))
         .expect("lookup failed");
 
@@ -800,16 +569,16 @@ mod tests {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
-        let mut client = mock(vec![error(), srv_message()]);
+        let client = mock(vec![error(), srv_message()]);
+        let client = CachingClient::with_cache(cache, client);
 
-        let ips = block_on(QueryState::lookup(
+        let ips = block_on(CachingClient::inner_lookup(
             Query::query(
                 Name::from_str("_443._tcp.www.example.com.").unwrap(),
                 RecordType::SRV,
             ),
             Default::default(),
-            &mut client,
-            cache.clone(),
+            client,
         ))
         .expect("lookup failed");
 
@@ -847,16 +616,16 @@ mod tests {
             ),
         ]);
 
-        let mut client = mock(vec![error(), Ok(message)]);
+        let client = mock(vec![error(), Ok(message)]);
+        let client = CachingClient::with_cache(cache, client);
 
-        let ips = block_on(QueryState::lookup(
+        let ips = block_on(CachingClient::inner_lookup(
             Query::query(
                 Name::from_str("_443._tcp.www.example.com.").unwrap(),
                 RecordType::SRV,
             ),
             Default::default(),
-            &mut client,
-            cache.clone(),
+            client,
         ))
         .expect("lookup failed");
 
@@ -927,16 +696,7 @@ mod tests {
     fn cname_ttl_test(first: u32, second: u32) {
         let lru = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         // expecting no queries to be performed
-        let client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
-
-        let mut query_future = QueryFuture {
-            message_future: Box::pin(future::err(ProtoError::from("no message_future in test"))) as _,
-            query: Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
-            cache: lru,
-            dnssec: false,
-            options: Default::default(),
-            client,
-        };
+        let mut client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
 
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
@@ -950,18 +710,22 @@ mod tests {
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         )]);
 
-        let poll = query_future
-            .handle_noerror(message.into());
+        let records = CachingClient::handle_noerror(
+            &mut client,
+            Default::default(),
+            false,
+            &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
+            message.into(),
+        );
 
-        assert!(poll.is_ready());
-        if let Poll::Ready(Ok(records)) = poll {
+        if let Ok(records) = records {
             if let Records::Exists(records) = records {
                 assert!(records.iter().all(|&(_, ttl)| ttl == 1));
             } else {
                 panic!("records don't exist");
             }
         } else {
-            panic!("poll not ready");
+            panic!("error getting records");
         }
     }
 
@@ -975,12 +739,11 @@ mod tests {
     fn test_early_return_localhost() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient { lru: cache, client };
+        let mut client = CachingClient::with_cache(cache, client);
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A);
-            let lookup = block_on(client
-                .lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), Default::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -991,8 +754,7 @@ mod tests {
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::AAAA);
-            let lookup = block_on(client
-                .lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), Default::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -1003,8 +765,7 @@ mod tests {
 
         {
             let query = Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::PTR);
-            let lookup = block_on(client
-                .lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), Default::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -1018,8 +779,7 @@ mod tests {
                 Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
                 RecordType::PTR,
             );
-            let lookup = block_on(client
-                .lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), Default::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -1028,46 +788,42 @@ mod tests {
             );
         }
 
-        assert!(block_on(client
-            .lookup(
-                Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
-                Default::default()
-            ))
-            .is_err());
+        assert!(block_on(client.lookup(
+            Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
+            Default::default()
+        ))
+        .is_err());
 
-        assert!(block_on(client
-            .lookup(
-                Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::MX),
-                Default::default()
-            ))
-            .is_err());
+        assert!(block_on(client.lookup(
+            Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::MX),
+            Default::default()
+        ))
+        .is_err());
 
-        assert!(block_on(client
-            .lookup(
-                Query::query(
-                    Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-                    RecordType::MX
-                ),
-                Default::default()
-            ))
-            .is_err());
+        assert!(block_on(client.lookup(
+            Query::query(
+                Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RecordType::MX
+            ),
+            Default::default()
+        ))
+        .is_err());
     }
 
     #[test]
     fn test_early_return_invalid() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient { lru: cache, client };
+        let mut client = CachingClient::with_cache(cache, client);
 
-        assert!(block_on(client
-            .lookup(
-                Query::query(
-                    Name::from_ascii("horrible.invalid.").unwrap(),
-                    RecordType::A,
-                ),
-                Default::default()
-            ))
-            .is_err());
+        assert!(block_on(client.lookup(
+            Query::query(
+                Name::from_ascii("horrible.invalid.").unwrap(),
+                RecordType::A,
+            ),
+            Default::default()
+        ))
+        .is_err());
     }
 
     #[test]
@@ -1082,16 +838,15 @@ mod tests {
         ));
 
         let client = mock(vec![error(), Ok(message)]);
-        let mut client = CachingClient { lru: cache, client };
+        let mut client = CachingClient::with_cache(cache, client);
 
-        assert!(block_on(client
-            .lookup(
-                Query::query(
-                    Name::from_ascii("www.example.local.").unwrap(),
-                    RecordType::A,
-                ),
-                Default::default()
-            ))
-            .is_ok());
+        assert!(block_on(client.lookup(
+            Query::query(
+                Name::from_ascii("www.example.local.").unwrap(),
+                RecordType::A,
+            ),
+            Default::default()
+        ))
+        .is_ok());
     }
 }
