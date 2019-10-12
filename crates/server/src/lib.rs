@@ -37,6 +37,7 @@ extern crate failure;
 extern crate futures;
 #[macro_use]
 extern crate log;
+#[cfg(feature = "sqlite")]
 extern crate rusqlite;
 #[macro_use]
 extern crate serde;

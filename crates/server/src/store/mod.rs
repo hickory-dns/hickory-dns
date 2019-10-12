@@ -11,6 +11,7 @@ mod config;
 pub mod file;
 pub mod forwarder;
 pub mod in_memory;
+#[cfg(feature = "sqlite")]
 pub mod sqlite;
 
 // TODO: add a dynamic library option?

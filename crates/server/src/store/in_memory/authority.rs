@@ -309,6 +309,7 @@ impl InMemoryAuthority {
         }
     }
 
+    #[cfg(feature = "sqlite")]
     pub(crate) fn increment_soa_serial(&mut self) -> u32 {
         // we'll remove the SOA and then replace it
         let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);

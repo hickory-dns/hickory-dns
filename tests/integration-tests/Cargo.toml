@@ -84,5 +84,5 @@ trust-dns-proto = { version = "0.8.0", path = "../../crates/proto" }
 trust-dns-resolver = { version = "0.12.0", path = "../../crates/resolver" }
 trust-dns-rustls = { version = "0.7.0", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.17.0", path = "../../crates/server" }
+trust-dns-server = { version = "0.17.0", path = "../../crates/server", features = ["sqlite"] }
 webpki-roots = { version = "0.17", optional = true }

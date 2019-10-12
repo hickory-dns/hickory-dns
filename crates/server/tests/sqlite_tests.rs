@@ -1,3 +1,5 @@
+#![cfg(feature = "sqlite")]
+
 extern crate rusqlite;
 extern crate trust_dns;
 extern crate trust_dns_proto;

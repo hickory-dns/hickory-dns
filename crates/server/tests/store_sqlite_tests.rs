@@ -1,3 +1,5 @@
+#![cfg(feature = "sqlite")]
+
 extern crate futures;
 extern crate trust_dns;
 extern crate trust_dns_server;
