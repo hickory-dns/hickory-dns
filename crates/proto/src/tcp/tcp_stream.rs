@@ -199,6 +199,7 @@ impl<S: io::Read + io::Write> Stream for TcpStream<S> {
     type Item = SerialMessage;
     type Error = io::Error;
 
+    #[allow(clippy::cognitive_complexity)]
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.

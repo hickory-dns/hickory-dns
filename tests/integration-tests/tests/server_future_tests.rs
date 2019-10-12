@@ -66,7 +66,7 @@ fn test_server_www_udp() {
 
     assert!(client_result.is_ok(), "client failed: {:?}", client_result);
     server_continue.store(false, Ordering::Relaxed);
-    server_thread.join().unwrap();;
+    server_thread.join().unwrap();
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_server_www_tcp() {
 
     assert!(client_result.is_ok(), "client failed: {:?}", client_result);
     server_continue.store(false, Ordering::Relaxed);
-    server_thread.join().unwrap();;
+    server_thread.join().unwrap();
 }
 
 #[test]
@@ -139,7 +139,7 @@ fn test_server_unknown_type() {
     );
 
     server_continue.store(false, Ordering::Relaxed);
-    server_thread.join().unwrap();;
+    server_thread.join().unwrap();
 }
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]

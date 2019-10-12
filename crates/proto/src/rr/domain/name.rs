@@ -546,7 +546,7 @@ impl Name {
                                 .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?,
                         );
                     } else {
-                        return Err(ProtoError::from(format!("unrecognized char: {}", ch)))?;
+                        return Err(ProtoError::from(format!("unrecognized char: {}", ch)));
                     }
                 }
                 ParseState::Escape3(i, ii) => {
@@ -561,7 +561,7 @@ impl Name {
                         label.push(new);
                         state = ParseState::Label;
                     } else {
-                        return Err(format!("unrecognized char: {}", ch))?;
+                        return Err(format!("unrecognized char: {}", ch).into());
                     }
                 }
             }

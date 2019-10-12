@@ -60,8 +60,8 @@ where
         {
             let map = self.active_queries.lock().expect("poisoned");
             let request = map.get(&query);
-            if request.is_some() {
-                return Box::new(request.unwrap().clone());
+            if let Some(x) = request {
+                return Box::new(x.clone());
             }
         }
 

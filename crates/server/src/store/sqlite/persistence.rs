@@ -175,7 +175,7 @@ impl Journal {
         //
         match record_opt {
             Some(Ok((row_id, record))) => Ok(Some((row_id, record))),
-            Some(Err(err)) => Err(Err(err)?),
+            Some(Err(err)) => Err(err.into()),
             None => Ok(None),
         }
     }
@@ -203,7 +203,7 @@ impl Journal {
 
         let tdns_schema = match tdns_schema_opt {
             Some(Ok(string)) => string,
-            Some(Err(err)) => return Err(err)?,
+            Some(Err(err)) => return Err(err.into()),
             None => return Ok(-1),
         };
 

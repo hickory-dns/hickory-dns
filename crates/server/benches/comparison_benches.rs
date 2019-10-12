@@ -81,7 +81,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
 
     assert!(started, "server did not startup...");
     // return handle to child process
-    NamedProcess { named: named }
+    NamedProcess { named }
 }
 
 /// Returns a NamedProcess (cleans the process up on drop), and a socket addr for connecting
@@ -128,21 +128,18 @@ where
     let name = domain::Name::from_str("www.example.com.").unwrap();
 
     // validate the request
-    let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
-    assert!(
-        !response.is_err(),
-        "request failed: {}",
-        response.unwrap_err()
-    );
+    let response = match io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A)) {
+        Ok(x) => x,
+        Err(x) => panic!("request failed: {}", x)
+    };
 
-    let response = response.unwrap();
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
     let record = &response.answers()[0];
     if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1));
     } else {
-        assert!(false);
+        unreachable!();
     }
 
     b.iter(|| {
