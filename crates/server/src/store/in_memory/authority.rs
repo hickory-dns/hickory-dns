@@ -1031,8 +1031,8 @@ impl Authority for InMemoryAuthority {
             .get(&rr_key)
             .map(|rr_set| LookupRecords::new(is_secure, supported_algorithms, rr_set.clone()));
 
-        if no_data.is_some() {
-            return future::result(Ok(no_data.unwrap().into()));
+        if let Some(x) = no_data {
+            return future::result(Ok(x.into()));
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {

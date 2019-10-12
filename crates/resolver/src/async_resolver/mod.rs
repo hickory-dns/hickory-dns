@@ -230,8 +230,7 @@ impl AsyncResolver {
         options: DnsRequestOptions,
     ) -> BackgroundLookup<F>
     where
-        F: Future<Error = ResolveError>,
-        F: From<LookupFuture>,
+        F: From<LookupFuture> + Future<Error = ResolveError>,
     {
         let (tx, rx) = oneshot::channel();
         let request = Request::Lookup {
