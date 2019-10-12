@@ -65,6 +65,7 @@ use trust_dns_server::server::ServerFuture;
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
 #[cfg(feature = "trust-dns-resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
+#[cfg(feature = "sqlite")]
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use trust_dns_server::store::StoreConfig;
 
@@ -89,6 +90,7 @@ fn load_zone(
 
     // load the zone
     let mut authority: Box<dyn AuthorityObject> = match zone_config.stores {
+        #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
                 warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
@@ -129,6 +131,7 @@ fn load_zone(
 
             Box::new(forwarder)
         }
+        #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
             warn!(
                 "using deprecated SQLite load configuration, please move to [[zones.stores]] form"

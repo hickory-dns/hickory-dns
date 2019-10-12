@@ -41,10 +41,11 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["trust-dns-resolver"]
+default = ["sqlite", "trust-dns-resolver"]
 dnssec-openssl = ["dnssec", "openssl", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
+sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns/dns-over-https-openssl", "dns-over-https"]
@@ -86,7 +87,7 @@ lazy_static = "1.0"
 log = "0.4.8"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rand = "0.7"
-rusqlite = { version = "0.20.0", features = ["bundled"] }
+rusqlite = { version = "0.20.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0.100", features = ["derive"] }
 time = "0.1"
