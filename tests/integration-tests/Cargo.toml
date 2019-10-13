@@ -42,20 +42,20 @@ path = "src/lib.rs"
 dnssec-openssl = ["dnssec",
                   "trust-dns-resolver/dnssec-openssl",
                   "trust-dns-server/dnssec-openssl",
-                  "trust-dns/dnssec-openssl",
+                  "trust-dns-client/dnssec-openssl",
                   "trust-dns-proto/dnssec-openssl"]
 # TODO: dnssec-openssl is enabled for RSA support, we should add testing support for just the Ring toolchain
 dnssec-ring = ["dnssec",
                "trust-dns-resolver/dnssec-ring",
                "trust-dns-server/dnssec-ring",
-               "trust-dns/dnssec-ring", "trust-dns/dnssec-openssl",
+               "trust-dns-client/dnssec-ring", "trust-dns-client/dnssec-openssl",
                "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["trust-dns/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
+mdns = ["trust-dns-client/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
 
-dns-over-https-rustls = ["trust-dns/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "webpki-roots"]
+dns-over-https-rustls = ["trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "webpki-roots"]
 dns-over-https = []
 
 # TODO: need to make server support rustls and native-tls
@@ -77,12 +77,12 @@ rustls = { version = "0.16" }
 tokio = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
 tokio-timer = "0.3.0-alpha"
-trust-dns = { version = "0.17.0", path = "../../crates/client" }
-trust-dns-https = { version = "0.4.0", path = "../../crates/https" }
-trust-dns-openssl = { version = "0.7.0", path = "../../crates/openssl" }
-trust-dns-proto = { version = "0.8.0", path = "../../crates/proto" }
-trust-dns-resolver = { version = "0.12.0", path = "../../crates/resolver" }
-trust-dns-rustls = { version = "0.7.0", path = "../../crates/rustls" }
+trust-dns-client= { version = "0.18.0-alpha", path = "../../crates/client" }
+trust-dns-https = { version = "0.18.0-alpha", path = "../../crates/https" }
+trust-dns-openssl = { version = "0.18.0-alpha", path = "../../crates/openssl" }
+trust-dns-proto = { version = "0.18.0-alpha", path = "../../crates/proto" }
+trust-dns-resolver = { version = "0.18.0-alpha", path = "../../crates/resolver" }
+trust-dns-rustls = { version = "0.18.0-alpha", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.17.0", path = "../../crates/server", features = ["sqlite"] }
+trust-dns-server = { version = "0.18.0-alpha", path = "../../crates/server", features = ["sqlite"] }
 webpki-roots = { version = "0.17", optional = true }

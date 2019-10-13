@@ -47,7 +47,7 @@ futures-preview = "0.3.0-alpha"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 tokio-openssl = "0.4.0-alpha"
 tokio-net = "0.2.0-alpha"
-trust-dns-proto = { version = "0.8.0", path = "../proto", features = ["openssl"] }
+trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["openssl"] }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }

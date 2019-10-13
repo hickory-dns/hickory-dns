@@ -43,19 +43,19 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 
 [features]
 default = ["sqlite", "trust-dns-resolver"]
-dnssec-openssl = ["dnssec", "openssl", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
+dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
-# dns-over-https-openssl = ["dns-over-openssl", "trust-dns/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "tokio-rustls"]
+# dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "tokio-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -63,7 +63,7 @@ tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
-# mtls = ["trust-dns/mtls"]
+# mtls = ["trust-dns-client/mtls"]
 
 [lib]
 name = "trust_dns_server"
@@ -99,14 +99,14 @@ tokio-rustls = { version = "0.12.0-alpha", optional = true }
 tokio-net = "0.2.0-alpha"
 tokio-timer = "0.3.0-alpha"
 toml = "0.5"
-trust-dns = { version = "0.17.0", path = "../client" }
-trust-dns-https = { version = "0.4.0", path = "../https", optional = true }
-trust-dns-proto = { version = "0.8.0", path = "../proto" }
-trust-dns-openssl = { version = "0.7.0", path = "../openssl", optional = true }
-trust-dns-resolver = { version = "0.12.0", path = "../resolver", features = ["serde-config"], optional = true }
-trust-dns-rustls = { version = "0.7.0", path = "../rustls", optional = true }
+trust-dns-client= { version = "0.18.0-alpha", path = "../client" }
+trust-dns-https = { version = "0.18.0-alpha", path = "../https", optional = true }
+trust-dns-proto = { version = "0.18.0-alpha", path = "../proto" }
+trust-dns-openssl = { version = "0.18.0-alpha", path = "../openssl", optional = true }
+trust-dns-resolver = { version = "0.18.0-alpha", path = "../resolver", features = ["serde-config"], optional = true }
+trust-dns-rustls = { version = "0.18.0-alpha", path = "../rustls", optional = true }
 
 [dev-dependencies]
 native-tls = "0.2"
-trust-dns-native-tls = { version = "0.7.0", path = "../native-tls" }
+trust-dns-native-tls = { version = "0.18.0-alpha", path = "../native-tls" }
 tokio-tls = "0.3.0-alpha"
