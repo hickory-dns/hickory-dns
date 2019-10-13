@@ -10,16 +10,18 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::task::{Context, Poll};
+use std::pin::Pin;
 
-use futures::{Async, Future, Poll};
+use futures::Future;
 
 use proto::rr::rdata::TXT;
-use proto::rr::{IntoName, Name, RecordType};
+use proto::rr::{Name, RecordType};
 use proto::xfer::DnsRequestOptions;
 
-use async_resolver::{AsyncResolver, BackgroundLookup};
-use error::*;
-use lookup::{ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture};
+use crate::async_resolver::{AsyncResolver, BackgroundLookup};
+use crate::error::*;
+use crate::lookup::{ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture};
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -28,49 +30,43 @@ pub trait DnsSdHandle {
     /// https://tools.ietf.org/html/rfc6763#section-4.1
     ///
     /// For registered service types, see: https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
-    fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture;
+    fn list_services(&self, name: Name) -> ListServicesFuture;
 
     /// Retrieve service information
     ///
     /// https://tools.ietf.org/html/rfc6763#section-6
-    fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture;
+    fn service_info(&self, name: Name) -> ServiceInfoFuture;
 }
 
 impl DnsSdHandle for AsyncResolver {
-    fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture {
+    fn list_services(&self, name: Name) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,
-        };
-
-        let name: Name = match name.into_name() {
-            Ok(name) => name,
-            Err(err) => return ListServicesFuture(err.into()),
         };
 
         let ptr_future: BackgroundLookup<ReverseLookupFuture> =
             self.inner_lookup(name, RecordType::PTR, options);
 
-        ListServicesFuture(ptr_future)
+        ListServicesFuture(Box::pin(ptr_future))
     }
 
-    fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture {
+    fn service_info(&self, name: Name) -> ServiceInfoFuture {
         let txt_future = self.txt_lookup(name);
-        ServiceInfoFuture(txt_future)
+        ServiceInfoFuture(Box::pin(txt_future))
     }
 }
 
 /// A DNS Service Discovery future of Services discovered through the list operation
-pub struct ListServicesFuture(BackgroundLookup<ReverseLookupFuture>);
+pub struct ListServicesFuture(Pin<Box<BackgroundLookup<ReverseLookupFuture>>>);
 
 impl Future for ListServicesFuture {
-    type Item = ListServices;
-    type Error = ResolveError;
+    type Output = Result<ListServices, ResolveError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match self.0.poll(cx) {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.0.as_mut().poll(cx) {
             Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(ListServices(lookup))),
             Poll::Pending => Poll::Pending,
-            Err(e) => Err(e),
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
         }
     }
 }
@@ -99,17 +95,16 @@ impl<'i> Iterator for ListServicesIter<'i> {
 }
 
 /// A Future that resolves to the TXT information for a service
-pub struct ServiceInfoFuture(BackgroundLookup<TxtLookupFuture>);
+pub struct ServiceInfoFuture(Pin<Box<BackgroundLookup<TxtLookupFuture>>>);
 
 impl Future for ServiceInfoFuture {
-    type Item = ServiceInfo;
-    type Error = ResolveError;
+    type Output = Result<ServiceInfo, ResolveError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match self.0.poll(cx) {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        match self.0.as_mut().poll(cx) {
             Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(ServiceInfo(lookup))),
             Poll::Pending => Poll::Pending,
-            Err(e) => Err(e),
+            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
         }
     }
 }
@@ -143,9 +138,11 @@ impl ServiceInfo {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
     use tokio::runtime::current_thread::Runtime;
 
-    use config::*;
+    use crate::config::*;
+
 
     use super::*;
 
@@ -164,7 +161,7 @@ mod tests {
         io_loop.spawn(bg);
 
         let response = io_loop
-            .block_on(resolver.list_services("_http._tcp.local."))
+            .block_on(resolver.list_services(Name::from_str("_http._tcp.local.").unwrap()))
             .expect("failed to run lookup");
 
         for name in response.iter() {

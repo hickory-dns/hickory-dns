@@ -49,7 +49,7 @@ bytes = "0.4"
 data-encoding = "2.1.0"
 failure = "0.1"
 futures-preview = "0.3.0-alpha"
-h2 = "0.2.0-alpha.2"
+h2 = { version = "0.2.0-alpha.2", features = ["unstable-stream"] }
 http = "0.1"
 log = "0.4"
 rustls = "0.16"

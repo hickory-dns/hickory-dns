@@ -3,7 +3,6 @@
 extern crate futures;
 extern crate tokio;
 extern crate tokio_net;
-extern crate tokio_net;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -26,7 +25,7 @@ use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 
-use trust_dns_proto::udp::{UdpClientStream, UdpResponse};
+use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream, UdpResponse};
 use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_server::authority::{Authority, Catalog};
@@ -257,7 +256,7 @@ where
 fn with_udp<F>(test: F)
 where
     F: Fn(
-        SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse<TokioUdpSocket>>>>,
+        SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>,
         Runtime,
     ),
 {
@@ -280,7 +279,7 @@ where
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream = UdpClientStream::new(addr);
+    let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let (bg, client) = ClientFuture::connect(stream);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);

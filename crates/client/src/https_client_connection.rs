@@ -14,8 +14,8 @@ use proto::xfer::DnsRequestSender;
 use rustls::{Certificate, ClientConfig};
 use trust_dns_https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 
-use client::ClientConnection;
-use rr::dnssec::Signer;
+use crate::client::ClientConnection;
+use crate::rr::dnssec::Signer;
 
 /// UDP based DNS Client connection
 ///

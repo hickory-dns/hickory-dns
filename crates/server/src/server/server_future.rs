@@ -12,7 +12,7 @@ use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
 
-use futures::{future, Future, FutureExt, Poll, StreamExt};
+use futures::{future, Future, FutureExt, Poll, StreamExt, TryFutureExt, TryStreamExt};
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
@@ -203,7 +203,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = tls_server::new_acceptor(cert, chain, key)?;
 
         // for each incoming request...
-        tokio_executor::spawn(future::lazy(move || {
+        tokio_executor::spawn(
             listener
                 .incoming()
                 .for_each(move |tcp_stream| {
@@ -256,7 +256,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // })
                 })
                 .map_err(|e| panic!("error in inbound tls_stream: {}", e))
-        }));
+        );
 
         Ok(())
     }
@@ -308,7 +308,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
-        use futures::future;
         use tokio_rustls::TlsAcceptor;
         use trust_dns_rustls::{tls_from_stream, tls_server};
 
@@ -326,11 +325,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        tokio_executor::spawn(future::lazy(move || {
+        tokio_executor::spawn(
             listener
                 .incoming()
                 // TODO: use for_each_concurrent
-                .for_each(move |tcp_stream| {
+                .try_for_each(move |tcp_stream| {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     let handler = handler.clone();
@@ -339,12 +338,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // take the created stream...
                     tls_acceptor
                         .accept(tcp_stream)
-                        .map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::ConnectionRefused,
-                                format!("tls error: {}", e),
-                            )
-                        })
                         .and_then(move |tls_stream| {
                             let (buf_stream, stream_handle) = tls_from_stream(tls_stream, src_addr);
                             let timeout_stream = TimeoutStream::new(buf_stream, timeout);
@@ -354,33 +347,46 @@ impl<T: RequestHandler> ServerFuture<T> {
                             // and spawn to the io_loop
                             tokio_executor::spawn(
                                 timeout_stream
-                                    .map_err(move |e| {
-                                        debug!(
-                                            "error in TLS request_stream src: {:?} error: {}",
-                                            src_addr, e
-                                        )
-                                    })
                                     .for_each(move |message| {
-                                        self::handle_raw_request(
-                                            message,
-                                            handler.clone(),
-                                            stream_handle.clone(),
-                                        )
+                                        message.map(|message| {
+                                    Box::pin(self::handle_raw_request(
+                                        message,
+                                        handler.clone(),
+                                        stream_handle.clone(),
+                                    )) as Pin<Box<dyn Future<Output = ()> + Send>>
+                                }).unwrap_or_else(|e| {
+                                    debug!(
+                                        "error in TCP request_stream src: {:?} error: {}",
+                                        src_addr, e
+                                    );
+                                    Box::pin(future::ready(())) as Pin<Box<dyn Future<Output = ()> + Send>>
+                                })
                                     })
-                                    .map_err(move |_| {
-                                        debug!("error in TLS request_stream src: {:?}", src_addr)
-                                    }),
                             );
 
-                            Ok(())
+                            future::ok(())
                         })
+                        .map_err(|e| {
+                            io::Error::new(
+                                io::ErrorKind::ConnectionRefused,
+                                format!("tls error: {}", e),
+                            )
+                        })
+        //                .map(|result: Result<(),()>| ())
+        
                     // FIXME: need to map this error to Ok, otherwise this is a DOS potential
                     // .map_err(move |e| {
                     //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
                     // })
                 })
-                .map_err(|e| panic!("error in inbound https_stream: {}", e))
-        }));
+                .map_err(|_| panic!("error in inbound https_stream"))
+                .map(|_: Result<(),()>| ())
+                // .map(|r| {
+                //     if let Err(e) = r {
+                //         panic!("error in inbound https_stream: {}", e)
+                //     }
+                // })
+        );
 
         Ok(())
     }
@@ -433,11 +439,10 @@ impl<T: RequestHandler> ServerFuture<T> {
         certificate_and_key: (Vec<Certificate>, PrivateKey),
         dns_hostname: String,
     ) -> io::Result<()> {
-        use futures::future;
         use tokio_rustls::TlsAcceptor;
 
-        use server::https_handler::h2_handler;
         use trust_dns_rustls::tls_server;
+        use crate::server::https_handler::h2_handler;
 
         let dns_hostname = Arc::new(dns_hostname);
         let handler = self.handler.clone();
@@ -454,13 +459,13 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname.clone();
-        tokio_executor::spawn(future::lazy(move || {
+        tokio_executor::spawn({
             let dns_hostname = dns_hostname.clone();
 
             listener
                 .incoming()
                 .map_err(|e| warn!("error in inbound https_stream: {}", e))
-                .for_each(move |tcp_stream| {
+                .try_for_each(move |tcp_stream| {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     let handler = handler.clone();
@@ -472,15 +477,11 @@ impl<T: RequestHandler> ServerFuture<T> {
                         .accept(tcp_stream)
                         .map_err(|e| warn!("tls error: {}", e))
                         .and_then(move |tls_stream| {
-                            h2_handler(handler, tls_stream, src_addr, dns_hostname)
+                            h2_handler(handler, tls_stream, src_addr, dns_hostname).unit_error()
                         })
-                    // FIXME: need to map this error to Ok, otherwise this is a DOS potential
-                    // .map_err(move |e| {
-                    //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
-                    // })
                 })
-                .map_err(|_| panic!("error in inbound https_stream"))
-        }));
+                .map(|_: Result<(),()>| ())
+        });
 
         Ok(())
     }

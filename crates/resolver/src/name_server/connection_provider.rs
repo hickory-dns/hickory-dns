@@ -27,7 +27,7 @@ use proto::xfer::{
     DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
 #[cfg(feature = "dns-over-https")]
-use trust_dns_https;
+use trust_dns_https::{self, HttpsClientResponse};
 
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 
@@ -170,7 +170,7 @@ impl ConnectionHandleConnect {
                 timeout,
                 tls_dns_name,
             } => {
-                let (stream, handle) = ::tls::new_tls_stream(socket_addr, tls_dns_name);
+                let (stream, handle) = crate::tls::new_tls_stream(socket_addr, tls_dns_name);
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     Box::new(handle),
@@ -184,7 +184,7 @@ impl ConnectionHandleConnect {
                 }).map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                DefaultExecutor::current().spawn(Box::pin(stream))?;
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
@@ -194,13 +194,13 @@ impl ConnectionHandleConnect {
                 timeout: _t,
                 tls_dns_name,
             } => {
-                let (stream, handle) = ::https::new_https_stream(socket_addr, tls_dns_name);
+                let (stream, handle) = crate::https::new_https_stream(socket_addr, tls_dns_name);
 
                 let stream = stream.and_then(|stream| stream).map_err(|e| {
                     debug!("https connection shutting down: {}", e);
                 }).map(|_| ());
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                DefaultExecutor::current().spawn(Box::pin(stream))?;
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -224,7 +224,7 @@ impl ConnectionHandleConnect {
                 }).map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::new(stream))?;
+                DefaultExecutor::current().spawn(Box::pin(stream))?;
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
         }
@@ -237,7 +237,7 @@ enum ConnectionHandleConnected {
     Udp(xfer::BufDnsRequestStreamHandle<UdpResponse>),
     Tcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
-    Https(xfer::BufDnsRequestStreamHandle<trust_dns_https::HttpsSerialResponse>),
+    Https(xfer::BufDnsRequestStreamHandle<HttpsClientResponse>),
 }
 
 impl DnsHandle for ConnectionHandleConnected {
@@ -311,7 +311,7 @@ enum ConnectionHandleResponseInner {
     Udp(xfer::OneshotDnsResponseReceiver<UdpResponse>),
     Tcp(xfer::OneshotDnsResponseReceiver<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
-    Https(xfer::OneshotDnsResponseReceiver<trust_dns_https::HttpsSerialResponse>),
+    Https(xfer::OneshotDnsResponseReceiver<HttpsClientResponse>),
     ProtoError(Option<proto::error::ProtoError>),
 }
 

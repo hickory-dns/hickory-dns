@@ -172,7 +172,7 @@ impl HttpsClientStream {
 }
 
 impl DnsRequestSender for HttpsClientStream {
-    type DnsResponseFuture = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+    type DnsResponseFuture = HttpsClientResponse;
 
         /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
@@ -232,12 +232,12 @@ impl DnsRequestSender for HttpsClientStream {
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
-                return Box::pin(future::err(err.into()))
+                return HttpsClientResponse(Box::pin(future::err(err.into())))
             }
         };
         let message = SerialMessage::new(bytes, self.name_server);
 
-        Box::pin(Self::inner_send(self.h2.clone(), message, Arc::clone(&self.name_server_name), self.name_server))
+        HttpsClientResponse(Box::pin(Self::inner_send(self.h2.clone(), message, Arc::clone(&self.name_server_name), self.name_server)))
 
         // HttpsSerialResponse(HttpsSerialResponseInner::StartSend {
         //     h2: self.h2.clone(),
@@ -248,7 +248,7 @@ impl DnsRequestSender for HttpsClientStream {
     }
 
     fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
-        Box::pin(future::err(error.into()))
+        HttpsClientResponse(Box::pin(future::err(error.into())))
     }
 
     fn shutdown(&mut self) {
@@ -358,7 +358,7 @@ enum HttpsClientConnectState {
         tls: Option<TlsConfig>,
     },
     TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<TokioTcpStream>>>>,
+        connect: Pin<Box<dyn Future<Output = io::Result<TokioTcpStream>> + Send>>,
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
@@ -369,7 +369,7 @@ enum HttpsClientConnectState {
         name_server: SocketAddr,
     },
     H2Handshake {
-        handshake: Pin<Box<dyn Future<Output = Result<(SendRequest<Bytes>, Connection<TokioTlsClientStream<TokioTcpStream>, Bytes>), h2::Error>>>>,
+        handshake: Pin<Box<dyn Future<Output = Result<(SendRequest<Bytes>, Connection<TokioTlsClientStream<TokioTcpStream>, Bytes>), h2::Error>> + Send>>,
         name_server_name: Arc<String>,
         name_server: SocketAddr,
     },
@@ -472,6 +472,38 @@ impl Future for HttpsClientConnectState {
 
             mem::replace(self.as_mut().deref_mut(), next);
         }
+    }
+}
+
+/// A future that resolves to
+pub struct HttpsClientResponse(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>);
+
+// impl HttpsClientResponse {
+    // /// creates a new future for the request
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `request` - Serialized message being sent
+    // /// * `message_id` - Id of the message that was encoded in the serial message
+    // fn new(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
+    //     UdpResponse(Box::pin(Timeout::new(
+    //         SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
+    //         timeout,
+    //     )))
+    // }
+
+    // /// ad already completed future
+    // fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
+    //     // TODO: this constructure isn't really necessary
+    //     UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
+    // }
+// }
+
+impl Future for HttpsClientResponse {
+    type Output = Result<DnsResponse, ProtoError>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
 }
 

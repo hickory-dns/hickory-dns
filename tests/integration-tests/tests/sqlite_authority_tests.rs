@@ -837,14 +837,13 @@ fn test_update() {
 fn test_zone_signing() {
     let authority = create_secure_example();
 
-    let results = authority
+    let results = block_on(authority
         .lookup(
             &authority.origin(),
             RecordType::AXFR,
             true,
             SupportedAlgorithms::all(),
-        )
-        .wait()
+        ))
         .unwrap();
 
     assert!(
@@ -854,14 +853,13 @@ fn test_zone_signing() {
         "must contain a DNSKEY"
     );
 
-    let results = authority
+    let results = block_on(authority
         .lookup(
             &authority.origin(),
             RecordType::AXFR,
             true,
             SupportedAlgorithms::all(),
-        )
-        .wait()
+        ))
         .unwrap();
 
     for record in &results {
@@ -872,14 +870,13 @@ fn test_zone_signing() {
             continue;
         }
 
-        let inner_results = authority
+        let inner_results = block_on(authority
             .lookup(
                 &authority.origin(),
                 RecordType::AXFR,
                 true,
                 SupportedAlgorithms::all(),
-            )
-            .wait()
+            ))
             .unwrap();
 
         // validate all records have associated RRSIGs after signing
@@ -905,9 +902,8 @@ fn test_get_nsec() {
     let authority = create_secure_example();
     let lower_name = LowerName::from(name.clone());
 
-    let results = authority
-        .get_nsec_records(&lower_name, true, SupportedAlgorithms::all())
-        .wait()
+    let results = block_on(authority
+        .get_nsec_records(&lower_name, true, SupportedAlgorithms::all()))
         .unwrap();
 
     for record in &results {
