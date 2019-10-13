@@ -663,6 +663,16 @@ impl KeyValue {
             value: value.into(),
         }
     }
+
+    /// Gets a reference to the key of the pair.
+    pub fn key(&self) -> &str {
+        &self.key
+    }
+
+    /// Gets a reference to the value of the pair.
+    pub fn value(&self) -> &str {
+        &self.value
+    }
 }
 
 /// Read the binary CAA format
