@@ -1,5 +1,5 @@
 [package]
-name = "trust-dns"
+name = "trust-dns-client"
 version = "0.18.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
@@ -81,8 +81,8 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 # TODO: make this optional
 tokio = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
-trust-dns-https = {version = "0.4.0", path = "../https", optional = true }
-trust-dns-proto = {version = "0.8.0", path = "../proto", features = ["dnssec"]}
+trust-dns-https = {version = "0.18.0-alpha", path = "../https", optional = true }
+trust-dns-proto = {version = "0.18.0-alpha", path = "../proto", features = ["dnssec"]}
 webpki = { version = "0.21", optional = true }
 
 [dev-dependencies]

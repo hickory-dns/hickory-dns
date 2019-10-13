@@ -73,11 +73,11 @@ smallvec = "^0.6"
 tokio = { version = "0.2.0-alpha", optional = true }
 tokio-executor = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
-trust-dns-https = { version = "0.4.0", path = "../https", optional = true }
-trust-dns-native-tls = { version = "0.7.0", path = "../native-tls", optional = true }
-trust-dns-openssl = { version = "0.7.0", path = "../openssl", optional = true }
-trust-dns-proto = { version = "0.8.0", path = "../proto" }
-trust-dns-rustls = { version = "0.7.0", path = "../rustls", optional = true }
+trust-dns-https = { version = "0.18.0-alpha", path = "../https", optional = true }
+trust-dns-native-tls = { version = "0.18.0-alpha", path = "../native-tls", optional = true }
+trust-dns-openssl = { version = "0.18.0-alpha", path = "../openssl", optional = true }
+trust-dns-proto = { version = "0.18.0-alpha", path = "../proto" }
+trust-dns-rustls = { version = "0.18.0-alpha", path = "../rustls", optional = true }
 webpki-roots = { version = "^0.17", optional = true }
 
 [target.'cfg(windows)'.dependencies]
