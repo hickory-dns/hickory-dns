@@ -13,7 +13,7 @@ mod server_harness;
 
 use std::env;
 use std::fs::File;
-use std::io::*;
+use std::io::Read;
 use std::net::*;
 use std::path::Path;
 

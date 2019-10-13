@@ -2,6 +2,7 @@ extern crate rustls;
 extern crate webpki_roots;
 
 use std::net::SocketAddr;
+use std::pin::Pin;
 
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 
@@ -9,18 +10,15 @@ use futures::Future;
 
 use proto::error::ProtoError;
 use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
-use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsSerialResponse};
+use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsClientResponse};
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<
-        dyn Future<Item = DnsExchange<HttpsClientStream, HttpsSerialResponse>, Error = ProtoError>
-            + Send,
-    >,
-    BufDnsRequestStreamHandle<HttpsSerialResponse>,
+    Pin<Box<dyn Future<Output = Result<DnsExchange<HttpsClientStream, HttpsClientResponse>, ProtoError>> + Send>>,
+    BufDnsRequestStreamHandle<HttpsClientResponse>,
 ) {
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
@@ -35,7 +33,7 @@ pub(crate) fn new_https_stream(
     let (stream, handle) = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
     let handle = BufDnsRequestStreamHandle::new(handle);
 
-    (Box::new(stream), handle)
+    (Box::pin(stream), handle)
 }
 
 #[cfg(test)]
@@ -45,8 +43,8 @@ mod tests {
 
     use tokio::runtime::current_thread::Runtime;
 
-    use config::{ResolverConfig, ResolverOpts};
-    use AsyncResolver;
+    use crate::config::{ResolverConfig, ResolverOpts};
+    use crate::AsyncResolver;
 
     fn https_test(config: ResolverConfig) {
         env_logger::try_init().ok();

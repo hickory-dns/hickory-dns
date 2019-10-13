@@ -9,6 +9,7 @@
 #![allow(dead_code)]
 
 use std::net::SocketAddr;
+use std::pin::Pin;
 
 use futures::Future;
 
@@ -20,7 +21,7 @@ pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Output = Result<TlsClientStream, ProtoError>> + Send>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let tls_builder = TlsClientStreamBuilder::new();

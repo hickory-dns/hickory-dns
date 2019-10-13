@@ -1030,8 +1030,8 @@ impl Authority for InMemoryAuthority {
             .get(&rr_key)
             .map(|rr_set| LookupRecords::new(is_secure, supported_algorithms, rr_set.clone()));
 
-        if let Some(x) = no_data {
-            return future::result(Ok(x.into()));
+        if let Some(no_data) = no_data {
+            return Box::pin(future::ready(Ok(no_data.into())));
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
@@ -1089,12 +1089,12 @@ impl Authority for InMemoryAuthority {
             (None, None) => vec![],
         };
 
-        future::result(Ok(LookupRecords::many(
+        Box::pin(future::ready(Ok(LookupRecords::many(
             is_secure,
             supported_algorithms,
             proofs,
         )
-        .into()))
+        .into())))
     }
 
     #[cfg(not(feature = "dnssec"))]

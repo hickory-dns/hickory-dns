@@ -9,60 +9,86 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use futures::{Future, Stream};
+use bytes::Bytes;
 use h2::server;
 use proto::serialize::binary::BinDecodable;
 use tokio_io::{AsyncRead, AsyncWrite};
 use trust_dns_https::https_server;
 
-use authority::MessageResponse;
-use server::request_handler::RequestHandler;
-use server::response_handler::ResponseHandler;
-use server::server_future;
+use crate::authority::{MessageResponse, MessageRequest};
+use crate::server::request_handler::RequestHandler;
+use crate::server::response_handler::ResponseHandler;
+use crate::server::server_future;
 
-pub fn h2_handler<T, I>(
+pub async fn h2_handler<T, I>(
     handler: Arc<Mutex<T>>,
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Arc<String>,
-) -> impl Future<Output = Result<(), ()>>
+)
 where
     T: RequestHandler,
-    I: AsyncRead + AsyncWrite,
+    I: AsyncRead + AsyncWrite + Unpin,
 {
+    let dns_hostname = dns_hostname.clone();
+
     // Start the HTTP/2.0 connection handshake
-    server::handshake(io)
-        .map_err(|e| warn!("h2 handshake error: {}", e))
-        .and_then(move |h2| {
-            let dns_hostname = dns_hostname.clone();
-            // Accept all inbound HTTP/2.0 streams sent over the
-            // connection.
-            h2.map_err(|e| warn!("h2 failed to receive message: {}", e))
-                .for_each(move |(request, respond)| {
-                    debug!("Received request: {:#?}", request);
-                    let dns_hostname = dns_hostname.clone();
-                    let handler = handler.clone();
-                    let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
+    let mut h2 = match server::handshake(io).await {
+        Ok(h2) => h2,
+        Err(err) => {
+            warn!("handshake error from {}: {}", src_addr, err);
+            return
+        },
+    };
 
-                    https_server::message_from(dns_hostname, request)
-                        .map_err(|e| warn!("h2 failed to receive message: {}", e))
-                        .and_then(|bytes| {
-                            BinDecodable::from_bytes(&bytes)
-                                .map_err(|e| warn!("could not decode message: {}", e))
-                        })
-                        .and_then(move |message| {
-                            debug!("received message: {:?}", message);
+    // Accept all inbound HTTP/2.0 streams sent over the
+    // connection.
+    while let Some(next_request) = h2.accept().await {
+        let (request, respond) = match next_request {
+            Ok(next_request) => next_request,
+            Err(err) => {
+                warn!("error accepting request {}: {}", src_addr, err);
+                return
+            },
+        };
 
-                            server_future::handle_request(
-                                message,
-                                src_addr,
-                                handler.clone(),
-                                responder,
-                            )
-                        })
-                })
-        })
-        .map_err(|_| warn!("error in h2 handler"))
+        debug!("Received request: {:#?}", request);
+        let dns_hostname = dns_hostname.clone();
+        let handler = handler.clone();
+        let responder = HttpsResponseHandle(Arc::new(Mutex::new(respond)));
+
+        match https_server::message_from(dns_hostname, request).await {
+            Ok(bytes) => handle_request(bytes, src_addr, handler, responder).await,
+            Err(err) => warn!("error while handling request from {}: {}", src_addr, err),
+        };
+
+        // we'll continue handling requests from here.
+    }
+}
+
+async fn handle_request<T>(bytes: Bytes, src_addr: SocketAddr, handler: Arc<Mutex<T>>, responder: HttpsResponseHandle) 
+where
+    T: RequestHandler
+{
+    let message: MessageRequest = match BinDecodable::from_bytes(&bytes) {
+        Ok(message) => message,
+        Err(e) => {
+            warn!("could not decode message: {}", e);
+            return;
+        }
+    };
+
+    debug!("received message: {:?}", message);
+
+    if let Err(()) = server_future::handle_request(
+        message,
+        src_addr,
+        handler,
+        responder,
+    ).await {
+        warn!("error handling request from {}", src_addr);
+        ()
+    }
 }
 
 #[derive(Clone)]
@@ -70,8 +96,6 @@ struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<::bytes::Bytes>>
 
 impl ResponseHandler for HttpsResponseHandle {
     fn send_response(&self, response: MessageResponse) -> io::Result<()> {
-        use bytes::Bytes;
-
         use proto::serialize::binary::BinEncoder;
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;

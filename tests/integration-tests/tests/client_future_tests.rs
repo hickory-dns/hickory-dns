@@ -229,7 +229,7 @@ fn create_sig0_ready_client(
 ) -> (
     ClientFuture<
         DnsMultiplexerConnect<
-            Box<Future<Output = Result<TestClientStream, ProtoError>> + Send>,
+            Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
             TestClientStream,
             Signer,
         >,

@@ -15,8 +15,8 @@ use proto::multicast::{
 };
 use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
-use client::ClientConnection;
-use rr::dnssec::Signer;
+use crate::client::ClientConnection;
+use crate::rr::dnssec::Signer;
 
 /// MDNS based DNS Client connection
 ///

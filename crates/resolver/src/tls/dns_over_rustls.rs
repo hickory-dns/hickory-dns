@@ -13,6 +13,7 @@ extern crate webpki_roots;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::pin::Pin;
 
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;
@@ -40,9 +41,9 @@ pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Output = Result<TlsClientStream, ProtoError>> + Send>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let (stream, handle) = tls_client_connect(socket_addr, dns_name, CLIENT_CONFIG.clone());
-    (Box::new(stream), handle)
+    (Box::pin(stream), handle)
 }

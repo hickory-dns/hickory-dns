@@ -445,6 +445,8 @@ impl SqliteAuthority {
     #[cfg(feature = "dnssec")]
     #[allow(clippy::block_in_if_condition_stmt)]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
+        use futures::executor::block_on;
+
         use proto::rr::dnssec::Verifier;
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 
@@ -482,14 +484,13 @@ impl SqliteAuthority {
                 .any(|sig| {
                     let name = LowerName::from(sig.signer_name());
                     // TODO: updates should be async as well.
-                    let keys = self
+                    let keys = block_on(self
                         .lookup(
                             &name,
                             RecordType::DNSSEC(DNSSECRecordType::KEY),
                             false,
                             SupportedAlgorithms::new(),
-                        )
-                        .wait();
+                        ));
 
                     let keys = match keys {
                         Ok(keys) => keys,

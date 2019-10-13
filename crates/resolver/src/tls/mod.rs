@@ -31,8 +31,8 @@ mod tests {
 
     use tokio::runtime::current_thread::Runtime;
 
-    use config::{ResolverConfig, ResolverOpts};
-    use AsyncResolver;
+    use crate::config::{ResolverConfig, ResolverOpts};
+    use crate::AsyncResolver;
 
     fn tls_test(config: ResolverConfig) {
         env_logger::try_init().ok();
