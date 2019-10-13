@@ -1,12 +1,13 @@
 sudo: required
 dist: trusty
 language: rust
+# FIXME: switch back to stable after async/await is released
+rust: beta
 
 matrix:
   include:
     # parallel builds for tests
-    - rust: stable
-      env: NAME=all_features
+    - env: NAME=all_features
            RUST_BACKTRACE=full
       script: 
         - scripts/test_all_features.sh
@@ -14,8 +15,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=default_features
+    - env: NAME=default_features
            RUST_BACKTRACE=full
       script: 
         - scripts/test_default_features.sh
@@ -23,8 +23,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=dns_over_native_tls
+    - env: NAME=dns_over_native_tls
            RUST_BACKTRACE=full
       script: 
         - scripts/test_dns_over_native_tls.sh
@@ -32,8 +31,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=dns_over_openssl
+    - env: NAME=dns_over_openssl
            RUST_BACKTRACE=full
       script: 
         - scripts/test_dns_over_openssl.sh
@@ -41,8 +39,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=dns_over_rustls
+    - env: NAME=dns_over_rustls
            RUST_BACKTRACE=full
       script: 
         - scripts/test_dns_over_rustls.sh
@@ -50,8 +47,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=dnssec_openssl
+    - env: NAME=dnssec_openssl
            RUST_BACKTRACE=full
       script: 
         - scripts/test_dnssec_openssl.sh
@@ -59,8 +55,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=dnssec_ring
+    - env: NAME=dnssec_ring
            RUST_BACKTRACE=full
       script: 
         - scripts/test_dnssec_ring.sh
@@ -68,8 +63,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=mdns
+    - env: NAME=mdns
            RUST_BACKTRACE=full
       script: 
         - scripts/test_mdns.sh
@@ -77,8 +71,7 @@ matrix:
         - scripts/run_kcov.sh
 
     # parallel builds for tests
-    - rust: stable
-      env: NAME=no_default_features
+    - env: NAME=no_default_features
            RUST_BACKTRACE=full
       script: 
         - scripts/test_no_default_features.sh
@@ -109,8 +102,7 @@ matrix:
         - scripts/test_all_features.sh
 
     # clippy
-    - rust: stable
-      env: NAME=clippy
+    - env: NAME=clippy
            RUST_BACKTRACE=full
       script:
         - scripts/run_clippy.sh
@@ -131,8 +123,7 @@ matrix:
         - scripts/build_benches.sh
 
     # compatiblity tests
-    - rust: stable
-      env: NAME=compatiblity
+    - env: NAME=compatiblity
            TDNS_BIND_PATH="../../bind-9.11.7/bin/named/named"
            RUST_BACKTRACE=full
       before_install:
@@ -144,8 +135,7 @@ matrix:
       after_success:
         - scripts/run_kcov.sh
 
-    - rust: stable
-      env: NAME=package-audit
+    - env: NAME=package-audit
       before_install:
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
         - cargo install cargo-audit
