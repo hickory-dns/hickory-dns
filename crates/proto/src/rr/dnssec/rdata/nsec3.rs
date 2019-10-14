@@ -515,10 +515,8 @@ pub fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = match read(&mut decoder, Restrict::new(bytes.len() as u16)) {
-        Ok(x) => x,
-        Err(x) => panic!("error decoding: {:?}", x),
-    };
+    let restrict = Restrict::new(bytes.len() as u16);
+    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
     assert_eq!(rdata, read_rdata);
 }
 
@@ -563,9 +561,7 @@ pub fn test_dups() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = match read(&mut decoder, Restrict::new(bytes.len() as u16)) {
-        Ok(x) => x,
-        Err(x) => panic!("error decoding: {:?}", x),
-    };
+    let restrict = Restrict::new(bytes.len() as u16);
+    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
     assert_eq!(rdata_wo, read_rdata);
 }

@@ -128,10 +128,8 @@ where
     let name = domain::Name::from_str("www.example.com.").unwrap();
 
     // validate the request
-    let response = match io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A)) {
-        Ok(x) => x,
-        Err(x) => panic!("request failed: {}", x)
-    };
+    let client = client.query(name.clone(), DNSClass::IN, RecordType::A);
+    let response = io_loop.block_on(client).expect("Request failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
