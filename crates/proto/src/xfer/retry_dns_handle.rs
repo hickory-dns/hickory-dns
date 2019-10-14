@@ -82,7 +82,7 @@ impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H> {
                     }
 
                     self.remaining_attempts -= 1;
-                    // FIXME: if the "sent" Message is part of the error result,
+                    // TODO: if the "sent" Message is part of the error result,
                     //  then we can just reuse it... and no clone necessary
                     let request = self.request.clone();
                     self.future = self.handle.send(request);

@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::executor::block_on;
 use futures::stream::{Fuse, Stream, StreamExt};
-use futures::{future, Future, FutureExt, TryFutureExt};
+use futures::{future, Future, FutureExt};
 use tokio_timer::Delay;
 
 use trust_dns::client::ClientConnection;
@@ -84,7 +84,7 @@ impl TestResponseHandler {
         TestResponseHandler { message_ready, buf }
     }
 
-    fn into_inner(self) -> impl Future<Output = Result<Vec<u8>, ()>> {
+    fn into_inner(self) -> impl Future<Output = Vec<u8>> {
         future::poll_fn(move |_| {
             if self
                 .message_ready
@@ -92,16 +92,16 @@ impl TestResponseHandler {
                 .is_ok()
             {
                 let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
-                Poll::Ready(Ok(bytes))
+                Poll::Ready(bytes)
             } else {
                 Poll::Pending
             }
         })
     }
 
-    pub fn into_message(self) -> impl Future<Output = Result<Message, ()>> {
+    pub fn into_message(self) -> impl Future<Output = Message> {
         let bytes = self.into_inner();
-        bytes.map_ok(|b| {
+        bytes.map(|b| {
             let mut decoder = BinDecoder::new(&b);
             Message::read(&mut decoder).expect("could not decode message")
         })
@@ -156,12 +156,11 @@ impl Stream for TestClientStream {
                         .lock()
                         .unwrap()
                         .handle_request(request, response_handler.clone()),
-                )
-                .unwrap();
+                );
 
                 dbg!("catalog handled request");
 
-                let buf = block_on(response_handler.into_inner()).unwrap();
+                let buf = block_on(response_handler.into_inner());
                 dbg!("catalog responded");
 
                 Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))

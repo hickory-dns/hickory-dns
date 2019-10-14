@@ -242,8 +242,6 @@ impl TlsStreamBuilder {
             }
         };
 
-        // TODO: this clone can go way when the fn becomes
-
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream = Box::pin(

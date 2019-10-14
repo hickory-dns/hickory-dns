@@ -139,13 +139,7 @@ impl TlsStreamBuilder {
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;
 
-        let tcp_stream: Result<TokioTcpStream, _> = TokioTcpStream::connect(&name_server) /*.map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    format!("tls error: {}", e),
-                )
-            })*/
-            .await;
+        let tcp_stream: Result<TokioTcpStream, _> = TokioTcpStream::connect(&name_server).await;
 
         // TODO: for some reason the above wouldn't accept a ?
         let tcp_stream = match tcp_stream {

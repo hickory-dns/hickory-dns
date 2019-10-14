@@ -121,7 +121,6 @@ impl<S: Connect + 'static> TcpStream<S> {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        //Box<dyn Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send>,
         impl Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send,
         BufStreamHandle,
     )
@@ -142,7 +141,6 @@ impl<S: Connect + 'static> TcpStream<S> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        //Box<dyn Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send>,
         impl Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send,
         BufStreamHandle,
     ) {

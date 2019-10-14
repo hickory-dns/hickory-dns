@@ -169,8 +169,6 @@ mod tests {
         let request = request::new("ns.example.com", len).unwrap();
         let request = request.map(|()| stream);
 
-        // FIXME: generic stream impl is issue...
-
         let from_post = message_from(Arc::new("ns.example.com".to_string()), request);
         let bytes = match block_on(from_post) {
             Ok(bytes) => bytes,

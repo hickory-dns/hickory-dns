@@ -264,7 +264,8 @@ pub trait LookupObject: Send {
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>>;
 }
 
-struct EmptyLookup;
+/// A lookup that returns no records
+pub struct EmptyLookup;
 
 impl LookupObject for EmptyLookup {
     fn is_empty(&self) -> bool {

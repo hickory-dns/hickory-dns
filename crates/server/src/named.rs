@@ -46,8 +46,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
-use futures::executor::block_on;
-use futures::{future, Future, TryFutureExt};
+use futures::{future, Future};
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
 use tokio_net::tcp::TcpListener;
@@ -487,6 +486,9 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
+    use futures::TryFutureExt;
+    use futures::executor::block_on;
+
     let tls_listen_port: u16 = args
         .flag_tls_port
         .unwrap_or_else(|| config.get_tls_listen_port());
@@ -531,6 +533,9 @@ fn config_https(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
+    use futures::TryFutureExt;
+    use futures::executor::block_on;
+
     let https_listen_port: u16 = args
         .flag_https_port
         .unwrap_or_else(|| config.get_https_listen_port());

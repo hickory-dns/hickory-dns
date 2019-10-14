@@ -14,6 +14,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - *breaking* (client) rebranded from `trust-dns` to `trust-dns-client`
 - *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.40` minimum)
 
+
 ## 0.17.0 (Client/Server)
 
 ### Added

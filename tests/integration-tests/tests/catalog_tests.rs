@@ -138,8 +138,8 @@ fn test_catalog_lookup() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -179,8 +179,8 @@ fn test_catalog_lookup() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -216,8 +216,8 @@ fn test_catalog_nx_soa() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -278,8 +278,8 @@ fn test_axfr() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).expect("lookup failed");
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     let mut answers: Vec<Record> = result.answers().to_vec();
 
@@ -395,8 +395,8 @@ fn test_axfr_refused() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).expect("lookup failed");
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert!(result.answers().is_empty());
@@ -432,8 +432,8 @@ fn test_cname_additionals() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     assert_eq!(result.message_type(), MessageType::Response);
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -476,8 +476,8 @@ fn test_multiple_cname_additionals() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
-    let result = block_on(response_handler.into_message()).unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
 
     assert_eq!(result.message_type(), MessageType::Response);
     assert_eq!(result.response_code(), ResponseCode::NoError);
