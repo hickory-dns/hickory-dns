@@ -447,10 +447,14 @@ impl<'r> BinDecodable<'r> for Header {
 
         // TODO: We should pass these restrictions on, they can't be trusted, but that would seriously complicate the Header type..
         // TODO: perhaps the read methods for BinDecodable should return Restrict?
-        let query_count = decoder.read_u16()?.unverified(/*this must be verified when reading queries*/);
-        let answer_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
-        let name_server_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
-        let additional_count = decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
+        let query_count =
+            decoder.read_u16()?.unverified(/*this must be verified when reading queries*/);
+        let answer_count =
+            decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
+        let name_server_count =
+            decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
+        let additional_count =
+            decoder.read_u16()?.unverified(/*this must be evaluated when reading records*/);
 
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...

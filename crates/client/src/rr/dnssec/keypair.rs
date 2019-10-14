@@ -22,9 +22,13 @@ use openssl::rsa::Rsa as OpenSslRsa;
 use openssl::sign::Signer;
 
 #[cfg(feature = "ring")]
-use ring::{rand,
-           signature::{EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair,
-                       ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING}};
+use ring::{
+    rand,
+    signature::{
+        EcdsaKeyPair, Ed25519KeyPair, KeyPair as RingKeyPair, ECDSA_P256_SHA256_FIXED_SIGNING,
+        ECDSA_P384_SHA384_FIXED_SIGNING,
+    },
+};
 
 use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -419,11 +423,7 @@ impl<K: HasPrivate> KeyPair<K> {
             #[cfg(feature = "ring")]
             KeyPair::ECDSA(ref ec_key) => {
                 let rng = rand::SystemRandom::new();
-                Ok(ec_key
-                    .sign(&rng, tbs.as_ref())
-                    .unwrap()
-                    .as_ref()
-                    .to_vec())
+                Ok(ec_key.sign(&rng, tbs.as_ref()).unwrap().as_ref().to_vec())
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
@@ -441,9 +441,7 @@ impl KeyPair<Private> {
     /// RSA keys are hardcoded to 2048bits at the moment. Other keys have predefined sizes.
     pub fn generate(algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
-            Algorithm::Unknown(_) => { 
-                Err(DnsSecErrorKind::Message("unknown algorithm").into())
-            }
+            Algorithm::Unknown(_) => Err(DnsSecErrorKind::Message("unknown algorithm").into()),
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1
@@ -478,9 +476,7 @@ impl KeyPair<Private> {
     #[cfg(feature = "ring")]
     pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
         match algorithm {
-            Algorithm::Unknown(_) => { 
-                Err(DnsSecErrorKind::Message("unknown algorithm").into())
-            }
+            Algorithm::Unknown(_) => Err(DnsSecErrorKind::Message("unknown algorithm").into()),
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA1
             | Algorithm::RSASHA1NSEC3SHA1

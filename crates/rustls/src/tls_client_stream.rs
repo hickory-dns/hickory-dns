@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;

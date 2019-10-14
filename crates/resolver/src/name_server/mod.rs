@@ -6,17 +6,17 @@
 // copied, modified, or distributed except according to those terms.
 
 mod connection_provider;
+#[allow(clippy::module_inception)]
+mod name_server;
 mod name_server_pool;
 mod name_server_state;
 mod name_server_stats;
-#[allow(clippy::module_inception)]
-mod name_server;
 
-use self::name_server_state::NameServerState;
-use self::name_server_stats::NameServerStats;
-pub use self::name_server_pool::NameServerPool;
 pub use self::connection_provider::ConnectionProvider;
-pub(crate) use self::connection_provider::{StandardConnection, ConnectionHandle};
-pub use self::name_server::NameServer;
+pub(crate) use self::connection_provider::{ConnectionHandle, StandardConnection};
 #[cfg(feature = "mdns")]
 pub(crate) use self::name_server::mdns_nameserver;
+pub use self::name_server::NameServer;
+pub use self::name_server_pool::NameServerPool;
+use self::name_server_state::NameServerState;
+use self::name_server_stats::NameServerStats;

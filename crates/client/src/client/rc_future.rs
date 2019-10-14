@@ -5,12 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
 
-use futures::{future::Fuse, Future, FutureExt, Poll};
 use futures::lock::Mutex;
+use futures::{future::Fuse, Future, FutureExt, Poll};
 
 #[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>
@@ -29,9 +29,7 @@ where
 {
     let future_and_result = Arc::new(Mutex::new((future.fuse(), None)));
 
-    RcFuture {
-        future_and_result,
-    }
+    RcFuture { future_and_result }
 }
 
 impl<F> Future for RcFuture<F>
@@ -47,7 +45,7 @@ where
         //  wait for it to complete.
         if let Some(mut future_and_result) = self.future_and_result.try_lock() {
             let (ref mut future, ref mut stored_result) = *future_and_result;
-            
+
             // if pending it's either done, or it's actually pending
             match future.poll_unpin(cx) {
                 Poll::Pending => (),
@@ -62,7 +60,7 @@ where
                 return Poll::Ready(result.clone());
             } else {
                 // the poll on the future should wake this thread
-                return Poll::Pending
+                return Poll::Pending;
             }
         } else {
             // TODO: track wakers in a queue instead...

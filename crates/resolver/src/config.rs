@@ -497,7 +497,11 @@ impl Default for LookupIpStrategy {
 
 /// Configuration for the Resolver
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize), serde(default))]
+#[cfg_attr(
+    feature = "serde-config",
+    derive(Serialize, Deserialize),
+    serde(default)
+)]
 #[allow(dead_code)] // TODO: remove after all params are supported
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)

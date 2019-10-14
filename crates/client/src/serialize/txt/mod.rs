@@ -16,8 +16,8 @@
 
 //! Text serialization types
 
-mod master_lex;
 mod master;
+mod master_lex;
 mod parse_rdata;
 mod rdata_parsers;
 

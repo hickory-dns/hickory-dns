@@ -403,7 +403,8 @@ impl<'k> PublicKey for Rsa<'k> {
             n: self.pkey.n(),
             e: self.pkey.e(),
         };
-        public_key.verify(alg, message, signature)
+        public_key
+            .verify(alg, message, signature)
             .map_err(Into::into)
     }
 }
@@ -529,5 +530,4 @@ mod tests {
         test_case(&[0x80, 0x00, 0x80], &[0x00, 0x80, 0x00, 0x80]);
         test_case(&[0xff, 0x00, 0x80], &[0x00, 0xff, 0x00, 0x80]);
     }
-
 }

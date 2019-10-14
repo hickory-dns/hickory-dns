@@ -4,13 +4,13 @@ extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::io;
-use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
+use std::time::Duration;
 
-use futures::Poll;
 #[allow(deprecated)]
 use futures::stream::{iter, Stream, StreamExt, TryStreamExt};
+use futures::Poll;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_server::server::TimeoutStream;
@@ -53,5 +53,9 @@ fn test_timeout() {
     let mut core = Runtime::new().expect("could not get core");
     let timeout_stream = TimeoutStream::new(NeverStream {}, Duration::from_millis(1));
 
-    assert!(core.block_on(timeout_stream.into_future()).0.expect("nothing in stream").is_err());
+    assert!(core
+        .block_on(timeout_stream.into_future())
+        .0
+        .expect("nothing in stream")
+        .is_err());
 }

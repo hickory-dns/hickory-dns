@@ -32,16 +32,19 @@ pub fn named_process() -> (NamedProcess, u16) {
     // start up bind
     println!("---> starting BIND: {}", bind_path);
     let mut named = Command::new(bind_path)
-                      .current_dir(&working_dir)
-                      .stderr(Stdio::piped())
-                      // from the root target directory...
-                      .arg("-c").arg("../../tests/compatibility-tests/tests/conf/bind-example.conf")
-                      //.arg("-d").arg("0") // uncomment for debugging information
-                      .arg("-D").arg("Trust-DNS compatibility")
-                      .arg("-g")
-                      .arg("-p").arg(&format!("{}", test_port))
-                      .spawn()
-                      .expect("failed to start named");
+        .current_dir(&working_dir)
+        .stderr(Stdio::piped())
+        // from the root target directory...
+        .arg("-c")
+        .arg("../../tests/compatibility-tests/tests/conf/bind-example.conf")
+        //.arg("-d").arg("0") // uncomment for debugging information
+        .arg("-D")
+        .arg("Trust-DNS compatibility")
+        .arg("-g")
+        .arg("-p")
+        .arg(&format!("{}", test_port))
+        .spawn()
+        .expect("failed to start named");
 
     //
     let stderr = mem::replace(&mut named.stderr, None).unwrap();

@@ -7,9 +7,9 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
-use std::pin::Pin;
 
 use futures::{future, Future, TryFutureExt};
 
@@ -136,7 +136,8 @@ where
         };
 
         // Because a Poisoned lock error could have occurred, make sure to create a new Mutex...
-        Box::pin(client
+        Box::pin(
+            client
                 .send(request)
                 .and_then(move |response| {
                     // first we'll evaluate if the message succeeded
@@ -176,9 +177,8 @@ where
 
                     // These are connection failures, not lookup failures, that is handled in the resolver layer
                     future::err(error)
-                })
+                }),
         )
-        
     }
 }
 
@@ -194,10 +194,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
         //   this will prefer established connections, we should try other connections after
         //   some number to make sure that all are used. This is more important for when
         //   latency is started to be used.
-        match self
-            .state
-            .cmp(&other.state)
-        {
+        match self.state.cmp(&other.state) {
             Ordering::Equal => (),
             o => {
                 return o;
@@ -266,10 +263,7 @@ mod tests {
         };
         let mut io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|_| {
-            NameServer::<_, StandardConnection>::new(
-                config,
-                ResolverOpts::default(),
-            )
+            NameServer::<_, StandardConnection>::new(config, ResolverOpts::default())
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();

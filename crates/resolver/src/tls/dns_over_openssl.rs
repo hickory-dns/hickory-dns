@@ -13,9 +13,9 @@ use std::pin::Pin;
 
 use futures::Future;
 
-use trust_dns_openssl::{TlsClientStream, TlsClientStreamBuilder};
 use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;
+use trust_dns_openssl::{TlsClientStream, TlsClientStreamBuilder};
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,

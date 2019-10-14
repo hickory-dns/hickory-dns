@@ -77,7 +77,11 @@ pub trait Authority: Send {
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    fn ns(
+        &self,
+        is_secure: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.lookup(
             self.origin(),
             RecordType::NS,

@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::error::*;
 use super::Algorithm;
+use crate::error::*;
 
 pub struct ECPublicKey {
     buf: [u8; MAX_LEN],

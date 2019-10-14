@@ -1,7 +1,7 @@
 pub mod mut_message_client;
 
 use std::env;
-use std::io::{BufRead, BufReader, stdout, Write};
+use std::io::{stdout, BufRead, BufReader, Write};
 use std::mem;
 use std::net::*;
 use std::panic::{catch_unwind, UnwindSafe};
@@ -260,7 +260,9 @@ pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Se
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_with_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>(
+pub fn query_all_dnssec_with_rfc6975<
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
+>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,
@@ -269,7 +271,9 @@ pub fn query_all_dnssec_with_rfc6975<R: Future<Output = Result<DnsResponse, Prot
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_wo_rfc6975<R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>(
+pub fn query_all_dnssec_wo_rfc6975<
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
+>(
     io_loop: &mut Runtime,
     client: BasicClientHandle<R>,
     algorithm: Algorithm,

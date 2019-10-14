@@ -38,7 +38,8 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
         true,
         None,
         &config,
-    ).expect("failed to load file")
+    )
+    .expect("failed to load file")
 }
 
 #[allow(unused)]
@@ -65,7 +66,8 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
         true,
         None,
         &config,
-    ).expect("failed to load file")
+    )
+    .expect("failed to load file")
 }
 
 basic_battery!(sqlite);

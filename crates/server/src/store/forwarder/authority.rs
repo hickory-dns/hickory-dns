@@ -18,7 +18,9 @@ use trust_dns_resolver::config::ResolverConfig;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
 use trust_dns_resolver::{AsyncResolver, BackgroundLookup};
 
-use crate::authority::{Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType};
+use crate::authority::{
+    Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
+};
 use crate::store::forwarder::ForwardConfig;
 
 /// An authority that will forward resolutions to upstream resolvers.

@@ -6,13 +6,13 @@ extern crate trust_dns_proto;
 extern crate trust_dns_resolver;
 
 use std::net::*;
+use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{
     atomic::{AtomicIsize, Ordering},
     Arc,
 };
 use std::task::Poll;
-use std::pin::Pin;
 
 use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
@@ -360,19 +360,23 @@ impl OnSend for OnSendBarrier {
 
         let barrier = self.barrier.clone();
         let loop_future = wait_for(barrier, response);
-        
+
         Box::pin(loop_future)
     }
 }
 
-async fn wait_for(barrier: Arc<AtomicIsize>, response: Result<DnsResponse, ProtoError>) -> Result<DnsResponse, ProtoError> {
-    future::poll_fn(move |_|
+async fn wait_for(
+    barrier: Arc<AtomicIsize>,
+    response: Result<DnsResponse, ProtoError>,
+) -> Result<DnsResponse, ProtoError> {
+    future::poll_fn(move |_| {
         if barrier.load(Ordering::Relaxed) > 0 {
             Poll::Pending
         } else {
             Poll::Ready(())
         }
-    ).await;
+    })
+    .await;
 
     response
 }

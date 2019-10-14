@@ -1,14 +1,13 @@
 #![feature(test)]
 
-extern crate trust_dns_proto;
 extern crate test;
+extern crate trust_dns_proto;
 
-use trust_dns_proto::op::{MessageType, Header, ResponseCode, OpCode, Message};
+use trust_dns_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
 use trust_dns_proto::rr::Record;
-use trust_dns_proto::serialize::binary::{BinDecoder, BinEncodable, BinEncoder, BinDecodable};
+use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 use test::Bencher;
-
 
 #[bench]
 fn bench_emit_header(b: &mut Bencher) {
@@ -36,13 +35,10 @@ fn bench_parse_header_no_reservation(b: &mut Bencher) {
     })
 }
 
-
 #[bench]
 fn bench_parse_header(b: &mut Bencher) {
     let byte_vec = vec![
-        0x01, 0x10, 0xAA, 0x83,
-        0x88, 0x77, 0x66, 0x55,
-        0x44, 0x33, 0x22, 0x11
+        0x01, 0x10, 0xAA, 0x83, 0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11,
     ];
     b.iter(|| {
         let mut decoder = BinDecoder::new(&byte_vec);

@@ -31,19 +31,18 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 
     {
         let mut encoder: BinEncoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-        assert!(
-            sig::emit_pre_sig(
-                &mut encoder,
-                pre_sig0.type_covered(),
-                pre_sig0.algorithm(),
-                pre_sig0.num_labels(),
-                pre_sig0.original_ttl(),
-                pre_sig0.sig_expiration(),
-                pre_sig0.sig_inception(),
-                pre_sig0.key_tag(),
-                pre_sig0.signer_name(),
-            ).is_ok()
-        );
+        assert!(sig::emit_pre_sig(
+            &mut encoder,
+            pre_sig0.type_covered(),
+            pre_sig0.algorithm(),
+            pre_sig0.num_labels(),
+            pre_sig0.original_ttl(),
+            pre_sig0.sig_expiration(),
+            pre_sig0.sig_inception(),
+            pre_sig0.key_tag(),
+            pre_sig0.signer_name(),
+        )
+        .is_ok());
         // need a separate encoder here, as the encoding references absolute positions
         // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
         // are wrong and the signature won't match.
@@ -124,30 +123,28 @@ pub fn rrset_tbs(
         //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
         //                with the Signature field excluded and the Signer's Name
         //                in canonical form.
-        assert!(
-            sig::emit_pre_sig(
-                &mut encoder,
-                type_covered,
-                algorithm,
-                name.num_labels(),
-                original_ttl,
-                sig_expiration,
-                sig_inception,
-                key_tag,
-                signer_name,
-            ).is_ok()
-        );
+        assert!(sig::emit_pre_sig(
+            &mut encoder,
+            type_covered,
+            algorithm,
+            name.num_labels(),
+            original_ttl,
+            sig_expiration,
+            sig_inception,
+            key_tag,
+            signer_name,
+        )
+        .is_ok());
 
         // construct the rrset signing data
         for record in rrset {
             //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
             //
             //                name is calculated according to the function in the RFC 4035
-            assert!(
-                name.to_lowercase()
-                    .emit_as_canonical(&mut encoder, true)
-                    .is_ok()
-            );
+            assert!(name
+                .to_lowercase()
+                .emit_as_canonical(&mut encoder, true)
+                .is_ok());
             //
             //                type is the RRset type and all RRs in the class
             assert!(type_covered.emit(&mut encoder).is_ok());

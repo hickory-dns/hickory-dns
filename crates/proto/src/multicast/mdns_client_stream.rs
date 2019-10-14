@@ -7,16 +7,16 @@
 
 use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, SocketAddr};
-use std::task::Context;
 use std::pin::Pin;
+use std::task::Context;
 
-use futures::{Future, FutureExt, Poll, Stream, TryFutureExt};
 use futures::stream::{StreamExt, TryStreamExt};
+use futures::{Future, FutureExt, Poll, Stream, TryFutureExt};
 
 use crate::error::ProtoError;
-use crate::xfer::{DnsClientStream, SerialMessage};
 use crate::multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use crate::multicast::{MdnsQueryType, MdnsStream};
+use crate::xfer::{DnsClientStream, SerialMessage};
 use crate::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// A UDP client stream of DNS binary packets
@@ -64,8 +64,8 @@ impl MdnsClientStream {
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
         let stream_future = stream_future
-                .map_ok(move |mdns_stream| MdnsClientStream { mdns_stream })
-                .map_err(ProtoError::from);
+            .map_ok(move |mdns_stream| MdnsClientStream { mdns_stream })
+            .map_err(ProtoError::from);
 
         let new_future = Box::new(stream_future);
         let new_future = MdnsClientConnect(new_future);
@@ -106,7 +106,9 @@ impl Stream for MdnsClientStream {
 }
 
 /// A future that resolves to an MdnsClientStream
-pub struct MdnsClientConnect(Box<dyn Future<Output = Result<MdnsClientStream, ProtoError>> + Send + Unpin>);
+pub struct MdnsClientConnect(
+    Box<dyn Future<Output = Result<MdnsClientStream, ProtoError>> + Send + Unpin>,
+);
 
 impl Future for MdnsClientConnect {
     type Output = Result<MdnsClientStream, ProtoError>;

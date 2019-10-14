@@ -19,6 +19,6 @@
 mod udp_client_connection;
 use proto::udp;
 
-pub use self::udp_client_connection::UdpClientConnection;
 pub use self::udp::UdpClientStream;
 pub use self::udp::UdpStream;
+pub use self::udp_client_connection::UdpClientConnection;

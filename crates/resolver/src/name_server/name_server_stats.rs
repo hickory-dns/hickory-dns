@@ -31,13 +31,18 @@ impl NameServerStats {
 
     pub fn next_success(&self) {
         self.successes.fetch_add(1, atomic::Ordering::Release);
-   }
+    }
 
     pub fn next_failure(&self) {
         self.failures.fetch_add(1, atomic::Ordering::Release);
     }
 
-    fn noload_eq(self_successes: usize, other_successes: usize, self_failures: usize, other_failures: usize) -> bool {
+    fn noload_eq(
+        self_successes: usize,
+        other_successes: usize,
+        self_failures: usize,
+        other_failures: usize,
+    ) -> bool {
         self_successes == other_successes && self_failures == other_failures
     }
 }
@@ -51,12 +56,16 @@ impl PartialEq for NameServerStats {
         let other_failures = other.failures.load(atomic::Ordering::Acquire);
 
         // if they are literally equal, just return
-        Self::noload_eq(self_successes, other_successes, self_failures, other_failures)
+        Self::noload_eq(
+            self_successes,
+            other_successes,
+            self_failures,
+            other_failures,
+        )
     }
 }
 
 impl Eq for NameServerStats {}
-
 
 impl Ord for NameServerStats {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
@@ -68,7 +77,12 @@ impl Ord for NameServerStats {
         let other_failures = other.failures.load(atomic::Ordering::Acquire);
 
         // if they are literally equal, just return
-        if Self::noload_eq(self_successes, other_successes, self_failures, other_failures) {
+        if Self::noload_eq(
+            self_successes,
+            other_successes,
+            self_failures,
+            other_failures,
+        ) {
             return Ordering::Equal;
         }
 
@@ -107,9 +121,9 @@ mod tests {
 
     #[test]
     fn test_state_cmp() {
-        let nil = NameServerStats::new(0,0);
-        let successes = NameServerStats::new(1,0);
-        let failures = NameServerStats::new(0,1);
+        let nil = NameServerStats::new(0, 0);
+        let successes = NameServerStats::new(1, 0);
+        let failures = NameServerStats::new(0, 1);
 
         assert_eq!(nil.cmp(&nil), Ordering::Equal);
         assert_eq!(nil.cmp(&successes), Ordering::Greater);

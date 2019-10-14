@@ -255,10 +255,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(
-        SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>,
-        Runtime,
-    ),
+    F: Fn(SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

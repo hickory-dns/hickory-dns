@@ -8,9 +8,9 @@
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 use std::pin::Pin;
 
-use futures::future::{Future, FutureExt, TryFutureExt};
 use futures::channel::mpsc::UnboundedSender;
 use futures::channel::oneshot;
+use futures::future::{Future, FutureExt, TryFutureExt};
 use rand;
 
 use crate::error::*;
@@ -69,10 +69,7 @@ impl BasicDnsHandle {
 impl DnsHandle for BasicDnsHandle {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
@@ -91,10 +88,11 @@ impl DnsHandle for BasicDnsHandle {
         };
 
         // convert the oneshot into a Box of a Future message and error.
-        Box::pin(receiver
-            .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
-            .map(|r| r.and_then(|r| r)))
-
+        Box::pin(
+            receiver
+                .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
+                .map(|r| r.and_then(|r| r)),
+        )
     }
 }
 

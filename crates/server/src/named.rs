@@ -46,8 +46,8 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
-use futures::{future, Future, TryFutureExt};
 use futures::executor::block_on;
+use futures::{future, Future, TryFutureExt};
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
 use tokio_net::tcp::TcpListener;
@@ -396,11 +396,19 @@ pub fn main() {
         .collect();
     let udp_sockets: Vec<UdpSocket> = sockaddrs
         .iter()
-        .map(|x| io_loop.block_on(UdpSocket::bind(x)).unwrap_or_else(|_| panic!("could not bind to udp: {}", x)))
+        .map(|x| {
+            io_loop
+                .block_on(UdpSocket::bind(x))
+                .unwrap_or_else(|_| panic!("could not bind to udp: {}", x))
+        })
         .collect();
     let tcp_listeners: Vec<TcpListener> = sockaddrs
         .iter()
-        .map(|x| io_loop.block_on(TcpListener::bind(x)).unwrap_or_else(|_| panic!("could not bind to tcp: {}", x)))
+        .map(|x| {
+            io_loop
+                .block_on(TcpListener::bind(x))
+                .unwrap_or_else(|_| panic!("could not bind to tcp: {}", x))
+        })
         .collect();
 
     // now, run the server, based on the config
@@ -488,7 +496,11 @@ fn config_tls(
         .collect();
     let tls_listeners: Vec<TcpListener> = tls_sockaddrs
         .iter()
-        .map(|x| block_on(TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x))))
+        .map(|x| {
+            block_on(
+                TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)),
+            )
+        })
         .collect();
     if tls_listeners.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
@@ -528,7 +540,11 @@ fn config_https(
         .collect();
     let https_listeners: Vec<TcpListener> = https_sockaddrs
         .iter()
-        .map(|x| block_on(TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x))))
+        .map(|x| {
+            block_on(
+                TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)),
+            )
+        })
         .collect();
     if https_listeners.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");

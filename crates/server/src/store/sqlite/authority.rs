@@ -9,8 +9,8 @@
 
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::future::Future;
 
@@ -308,15 +308,14 @@ impl SqliteAuthority {
                             // ANY      ANY      empty    Name is in use
                             RecordType::ANY => {
                                 /*TODO: this works because the future here is always complete*/
-                                if block_on(self
-                                    .lookup(
-                                        &required_name,
-                                        RecordType::ANY,
-                                        false,
-                                        SupportedAlgorithms::new(),
-                                    ))
-                                    .unwrap_or_default()
-                                    .was_empty()
+                                if block_on(self.lookup(
+                                    &required_name,
+                                    RecordType::ANY,
+                                    false,
+                                    SupportedAlgorithms::new(),
+                                ))
+                                .unwrap_or_default()
+                                .was_empty()
                                 {
                                     return Err(ResponseCode::NXDomain);
                                 } else {
@@ -326,15 +325,14 @@ impl SqliteAuthority {
                             // ANY      rrset    empty    RRset exists (value independent)
                             rrset => {
                                 /*TODO: this works because the future here is always complete*/
-                                if block_on(self
-                                    .lookup(
-                                        &required_name,
-                                        rrset,
-                                        false,
-                                        SupportedAlgorithms::new(),
-                                    ))
-                                    .unwrap_or_default()
-                                    .was_empty()
+                                if block_on(self.lookup(
+                                    &required_name,
+                                    rrset,
+                                    false,
+                                    SupportedAlgorithms::new(),
+                                ))
+                                .unwrap_or_default()
+                                .was_empty()
                                 {
                                     return Err(ResponseCode::NXRRSet);
                                 } else {
@@ -352,15 +350,14 @@ impl SqliteAuthority {
                             // NONE     ANY      empty    Name is not in use
                             RecordType::ANY => {
                                 /*TODO: this works because the future here is always complete*/
-                                if !block_on(self
-                                    .lookup(
-                                        &required_name,
-                                        RecordType::ANY,
-                                        false,
-                                        SupportedAlgorithms::new(),
-                                    ))
-                                    .unwrap_or_default()
-                                    .was_empty()
+                                if !block_on(self.lookup(
+                                    &required_name,
+                                    RecordType::ANY,
+                                    false,
+                                    SupportedAlgorithms::new(),
+                                ))
+                                .unwrap_or_default()
+                                .was_empty()
                                 {
                                     return Err(ResponseCode::YXDomain);
                                 } else {
@@ -370,15 +367,14 @@ impl SqliteAuthority {
                             // NONE     rrset    empty    RRset does not exist
                             rrset => {
                                 /*TODO: this works because the future here is always complete*/
-                                if !block_on(self
-                                    .lookup(
-                                        &required_name,
-                                        rrset,
-                                        false,
-                                        SupportedAlgorithms::new(),
-                                    ))
-                                    .unwrap_or_default()
-                                    .was_empty()
+                                if !block_on(self.lookup(
+                                    &required_name,
+                                    rrset,
+                                    false,
+                                    SupportedAlgorithms::new(),
+                                ))
+                                .unwrap_or_default()
+                                .was_empty()
                                 {
                                     return Err(ResponseCode::YXRRSet);
                                 } else {
@@ -394,17 +390,16 @@ impl SqliteAuthority {
                 // zone     rrset    rr       RRset exists (value dependent)
                 {
                     /*TODO: this works because the future here is always complete*/
-                    if block_on(self
-                        .lookup(
-                            &required_name,
-                            require.rr_type(),
-                            false,
-                            SupportedAlgorithms::new(),
-                        ))
-                        .unwrap_or_default()
-                        .iter()
-                        .find(|rr| *rr == require)
-                        .is_none()
+                    if block_on(self.lookup(
+                        &required_name,
+                        require.rr_type(),
+                        false,
+                        SupportedAlgorithms::new(),
+                    ))
+                    .unwrap_or_default()
+                    .iter()
+                    .find(|rr| *rr == require)
+                    .is_none()
                     {
                         return Err(ResponseCode::NXRRSet);
                     } else {
@@ -484,13 +479,12 @@ impl SqliteAuthority {
                 .any(|sig| {
                     let name = LowerName::from(sig.signer_name());
                     // TODO: updates should be async as well.
-                    let keys = block_on(self
-                        .lookup(
-                            &name,
-                            RecordType::DNSSEC(DNSSECRecordType::KEY),
-                            false,
-                            SupportedAlgorithms::new(),
-                        ));
+                    let keys = block_on(self.lookup(
+                        &name,
+                        RecordType::DNSSEC(DNSSECRecordType::KEY),
+                        false,
+                        SupportedAlgorithms::new(),
+                    ));
 
                     let keys = match keys {
                         Ok(keys) => keys,

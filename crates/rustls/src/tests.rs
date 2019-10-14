@@ -84,7 +84,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../server".to_owned());
     println!("using server src path: {}", server_path);
@@ -186,7 +187,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // let the server go first
     std::thread::yield_now();
@@ -201,7 +203,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = Certificate(root_cert_der);
 
     let mut config = ClientConfig::new();
-    config.root_store.add(&trust_chain).expect("bad certificate!");
+    config
+        .root_store
+        .add(&trust_chain)
+        .expect("bad certificate!");
 
     // barrier.wait();
     // fix MTLS
@@ -219,10 +224,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         sender
             .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future());
+        let (buffer, stream_tmp) = io_loop.block_on(stream.into_future());
         stream = stream_tmp;
-        let message = buffer.expect("no buffer received").expect("error receiving buffer");
+        let message = buffer
+            .expect("no buffer received")
+            .expect("error receiving buffer");
         assert_eq!(message.bytes(), TEST_BYTES);
     }
 

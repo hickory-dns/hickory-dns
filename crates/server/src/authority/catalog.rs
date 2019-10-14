@@ -20,17 +20,19 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
 use std::pin::Pin;
-use std::task::Context;
 use std::sync::{Arc, RwLock};
+use std::task::Context;
 
-use futures::{Future, FutureExt, Poll, TryFutureExt, ready};
+use futures::{ready, Future, FutureExt, Poll, TryFutureExt};
 
 use trust_dns::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use trust_dns::rr::{LowerName, RecordType};
 
-use crate::authority::{AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType};
+use crate::authority::{
+    AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
+};
 use crate::authority::{AuthorityObject, BoxedLookupFuture, LookupError, LookupObject};
 use crate::server::{Request, RequestHandler, ResponseHandler};
 
@@ -173,7 +175,8 @@ pub enum HandleRequest {
 
 impl HandleRequest {
     fn lookup<R: ResponseHandler + Unpin>(lookup_future: LookupFuture<R>) -> Self {
-        let lookup = Box::pin(lookup_future) as Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
+        let lookup =
+            Box::pin(lookup_future) as Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
         HandleRequest::LookupFuture(lookup)
     }
 
@@ -184,7 +187,7 @@ impl HandleRequest {
 
 impl Future for HandleRequest {
     // TODO: return ()
-    type Output = Result<(),()>;
+    type Output = Result<(), ()>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match *self {
@@ -478,7 +481,7 @@ impl<R: ResponseHandler + Unpin> LookupFuture<R> {
 
 impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
     // TODO: return ()
-    type Output = Result<(),()>;
+    type Output = Result<(), ()>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
@@ -646,14 +649,18 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
 }
 
 impl<R: ResponseHandler> AuthorityLookup<R> {
-    fn split(&mut self) -> (&mut ResponseParams<R>,
-                            &RequestParams,
-                            &Arc<RwLock<Box<dyn AuthorityObject>>>,
-                            &mut AuthOrResolve) {
+    fn split(
+        &mut self,
+    ) -> (
+        &mut ResponseParams<R>,
+        &RequestParams,
+        &Arc<RwLock<Box<dyn AuthorityObject>>>,
+        &mut AuthOrResolve,
+    ) {
         (
             self.response_params
-                    .as_mut()
-                    .expect("bad state, response_params should not be none here"),
+                .as_mut()
+                .expect("bad state, response_params should not be none here"),
             &self.request_params,
             &self.authority,
             &mut self.state,
@@ -663,17 +670,12 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
 
 impl<R: ResponseHandler> Future for AuthorityLookup<R> {
     // TODO: return ()
-    type Output = Result<(),()>;
+    type Output = Result<(), ()>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let (response_params, request_params,  authority, state) = self.split();
+        let (response_params, request_params, authority, state) = self.split();
 
-        let sections = ready!(state.poll(
-            cx,
-            request_params,
-            response_params,
-            authority
-        ))?;
+        let sections = ready!(state.poll(cx, request_params, response_params, authority))?;
 
         let records = sections.answers;
         let soa = sections.soa;

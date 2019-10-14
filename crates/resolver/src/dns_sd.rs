@@ -10,8 +10,8 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::task::{Context, Poll};
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use futures::Future;
 
@@ -21,7 +21,9 @@ use proto::xfer::DnsRequestOptions;
 
 use crate::async_resolver::{AsyncResolver, BackgroundLookup};
 use crate::error::*;
-use crate::lookup::{ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture};
+use crate::lookup::{
+    ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
+};
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -142,7 +144,6 @@ mod tests {
     use tokio::runtime::current_thread::Runtime;
 
     use crate::config::*;
-
 
     use super::*;
 

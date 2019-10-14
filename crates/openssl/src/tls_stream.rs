@@ -246,9 +246,11 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream = Box::pin(connect_tls(tls_config, dns_name, name_server).map_ok(move |s| {
-            TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-        }));
+        let stream = Box::pin(
+            connect_tls(tls_config, dns_name, name_server).map_ok(move |s| {
+                TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
+            }),
+        );
 
         (stream, message_sender)
     }

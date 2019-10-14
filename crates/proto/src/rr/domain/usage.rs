@@ -13,8 +13,7 @@ use std::ops::Deref;
 
 use crate::rr::domain::Name;
 
-
-lazy_static!{
+lazy_static! {
     /// Default Name usage, everything is normal...
     pub static ref DEFAULT: ZoneUsage = ZoneUsage::default();
 }
@@ -68,7 +67,7 @@ lazy_static! {
     pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii("local.").unwrap());
 
     // RFC 6762                      Multicast DNS                February 2013
- 
+
     // Any DNS query for a name ending with "254.169.in-addr.arpa." MUST
     //  be sent to the mDNS IPv4 link-local multicast address 224.0.0.251
     //  or the mDNS IPv6 multicast address FF02::FB.  Since names under
@@ -111,9 +110,6 @@ lazy_static! {
     pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap());
 }
 
-
-
-
 /// Users:
 ///
 ///   Are human users expected to recognize these names as special and
@@ -126,7 +122,7 @@ pub enum UserUsage {
     /// be aware that these names are likely to yield different results
     /// on different networks.
     Normal,
-    
+
     /// Users are free to use localhost names as they would any other
     /// domain names.  Users may assume that IPv4 and IPv6 address
     /// queries for localhost names will always resolve to the respective
@@ -134,7 +130,7 @@ pub enum UserUsage {
     Loopback,
 
     /// Multi-cast link-local usage
-    LinkLocal, 
+    LinkLocal,
 
     /// Users are free to use "invalid" names as they would any other
     /// domain names.  Users MAY assume that queries for "invalid" names
@@ -208,7 +204,7 @@ pub enum ResolverUsage {
     Loopback,
 
     /// Link local, generally for mDNS
-    /// 
+    ///
     /// Any DNS query for a name ending with ".local." MUST be sent to the
     /// mDNS IPv4 link-local multicast address 224.0.0.251 (or its IPv6
     /// equivalent FF02::FB).  The design rationale for using a fixed
@@ -235,7 +231,7 @@ pub enum ResolverUsage {
 ///   their implementations recognize these names as special and treat
 ///   them differently?  If so, how?
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum CacheUsage{
+pub enum CacheUsage {
     /// Caching DNS servers SHOULD recognize these names as special and
     /// SHOULD NOT, by default, attempt to look up NS records for them,
     /// or otherwise query authoritative DNS servers in an attempt to
@@ -279,7 +275,7 @@ pub enum CacheUsage{
 ///   make their implementations recognize these names as special and
 ///   treat them differently?  If so, how?
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum AuthUsage{
+pub enum AuthUsage {
     /// Authoritative DNS servers SHOULD recognize these names as special
     /// and SHOULD, by default, generate immediate negative responses for
     /// all such queries, unless explicitly configured by the
@@ -348,7 +344,7 @@ pub enum OpUsage {
 ///   name is reserved for use in documentation and cannot be
 ///   registered!)
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum RegistryUsage{
+pub enum RegistryUsage {
     /// Stanard checks apply
     Normal,
 
@@ -396,51 +392,132 @@ pub struct ZoneUsage {
 
 impl ZoneUsage {
     /// Constructs a new ZoneUsage with the associated values
-    #[allow(clippy::too_many_arguments)]    
-    pub fn new(name: Name, user: UserUsage, app: AppUsage, resolver: ResolverUsage, cache: CacheUsage, auth: AuthUsage, op: OpUsage, registry: RegistryUsage) -> Self {
-        ZoneUsage {name, user, app, resolver, cache, auth, op, registry}
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        name: Name,
+        user: UserUsage,
+        app: AppUsage,
+        resolver: ResolverUsage,
+        cache: CacheUsage,
+        auth: AuthUsage,
+        op: OpUsage,
+        registry: RegistryUsage,
+    ) -> Self {
+        ZoneUsage {
+            name,
+            user,
+            app,
+            resolver,
+            cache,
+            auth,
+            op,
+            registry,
+        }
     }
 
     /// Constructs a new Default, with all no restrictions
     pub fn default() -> Self {
-        Self::new(Name::root(), UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::Normal, AuthUsage::Normal, OpUsage::Normal, RegistryUsage::Normal)
+        Self::new(
+            Name::root(),
+            UserUsage::Normal,
+            AppUsage::Normal,
+            ResolverUsage::Normal,
+            CacheUsage::Normal,
+            AuthUsage::Normal,
+            OpUsage::Normal,
+            RegistryUsage::Normal,
+        )
     }
 
     /// Restrictions for reverse zones
     pub fn reverse(name: Name) -> Self {
-        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::NonRecursive, AuthUsage::Local, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(
+            name,
+            UserUsage::Normal,
+            AppUsage::Normal,
+            ResolverUsage::Normal,
+            CacheUsage::NonRecursive,
+            AuthUsage::Local,
+            OpUsage::Normal,
+            RegistryUsage::Reserved,
+        )
     }
 
     /// Restrictions for the .test. zone
     pub fn test(name: Name) -> Self {
-        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::NonRecursive, AuthUsage::Local, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(
+            name,
+            UserUsage::Normal,
+            AppUsage::Normal,
+            ResolverUsage::Normal,
+            CacheUsage::NonRecursive,
+            AuthUsage::Local,
+            OpUsage::Normal,
+            RegistryUsage::Reserved,
+        )
     }
 
     /// Restrictions for the .localhost. zone
     pub fn localhost(name: Name) -> Self {
-        Self::new(name, UserUsage::Loopback, AppUsage::Loopback, ResolverUsage::Loopback, CacheUsage::Loopback, AuthUsage::Loopback, OpUsage::Loopback, RegistryUsage::Reserved)
+        Self::new(
+            name,
+            UserUsage::Loopback,
+            AppUsage::Loopback,
+            ResolverUsage::Loopback,
+            CacheUsage::Loopback,
+            AuthUsage::Loopback,
+            OpUsage::Loopback,
+            RegistryUsage::Reserved,
+        )
     }
 
     /// Restrictions for the .local. zone
     pub fn local(name: Name) -> Self {
-        Self::new(name, UserUsage::LinkLocal, AppUsage::LinkLocal, ResolverUsage::LinkLocal, CacheUsage::Normal, AuthUsage::Local, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(
+            name,
+            UserUsage::LinkLocal,
+            AppUsage::LinkLocal,
+            ResolverUsage::LinkLocal,
+            CacheUsage::Normal,
+            AuthUsage::Local,
+            OpUsage::Normal,
+            RegistryUsage::Reserved,
+        )
     }
 
     /// Restrictions for the .invalid. zone
     pub fn invalid(name: Name) -> Self {
-        Self::new(name, UserUsage::NxDomain, AppUsage::NxDomain, ResolverUsage::NxDomain, CacheUsage::NxDomain, AuthUsage::NxDomain, OpUsage::NxDomain, RegistryUsage::Reserved)
+        Self::new(
+            name,
+            UserUsage::NxDomain,
+            AppUsage::NxDomain,
+            ResolverUsage::NxDomain,
+            CacheUsage::NxDomain,
+            AuthUsage::NxDomain,
+            OpUsage::NxDomain,
+            RegistryUsage::Reserved,
+        )
     }
 
     /// Restrictions for the .example. zone
     pub fn example(name: Name) -> Self {
-        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::Normal, AuthUsage::Normal, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(
+            name,
+            UserUsage::Normal,
+            AppUsage::Normal,
+            ResolverUsage::Normal,
+            CacheUsage::Normal,
+            AuthUsage::Normal,
+            OpUsage::Normal,
+            RegistryUsage::Reserved,
+        )
     }
 
     /// A reference to this zone name
     pub fn name(&self) -> &Name {
         &self.name
     }
-  
+
     /// Returns the UserUsage of this zone
     pub fn user(&self) -> UserUsage {
         self.user

@@ -13,15 +13,15 @@ extern crate trust_dns_server;
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
-use std::pin::Pin;
 
-use futures::{future, Future};
 use futures::executor::block_on;
+use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpListener;
 use tokio_net::udp::UdpSocket;
@@ -162,8 +162,8 @@ fn read_file(path: &str) -> Vec<u8> {
 #[test]
 
 fn test_server_www_tls() {
-    use std::env;
     use futures::executor::block_on;
+    use std::env;
 
     let dns_name = "ns.example.com";
 
@@ -283,15 +283,18 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>>(Box::pin(future::lazy(|_| {
-            server.register_socket(udp_socket);
-            Ok(())
-        })))
+        .block_on::<Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>>(Box::pin(future::lazy(
+            |_| {
+                server.register_socket(udp_socket);
+                Ok(())
+            },
+        )))
         .unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop
-            .block_on(tokio_timer::delay(Instant::now() + Duration::from_millis(10)));
+        io_loop.block_on(tokio_timer::delay(
+            Instant::now() + Duration::from_millis(10),
+        ));
     }
 }
 
@@ -300,14 +303,15 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send>>>(Box::pin(future::lazy(
-            |_| server.register_listener(tcp_listener, Duration::from_secs(30)),
-        )))
+        .block_on::<Pin<Box<dyn Future<Output = Result<(), io::Error>> + Send>>>(Box::pin(
+            future::lazy(|_| server.register_listener(tcp_listener, Duration::from_secs(30))),
+        ))
         .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop
-            .block_on(tokio_timer::delay(Instant::now() + Duration::from_millis(10)));
+        io_loop.block_on(tokio_timer::delay(
+            Instant::now() + Duration::from_millis(10),
+        ));
     }
 }
 
@@ -325,21 +329,26 @@ fn server_thread_tls(
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on(future::lazy(|_| {
-            let pkcs12 = Pkcs12::from_der(&pkcs12_der)
-                .expect("bad pkcs12 der")
-                .parse("mypass")
-                .expect("Pkcs12::from_der");
-            let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
-            future::ready(server.register_tls_listener(
-                tls_listener,
-                Duration::from_secs(30),
-                pkcs12,
-            ))
-        }).flatten())
+        .block_on(
+            future::lazy(|_| {
+                let pkcs12 = Pkcs12::from_der(&pkcs12_der)
+                    .expect("bad pkcs12 der")
+                    .parse("mypass")
+                    .expect("Pkcs12::from_der");
+                let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
+                future::ready(server.register_tls_listener(
+                    tls_listener,
+                    Duration::from_secs(30),
+                    pkcs12,
+                ))
+            })
+            .flatten(),
+        )
         .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(tokio_timer::delay(Instant::now() + Duration::from_millis(10)));
+        io_loop.block_on(tokio_timer::delay(
+            Instant::now() + Duration::from_millis(10),
+        ));
     }
 }

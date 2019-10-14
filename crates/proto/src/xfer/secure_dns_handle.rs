@@ -14,8 +14,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Context;
 
-use futures::{Future, FutureExt, Poll, TryFutureExt};
 use futures::future::{self, SelectAll};
+use futures::{Future, FutureExt, Poll, TryFutureExt};
 
 use crate::error::*;
 use crate::op::{OpCode, Query};
@@ -25,8 +25,8 @@ use crate::rr::dnssec::Verifier;
 use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use crate::rr::rdata::opt::EdnsOption;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use crate::xfer::dns_handle::DnsHandle;
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 
 #[derive(Debug)]
 struct Rrset {
@@ -112,7 +112,9 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
 
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::pin(future::err(ProtoError::from("exceeded max validation depth")));
+            return Box::pin(future::err(ProtoError::from(
+                "exceeded max validation depth",
+            )));
         }
 
         // dnssec only matters on queries.
@@ -157,8 +159,8 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
                 .first()
                 .map_or(DNSClass::IN, Query::query_class);
 
-            return 
-                Box::pin(self.handle
+            return Box::pin(
+                self.handle
                     .send(request)
                     .and_then(move |message_response| {
                         // group the record sets by name and type
@@ -201,7 +203,8 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
                         }
 
                         future::ok(verified_message)
-                    }));
+                    }),
+            );
         }
 
         Box::pin(self.handle.send(request))
@@ -253,7 +256,8 @@ fn verify_rrsets<H: DnsHandle + Unpin>(
 
         return future::err(ProtoError::from(ProtoErrorKind::Message(
             "no results to verify",
-        ))).boxed();
+        )))
+        .boxed();
     }
 
     // collect all the rrsets to verify
@@ -314,7 +318,8 @@ fn verify_rrsets<H: DnsHandle + Unpin>(
         message_result: Some(message_result),
         rrsets: rrsets_to_verify,
         verified_rrsets: HashSet::new(),
-    }.boxed()
+    }
+    .boxed()
 }
 
 fn is_dnssec(rr: &Record, dnssec_type: DNSSECRecordType) -> bool {
@@ -326,7 +331,9 @@ impl Future for VerifyRrsetsFuture {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         if self.message_result.is_none() {
-            return Poll::Ready(Err(ProtoError::from(ProtoErrorKind::Message("message is none"))));
+            return Poll::Ready(Err(ProtoError::from(ProtoErrorKind::Message(
+                "message is none",
+            ))));
         }
 
         // loop through all the rrset evaluations, filter all the rrsets in the Message
@@ -358,10 +365,14 @@ impl Future for VerifyRrsetsFuture {
 
             if !remaining.is_empty() {
                 // continue the evaluation
-                drop(mem::replace(&mut self.as_mut().rrsets, future::select_all(remaining)));
+                drop(mem::replace(
+                    &mut self.as_mut().rrsets,
+                    future::select_all(remaining),
+                ));
             } else {
                 // validated not none above...
-                let mut message_result = mem::replace(&mut self.as_mut().message_result, None).unwrap();
+                let mut message_result =
+                    mem::replace(&mut self.as_mut().message_result, None).unwrap();
 
                 // take all the rrsets from the Message, filter down each set to the validated rrsets
                 // TODO: does the section in the message matter here?
@@ -442,8 +453,7 @@ where
             match rrset.record_type {
                 RecordType::DNSSEC(DNSSECRecordType::DNSKEY) => verify_dnskey_rrset(handle, rrset),
                 _ => future::ok(rrset).boxed(),
-            }
-        )
+            })
         .map_err(|e| {
             debug!("rrset failed validation: {}", e);
             e
@@ -461,7 +471,7 @@ fn verify_dnskey_rrset<H>(
     rrset: Rrset,
 ) -> Pin<Box<dyn Future<Output = Result<Rrset, ProtoError>> + Send>>
 where
-    H: DnsHandle + Unpin
+    H: DnsHandle + Unpin,
 {
     debug!(
         "dnskey validation {}, record_type: {:?}",
@@ -659,40 +669,40 @@ where
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
         return future::ready(
-                rrsigs
-                    .into_iter()
-                    // this filter is technically unnecessary, can probably remove it...
-                    .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
-                    .map(|rrsig| {
-                        if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.unwrap_rdata() {
-                            // setting up the context explicitly.
-                            sig
-                        } else {
-                            panic!("expected a SIG here");
-                        }
-                    })
-                    .filter_map(|sig| {
-                        let rrset = Arc::clone(&rrset);
+            rrsigs
+                .into_iter()
+                // this filter is technically unnecessary, can probably remove it...
+                .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
+                .map(|rrsig| {
+                    if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.unwrap_rdata() {
+                        // setting up the context explicitly.
+                        sig
+                    } else {
+                        panic!("expected a SIG here");
+                    }
+                })
+                .filter_map(|sig| {
+                    let rrset = Arc::clone(&rrset);
 
-                        if rrset.records.iter().any(|r| {
-                            if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
-                                verify_rrset_with_dnskey(dnskey, &sig, &rrset).is_ok()
-                            } else {
-                                panic!("expected a DNSKEY here: {:?}", r.rdata());
-                            }
-                        }) {
-                            Some(rrset)
+                    if rrset.records.iter().any(|r| {
+                        if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
+                            verify_rrset_with_dnskey(dnskey, &sig, &rrset).is_ok()
                         } else {
-                            None
+                            panic!("expected a DNSKEY here: {:?}", r.rdata());
                         }
-                    })
-                    .next()
-                    .ok_or_else(|| {
-                        ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
-                    }),
-            )
-            .map_ok(move |rrset| Arc::try_unwrap(rrset).expect("unable to unwrap Arc"))
-            .boxed();
+                    }) {
+                        Some(rrset)
+                    } else {
+                        None
+                    }
+                })
+                .next()
+                .ok_or_else(|| {
+                    ProtoError::from(ProtoErrorKind::Message("self-signed dnskey is invalid"))
+                }),
+        )
+        .map_ok(move |rrset| Arc::try_unwrap(rrset).expect("unable to unwrap Arc"))
+        .boxed();
     }
 
     // we can validate with any of the rrsigs...
@@ -748,7 +758,8 @@ where
         return future::err(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
             name: rrset.name.clone(),
             record_type: rrset.record_type,
-        })).boxed();
+        }))
+        .boxed();
     }
 
     // as long as any of the verifications is good, then the RRSET is valid.

@@ -42,10 +42,10 @@ impl NameServerStateInner {
 
 impl NameServerState {
     /// Set at the new Init state
-    /// 
+    ///
     /// If send_dns is some, this will be sent on the first request when it is established
     pub fn init(send_edns: Option<Edns>) -> Self {
-        NameServerState(RwLock::new(NameServerStateInner::Init{ send_edns }))
+        NameServerState(RwLock::new(NameServerStateInner::Init { send_edns }))
     }
 
     /// Transition to the Established state
@@ -54,15 +54,15 @@ impl NameServerState {
     ///   the remote's support.
     pub fn establish(&self, remote_edns: Option<Edns>) {
         let mut state = self.0.write().expect("poisoned lock");
-        *state = NameServerStateInner::Established{ remote_edns };
+        *state = NameServerStateInner::Established { remote_edns };
     }
 
     /// transition to the Failed state
-    /// 
+    ///
     /// when is the time of the failure
     pub fn fail(&self, when: Instant) {
         let mut state = self.0.write().expect("poisoned lock");
-        *state = NameServerStateInner::Failed{ when };
+        *state = NameServerStateInner::Failed { when };
     }
 
     /// True if this is in the Failed state
@@ -127,7 +127,8 @@ impl PartialOrd for NameServerState {
 
 impl PartialEq for NameServerState {
     fn eq(&self, other: &Self) -> bool {
-        self.0.read().expect("self poisoned").to_usize() == other.0.read().expect("self poisoned").to_usize()
+        self.0.read().expect("self poisoned").to_usize()
+            == other.0.read().expect("self poisoned").to_usize()
     }
 }
 
@@ -142,9 +143,13 @@ mod tests {
     fn test_state_cmp() {
         let init = NameServerState::init(None);
 
-        let established = NameServerState(RwLock::new(NameServerStateInner::Established { remote_edns: None }));
+        let established = NameServerState(RwLock::new(NameServerStateInner::Established {
+            remote_edns: None,
+        }));
 
-        let failed = NameServerState(RwLock::new(NameServerStateInner::Failed { when: Instant::now() }));
+        let failed = NameServerState(RwLock::new(NameServerStateInner::Failed {
+            when: Instant::now(),
+        }));
 
         assert_eq!(init.cmp(&init), Ordering::Equal);
         assert_eq!(init.cmp(&established), Ordering::Less);

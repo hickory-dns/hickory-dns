@@ -15,7 +15,7 @@ use proto::serialize::binary::BinDecodable;
 use tokio_io::{AsyncRead, AsyncWrite};
 use trust_dns_https::https_server;
 
-use crate::authority::{MessageResponse, MessageRequest};
+use crate::authority::{MessageRequest, MessageResponse};
 use crate::server::request_handler::RequestHandler;
 use crate::server::response_handler::ResponseHandler;
 use crate::server::server_future;
@@ -25,8 +25,7 @@ pub async fn h2_handler<T, I>(
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Arc<String>,
-)
-where
+) where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,
 {
@@ -37,8 +36,8 @@ where
         Ok(h2) => h2,
         Err(err) => {
             warn!("handshake error from {}: {}", src_addr, err);
-            return
-        },
+            return;
+        }
     };
 
     // Accept all inbound HTTP/2.0 streams sent over the
@@ -48,8 +47,8 @@ where
             Ok(next_request) => next_request,
             Err(err) => {
                 warn!("error accepting request {}: {}", src_addr, err);
-                return
-            },
+                return;
+            }
         };
 
         debug!("Received request: {:#?}", request);
@@ -66,9 +65,13 @@ where
     }
 }
 
-async fn handle_request<T>(bytes: Bytes, src_addr: SocketAddr, handler: Arc<Mutex<T>>, responder: HttpsResponseHandle) 
-where
-    T: RequestHandler
+async fn handle_request<T>(
+    bytes: Bytes,
+    src_addr: SocketAddr,
+    handler: Arc<Mutex<T>>,
+    responder: HttpsResponseHandle,
+) where
+    T: RequestHandler,
 {
     let message: MessageRequest = match BinDecodable::from_bytes(&bytes) {
         Ok(message) => message,
@@ -80,12 +83,7 @@ where
 
     debug!("received message: {:?}", message);
 
-    if let Err(()) = server_future::handle_request(
-        message,
-        src_addr,
-        handler,
-        responder,
-    ).await {
+    if let Err(()) = server_future::handle_request(message, src_addr, handler, responder).await {
         warn!("error handling request from {}", src_addr);
         ()
     }

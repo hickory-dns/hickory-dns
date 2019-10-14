@@ -1,7 +1,7 @@
 //! Reserved Zone and related information
 
-use proto::rr::domain::{Label, Name};
 pub use proto::rr::domain::usage::*;
+use proto::rr::domain::{Label, Name};
 use proto::serialize::binary::BinEncodable;
 
 use radix_trie::{Trie, TrieKey};
@@ -12,11 +12,11 @@ use radix_trie::{Trie, TrieKey};
 //
 // ```text
 // 6.1.  Domain Name Reservation Considerations for Private Addresses
-// 
+//
 //    The private-address [RFC1918] reverse-mapping domains listed below,
 //    and any names falling within those domains, are Special-Use Domain
 //    Names:
-// 
+//
 //      10.in-addr.arpa.      21.172.in-addr.arpa.  26.172.in-addr.arpa.
 //      16.172.in-addr.arpa.  22.172.in-addr.arpa.  27.172.in-addr.arpa.
 //      17.172.in-addr.arpa.  30.172.in-addr.arpa.  28.172.in-addr.arpa.
@@ -29,7 +29,7 @@ lazy_static! {
     pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&*IN_ADDR_ARPA));
 
     static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().append_domain(&*IN_ADDR_ARPA);
-    
+
     /// 16.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 17.172.in-addr.arpa. usage
@@ -42,9 +42,9 @@ lazy_static! {
     pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 21.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&*IN_ADDR_ARPA_172));
-    /// 22.172.in-addr.arpa. usage    
+    /// 22.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&*IN_ADDR_ARPA_172));
-    /// 23.172.in-addr.arpa. usage    
+    /// 23.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 24.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&*IN_ADDR_ARPA_172));
@@ -54,7 +54,7 @@ lazy_static! {
     pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 27.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&*IN_ADDR_ARPA_172));
-    /// 28.172.in-addr.arpa. usage    
+    /// 28.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 29.172.in-addr.arpa. usage
     pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&*IN_ADDR_ARPA_172));
@@ -67,13 +67,13 @@ lazy_static! {
     pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&*IN_ADDR_ARPA));
 }
 
-// example., example.com., example.net., and example.org. 
+// example., example.com., example.net., and example.org.
 //
 // [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
 //
 // ```text
 // 6.5.  Domain Name Reservation Considerations for Example Domains
-// 
+//
 //    The domains "example.", "example.com.", "example.net.",
 //    "example.org.", and any names falling within those domains, are
 //    special in the following ways:
@@ -83,7 +83,7 @@ lazy_static! {
     static ref NET: Label = Label::from_ascii("net").unwrap();
     static ref ORG: Label = Label::from_ascii("org").unwrap();
     static ref EXAMPLE_L: Label = Label::from_ascii("example").unwrap();
-    
+
     /// example. usage
     pub static ref EXAMPLE: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone()]).unwrap());
     /// example.com. usage
@@ -100,7 +100,7 @@ lazy_static! {
 //
 // ```text
 // 6.2.  Domain Name Reservation Considerations for "test."
-// 
+//
 //    The domain "test.", and any names falling within ".test.", are
 //    special in the following ways:
 // ```
@@ -122,9 +122,9 @@ impl TrieKey for TrieName {
     /// Returns this name in byte form, reversed for searching from zone to local label
     ///
     /// # Panics
-    /// 
+    ///
     /// This will panic on bad names
-    fn encode_bytes(&self) -> Vec<u8> { 
+    fn encode_bytes(&self) -> Vec<u8> {
         let mut bytes = self.0.to_bytes().expect("bad name for trie");
         bytes.reverse();
         bytes
@@ -144,9 +144,9 @@ impl<'n> TrieKey for TrieNameRef<'n> {
     /// Returns this name in byte form, reversed for searching from zone to local label
     ///
     /// # Panics
-    /// 
+    ///
     /// This will panic on bad names
-    fn encode_bytes(&self) -> Vec<u8> { 
+    fn encode_bytes(&self) -> Vec<u8> {
         let mut bytes = self.0.to_bytes().expect("bad name for trie");
         bytes.reverse();
         bytes
@@ -162,39 +162,85 @@ impl UsageTrie {
         let mut trie: Trie<TrieName, &'static ZoneUsage> = Trie::new();
 
         assert!(trie.insert(DEFAULT.clone().into(), &DEFAULT).is_none());
-        
-        assert!(trie.insert(IN_ADDR_ARPA_10.clone().into(), &IN_ADDR_ARPA_10).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_16.clone().into(), &IN_ADDR_ARPA_172_16).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_17.clone().into(), &IN_ADDR_ARPA_172_17).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_18.clone().into(), &IN_ADDR_ARPA_172_18).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_19.clone().into(), &IN_ADDR_ARPA_172_19).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_20.clone().into(), &IN_ADDR_ARPA_172_20).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_21.clone().into(), &IN_ADDR_ARPA_172_21).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_22.clone().into(), &IN_ADDR_ARPA_172_22).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_23.clone().into(), &IN_ADDR_ARPA_172_23).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_24.clone().into(), &IN_ADDR_ARPA_172_24).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_25.clone().into(), &IN_ADDR_ARPA_172_25).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_26.clone().into(), &IN_ADDR_ARPA_172_26).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_27.clone().into(), &IN_ADDR_ARPA_172_27).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_28.clone().into(), &IN_ADDR_ARPA_172_28).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_29.clone().into(), &IN_ADDR_ARPA_172_29).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_30.clone().into(), &IN_ADDR_ARPA_172_30).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_172_31.clone().into(), &IN_ADDR_ARPA_172_31).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_192_168.clone().into(), &IN_ADDR_ARPA_192_168).is_none());
+
+        assert!(trie
+            .insert(IN_ADDR_ARPA_10.clone().into(), &IN_ADDR_ARPA_10)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_16.clone().into(), &IN_ADDR_ARPA_172_16)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_17.clone().into(), &IN_ADDR_ARPA_172_17)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_18.clone().into(), &IN_ADDR_ARPA_172_18)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_19.clone().into(), &IN_ADDR_ARPA_172_19)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_20.clone().into(), &IN_ADDR_ARPA_172_20)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_21.clone().into(), &IN_ADDR_ARPA_172_21)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_22.clone().into(), &IN_ADDR_ARPA_172_22)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_23.clone().into(), &IN_ADDR_ARPA_172_23)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_24.clone().into(), &IN_ADDR_ARPA_172_24)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_25.clone().into(), &IN_ADDR_ARPA_172_25)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_26.clone().into(), &IN_ADDR_ARPA_172_26)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_27.clone().into(), &IN_ADDR_ARPA_172_27)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_28.clone().into(), &IN_ADDR_ARPA_172_28)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_29.clone().into(), &IN_ADDR_ARPA_172_29)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_30.clone().into(), &IN_ADDR_ARPA_172_30)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_172_31.clone().into(), &IN_ADDR_ARPA_172_31)
+            .is_none());
+        assert!(trie
+            .insert(IN_ADDR_ARPA_192_168.clone().into(), &IN_ADDR_ARPA_192_168)
+            .is_none());
 
         assert!(trie.insert(TEST.clone().into(), &TEST).is_none());
-        
+
         assert!(trie.insert(LOCALHOST.clone().into(), &LOCALHOST).is_none());
-        assert!(trie.insert(IN_ADDR_ARPA_127.clone().into(), &IN_ADDR_ARPA_127).is_none());
-        assert!(trie.insert(IP6_ARPA_1.clone().into(), &IP6_ARPA_1).is_none());
-        
+        assert!(trie
+            .insert(IN_ADDR_ARPA_127.clone().into(), &IN_ADDR_ARPA_127)
+            .is_none());
+        assert!(trie
+            .insert(IP6_ARPA_1.clone().into(), &IP6_ARPA_1)
+            .is_none());
+
         assert!(trie.insert(INVALID.clone().into(), &INVALID).is_none());
 
         assert!(trie.insert(EXAMPLE.clone().into(), &EXAMPLE).is_none());
-        assert!(trie.insert(EXAMPLE_COM.clone().into(), &EXAMPLE_COM).is_none());
-        assert!(trie.insert(EXAMPLE_NET.clone().into(), &EXAMPLE_NET).is_none());
-        assert!(trie.insert(EXAMPLE_ORG.clone().into(), &EXAMPLE_ORG).is_none());
-        
+        assert!(trie
+            .insert(EXAMPLE_COM.clone().into(), &EXAMPLE_COM)
+            .is_none());
+        assert!(trie
+            .insert(EXAMPLE_NET.clone().into(), &EXAMPLE_NET)
+            .is_none());
+        assert!(trie
+            .insert(EXAMPLE_ORG.clone().into(), &EXAMPLE_ORG)
+            .is_none());
+
         UsageTrie(trie)
     }
 
@@ -204,11 +250,13 @@ impl UsageTrie {
     ///
     /// Matches the closest zone encapsulating `name`, at a minimum the default root zone usage will be returned
     pub fn get(&self, name: &Name) -> &'static ZoneUsage {
-        self.0.get_ancestor_value(&TrieName::from(name.clone())).expect("DEFAULT root ZoneUsage should have been returned")
+        self.0
+            .get_ancestor_value(&TrieName::from(name.clone()))
+            .expect("DEFAULT root ZoneUsage should have been returned")
     }
 }
 
-lazy_static!{
+lazy_static! {
     /// All default usage mappings
     pub static ref USAGE: UsageTrie = UsageTrie::default();
 }
@@ -229,33 +277,107 @@ mod tests {
 
     #[test]
     fn test_local_networks() {
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(9,0,0,1))).name(), DEFAULT.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(10,0,0,1))).name(), IN_ADDR_ARPA_10.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(11,0,0,1))).name(), DEFAULT.name());
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(9, 0, 0, 1))).name(),
+            DEFAULT.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(10, 0, 0, 1))).name(),
+            IN_ADDR_ARPA_10.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(11, 0, 0, 1))).name(),
+            DEFAULT.name()
+        );
 
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,16,0,0))).name(), IN_ADDR_ARPA_172_16.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,17,0,0))).name(), IN_ADDR_ARPA_172_17.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,18,0,0))).name(), IN_ADDR_ARPA_172_18.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,19,0,0))).name(), IN_ADDR_ARPA_172_19.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,20,0,0))).name(), IN_ADDR_ARPA_172_20.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,21,0,0))).name(), IN_ADDR_ARPA_172_21.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,22,0,0))).name(), IN_ADDR_ARPA_172_22.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,23,0,0))).name(), IN_ADDR_ARPA_172_23.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,24,0,0))).name(), IN_ADDR_ARPA_172_24.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,25,0,0))).name(), IN_ADDR_ARPA_172_25.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,26,0,0))).name(), IN_ADDR_ARPA_172_26.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,27,0,0))).name(), IN_ADDR_ARPA_172_27.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,28,0,0))).name(), IN_ADDR_ARPA_172_28.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,29,0,0))).name(), IN_ADDR_ARPA_172_29.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,30,0,0))).name(), IN_ADDR_ARPA_172_30.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,31,0,0))).name(), IN_ADDR_ARPA_172_31.name());
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 16, 0, 0))).name(),
+            IN_ADDR_ARPA_172_16.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 17, 0, 0))).name(),
+            IN_ADDR_ARPA_172_17.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 18, 0, 0))).name(),
+            IN_ADDR_ARPA_172_18.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 19, 0, 0))).name(),
+            IN_ADDR_ARPA_172_19.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 20, 0, 0))).name(),
+            IN_ADDR_ARPA_172_20.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 21, 0, 0))).name(),
+            IN_ADDR_ARPA_172_21.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 22, 0, 0))).name(),
+            IN_ADDR_ARPA_172_22.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 23, 0, 0))).name(),
+            IN_ADDR_ARPA_172_23.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 24, 0, 0))).name(),
+            IN_ADDR_ARPA_172_24.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 25, 0, 0))).name(),
+            IN_ADDR_ARPA_172_25.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 26, 0, 0))).name(),
+            IN_ADDR_ARPA_172_26.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 27, 0, 0))).name(),
+            IN_ADDR_ARPA_172_27.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 28, 0, 0))).name(),
+            IN_ADDR_ARPA_172_28.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 29, 0, 0))).name(),
+            IN_ADDR_ARPA_172_29.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 30, 0, 0))).name(),
+            IN_ADDR_ARPA_172_30.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 31, 0, 0))).name(),
+            IN_ADDR_ARPA_172_31.name()
+        );
 
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,15,0,0))).name(), DEFAULT.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,32,0,0))).name(), DEFAULT.name());
-        
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(192,167,255,255))).name(), DEFAULT.name()); 
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(192,168,2,3))).name(), IN_ADDR_ARPA_192_168.name()); 
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(192,169,0,0))).name(), DEFAULT.name()); 
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 15, 0, 0))).name(),
+            DEFAULT.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(172, 32, 0, 0))).name(),
+            DEFAULT.name()
+        );
+
+        assert_eq!(
+            USAGE
+                .get(&Name::from(Ipv4Addr::new(192, 167, 255, 255)))
+                .name(),
+            DEFAULT.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(192, 168, 2, 3))).name(),
+            IN_ADDR_ARPA_192_168.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(192, 169, 0, 0))).name(),
+            DEFAULT.name()
+        );
     }
 
     #[test]
@@ -297,11 +419,25 @@ mod tests {
 
         let usage = USAGE.get(&name);
         assert_eq!(usage.name(), LOCALHOST.name());
-    
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(127,0,0,1))).name(), IN_ADDR_ARPA_127.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(127,0,0,2))).name(), IN_ADDR_ARPA_127.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(127,255,0,0))).name(), IN_ADDR_ARPA_127.name());
-        assert_eq!(USAGE.get(&Name::from(Ipv6Addr::new(0,0,0,0,0,0,0,1))).name(), IP6_ARPA_1.name());
+
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(127, 0, 0, 1))).name(),
+            IN_ADDR_ARPA_127.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(127, 0, 0, 2))).name(),
+            IN_ADDR_ARPA_127.name()
+        );
+        assert_eq!(
+            USAGE.get(&Name::from(Ipv4Addr::new(127, 255, 0, 0))).name(),
+            IN_ADDR_ARPA_127.name()
+        );
+        assert_eq!(
+            USAGE
+                .get(&Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+                .name(),
+            IP6_ARPA_1.name()
+        );
     }
 
     #[test]

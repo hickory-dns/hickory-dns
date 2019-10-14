@@ -56,7 +56,8 @@ fn test_startup(toml: &'static str) {
         File::open(&format!(
             "{}/tests/named_test_configs/sec/example.cert",
             server_path
-        )).expect("failed to open cert")
+        ))
+        .expect("failed to open cert")
         .read_to_end(&mut cert_der)
         .expect("failed to read cert");
 

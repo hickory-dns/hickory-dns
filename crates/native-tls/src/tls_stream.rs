@@ -139,12 +139,13 @@ impl TlsStreamBuilder {
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;
 
-        let tcp_stream: Result<TokioTcpStream, _> = TokioTcpStream::connect(&name_server)/*.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        })*/.await;
+        let tcp_stream: Result<TokioTcpStream, _> = TokioTcpStream::connect(&name_server) /*.map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    format!("tls error: {}", e),
+                )
+            })*/
+            .await;
 
         // TODO: for some reason the above wouldn't accept a ?
         let tcp_stream = match tcp_stream {
@@ -154,7 +155,8 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let tls_connector = tls_stream::tls_new(ca_chain, identity).map(TokioTlsConnector::from)
+        let tls_connector = tls_stream::tls_new(ca_chain, identity)
+            .map(TokioTlsConnector::from)
             .map_err(|e| {
                 io::Error::new(
                     io::ErrorKind::ConnectionRefused,
@@ -162,13 +164,20 @@ impl TlsStreamBuilder {
                 )
             })?;
 
-        let tls_connected = tls_connector.connect(&dns_name, tcp_stream).map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::ConnectionRefused,
-                        format!("tls error: {}", e),
-                    )
-                }).await?;
+        let tls_connected = tls_connector
+            .connect(&dns_name, tcp_stream)
+            .map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    format!("tls error: {}", e),
+                )
+            })
+            .await?;
 
-        Ok(TcpStream::from_stream_with_receiver(tls_connected, name_server, outbound_messages))
+        Ok(TcpStream::from_stream_with_receiver(
+            tls_connected,
+            name_server,
+            outbound_messages,
+        ))
     }
 }

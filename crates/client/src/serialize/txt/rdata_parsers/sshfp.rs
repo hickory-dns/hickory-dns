@@ -8,7 +8,6 @@
 //! SSHFP records for SSH public key fingerprints
 use data_encoding::{Encoding, Specification};
 
-
 use crate::error::*;
 use crate::rr::rdata::SSHFP;
 
@@ -132,8 +131,7 @@ fn test_parsing() {
         ECDSA,
         SHA1,
         &[
-            198, 70, 7, 162, 140, 83, 0, 254, 193, 24, 11, 110, 65, 123, 146, 41, 67, 207, 252,
-            221,
+            198, 70, 7, 162, 140, 83, 0, 254, 193, 24, 11, 110, 65, 123, 146, 41, 67, 207, 252, 221,
         ],
     );
     test_parsing(

@@ -24,8 +24,8 @@ use ring::error::Unspecified;
 
 use failure::{Backtrace, Context, Fail};
 use tokio_executor::SpawnError;
-use tokio_timer::Error as TimerError;
 use tokio_timer::timeout::Elapsed;
+use tokio_timer::Error as TimerError;
 
 /// An alias for results returned by functions of this crate
 pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;

@@ -8,9 +8,9 @@
 //! Error types for the crate
 
 use failure::{Backtrace, Context, Fail};
-use std::{fmt, io, sync, time::Instant};
 use proto::error::{ProtoError, ProtoErrorKind};
 use proto::op::Query;
+use std::{fmt, io, sync, time::Instant};
 
 /// An alias for results returned by functions of this crate
 pub type ResolveResult<T> = ::std::result::Result<T, ResolveError>;
@@ -33,7 +33,7 @@ pub enum ResolveErrorKind {
         query: Query,
         /// A deadline after which the `NXDOMAIN` response is no longer
         /// valid, and the nameserver should be queried again.
-        valid_until: Option<Instant>
+        valid_until: Option<Instant>,
     },
 
     // foreign
@@ -56,7 +56,10 @@ impl Clone for ResolveErrorKind {
         match *self {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
-            NoRecordsFound { ref query, valid_until } => NoRecordsFound {
+            NoRecordsFound {
+                ref query,
+                valid_until,
+            } => NoRecordsFound {
                 query: query.clone(),
                 valid_until,
             },

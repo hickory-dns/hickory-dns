@@ -35,7 +35,8 @@ fn args<'a>() -> ArgMatches<'a> {
                 .help("Input FILE from which to read the DNSSec private key")
                 .required(true)
                 .index(1),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("output")
                 .value_name("OUTPUT_FILE")
                 .long("output")
@@ -43,7 +44,8 @@ fn args<'a>() -> ArgMatches<'a> {
                 .takes_value(true)
                 .help("Output FILE to write to")
                 .default_value("out.pem"),
-        ).get_matches()
+        )
+        .get_matches()
 }
 
 pub fn main() {
@@ -85,7 +87,8 @@ pub fn main() {
             .split(' ')
             .next()
             .unwrap_or_else(|| panic!("bad algorithm format, expected '# STR': {}", next_line)),
-    ).unwrap_or_else(|_| panic!("bad algorithm format, expected '# STR': {}", next_line));
+    )
+    .unwrap_or_else(|_| panic!("bad algorithm format, expected '# STR': {}", next_line));
 
     let algorithm = match Algorithm::from_u8(algorithm_num) {
         Algorithm::Unknown(v) => panic!("unsupported algorithm {}: {}", v, next_line),
@@ -140,7 +143,8 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
                 &BASE64
                     .decode(value.as_bytes())
                     .unwrap_or_else(|_| panic!("badly formatted line, expected base64: {}", line)),
-            ).unwrap(),
+            )
+            .unwrap(),
         );
 
         match field {
@@ -165,7 +169,8 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
         exponent1.expect("Missing Exponent1"),
         exponent2.expect("Missing Exponent2"),
         coefficient.expect("Missing Coefficient"),
-    ).unwrap();
+    )
+    .unwrap();
 
     rsa.private_key_to_pem().unwrap()
 }

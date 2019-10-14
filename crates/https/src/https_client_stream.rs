@@ -5,24 +5,24 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::ops::DerefMut;
 use std::fmt::{self, Display};
+use std::io;
 use std::mem;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::ops::DerefMut;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
-use std::io;
 
 use bytes::Bytes;
 use futures::{future, Future, FutureExt, Poll, Stream, TryFutureExt};
-use h2::client::{Connection, SendRequest};
 use h2;
+use h2::client::{Connection, SendRequest};
 use http::{self, header};
 use rustls::{Certificate, ClientConfig};
 use tokio_executor;
+use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_rustls::{client::TlsStream as TokioTlsClientStream, Connect, TlsConnector};
-use tokio_net::tcp::{TcpStream as TokioTcpStream};
 use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
 
@@ -53,11 +53,12 @@ impl Display for HttpsClientStream {
 }
 
 impl HttpsClientStream {
-    async fn inner_send(h2: SendRequest<Bytes>,
+    async fn inner_send(
+        h2: SendRequest<Bytes>,
         message: SerialMessage,
         name_server_name: Arc<String>,
-        name_server: SocketAddr) -> Result<DnsResponse, ProtoError> {
-        
+        name_server: SocketAddr,
+    ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
             Err(err) => {
@@ -71,23 +72,23 @@ impl HttpsClientStream {
         let bytes = Bytes::from(message.bytes());
         let request = crate::request::new(&name_server_name, bytes.len());
 
-        let request = request.map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
+        let request =
+            request.map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
 
         debug!("request: {:#?}", request);
 
         // Send the request
-        let (response_future, mut send_stream) =
-            h2.send_request(request, false).map_err(|err| {
-                ProtoError::from(format!("h2 send_request error: {}", err))
-            })?;
+        let (response_future, mut send_stream) = h2
+            .send_request(request, false)
+            .map_err(|err| ProtoError::from(format!("h2 send_request error: {}", err)))?;
 
         send_stream
             .send_data(bytes, true)
             .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
 
-        let mut response_stream = response_future.await.map_err(|err| ProtoError::from(
-            format!("received a stream error: {}", err)
-        ))?;
+        let mut response_stream = response_future
+            .await
+            .map_err(|err| ProtoError::from(format!("received a stream error: {}", err)))?;
 
         debug!("got response: {:#?}", response_stream);
 
@@ -101,10 +102,12 @@ impl HttpsClientStream {
         // TODO: what is a good max here?
         // max(512) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
         //  just a little protection from malicious actors.
-        let mut response_bytes = Bytes::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
+        let mut response_bytes =
+            Bytes::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
-            let partial_bytes = partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {}", e)))?;
+            let partial_bytes =
+                partial_bytes.map_err(|e| ProtoError::from(format!("bad http request: {}", e)))?;
 
             debug!("got bytes: {}", partial_bytes.len());
             response_bytes.extend(partial_bytes);
@@ -136,7 +139,8 @@ impl HttpsClientStream {
             // TODO: make explicit error type
             return Err(ProtoError::from(format!(
                 "http unsuccessful code: {}, message: {}",
-                response_stream.status(), error_string
+                response_stream.status(),
+                error_string
             )));
         } else {
             // verify content type
@@ -148,12 +152,10 @@ impl HttpsClientStream {
                     .map(|h| {
                         h.to_str().map_err(|err| {
                             // TODO: make explicit error type
-                            ProtoError::from(format!(
-                                "ContentType header not a string: {}",
-                                err
-                            ))
+                            ProtoError::from(format!("ContentType header not a string: {}", err))
                         })
-                    }).unwrap_or(Ok(crate::MIME_APPLICATION_DNS))?;
+                    })
+                    .unwrap_or(Ok(crate::MIME_APPLICATION_DNS))?;
 
                 if content_type != crate::MIME_APPLICATION_DNS {
                     return Err(ProtoError::from(format!(
@@ -174,7 +176,7 @@ impl HttpsClientStream {
 impl DnsRequestSender for HttpsClientStream {
     type DnsResponseFuture = HttpsClientResponse;
 
-        /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
+    /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
     /// If the request fails, this will return the error, and it should be assumed that the Stream portion of
     ///   this will have no date.
@@ -231,13 +233,16 @@ impl DnsRequestSender for HttpsClientStream {
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => {
-                return HttpsClientResponse(Box::pin(future::err(err.into())))
-            }
+            Err(err) => return HttpsClientResponse(Box::pin(future::err(err.into()))),
         };
         let message = SerialMessage::new(bytes, self.name_server);
 
-        HttpsClientResponse(Box::pin(Self::inner_send(self.h2.clone(), message, Arc::clone(&self.name_server_name), self.name_server)))
+        HttpsClientResponse(Box::pin(Self::inner_send(
+            self.h2.clone(),
+            message,
+            Arc::clone(&self.name_server_name),
+            self.name_server,
+        )))
 
         // HttpsSerialResponse(HttpsSerialResponseInner::StartSend {
         //     h2: self.h2.clone(),
@@ -272,7 +277,10 @@ impl Stream for HttpsClientStream {
         match self.h2.poll_ready(cx) {
             Poll::Ready(Ok(r)) => Poll::Ready(Some(Ok(r))),
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!("h2 stream errored: {}", e))))),
+            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
+                "h2 stream errored: {}",
+                e
+            ))))),
         }
     }
 }
@@ -369,7 +377,19 @@ enum HttpsClientConnectState {
         name_server: SocketAddr,
     },
     H2Handshake {
-        handshake: Pin<Box<dyn Future<Output = Result<(SendRequest<Bytes>, Connection<TokioTlsClientStream<TokioTcpStream>, Bytes>), h2::Error>> + Send>>,
+        handshake: Pin<
+            Box<
+                dyn Future<
+                        Output = Result<
+                            (
+                                SendRequest<Bytes>,
+                                Connection<TokioTlsClientStream<TokioTcpStream>, Bytes>,
+                            ),
+                            h2::Error,
+                        >,
+                    > + Send,
+            >,
+        >,
         name_server_name: Arc<String>,
         name_server: SocketAddr,
     },
@@ -383,7 +403,10 @@ impl Future for HttpsClientConnectState {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
             let next = match *self {
-                HttpsClientConnectState::ConnectTcp { name_server, ref mut tls } => {
+                HttpsClientConnectState::ConnectTcp {
+                    name_server,
+                    ref mut tls,
+                } => {
                     debug!("tcp connecting to: {}", name_server);
                     let connect = Box::pin(TokioTcpStream::connect(name_server));
                     HttpsClientConnectState::TcpConnecting {
@@ -443,16 +466,16 @@ impl Future for HttpsClientConnectState {
                     name_server,
                     ref mut handshake,
                 } => {
-                    let (send_request, connection) = ready!(
-                        handshake
-                            .poll_unpin(cx)
-                            .map_err(|e| ProtoError::from(format!("h2 handshake error: {}", e)))
-                    )?;
+                    let (send_request, connection) = ready!(handshake
+                        .poll_unpin(cx)
+                        .map_err(|e| ProtoError::from(format!("h2 handshake error: {}", e))))?;
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
                     tokio_executor::spawn(
-                        connection.map_err(|e| warn!("h2 connection failed: {}", e)).map(|_: Result<(),()>| ()),
+                        connection
+                            .map_err(|e| warn!("h2 connection failed: {}", e))
+                            .map(|_: Result<(), ()>| ()),
                     );
 
                     HttpsClientConnectState::Connected(Some(HttpsClientStream {
@@ -476,27 +499,29 @@ impl Future for HttpsClientConnectState {
 }
 
 /// A future that resolves to
-pub struct HttpsClientResponse(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>);
+pub struct HttpsClientResponse(
+    Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
+);
 
 // impl HttpsClientResponse {
-    // /// creates a new future for the request
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `request` - Serialized message being sent
-    // /// * `message_id` - Id of the message that was encoded in the serial message
-    // fn new(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
-    //     UdpResponse(Box::pin(Timeout::new(
-    //         SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
-    //         timeout,
-    //     )))
-    // }
+// /// creates a new future for the request
+// ///
+// /// # Arguments
+// ///
+// /// * `request` - Serialized message being sent
+// /// * `message_id` - Id of the message that was encoded in the serial message
+// fn new(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
+//     UdpResponse(Box::pin(Timeout::new(
+//         SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
+//         timeout,
+//     )))
+// }
 
-    // /// ad already completed future
-    // fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
-    //     // TODO: this constructure isn't really necessary
-    //     UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
-    // }
+// /// ad already completed future
+// fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
+//     // TODO: this constructure isn't really necessary
+//     UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
+// }
 // }
 
 impl Future for HttpsClientResponse {

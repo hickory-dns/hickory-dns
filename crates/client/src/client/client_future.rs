@@ -5,10 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::Arc;
-use std::time::Duration;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
+use std::time::Duration;
 
 use futures::{Future, FutureExt, Poll};
 use proto::error::ProtoError;
@@ -20,7 +20,7 @@ use proto::xfer::{
 use rand;
 
 use crate::error::*;
-use crate::op::{Message, MessageType, OpCode, Query, update_message};
+use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::rr::dnssec::Signer;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
@@ -155,7 +155,9 @@ where
         loop {
             // we're either awaiting the connection, or we're always returning the exchange's result
             let next = match *self {
-                InnerClientFuture::DnsExchangeConnect(ref mut connect) => ready!(connect.poll_unpin(cx))?,
+                InnerClientFuture::DnsExchangeConnect(ref mut connect) => {
+                    ready!(connect.poll_unpin(cx))?
+                }
                 InnerClientFuture::DnsExchange(ref mut exchange) => return exchange.poll_unpin(cx),
             };
 
@@ -298,15 +300,16 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         // build the message
         let mut message: Message = Message::new();
         let id: u16 = rand::random();
-        message.set_id(id)
-           // 3.3. NOTIFY is similar to QUERY in that it has a request message with
-           // the header QR flag "clear" and a response message with QR "set".  The
-           // response message contains no useful information, but its reception by
-           // the master is an indication that the slave has received the NOTIFY
-           // and that the master can remove the slave from any retry queue for
-           // this NOTIFY event.
-           .set_message_type(MessageType::Query)
-           .set_op_code(OpCode::Notify);
+        message
+            .set_id(id)
+            // 3.3. NOTIFY is similar to QUERY in that it has a request message with
+            // the header QR flag "clear" and a response message with QR "set".  The
+            // response message contains no useful information, but its reception by
+            // the master is an indication that the slave has received the NOTIFY
+            // and that the master can remove the slave from any retry queue for
+            // this NOTIFY event.
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Notify);
 
         // Extended dns
         {
@@ -374,7 +377,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     {
         let rrset = rrset.into();
         let message = update_message::create(rrset, zone_origin);
-        
+
         ClientResponse(self.send(message))
     }
 

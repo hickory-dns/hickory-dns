@@ -38,9 +38,14 @@ fn test_lookup() {
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
-        println!("error, udp connection shutting down: {}", e);
-    }).map(|_: Result<_,_>| ()));
+    io_loop.spawn(
+        stream
+            .and_then(|stream| stream)
+            .map_err(|e| {
+                println!("error, udp connection shutting down: {}", e);
+            })
+            .map(|_: Result<_, _>| ()),
+    );
 
     let client = BufDnsRequestStreamHandle::new(handle);
 
@@ -69,9 +74,14 @@ fn test_lookup_hosts() {
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
-        println!("error, udp connection shutting down: {}", e);
-    }).map(|_: Result<_,_>| ()));
+    io_loop.spawn(
+        stream
+            .and_then(|stream| stream)
+            .map_err(|e| {
+                println!("error, udp connection shutting down: {}", e);
+            })
+            .map(|_: Result<_, _>| ()),
+    );
 
     let client = BufDnsRequestStreamHandle::new(handle);
 
@@ -130,9 +140,14 @@ fn test_lookup_ipv4_like() {
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
-        println!("error, udp connection shutting down: {}", e);
-    }).map(|_: Result<_,_>| ()));
+    io_loop.spawn(
+        stream
+            .and_then(|stream| stream)
+            .map_err(|e| {
+                println!("error, udp connection shutting down: {}", e);
+            })
+            .map(|_: Result<_, _>| ()),
+    );
 
     let client = BufDnsRequestStreamHandle::new(handle);
 
@@ -163,9 +178,14 @@ fn test_lookup_ipv4_like_fall_through() {
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
     let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(stream.and_then(|stream| stream).map_err(|e| {
-        println!("error, udp connection shutting down: {}", e);
-    }).map(|_: Result<_,_>| ()));
+    io_loop.spawn(
+        stream
+            .and_then(|stream| stream)
+            .map_err(|e| {
+                println!("error, udp connection shutting down: {}", e);
+            })
+            .map(|_: Result<_, _>| ()),
+    );
 
     let client = BufDnsRequestStreamHandle::new(handle);
 

@@ -104,11 +104,13 @@ impl<'a> Lexer<'a> {
                 }
                 State::Comment { is_list } => {
                     match ch {
-                        Some('\r') | Some('\n') => if is_list {
-                            self.state = State::List;
-                        } else {
-                            self.state = State::EOL;
-                        }, // out of the comment
+                        Some('\r') | Some('\n') => {
+                            if is_list {
+                                self.state = State::List;
+                            } else {
+                                self.state = State::EOL;
+                            }
+                        } // out of the comment
                         Some(_) => {
                             self.txt.next();
                         } // advance the token by default and maintain state
@@ -163,7 +165,8 @@ impl<'a> Lexer<'a> {
                             } else {
                                 return Err(LexerErrorKind::UnrecognizedDollar(
                                     char_data.take().unwrap_or_else(|| "".into()),
-                                ).into());
+                                )
+                                .into());
                             }
                         }
                     }
@@ -180,7 +183,8 @@ impl<'a> Lexer<'a> {
                             .take()
                             .ok_or_else(|| {
                                 LexerErrorKind::IllegalState("char_data_vec is None").into()
-                            }).map(|v| Some(Token::List(v)));
+                            })
+                            .map(|v| Some(Token::List(v)));
                     }
                     Some(ch) if ch.is_whitespace() => {
                         self.txt.next();
@@ -197,30 +201,33 @@ impl<'a> Lexer<'a> {
                         Some(')') if !is_list => {
                             return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
                         }
-                        Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => if is_list {
-                            char_data_vec
-                                .as_mut()
-                                .ok_or_else(|| {
-                                    LexerError::from(LexerErrorKind::IllegalState(
-                                        "char_data_vec is None",
-                                    ))
-                                }).and_then(|v| {
-                                    let char_data = char_data.take().ok_or_else(|| {
-                                        LexerErrorKind::IllegalState("char_data is None")
-                                    })?;
+                        Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
+                            if is_list {
+                                char_data_vec
+                                    .as_mut()
+                                    .ok_or_else(|| {
+                                        LexerError::from(LexerErrorKind::IllegalState(
+                                            "char_data_vec is None",
+                                        ))
+                                    })
+                                    .and_then(|v| {
+                                        let char_data = char_data.take().ok_or_else(|| {
+                                            LexerErrorKind::IllegalState("char_data is None")
+                                        })?;
 
-                                    v.push(char_data);
-                                    Ok(())
-                                })?;
-                            self.state = State::List;
-                        } else {
-                            self.state = State::RestOfLine;
-                            let result = char_data.take().ok_or_else(|| {
-                                LexerErrorKind::IllegalState("char_data is None").into()
-                            });
-                            let opt = result.map(|s| Some(Token::CharData(s)));
-                            return opt;
-                        },
+                                        v.push(char_data);
+                                        Ok(())
+                                    })?;
+                                self.state = State::List;
+                            } else {
+                                self.state = State::RestOfLine;
+                                let result = char_data.take().ok_or_else(|| {
+                                    LexerErrorKind::IllegalState("char_data is None").into()
+                                });
+                                let opt = result.map(|s| Some(Token::CharData(s)));
+                                return opt;
+                            }
+                        }
                         // TODO: this next one can be removed, but will keep unescaping for quoted strings
                         //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
                         Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
@@ -234,7 +241,8 @@ impl<'a> Lexer<'a> {
                                 .take()
                                 .ok_or_else(|| {
                                     LexerErrorKind::IllegalState("char_data is None").into()
-                                }).map(|s| Some(Token::CharData(s)));
+                                })
+                                .map(|s| Some(Token::CharData(s)));
                         }
                     }
                 }

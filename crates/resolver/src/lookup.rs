@@ -9,12 +9,12 @@
 
 use std::cmp::min;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::pin::Pin;
 use std::slice::Iter;
 use std::sync::Arc;
+use std::task::Context;
 use std::time::{Duration, Instant};
 use std::vec::IntoIter;
-use std::pin::Pin;
-use std::task::Context;
 
 use futures::{future, Future, FutureExt, Poll};
 
@@ -31,7 +31,9 @@ use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::lookup_ip::LookupIpIter;
 use crate::lookup_state::CachingClient;
-use crate::name_server::{ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection};
+use crate::name_server::{
+    ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection,
+};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
@@ -242,9 +244,9 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
         });
 
         let query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> = match name {
-            Ok(name) => {
-                client_cache.lookup(Query::query(name, record_type), options.clone()).boxed()
-            }
+            Ok(name) => client_cache
+                .lookup(Query::query(name, record_type), options.clone())
+                .boxed(),
             Err(err) => future::err(err).boxed(),
         };
 
@@ -537,8 +539,8 @@ pub mod tests {
     use std::str::FromStr;
     use std::sync::{Arc, Mutex};
 
-    use futures::{future, Future};
     use futures::executor::block_on;
+    use futures::{future, Future};
 
     use proto::error::{ProtoErrorKind, ProtoResult};
     use proto::op::Message;
@@ -556,9 +558,7 @@ pub mod tests {
         type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-            future::ready(
-                self.messages.lock().unwrap().pop().unwrap_or_else(empty),
-            ).boxed()
+            future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed()
         }
     }
 

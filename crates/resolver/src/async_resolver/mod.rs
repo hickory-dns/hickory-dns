@@ -13,10 +13,11 @@ use std::sync::Arc;
 use std::task::Context;
 
 use futures::{
-    self, future,
+    self,
     channel::{mpsc, oneshot},
-    Future, FutureExt, Poll, TryFutureExt,
+    future,
     lock::Mutex,
+    Future, FutureExt, Poll, TryFutureExt,
 };
 use proto::error::ProtoResult;
 use proto::rr::domain::TryParseIp;
@@ -498,8 +499,7 @@ mod tests {
 
         thread::spawn(move || {
             let mut background_runtime = Runtime::new().unwrap();
-            background_runtime
-                .block_on(bg);
+            background_runtime.block_on(bg);
         });
 
         let response = io_loop

@@ -6,13 +6,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-
 //! tlsa records for storing TLS authentication records
 use data_encoding::{Encoding, Specification};
 
 use crate::error::*;
-use crate::rr::rdata::TLSA;
 use crate::rr::rdata::tlsa::CertUsage;
+use crate::rr::rdata::TLSA;
 
 // TODO: dedup with sshfp
 lazy_static! {
@@ -56,16 +55,18 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
     let mut iter = tokens;
 
-    let token: &str = iter.next().ok_or_else(|| {
-        ParseError::from(ParseErrorKind::Message("TLSA usage field missing"))
-    })?;
+    let token: &str = iter
+        .next()
+        .ok_or_else(|| ParseError::from(ParseErrorKind::Message("TLSA usage field missing")))?;
     let usage = CertUsage::from(to_u8(token)?);
 
-    let token = iter.next()
+    let token = iter
+        .next()
         .ok_or_else(|| ParseErrorKind::Message("TLSA selector field missing"))?;
     let selector = to_u8(token)?.into();
 
-    let token = iter.next()
+    let token = iter
+        .next()
         .ok_or_else(|| ParseErrorKind::Message("TLSA matching field missing"))?;
     let matching = to_u8(token)?.into();
 
@@ -90,29 +91,29 @@ mod tests {
 
     #[test]
     fn test_parsing() {
-        assert!(
-            parse(
-                vec![
-                    "0",
-                    "0",
-                    "1",
-                    "d2abde240d7cd3ee6b4b28c54df034b9",
-                    "7983a1d16e8a410e4561cb106618e971",
-                ].into_iter()
-            ).is_ok()
-        );
-        assert!(
-            parse(
-                vec![
-                    "1",
-                    "1",
-                    "2",
-                    "92003ba34942dc74152e2f2c408d29ec",
-                    "a5a520e7f2e06bb944f4dca346baf63c",
-                    "1b177615d466f6c4b71c216a50292bd5",
-                    "8c9ebdd2f74e38fe51ffd48c43326cbc",
-                ].into_iter()
-            ).is_ok()
-        );
+        assert!(parse(
+            vec![
+                "0",
+                "0",
+                "1",
+                "d2abde240d7cd3ee6b4b28c54df034b9",
+                "7983a1d16e8a410e4561cb106618e971",
+            ]
+            .into_iter()
+        )
+        .is_ok());
+        assert!(parse(
+            vec![
+                "1",
+                "1",
+                "2",
+                "92003ba34942dc74152e2f2c408d29ec",
+                "a5a520e7f2e06bb944f4dca346baf63c",
+                "1b177615d466f6c4b71c216a50292bd5",
+                "8c9ebdd2f74e38fe51ffd48c43326cbc",
+            ]
+            .into_iter()
+        )
+        .is_ok());
     }
 }

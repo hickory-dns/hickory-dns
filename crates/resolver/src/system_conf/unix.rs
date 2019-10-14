@@ -126,7 +126,7 @@ mod tests {
 
     fn tests_dir() -> String {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
-        format!{"{}/../resolver/tests", server_path}
+        format! {"{}/../resolver/tests", server_path}
     }
 
     #[test]
