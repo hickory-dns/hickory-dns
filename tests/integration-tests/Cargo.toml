@@ -65,7 +65,7 @@ dns-over-tls = []
 
 [dependencies]
 chrono = "0.4"
-env_logger = "0.6"
+env_logger = "0.7"
 lazy_static = "1.0"
 log = "0.4.8"
 futures = "0.1.28"

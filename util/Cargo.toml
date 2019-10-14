@@ -52,6 +52,6 @@ data-encoding = "2.1.0"
 trust-dns = { version = "0.17.0", features = ["dnssec-openssl"], path = "../crates/client" }
 trust-dns-proto = { version = "0.8.0", features = ["dnssec-openssl"], path = "../crates/proto" }
 trust-dns-resolver = { version = "0.12.0", features = ["dnssec-openssl"], path = "../crates/resolver" }
-env_logger = "0.6"
+env_logger = "0.7"
 log = "0.4.8"
 openssl = { version = "0.10", features = ["v102", "v110"] }

@@ -46,7 +46,7 @@ path = "src/lib.rs"
 [dependencies]
 chrono = "^0.4"
 data-encoding = "2.1.0"
-env_logger = "0.6"
+env_logger = "0.7"
 futures = "^0.1.28"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
 rand = "0.7"

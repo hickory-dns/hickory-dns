@@ -77,5 +77,5 @@ tokio-udp = { version = "^0.1", optional = true }
 url = "2.1.0"
 
 [dev-dependencies]
-env_logger = "^0.6"
+env_logger = "^0.7"
 tokio = "^0.1.22"
