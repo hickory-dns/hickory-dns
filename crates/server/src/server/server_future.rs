@@ -193,27 +193,28 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
-        use futures::future;
         use trust_dns_openssl::{tls_server, TlsStream};
 
         let ((cert, chain), key) = certificate_and_key;
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
-        let tls_acceptor = tls_server::new_acceptor(cert, chain, key)?;
+        let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
         tokio_executor::spawn(
             listener
                 .incoming()
-                .for_each(move |tcp_stream| {
+                .try_for_each(move |tcp_stream| {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     let handler = handler.clone();
-
+                    // TODO: can this clone be gotten rid of? isn't this what Pin is for?
+                    let tls_acceptor = tls_acceptor.clone();
+                  
+                    async move {
                     // take the created stream...
-                    tls_acceptor
-                        .accept_async(tcp_stream)
+                    tokio_openssl::accept(&*tls_acceptor, tcp_stream)
                         .map_err(|e| {
                             io::Error::new(
                                 io::ErrorKind::ConnectionRefused,
@@ -236,26 +237,29 @@ impl<T: RequestHandler> ServerFuture<T> {
                                             src_addr, e
                                         )
                                     })
-                                    .for_each(move |message| {
+                                    .try_for_each(move |message| {
                                         self::handle_raw_request(
                                             message,
                                             handler.clone(),
                                             stream_handle.clone(),
-                                        )
+                                        ).map(|_: ()| Ok(()))
                                     })
                                     .map_err(move |_| {
                                         debug!("error in TLS request_stream src: {:?}", src_addr)
-                                    }),
+                                    })
+                                    .map(|_: Result<(),()>| ()),
                             );
 
-                            Ok(())
-                        })
+                            future::ok(())
+                        }).await
+                    }
                     // FIXME: need to map this error to Ok, otherwise this is a DOS potential
                     // .map_err(move |e| {
                     //     debug!("error TLS handshake: {:?} error: {:?}", src_addr, e)
                     // })
                 })
                 .map_err(|e| panic!("error in inbound tls_stream: {}", e))
+                .map(|_: Result<(),()>| ())
         );
 
         Ok(())
@@ -379,7 +383,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
                     // })
                 })
-                .map_err(|_| panic!("error in inbound https_stream"))
+                .map_err(|_| panic!("error in inbound tls_stream"))
                 .map(|_: Result<(),()>| ())
                 // .map(|r| {
                 //     if let Err(e) = r {

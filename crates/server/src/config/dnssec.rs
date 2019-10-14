@@ -302,8 +302,7 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
-    use config::dnssec::{CertType, PrivateKeyType};
-    use trust_dns_openssl::tls_server::{
+    use crate::trust_dns_openssl::tls_server::{
         read_cert_pem, read_cert_pkcs12, read_key_from_der, read_key_from_pkcs8,
     };
 

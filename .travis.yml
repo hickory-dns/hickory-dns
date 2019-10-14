@@ -88,7 +88,6 @@ matrix:
 
     # macos
     - os: osx
-      rust: stable
       env: NAME=macOS
            RUST_BACKTRACE=full
       script: 
