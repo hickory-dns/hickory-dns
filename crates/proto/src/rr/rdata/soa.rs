@@ -275,9 +275,6 @@ fn test() {
     println!("bytes: {:?}", bytes);
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let read_rdata = match read(&mut decoder) {
-        Ok(x) => x,
-        Err(x) => panic!("error decoding: {:?}", x),
-    };
+    let read_rdata = read(&mut decoder).expect("Decoding error");
     assert_eq!(rdata, read_rdata);
 }
