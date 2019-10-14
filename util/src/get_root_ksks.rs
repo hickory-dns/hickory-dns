@@ -56,9 +56,11 @@ pub fn main() {
                     | Algorithm::RSASHA1NSEC3SHA1
                     | Algorithm::RSASHA256
                     | Algorithm::RSASHA512 => String::from("rsa"),
-                    Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => String::from("ecdsa"),
+                    Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+                        String::from("ecdsa")
+                    }
                     Algorithm::ED25519 => String::from("ed25519"),
-                    Algorithm::Unknown(v) => format!("unknown_{}",v),
+                    Algorithm::Unknown(v) => format!("unknown_{}", v),
                 };
 
                 let mut path = PathBuf::from("/tmp");

@@ -73,12 +73,13 @@ fn mdns_responsder(
             server.wait();
 
             while !client_done.load(std::sync::atomic::Ordering::Relaxed) {
-                match io_loop
-                    .block_on(future::select(stream, timeout))
-                {
+                match io_loop.block_on(future::select(stream, timeout)) {
                     Either::Left((data_src_stream_tmp, timeout_tmp)) => {
                         let (data_src, stream_tmp) = data_src_stream_tmp;
-                        let (data, src) = data_src.expect("no buffer received").expect("error receiving buffer").unwrap();
+                        let (data, src) = data_src
+                            .expect("no buffer received")
+                            .expect("error receiving buffer")
+                            .unwrap();
 
                         stream = stream_tmp.into_future();
                         timeout = timeout_tmp;
@@ -91,7 +92,8 @@ fn mdns_responsder(
                             .unbounded_send(SerialMessage::new(
                                 message.to_vec().expect("message encode failed"),
                                 src,
-                            )).unwrap();
+                            ))
+                            .unwrap();
                     }
                     Either::Right(((), data_src_stream_tmp)) => {
                         stream = data_src_stream_tmp;
@@ -99,7 +101,8 @@ fn mdns_responsder(
                     }
                 }
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     client.wait();
     println!("server started");

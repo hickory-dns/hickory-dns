@@ -20,9 +20,9 @@ use std::str::FromStr;
 use crate::error::*;
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
+use crate::serialize::binary::*;
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use crate::serialize::binary::*;
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Clone, Default, Debug, Eq)]

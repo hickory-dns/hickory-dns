@@ -39,9 +39,9 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
-use crate::serialize::binary::*;
 use crate::error::*;
 use crate::rr::domain::Name;
+use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {

@@ -10,12 +10,14 @@
 use std::pin::Pin;
 use std::task::Context;
 
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Peekable, Stream, StreamExt};
 use futures::{Future, FutureExt, Poll};
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 
 use crate::error::*;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, OneshotDnsRequest};
+use crate::xfer::{
+    DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, OneshotDnsRequest,
+};
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
@@ -76,7 +78,12 @@ where
         )
     }
 
-    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>) {
+    fn pollable_split(
+        &mut self,
+    ) -> (
+        &mut S,
+        &mut Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>,
+    ) {
         (&mut self.io_stream, &mut self.outbound_messages)
     }
 }
@@ -120,8 +127,7 @@ where
             }
 
             // then see if there is more to send
-            match outbound_messages.as_mut().poll_next(cx)
-            {
+            match outbound_messages.as_mut().poll_next(cx) {
                 // already handled above, here to make sure the poll() pops the next message
                 Poll::Ready(Some(dns_request)) => {
                     // if there is no peer, this connection should die...
@@ -134,7 +140,7 @@ where
                         Err(_) => {
                             warn!("failed to associate send_message response to the sender");
                             return Poll::Ready(Err(
-                                "failed to associate send_message response to the sender".into()
+                                "failed to associate send_message response to the sender".into(),
                             ));
                         }
                     }

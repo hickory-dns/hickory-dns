@@ -97,9 +97,9 @@ impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H> {
 mod test {
     use super::*;
     use crate::error::*;
-    use futures::future::*;
-    use futures::executor::block_on;
     use crate::op::*;
+    use futures::executor::block_on;
+    use futures::future::*;
     use std::cell::Cell;
     use DnsHandle;
 

@@ -126,7 +126,8 @@ where
                 // stdout().write(b"SRV: ").unwrap();
                 // stdout().write(output.as_bytes()).unwrap();
             }
-        }).expect("no thread available");
+        })
+        .expect("no thread available");
 
     // return handle to child process
     NamedProcess {

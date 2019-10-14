@@ -9,9 +9,9 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::Context;
 
-use futures::{ready, Future, Poll, Stream};
-use futures::channel::mpsc::{UnboundedSender, TrySendError};
+use futures::channel::mpsc::{TrySendError, UnboundedSender};
 use futures::channel::oneshot::{self, Receiver, Sender};
+use futures::{ready, Future, Poll, Stream};
 
 use crate::error::*;
 use crate::op::Message;
@@ -156,7 +156,10 @@ pub trait DnsRequestSender:
     Stream<Item = Result<(), ProtoError>> + 'static + Display + Send + Unpin
 {
     /// A future that resolves to a response serial message
-    type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>>
+        + 'static
+        + Send
+        + Unpin;
 
     /// Send a message, and return a future of the response
     ///
@@ -212,7 +215,9 @@ macro_rules! try_oneshot {
 
         match $expr {
             Result::Ok(val) => val,
-            Result::Err(err) => return OneshotDnsResponseReceiver::Err(Some(ProtoError::from(err))),
+            Result::Err(err) => {
+                return OneshotDnsResponseReceiver::Err(Some(ProtoError::from(err)))
+            }
         }
     }};
     ($expr:expr,) => {
@@ -318,7 +323,7 @@ where
                 }
                 OneshotDnsResponseReceiver::Received(ref mut future) => {
                     let future = Pin::new(future);
-                    return future.poll(cx)
+                    return future.poll(cx);
                 }
                 OneshotDnsResponseReceiver::Err(ref mut err) => {
                     return Poll::Ready(Err(err

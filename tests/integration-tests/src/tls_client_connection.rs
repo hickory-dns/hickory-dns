@@ -9,8 +9,8 @@
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::Future;
 

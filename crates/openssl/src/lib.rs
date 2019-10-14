@@ -18,8 +18,8 @@
 
 extern crate futures;
 extern crate openssl;
-extern crate tokio_openssl;
 extern crate tokio_net;
+extern crate tokio_openssl;
 extern crate trust_dns_proto;
 
 mod tls_client_stream;

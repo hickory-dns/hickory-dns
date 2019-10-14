@@ -16,8 +16,8 @@ use std::sync::Arc;
 use std::task::Context;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use futures::stream::{Stream, StreamExt};
 use futures::channel::oneshot;
+use futures::stream::{Stream, StreamExt};
 use futures::{ready, Future, FutureExt, Poll};
 use rand;
 use rand::distributions::{Distribution, Standard};
@@ -318,7 +318,8 @@ where
             Poll::Pending => {
                 return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(
                     "id space exhausted, consider filing an issue",
-                ))).into()
+                )))
+                .into()
             }
         };
 
@@ -505,10 +506,10 @@ impl Future for DnsMultiplexerSerialResponseInner {
             // The inner type of the completion might have been an error
             //   we need to unwrap that, and translate to be the Future's error
             DnsMultiplexerSerialResponseInner::Completion(ref mut complete) => {
-                complete.poll_unpin(cx).map(|r| r
-                    .map_err(|_| ProtoError::from("the completion was canceled"))
-                    .and_then(|r| r)
-                )
+                complete.poll_unpin(cx).map(|r| {
+                    r.map_err(|_| ProtoError::from("the completion was canceled"))
+                        .and_then(|r| r)
+                })
             }
             DnsMultiplexerSerialResponseInner::Err(ref mut err) => {
                 Poll::Ready(Err(err.take().expect("cannot poll after complete")))

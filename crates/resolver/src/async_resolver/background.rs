@@ -5,17 +5,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
 
-use futures::{future, ready, channel::mpsc, Future, FutureExt, Poll, StreamExt};
 use futures::lock::Mutex;
+use futures::{channel::mpsc, future, ready, Future, FutureExt, Poll, StreamExt};
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
 use proto::{
     error::ProtoResult,
-    rr::{Name, RData, RecordType, Record},
+    rr::{Name, RData, Record, RecordType},
     xfer::{DnsRequestOptions, RetryDnsHandle},
 };
 
@@ -82,7 +82,8 @@ pub(super) fn task(
             hosts,
             request_rx,
         }
-    }).flatten()
+    })
+    .flatten()
 }
 
 type ClientCache = CachingClient<LookupEither<ConnectionHandle, StandardConnection>>;

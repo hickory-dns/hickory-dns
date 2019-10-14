@@ -88,7 +88,10 @@ lazy_static! {
 ///
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
-pub fn resolve<N: IntoName + TryParseIp>(host: N, port: u16) -> impl Future<Output = io::Result<Vec<SocketAddr>>> {
+pub fn resolve<N: IntoName + TryParseIp>(
+    host: N,
+    port: u16,
+) -> impl Future<Output = io::Result<Vec<SocketAddr>>> {
     // Now we use the global resolver to perform a lookup_ip.
     let resolve_future = GLOBAL_DNS_RESOLVER.lookup_ip(host).map(move |result| {
         // map the result into what we want...
@@ -99,7 +102,8 @@ pub fn resolve<N: IntoName + TryParseIp>(host: N, port: u16) -> impl Future<Outp
                     io::ErrorKind::AddrNotAvailable,
                     format!("dns resolution error: {}", err),
                 )
-            }).map(move |lookup_ip| {
+            })
+            .map(move |lookup_ip| {
                 // we take all the IPs returned, and then send back the set of IPs
                 lookup_ip
                     .iter()
@@ -129,7 +133,8 @@ fn main() {
             });
 
             (name, join)
-        }).collect::<Vec<_>>();
+        })
+        .collect::<Vec<_>>();
 
     // print the resolved IPs
     for (name, join) in threads {

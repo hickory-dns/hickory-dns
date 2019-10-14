@@ -7,10 +7,10 @@
 use std;
 use std::io;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 use std::task::Context;
+use std::time::Duration;
 
 use futures::{future, Future, FutureExt, Poll, StreamExt, TryFutureExt, TryStreamExt};
 
@@ -100,52 +100,45 @@ impl<T: RequestHandler> ServerFuture<T> {
         debug!("registered tcp: {:?}", listener);
 
         // for each incoming request...
-        tokio_executor::spawn(
-            listener
-                .incoming()
-                .for_each(move |tcp_stream| {
-                    let tcp_stream = match tcp_stream {
-                        Ok(t) => t,
-                        Err(e) => {
-                            debug!(
-                                "error receiving TCP request_stream error: {}", e
-                            );
+        tokio_executor::spawn(listener.incoming().for_each(move |tcp_stream| {
+            let tcp_stream = match tcp_stream {
+                Ok(t) => t,
+                Err(e) => {
+                    debug!("error receiving TCP request_stream error: {}", e);
 
-                            return future::ready(());
-                        },
-                    };
+                    return future::ready(());
+                }
+            };
 
-                    let src_addr = tcp_stream.peer_addr().unwrap();
-                    debug!("accepted request from: {}", src_addr);
-                    // take the created stream...
-                    let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
-                    let timeout_stream = TimeoutStream::new(buf_stream, timeout);
-                    //let request_stream = RequestStream::new(timeout_stream, stream_handle);
-                    let handler = handler.clone();
+            let src_addr = tcp_stream.peer_addr().unwrap();
+            debug!("accepted request from: {}", src_addr);
+            // take the created stream...
+            let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
+            let timeout_stream = TimeoutStream::new(buf_stream, timeout);
+            //let request_stream = RequestStream::new(timeout_stream, stream_handle);
+            let handler = handler.clone();
 
-                    // and spawn to the io_loop
-                    tokio_executor::spawn(
-                        timeout_stream
-                            .for_each(move |message| {
-                                message.map(|message| {
-                                    Box::pin(self::handle_raw_request(
-                                        message,
-                                        handler.clone(),
-                                        stream_handle.clone(),
-                                    )) as Pin<Box<dyn Future<Output = ()> + Send>>
-                                }).unwrap_or_else(|e| {
-                                    debug!(
-                                        "error in TCP request_stream src: {:?} error: {}",
-                                        src_addr, e
-                                    );
-                                    Box::pin(future::ready(())) as Pin<Box<dyn Future<Output = ()> + Send>>
-                                })
-                            }),
-                    );
+            // and spawn to the io_loop
+            tokio_executor::spawn(timeout_stream.for_each(move |message| {
+                message
+                    .map(|message| {
+                        Box::pin(self::handle_raw_request(
+                            message,
+                            handler.clone(),
+                            stream_handle.clone(),
+                        )) as Pin<Box<dyn Future<Output = ()> + Send>>
+                    })
+                    .unwrap_or_else(|e| {
+                        debug!(
+                            "error in TCP request_stream src: {:?} error: {}",
+                            src_addr, e
+                        );
+                        Box::pin(future::ready(())) as Pin<Box<dyn Future<Output = ()> + Send>>
+                    })
+            }));
 
-                    future::ready(())
-                })
-        );
+            future::ready(())
+        }));
 
         Ok(())
     }
@@ -211,47 +204,52 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let handler = handler.clone();
                     // TODO: can this clone be gotten rid of? isn't this what Pin is for?
                     let tls_acceptor = tls_acceptor.clone();
-                  
+
                     async move {
-                    // take the created stream...
-                    tokio_openssl::accept(&*tls_acceptor, tcp_stream)
-                        .map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::ConnectionRefused,
-                                format!("tls error: {}", e),
-                            )
-                        })
-                        .and_then(move |tls_stream| {
-                            let (buf_stream, stream_handle) =
-                                TlsStream::from_stream(tls_stream, src_addr);
-                            let timeout_stream = TimeoutStream::new(buf_stream, timeout);
-                            //let request_stream = RequestStream::new(timeout_stream, stream_handle);
-                            let handler = handler.clone();
+                        // take the created stream...
+                        tokio_openssl::accept(&*tls_acceptor, tcp_stream)
+                            .map_err(|e| {
+                                io::Error::new(
+                                    io::ErrorKind::ConnectionRefused,
+                                    format!("tls error: {}", e),
+                                )
+                            })
+                            .and_then(move |tls_stream| {
+                                let (buf_stream, stream_handle) =
+                                    TlsStream::from_stream(tls_stream, src_addr);
+                                let timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                                //let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                                let handler = handler.clone();
 
-                            // and spawn to the io_loop
-                            tokio_executor::spawn(
-                                timeout_stream
-                                    .map_err(move |e| {
-                                        debug!(
-                                            "error in TLS request_stream src: {:?} error: {}",
-                                            src_addr, e
-                                        )
-                                    })
-                                    .try_for_each(move |message| {
-                                        self::handle_raw_request(
-                                            message,
-                                            handler.clone(),
-                                            stream_handle.clone(),
-                                        ).map(|_: ()| Ok(()))
-                                    })
-                                    .map_err(move |_| {
-                                        debug!("error in TLS request_stream src: {:?}", src_addr)
-                                    })
-                                    .map(|_: Result<(),()>| ()),
-                            );
+                                // and spawn to the io_loop
+                                tokio_executor::spawn(
+                                    timeout_stream
+                                        .map_err(move |e| {
+                                            debug!(
+                                                "error in TLS request_stream src: {:?} error: {}",
+                                                src_addr, e
+                                            )
+                                        })
+                                        .try_for_each(move |message| {
+                                            self::handle_raw_request(
+                                                message,
+                                                handler.clone(),
+                                                stream_handle.clone(),
+                                            )
+                                            .map(|_: ()| Ok(()))
+                                        })
+                                        .map_err(move |_| {
+                                            debug!(
+                                                "error in TLS request_stream src: {:?}",
+                                                src_addr
+                                            )
+                                        })
+                                        .map(|_: Result<(), ()>| ()),
+                                );
 
-                            future::ok(())
-                        }).await
+                                future::ok(())
+                            })
+                            .await
                     }
                     // FIXME: need to map this error to Ok, otherwise this is a DOS potential
                     // .map_err(move |e| {
@@ -259,7 +257,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // })
                 })
                 .map_err(|e| panic!("error in inbound tls_stream: {}", e))
-                .map(|_: Result<(),()>| ())
+                .map(|_: Result<(), ()>| ()),
         );
 
         Ok(())
@@ -349,24 +347,25 @@ impl<T: RequestHandler> ServerFuture<T> {
                             let handler = handler.clone();
 
                             // and spawn to the io_loop
-                            tokio_executor::spawn(
-                                timeout_stream
-                                    .for_each(move |message| {
-                                        message.map(|message| {
-                                    Box::pin(self::handle_raw_request(
-                                        message,
-                                        handler.clone(),
-                                        stream_handle.clone(),
-                                    )) as Pin<Box<dyn Future<Output = ()> + Send>>
-                                }).unwrap_or_else(|e| {
-                                    debug!(
-                                        "error in TCP request_stream src: {:?} error: {}",
-                                        src_addr, e
-                                    );
-                                    Box::pin(future::ready(())) as Pin<Box<dyn Future<Output = ()> + Send>>
-                                })
+                            tokio_executor::spawn(timeout_stream.for_each(move |message| {
+                                message
+                                    .map(|message| {
+                                        Box::pin(self::handle_raw_request(
+                                            message,
+                                            handler.clone(),
+                                            stream_handle.clone(),
+                                        ))
+                                            as Pin<Box<dyn Future<Output = ()> + Send>>
                                     })
-                            );
+                                    .unwrap_or_else(|e| {
+                                        debug!(
+                                            "error in TCP request_stream src: {:?} error: {}",
+                                            src_addr, e
+                                        );
+                                        Box::pin(future::ready(()))
+                                            as Pin<Box<dyn Future<Output = ()> + Send>>
+                                    })
+                            }));
 
                             future::ok(())
                         })
@@ -376,20 +375,19 @@ impl<T: RequestHandler> ServerFuture<T> {
                                 format!("tls error: {}", e),
                             )
                         })
-        //                .map(|result: Result<(),()>| ())
-        
+                    //                .map(|result: Result<(),()>| ())
+
                     // FIXME: need to map this error to Ok, otherwise this is a DOS potential
                     // .map_err(move |e| {
                     //     debug!("error HTTPS handshake: {:?} error: {:?}", src_addr, e)
                     // })
                 })
                 .map_err(|_| panic!("error in inbound tls_stream"))
-                .map(|_: Result<(),()>| ())
-                // .map(|r| {
-                //     if let Err(e) = r {
-                //         panic!("error in inbound https_stream: {}", e)
-                //     }
-                // })
+                .map(|_: Result<(), ()>| ()), // .map(|r| {
+                                              //     if let Err(e) = r {
+                                              //         panic!("error in inbound https_stream: {}", e)
+                                              //     }
+                                              // })
         );
 
         Ok(())
@@ -445,8 +443,8 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         use tokio_rustls::TlsAcceptor;
 
-        use trust_dns_rustls::tls_server;
         use crate::server::https_handler::h2_handler;
+        use trust_dns_rustls::tls_server;
 
         let dns_hostname = Arc::new(dns_hostname);
         let handler = self.handler.clone();
@@ -484,7 +482,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             h2_handler(handler, tls_stream, src_addr, dns_hostname).unit_error()
                         })
                 })
-                .map(|_: Result<(),()>| ())
+                .map(|_: Result<(), ()>| ())
         });
 
         Ok(())
@@ -557,7 +555,9 @@ impl<F: Future<Output = Result<(), ()>> + Unpin> Future for HandleRawRequest<F> 
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match *self {
-            HandleRawRequest::HandleRequest(ref mut f) => f.poll_unpin(cx).map(|_: Result<_,_>| ()),
+            HandleRawRequest::HandleRequest(ref mut f) => {
+                f.poll_unpin(cx).map(|_: Result<_, _>| ())
+            }
             HandleRawRequest::Result(ref res) => {
                 warn!("failed to handle message: {}", res);
                 Poll::Ready(())

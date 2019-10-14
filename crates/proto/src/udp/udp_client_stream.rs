@@ -9,10 +9,10 @@ use std::borrow::Borrow;
 use std::fmt::{self, Display};
 use std::marker::PhantomData;
 use std::net::SocketAddr;
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{Future, Poll, Stream};
 use tokio_timer::timeout::{Elapsed, Timeout};
@@ -183,7 +183,9 @@ impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
 }
 
 /// A future that resolves to
-pub struct UdpResponse(Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, Elapsed>> + Send>>);
+pub struct UdpResponse(
+    Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, Elapsed>> + Send>>,
+);
 
 impl UdpResponse {
     /// creates a new future for the request
@@ -192,7 +194,11 @@ impl UdpResponse {
     ///
     /// * `request` - Serialized message being sent
     /// * `message_id` - Id of the message that was encoded in the serial message
-    fn new<S: UdpSocket + Send + Unpin + 'static>(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
+    fn new<S: UdpSocket + Send + Unpin + 'static>(
+        request: SerialMessage,
+        message_id: u16,
+        timeout: Duration,
+    ) -> Self {
         UdpResponse(Box::pin(Timeout::new(
             SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
             timeout,
@@ -200,7 +206,9 @@ impl UdpResponse {
     }
 
     /// ad already completed future
-    fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
+    fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(
+        f: F,
+    ) -> Self {
         // TODO: this constructure isn't really necessary
         UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
     }
@@ -210,7 +218,11 @@ impl Future for UdpResponse {
     type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx).map_err(ProtoError::from).map(|r| r.and_then(|r| r))
+        self.0
+            .as_mut()
+            .poll(cx)
+            .map_err(ProtoError::from)
+            .map(|r| r.and_then(|r| r))
     }
 }
 
@@ -247,7 +259,10 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
 struct SingleUseUdpSocket;
 
 impl SingleUseUdpSocket {
-    async fn send_serial_message<S: UdpSocket + Send>(msg: SerialMessage, msg_id: u16) -> Result<DnsResponse, ProtoError> {
+    async fn send_serial_message<S: UdpSocket + Send>(
+        msg: SerialMessage,
+        msg_id: u16,
+    ) -> Result<DnsResponse, ProtoError> {
         let name_server = msg.addr();
         let mut socket: S = NextRandomUdpSocket::new(&name_server).await?;
         let bytes = msg.bytes();
@@ -255,7 +270,11 @@ impl SingleUseUdpSocket {
         let len_sent: usize = socket.send_to(bytes, addr).await?;
 
         if bytes.len() != len_sent {
-            return Err(ProtoError::from(format!("Not all bytes of message sent, {} of {}", len_sent, bytes.len())))
+            return Err(ProtoError::from(format!(
+                "Not all bytes of message sent, {} of {}",
+                len_sent,
+                bytes.len()
+            )));
         }
 
         // TODO: limit the max number of attempted messages? this relies on a timeout to die...
@@ -286,7 +305,7 @@ impl SingleUseUdpSocket {
                 Ok(message) => {
                     if msg_id == message.id() {
                         debug!("received message id: {}", message.id());
-                        return Ok(DnsResponse::from(message))
+                        return Ok(DnsResponse::from(message));
                     } else {
                         // on wrong id, attempted poison?
                         warn!(
@@ -321,144 +340,144 @@ impl SingleUseUdpSocket {
 #[cfg(test)]
 mod tests {
 
-#[cfg(not(target_os = "linux"))]
-use std::net::Ipv6Addr;
-use std::net::{IpAddr, Ipv4Addr};
-use tokio_net::udp;
+    #[cfg(not(target_os = "linux"))]
+    use std::net::Ipv6Addr;
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio_net::udp;
 
-use crate::op::Message;
-use super::*;
+    use super::*;
+    use crate::op::Message;
 
-
-#[test]
-fn test_udp_client_stream_ipv4() {
-    udp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
-}
-
-#[test]
-#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-fn test_udp_client_stream_ipv6() {
-    udp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
-}
-
-fn udp_client_stream_test(server_addr: IpAddr) {
-    use crate::op::Query;
-    use crate::rr::rdata::NULL;
-    use crate::rr::{Name, RData, Record, RecordType};
-    use std::str::FromStr;
-    use tokio::runtime::current_thread::Runtime;
-
-    // use env_logger;
-    // env_logger::try_init().ok();
-
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone.clone();
-            for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                    return;
-                }
-            }
-
-            panic!("timeout");
-        })
-        .unwrap();
-
-    let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
-    server
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should receive something within 5 seconds...
-    server
-        .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should receive something within 5 seconds...
-    let server_addr = server.local_addr().unwrap();
-
-    let mut query = Message::new();
-    let test_name = Name::from_str("dead.beef").unwrap();
-    query.add_query(Query::query(test_name.clone(), RecordType::NULL));
-    let test_bytes: &'static [u8; 8] = b"DEADBEEF";
-    let send_recv_times = 4;
-
-    let test_name_server = test_name.clone();
-    // an in and out server
-    let server_handle = std::thread::Builder::new()
-        .name("test_udp_client_stream_ipv4:server".to_string())
-        .spawn(move || {
-            let mut buffer = [0_u8; 512];
-
-            for i in 0..send_recv_times {
-                // wait for some bytes...
-                debug!("server receiving request {}", i);
-                let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
-                debug!("server received request {} from: {}", i, addr);
-
-                let request = Message::from_vec(&buffer[0..len]).expect("failed parse of request");
-                assert_eq!(*request.queries()[0].name(), test_name_server.clone());
-                assert_eq!(request.queries()[0].query_type(), RecordType::NULL);
-
-                let mut message = Message::new();
-                message.set_id(request.id());
-                message.add_queries(request.queries().to_vec());
-                message.add_answer(Record::from_rdata(
-                    test_name_server.clone(),
-                    0,
-                    RData::NULL(NULL::with(test_bytes.to_vec())),
-                ));
-
-                // bounce them right back...
-                let bytes = message.to_vec().unwrap();
-                debug!("server sending response {} to: {}", i, addr);
-                assert_eq!(
-                    server.send_to(&bytes, addr).expect("send failed"),
-                    bytes.len()
-                );
-                debug!("server sent response {}", i);
-                std::thread::yield_now();
-            }
-        })
-        .unwrap();
-
-    // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Runtime::new().unwrap();
-
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5));
-    let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
-    let mut stream: UdpClientStream<udp::UdpSocket> = io_loop.block_on(stream).ok().unwrap();
-    let mut worked_once = false;
-
-    for i in 0..send_recv_times {
-        // test once
-        let response_future =
-            stream.send_message(DnsRequest::new(query.clone(), Default::default()));
-        println!("client sending request {}", i);
-        let response = match io_loop.block_on(response_future) {
-            Ok(response) => response,
-            Err(err) => {
-                println!("failed to get message: {}", err);
-                continue;
-            }
-        };
-        println!("client got response {}", i);
-
-        let response = Message::from(response);
-        if let RData::NULL(null) = response.answers()[0].rdata() {
-            assert_eq!(null.anything().expect("no bytes in NULL"), test_bytes);
-        } else {
-            panic!("not a NULL response");
-        }
-
-        worked_once = true;
+    #[test]
+    fn test_udp_client_stream_ipv4() {
+        udp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-    server_handle.join().expect("server thread failed");
+    #[test]
+    #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
+    fn test_udp_client_stream_ipv6() {
+        udp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+    }
 
-    assert!(worked_once);
-}
+    fn udp_client_stream_test(server_addr: IpAddr) {
+        use crate::op::Query;
+        use crate::rr::rdata::NULL;
+        use crate::rr::{Name, RData, Record, RecordType};
+        use std::str::FromStr;
+        use tokio::runtime::current_thread::Runtime;
+
+        // use env_logger;
+        // env_logger::try_init().ok();
+
+        let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let succeeded_clone = succeeded.clone();
+        std::thread::Builder::new()
+            .name("thread_killer".to_string())
+            .spawn(move || {
+                let succeeded = succeeded_clone.clone();
+                for _ in 0..15 {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
+                }
+
+                panic!("timeout");
+            })
+            .unwrap();
+
+        let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
+        server
+            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap(); // should receive something within 5 seconds...
+        server
+            .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+            .unwrap(); // should receive something within 5 seconds...
+        let server_addr = server.local_addr().unwrap();
+
+        let mut query = Message::new();
+        let test_name = Name::from_str("dead.beef").unwrap();
+        query.add_query(Query::query(test_name.clone(), RecordType::NULL));
+        let test_bytes: &'static [u8; 8] = b"DEADBEEF";
+        let send_recv_times = 4;
+
+        let test_name_server = test_name.clone();
+        // an in and out server
+        let server_handle = std::thread::Builder::new()
+            .name("test_udp_client_stream_ipv4:server".to_string())
+            .spawn(move || {
+                let mut buffer = [0_u8; 512];
+
+                for i in 0..send_recv_times {
+                    // wait for some bytes...
+                    debug!("server receiving request {}", i);
+                    let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
+                    debug!("server received request {} from: {}", i, addr);
+
+                    let request =
+                        Message::from_vec(&buffer[0..len]).expect("failed parse of request");
+                    assert_eq!(*request.queries()[0].name(), test_name_server.clone());
+                    assert_eq!(request.queries()[0].query_type(), RecordType::NULL);
+
+                    let mut message = Message::new();
+                    message.set_id(request.id());
+                    message.add_queries(request.queries().to_vec());
+                    message.add_answer(Record::from_rdata(
+                        test_name_server.clone(),
+                        0,
+                        RData::NULL(NULL::with(test_bytes.to_vec())),
+                    ));
+
+                    // bounce them right back...
+                    let bytes = message.to_vec().unwrap();
+                    debug!("server sending response {} to: {}", i, addr);
+                    assert_eq!(
+                        server.send_to(&bytes, addr).expect("send failed"),
+                        bytes.len()
+                    );
+                    debug!("server sent response {}", i);
+                    std::thread::yield_now();
+                }
+            })
+            .unwrap();
+
+        // setup the client, which is going to run on the testing thread...
+        let mut io_loop = Runtime::new().unwrap();
+
+        // the tests should run within 5 seconds... right?
+        // TODO: add timeout here, so that test never hangs...
+        // let timeout = Timeout::new(Duration::from_secs(5));
+        let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
+        let mut stream: UdpClientStream<udp::UdpSocket> = io_loop.block_on(stream).ok().unwrap();
+        let mut worked_once = false;
+
+        for i in 0..send_recv_times {
+            // test once
+            let response_future =
+                stream.send_message(DnsRequest::new(query.clone(), Default::default()));
+            println!("client sending request {}", i);
+            let response = match io_loop.block_on(response_future) {
+                Ok(response) => response,
+                Err(err) => {
+                    println!("failed to get message: {}", err);
+                    continue;
+                }
+            };
+            println!("client got response {}", i);
+
+            let response = Message::from(response);
+            if let RData::NULL(null) = response.answers()[0].rdata() {
+                assert_eq!(null.anything().expect("no bytes in NULL"), test_bytes);
+            } else {
+                panic!("not a NULL response");
+            }
+
+            worked_once = true;
+        }
+
+        succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+        server_handle.join().expect("server thread failed");
+
+        assert!(worked_once);
+    }
 }

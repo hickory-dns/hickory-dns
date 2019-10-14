@@ -34,8 +34,8 @@
 
 use std::net::Ipv6Addr;
 
-use crate::serialize::binary::*;
 use crate::error::*;
+use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
 #[allow(clippy::many_single_char_names)]

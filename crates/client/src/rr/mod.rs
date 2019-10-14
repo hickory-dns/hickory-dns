@@ -28,12 +28,12 @@ pub use proto::rr::record_data;
 pub use proto::rr::record_type;
 pub use proto::rr::resource;
 
-pub use self::rr::domain::{IntoName, Name, Label};
 pub use self::dns_class::DNSClass;
 pub use self::lower_name::LowerName;
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
+pub use self::rr::domain::{IntoName, Label, Name};
 #[allow(deprecated)]
 pub use self::rr::IntoRecordSet;
 pub use self::rr::RecordSet;
@@ -41,6 +41,6 @@ pub use self::rr_key::RrKey;
 
 /// All record data structures and related serialization methods
 pub mod rdata {
-    pub use proto::rr::rdata::*;
     pub use proto::rr::dnssec::rdata::*;
+    pub use proto::rr::rdata::*;
 }

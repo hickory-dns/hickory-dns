@@ -19,6 +19,6 @@
 mod tcp_client_connection;
 use proto::tcp;
 
-pub use self::tcp_client_connection::TcpClientConnection;
 pub use self::tcp::TcpClientStream;
 pub use self::tcp::TcpStream;
+pub use self::tcp_client_connection::TcpClientConnection;

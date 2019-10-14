@@ -785,7 +785,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
             //    Bits 4-5 are reserved and must be zero.
             //    Bits 8-11 are reserved and must be zero.
             flags & 0b0010_1100_1111_0000 == 0
-        }).map_err(|_| ProtoError::from("flag 2, 4-5, and 8-11 are reserved, must be zero"))?;
+        })
+        .map_err(|_| ProtoError::from("flag 2, 4-5, and 8-11 are reserved, must be zero"))?;
 
     let key_trust = KeyTrust::from(flags);
     let extended_flags: bool = flags & 0b0001_0000_0000_0000 != 0;

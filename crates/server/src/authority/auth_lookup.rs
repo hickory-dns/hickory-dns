@@ -15,7 +15,6 @@ use crate::authority::LookupObject;
 use crate::proto::rr::dnssec::SupportedAlgorithms;
 use crate::proto::rr::{Record, RecordSet, RecordType, RrsetRecords};
 
-
 /// The result of a lookup on an Authority
 ///
 /// # Lifetimes

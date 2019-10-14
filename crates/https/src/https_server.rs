@@ -9,8 +9,8 @@
 
 use std::borrow::Borrow;
 use std::fmt::Debug;
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
 
 use bytes::Bytes;
@@ -25,7 +25,10 @@ use crate::HttpsError;
 ///
 /// To allow downstream clients to do something interesting with the lifetime of the bytes, this doesn't
 ///   perform a conversion to a Message, only collects all the bytes.
-pub async fn message_from<R>(this_server_name: Arc<String>, request: Request<R>) -> Result<Bytes, HttpsError>
+pub async fn message_from<R>(
+    this_server_name: Arc<String>,
+    request: Request<R>,
+) -> Result<Bytes, HttpsError>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
@@ -57,11 +60,13 @@ where
 }
 
 /// Deserialize the message from a POST message
-pub(crate) async fn message_from_post<R>(mut request_stream: R, length: Option<usize>) -> Result<Bytes, HttpsError>
+pub(crate) async fn message_from_post<R>(
+    mut request_stream: R,
+    length: Option<usize>,
+) -> Result<Bytes, HttpsError>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
-
     let mut bytes = Bytes::with_capacity(length.unwrap_or(0).min(512).max(4096));
 
     loop {
@@ -166,7 +171,6 @@ mod tests {
 
         // FIXME: generic stream impl is issue...
 
- 
         let from_post = message_from(Arc::new("ns.example.com".to_string()), request);
         let bytes = match block_on(from_post) {
             Ok(bytes) => bytes,

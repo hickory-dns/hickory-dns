@@ -138,9 +138,7 @@ fn test_catalog_lookup() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog
-        .lookup(question_req, None, response_handler.clone()))
-        .unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
     let result = block_on(response_handler.into_message()).unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -181,9 +179,7 @@ fn test_catalog_lookup() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog
-        .lookup(question_req, None, response_handler.clone()))
-        .unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
     let result = block_on(response_handler.into_message()).unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -220,9 +216,7 @@ fn test_catalog_nx_soa() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog
-        .lookup(question_req, None, response_handler.clone()))
-        .unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
     let result = block_on(response_handler.into_message()).unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
@@ -284,9 +278,7 @@ fn test_axfr() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog
-        .lookup(question_req, None, response_handler.clone()))
-        .expect("lookup failed");
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).expect("lookup failed");
     let result = block_on(response_handler.into_message()).unwrap();
 
     let mut answers: Vec<Record> = result.answers().to_vec();
@@ -403,9 +395,7 @@ fn test_axfr_refused() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog
-        .lookup(question_req, None, response_handler.clone()))
-        .expect("lookup failed");
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).expect("lookup failed");
     let result = block_on(response_handler.into_message()).unwrap();
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
@@ -442,8 +432,7 @@ fn test_cname_additionals() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()))
-        .unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
     let result = block_on(response_handler.into_message()).unwrap();
 
     assert_eq!(result.message_type(), MessageType::Response);
@@ -487,9 +476,7 @@ fn test_multiple_cname_additionals() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog
-        .lookup(question_req, None, response_handler.clone()))
-        .unwrap();
+    block_on(catalog.lookup(question_req, None, response_handler.clone())).unwrap();
     let result = block_on(response_handler.into_message()).unwrap();
 
     assert_eq!(result.message_type(), MessageType::Response);

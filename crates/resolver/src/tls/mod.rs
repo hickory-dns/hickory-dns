@@ -71,5 +71,4 @@ mod tests {
     fn test_quad9_tls() {
         tls_test(ResolverConfig::quad9_tls())
     }
-
 }

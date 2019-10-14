@@ -5,7 +5,9 @@ use openssl::rsa::Rsa;
 #[cfg(feature = "openssl")]
 use openssl::symm::Cipher;
 #[cfg(feature = "ring")]
-use ring::signature::{EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING};
+use ring::signature::{
+    EcdsaKeyPair, Ed25519KeyPair, ECDSA_P256_SHA256_FIXED_SIGNING, ECDSA_P384_SHA384_FIXED_SIGNING,
+};
 
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, KeyPair, Private};
@@ -35,9 +37,7 @@ impl KeyFormat {
         let password = password.as_bytes();
 
         match algorithm {
-            Algorithm::Unknown(v) => { 
-                Err(format!("unknown algorithm: {}", v).into())
-            }
+            Algorithm::Unknown(v) => Err(format!("unknown algorithm: {}", v).into()),
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
@@ -59,7 +59,8 @@ impl KeyFormat {
                             "unsupported key format with RSA (DER or PEM only): \
                              {:?}",
                             e
-                        ).into())
+                        )
+                        .into())
                     }
                 };
 
@@ -77,10 +78,10 @@ impl KeyFormat {
                 }
                 #[cfg(feature = "openssl")]
                 KeyFormat::Pem => {
-                    let key = EcKey::private_key_from_pem_passphrase(bytes, password)
-                    .map_err(|e| {
-                        format!("could not decode EC from PEM, bad password?: {}", e)
-                    })?;
+                    let key =
+                        EcKey::private_key_from_pem_passphrase(bytes, password).map_err(|e| {
+                            format!("could not decode EC from PEM, bad password?: {}", e)
+                        })?;
 
                     Ok(KeyPair::from_ec_key(key)
                         .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
@@ -96,11 +97,8 @@ impl KeyFormat {
 
                     Ok(KeyPair::from_ecdsa(key))
                 }
-                e => Err(format!(
-                    "unsupported key format with EC: {:?}",
-                    e
-                ).into()),
-            }
+                e => Err(format!("unsupported key format with EC: {:?}", e).into()),
+            },
             Algorithm::ED25519 => match self {
                 #[cfg(feature = "ring")]
                 KeyFormat::Pkcs8 => {
@@ -111,13 +109,15 @@ impl KeyFormat {
                 e => Err(format!(
                     "unsupported key format with ED25519 (only Pkcs8 supported): {:?}",
                     e
-                ).into()),
+                )
+                .into()),
             },
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
             e => Err(format!(
                 "unsupported Algorithm, enable openssl or ring feature: {:?}",
                 e
-            ).into()),
+            )
+            .into()),
         }
     }
 
@@ -138,9 +138,7 @@ impl KeyFormat {
         // generate the key
         #[allow(unused)]
         let key_pair: KeyPair<Private> = match algorithm {
-            Algorithm::Unknown(v) => {
-                return Err(format!("unknown algorithm: {}", v).into())
-            }
+            Algorithm::Unknown(v) => return Err(format!("unknown algorithm: {}", v).into()),
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
@@ -153,7 +151,7 @@ impl KeyFormat {
                 #[cfg(feature = "ring")]
                 KeyFormat::Pkcs8 => return KeyPair::generate_pkcs8(algorithm),
                 e => return Err(format!("unsupported key format with EC: {:?}", e).into()),
-            }
+            },
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
@@ -161,7 +159,8 @@ impl KeyFormat {
                 return Err(format!(
                     "unsupported Algorithm, enable openssl or ring feature: {:?}",
                     e
-                ).into())
+                )
+                .into())
             }
         };
 
@@ -195,7 +194,8 @@ impl KeyFormat {
                         "unsupported key format with RSA or EC (DER or PEM \
                          only): {:?}",
                         e
-                    ).into()),
+                    )
+                    .into()),
                 }
             }
             #[cfg(feature = "ring")]
@@ -205,7 +205,8 @@ impl KeyFormat {
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(format!(
                 "unsupported Algorithm, enable openssl feature (encode not supported with ring)"
-            ).into()),
+            )
+            .into()),
         }
     }
 
@@ -252,7 +253,8 @@ impl KeyFormat {
                         "unsupported key format with RSA or EC (DER or PEM \
                          only): {:?}",
                         e
-                    ).into()),
+                    )
+                    .into()),
                 }
             }
             #[cfg(any(feature = "ring", not(feature = "openssl")))]

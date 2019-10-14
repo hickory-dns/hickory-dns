@@ -947,7 +947,8 @@ impl Authority for InMemoryAuthority {
         };
 
         Box::pin(future::ready(
-            result.map(|answers| AuthLookup::answers(answers, additionals))))
+            result.map(|answers| AuthLookup::answers(answers, additionals)),
+        ))
     }
 
     fn search(

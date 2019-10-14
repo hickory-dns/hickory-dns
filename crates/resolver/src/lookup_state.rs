@@ -39,13 +39,13 @@ lazy_static! {
 }
 
 struct DepthTracker {
-    query_depth: Arc<AtomicU8>
+    query_depth: Arc<AtomicU8>,
 }
 
 impl DepthTracker {
     fn track(query_depth: Arc<AtomicU8>) -> Self {
         query_depth.fetch_add(1, Ordering::Release);
-        Self{ query_depth }
+        Self { query_depth }
     }
 }
 

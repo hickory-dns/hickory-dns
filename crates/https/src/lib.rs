@@ -19,8 +19,8 @@ extern crate log;
 extern crate failure;
 extern crate rustls;
 extern crate tokio_executor;
-extern crate tokio_rustls;
 extern crate tokio_net;
+extern crate tokio_rustls;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
 extern crate typed_headers;
@@ -45,6 +45,6 @@ pub use self::error::{Error as HttpsError, Result as HttpsResult};
 
 //pub use self::https_client_connection::{HttpsClientConnection, HttpsClientConnectionBuilder};
 pub use self::https_client_stream::{
-    HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder, HttpsClientResponse,
+    HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
 };
 //pub use self::https_stream::{HttpsStream, HttpsStreamBuilder};

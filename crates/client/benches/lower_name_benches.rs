@@ -47,7 +47,6 @@ fn name_cmp_medium(b: &mut Bencher) {
     });
 }
 
-
 #[bench]
 fn name_cmp_medium_case(b: &mut Bencher) {
     let name1 = LowerName::new(&Name::from_str("www.example.com").unwrap());

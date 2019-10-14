@@ -186,7 +186,11 @@ impl Authority for FileAuthority {
     }
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    fn ns(
+        &self,
+        is_secure: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.0.ns(is_secure, supported_algorithms)
     }
 
@@ -248,8 +252,8 @@ mod tests {
     use futures::executor::block_on;
     use trust_dns::rr::RData;
 
-    use crate::authority::ZoneType;
     use super::*;
+    use crate::authority::ZoneType;
 
     #[test]
     fn test_load_zone() {

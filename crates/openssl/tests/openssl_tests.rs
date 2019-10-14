@@ -82,7 +82,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             }
 
             panic!("timeout");
-        }).unwrap();
+        })
+        .unwrap();
 
     let (root_pkey, root_name, root_cert) = root_ca();
     let root_cert_der = root_cert.to_der().unwrap();
@@ -187,7 +188,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
-        }).unwrap();
+        })
+        .unwrap();
 
     // let the server go first
     std::thread::yield_now();
@@ -219,10 +221,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         sender
             .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future());
+        let (buffer, stream_tmp) = io_loop.block_on(stream.into_future());
         stream = stream_tmp;
-        let message = buffer.expect("no buffer received").expect("error receiving bytes");
+        let message = buffer
+            .expect("no buffer received")
+            .expect("error receiving bytes");
         assert_eq!(message.bytes(), TEST_BYTES);
     }
 

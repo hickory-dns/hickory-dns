@@ -49,7 +49,8 @@ fn main() {
 
     // Go through the list of resolution operations and wait for them to complete.
     for (name, lookup) in futures.drain(..) {
-        let ips = runtime.block_on(lookup)
+        let ips = runtime
+            .block_on(lookup)
             .expect("Failed completing lookup future")
             .iter()
             .collect::<Vec<_>>();

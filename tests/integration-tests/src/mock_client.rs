@@ -1,6 +1,6 @@
 use std::net::Ipv4Addr;
-use std::sync::{Arc, Mutex};
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
 
 use futures::{future, Future};
 

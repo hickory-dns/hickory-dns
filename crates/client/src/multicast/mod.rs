@@ -11,4 +11,4 @@ mod mdns_client_connection;
 use proto::multicast;
 
 pub use self::mdns_client_connection::MdnsClientConnection;
-pub use self::multicast::{MdnsClientStream, MdnsStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6};
+pub use self::multicast::{MdnsClientStream, MdnsQueryType, MdnsStream, MDNS_IPV4, MDNS_IPV6};

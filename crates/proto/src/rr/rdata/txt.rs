@@ -78,9 +78,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let mut strings = Vec::with_capacity(1);
 
     // no unsafe usage of rdata length after this point
-    let rdata_length = rdata_length.map(|u| u as usize).unverified(/*used as a higher bound, safely*/);
+    let rdata_length =
+        rdata_length.map(|u| u as usize).unverified(/*used as a higher bound, safely*/);
     while data_len - decoder.len() < rdata_length {
-        let string = decoder.read_character_data()?.unverified(/*any data should be validate in TXT usage*/);
+        let string =
+            decoder.read_character_data()?.unverified(/*any data should be validate in TXT usage*/);
         strings.push(string.to_vec().into_boxed_slice());
     }
     Ok(TXT {

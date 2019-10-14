@@ -15,15 +15,15 @@ use std::fmt;
 use std::io;
 use std::mem;
 use std::net::SocketAddr;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
 use std::task::{Context, Poll};
-use std::pin::Pin;
+use std::time::{Duration, Instant};
 
+use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::executor::block_on;
 use futures::stream::{Fuse, Stream, StreamExt};
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::{future, Future, FutureExt, TryFutureExt};
 use tokio_timer::Delay;
 
@@ -137,11 +137,7 @@ impl Stream for TestClientStream {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        match self
-            .outbound_messages
-            .next()
-            .poll_unpin(cx)
-        {
+        match self.outbound_messages.next().poll_unpin(cx) {
             // already handled above, here to make sure the poll() pops the next message
             Poll::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
@@ -155,11 +151,13 @@ impl Stream for TestClientStream {
 
                 dbg!("catalog handling request");
                 let response_handler = TestResponseHandler::new();
-                block_on(self.catalog
-                    .lock()
-                    .unwrap()
-                    .handle_request(request, response_handler.clone()))
-                    .unwrap();
+                block_on(
+                    self.catalog
+                        .lock()
+                        .unwrap()
+                        .handle_request(request, response_handler.clone()),
+                )
+                .unwrap();
 
                 dbg!("catalog handled request");
 

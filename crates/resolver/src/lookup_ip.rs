@@ -10,10 +10,10 @@
 //! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
 use std::net::IpAddr;
-use std::sync::Arc;
-use std::time::Instant;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::task::Context;
+use std::time::Instant;
 
 use failure::Fail;
 use futures::{future, future::Either, Future, FutureExt, Poll};
@@ -216,9 +216,7 @@ where
             names: vec![],
             strategy: LookupIpStrategy::default(),
             options: DnsRequestOptions::default(),
-            query: future::err(
-                ResolveErrorKind::Msg(format!("{}", error)).into(),
-            ).boxed(),
+            query: future::err(ResolveErrorKind::Msg(format!("{}", error)).into()).boxed(),
             hosts: None,
             finally_ip_addr: None,
         }
@@ -303,42 +301,46 @@ fn ipv4_and_ipv6<C: DnsHandle + 'static>(
             client.clone(),
             options.clone(),
             hosts.clone(),
-        ), 
-        hosts_lookup(
-            Query::query(name, RecordType::AAAA),
-            client,
-            options,
-            hosts,
-        )
+        ),
+        hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts),
     )
-        .then(|sel_res| {
-            let (ips, remaining_query) = match sel_res {
-                Either::Left(ips_and_remaining) => ips_and_remaining,
-                Either::Right(ips_and_remaining) => ips_and_remaining,
-            };
+    .then(|sel_res| {
+        let (ips, remaining_query) = match sel_res {
+            Either::Left(ips_and_remaining) => ips_and_remaining,
+            Either::Right(ips_and_remaining) => ips_and_remaining,
+        };
 
-            // Some ips returned, get the other record result, or else just return record
-            // One failed, just return the other
-            match ips {
-                Ok(ips) => remaining_query.then(move |remaining_ips| match remaining_ips {
+        // Some ips returned, get the other record result, or else just return record
+        // One failed, just return the other
+        match ips {
+            Ok(ips) => remaining_query
+                .then(move |remaining_ips| match remaining_ips {
                     // join AAAA and A results
                     Ok(rem_ips) => {
                         // TODO: create a LookupIp enum with the ability to chain these together
                         let ips = ips.append(rem_ips);
                         future::ok(ips)
-                    },
+                    }
                     // One failed, just return the other
                     Err(e) => {
-                        debug!("one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}", e);
+                        debug!(
+                            "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
+                            e
+                        );
                         future::ok(ips)
-                    },
-                }).boxed(),
-                Err(e) => {
-                    debug!("one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}", e);
-                    remaining_query.boxed()
-                }
+                    }
+                })
+                .boxed(),
+            Err(e) => {
+                debug!(
+                    "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
+                    e
+                );
+                remaining_query.boxed()
             }
-        }).boxed()
+        }
+    })
+    .boxed()
 }
 
 /// queries only for AAAA and on no results queries for A
@@ -386,34 +388,37 @@ fn rt_then_swap<C: DnsHandle + 'static>(
 ) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
     let or_client = client.clone();
     hosts_lookup(
-            Query::query(name.clone(), first_type),
-            client,
-            options.clone(),
-            hosts.clone(),
-        )
-        .then(move |res| {
-            match res {
-                Ok(ips) => {
-                    if ips.is_empty() {
-                        // no ips returns, NXDomain or Otherwise, doesn't matter
-                        hosts_lookup(
-                            Query::query(name.clone(), second_type),
-                            or_client,
-                            options,
-                            hosts,
-                        ).boxed()
-                    } else {
-                        future::ok(ips).boxed()
-                    }
+        Query::query(name.clone(), first_type),
+        client,
+        options.clone(),
+        hosts.clone(),
+    )
+    .then(move |res| {
+        match res {
+            Ok(ips) => {
+                if ips.is_empty() {
+                    // no ips returns, NXDomain or Otherwise, doesn't matter
+                    hosts_lookup(
+                        Query::query(name.clone(), second_type),
+                        or_client,
+                        options,
+                        hosts,
+                    )
+                    .boxed()
+                } else {
+                    future::ok(ips).boxed()
                 }
-                Err(_) => hosts_lookup(
-                    Query::query(name.clone(), second_type),
-                    or_client,
-                    options,
-                    hosts,
-                ).boxed(),
             }
-        }).boxed()
+            Err(_) => hosts_lookup(
+                Query::query(name.clone(), second_type),
+                or_client,
+                options,
+                hosts,
+            )
+            .boxed(),
+        }
+    })
+    .boxed()
 }
 
 #[cfg(test)]
@@ -421,8 +426,8 @@ pub mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use std::sync::{Arc, Mutex};
 
-    use futures::{future, Future};
     use futures::executor::block_on;
+    use futures::{future, Future};
 
     use proto::error::{ProtoError, ProtoResult};
     use proto::op::Message;
@@ -437,7 +442,8 @@ pub mod tests {
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+        type Response =
+            Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::pin(future::ready(

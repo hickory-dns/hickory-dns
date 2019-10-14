@@ -262,7 +262,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let salt_len = salt_len
         .verify_unwrap(|salt_len| {
             *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/)
-        }).map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
+        })
+        .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
     let salt: Vec<u8> =
         decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
 
@@ -275,7 +276,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
     let hash_len = hash_len
         .verify_unwrap(|hash_len| {
             *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/)
-        }).map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
+        })
+        .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
     let next_hashed_owner_name: Vec<u8> =
         decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
 

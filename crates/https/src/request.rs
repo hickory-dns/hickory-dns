@@ -83,7 +83,12 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
 
     // validate path
     if uri.path() != crate::DNS_QUERY_PATH {
-        return Err(format!("bad path: {}, expected: {}", uri.path(), crate::DNS_QUERY_PATH).into());
+        return Err(format!(
+            "bad path: {}, expected: {}",
+            uri.path(),
+            crate::DNS_QUERY_PATH
+        )
+        .into());
     }
 
     // we only accept HTTPS
@@ -114,10 +119,9 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
     let accept = accept.ok_or_else(|| "Accept is unspecified")?;
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    if !accept
-        .iter()
-        .any(|q| (q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY))
-    {
+    if !accept.iter().any(|q| {
+        (q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY)
+    }) {
         return Err("does not accept content type".into());
     }
 

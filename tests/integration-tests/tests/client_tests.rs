@@ -9,10 +9,10 @@ extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
 use std::net::*;
+use std::pin::Pin;
 #[cfg(feature = "dnssec")]
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
-use std::pin::Pin;
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;

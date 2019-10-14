@@ -127,12 +127,20 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 }
 
 impl<S: Send> UdpStream<S> {
-    fn pollable_split(&mut self) -> (
-        &mut Arc<Mutex<S>>, 
+    fn pollable_split(
+        &mut self,
+    ) -> (
+        &mut Arc<Mutex<S>>,
         &mut Option<Pin<Box<dyn Future<Output = io::Result<usize>> + Send>>>,
         &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
-        &mut Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>) {
-        (&mut self.socket, &mut self.sending, &mut self.outbound_messages, &mut self.receiving)
+        &mut Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>,
+    ) {
+        (
+            &mut self.socket,
+            &mut self.sending,
+            &mut self.outbound_messages,
+            &mut self.receiving,
+        )
     }
 }
 
@@ -154,8 +162,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
             *sending = None;
 
             // first try to send
-            match outbound_messages.as_mut().poll_next(cx)
-            {
+            match outbound_messages.as_mut().poll_next(cx) {
                 Poll::Ready(Some(message)) => {
                     let socket = Arc::clone(socket);
                     let sending_fut = async {
@@ -188,7 +195,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
             } else {
                 None
             };
- 
+
             *receiving = None;
 
             if let Some(msg) = msg {
@@ -202,7 +209,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
                 let mut buf = [0u8; 2048];
                 let mut socket = socket.lock().await;
                 let (len, src) = socket.recv_from(&mut buf).await?;
-                
+
                 Ok(SerialMessage::new(
                     buf.iter().take(len).cloned().collect(),
                     src,
@@ -260,7 +267,9 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
                     debug!("created socket successfully");
                     return Poll::Ready(Ok(socket));
                 }
-                Poll::Ready(Err(err)) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
+                Poll::Ready(Err(err)) => {
+                    debug!("unable to bind port, attempt: {}: {}", attempt, err)
+                }
                 Poll::Pending => debug!("unable to bind port, attempt: {}", attempt),
             }
         }
@@ -310,7 +319,7 @@ impl UdpSocket for udp::UdpSocket {
     async fn bind(addr: &SocketAddr) -> io::Result<Self> {
         udp::UdpSocket::bind(addr).await
     }
-    
+
     async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
         self.recv_from(buf).await
     }
@@ -385,9 +394,11 @@ fn udp_stream_test(server_addr: IpAddr) {
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
-    let socket =
-        io_loop.block_on(udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap()))
-            .expect("could not create socket"); // some random address...
+    let socket = io_loop
+        .block_on(udp::UdpSocket::bind(
+            &client_addr.to_socket_addrs().unwrap().next().unwrap(),
+        ))
+        .expect("could not create socket"); // some random address...
     let (mut stream, sender) = UdpStream::<udp::UdpSocket>::with_bound(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 
@@ -398,7 +409,9 @@ fn udp_stream_test(server_addr: IpAddr) {
             .unwrap();
         let (buffer_and_addr, stream_tmp) = io_loop.block_on(stream.into_future());
         stream = stream_tmp;
-        let message = buffer_and_addr.expect("no buffer received").expect("error receiving buffer");
+        let message = buffer_and_addr
+            .expect("no buffer received")
+            .expect("error receiving buffer");
         assert_eq!(message.bytes(), test_bytes);
         assert_eq!(message.addr(), server_addr);
     }

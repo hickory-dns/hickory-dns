@@ -12,8 +12,8 @@ extern crate rustls;
 extern crate webpki_roots;
 
 use std::net::SocketAddr;
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;

@@ -38,21 +38,21 @@ extern crate socket2;
 extern crate tokio;
 extern crate tokio_executor;
 extern crate tokio_io;
-extern crate tokio_sync;
 #[cfg(feature = "tokio-compat")]
 extern crate tokio_net;
+extern crate tokio_sync;
 extern crate tokio_timer;
 extern crate url;
 
 macro_rules! try_ready_stream {
-    ($e:expr) => ({
+    ($e:expr) => {{
         match $e {
             Poll::Ready(Some(Ok(t))) => t,
             Poll::Ready(None) => return Poll::Ready(None),
             Poll::Pending => return Poll::Pending,
             Poll::Ready(Some(Err(e))) => return Poll::Ready(Some(Err(From::from(e)))),
         }
-    })
+    }};
 }
 
 pub mod error;

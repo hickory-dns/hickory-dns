@@ -10,9 +10,7 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 
-use proto::multicast::{
-    MdnsClientConnect, MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6,
-};
+use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6};
 use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
 use crate::client::ClientConnection;

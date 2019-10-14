@@ -166,19 +166,21 @@ where
         let request = mdns.take_request();
 
         // First try the UDP connections
-        Box::pin(Self::try_send(opts, datagram_conns, request)
-            .and_then(move |response| {
-                // handling promotion from datagram to stream base on truncation in message
-                if ResponseCode::NoError == response.response_code() && response.truncated() {
-                    // TCP connections should not truncate
-                    future::Either::Left(Self::try_send(opts, stream_conns1, tcp_message1))
-                } else {
-                    // Return the result from the UDP connection
-                    future::Either::Right(future::ok(response))
-                }
-            })
-            // if UDP fails, try TCP
-            .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)))
+        Box::pin(
+            Self::try_send(opts, datagram_conns, request)
+                .and_then(move |response| {
+                    // handling promotion from datagram to stream base on truncation in message
+                    if ResponseCode::NoError == response.response_code() && response.truncated() {
+                        // TCP connections should not truncate
+                        future::Either::Left(Self::try_send(opts, stream_conns1, tcp_message1))
+                    } else {
+                        // Return the result from the UDP connection
+                        future::Either::Right(future::ok(response))
+                    }
+                })
+                // if UDP fails, try TCP
+                .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)),
+        )
     }
 }
 
@@ -345,7 +347,9 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>> {
+    fn take_future(
+        self,
+    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),

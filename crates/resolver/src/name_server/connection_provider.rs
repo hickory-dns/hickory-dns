@@ -6,10 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::net::SocketAddr;
-use std::task::Context;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
 use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::Context;
+use std::time::Duration;
 
 use futures::{Future, FutureExt, Poll, TryFutureExt};
 use tokio_executor::{DefaultExecutor, Executor};
@@ -133,9 +133,12 @@ impl ConnectionHandleConnect {
                 let stream = UdpClientStream::<TokioUdpSocket>::with_timeout(socket_addr, timeout);
                 let (stream, handle) = DnsExchange::connect(stream);
 
-                let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    debug!("udp connection shutting down: {}", e);
-                }).map(|_| ());
+                let stream = stream
+                    .and_then(|stream| stream)
+                    .map_err(|e| {
+                        debug!("udp connection shutting down: {}", e);
+                    })
+                    .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(stream.boxed())?;
@@ -156,9 +159,12 @@ impl ConnectionHandleConnect {
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    debug!("tcp connection shutting down: {}", e);
-                }).map(|_|());
+                let stream = stream
+                    .and_then(|stream| stream)
+                    .map_err(|e| {
+                        debug!("tcp connection shutting down: {}", e);
+                    })
+                    .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(stream.boxed())?;
@@ -179,9 +185,12 @@ impl ConnectionHandleConnect {
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    debug!("tls connection shutting down: {}", e);
-                }).map(|_| ());
+                let stream = stream
+                    .and_then(|stream| stream)
+                    .map_err(|e| {
+                        debug!("tls connection shutting down: {}", e);
+                    })
+                    .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(Box::pin(stream))?;
@@ -196,9 +205,12 @@ impl ConnectionHandleConnect {
             } => {
                 let (stream, handle) = crate::https::new_https_stream(socket_addr, tls_dns_name);
 
-                let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    debug!("https connection shutting down: {}", e);
-                }).map(|_| ());
+                let stream = stream
+                    .and_then(|stream| stream)
+                    .map_err(|e| {
+                        debug!("https connection shutting down: {}", e);
+                    })
+                    .map(|_| ());
 
                 DefaultExecutor::current().spawn(Box::pin(stream))?;
                 Ok(ConnectionHandleConnected::Https(handle))
@@ -219,9 +231,12 @@ impl ConnectionHandleConnect {
                 );
 
                 let (stream, handle) = DnsExchange::connect(dns_conn);
-                let stream = stream.and_then(|stream| stream).map_err(|e| {
-                    debug!("mdns connection shutting down: {}", e);
-                }).map(|_| ());
+                let stream = stream
+                    .and_then(|stream| stream)
+                    .map_err(|e| {
+                        debug!("mdns connection shutting down: {}", e);
+                    })
+                    .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
                 DefaultExecutor::current().spawn(Box::pin(stream))?;
@@ -243,7 +258,10 @@ enum ConnectionHandleConnected {
 impl DnsHandle for ConnectionHandleConnected {
     type Response = ConnectionHandleResponseInner;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> ConnectionHandleResponseInner {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        &mut self,
+        request: R,
+    ) -> ConnectionHandleResponseInner {
         match self {
             ConnectionHandleConnected::Udp(ref mut conn) => {
                 ConnectionHandleResponseInner::Udp(conn.send(request))
@@ -266,7 +284,10 @@ enum ConnectionHandleInner {
 }
 
 impl ConnectionHandleInner {
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> ConnectionHandleResponseInner {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        &mut self,
+        request: R,
+    ) -> ConnectionHandleResponseInner {
         loop {
             let connected: Result<ConnectionHandleConnected, proto::error::ProtoError> = match self
             {
@@ -337,7 +358,9 @@ impl Future for ConnectionHandleResponseInner {
                 #[cfg(feature = "dns-over-https")]
                 Https(ref mut https) => return https.poll_unpin(cx),
                 ProtoError(ref mut e) => {
-                    return Poll::Ready(Err(e.take().expect("futures cannot be polled once complete")));
+                    return Poll::Ready(Err(e
+                        .take()
+                        .expect("futures cannot be polled once complete")));
                 }
             };
 

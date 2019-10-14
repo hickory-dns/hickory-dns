@@ -8,12 +8,12 @@
 use std::fmt::{self, Display};
 use std::io;
 use std::net::SocketAddr;
-use std::time::Duration;
 use std::pin::Pin;
 use std::task::Context;
+use std::time::Duration;
 
 use async_trait::async_trait;
-use futures::{Future, Poll, Stream, TryFutureExt, StreamExt};
+use futures::{Future, Poll, Stream, StreamExt, TryFutureExt};
 use tokio_io::{AsyncRead, AsyncWrite};
 
 use crate::error::ProtoError;
@@ -40,7 +40,10 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     #[allow(clippy::new_ret_no_self)]
     pub fn new(
         name_server: SocketAddr,
-    ) -> (TcpClientConnect<S::Transport>, Box<dyn DnsStreamHandle + Send>) {
+    ) -> (
+        TcpClientConnect<S::Transport>,
+        Box<dyn DnsStreamHandle + Send>,
+    ) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -53,7 +56,10 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> (TcpClientConnect<S::Transport>, Box<dyn DnsStreamHandle + Send>) {
+    ) -> (
+        TcpClientConnect<S::Transport>,
+        Box<dyn DnsStreamHandle + Send>,
+    ) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
         let new_future = Box::pin(
@@ -106,14 +112,16 @@ impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
 
 // TODO: create unboxed future for the TCP Stream
 /// A future that resolves to an TcpClientStream
-pub struct TcpClientConnect<S>(Pin<Box<dyn Future<Output = Result<TcpClientStream<S>, ProtoError>> + Send + 'static>>);
+pub struct TcpClientConnect<S>(
+    Pin<Box<dyn Future<Output = Result<TcpClientStream<S>, ProtoError>> + Send + 'static>>,
+);
 
 impl<S> Future for TcpClientConnect<S> {
     type Output = Result<TcpClientStream<S>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx)
-     }
+    }
 }
 
 #[cfg(feature = "tokio-compat")]
@@ -123,7 +131,7 @@ use tokio_net::tcp::TcpStream as TokioTcpStream;
 #[async_trait]
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
-    
+
     async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport> {
         TokioTcpStream::connect(addr).await
     }
@@ -240,10 +248,11 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
         sender
             .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .block_on(stream.into_future());
+        let (buffer, stream_tmp) = io_loop.block_on(stream.into_future());
         stream = stream_tmp;
-        let buffer = buffer.expect("no buffer received").expect("error recieving buffer");
+        let buffer = buffer
+            .expect("no buffer received")
+            .expect("error recieving buffer");
         assert_eq!(buffer.bytes(), TEST_BYTES);
     }
 

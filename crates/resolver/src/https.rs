@@ -10,14 +10,23 @@ use futures::Future;
 
 use proto::error::ProtoError;
 use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
-use trust_dns_https::{HttpsClientStream, HttpsClientStreamBuilder, HttpsClientResponse};
+use trust_dns_https::{HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder};
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<DnsExchange<HttpsClientStream, HttpsClientResponse>, ProtoError>> + Send>>,
+    Pin<
+        Box<
+            dyn Future<
+                    Output = Result<
+                        DnsExchange<HttpsClientStream, HttpsClientResponse>,
+                        ProtoError,
+                    >,
+                > + Send,
+        >,
+    >,
     BufDnsRequestStreamHandle<HttpsClientResponse>,
 ) {
     // using the mozilla default root store

@@ -190,7 +190,7 @@ impl From<Algorithm> for u8 {
             Algorithm::ECDSAP256SHA256 => 13,
             Algorithm::ECDSAP384SHA384 => 14,
             Algorithm::ED25519 => 15,
-            Algorithm::Unknown(v) => v
+            Algorithm::Unknown(v) => v,
         }
     }
 }
@@ -212,10 +212,7 @@ fn test_into() {
         Algorithm::ECDSAP384SHA384,
         Algorithm::ED25519,
     ] {
-        assert_eq!(
-            *algorithm,
-            Algorithm::from_u8(Into::<u8>::into(*algorithm))
-        )
+        assert_eq!(*algorithm, Algorithm::from_u8(Into::<u8>::into(*algorithm)))
     }
 }
 

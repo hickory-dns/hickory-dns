@@ -5,11 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
-use futures::Future;
 use futures::lock::Mutex;
+use futures::Future;
 use proto::error::ProtoError;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
@@ -42,10 +42,11 @@ where
         }
     }
 
-    async fn inner_send(request: DnsRequest, 
-                        active_queries: Arc<Mutex<HashMap<Query, RcFuture<<H as DnsHandle>::Response>>>>,
-                        mut client: H)
-                        -> Result<DnsResponse, ProtoError> {
+    async fn inner_send(
+        request: DnsRequest,
+        active_queries: Arc<Mutex<HashMap<Query, RcFuture<<H as DnsHandle>::Response>>>>,
+        mut client: H,
+    ) -> Result<DnsResponse, ProtoError> {
         // TODO: what if we want to support multiple queries (non-standard)?
         let query = request.queries().first().expect("no query!").clone();
 
@@ -55,13 +56,14 @@ where
         // TODO: we need to consider TTL on the records here at some point
         // If the query is running, grab that existing one...
         if let Some(rc_future) = active_queries.get(&query) {
-            return rc_future.clone().await
+            return rc_future.clone().await;
         };
 
         // Otherwise issue a new query and store in the map
-        active_queries.entry(query).or_insert_with(|| {
-            rc_future(client.send(request))
-        }).await
+        active_queries
+            .entry(query)
+            .or_insert_with(|| rc_future(client.send(request)))
+            .await
     }
 }
 
@@ -73,18 +75,22 @@ where
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
-        
-        Box::pin(Self::inner_send(request, Arc::clone(&self.active_queries), self.client.clone()))
+
+        Box::pin(Self::inner_send(
+            request,
+            Arc::clone(&self.active_queries),
+            self.client.clone(),
+        ))
     }
 }
 
 #[cfg(test)]
 mod test {
-    use std::sync::Arc;
     use std::pin::Pin;
+    use std::sync::Arc;
 
-    use futures::*;
     use futures::lock::Mutex;
+    use futures::*;
     use proto::error::ProtoError;
     use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
@@ -110,7 +116,11 @@ mod test {
                 let mut i = i.lock().await;
 
                 message.set_id(*i);
-                println!("sending {}: {}", *i, request.into().queries().first().expect("no query!").clone());
+                println!(
+                    "sending {}: {}",
+                    *i,
+                    request.into().queries().first().expect("no query!").clone()
+                );
 
                 *i += 1;
 
@@ -125,7 +135,9 @@ mod test {
     fn test_memoized() {
         use futures::executor::block_on;
 
-        let mut client = MemoizeClientHandle::new(TestClient { i: Arc::new(Mutex::new(0)) });
+        let mut client = MemoizeClientHandle::new(TestClient {
+            i: Arc::new(Mutex::new(0)),
+        });
 
         let mut test1 = Message::new();
         test1.add_query(Query::new().set_query_type(RecordType::A).clone());
@@ -146,5 +158,4 @@ mod test {
         let result = block_on(client.send(test2)).ok().unwrap();
         assert_eq!(result.id(), 1);
     }
-
 }

@@ -306,7 +306,7 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
                     Poll::Ready(Some(message)) => {
                         // if there is no peer, this connection should die...
                         let (buffer, dst) = message.unwrap();
-                        
+
                         // This is an error if the destination is not our peer (this is TCP after all)
                         //  This will kill the connection...
                         if peer != dst {

@@ -26,8 +26,8 @@ pub mod rdata;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod rsa_public_key;
 mod supported_algorithm;
-mod trust_anchor;
 pub mod tbs;
+mod trust_anchor;
 mod verifier;
 
 pub use self::algorithm::Algorithm;
