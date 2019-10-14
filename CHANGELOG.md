@@ -3,7 +3,18 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 0.17.0
+All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
+
+## 0.18.0 Unreleased
+
+### Changes
+
+- (all) CHANGELOG.md is now merged from the Resolver crate and the top-level. All notes from the Resolver CHANGELOG were merged into this changelog, with the format `## {version} (Resolver)` and the existing notes from the top-level are formatted as `## {version} (Client/Server`. This should make notes on releases easier. Going forward the scope of changes across crates will be captured as `- ({crate}) {note}` where all is used for across the board updates.
+- (all) After the 0.18 release, all crates will be versioned uniformally, and released at the same time, this will resolve some issues around consistency with releases. The final Resolver release before this was `0.12`.
+- *breaking* (client) rebranded from `trust-dns` to `trust-dns-client`
+- *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.40` minimum)
+
+## 0.17.0 (Client/Server)
 
 ### Added
 
@@ -24,11 +35,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - `byteorder` dep dropped in favor of `std` implementations #844 (@lukaslueg)
 
-## 0.16.1
+## 0.16.1 (Client/Server)
 
 - disables the `socket2/reuseport` feature except when `mdns` is enabled
 
-## 0.16.0
+## 0.16.0 (Client/Server)
 
 ### Fixed
 
@@ -61,7 +72,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *breaking* (server) Catalog::lookup takes ownership of MessageRequest and returns a LookupFuture #674
 - *breaking* (server) MessageRequest and Queries no longer carrying lifetime parameters #674
 
-## 0.15.0
+## 0.15.0 (Client/Server)
 
 ### Fixed
 
@@ -93,7 +104,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - upgraded `native-tls` and `tokio-tls` to 0.2
 - upgraded `rusqlite` to 0.15
 
-## 0.14.0
+## 0.14.0 (Client/Server)
 
 ### Changed
 
@@ -125,7 +136,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - usage of tokio-core::Core @Keruspe #446
 
-## 0.13.0
+## 0.13.0 (Client/Server)
 
 ### Added
 
@@ -165,7 +176,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - All deprecated APIs removed from -proto #262
 - Server: removed deprecated RSA config loading options, see reference test cargo.tomls #276 (@briansmith)
 
-## 0.12.0
+## 0.12.0 (Resolver)
+
+- Internal updates related to generification of executors
+
+## 0.12.0 (Client/Server)
 
 ### Fixed
 
@@ -182,11 +197,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Large celanup of signing and verification paths in DNSSec (@briansmith)
 - *breaking* changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>` 
 
-## 0.11.2
+## 0.11.2 (Client/Server)
 
 (README.md documentation changes for crates.io)
 
-## 0.11.1
+## 0.11.1 (Resolver)
+
+- disables the `socket2/reuseport` feature except when `mdns` is enabled
+
+## 0.11.1 (Client/Server)
 
 ### Changed
 
@@ -196,7 +215,26 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - per project Readme.md for crates.io
 
-## 0.11.0
+## 0.11 (Resolver)
+
+### Fixed
+
+- Ignore UDP responses not from target src address #629 #630 #631 (@aep)
+- Improved NSEC validation of responses #697
+
+### Added
+
+- New option to execute queries concurrently, default is 2 #615
+- Lookup::record_iter for listing all records returned in request #674
+- NAPTR record data (no additional record processing support) #731
+
+### Changed
+
+- Added option to distrust Nameservers on SERVFAIL responses, continue resolution #613
+- *breaking* Record::from_rdata no longer requires RecordType parameter #674
+- LRU cache is now based on Query rather than just name #674
+
+## 0.11.0 (Client/Server)
 
 ### Added
 
@@ -220,7 +258,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *deprecated* `Name::prepend_label` exposed internal data structure, unclear usage *no replacement*
 - *deprecated* `Record::add_name` unclear usage *no replacement*
 
-## 0.10.5
+## 0.10.5 (Client/Server)
 
 ### Added
 
@@ -230,7 +268,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - ServerFuture now Accepts generic RequestHandler (@Antti)
 
-## 0.10.4
+## 0.10.4 (Client/Server)
 
 ### Added
 
@@ -242,14 +280,20 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - NSEC coverage bitmap overflow in nightly
 - Name::zone_of panic (@SAPikachu)
 
-## 0.10.3
+## 0.10.3 (Client/Server)
 
 ### Fixed
 
 - Proper TCP connection timeout
 - Fixed signature format of ECDSA (@SAPikachu) #141
 
-## 0.10.2
+## 0.10.2 (Resolver)
+
+### Fixed
+
+- all optional dependencies updated #640
+
+## 0.10.2 (Client/Server)
 
 ### Fixed
 
@@ -267,7 +311,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - PublicKey and Verifier for verifying with zero copy from KEY and DNSKEY (possible breaking change)
 - Pkcs8 as a supported KeyFormat for storage (possible breaking change)
 
-## 0.10.1
+## 0.10.1 (Resolver)
+
+### Fixed
+
+- UDP Sockets not being properly closed in timeout scenarios #635
+
+## 0.10.1 (Client/Server)
 
 ### Added
 
@@ -291,7 +341,36 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - key_tag calculation for DNSKEY and KEY now correct #118 (@jannic)
 - SIG0 signing fixed to match RFC and BIND #120 (@jannic)
 
-## 0.10.0
+## 0.10 (Resolver)
+
+### Fixed
+
+- Fix two separate integer overflows from subtractions #585 (@oherrala)
+- strictly enforce name and label lengths during label parsing #584
+- enforce that only prior labels are used in label expansion, decompression #578 (@oherrala)
+- CAA now properly performs case-insensitive compares #587 (@oherrala)
+- overhauled rdata parsers with Restrict type to reduce potential of overflowing operations #586
+- Propagate TTLs for NXDOMAIN responses #485 (@hawkw)
+- LookupIpFuture implementation to be proper in regards to loop control #480 (@hawkw)
+- max query depth tracking in Resolver #469
+
+### Changed
+
+- Wrap types in Restrict and force validation before usage from streams #586
+- Delays all connections until actual use #566
+- Relax parsing rules for CAA issuer keys and values #517
+- `ResolverFuture` renamed to `AsyncResolver` #487 (@hawkw)
+- *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background #487 (@hawkw)
+- *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` #487 (@hawkw)
+- *breaking* Migrated from error_chain to Failure #474 (@silwol)
+- improve truncation to always return records #497
+
+### Added
+
+- updated root trust-anchor to include new `20326` RSA root ksk
+- DNS over HTTPS support #520
+
+## 0.10.0 (Client/Server)
 
 ### Changed
 
@@ -325,26 +404,67 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Added native-tls with support for macOS and Linux (DNS over TLS)
 - matrixed tests for all features to Travis
 
-## 0.9.3
+## 0.9.3 (Client/Server)
 
 ### Changed
 
 - updated to rust-openssl 0.9.x series
 - restructured dnssec code to better support alternate key formats
 
-## 0.9.2
+## 0.9.2 (Client/Server)
 
 ### Changed
 
 - mio_client is now an optional feature in favor of the futures-rs ClientFuture
 
-## 0.9.1
+## 0.9.1 (Resolver)
+
+### Fixes
+
+- Fixes the MAX TTL being outside the bounds of 32bit systems, reduces max to 1 day #528
+
+## 0.9.1 (Client/Server)
 
 ### Changed
 
 - OpenSSL is now an optional feature for the client
 
-## 0.9.0
+## 0.9 (Resolver)
+
+### Added
+
+- DNS-over-TLS configurations (requires one of `dns-over-native-tls` or `dns-over-rustls` features) #396
+- Experimental DNS-SD, service discovery (RFC 6763, `mdns` feature required) #363
+- Experimental mDNS, multicast DNS, known issues persist (RFC 6762, `mdns` feature required) #337
+- Exposed TTLs on `Lookup` objects @hawkw #444
+- Added global resolver example #460
+
+### Changed
+
+- Use tokio-timer (part of tokio upgrade) @justinlatimer #411
+- Backtrace now optional @briansmith #416
+- Upgrade to tokio-tcp (tokio upgrade) @Keruspe #426
+- Upgrade to tokio-udp (tokio upgrade) @Keruspe #427
+- Upgrade to tokio-executor (tokio upgrade) @Keruspe and @justinlatimer #438
+- Always reattempt nameserver reconnections regardless of time #457
+- Defaulted type parameter for LookupFuture, removed InnerLookupFuture #459
+
+### Fixed
+
+- BinEncoder panic on record sets of extreme sizes #352
+- Panic when oneshot channel receiver goes away #356
+- Incorrect IPv6 configuration for Google nameservers #358
+- Properly yield on failure to acquire lock #372
+- Correct order of search list with ndots variable #410
+- Send (Sync where applicable) enforced on all DnsHandle::send and other interfaces #460
+- Properly track max query depth as a `task_local` not `thread_local` #460, #469
+- IPv4 like name resolution in lookup_ip with search order #467
+
+### Removed
+
+- usage of tokio-core::Core @Keruspe #446
+
+## 0.9.0 (Client/Server)
 
 ### Added
 
@@ -367,13 +487,46 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Flush TcpStream after fully sending Message
 - Recognize no bytes read as closed TcpStream
 
-## 0.8.1
+## 0.8.1 (Resolver)
+
+### Changed
+
+- Make read_system_conf() function public #338 (@oherrala)
+- Hosts map was not properly reference counted #342
+
+### Fixed
+
+- Panic in edge case of label compression #341 (@SAPikachu)
+- Fix `localhost` lookup and no longer panic on no names #343
+
+## 0.8.1 (Client/Server)
 
 ### Fixed
 
 - Fix build on rustc 1.11, #66
 
-## 0.8.0
+## 0.8.0 (Resolver)
+
+### Changed
+
+- Updated `trust-dns-proto` to `0.3`, which brings in better `Name` and `Label` impls
+- Dropped LALRPOP `resolv.conf` parser in favor of the `resolv-conf` #335 (@cssivision & @little-dude)
+- Improved message serialization #311 (@little-dude)
+- Many serialization improvements #317
+- Dependencies updated #334 (@oherrala)
+
+### Added
+
+- `Name` and `Label` now support idna, punycode, see `Name::from_str`
+- Clippy added to build #304! (@neosilky)
+- `from_system_conf` on now supported on Windows 32bit targets (previously just 64bit) #313 (@liranringel)
+
+### Fixed
+
+- octal escapes fixed in `Name` parsing #330
+- `NULL` record type incorrectly valued at `0` to proper `10` #329 (@jannic)
+
+## 0.8.0 (Client/Server)
 
 ### Added
 
@@ -392,26 +545,46 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Cleaned up the Server implementation to isolate connection handlers
 - Deprecated old Client will possibly remove in the future
 
-## 0.7.3 2016-08-12
+## 0.7.3 (Client/Server 2016-08-12)
 
 ### Fixed
 
 - Issue #27: label case sensitivity revisited for RRSIG signing, RFC 6840
 - TCP reregister on would-block errors
 
-## 0.7.2 2016-08-10
+## 0.7.2 (Client/Server 2016-08-10)
 
 ### Fixed
 
 - Issue #28: RRSIG validation of wildcards, label length > wildcard length
 
-## 0.7.1 2016-08-09
+## 0.7.1 (Client/Server 2016-08-09)
 
 ### Fixed
 
 - Issue #27: remove implicit case conversion of labels (fixes NSEC validation)
 
-## 0.7.0 2016-06-20
+## 0.7.0 (Resolver)
+
+### Changed
+
+- Resolver no longer depends on Client
+- *breaking* Resolver no longer returns io:Errors, use `From<ResolveError>` for `io::Error`
+- Resolver is now `Send`
+- DNSSec now disabled by default in Resolver, see `dnssec-ring` or `dnssec-openssl` features #268
+- CNAME chaining was cleaned up #271 (@briansmith)
+- On hostname parsing to IpAddr, return without lookup #302 (@cssivision)
+- Change default `LookupIpStrategy` from `Ipv4AndIpv6` to `Ipv4thenIpv6` #301 (@cssivision)
+
+### Added
+
+- ResolveError and associated types
+
+### Fixed
+
+- Cleaned up CNAME chained lookups, better TTL enforcement, etc #298
+
+## 0.7.0 (Client/Server 2016-06-20)
 
 ### Added
 
@@ -431,7 +604,20 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - TXT record case sensitivity
 
-## 0.6.0 2016-06-01
+## 0.6.0 (Resolver)
+
+### Changed
+
+- Split UDP and TCP into different NS pools, prefer UDP lookups first
+- On truncated UDP responses, promote to TCP for resolution
+
+### Added
+
+- 64bit Windows support for reading DNS configuration! (@liranringel)
+- CNAME chain resolution (where CNAME results are not returned in the same query)
+- Resolution prefers `/etc/hosts` before querying (@cssivision)
+
+## 0.6.0 (Client/Server 2016-06-01)
 
 ### Added
 
@@ -462,7 +648,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Simplified RData variant implementations
 - Improved ENDS and SIG0 parsing on Message deserialization
 
-## 0.5.3 2016-04-07
+## 0.5.3 (Client/Server 2016-04-07)
 
 ### Fixed
 
@@ -473,7 +659,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - combined the TCP client and server handlers
 - reusing buffer in TCP handler between send and receive (performance)
 
-## 0.5.2 2016-04-04
+## 0.5.2 (Client/Server 2016-04-04)
 
 ### Changed
 
@@ -486,7 +672,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - updated rustc-serialize to 0.3.18
 - updated toml to 0.1.28
 
-## 0.5.1 2016-03-30
+## 0.5.1 (Client/Server 2016-03-30)
 
 ### Added
 
@@ -498,7 +684,26 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - Changed the bin.rs to named.rs, more accurate, allow for other binaries
 
-## 0.5.0 2016-03-22
+## 0.5.0 (Resolver)
+
+### Changed
+
+- *breaking* `LookupIp` now returns an iterator over owned data (IpAddr is Copy + Clone ref not necessary)
+- *breaking* `Resolver::lookup` will now return an Err on NxDomain and NoData responses
+- rewrote much of the caching and lookup functionality for generic RecordType lookups
+- removed &mut from resolver fn interfaces, make it easier to use
+
+### Added
+
+- Generic record type lookup
+- reverse_lookup for IP to Name lookups
+- ipv4_lookup for looking up *only* ipv4 (lookup_ip has options for dual-stack)
+- ipv6_lookup for looking up *only* ipv6 (lookup_ip has options for dual-stack)
+- mx_lookup for querying mail exchanges
+- srv_lookup for service records and also a specialized form for ease of use lookup_service
+- txt_lookup for text record lookups
+
+## 0.5.0 (Client/Server 2016-03-22)
 
 ### Added
 
@@ -528,7 +733,18 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - See updated trust_dns::client::Client API
 
-## 0.4.0 2015-10-17
+## 0.4.0 (Resolver)
+
+### Removed
+
+- *breaking* impl `Iterator` removed from `LookupIp` result type, see `LookupIp::iter` for replacement
+
+### Added
+
+- Support for DNSSec validation
+- LRU Cache
+
+## 0.4.0 (Client/Server 2015-10-17)
 
 ### Added
 
@@ -539,7 +755,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - Name pointer support
 
-## 0.3.1 2015-10-04
+## 0.3.1 (Client/Server 2015-10-04)
 
 ### Fixed
 
@@ -547,14 +763,29 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Removed a lot of unnecessary clones, heavier use of Rc
 - Binary server bugs (fully functional)
 
-## 0.3.0 2015-09-27
+## 0.3.0 (Resolver)
+
+### Added
+
+- `options attempts:N` aka `ResolverOpts::attempts` support, aka retries
+- Google IPv6 nameservers as defaults for `ResolverConfig::default`
+- support for domain name search in `ResolverConfig` and `LookupIpFuture`
+- support for search names in `ResolverConfig` and `LookupIpFuture`
+- `LookupIpFuture` type alias to `LookupIpFuture<NameServerPool>` *compatibility*
+
+### Changed
+
+- *breaking* `LookupIpFuture` renamed to `LookupIpFuture`
+- *breaking* `LookupIpFuture` now takes a generic parameter, generally `<NameServerPool>`
+
+## 0.3.0 (Client/Server 2015-09-27)
 
 ### Added
 
 - Master zone files support BIND time formats, e.g. #h#d
 - Toml config file support (not compatible with BIND)
 
-## 0.2.1 2015-09-17
+## 0.2.1 (Client/Server 2015-09-17)
 
 ### Added
 
@@ -564,7 +795,17 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - mio replaced std::net operators
 
-## 0.2.0 2015-09-07
+## 0.2.0 (Resolver)
+
+### Added
+
+- ipv6 parallel lookup
+- multiple ipv4 and ipv6 lookup strategies
+- library documentation examples
+- test coverage for resolver
+
+
+## 0.2.0 (Client/Server 2015-09-07)
 
 ### Added
 
@@ -586,7 +827,13 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 - Cleaned up binary encoders and decoders with objects
 
-## 0.1.0 2015-08-07
+## 0.1.0 (Resolver 2017-6-27)
+
+### Added
+
+- Initial release of the Trust-DNS Resolver
+
+## 0.1.0 (Client/Server 2015-08-07)
 
 ### Added
 
