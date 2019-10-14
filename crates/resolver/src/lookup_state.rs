@@ -44,14 +44,14 @@ struct DepthTracker {
 
 impl DepthTracker {
     fn track(query_depth: Arc<AtomicU8>) -> Self {
-        dbg!(query_depth.fetch_add(1, Ordering::Release));
+        query_depth.fetch_add(1, Ordering::Release);
         Self{ query_depth }
     }
 }
 
 impl Drop for DepthTracker {
     fn drop(&mut self) {
-        dbg!(self.query_depth.fetch_sub(1, Ordering::Release));
+        self.query_depth.fetch_sub(1, Ordering::Release);
     }
 }
 

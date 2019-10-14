@@ -163,6 +163,7 @@ fn read_file(path: &str) -> Vec<u8> {
 
 fn test_server_www_tls() {
     use std::env;
+    use futures::executor::block_on;
 
     let dns_name = "ns.example.com";
 
@@ -175,7 +176,7 @@ fn test_server_www_tls() {
 
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
-    let tcp_listener = TcpListener::bind(&addr).unwrap();
+    let tcp_listener = block_on(TcpListener::bind(&addr)).unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
     println!("tcp_listner on port: {}", ipaddr);
@@ -317,31 +318,28 @@ fn server_thread_tls(
     server_continue: Arc<AtomicBool>,
     pkcs12_der: Vec<u8>,
 ) {
+    use futures::FutureExt;
     use openssl::pkcs12::Pkcs12;
 
     let catalog = new_catalog();
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Box<Future<Output = Result<(), io::Error>> + Send>>(Box::new(future::lazy(
-            || {
-                let pkcs12 = Pkcs12::from_der(&pkcs12_der)
-                    .expect("bad pkcs12 der")
-                    .parse("mypass")
-                    .expect("Pkcs12::from_der");
-                let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
-                future::result(server.register_tls_listener(
-                    tls_listener,
-                    Duration::from_secs(30),
-                    pkcs12,
-                ))
-            },
-        )))
+        .block_on(future::lazy(|_| {
+            let pkcs12 = Pkcs12::from_der(&pkcs12_der)
+                .expect("bad pkcs12 der")
+                .parse("mypass")
+                .expect("Pkcs12::from_der");
+            let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
+            future::ready(server.register_tls_listener(
+                tls_listener,
+                Duration::from_secs(30),
+                pkcs12,
+            ))
+        }).flatten())
         .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop
-            .block_on(Delay::new(Instant::now() + Duration::from_millis(10)))
-            .unwrap();
+        io_loop.block_on(tokio_timer::delay(Instant::now() + Duration::from_millis(10)));
     }
 }

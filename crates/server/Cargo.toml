@@ -54,7 +54,7 @@ dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-client/
 dns-over-https = ["h2", "http", "trust-dns-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "tokio-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
 dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
 dns-over-tls = []
 
@@ -95,8 +95,9 @@ time = "0.1"
 tokio = "0.2.0-alpha"
 tokio-executor = "0.2.0-alpha"
 tokio-io = "0.2.0-alpha"
-tokio-rustls = { version = "0.12.0-alpha", optional = true }
 tokio-net = "0.2.0-alpha"
+tokio-openssl = { version = "0.4.0-alpha", optional = true }
+tokio-rustls = { version = "0.12.0-alpha", optional = true }
 tokio-timer = "0.3.0-alpha"
 toml = "0.5"
 trust-dns-client= { version = "0.18.0-alpha", path = "../client" }
