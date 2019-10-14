@@ -23,7 +23,7 @@ use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
-use futures::{Future, TryFutureExt};
+use futures::{Future, FutureExt, TryFutureExt};
 use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
@@ -60,8 +60,8 @@ fn test_query_nonet() {
     let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
     io_loop.spawn(bg);
 
-    io_loop.block_on(test_query(&mut client)).unwrap();
-    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query(&mut client));
 }
 
 #[test]
@@ -73,8 +73,8 @@ fn test_query_udp_ipv4() {
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client)).unwrap();
-    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query(&mut client));
 }
 
 #[test]
@@ -91,8 +91,8 @@ fn test_query_udp_ipv6() {
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client)).unwrap();
-    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query(&mut client));
 }
 
 #[test]
@@ -104,8 +104,8 @@ fn test_query_tcp_ipv4() {
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client)).unwrap();
-    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query(&mut client));
 }
 
 #[test]
@@ -122,8 +122,8 @@ fn test_query_tcp_ipv6() {
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client)).unwrap();
-    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query(&mut client));
 }
 
 #[test]
@@ -150,12 +150,12 @@ fn test_query_https() {
     io_loop.spawn(bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
-    io_loop.block_on(test_query(&mut client)).unwrap();
-    io_loop.block_on(test_query(&mut client)).unwrap();
+    io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query(&mut client));
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut BasicClientHandle<R>) -> Pin<Box<dyn Future<Output = Result<(), ()>>>>
+fn test_query<R>(client: &mut BasicClientHandle<R>) -> Pin<Box<dyn Future<Output = ()>>>
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
@@ -184,9 +184,9 @@ where
                     panic!();
                 }
             })
-            .map_err(|e| {
-                panic!("query failed: {}", e);
-            }),
+            .map(|r: Result<_,_>| {
+                r.expect("query failed")
+            })
     )
 }
 

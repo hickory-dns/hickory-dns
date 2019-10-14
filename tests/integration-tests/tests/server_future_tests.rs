@@ -283,13 +283,12 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
     io_loop
-        .block_on::<Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>>(Box::pin(future::lazy(
+        .block_on::<Pin<Box<dyn Future<Output = ()> + Send>>>(Box::pin(future::lazy(
             |_| {
                 server.register_socket(udp_socket);
-                Ok(())
+                ()
             },
-        )))
-        .unwrap();
+        )));
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(tokio_timer::delay(
@@ -315,7 +314,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     }
 }
 
-// FIXME: need a rustls option
+// TODO: need a rustls option
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 fn server_thread_tls(
     tls_listener: TcpListener,

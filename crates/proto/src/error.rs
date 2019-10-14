@@ -301,27 +301,6 @@ impl From<Elapsed> for ProtoError {
     }
 }
 
-// impl From<tokio_timer::Error<ProtoError>> for ProtoError {
-//     fn from(e: tokio_timer::Error<ProtoError>) -> Self {
-//         if e.is_elapsed() {
-//             return ProtoError::from(ProtoErrorKind::Timeout);
-//         }
-
-//         if e.is_inner() {
-//             return e.into_inner().expect("invalid state, not a ProtoError");
-//         }
-
-//         if e.is_timer() {
-//             return ProtoError::from(
-//                 e.into_timer()
-//                     .expect("invalid state, not a tokio_timer::Error"),
-//             );
-//         }
-
-//         ProtoError::from("unknown error with tokio_timer")
-//     }
-// }
-
 impl From<::url::ParseError> for ProtoError {
     fn from(e: ::url::ParseError) -> ProtoError {
         e.context(ProtoErrorKind::UrlParsing).into()

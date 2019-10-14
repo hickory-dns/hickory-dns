@@ -314,7 +314,6 @@ impl SingleUseUdpSocket {
                             message.id()
                         );
 
-                        //SingleUseUdpSocket::AwaitResponse(msg.take(), socket.take(), msg_id)
                         continue;
                     }
                 }
@@ -324,14 +323,14 @@ impl SingleUseUdpSocket {
                         "dropped malformed message waiting for id: {} err: {}",
                         msg_id, e
                     );
-                    //SingleUseUdpSocket::AwaitResponse(msg.take(), socket.take(), msg_id)
+
                     continue;
                 }
             }
         }
     }
 
-    // FIXME: this is unnecessary
+    // TODO: this is unnecessary
     async fn errored(err: ProtoError) -> Result<DnsResponse, ProtoError> {
         futures::future::err(err).await
     }

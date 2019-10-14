@@ -83,10 +83,7 @@ async fn handle_request<T>(
 
     debug!("received message: {:?}", message);
 
-    if let Err(()) = server_future::handle_request(message, src_addr, handler, responder).await {
-        warn!("error handling request from {}", src_addr);
-        ()
-    }
+    server_future::handle_request(message, src_addr, handler, responder).await
 }
 
 #[derive(Clone)]

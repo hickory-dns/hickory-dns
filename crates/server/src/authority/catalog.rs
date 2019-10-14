@@ -33,7 +33,7 @@ use trust_dns::rr::{LowerName, RecordType};
 use crate::authority::{
     AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
 };
-use crate::authority::{AuthorityObject, BoxedLookupFuture, LookupError, LookupObject};
+use crate::authority::{AuthorityObject, BoxedLookupFuture, LookupError, LookupObject, EmptyLookup};
 use crate::server::{Request, RequestHandler, ResponseHandler};
 
 /// Set of authorities, zones, available to this server.
@@ -169,14 +169,14 @@ impl RequestHandler for Catalog {
 /// Future response to handle a request
 #[must_use = "futures do nothing unless polled"]
 pub enum HandleRequest {
-    LookupFuture(Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>),
+    LookupFuture(Pin<Box<dyn Future<Output = ()> + Send>>),
     Result(io::Result<()>),
 }
 
 impl HandleRequest {
     fn lookup<R: ResponseHandler + Unpin>(lookup_future: LookupFuture<R>) -> Self {
         let lookup =
-            Box::pin(lookup_future) as Pin<Box<dyn Future<Output = Result<(), ()>> + Send>>;
+            Box::pin(lookup_future) as Pin<Box<dyn Future<Output = ()> + Send>>;
         HandleRequest::LookupFuture(lookup)
     }
 
@@ -187,15 +187,15 @@ impl HandleRequest {
 
 impl Future for HandleRequest {
     // TODO: return ()
-    type Output = Result<(), ()>;
+    type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match *self {
             HandleRequest::LookupFuture(ref mut lookup) => lookup.as_mut().poll(cx),
-            HandleRequest::Result(Ok(_)) => Poll::Ready(Ok(())),
+            HandleRequest::Result(Ok(_)) => Poll::Ready(()),
             HandleRequest::Result(Err(ref res)) => {
                 error!("update failed: {}", res);
-                Poll::Ready(Ok(()))
+                Poll::Ready(())
             }
         }
     }
@@ -480,16 +480,14 @@ impl<R: ResponseHandler + Unpin> LookupFuture<R> {
 }
 
 impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
-    // TODO: return ()
-    type Output = Result<(), ()>;
+    type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
             // See if the lookup had anything
             match self.lookup.as_mut().map(|f| f.poll_unpin(cx)) {
                 Some(Poll::Pending) => return Poll::Pending,
-                Some(Poll::Ready(Ok(()))) => (),
-                Some(Poll::Ready(Err(()))) => error!("unexpected error result in LookupFuture"),
+                Some(Poll::Ready(())) => (),
                 None => (),
             }
 
@@ -501,7 +499,7 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
                 q_a
             } else {
                 // all lookups are complete, finish request
-                return Poll::Ready(Ok(()));
+                return Poll::Ready(());
             };
 
             let query = if let Some(query) = self.request.queries().get(query_idx) {
@@ -669,13 +667,12 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
 }
 
 impl<R: ResponseHandler> Future for AuthorityLookup<R> {
-    // TODO: return ()
-    type Output = Result<(), ()>;
+    type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let (response_params, request_params, authority, state) = self.split();
 
-        let sections = ready!(state.poll(cx, request_params, response_params, authority))?;
+        let sections = ready!(state.poll(cx, request_params, response_params, authority));
 
         let records = sections.answers;
         let soa = sections.soa;
@@ -707,7 +704,7 @@ impl<R: ResponseHandler> Future for AuthorityLookup<R> {
         .map_err(|e| error!("error sending response: {}", e))
         .ok();
 
-        Poll::Ready(Ok(()))
+        Poll::Ready(())
     }
 }
 
@@ -732,7 +729,7 @@ impl AuthOrResolve {
         request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
         authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<Result<LookupSections, ()>> {
+    ) -> Poll<LookupSections> {
         match self {
             AuthOrResolve::AuthorityLookupState(a) => {
                 a.poll(cx, request_params, response_params, authority)
@@ -779,7 +776,7 @@ impl AuthorityLookupState {
         request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
         authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<Result<LookupSections, ()>> {
+    ) -> Poll<LookupSections> {
         loop {
             *self = match self {
                 // In this state we await the records, on success we transition to getting
@@ -940,7 +937,7 @@ impl AuthorityLookupState {
                         }),
                     };
 
-                    return Poll::Ready(Ok(sections));
+                    return Poll::Ready(sections);
                 }
             }
         }
@@ -962,7 +959,7 @@ impl ResolveLookupState {
         _request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
         _authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<Result<LookupSections, ()>> {
+    ) -> Poll<LookupSections> {
         #[allow(clippy::never_loop)]
         loop {
             // TODO: way more states to consider.
@@ -975,7 +972,11 @@ impl ResolveLookupState {
                 ResolveLookupState::Records { record_lookup } => {
                     let records = ready!(record_lookup
                         .map_err(|e| error!("error resolving: {}", e))
-                        .poll_unpin(cx))?;
+                        .map(|r: Result<_,()>| match r {
+                            Ok(r) => r,
+                            Err(()) => Box::new(EmptyLookup),
+                        })
+                        .poll_unpin(cx));
                     // need to clone the result codes...
 
                     response_params.response_header.set_authoritative(false);
@@ -987,7 +988,7 @@ impl ResolveLookupState {
                         additionals: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
                     };
 
-                    return Poll::Ready(Ok(sections));
+                    return Poll::Ready(sections);
                 }
             }
         }

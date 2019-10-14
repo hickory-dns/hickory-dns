@@ -53,6 +53,7 @@ dnssec = []
 
 serde-config = ["serde", "trust-dns-proto/serde-config"]
 
+# enables experimental the mDNS (multicast) feature
 mdns = ["trust-dns-proto/mdns"]
 
 [lib]

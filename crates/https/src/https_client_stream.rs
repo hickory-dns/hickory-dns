@@ -243,13 +243,6 @@ impl DnsRequestSender for HttpsClientStream {
             Arc::clone(&self.name_server_name),
             self.name_server,
         )))
-
-        // HttpsSerialResponse(HttpsSerialResponseInner::StartSend {
-        //     h2: self.h2.clone(),
-        //     message,
-        //     name_server_name: Arc::clone(&self.name_server_name),
-        //     name_server: self.name_server,
-        // })
     }
 
     fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
@@ -502,27 +495,6 @@ impl Future for HttpsClientConnectState {
 pub struct HttpsClientResponse(
     Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
 );
-
-// impl HttpsClientResponse {
-// /// creates a new future for the request
-// ///
-// /// # Arguments
-// ///
-// /// * `request` - Serialized message being sent
-// /// * `message_id` - Id of the message that was encoded in the serial message
-// fn new(request: SerialMessage, message_id: u16, timeout: Duration) -> Self {
-//     UdpResponse(Box::pin(Timeout::new(
-//         SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
-//         timeout,
-//     )))
-// }
-
-// /// ad already completed future
-// fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(f: F) -> Self {
-//     // TODO: this constructure isn't really necessary
-//     UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
-// }
-// }
 
 impl Future for HttpsClientResponse {
     type Output = Result<DnsResponse, ProtoError>;

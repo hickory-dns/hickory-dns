@@ -140,8 +140,6 @@ pub fn create_example() -> InMemoryAuthority {
         0,
     );
 
-    // FIXME: THESE NEW CNAME RECORDS ARE CAUSING NSEC TO FAIL, WHY?
-
     // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
     records.upsert(
         Record::new()

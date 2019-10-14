@@ -750,8 +750,6 @@ where
         additional_count.1 |= count.1;
     }
 
-    // FIXME: because this is destructive, we need to move message signing here... maybe it will work?
-
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
     //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
     //  part of the additionals section.

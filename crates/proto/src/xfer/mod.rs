@@ -126,7 +126,6 @@ where
         DnsRequestStreamHandle { sender }
     }
 
-    // FIXME: does try send change the semantics this had before?
     /// see [`futures::sync::mpsc::UnboundedSender`]
     pub fn unbounded_send(
         &self,
