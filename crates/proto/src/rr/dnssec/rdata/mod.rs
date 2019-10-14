@@ -27,6 +27,8 @@ pub mod nsec3;
 pub mod nsec3param;
 pub mod sig;
 
+use std::str::FromStr;
+
 use crate::error::*;
 use crate::rr::rdata::null;
 use crate::rr::rdata::NULL;
@@ -68,6 +70,24 @@ pub enum DNSSECRecordType {
     SIG,
     /// Unknown or not yet supported DNSSec record type
     Unknown(u16),
+}
+
+impl FromStr for DNSSECRecordType {
+    type Err = ProtoError;
+
+    fn from_str(str: &str) -> ProtoResult<Self> {
+        match str {
+            "DNSKEY" => Ok(DNSSECRecordType::DNSKEY),
+            "DS" => Ok(DNSSECRecordType::DS),
+            "KEY" => Ok(DNSSECRecordType::KEY),
+            "NSEC" => Ok(DNSSECRecordType::NSEC),
+            "NSEC3" => Ok(DNSSECRecordType::NSEC3),
+            "NSEC3PARAM" => Ok(DNSSECRecordType::NSEC3PARAM),
+            "RRSIG" => Ok(DNSSECRecordType::RRSIG),
+            "SIG" => Ok(DNSSECRecordType::SIG),
+            _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
+        }
+    }
 }
 
 impl From<u16> for DNSSECRecordType {
