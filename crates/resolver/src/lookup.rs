@@ -537,6 +537,22 @@ lookup_type!(
     RData::TXT,
     rdata::TXT
 );
+lookup_type!(
+    SoaLookup,
+    SoaLookupIter,
+    SoaLookupIntoIter,
+    SoaLookupFuture,
+    RData::SOA,
+    rdata::SOA
+);
+lookup_type!(
+    NsLookup,
+    NsLookupIter,
+    NsLookupIntoIter,
+    NsLookupFuture,
+    RData::NS,
+    Name
+);
 
 #[cfg(test)]
 pub mod tests {
