@@ -321,6 +321,8 @@ impl AsyncResolver {
     lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
     lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
     lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
+    lookup_fn!(ns_lookup, lookup::NsLookupFuture, RecordType::NS);
+    lookup_fn!(soa_lookup, lookup::SoaLookupFuture, RecordType::SOA);
     #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
     lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
