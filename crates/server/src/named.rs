@@ -486,8 +486,8 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
-    use futures::TryFutureExt;
     use futures::executor::block_on;
+    use futures::TryFutureExt;
 
     let tls_listen_port: u16 = args
         .flag_tls_port
@@ -533,8 +533,8 @@ fn config_https(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
-    use futures::TryFutureExt;
     use futures::executor::block_on;
+    use futures::TryFutureExt;
 
     let https_listen_port: u16 = args
         .flag_https_port

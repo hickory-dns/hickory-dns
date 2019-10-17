@@ -186,6 +186,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
+        use futures::{TryFutureExt, TryStreamExt};
         use trust_dns_openssl::{tls_server, TlsStream};
 
         let ((cert, chain), key) = certificate_and_key;
@@ -247,7 +248,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                                         .map(|_: Result<(), ()>| ()),
                                 );
 
-                                Ok(())
+                                ()
                             })
                             .await
                     }
@@ -539,9 +540,7 @@ impl<F: Future<Output = ()> + Unpin> Future for HandleRawRequest<F> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match *self {
-            HandleRawRequest::HandleRequest(ref mut f) => {
-                f.poll_unpin(cx)
-            }
+            HandleRawRequest::HandleRequest(ref mut f) => f.poll_unpin(cx),
             HandleRawRequest::Result(ref res) => {
                 warn!("failed to handle message: {}", res);
                 Poll::Ready(())

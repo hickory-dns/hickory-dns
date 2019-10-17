@@ -135,7 +135,7 @@ where
 
                     debug!("sending message via: {}", io_stream);
 
-                    match serial_response.send_response(io_stream.send_message(dns_request)) {
+                    match serial_response.send_response(io_stream.send_message(dns_request, cx)) {
                         Ok(()) => (),
                         Err(_) => {
                             warn!("failed to associate send_message response to the sender");

@@ -213,7 +213,7 @@ where
     }
 
     /// creates random query_id, validates against all active queries
-    fn next_random_query_id(&self) -> Poll<u16> {
+    fn next_random_query_id(&self, cx: &mut Context) -> Poll<u16> {
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
@@ -224,6 +224,7 @@ where
             }
         }
 
+        cx.waker().wake_by_ref();
         Poll::Pending
     }
 
@@ -306,14 +307,14 @@ where
 {
     type DnsResponseFuture = DnsMultiplexerSerialResponse;
 
-    fn send_message(&mut self, request: DnsRequest) -> Self::DnsResponseFuture {
+    fn send_message(&mut self, request: DnsRequest, cx: &mut Context) -> Self::DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
 
         // TODO: handle the pending case with future::poll_fn
         // get next query_id
-        let query_id: u16 = match self.next_random_query_id() {
+        let query_id: u16 = match self.next_random_query_id(cx) {
             Poll::Ready(id) => id,
             Poll::Pending => {
                 return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(

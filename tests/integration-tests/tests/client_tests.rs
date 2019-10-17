@@ -106,7 +106,9 @@ where
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
-    let response = client.query(&name, DNSClass::IN, RecordType::A).expect("Query failed");
+    let response = client
+        .query(&name, DNSClass::IN, RecordType::A)
+        .expect("Query failed");
 
     println!("response records: {:?}", response);
     assert!(response
@@ -163,7 +165,9 @@ where
 
     let name = Name::from_str("www.example.com").unwrap();
 
-    let response = client.secure_query(&name, DNSClass::IN, RecordType::A).expect("Query failed");
+    let response = client
+        .secure_query(&name, DNSClass::IN, RecordType::A)
+        .expect("Query failed");
 
     println!("response records: {:?}", response);
     assert!(response.edns().expect("edns not here").dnssec_ok());
@@ -303,7 +307,9 @@ where
 {
     let name = Name::from_str("none.example.com").unwrap();
 
-    let response = client.secure_query(&name, DNSClass::IN, RecordType::A).expect("Query failed");
+    let response = client
+        .secure_query(&name, DNSClass::IN, RecordType::A)
+        .expect("Query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
@@ -319,7 +325,9 @@ fn test_nsec_query_type() {
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SecureSyncClient::new(conn).build();
 
-    let response = client.secure_query(&name, DNSClass::IN, RecordType::NS).expect("Query failed");
+    let response = client
+        .secure_query(&name, DNSClass::IN, RecordType::NS)
+        .expect("Query failed");
 
     // TODO: it would be nice to verify that the NSEC records were validated...
     assert_eq!(response.response_code(), ResponseCode::NoError);

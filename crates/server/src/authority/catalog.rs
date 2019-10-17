@@ -33,7 +33,9 @@ use trust_dns::rr::{LowerName, RecordType};
 use crate::authority::{
     AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
 };
-use crate::authority::{AuthorityObject, BoxedLookupFuture, LookupError, LookupObject, EmptyLookup};
+use crate::authority::{
+    AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupError, LookupObject,
+};
 use crate::server::{Request, RequestHandler, ResponseHandler};
 
 /// Set of authorities, zones, available to this server.
@@ -175,8 +177,7 @@ pub enum HandleRequest {
 
 impl HandleRequest {
     fn lookup<R: ResponseHandler + Unpin>(lookup_future: LookupFuture<R>) -> Self {
-        let lookup =
-            Box::pin(lookup_future) as Pin<Box<dyn Future<Output = ()> + Send>>;
+        let lookup = Box::pin(lookup_future) as Pin<Box<dyn Future<Output = ()> + Send>>;
         HandleRequest::LookupFuture(lookup)
     }
 
@@ -972,7 +973,7 @@ impl ResolveLookupState {
                 ResolveLookupState::Records { record_lookup } => {
                     let records = ready!(record_lookup
                         .map_err(|e| error!("error resolving: {}", e))
-                        .map(|r: Result<_,()>| match r {
+                        .map(|r: Result<_, ()>| match r {
                             Ok(r) => r,
                             Err(()) => Box::new(EmptyLookup),
                         })
