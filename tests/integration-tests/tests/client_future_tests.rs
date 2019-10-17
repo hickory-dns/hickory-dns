@@ -184,9 +184,7 @@ where
                     panic!();
                 }
             })
-            .map(|r: Result<_,_>| {
-                r.expect("query failed")
-            })
+            .map(|r: Result<_, _>| r.expect("query failed")),
     )
 }
 

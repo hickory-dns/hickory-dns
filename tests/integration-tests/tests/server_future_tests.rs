@@ -282,13 +282,10 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
 
     let mut io_loop = Runtime::new().unwrap();
     let server = ServerFuture::new(catalog);
-    io_loop
-        .block_on::<Pin<Box<dyn Future<Output = ()> + Send>>>(Box::pin(future::lazy(
-            |_| {
-                server.register_socket(udp_socket);
-                ()
-            },
-        )));
+    io_loop.block_on::<Pin<Box<dyn Future<Output = ()> + Send>>>(Box::pin(future::lazy(|_| {
+        server.register_socket(udp_socket);
+        ()
+    })));
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(tokio_timer::delay(

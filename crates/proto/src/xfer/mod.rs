@@ -165,7 +165,7 @@ pub trait DnsRequestSender:
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message(&mut self, message: DnsRequest) -> Self::DnsResponseFuture;
+    fn send_message(&mut self, message: DnsRequest, cx: &mut Context) -> Self::DnsResponseFuture;
 
     /// Constructs an error response
     fn error_response(error: ProtoError) -> Self::DnsResponseFuture;

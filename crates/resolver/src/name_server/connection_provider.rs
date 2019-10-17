@@ -118,6 +118,7 @@ pub(crate) enum ConnectionHandleConnect {
     },
 }
 
+// TODO: rather than spawning here, return the background process, and rmove Background indirection.
 impl ConnectionHandleConnect {
     /// Establishes the connection, this is allowed to perform network operations,
     ///   such as tokio::spawns of background tasks, etc.
@@ -279,6 +280,7 @@ impl DnsHandle for ConnectionHandleConnected {
 
 /// Allows us to wrap a connection that is either pending or already connected
 enum ConnectionHandleInner {
+    //    Connect(Option<ConnectionHandleConnect>),
     Connect(Option<ConnectionHandleConnect>),
     Connected(ConnectionHandleConnected),
 }

@@ -223,7 +223,11 @@ impl DnsRequestSender for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message(&mut self, mut message: DnsRequest) -> Self::DnsResponseFuture {
+    fn send_message(
+        &mut self,
+        mut message: DnsRequest,
+        _cx: &mut Context,
+    ) -> Self::DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -548,7 +552,7 @@ mod tests {
         let mut runtime = current_thread::Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
-        let sending = https.send_message(request);
+        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
         //assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));

@@ -108,7 +108,11 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 {
     type DnsResponseFuture = UdpResponse;
 
-    fn send_message(&mut self, mut message: DnsRequest) -> Self::DnsResponseFuture {
+    fn send_message(
+        &mut self,
+        mut message: DnsRequest,
+        _cx: &mut Context,
+    ) -> Self::DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -339,6 +343,7 @@ impl SingleUseUdpSocket {
 #[cfg(test)]
 mod tests {
 
+    use futures::future;
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
@@ -452,8 +457,9 @@ mod tests {
 
         for i in 0..send_recv_times {
             // test once
-            let response_future =
-                stream.send_message(DnsRequest::new(query.clone(), Default::default()));
+            let response_future = io_loop.block_on(future::lazy(|cx| {
+                stream.send_message(DnsRequest::new(query.clone(), Default::default()), cx)
+            }));
             println!("client sending request {}", i);
             let response = match io_loop.block_on(response_future) {
                 Ok(response) => response,

@@ -6,10 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::pin::Pin;
-use std::sync::{Arc, Mutex, TryLockError};
+use std::sync::Arc;
 use std::task::Context;
 
-use futures::{future, Future, FutureExt, Poll, TryFutureExt};
+use futures::lock::Mutex;
+use futures::{future, Future, Poll, TryFutureExt};
 use smallvec::SmallVec;
 
 use proto::error::ProtoError;
@@ -117,16 +118,26 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         }
     }
 
-    fn try_send(
+    async fn try_send(
         opts: ResolverOpts,
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: DnsRequest,
-    ) -> TrySend<C, P> {
-        TrySend::Lock {
-            opts,
-            conns,
-            request: Some(request),
-        }
+    ) -> Result<DnsResponse, ProtoError> {
+        // pull a lock on the shared connections, lock releases at the end of the method
+        let mut conns = conns.lock().await;
+
+        // select the highest priority connection
+        //   reorder the connections based on current view...
+        //   this reorders the inner set
+        conns.sort_unstable();
+
+        // TODO: restrict this size to a maximum # of NameServers to try
+        // get a stable view for trying all connections
+        //   we split into chunks of the number of parallel requests to issue
+        let conns: Vec<NameServer<C, P>> = conns.clone();
+        let request_loop = request.clone();
+
+        parallel_conn_loop(conns, request_loop, opts).await
     }
 }
 
@@ -135,7 +146,7 @@ where
     C: DnsHandle + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let opts = self.options;
@@ -181,81 +192,6 @@ where
                 // if UDP fails, try TCP
                 .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)),
         )
-    }
-}
-
-#[allow(clippy::large_enum_variant)]
-enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
-    Lock {
-        opts: ResolverOpts,
-        conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
-        request: Option<DnsRequest>,
-    },
-    DoSend(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
-}
-
-impl<C, P> Future for TrySend<C, P>
-where
-    C: DnsHandle + 'static,
-    P: ConnectionProvider<ConnHandle = C> + 'static,
-{
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        // TODO: this resolves an odd unsized issue with the loop_fn future
-        let inner_future;
-
-        match *self {
-            TrySend::Lock {
-                ref opts,
-                ref conns,
-                ref mut request,
-            } => {
-                // pull a lock on the shared connections, lock releases at the end of the method
-                // FIXME: replace with futures lock
-                let conns = conns.try_lock();
-                match conns {
-                    Err(TryLockError::Poisoned(_)) => {
-                        // TODO: what to do on poisoned errors? this is non-recoverable, right?
-                        return Poll::Ready(Err(ProtoError::from("Lock Poisoned")));
-                    }
-                    Err(TryLockError::WouldBlock) => {
-                        // since there is nothing registered with Tokio, we need to yield...
-                        // FIXME: is this correct
-                        cx.waker().wake_by_ref();
-                        //task::current().notify();
-                        return Poll::Pending;
-                    }
-                    Ok(mut conns) => {
-                        let opts = *opts;
-
-                        // select the highest priority connection
-                        //   reorder the connections based on current view...
-                        //   this reorders the inner set
-                        conns.sort_unstable();
-
-                        // TODO: restrict this size to a maximum # of NameServers to try
-                        // get a stable view for trying all connections
-                        //   we split into chunks of the number of parallel requests to issue
-                        let conns: Vec<NameServer<C, P>> = conns.clone();
-                        let request = request.take();
-                        let request = request.expect("bad state, message should never be None");
-                        let request_loop = request.clone();
-
-                        let loop_future = parallel_conn_loop(conns, request_loop, opts).boxed();
-                        inner_future = loop_future;
-                    }
-                }
-            }
-            TrySend::DoSend(ref mut future) => return future.as_mut().poll(cx),
-        }
-
-        // can only get here if we were in the TrySend::Lock state
-        *self = TrySend::DoSend(inner_future);
-
-        cx.waker().wake_by_ref();
-        //        task::current().notify();
-        Poll::Pending
     }
 }
 
