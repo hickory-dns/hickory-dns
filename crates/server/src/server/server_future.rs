@@ -363,8 +363,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                                     })
                                     .map(|_: Result<(), ()>| ()),
                             );
-
-                            ()
                         })
                         .map_err(move |e| debug!("error handling TLS stream {}: {}", src_addr, e))
                         .map(|_: Result<(), ()>| Ok(()))

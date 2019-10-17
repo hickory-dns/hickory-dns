@@ -17,6 +17,7 @@ use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;
 use trust_dns_openssl::{TlsClientStream, TlsClientStreamBuilder};
 
+#[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,

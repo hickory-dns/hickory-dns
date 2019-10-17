@@ -187,6 +187,7 @@ impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
 }
 
 /// A future that resolves to
+#[allow(clippy::type_complexity)]
 pub struct UdpResponse(
     Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, Elapsed>> + Send>>,
 );

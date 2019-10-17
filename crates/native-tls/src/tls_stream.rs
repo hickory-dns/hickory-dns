@@ -112,6 +112,7 @@ impl TlsStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Public Key Info (SPKI) name, as associated to a certificate
+    #[allow(clippy::type_complexity)]
     pub fn build(
         self,
         name_server: SocketAddr,

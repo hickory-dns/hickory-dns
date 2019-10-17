@@ -118,10 +118,12 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
 
     let accept = accept.ok_or_else(|| "Accept is unspecified")?;
 
-    // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    if !accept.iter().any(|q| {
+    let any_application_and_dns = |q: &QualityItem<Mime>| -> bool {
         (q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY)
-    }) {
+    };
+
+    // TODO: switch to mime::APPLICATION_DNS when that stabilizes
+    if !accept.iter().any(any_application_and_dns) {
         return Err("does not accept content type".into());
     }
 

@@ -80,17 +80,17 @@ where
             Poll::Pending => {
                 if let Some(ref mut timeout) = self.timeout {
                     match timeout.poll_unpin(cx) {
-                        Poll::Pending => return Poll::Pending,
+                        Poll::Pending => Poll::Pending,
                         Poll::Ready(()) => {
                             debug!("timeout on stream");
-                            return Poll::Ready(Some(Err(io::Error::new(
+                            Poll::Ready(Some(Err(io::Error::new(
                                 io::ErrorKind::TimedOut,
                                 format!("nothing ready in {:?}", self.timeout_duration),
-                            ))));
+                            ))))
                         }
                     }
                 } else {
-                    return Poll::Pending;
+                    Poll::Pending
                 }
             }
         }

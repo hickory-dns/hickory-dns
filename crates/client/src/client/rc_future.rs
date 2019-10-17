@@ -57,15 +57,15 @@ where
 
             // check if someone else stored the result
             if let Some(result) = stored_result.as_ref() {
-                return Poll::Ready(result.clone());
+                Poll::Ready(result.clone())
             } else {
                 // the poll on the future should wake this thread
-                return Poll::Pending;
+                Poll::Pending
             }
         } else {
             // TODO: track wakers in a queue instead...
             cx.waker().wake_by_ref();
-            return Poll::Pending;
+            Poll::Pending
         }
     }
 }

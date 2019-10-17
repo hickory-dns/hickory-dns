@@ -230,6 +230,7 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite> TcpStream<S> {
 impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream<S> {
     type Item = io::Result<SerialMessage>;
 
+    #[allow(clippy::cognitive_complexity)]
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         let peer = self.peer_addr;
         let (socket, outbound_messages, send_state, read_state) = self.pollable_split();
@@ -266,7 +267,7 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
                 }
 
                 // get current state
-                let current_state = mem::replace(send_state, None);
+                let current_state = send_state.take();
 
                 // switch states
                 match current_state {
@@ -291,7 +292,7 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
                     }
                     Some(WriteTcpState::Flushing) => {
                         // At this point we successfully delivered the entire message.
-                        mem::replace(send_state, None);
+                        send_state.take();
                     }
                     None => (),
                 };
@@ -433,12 +434,12 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream
         if let Some(buffer) = ret_buf {
             debug!("returning buffer");
             let src_addr = self.peer_addr;
-            return Poll::Ready(Some(Ok(SerialMessage::new(buffer, src_addr))));
+            Poll::Ready(Some(Ok(SerialMessage::new(buffer, src_addr))))
         } else {
             debug!("bottomed out");
             // at a minimum the outbound_messages should have been polled,
             //  which will wake this future up later...
-            return Poll::Pending;
+            Poll::Pending
         }
     }
 }

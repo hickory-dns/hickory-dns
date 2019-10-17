@@ -60,6 +60,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
+    #[allow(clippy::type_complexity)]
     pub fn new(
         name_server: SocketAddr,
     ) -> (
@@ -127,6 +128,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 }
 
 impl<S: Send> UdpStream<S> {
+    #[allow(clippy::type_complexity)]
     fn pollable_split(
         &mut self,
     ) -> (

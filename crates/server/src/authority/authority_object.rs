@@ -282,6 +282,7 @@ impl LookupObject for EmptyLookup {
 }
 
 /// A boxed lookup future
+#[allow(clippy::type_complexity)]
 pub struct BoxedLookupFuture(
     Pin<Box<dyn Future<Output = Result<Box<dyn LookupObject>, LookupError>> + Send>>,
 );

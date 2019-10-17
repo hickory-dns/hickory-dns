@@ -53,6 +53,7 @@ pub struct TestClientStream {
 
 #[allow(unused)]
 impl TestClientStream {
+    #[allow(clippy::type_complexity)]
     pub fn new(
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
@@ -191,6 +192,7 @@ pub struct NeverReturnsClientStream {
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
+    #[allow(clippy::type_complexity)]
     pub fn new() -> (
         Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
         StreamHandle,
@@ -254,6 +256,7 @@ impl NeverReturnsClientConnection {
     }
 }
 
+#[allow(clippy::type_complexity)]
 impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
