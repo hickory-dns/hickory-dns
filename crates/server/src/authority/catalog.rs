@@ -648,6 +648,7 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
 }
 
 impl<R: ResponseHandler> AuthorityLookup<R> {
+    #[allow(clippy::type_complexity)]
     fn split(
         &mut self,
     ) -> (

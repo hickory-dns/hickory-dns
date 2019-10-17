@@ -212,6 +212,7 @@ impl<H: DnsHandle + Unpin> DnsHandle for SecureDnsHandle<H> {
 }
 
 /// A future to verify all RRSets in a returned Message.
+#[allow(clippy::type_complexity)]
 struct VerifyRrsetsFuture {
     message_result: Option<DnsResponse>,
     rrsets: SelectAll<Pin<Box<dyn Future<Output = Result<Rrset, ProtoError>> + Send>>>,
@@ -220,6 +221,7 @@ struct VerifyRrsetsFuture {
 
 /// this pulls all records returned in a Message response and returns a future which will
 ///  validate all of them.
+#[allow(clippy::type_complexity)]
 fn verify_rrsets<H: DnsHandle + Unpin>(
     handle: &SecureDnsHandle<H>,
     message_result: DnsResponse,

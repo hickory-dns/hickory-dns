@@ -46,6 +46,7 @@ impl TlsClientConnection {
     }
 }
 
+#[allow(clippy::type_complexity)]
 impl ClientConnection for TlsClientConnection {
     type Sender = DnsMultiplexer<TlsClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;

@@ -66,6 +66,7 @@ pub fn tls_from_stream<S: tokio_io::AsyncRead + tokio_io::AsyncWrite>(
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+#[allow(clippy::type_complexity)]
 pub fn tls_connect(
     name_server: SocketAddr,
     dns_name: String,

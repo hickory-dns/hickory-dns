@@ -467,7 +467,6 @@ pub fn main() {
             // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
             //  request handling. It would generally be the case that n <= m.
             info!("Server starting up");
-            ()
         }));
 
     io_loop.spawn(server_future);

@@ -12,7 +12,7 @@ cargo check
 
 for p in ${packages_ordered:?} ; do
     cargo update -p trust-dns-proto
-    cargo update -p trust-dns
+    cargo update -p trust-dns-client
     cargo update -p trust-dns-resolver
     echo "====> dry-run publish $p"
     cargo publish --verbose --locked --dry-run --manifest-path crates/${p:?}/Cargo.toml

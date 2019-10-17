@@ -237,7 +237,7 @@ impl DnsRequestSender for HttpsClientStream {
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return HttpsClientResponse(Box::pin(future::err(err.into()))),
+            Err(err) => return HttpsClientResponse(Box::pin(future::err(err))),
         };
         let message = SerialMessage::new(bytes, self.name_server);
 
@@ -250,7 +250,7 @@ impl DnsRequestSender for HttpsClientStream {
     }
 
     fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
-        HttpsClientResponse(Box::pin(future::err(error.into())))
+        HttpsClientResponse(Box::pin(future::err(error)))
     }
 
     fn shutdown(&mut self) {
@@ -272,7 +272,7 @@ impl Stream for HttpsClientStream {
 
         // just checking if the connection is ok
         match self.h2.poll_ready(cx) {
-            Poll::Ready(Ok(r)) => Poll::Ready(Some(Ok(r))),
+            Poll::Ready(Ok(())) => Poll::Ready(Some(Ok(()))),
             Poll::Pending => Poll::Pending,
             Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
                 "h2 stream errored: {}",
@@ -357,6 +357,7 @@ struct TlsConfig {
 }
 
 #[allow(clippy::large_enum_variant)]
+#[allow(clippy::type_complexity)]
 enum HttpsClientConnectState {
     ConnectTcp {
         name_server: SocketAddr,
@@ -408,7 +409,7 @@ impl Future for HttpsClientConnectState {
                     let connect = Box::pin(TokioTcpStream::connect(name_server));
                     HttpsClientConnectState::TcpConnecting {
                         connect,
-                        name_server: name_server,
+                        name_server,
                         tls: tls.take(),
                     }
                 }
@@ -432,7 +433,7 @@ impl Future for HttpsClientConnectState {
                             let tls = tls.connect(dns_name, tcp);
                             HttpsClientConnectState::TlsConnecting {
                                 name_server_name,
-                                name_server: name_server,
+                                name_server,
                                 tls,
                             }
                         }
@@ -454,7 +455,7 @@ impl Future for HttpsClientConnectState {
                     let handshake = handshake.handshake(tls);
                     HttpsClientConnectState::H2Handshake {
                         name_server_name: Arc::clone(&name_server_name),
-                        name_server: name_server,
+                        name_server,
                         handshake: Box::pin(handshake),
                     }
                 }
@@ -477,7 +478,7 @@ impl Future for HttpsClientConnectState {
 
                     HttpsClientConnectState::Connected(Some(HttpsClientStream {
                         name_server_name: Arc::clone(&name_server_name),
-                        name_server: name_server,
+                        name_server,
                         h2: send_request,
                         is_shutdown: false,
                     }))

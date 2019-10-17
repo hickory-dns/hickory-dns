@@ -49,6 +49,7 @@ impl TestClientConnection {
     }
 }
 
+#[allow(clippy::type_complexity)]
 impl ClientConnection for TestClientConnection {
     type Sender = DnsMultiplexer<TestClientStream, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
