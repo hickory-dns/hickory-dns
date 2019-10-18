@@ -417,6 +417,11 @@ macro_rules! lookup_type {
             pub fn query(&self) -> &Query {
                 self.0.query()
             }
+
+            /// Returns the `Instant` at which this result is no longer valid.
+            pub fn valid_until(&self) -> Instant {
+                self.0.valid_until()
+            }
         }
 
         impl From<Lookup> for $l {
