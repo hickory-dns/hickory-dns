@@ -168,6 +168,10 @@ impl FromStr for RecordType {
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
+            #[cfg(feature = "dnssec")]
+            "DNSKEY" | "DS" | "KEY" | "NSEC" | "NSEC3" | "NSEC3PARAM" | "RRSIG" | "SIG" => {
+                Ok(RecordType::DNSSEC(str.parse()?))
+            }
             _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
         }
     }
@@ -382,4 +386,51 @@ fn test_order() {
     }
 
     assert_eq!(ordered, unordered);
+}
+
+/// Check that all record type names parse into unique `RecordType` instances,
+/// and can be converted back into the same name.
+#[test]
+fn test_record_type_parse() {
+    let record_names = &[
+        "A",
+        "AAAA",
+        "ANAME",
+        "CAA",
+        "CNAME",
+        "NULL",
+        "MX",
+        "NAPTR",
+        "NS",
+        "OPENPGPKEY",
+        "PTR",
+        "SOA",
+        "SRV",
+        "SSHFP",
+        "TLSA",
+        "TXT",
+        "ANY",
+        "AXFR",
+    ];
+
+    #[cfg(feature = "dnssec")]
+    let dnssec_record_names = &[
+        "DNSKEY",
+        "DS",
+        "KEY",
+        "NSEC",
+        "NSEC3",
+        "NSEC3PARAM",
+        "RRSIG",
+        "SIG",
+    ];
+    #[cfg(not(feature = "dnssec"))]
+    let dnssec_record_names = &[];
+
+    let mut rtypes = std::collections::HashSet::new();
+    for name in record_names.iter().chain(dnssec_record_names) {
+        let rtype: RecordType = name.parse().unwrap();
+        assert_eq!(rtype.to_string().as_str(), *name);
+        assert!(rtypes.insert(rtype));
+    }
 }
