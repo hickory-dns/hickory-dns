@@ -15,8 +15,8 @@ use ipconfig::get_adapters;
 
 use proto::rr::Name;
 
-use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
-use error::*;
+use crate::config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
+use crate::error::*;
 
 /// Returns the name servers of the computer (of all adapters)
 fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
