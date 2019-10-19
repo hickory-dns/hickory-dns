@@ -60,7 +60,7 @@ tokio-net = "0.2.0-alpha"
 trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["tokio-compat"], default-features = false }
 trust-dns-rustls = { version = "0.18.0-alpha", path = "../rustls", default-features = false }
 typed-headers = "0.1"
-webpki-roots = { version = "0.17" }
+webpki-roots = { version = "0.18" }
 webpki = "0.21"
 
 [dev-dependencies]
