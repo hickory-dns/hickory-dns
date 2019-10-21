@@ -77,5 +77,5 @@ tokio-timer = "0.3.0-alpha"
 url = "2.1.0"
 
 [dev-dependencies]
-env_logger = "^0.6"
+env_logger = "^0.7"
 tokio = "0.2.0-alpha"
