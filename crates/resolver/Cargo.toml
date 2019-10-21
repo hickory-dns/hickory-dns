@@ -85,6 +85,6 @@ webpki-roots = { version = "^0.18", optional = true }
 ipconfig = { version = "^0.2.0" }
 
 [dev-dependencies]
-env_logger = "^0.6"
+env_logger = "^0.7"
 tokio-io = "0.2.0-alpha"
 tokio = "0.2.0-alpha"
