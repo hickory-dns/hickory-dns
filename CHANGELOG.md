@@ -12,6 +12,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (all) CHANGELOG.md is now merged from the Resolver crate and the top-level. All notes from the Resolver CHANGELOG were merged into this changelog, with the format `## {version} (Resolver)` and the existing notes from the top-level are formatted as `## {version} (Client/Server`. This should make notes on releases easier. Going forward the scope of changes across crates will be captured as `- ({crate}) {note}` where all is used for across the board updates.
 - (all) After the 0.18 release, all crates will be versioned uniformally, and released at the same time, this will resolve some issues around consistency with releases. The final Resolver release before this was `0.12`.
 - *breaking* (client) rebranded from `trust-dns` to `trust-dns-client`
+- *breaking* (server) rebranded from `trust-dns-server` to `trust-dns`
 - *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.40` minimum)
 
 
