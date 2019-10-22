@@ -6,7 +6,7 @@ extern crate tokio;
 extern crate tokio_net;
 extern crate tokio_net;
 
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
@@ -27,12 +27,12 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream;
 use tokio_net::udp::UdpSocket;
 
-use trust_dns::client::*;
-use trust_dns::op::*;
-use trust_dns::rr::dnssec::Signer;
-use trust_dns::rr::*;
-use trust_dns::tcp::*;
-use trust_dns::udp::*;
+use trust_dns_client::client::*;
+use trust_dns_client::op::*;
+use trust_dns_client::rr::dnssec::Signer;
+use trust_dns_client::rr::*;
+use trust_dns_client::tcp::*;
+use trust_dns_client::udp::*;
 use trust_dns_proto::error::*;
 use trust_dns_proto::xfer::*;
 

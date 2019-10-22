@@ -38,7 +38,7 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns::rr::{LowerName, Name};
+    /// use trust_dns_client::rr::{LowerName, Name};
     ///
     /// let root = LowerName::from(Name::root());
     /// assert_eq!(&root.to_string(), ".");
@@ -58,7 +58,7 @@ impl LowerName {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns::rr::{LowerName, Name};
+    /// use trust_dns_client::rr::{LowerName, Name};
     ///
     /// let name = LowerName::from(Name::from_str("www").unwrap());
     /// assert!(!name.is_fqdn());
@@ -79,7 +79,7 @@ impl LowerName {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns::rr::{LowerName, Name};
+    /// use trust_dns_client::rr::{LowerName, Name};
     ///
     /// let example_com = LowerName::from(Name::from_str("example.com").unwrap());
     /// assert_eq!(example_com.base_name(), LowerName::from(Name::from_str("com.").unwrap()));
@@ -96,7 +96,7 @@ impl LowerName {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns::rr::{LowerName, Name};
+    /// use trust_dns_client::rr::{LowerName, Name};
     ///
     /// let name = LowerName::from(Name::from_str("www.example.com").unwrap());
     /// let zone = LowerName::from(Name::from_str("example.com").unwrap());
@@ -114,7 +114,7 @@ impl LowerName {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns::rr::{LowerName, Name};
+    /// use trust_dns_client::rr::{LowerName, Name};
     ///
     /// let root = LowerName::from(Name::root());
     /// assert_eq!(root.num_labels(), 0);

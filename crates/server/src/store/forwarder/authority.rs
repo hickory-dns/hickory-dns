@@ -10,10 +10,10 @@ use std::task::Context;
 
 use futures::{Future, FutureExt, Poll};
 
-use trust_dns::op::LowerQuery;
-use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::SupportedAlgorithms;
-use trust_dns::rr::{LowerName, Name, Record, RecordType};
+use trust_dns_client::op::LowerQuery;
+use trust_dns_client::op::ResponseCode;
+use trust_dns_client::rr::dnssec::SupportedAlgorithms;
+use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
 use trust_dns_resolver::config::ResolverConfig;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
 use trust_dns_resolver::{AsyncResolver, BackgroundLookup};

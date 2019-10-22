@@ -8,8 +8,8 @@
 use proto::error::*;
 use proto::op::message::EmitAndCount;
 use proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
-use trust_dns::rr::Record;
-use trust_dns::serialize::binary::BinEncoder;
+use trust_dns_client::rr::Record;
+use trust_dns_client::serialize::binary::BinEncoder;
 
 use crate::authority::message_request::QueriesEmitAndCount;
 use crate::authority::Queries;

@@ -4,9 +4,9 @@ use std::str::FromStr;
 use futures::executor::block_on;
 use futures::future::Future;
 
-use trust_dns::op::{Message, Query};
-use trust_dns::rr::dnssec::SupportedAlgorithms;
-use trust_dns::rr::{Name, RData, Record, RecordType};
+use trust_dns_client::op::{Message, Query};
+use trust_dns_client::rr::dnssec::SupportedAlgorithms;
+use trust_dns_client::rr::{Name, RData, Record, RecordType};
 use trust_dns_server::authority::{AuthLookup, Authority, MessageRequest};
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
@@ -368,7 +368,7 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 }
 
 pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
-    use trust_dns::serialize::binary::BinDecodable;
+    use trust_dns_client::serialize::binary::BinDecodable;
 
     let message = Message::default();
     let bytes = message.to_vec().unwrap();

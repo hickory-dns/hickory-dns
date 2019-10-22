@@ -59,7 +59,7 @@ extern crate tokio_openssl;
 extern crate tokio_rustls;
 extern crate tokio_timer;
 extern crate toml;
-extern crate trust_dns;
+extern crate trust_dns_client;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 #[cfg(feature = "dns-over-openssl")]

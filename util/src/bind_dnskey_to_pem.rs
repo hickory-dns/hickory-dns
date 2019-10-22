@@ -11,7 +11,7 @@ extern crate env_logger;
 #[macro_use]
 extern crate log;
 extern crate openssl;
-extern crate trust_dns;
+extern crate trust_dns_client;
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Lines, Write};
@@ -22,11 +22,11 @@ use data_encoding::BASE64;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 
-use trust_dns::rr::dnssec::Algorithm;
+use trust_dns_client::rr::dnssec::Algorithm;
 
 fn args<'a>() -> ArgMatches<'a> {
     App::new("Trust-DNS dnskey-to-pem")
-        .version(trust_dns::version())
+        .version(trust_dns_client::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about("Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format")
         .arg(

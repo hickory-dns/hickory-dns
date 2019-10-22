@@ -50,7 +50,7 @@ fn get_env() -> String {
 
 fn all_trust_dns(level: &str) -> String {
     format!(
-        ",named={level},trust_dns={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level}",
+        ",named={level},trust_dns_client={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level}",
         level = level
     )
 }

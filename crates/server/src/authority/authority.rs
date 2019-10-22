@@ -10,10 +10,10 @@ use std::pin::Pin;
 
 use futures::Future;
 
-use trust_dns::op::LowerQuery;
-use trust_dns::proto::rr::dnssec::rdata::key::KEY;
-use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::{LowerName, Name, RecordType};
+use trust_dns_client::op::LowerQuery;
+use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
+use trust_dns_client::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns_client::rr::{LowerName, Name, RecordType};
 
 use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
 

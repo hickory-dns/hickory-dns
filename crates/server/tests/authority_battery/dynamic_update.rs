@@ -6,11 +6,11 @@ use std::str::FromStr;
 use futures::executor::block_on;
 use futures::Future;
 
-use trust_dns::op::update_message;
-use trust_dns::op::{Message, Query, ResponseCode};
-use trust_dns::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
-use trust_dns::rr::dnssec::{Algorithm, Signer, SupportedAlgorithms, Verifier};
-use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
+use trust_dns_client::op::update_message;
+use trust_dns_client::op::{Message, Query, ResponseCode};
+use trust_dns_client::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
+use trust_dns_client::rr::dnssec::{Algorithm, Signer, SupportedAlgorithms, Verifier};
+use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable};
 use trust_dns_server::authority::{
     AuthLookup, Authority, LookupError, MessageRequest, UpdateResult,
 };
@@ -602,7 +602,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
 }
 
 pub fn add_auth<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<Signer> {
-    use trust_dns::rr::rdata::key::KeyUsage;
+    use trust_dns_client::rr::rdata::key::KeyUsage;
     use trust_dns_server::config::dnssec::*;
 
     let update_name = Name::from_str("update")

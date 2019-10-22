@@ -14,14 +14,14 @@ use std::sync::Arc;
 
 use futures::future::{self, Future, TryFutureExt};
 
-use trust_dns::op::{LowerQuery, ResponseCode};
-use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::rdata::key::KEY;
+use trust_dns_client::op::{LowerQuery, ResponseCode};
+use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns_client::rr::rdata::key::KEY;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::rdata::DNSSECRData;
-use trust_dns::rr::rdata::DNSSECRecordType;
-use trust_dns::rr::rdata::SOA;
-use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use trust_dns_client::rr::rdata::DNSSECRData;
+use trust_dns_client::rr::rdata::DNSSECRecordType;
+use trust_dns_client::rr::rdata::SOA;
+use trust_dns_client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use crate::authority::{
     AnyRecords, AuthLookup, Authority, LookupError, LookupRecords, LookupResult, MessageRequest,
@@ -444,7 +444,7 @@ impl InMemoryAuthority {
     /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self) {
-        use trust_dns::rr::rdata::NSEC;
+        use trust_dns_client::rr::rdata::NSEC;
 
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
@@ -533,8 +533,8 @@ impl InMemoryAuthority {
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
         use chrono::Utc;
-        use trust_dns::rr::dnssec::tbs;
-        use trust_dns::rr::rdata::SIG;
+        use trust_dns_client::rr::dnssec::tbs;
+        use trust_dns_client::rr::rdata::SIG;
 
         let inception = Utc::now();
 

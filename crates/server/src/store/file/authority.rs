@@ -14,10 +14,10 @@ use std::pin::Pin;
 
 use futures::future::Future;
 
-use trust_dns::op::LowerQuery;
-use trust_dns::proto::rr::dnssec::rdata::key::KEY;
-use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
+use trust_dns_client::op::LowerQuery;
+use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
+use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns_client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
 
 use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
 use crate::store::file::FileConfig;
@@ -64,7 +64,7 @@ impl FileAuthority {
     ) -> Result<Self, String> {
         use std::fs::File;
         use std::io::Read;
-        use trust_dns::serialize::txt::{Lexer, Parser};
+        use trust_dns_client::serialize::txt::{Lexer, Parser};
 
         let zone_path = root_dir
             .map(PathBuf::from)
@@ -250,7 +250,7 @@ mod tests {
     use std::str::FromStr;
 
     use futures::executor::block_on;
-    use trust_dns::rr::RData;
+    use trust_dns_client::rr::RData;
 
     use super::*;
     use crate::authority::ZoneType;

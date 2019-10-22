@@ -14,12 +14,12 @@ use std::time::*;
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns::client::*;
-use trust_dns::proto::error::ProtoError;
-use trust_dns::proto::xfer::DnsResponse;
-use trust_dns::rr::dnssec::*;
-use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
-use trust_dns::rr::*;
+use trust_dns_client::client::*;
+use trust_dns_client::proto::error::ProtoError;
+use trust_dns_client::proto::xfer::DnsResponse;
+use trust_dns_client::rr::dnssec::*;
+use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+use trust_dns_client::rr::*;
 
 use self::mut_message_client::MutMessageHandle;
 
@@ -56,7 +56,7 @@ where
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
-            "trust_dns=debug,trust_dns_https=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
+            "trust_dns_client=debug,trust_dns_https=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
         ).arg("-d")
         .arg(&format!(
             "--config={}/tests/named_test_configs/{}",

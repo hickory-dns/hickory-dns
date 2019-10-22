@@ -2,7 +2,7 @@ extern crate chrono;
 extern crate env_logger;
 extern crate futures;
 extern crate openssl;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
@@ -19,16 +19,16 @@ use chrono::Duration;
 use futures::Future;
 
 #[cfg(feature = "dnssec")]
-use trust_dns::client::SecureSyncClient;
+use trust_dns_client::client::SecureSyncClient;
 #[allow(deprecated)]
-use trust_dns::client::{Client, ClientConnection, SyncClient};
-use trust_dns::error::ClientErrorKind;
-use trust_dns::rr::dnssec::Signer;
+use trust_dns_client::client::{Client, ClientConnection, SyncClient};
+use trust_dns_client::error::ClientErrorKind;
+use trust_dns_client::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::Record;
-use trust_dns::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns::tcp::TcpClientConnection;
-use trust_dns::udp::UdpClientConnection;
+use trust_dns_client::rr::Record;
+use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
+use trust_dns_client::tcp::TcpClientConnection;
+use trust_dns_client::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
@@ -374,7 +374,7 @@ fn test_nsec_query_type() {
 #[cfg(feature = "dnssec")]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     use openssl::rsa::Rsa;
-    use trust_dns::rr::dnssec::{Algorithm, KeyPair};
+    use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
     use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, KEY};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 

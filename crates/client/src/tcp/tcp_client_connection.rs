@@ -21,7 +21,7 @@ use crate::rr::dnssec::Signer;
 
 /// Tcp client connection
 ///
-/// Use with `trust_dns::client::Client` impls
+/// Use with `trust_dns_client::client::Client` impls
 #[derive(Clone)]
 pub struct TcpClientConnection {
     name_server: SocketAddr,

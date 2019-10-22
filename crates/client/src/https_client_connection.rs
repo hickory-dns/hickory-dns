@@ -19,7 +19,7 @@ use crate::rr::dnssec::Signer;
 
 /// UDP based DNS Client connection
 ///
-/// Use with `trust_dns::client::Client` impls
+/// Use with `trust_dns_client::client::Client` impls
 #[derive(Clone)]
 pub struct HttpsClientConnection {
     name_server: SocketAddr,

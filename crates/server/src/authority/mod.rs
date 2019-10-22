@@ -7,7 +7,7 @@
 
 //! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
 
-use trust_dns::op::ResponseCode;
+use trust_dns_client::op::ResponseCode;
 
 /// Result of an Update operation
 pub type UpdateResult<T> = Result<T, ResponseCode>;

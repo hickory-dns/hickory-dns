@@ -8,14 +8,14 @@
 #![feature(test)]
 
 extern crate test;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 
 use std::str::FromStr;
 
 use test::Bencher;
 
-use trust_dns::rr::*;
+use trust_dns_client::rr::*;
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {

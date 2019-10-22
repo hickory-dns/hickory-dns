@@ -14,8 +14,8 @@ use std::sync::{Mutex, MutexGuard};
 use rusqlite::{self, types::ToSql, Connection};
 use time;
 
-use trust_dns::rr::Record;
-use trust_dns::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use trust_dns_client::rr::Record;
+use trust_dns_client::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 use crate::error::{PersistenceErrorKind, PersistenceResult};
 

@@ -47,7 +47,7 @@ impl DnsStreamHandle for StreamHandle {
 
 /// Root DnsHandle implementation returned by DnsMultiplexer
 ///
-/// This can be used directly to perform queries. See `trust_dns::client::SecureDnsHandle` for
+/// This can be used directly to perform queries. See `trust_dns_client::client::SecureDnsHandle` for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicDnsHandle {

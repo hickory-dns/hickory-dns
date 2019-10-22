@@ -2,7 +2,7 @@
 #![cfg(feature = "trust-dns-resolver")]
 
 extern crate futures;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_server;
 
 use std::net::Ipv4Addr;
@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use futures::executor::block_on;
 
-use trust_dns::rr::{Name, RecordType};
+use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_server::authority::{Authority, LookupObject};
 use trust_dns_server::store::forwarder::ForwardAuthority;
 

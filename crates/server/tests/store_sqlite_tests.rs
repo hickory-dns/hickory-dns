@@ -1,14 +1,14 @@
 #![cfg(feature = "sqlite")]
 
 extern crate futures;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_server;
 
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use trust_dns::rr::Name;
+use trust_dns_client::rr::Name;
 use trust_dns_server::authority::ZoneType;
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 

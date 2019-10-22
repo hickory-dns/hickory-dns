@@ -61,7 +61,7 @@ serde-config = ["serde"]
 mdns = ["trust-dns-proto/mdns"]
 
 [lib]
-name = "trust_dns"
+name = "trust_dns_client"
 path = "src/lib.rs"
 
 [dependencies]

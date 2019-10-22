@@ -66,8 +66,8 @@
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SyncClient};
-//! use trust_dns::udp::UdpClientConnection;
+//! use trust_dns_client::client::{Client, ClientConnection, ClientStreamHandle, SyncClient};
+//! use trust_dns_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
 //! let conn = UdpClientConnection::new(address).unwrap();
@@ -85,10 +85,10 @@
 //! ```rust
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
-//! # use trust_dns::client::{Client, SyncClient};
-//! # use trust_dns::udp::UdpClientConnection;
-//! use trust_dns::op::DnsResponse;
-//! use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
+//! # use trust_dns_client::client::{Client, SyncClient};
+//! # use trust_dns_client::udp::UdpClientConnection;
+//! use trust_dns_client::op::DnsResponse;
+//! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -104,7 +104,7 @@
 //! // Messages are the packets sent between client and server in DNS.
 //! //  there are many fields to a Message, DnsResponse can be dereferenced into
 //! //  a Message. It's beyond the scope of these examples
-//! //  to explain all the details of a Message. See trust_dns::op::message::Message for more details.
+//! //  to explain all the details of a Message. See trust_dns_client::op::message::Message for more details.
 //! //  generally we will be interested in the Message::answers
 //! let answers: &[Record] = response.answers();
 //!
@@ -118,7 +118,7 @@
 //! }
 //! ```
 //!
-//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `trust_dns::rr::record_data::RData` has a variant with the deserialized data for the record stored.
+//! In the above example we successfully queried for a A record. There are many other types, each can be independently queried and the associated `trust_dns_client::rr::record_data::RData` has a variant with the deserialized data for the record stored.
 //!
 //! ## Dynamic update
 //!
@@ -128,7 +128,7 @@
 //! ```rust,no_run
 //! # extern crate chrono;
 //! # extern crate openssl;
-//! # extern crate trust_dns;
+//! # extern crate trust_dns_client;
 //!
 //! use std::fs::File;
 //! use std::io::Read;
@@ -138,13 +138,13 @@
 //! use chrono::Duration;
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
-//! # use trust_dns::client::Client;
-//! # use trust_dns::udp::UdpClientConnection;
-//! use trust_dns::client::SyncClient;
-//! use trust_dns::rr::{Name, RData, Record, RecordType};
-//! use trust_dns::rr::dnssec::{Algorithm, Signer, KeyPair};
-//! use trust_dns::op::ResponseCode;
-//! use trust_dns::rr::rdata::key::KEY;
+//! # use trust_dns_client::client::Client;
+//! # use trust_dns_client::udp::UdpClientConnection;
+//! use trust_dns_client::client::SyncClient;
+//! use trust_dns_client::rr::{Name, RData, Record, RecordType};
+//! use trust_dns_client::rr::dnssec::{Algorithm, Signer, KeyPair};
+//! use trust_dns_client::op::ResponseCode;
+//! use trust_dns_client::rr::rdata::key::KEY;
 //!
 //! # #[cfg(feature = "openssl")]
 //! # fn main() {
@@ -212,18 +212,18 @@
 //! ```rust
 //! # extern crate tokio;
 //! # extern crate tokio_net;
-//! # extern crate trust_dns;
+//! # extern crate trust_dns_client;
 //!
 //! use std::net::{Ipv4Addr, SocketAddr};
 //! use std::str::FromStr;
 //! use tokio_net::udp::UdpSocket;
 //! use tokio::runtime::current_thread::Runtime;
 //!
-//! use trust_dns::udp::UdpClientStream;
-//! use trust_dns::client::{Client, ClientFuture, ClientHandle};
-//! use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
-//! use trust_dns::op::ResponseCode;
-//! use trust_dns::rr::rdata::key::KEY;
+//! use trust_dns_client::udp::UdpClientStream;
+//! use trust_dns_client::client::{Client, ClientFuture, ClientHandle};
+//! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
+//! use trust_dns_client::op::ResponseCode;
+//! use trust_dns_client::rr::rdata::key::KEY;
 //!
 //! // We'll be using the current threads Tokio Runtime
 //! let mut runtime = Runtime::new().unwrap();

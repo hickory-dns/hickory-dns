@@ -8,7 +8,7 @@ extern crate log;
 extern crate openssl;
 extern crate tokio;
 extern crate tokio_timer;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -23,12 +23,12 @@ use futures::future::Either;
 use futures::{future, StreamExt};
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns::client::{ClientFuture, ClientHandle};
-use trust_dns::multicast::MdnsQueryType;
-use trust_dns::multicast::{MdnsClientStream, MdnsStream};
-use trust_dns::op::Message;
-use trust_dns::rr::{DNSClass, Name, RecordType};
-use trust_dns::serialize::binary::BinDecodable;
+use trust_dns_client::client::{ClientFuture, ClientHandle};
+use trust_dns_client::multicast::MdnsQueryType;
+use trust_dns_client::multicast::{MdnsClientStream, MdnsStream};
+use trust_dns_client::op::Message;
+use trust_dns_client::rr::{DNSClass, Name, RecordType};
+use trust_dns_client::serialize::binary::BinDecodable;
 use trust_dns_proto::xfer::SerialMessage;
 
 const MDNS_PORT: u16 = 5363;

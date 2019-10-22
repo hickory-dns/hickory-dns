@@ -14,13 +14,13 @@ use openssl::{pkey::PKey, stack::Stack, x509::X509};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 
-use trust_dns::error::ParseResult;
-use trust_dns::rr::dnssec::Algorithm;
+use trust_dns_client::error::ParseResult;
+use trust_dns_client::rr::dnssec::Algorithm;
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
-use trust_dns::rr::dnssec::{KeyFormat, KeyPair, Private, Signer};
+use trust_dns_client::rr::dnssec::{KeyFormat, KeyPair, Private, Signer};
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::domain::IntoName;
-use trust_dns::rr::domain::Name;
+use trust_dns_client::rr::domain::IntoName;
+use trust_dns_client::rr::domain::Name;
 
 /// Key pair configuration for DNSSec keys for signing a zone
 #[derive(Deserialize, PartialEq, Debug)]
@@ -76,7 +76,7 @@ impl KeyConfig {
     /// Converts key into
     #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        use trust_dns::error::ParseErrorKind;
+        use trust_dns_client::error::ParseErrorKind;
 
         let extension = self.key_path().extension().ok_or_else(|| {
             ParseErrorKind::Msg(format!(
