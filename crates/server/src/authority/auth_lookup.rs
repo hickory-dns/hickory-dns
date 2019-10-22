@@ -9,7 +9,7 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use trust_dns::rr::LowerName;
+use trust_dns_client::rr::LowerName;
 
 use crate::authority::LookupObject;
 use crate::proto::rr::dnssec::SupportedAlgorithms;

@@ -15,7 +15,7 @@ extern crate log;
 extern crate native_tls;
 extern crate rustls;
 extern crate tokio;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_https;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -29,7 +29,7 @@ use std::net::*;
 
 use rustls::Certificate;
 use tokio::runtime::current_thread::Runtime;
-use trust_dns::client::*;
+use trust_dns_client::client::*;
 use trust_dns_https::HttpsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};

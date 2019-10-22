@@ -20,7 +20,7 @@ use log;
 use toml;
 
 use proto::error::ProtoResult;
-use trust_dns::rr::Name;
+use trust_dns_client::rr::Name;
 
 use crate::authority::ZoneType;
 use crate::error::{ConfigError, ConfigResult};

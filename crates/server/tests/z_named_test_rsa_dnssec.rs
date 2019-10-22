@@ -6,7 +6,7 @@ extern crate futures;
 extern crate log;
 extern crate tokio;
 extern crate tokio_net;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 
 mod server_harness;
@@ -21,13 +21,13 @@ use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 
-use trust_dns::client::*;
-use trust_dns::proto::error::ProtoError;
-use trust_dns::proto::tcp::{TcpClientConnect, TcpClientStream};
-use trust_dns::proto::xfer::{
+use trust_dns_client::client::*;
+use trust_dns_client::proto::error::ProtoError;
+use trust_dns_client::proto::tcp::{TcpClientConnect, TcpClientStream};
+use trust_dns_client::proto::xfer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
 };
-use trust_dns::rr::dnssec::*;
+use trust_dns_client::rr::dnssec::*;
 
 use server_harness::*;
 
@@ -87,7 +87,7 @@ fn standard_conn(
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
-    // use trust_dns::logger;
+    // use trust_dns_client::logger;
     // use log::LogLevel;
     // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 

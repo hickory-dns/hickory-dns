@@ -169,7 +169,7 @@ where
 
 /// Root ClientHandle implementation returned by ClientFuture
 ///
-/// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
+/// This can be used directly to perform queries. See `trust_dns_client::client::SecureClientHandle` for
 ///  a DNSSEc chain validator.
 pub struct BasicClientHandle<Resp>
 where

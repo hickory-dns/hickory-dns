@@ -34,7 +34,7 @@ extern crate rustls;
 extern crate tokio;
 extern crate tokio_executor;
 extern crate tokio_net;
-extern crate trust_dns;
+extern crate trust_dns_client;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
 #[cfg(feature = "dns-over-rustls")]
@@ -53,8 +53,8 @@ use tokio_net::tcp::TcpListener;
 use tokio_net::udp::UdpSocket;
 
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::rdata::key::KeyUsage;
-use trust_dns::rr::Name;
+use trust_dns_client::rr::rdata::key::KeyUsage;
+use trust_dns_client::rr::Name;
 use trust_dns_server::authority::{AuthorityObject, Catalog, ZoneType};
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
@@ -344,7 +344,7 @@ pub fn main() {
         logger::default();
     }
 
-    info!("Trust-DNS {} starting", trust_dns::version());
+    info!("Trust-DNS {} starting", trust_dns_client::version());
     // start up the server for listening
 
     let flag_config = args.flag_config.clone();
@@ -473,7 +473,7 @@ pub fn main() {
     io_loop.shutdown_on_idle();
 
     // we're exiting for some reason...
-    info!("Trust-DNS {} stopping", trust_dns::version());
+    info!("Trust-DNS {} stopping", trust_dns_client::version());
 }
 
 #[cfg(feature = "dns-over-tls")]

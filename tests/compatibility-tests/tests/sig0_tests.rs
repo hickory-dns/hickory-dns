@@ -9,7 +9,7 @@ extern crate chrono;
 extern crate env_logger;
 extern crate futures;
 extern crate openssl;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_compatibility;
 
 use std::env;
@@ -24,17 +24,17 @@ use chrono::Duration;
 use openssl::rsa::Rsa;
 
 #[cfg(not(feature = "none"))]
-use trust_dns::client::Client;
-use trust_dns::client::{ClientConnection, SyncClient};
+use trust_dns_client::client::Client;
+use trust_dns_client::client::{ClientConnection, SyncClient};
 #[cfg(not(feature = "none"))]
-use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::rdata::key::{KeyUsage, KEY};
-use trust_dns::rr::Name;
+use trust_dns_client::op::ResponseCode;
+use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns_client::rr::rdata::key::{KeyUsage, KEY};
+use trust_dns_client::rr::Name;
 #[cfg(not(feature = "none"))]
-use trust_dns::rr::{DNSClass, RData, Record, RecordType};
+use trust_dns_client::rr::{DNSClass, RData, Record, RecordType};
 #[cfg(not(feature = "none"))]
-use trust_dns::udp::UdpClientConnection;
+use trust_dns_client::udp::UdpClientConnection;
 #[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
 

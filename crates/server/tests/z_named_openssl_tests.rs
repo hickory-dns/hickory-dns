@@ -17,7 +17,7 @@ extern crate futures;
 extern crate log;
 extern crate native_tls;
 extern crate tokio;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_native_tls;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -32,7 +32,7 @@ use std::net::*;
 use native_tls::Certificate;
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns::client::*;
+use trust_dns_client::client::*;
 use trust_dns_native_tls::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};

@@ -1,6 +1,6 @@
 extern crate futures;
 extern crate tokio;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_resolver;
@@ -17,8 +17,8 @@ use std::task::Poll;
 use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns::op::Query;
-use trust_dns::rr::{Name, RecordType};
+use trust_dns_client::op::Query;
+use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::{ProtoError, ProtoResult};
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse};

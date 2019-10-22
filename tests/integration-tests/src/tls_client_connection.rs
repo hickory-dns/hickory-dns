@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use futures::Future;
 
-use trust_dns::client::ClientConnection;
-use trust_dns::rr::dnssec::Signer;
+use trust_dns_client::client::ClientConnection;
+use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 
@@ -24,7 +24,7 @@ use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 
 /// Tls client connection
 ///
-/// Use with `trust_dns::client::Client` impls
+/// Use with `trust_dns_client::client::Client` impls
 pub struct TlsClientConnection {
     name_server: SocketAddr,
     dns_name: String,

@@ -1,7 +1,7 @@
-use trust_dns::client::*;
-use trust_dns::proto::xfer::{DnsHandle, DnsRequest};
-use trust_dns::rr::dnssec::*;
-use trust_dns::rr::rdata::opt::EdnsOption;
+use trust_dns_client::client::*;
+use trust_dns_client::proto::xfer::{DnsHandle, DnsRequest};
+use trust_dns_client::rr::dnssec::*;
+use trust_dns_client::rr::rdata::opt::EdnsOption;
 
 #[derive(Clone)]
 pub struct MutMessageHandle<C: ClientHandle + Unpin> {

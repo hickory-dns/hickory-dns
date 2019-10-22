@@ -25,10 +25,10 @@ use std::task::Context;
 
 use futures::{ready, Future, FutureExt, Poll, TryFutureExt};
 
-use trust_dns::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
-use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
-use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
-use trust_dns::rr::{LowerName, RecordType};
+use trust_dns_client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
+use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms};
+use trust_dns_client::rr::rdata::opt::{EdnsCode, EdnsOption};
+use trust_dns_client::rr::{LowerName, RecordType};
 
 use crate::authority::{
     AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,

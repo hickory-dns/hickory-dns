@@ -12,7 +12,7 @@ use std::io;
 #[cfg(feature = "trust-dns-resolver")]
 use failure::{Compat, Fail};
 
-use trust_dns::op::ResponseCode;
+use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "trust-dns-resolver")]
 use trust_dns_resolver::error::ResolveError;
 

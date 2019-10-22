@@ -12,7 +12,7 @@ extern crate futures;
 extern crate log;
 extern crate tokio;
 extern crate tokio_net;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
@@ -29,11 +29,11 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
-use trust_dns::client::*;
-use trust_dns::op::ResponseCode;
-use trust_dns::rr::*;
-use trust_dns::tcp::TcpClientStream;
-use trust_dns::udp::UdpClientStream;
+use trust_dns_client::client::*;
+use trust_dns_client::op::ResponseCode;
+use trust_dns_client::rr::*;
+use trust_dns_client::tcp::TcpClientStream;
+use trust_dns_client::udp::UdpClientStream;
 
 // TODO: Needed for when TLS tests are added back
 // #[cfg(feature = "dns-over-openssl")]

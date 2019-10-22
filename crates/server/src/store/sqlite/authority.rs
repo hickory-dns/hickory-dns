@@ -14,11 +14,11 @@ use std::sync::Arc;
 
 use futures::future::Future;
 
-use trust_dns::op::LowerQuery;
-use trust_dns::op::ResponseCode;
-use trust_dns::proto::rr::dnssec::rdata::key::KEY;
-use trust_dns::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use trust_dns_client::op::LowerQuery;
+use trust_dns_client::op::ResponseCode;
+use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
+use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns_client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 #[cfg(feature = "dnssec")]
 use crate::authority::UpdateRequest;
@@ -443,7 +443,7 @@ impl SqliteAuthority {
         use futures::executor::block_on;
 
         use proto::rr::dnssec::Verifier;
-        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
 
         // 3.3.3 - Pseudocode for Permission Checking
         //

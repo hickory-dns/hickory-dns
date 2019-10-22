@@ -10,7 +10,7 @@ use proto::op::message::EmitAndCount;
 use proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
 use proto::rr::Record;
 use proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
-use trust_dns::op::LowerQuery;
+use trust_dns_client::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]

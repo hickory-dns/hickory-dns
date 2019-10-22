@@ -12,10 +12,10 @@ use std::task::Context;
 
 use futures::{future, Future, Poll, TryFutureExt};
 
-use trust_dns::op::LowerQuery;
-use trust_dns::proto::rr::dnssec::rdata::key::KEY;
-use trust_dns::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns::rr::{LowerName, Name, Record, RecordType};
+use trust_dns_client::op::LowerQuery;
+use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
+use trust_dns_client::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
+use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
 
 use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
 

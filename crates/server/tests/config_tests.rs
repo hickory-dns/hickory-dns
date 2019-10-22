@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 extern crate log;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
@@ -154,8 +154,8 @@ fn test_parse_toml() {
 #[cfg(feature = "dnssec")]
 #[test]
 fn test_parse_zone_keys() {
-    use trust_dns::rr::dnssec::Algorithm;
-    use trust_dns::rr::Name;
+    use trust_dns_client::rr::dnssec::Algorithm;
+    use trust_dns_client::rr::Name;
 
     let config: Config = "
 [[zones]]

@@ -9,7 +9,7 @@ extern crate env_logger;
 #[macro_use]
 extern crate log;
 extern crate openssl;
-extern crate trust_dns;
+extern crate trust_dns_client;
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
@@ -17,11 +17,11 @@ use std::io::{BufReader, Read, Write};
 use clap::{App, Arg, ArgMatches};
 use openssl::pkey::PKey;
 
-use trust_dns::rr::dnssec::{KeyPair, Public};
+use trust_dns_client::rr::dnssec::{KeyPair, Public};
 
 fn args<'a>() -> ArgMatches<'a> {
     App::new("Trust-DNS pem-to-public-dnskey")
-        .version(trust_dns::version())
+        .version(trust_dns_client::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about(
             "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",

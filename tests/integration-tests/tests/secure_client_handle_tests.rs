@@ -3,7 +3,7 @@
 extern crate futures;
 extern crate tokio;
 extern crate tokio_net;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -16,14 +16,14 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
-use trust_dns::client::{
+use trust_dns_client::client::{
     BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
 };
-use trust_dns::op::ResponseCode;
-use trust_dns::rr::dnssec::TrustAnchor;
-use trust_dns::rr::Name;
-use trust_dns::rr::{DNSClass, RData, RecordType};
-use trust_dns::tcp::TcpClientStream;
+use trust_dns_client::op::ResponseCode;
+use trust_dns_client::rr::dnssec::TrustAnchor;
+use trust_dns_client::rr::Name;
+use trust_dns_client::rr::{DNSClass, RData, RecordType};
+use trust_dns_client::tcp::TcpClientStream;
 
 use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream, UdpResponse};
 use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;

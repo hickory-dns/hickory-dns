@@ -7,7 +7,7 @@ extern crate openssl;
 extern crate rustls;
 extern crate tokio;
 extern crate tokio_net;
-extern crate trust_dns;
+extern crate trust_dns_client;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 extern crate trust_dns_integration;
@@ -28,16 +28,16 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
-use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
-use trust_dns::error::ClientErrorKind;
-use trust_dns::op::ResponseCode;
+use trust_dns_client::client::{BasicClientHandle, ClientFuture, ClientHandle};
+use trust_dns_client::error::ClientErrorKind;
+use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::dnssec::Signer;
+use trust_dns_client::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::Record;
-use trust_dns::rr::{DNSClass, Name, RData, RecordSet, RecordType};
-use trust_dns::tcp::TcpClientStream;
-use trust_dns::udp::UdpClientStream;
+use trust_dns_client::rr::Record;
+use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
+use trust_dns_client::tcp::TcpClientStream;
+use trust_dns_client::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::DnsResponse;
 #[cfg(feature = "dnssec")]
@@ -238,8 +238,8 @@ fn create_sig0_ready_client(
     Name,
 ) {
     use openssl::rsa::Rsa;
-    use trust_dns::rr::dnssec::{Algorithm, KeyPair};
-    use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+    use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
+    use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();

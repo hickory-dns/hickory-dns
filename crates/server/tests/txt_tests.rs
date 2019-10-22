@@ -1,5 +1,5 @@
 extern crate futures;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
@@ -8,10 +8,10 @@ use std::str::FromStr;
 
 use futures::executor::block_on;
 
-use trust_dns::proto::rr::rdata::tlsa::*;
-use trust_dns::rr::dnssec::*;
-use trust_dns::rr::*;
-use trust_dns::serialize::txt::*;
+use trust_dns_client::proto::rr::rdata::tlsa::*;
+use trust_dns_client::rr::dnssec::*;
+use trust_dns_client::rr::*;
+use trust_dns_client::serialize::txt::*;
 use trust_dns_server::authority::{Authority, ZoneType};
 use trust_dns_server::store::in_memory::InMemoryAuthority;
 

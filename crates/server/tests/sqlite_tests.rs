@@ -1,7 +1,7 @@
 #![cfg(feature = "sqlite")]
 
 extern crate rusqlite;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
@@ -10,7 +10,7 @@ use std::str::FromStr;
 
 use rusqlite::*;
 
-use trust_dns::rr::*;
+use trust_dns_client::rr::*;
 use trust_dns_server::store::sqlite::persistence::CURRENT_VERSION;
 use trust_dns_server::store::sqlite::Journal;
 

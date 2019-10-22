@@ -10,7 +10,7 @@ extern crate clap;
 extern crate data_encoding;
 extern crate env_logger;
 extern crate openssl;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_resolver;
 
@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use clap::ArgMatches;
 
-use trust_dns::rr::dnssec::Algorithm;
+use trust_dns_client::rr::dnssec::Algorithm;
 use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
 use trust_dns_proto::rr::dnssec::rdata::DNSSECRecordType;
 use trust_dns_proto::rr::record_data::RData;

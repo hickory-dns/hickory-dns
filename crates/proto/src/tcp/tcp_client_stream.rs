@@ -23,7 +23,7 @@ use crate::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// Tcp client stream
 ///
-/// Use with `trust_dns::client::DnsMultiplexer` impls
+/// Use with `trust_dns_client::client::DnsMultiplexer` impls
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpClientStream<S> {
     tcp_stream: TcpStream<S>,

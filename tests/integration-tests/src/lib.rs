@@ -6,7 +6,7 @@ extern crate openssl;
 extern crate rustls;
 extern crate tokio;
 extern crate tokio_timer;
-extern crate trust_dns;
+extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
 extern crate trust_dns_server;
@@ -27,11 +27,11 @@ use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
 use tokio_timer::Delay;
 
-use trust_dns::client::ClientConnection;
-use trust_dns::error::ClientResult;
-use trust_dns::op::*;
-use trust_dns::rr::dnssec::Signer;
-use trust_dns::serialize::binary::*;
+use trust_dns_client::client::ClientConnection;
+use trust_dns_client::error::ClientResult;
+use trust_dns_client::op::*;
+use trust_dns_client::rr::dnssec::Signer;
+use trust_dns_client::serialize::binary::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
     DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender, SerialMessage,
