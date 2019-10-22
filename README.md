@@ -166,7 +166,10 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Prerequisites
 
--   openssl development libraries (optional in client and resolver, min version 1.0.2)
+### Minimum Rust Version
+
+- The current minimum rustc version for this project is `1.39`
+- OpenSSL development libraries (optional in client and resolver, min version 1.0.2)
 
 ### Mac OS X: using homebrew
 
