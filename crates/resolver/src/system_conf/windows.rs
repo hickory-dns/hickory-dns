@@ -32,11 +32,15 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
             socket_addr,
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         });
         name_servers.push(NameServerConfig {
             socket_addr,
             protocol: Protocol::Tcp,
             tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         });
     }
     Ok(name_servers)

@@ -285,19 +285,22 @@ impl Stream for HttpsClientStream {
 /// A HTTPS connection builder for DNS-over-HTTPS
 #[derive(Clone)]
 pub struct HttpsClientStreamBuilder {
-    client_config: ClientConfig,
+    client_config: Arc<ClientConfig>,
 }
 
 impl HttpsClientStreamBuilder {
     /// Return a new builder for DNS-over-HTTPS
     pub fn new() -> HttpsClientStreamBuilder {
+        let mut client_config = ClientConfig::new();
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
+
         HttpsClientStreamBuilder {
-            client_config: ClientConfig::new(),
+            client_config: Arc::new(client_config),
         }
     }
 
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: ClientConfig) -> Self {
+    pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
         HttpsClientStreamBuilder { client_config }
     }
 
@@ -305,7 +308,7 @@ impl HttpsClientStreamBuilder {
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca(&mut self, ca: Certificate) {
-        self.client_config
+        Arc::make_mut(&mut self.client_config)
             .root_store
             .add(&ca)
             .expect("bad certificate!");
@@ -320,10 +323,13 @@ impl HttpsClientStreamBuilder {
     /// * `loop_handle` - The reactor Core handle
     pub fn build(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnect {
         let mut client_config = self.client_config;
-        client_config.alpn_protocols.push(ALPN_H2.to_vec());
+
+        Arc::make_mut(&mut client_config)
+            .alpn_protocols
+            .push(ALPN_H2.to_vec());
 
         let tls = TlsConfig {
-            client_config: Arc::new(client_config),
+            client_config,
             dns_name: Arc::new(dns_name),
         };
 
@@ -546,7 +552,7 @@ mod tests {
         client_config.root_store = root_store;
         client_config.versions = versions;
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
         let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...

@@ -29,6 +29,8 @@ use proto::xfer::{
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https::{self, HttpsClientResponse};
 
+#[cfg(feature = "dns-over-rustls")]
+use crate::config::TlsClientConfig;
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 
 /// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
@@ -68,6 +70,8 @@ impl ConnectionProvider for StandardConnection {
                 socket_addr: config.socket_addr,
                 timeout: options.timeout,
                 tls_dns_name: config.tls_dns_name.clone().unwrap_or_default(),
+                #[cfg(feature = "dns-over-rustls")]
+                client_config: config.tls_config.clone(),
             })),
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => {
@@ -75,6 +79,8 @@ impl ConnectionProvider for StandardConnection {
                     socket_addr: config.socket_addr,
                     timeout: options.timeout,
                     tls_dns_name: config.tls_dns_name.clone().unwrap_or_default(),
+                    #[cfg(feature = "dns-over-rustls")]
+                    client_config: config.tls_config.clone(),
                 }))
             }
             #[cfg(feature = "mdns")]
@@ -104,12 +110,16 @@ pub(crate) enum ConnectionHandleConnect {
         socket_addr: SocketAddr,
         timeout: Duration,
         tls_dns_name: String,
+        #[cfg(feature = "dns-over-rustls")]
+        client_config: Option<TlsClientConfig>,
     },
     #[cfg(feature = "dns-over-https")]
     Https {
         socket_addr: SocketAddr,
         timeout: Duration,
         tls_dns_name: String,
+        #[cfg(feature = "dns-over-rustls")]
+        client_config: Option<TlsClientConfig>,
     },
     #[cfg(feature = "mdns")]
     Mdns {
@@ -176,8 +186,15 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
                 tls_dns_name,
+                #[cfg(feature = "dns-over-rustls")]
+                client_config,
             } => {
-                let (stream, handle) = crate::tls::new_tls_stream(socket_addr, tls_dns_name);
+                #[cfg(feature = "dns-over-rustls")]
+                let (stream, handle) =
+                    { crate::tls::new_tls_stream(socket_addr, tls_dns_name, client_config) };
+                #[cfg(not(feature = "dns-over-rustls"))]
+                let (stream, handle) = { crate::tls::new_tls_stream(socket_addr, tls_dns_name) };
+
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
                     Box::new(handle),
@@ -203,8 +220,10 @@ impl ConnectionHandleConnect {
                 // TODO: https needs timeout!
                 timeout: _t,
                 tls_dns_name,
+                client_config,
             } => {
-                let (stream, handle) = crate::https::new_https_stream(socket_addr, tls_dns_name);
+                let (stream, handle) =
+                    crate::https::new_https_stream(socket_addr, tls_dns_name, client_config);
 
                 let stream = stream
                     .and_then(|stream| stream)

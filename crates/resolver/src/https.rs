@@ -4,7 +4,7 @@ extern crate webpki_roots;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+use crate::tls::CLIENT_CONFIG;
 
 use futures::Future;
 
@@ -12,10 +12,13 @@ use proto::error::ProtoError;
 use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
 use trust_dns_https::{HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder};
 
+use crate::config::TlsClientConfig;
+
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
+    #[cfg(feature = "dns-over-rustls")] client_config: Option<TlsClientConfig>,
 ) -> (
     Pin<
         Box<
@@ -29,14 +32,10 @@ pub(crate) fn new_https_stream(
     >,
     BufDnsRequestStreamHandle<HttpsClientResponse>,
 ) {
-    // using the mozilla default root store
-    let mut root_store = RootCertStore::empty();
-    root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
-    let versions = vec![ProtocolVersion::TLSv1_2];
-
-    let mut client_config = ClientConfig::new();
-    client_config.root_store = root_store;
-    client_config.versions = versions;
+    let client_config = client_config.map_or_else(
+        || CLIENT_CONFIG.clone(),
+        |TlsClientConfig(client_config)| client_config,
+    );
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
     let (stream, handle) = DnsExchange::connect(https_builder.build(socket_addr, dns_name));

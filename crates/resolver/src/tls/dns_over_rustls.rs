@@ -22,9 +22,11 @@ use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;
 use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 
+use crate::config::TlsClientConfig;
+
 lazy_static! {
     // using the mozilla default root store
-    static ref CLIENT_CONFIG: Arc<ClientConfig> = {
+    pub(crate) static ref CLIENT_CONFIG: Arc<ClientConfig> = {
         let mut root_store = RootCertStore::empty();
         root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
         let versions = vec![ProtocolVersion::TLSv1_2];
@@ -41,10 +43,15 @@ lazy_static! {
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
+    client_config: Option<TlsClientConfig>,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
-    let (stream, handle) = tls_client_connect(socket_addr, dns_name, CLIENT_CONFIG.clone());
+    let client_config = client_config.map_or_else(
+        || CLIENT_CONFIG.clone(),
+        |TlsClientConfig(client_config)| client_config.clone(),
+    );
+    let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config);
     (Box::pin(stream), handle)
 }
