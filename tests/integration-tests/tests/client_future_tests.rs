@@ -144,7 +144,7 @@ fn test_query_https() {
     client_config.root_store = root_store;
     client_config.versions = versions;
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
     let (bg, mut client) =
         ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     io_loop.spawn(bg);

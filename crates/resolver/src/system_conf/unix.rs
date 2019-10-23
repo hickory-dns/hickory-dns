@@ -64,11 +64,15 @@ fn into_resolver_config(
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         });
         nameservers.push(NameServerConfig {
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Tcp,
             tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         });
     }
     if nameservers.is_empty() {
@@ -115,11 +119,15 @@ mod tests {
                 socket_addr: addr,
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
+                #[cfg(feature = "dns-over-rustls")]
+                tls_config: None,
             },
             NameServerConfig {
                 socket_addr: addr,
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
+                #[cfg(feature = "dns-over-rustls")]
+                tls_config: None,
             },
         ]
     }

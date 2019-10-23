@@ -13,7 +13,7 @@ mod dns_over_rustls;
 
 cfg_if! {
     if #[cfg(feature = "dns-over-rustls")] {
-        pub(crate) use self::dns_over_rustls::new_tls_stream;
+        pub(crate) use self::dns_over_rustls::{new_tls_stream, CLIENT_CONFIG};
     } else if #[cfg(feature = "dns-over-native-tls")] {
         pub(crate) use self::dns_over_native_tls::new_tls_stream;
     } else if #[cfg(feature = "dns-over-openssl")] {

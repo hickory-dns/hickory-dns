@@ -231,6 +231,8 @@ where
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
         tls_dns_name: None,
+        #[cfg(feature = "dns-over-rustls")]
+        tls_config: None,
     };
     NameServer::new_with_provider(config, options, conn_provider)
 }
@@ -260,6 +262,8 @@ mod tests {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         };
         let mut io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|_| {
@@ -286,6 +290,8 @@ mod tests {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         };
         let mut io_loop = Runtime::new().unwrap();
         let name_server =
