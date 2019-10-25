@@ -20,6 +20,8 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+use log::warn;
+
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
 use crate::serialize::binary::{BinEncodable, BinEncoder};

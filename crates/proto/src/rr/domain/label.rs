@@ -20,6 +20,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc as Rc;
 
 use idna;
+use log::debug;
 
 use crate::error::*;
 

@@ -1,7 +1,6 @@
 #![feature(test)]
 
 extern crate test;
-extern crate trust_dns_proto;
 
 use trust_dns_proto::op::{Header, Message, MessageType, OpCode, ResponseCode};
 use trust_dns_proto::rr::Record;

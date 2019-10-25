@@ -8,6 +8,8 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::vec;
 
+use log::info;
+
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
 #[cfg(feature = "dnssec")]

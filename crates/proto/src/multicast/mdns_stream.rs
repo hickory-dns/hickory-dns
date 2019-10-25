@@ -18,6 +18,8 @@ use futures::lock::Mutex;
 use futures::ready;
 use futures::stream::{Stream, StreamExt};
 use futures::{Future, FutureExt, Poll, TryFutureExt};
+use lazy_static::lazy_static;
+use log::{debug, trace};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};

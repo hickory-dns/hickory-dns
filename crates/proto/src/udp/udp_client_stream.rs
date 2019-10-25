@@ -15,6 +15,7 @@ use std::task::Context;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{Future, Poll, Stream};
+use log::{debug, warn};
 use tokio_timer::timeout::{Elapsed, Timeout};
 
 use crate::error::ProtoError;

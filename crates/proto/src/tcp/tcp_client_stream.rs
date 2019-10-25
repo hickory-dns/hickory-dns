@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use futures::{Future, Poll, Stream, StreamExt, TryFutureExt};
+use log::warn;
 use tokio_io::{AsyncRead, AsyncWrite};
 
 use crate::error::ProtoError;

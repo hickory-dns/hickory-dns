@@ -1,7 +1,6 @@
 #![feature(test)]
 
 extern crate test;
-extern crate trust_dns_proto;
 
 use std::cmp::Ordering;
 
