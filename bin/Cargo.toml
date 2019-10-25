@@ -42,21 +42,21 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-#default = ["sqlite", "resolver"]
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl", "trust-dns-server/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring", "trust-dns-server/dnssec-ring"]
+default = ["sqlite", "resolver"]
+dnssec-openssl = ["dnssec", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-server/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-server/dnssec-ring"]
 dnssec = []
-resolver = ["trust-dns-resolver", "trust-dns-server/resolver"]
-sqlite = ["rusqlite", "trust-dns-server/sqlite"]
+resolver = ["trust-dns-server/resolver"]
+sqlite = ["trust-dns-server/sqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "trust-dns-server/dns-over-https-rustls", "tokio-rustls"]
-dns-over-https = ["h2", "http", "trust-dns-https", "trust-dns-server/dns-over-https"]
+dns-over-https-rustls = ["dns-over-https", "trust-dns-client/dns-over-https-rustls", "trust-dns-server/dns-over-https-rustls"]
+dns-over-https = ["trust-dns-server/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "tokio-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "trust-dns-server/dns-over-rustls", "tokio-rustls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns-client/dns-over-rustls", "trust-dns-server/dns-over-rustls",]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -71,41 +71,22 @@ name = "named"
 path = "src/named.rs"
 
 [dependencies]
-backtrace = "0.3"
-bytes = "0.4.9"
 chrono = "0.4"
 clap = "2.33"
-enum-as-inner = "0.3"
-env_logger = "0.7"
-failure = "0.1"
 futures-preview = "0.3.0-alpha"
-h2 = { version = "0.2.0-alpha", optional = true }
-http = { version = "0.1", optional = true }
-lazy_static = "1.0"
 log = "0.4.8"
-openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-rand = "0.7"
-rusqlite = { version = "0.20.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
-serde = { version = "1.0.100", features = ["derive"] }
-time = "0.1"
 tokio = "0.2.0-alpha"
 tokio-executor = "0.2.0-alpha"
-tokio-io = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
-tokio-openssl = { version = "0.4.0-alpha", optional = true }
-tokio-rustls = { version = "0.12.0-alpha", optional = true }
-tokio-timer = "0.3.0-alpha"
-toml = "0.5"
 trust-dns-client= { version = "0.18.0-alpha", path = "../crates/client" }
-trust-dns-https = { version = "0.18.0-alpha", path = "../crates/https", optional = true }
-trust-dns-proto = { version = "0.18.0-alpha", path = "../crates/proto" }
 trust-dns-openssl = { version = "0.18.0-alpha", path = "../crates/openssl", optional = true }
-trust-dns-resolver = { version = "0.18.0-alpha", path = "../crates/resolver", features = ["serde-config"], optional = true }
+trust-dns-proto = { version = "0.18.0-alpha", path = "../crates/proto" }
 trust-dns-rustls = { version = "0.18.0-alpha", path = "../crates/rustls", optional = true }
 trust-dns-server = { version = "0.18.0-alpha", path = "../crates/server" }
 
 [dev-dependencies]
+env_logger = "0.7"
 native-tls = "0.2"
 trust-dns-native-tls = { version = "0.18.0-alpha", path = "../crates/native-tls" }
-tokio-tls = "0.3.0-alpha"
+trust-dns-https = { version = "0.18.0-alpha", path = "../crates/https" }

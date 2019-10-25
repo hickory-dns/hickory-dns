@@ -62,7 +62,7 @@ use trust_dns_server::config::{Config, ZoneConfig};
 use trust_dns_server::logger;
 use trust_dns_server::server::ServerFuture;
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
-#[cfg(feature = "trust-dns-resolver")]
+#[cfg(feature = "resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "sqlite")]
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
@@ -119,7 +119,7 @@ fn load_zone(
             )
             .map(Box::new)?
         }
-        #[cfg(feature = "trust-dns-resolver")]
+        #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
             let (forwarder, bg) = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
 
