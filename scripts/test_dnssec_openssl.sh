@@ -10,4 +10,5 @@ cargo test --manifest-path crates/proto/Cargo.toml --features dnssec-openssl
 cargo test --manifest-path crates/client/Cargo.toml --features dnssec-openssl
 cargo test --manifest-path crates/resolver/Cargo.toml --features dnssec-openssl
 cargo test --manifest-path crates/server/Cargo.toml --features dnssec-openssl
+cargo test --manifest-path bin/Cargo.toml --features dnssec-openssl
 cargo test --manifest-path tests/integration-tests/Cargo.toml --features dnssec-openssl

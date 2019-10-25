@@ -41,7 +41,7 @@ TEST_PATH=${PROJECT:?}/target/debug
 mkdir -p ${KCOV_TARGET:?}
 
 # needed to tell some config tests where the server root directory is
-export TDNS_SERVER_SRC_ROOT=${PROJECT:?}/crates/server
+export TDNS_SERVER_SRC_ROOT=${PROJECT:?}/bin
 export COVERALLS_PARALLEL=true
 
 SRC_PATHS=\
@@ -52,7 +52,8 @@ ${PROJECT:?}/crates/proto/src,\
 ${PROJECT:?}/crates/https/src,\
 ${PROJECT:?}/crates/resolver/src,\
 ${PROJECT:?}/crates/rustls/src,\
-${PROJECT:?}/crates/server/src
+${PROJECT:?}/crates/server/src,\
+${PROJECT:?}/bin/src
 
 EXCLUDE_PATHS=\
 ${PROJECT:?}/crates/client/src/error,\

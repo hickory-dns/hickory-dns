@@ -258,7 +258,7 @@ mod tests {
     #[test]
     fn test_load_zone() {
         let config = FileConfig {
-            zone_file_path: "tests/named_test_configs/example.com.zone".to_string(),
+            zone_file_path: "../../tests/test-data/named_test_configs/example.com.zone".to_string(),
         };
         let authority = FileAuthority::try_from_config(
             Name::from_str("example.com.").unwrap(),

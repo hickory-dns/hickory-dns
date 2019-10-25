@@ -415,7 +415,7 @@ mod tests {
         let mut decoder: BinDecoder = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
         let read_rdata = read_rdata.expect("error decoding");
-        
+
         assert_eq!(rdata, read_rdata);
         assert!(rdata
             .to_digest(

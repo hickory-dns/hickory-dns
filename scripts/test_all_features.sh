@@ -15,4 +15,5 @@ cargo test --manifest-path crates/rustls/Cargo.toml --all-features
 cargo test --manifest-path crates/https/Cargo.toml --all-features
 cargo test --manifest-path crates/resolver/Cargo.toml --all-features
 cargo test --manifest-path crates/server/Cargo.toml --all-features
+cargo test --manifest-path bin/Cargo.toml --all-features
 cargo test --manifest-path tests/integration-tests/Cargo.toml --all-features

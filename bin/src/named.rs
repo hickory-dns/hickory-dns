@@ -56,7 +56,7 @@ use tokio_net::udp::UdpSocket;
 use trust_dns_client::rr::rdata::key::KeyUsage;
 use trust_dns_client::rr::Name;
 use trust_dns_server::authority::{AuthorityObject, Catalog, ZoneType};
-#[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
+#[cfg(feature = "dns-over-tls")]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
 use trust_dns_server::config::{Config, ZoneConfig};
 use trust_dns_server::logger;
@@ -81,6 +81,7 @@ fn load_zone(
     let zone_path: Option<String> = zone_config.file.clone();
     let zone_type: ZoneType = zone_config.get_zone_type();
     let is_axfr_allowed = zone_config.is_axfr_allowed();
+    #[allow(unused_variables)]
     let is_dnssec_enabled = zone_config.is_dnssec_enabled();
 
     if zone_config.is_update_allowed() {

@@ -34,7 +34,8 @@ dnssec_battery!(file);
 #[test]
 fn test_all_lines_are_loaded() {
     let config = FileConfig {
-        zone_file_path: "tests/named_test_configs/default/nonewline.zone".to_string(),
+        zone_file_path: "../../tests/test-data/named_test_configs/default/nonewline.zone"
+            .to_string(),
     };
 
     let authority = FileAuthority::try_from_config(

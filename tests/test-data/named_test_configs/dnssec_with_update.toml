@@ -1,5 +1,3 @@
-## Deprecated format of dnssec_and_dynamic_dns
-
 ## Example configuration for supported OpenSSL DNSSec signing options.
 
 ## Default zones, these should be present on all nameservers, except in rare
@@ -36,12 +34,6 @@ zone = "example.com"
 ## zone_type: Master, Slave, Hint, Forward
 zone_type = "Master"
 
-## file: this is relative to the directory above
-file = "example.com.zone"
-
-## if false, updates will not be allowed, default false
-allow_update = true
-
 ## if true, looks to see if a chained pem file exists at $file.pem (see
 ## supported_algorithms below).
 ## these keys will also be registered as authorities for update,
@@ -50,8 +42,11 @@ allow_update = true
 ## to limit this set for performance reasons.
 enable_dnssec = true
 
+## An ordered list of stores
+stores = { type = "sqlite", zone_file_path = "example.com.zone", journal_file_path = "example.com_dnsec_update.jrnl", allow_update = true }
+
 [[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
+key_path = "../tests/test-data/named_test_configs/dnssec/rsa_2048.pem"
 ## the password used to encrypt/decrypt the file (must be PEM), blank for none
 password = "123456"
 ## specify the algorithm
@@ -64,7 +59,7 @@ is_zone_signing_key = true
 # create_if_absent = false
 
 [[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
+key_path = "../tests/test-data/named_test_configs/dnssec/rsa_2048.pem"
 password = "123456"
 algorithm = "RSASHA512"
 is_zone_signing_key = false
