@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use futures::future;
 use futures::{Future, FutureExt, TryFutureExt};
+use log::debug;
 
 use crate::error::*;
 use crate::op::{OpCode, Query};

@@ -18,6 +18,8 @@
 
 use std::collections::HashMap;
 
+use log::warn;
+
 use crate::error::*;
 use crate::serialize::binary::*;
 

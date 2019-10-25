@@ -29,6 +29,9 @@ pub mod sig;
 
 use std::str::FromStr;
 
+use enum_as_inner::EnumAsInner;
+use log::debug;
+
 use crate::error::*;
 use crate::rr::rdata::null;
 use crate::rr::rdata::NULL;

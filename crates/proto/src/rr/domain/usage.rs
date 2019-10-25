@@ -11,6 +11,8 @@
 
 use std::ops::Deref;
 
+use lazy_static::lazy_static;
+
 use crate::rr::domain::Name;
 
 lazy_static! {
