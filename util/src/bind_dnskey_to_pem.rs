@@ -5,20 +5,13 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-extern crate clap;
-extern crate data_encoding;
-extern crate env_logger;
-#[macro_use]
-extern crate log;
-extern crate openssl;
-extern crate trust_dns_client;
-
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Lines, Write};
 use std::str::FromStr;
 
 use clap::{App, Arg, ArgMatches};
 use data_encoding::BASE64;
+use log::info;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 
