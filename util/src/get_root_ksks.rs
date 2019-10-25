@@ -5,20 +5,13 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-#[macro_use]
-extern crate clap;
-extern crate data_encoding;
-extern crate env_logger;
-extern crate openssl;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_resolver;
-
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
 
-use clap::ArgMatches;
+use clap::{
+    app_from_crate, crate_authors, crate_description, crate_name, crate_version, ArgMatches,
+};
 
 use trust_dns_client::rr::dnssec::Algorithm;
 use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
