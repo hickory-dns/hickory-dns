@@ -10,8 +10,10 @@ use std::sync::Arc;
 
 use futures::lock::Mutex;
 use futures::Future;
-use proto::error::ProtoError;
-use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use trust_dns_proto::{
+    error::ProtoError,
+    xfer::{DnsHandle, DnsRequest, DnsResponse},
+};
 
 use crate::client::rc_future::{rc_future, RcFuture};
 use crate::client::ClientHandle;
@@ -93,8 +95,10 @@ mod test {
 
     use futures::lock::Mutex;
     use futures::*;
-    use proto::error::ProtoError;
-    use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+    use trust_dns_proto::{
+        error::ProtoError,
+        xfer::{DnsHandle, DnsRequest, DnsResponse},
+    };
 
     use crate::client::*;
     use crate::op::*;

@@ -34,17 +34,17 @@ pub use self::memoize_client_handle::MemoizeClientHandle;
 
 /// This is an alias for [`trust_dns_proto::StreamHandle`]
 #[deprecated(note = "use [`trust_dns_proto::StreamHandle`] instead")]
-pub use proto::StreamHandle;
+pub use trust_dns_proto::StreamHandle;
 
 /// This is an alias for [`trust_dns_proto::DnsStreamHandle`]
 #[deprecated(note = "use [`trust_dns_proto::DnsStreamHandle`] instead")]
-pub use proto::DnsStreamHandle as ClientStreamHandle;
+pub use trust_dns_proto::DnsStreamHandle as ClientStreamHandle;
 
 /// This is an alias for [`trust_dns_proto::RetryDnsHandle`]
 #[deprecated(note = "use [`trust_dns_proto::RetryDnsHandle`] instead")]
-pub use proto::RetryDnsHandle as RetryClientHandle;
+pub use trust_dns_proto::RetryDnsHandle as RetryClientHandle;
 
 /// This is an alias for [`trust_dns_proto::SecureDnsHandle`]
 #[cfg(feature = "dnssec")]
 #[deprecated(note = "use [`trust_dns_proto::SecureDnsHandle`] instead")]
-pub use proto::SecureDnsHandle as SecureClientHandle;
+pub use trust_dns_proto::SecureDnsHandle as SecureClientHandle;

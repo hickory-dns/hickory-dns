@@ -17,8 +17,10 @@ use std::sync::Arc;
 
 use futures::Future;
 
-use proto::error::ProtoError;
-use proto::xfer::{DnsRequestSender, DnsResponse};
+use trust_dns_proto::{
+    error::ProtoError,
+    xfer::{DnsRequestSender, DnsResponse},
+};
 
 use crate::rr::dnssec::Signer;
 

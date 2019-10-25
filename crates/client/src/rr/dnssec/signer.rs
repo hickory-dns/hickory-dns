@@ -9,9 +9,9 @@
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
 
-use proto::error::{ProtoErrorKind, ProtoResult};
+use crate::proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(feature = "dnssec")]
-use proto::rr::dnssec::{tbs, TBS};
+use crate::proto::rr::dnssec::{tbs, TBS};
 
 #[cfg(feature = "dnssec")]
 use crate::error::DnsSecResult;
@@ -518,7 +518,7 @@ impl Signer {
 impl MessageFinalizer for Signer {
     #[cfg(any(feature = "openssl", feature = "ring"))]
     fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
-        debug!("signing message: {:?}", message);
+        log::debug!("signing message: {:?}", message);
         let key_tag: u16 = self.calculate_key_tag()?;
 
         // this is based on RFCs 2535, 2931 and 3007
@@ -577,10 +577,9 @@ impl MessageFinalizer for Signer {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    extern crate openssl;
-    use self::openssl::bn::BigNum;
-    use self::openssl::pkey::Private;
-    use self::openssl::rsa::Rsa;
+    use openssl::bn::BigNum;
+    use openssl::pkey::Private;
+    use openssl::rsa::Rsa;
 
     use crate::op::{Message, Query};
     use crate::rr::dnssec::*;
@@ -777,8 +776,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[allow(clippy::module_inception)]
     #[cfg(test)]
     mod tests {
-        extern crate openssl;
-        use self::openssl::rsa::Rsa;
+        use openssl::rsa::Rsa;
 
         use crate::rr::dnssec::tbs::*;
         use crate::rr::dnssec::*;

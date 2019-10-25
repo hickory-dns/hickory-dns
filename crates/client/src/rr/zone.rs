@@ -1,9 +1,10 @@
 //! Reserved Zone and related information
 
-pub use proto::rr::domain::usage::*;
-use proto::rr::domain::{Label, Name};
-use proto::serialize::binary::BinEncodable;
+pub use crate::proto::rr::domain::usage::*;
+use crate::proto::rr::domain::{Label, Name};
+use crate::proto::serialize::binary::BinEncodable;
 
+use lazy_static::lazy_static;
 use radix_trie::{Trie, TrieKey};
 
 // Reserved reverse IPs

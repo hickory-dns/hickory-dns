@@ -17,7 +17,7 @@
 //! TCP protocol related components for DNS
 
 mod tcp_client_connection;
-use proto::tcp;
+use crate::proto::tcp;
 
 pub use self::tcp::TcpClientStream;
 pub use self::tcp::TcpStream;
