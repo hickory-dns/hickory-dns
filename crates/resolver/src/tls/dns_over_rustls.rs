@@ -24,6 +24,8 @@ use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 
 use crate::config::TlsClientConfig;
 
+const ALPN_H2: &[u8] = b"h2";
+
 lazy_static! {
     // using the mozilla default root store
     pub(crate) static ref CLIENT_CONFIG: Arc<ClientConfig> = {
@@ -34,6 +36,7 @@ lazy_static! {
         let mut client_config = ClientConfig::new();
         client_config.root_store = root_store;
         client_config.versions = versions;
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         Arc::new(client_config)
     };

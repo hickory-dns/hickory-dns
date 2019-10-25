@@ -19,7 +19,7 @@ use futures::{future, Future, FutureExt, Poll, Stream, TryFutureExt};
 use h2;
 use h2::client::{Connection, SendRequest};
 use http::{self, header};
-use rustls::{Certificate, ClientConfig};
+use rustls::ClientConfig;
 use tokio_executor;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_rustls::{client::TlsStream as TokioTlsClientStream, Connect, TlsConnector};
@@ -304,16 +304,6 @@ impl HttpsClientStreamBuilder {
         HttpsClientStreamBuilder { client_config }
     }
 
-    /// Add a custom trusted peer certificate or certificate authority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: Certificate) {
-        Arc::make_mut(&mut self.client_config)
-            .root_store
-            .add(&ca)
-            .expect("bad certificate!");
-    }
-
     /// Creates a new HttpsStream to the specified name_server
     ///
     /// # Arguments
@@ -322,14 +312,14 @@ impl HttpsClientStreamBuilder {
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
     pub fn build(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnect {
-        let mut client_config = self.client_config;
-
-        Arc::make_mut(&mut client_config)
+        assert!(self
+            .client_config
             .alpn_protocols
-            .push(ALPN_H2.to_vec());
+            .iter()
+            .any(|protocol| *protocol == ALPN_H2.to_vec()));
 
         let tls = TlsConfig {
-            client_config,
+            client_config: self.client_config,
             dns_name: Arc::new(dns_name),
         };
 
