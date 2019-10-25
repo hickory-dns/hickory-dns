@@ -21,7 +21,9 @@ use trust_dns_client::rr::rdata::key::KEY;
 use trust_dns_client::rr::rdata::DNSSECRData;
 use trust_dns_client::rr::rdata::DNSSECRecordType;
 use trust_dns_client::rr::rdata::SOA;
-use trust_dns_client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use trust_dns_client::rr::{
+    DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey,
+};
 
 use crate::authority::{
     AnyRecords, AuthLookup, Authority, LookupError, LookupRecords, LookupResult, MessageRequest,
@@ -310,7 +312,7 @@ impl InMemoryAuthority {
         }
     }
 
-    #[cfg(feature = "sqlite")]
+    #[cfg(any(feature = "dnssec", feature = "sqlite"))]
     pub(crate) fn increment_soa_serial(&mut self) -> u32 {
         // we'll remove the SOA and then replace it
         let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);

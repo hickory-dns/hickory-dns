@@ -40,7 +40,7 @@ file = "example.com.zone"
 enable_dnssec = true
 
 [[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
+key_path = "../tests/test-data/named_test_configs/dnssec/rsa_2048.pem"
 ## the password used to encrypt/decrypt the file (must be PEM), blank for none
 password = "123456"
 ## specify the algorithm
@@ -53,19 +53,19 @@ is_zone_signing_key = true
 # create_if_absent = false
 
 [[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
+key_path = "../tests/test-data/named_test_configs/dnssec/rsa_2048.pem"
 password = "123456"
 algorithm = "RSASHA512"
 is_zone_signing_key = true
 
 [[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/ecdsa_p256.pem"
+key_path = "../tests/test-data/named_test_configs/dnssec/ecdsa_p256.pem"
 # password = "123456"
 algorithm = "ECDSAP256SHA256"
 is_zone_signing_key = true
 
 [[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/ecdsa_p384.pem"
+key_path = "../tests/test-data/named_test_configs/dnssec/ecdsa_p384.pem"
 # password = "123456"
 algorithm = "ECDSAP384SHA384"
 is_zone_signing_key = true

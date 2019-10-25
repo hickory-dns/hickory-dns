@@ -82,14 +82,14 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         })
         .unwrap();
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../server".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| "../../bin".to_owned());
     println!("using server src path: {}", server_path);
 
-    let root_cert_der = read_file(&format!("{}/../../tests/test-data/ca.der", server_path));
+    let root_cert_der = read_file(&format!("{}/../tests/test-data/ca.der", server_path));
 
     // Generate X509 certificate
     let dns_name = "ns.example.com";
-    let server_pkcs12_der = read_file(&format!("{}/../../tests/test-data/cert.p12", server_path));
+    let server_pkcs12_der = read_file(&format!("{}/../tests/test-data/cert.p12", server_path));
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();

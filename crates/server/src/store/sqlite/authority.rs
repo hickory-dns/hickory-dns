@@ -18,7 +18,9 @@ use trust_dns_client::op::LowerQuery;
 use trust_dns_client::op::ResponseCode;
 use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
 use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns_client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use trust_dns_client::rr::{
+    DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey,
+};
 
 #[cfg(feature = "dnssec")]
 use crate::authority::UpdateRequest;

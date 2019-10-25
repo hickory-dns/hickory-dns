@@ -96,11 +96,11 @@ fn trust_dns_process() -> (NamedProcess, u16) {
         .stdout(Stdio::null())
         .arg("-q") // TODO: need to rethink this one...
         .arg(&format!(
-            "--config={}/tests/named_test_configs/example.toml",
+            "--config={}/tests/test-data/named_test_configs/example.toml",
             server_path
         ))
         .arg(&format!(
-            "--zonedir={}/tests/named_test_configs",
+            "--zonedir={}/tests/test-data/named_test_configs",
             server_path
         ))
         .arg(&format!("--port={}", test_port))

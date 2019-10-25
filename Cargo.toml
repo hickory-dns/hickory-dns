@@ -9,4 +9,5 @@ members = ["crates/client",
            "crates/server",
            "tests/compatibility-tests",
            "tests/integration-tests",
+           "bin",
            "util"]

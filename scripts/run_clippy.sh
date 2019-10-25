@@ -16,6 +16,7 @@ $CARGO clean -p trust-dns-rustls
 $CARGO clean -p trust-dns-openssl
 $CARGO clean -p trust-dns-https
 $CARGO clean -p trust-dns-native-tls
+$CARGO clean -p trust-dns
 $CARGO clean -p trust-dns-compatibility
 $CARGO clean -p trust-dns-integration
 

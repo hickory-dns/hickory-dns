@@ -97,7 +97,7 @@ Zone signing support is complete, to insert a key store a pem encoded rsa file
 
 ### DNS over TLS on the Server
 
-Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/master/crates/server/tests/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/master/crates/server/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
 ## DNSSec status
 
@@ -244,7 +244,7 @@ so this should allow it to work with most internal loads.
 
 ```
   $ cd server
-  $ ../target/release/named -c ./tests/named_test_configs/example.toml -z ./tests/named_test_configs/ -p 24141
+  $ ../target/release/named -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
 ```
 
 -   Query the just launched server with `dig`

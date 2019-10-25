@@ -15,6 +15,7 @@ cargo test --manifest-path crates/rustls/Cargo.toml
 cargo test --manifest-path crates/https/Cargo.toml
 cargo test --manifest-path crates/resolver/Cargo.toml
 cargo test --manifest-path crates/server/Cargo.toml
+cargo test --manifest-path bin/Cargo.toml
 cargo test --manifest-path tests/integration-tests/Cargo.toml
 
 # All examples should go here
