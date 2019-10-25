@@ -131,9 +131,9 @@ impl From<u8> for Algorithm {
     }
 }
 
-impl Into<u8> for Algorithm {
-    fn into(self) -> u8 {
-        match self {
+impl From<Algorithm> for u8 {
+    fn from(algorithm: Algorithm) -> u8 {
+        match algorithm {
             Algorithm::Reserved => 0,
             Algorithm::RSA => 1,
             Algorithm::DSA => 2,
@@ -191,9 +191,9 @@ impl From<u8> for FingerprintType {
     }
 }
 
-impl Into<u8> for FingerprintType {
-    fn into(self) -> u8 {
-        match self {
+impl From<FingerprintType> for u8 {
+    fn from(fingerprint_type: FingerprintType) -> u8 {
+        match fingerprint_type {
             FingerprintType::Reserved => 0,
             FingerprintType::SHA1 => 1,
             FingerprintType::SHA256 => 2,
