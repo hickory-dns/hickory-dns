@@ -1388,6 +1388,7 @@ dependencies = [
  "trust-dns-proto 0.18.0-alpha.1",
  "trust-dns-rustls 0.18.0-alpha.1",
  "trust-dns-server 0.18.0-alpha.1",
+ "webpki-roots 0.18.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
