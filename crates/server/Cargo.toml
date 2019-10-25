@@ -70,20 +70,16 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3"
 bytes = "0.4.9"
 chrono = "0.4"
-clap = "2.33"
 enum-as-inner = "0.3"
 env_logger = "0.7"
 failure = "0.1"
 futures-preview = "0.3.0-alpha"
 h2 = { version = "0.2.0-alpha", optional = true }
 http = { version = "0.1", optional = true }
-lazy_static = "1.0"
 log = "0.4.8"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-rand = "0.7"
 rusqlite = { version = "0.20.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0.100", features = ["derive"] }
@@ -102,8 +98,3 @@ trust-dns-proto = { version = "0.18.0-alpha", path = "../proto" }
 trust-dns-openssl = { version = "0.18.0-alpha", path = "../openssl", optional = true }
 trust-dns-resolver = { version = "0.18.0-alpha", path = "../resolver", features = ["serde-config"], optional = true }
 trust-dns-rustls = { version = "0.18.0-alpha", path = "../rustls", optional = true }
-
-[dev-dependencies]
-native-tls = "0.2"
-trust-dns-native-tls = { version = "0.18.0-alpha", path = "../native-tls" }
-tokio-tls = "0.3.0-alpha"

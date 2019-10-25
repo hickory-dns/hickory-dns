@@ -249,7 +249,7 @@ fn test_server_continues_on_bad_data_tcp() {
 }
 
 #[test]
-#[cfg(feature = "trust-dns-resolver")]
+#[cfg(feature = "resolver")]
 fn test_forward() {
     use server_harness::query_message;
 
