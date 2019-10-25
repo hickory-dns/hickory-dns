@@ -55,8 +55,8 @@ impl NULL {
     }
 
     /// Returns the buffer stored in the NULL
-    pub fn anything(&self) -> Option<&Vec<u8>> {
-        self.anything.as_ref()
+    pub fn anything(&self) -> Option<&[u8]> {
+        self.anything.as_ref().map(|bytes| &bytes[..])
     }
 }
 
