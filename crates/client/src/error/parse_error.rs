@@ -20,7 +20,7 @@
 use std::{fmt, io};
 
 use failure::{Backtrace, Context, Fail};
-use proto::error::{ProtoError, ProtoErrorKind};
+use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
 use super::LexerError;
 use crate::serialize::txt::Token;

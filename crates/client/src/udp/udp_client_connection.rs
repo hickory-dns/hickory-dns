@@ -11,8 +11,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use proto::udp::{UdpClientConnect, UdpClientStream};
-use proto::xfer::DnsRequestSender;
+use crate::proto::udp::{UdpClientConnect, UdpClientStream};
+use crate::proto::xfer::DnsRequestSender;
 
 use crate::client::ClientConnection;
 use crate::error::*;

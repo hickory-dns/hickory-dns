@@ -8,6 +8,7 @@
 
 //! tlsa records for storing TLS authentication records
 use data_encoding::{Encoding, Specification};
+use lazy_static::lazy_static;
 
 use crate::error::*;
 use crate::rr::rdata::tlsa::CertUsage;

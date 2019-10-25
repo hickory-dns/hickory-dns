@@ -17,7 +17,7 @@
 //! UDP protocol related components for DNS
 
 mod udp_client_connection;
-use proto::udp;
+use crate::proto::udp;
 
 pub use self::udp::UdpClientStream;
 pub use self::udp::UdpStream;

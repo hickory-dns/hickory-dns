@@ -11,8 +11,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use proto::tcp::{TcpClientConnect, TcpClientStream};
-use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
+use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 use tokio_net::tcp::TcpStream;
 
 use crate::client::ClientConnection;

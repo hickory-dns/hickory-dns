@@ -7,7 +7,7 @@
 
 use std::fmt::{self, Display};
 
-use proto::error::*;
+use crate::proto::error::*;
 
 use crate::op::Query;
 use crate::rr::{DNSClass, LowerName, RecordType};

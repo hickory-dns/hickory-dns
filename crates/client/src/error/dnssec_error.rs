@@ -26,9 +26,9 @@ use self::not_openssl::SslErrorStack;
 use self::not_ring::{KeyRejected, Unspecified};
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
-use proto::error::{ProtoError, ProtoErrorKind};
 #[cfg(feature = "ring")]
 use ring::error::{KeyRejected, Unspecified};
+use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
 /// An alias for dnssec results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
