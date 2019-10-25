@@ -377,9 +377,9 @@ _443._tcp.www.example.com. IN TLSA (
     .cloned()
     .expect("tlsa record not found");
     if let RData::TLSA(ref rdata) = *tlsa_record.rdata() {
-        assert_eq!(*rdata.cert_usage(), CertUsage::CA);
-        assert_eq!(*rdata.selector(), Selector::Full);
-        assert_eq!(*rdata.matching(), Matching::Sha256);
+        assert_eq!(rdata.cert_usage(), CertUsage::CA);
+        assert_eq!(rdata.selector(), Selector::Full);
+        assert_eq!(rdata.matching(), Matching::Sha256);
         assert_eq!(
             rdata.cert_data(),
             &[

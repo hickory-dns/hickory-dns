@@ -123,8 +123,8 @@ impl DS {
     ///    number used by RRSIG and DNSKEY RRs.  Appendix A.1 lists the
     ///    algorithm number types.
     /// ```
-    pub fn algorithm(&self) -> &Algorithm {
-        &self.algorithm
+    pub fn algorithm(&self) -> Algorithm {
+        self.algorithm
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
