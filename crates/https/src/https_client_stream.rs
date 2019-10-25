@@ -541,6 +541,7 @@ mod tests {
         let mut client_config = ClientConfig::new();
         client_config.root_store = root_store;
         client_config.versions = versions;
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
         let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());

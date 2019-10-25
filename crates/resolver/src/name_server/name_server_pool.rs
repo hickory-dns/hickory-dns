@@ -53,11 +53,16 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
             .map(|ns_config| {
-                NameServer::<C, P>::new_with_provider(
-                    ns_config.clone(),
-                    *options,
-                    conn_provider.clone(),
-                )
+                #[cfg(feature = "dns-over-rustls")]
+                let ns_config = {
+                    let mut ns_config = ns_config.clone();
+                    ns_config.tls_config = config.client_config().clone();
+                    ns_config
+                };
+                #[cfg(not(feature = "dns-over-rustls"))]
+                let ns_config = { ns_config.clone() };
+
+                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -66,11 +71,16 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
             .map(|ns_config| {
-                NameServer::<C, P>::new_with_provider(
-                    ns_config.clone(),
-                    *options,
-                    conn_provider.clone(),
-                )
+                #[cfg(feature = "dns-over-rustls")]
+                let ns_config = {
+                    let mut ns_config = ns_config.clone();
+                    ns_config.tls_config = config.client_config().clone();
+                    ns_config
+                };
+                #[cfg(not(feature = "dns-over-rustls"))]
+                let ns_config = { ns_config.clone() };
+
+                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
 

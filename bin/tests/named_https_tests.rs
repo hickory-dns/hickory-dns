@@ -26,8 +26,9 @@ use std::env;
 use std::fs::File;
 use std::io::*;
 use std::net::*;
+use std::sync::Arc;
 
-use rustls::Certificate;
+use rustls::{Certificate, ClientConfig, ProtocolVersion, RootCertStore};
 use tokio::runtime::current_thread::Runtime;
 use trust_dns_client::client::*;
 use trust_dns_https::HttpsClientStreamBuilder;
@@ -38,6 +39,8 @@ use server_harness::{named_test_harness, query_a};
 fn test_example_https_toml_startup() {
     extern crate env_logger;
     env_logger::try_init().ok();
+
+    const ALPN_H2: &[u8] = b"h2";
 
     named_test_harness("dns_over_https.toml", move |_, _, https_port| {
         let mut cert_der = vec![];
@@ -61,9 +64,22 @@ fn test_example_https_toml_startup() {
 
         std::thread::sleep(std::time::Duration::from_secs(1));
 
-        let mut https_conn_builder = HttpsClientStreamBuilder::new();
+        let mut root_store = RootCertStore::empty();
+        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+        let versions = vec![ProtocolVersion::TLSv1_2];
+
         let cert = to_trust_anchor(&cert_der);
-        https_conn_builder.add_ca(cert);
+        root_store.add(&cert).unwrap();
+
+        let mut client_config = ClientConfig::new();
+        client_config.root_store = root_store;
+        client_config.versions = versions;
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
+
+        let client_config = Arc::new(client_config);
+
+        let https_conn_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+
         let mp = https_conn_builder.build(addr, "ns.example.com".to_string());
         let (bg, mut client) = ClientFuture::connect(mp);
 
