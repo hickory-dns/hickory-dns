@@ -4,7 +4,6 @@ extern crate futures;
 extern crate test;
 extern crate tokio;
 extern crate tokio_net;
-extern crate tokio_net;
 
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
@@ -117,9 +116,9 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 /// Runs the bench tesk using the specified client
 fn bench<F, S, R>(b: &mut Bencher, stream: F)
 where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send,
+    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let mut io_loop = Runtime::new().unwrap();
     let (bg, mut client) = ClientFuture::connect(stream);
@@ -128,8 +127,8 @@ where
     let name = domain::Name::from_str("www.example.com.").unwrap();
 
     // validate the request
-    let client = client.query(name.clone(), DNSClass::IN, RecordType::A);
-    let response = io_loop.block_on(client).expect("Request failed");
+    let query = client.query(name.clone(), DNSClass::IN, RecordType::A);
+    let response = io_loop.block_on(query).expect("Request failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
