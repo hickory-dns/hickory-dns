@@ -52,7 +52,7 @@ fn test_secure_query_example_tcp() {
 
 fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 where
-    H: ClientHandle + 'static,
+    H: ClientHandle + Sync + 'static,
 {
     let name = Name::from_str("www.example.com").unwrap();
     let response = io_loop
@@ -94,7 +94,7 @@ fn test_nsec_query_example_tcp() {
 
 fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 where
-    H: ClientHandle + 'static,
+    H: ClientHandle + Sync + 'static,
 {
     let name = Name::from_str("none.example.com").unwrap();
 
@@ -124,7 +124,7 @@ fn test_nsec_query_type_tcp() {
 
 fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 where
-    H: ClientHandle + 'static,
+    H: ClientHandle + Sync + 'static,
 {
     let name = Name::from_str("www.example.com").unwrap();
 

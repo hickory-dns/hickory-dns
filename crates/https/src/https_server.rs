@@ -96,46 +96,6 @@ where
     }
 }
 
-#[must_use = "futures do nothing unless polled"]
-struct MessageFromPost<R> {
-    stream: R,
-    length: Option<usize>,
-}
-
-impl<R> Future for MessageFromPost<R>
-where
-    R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Unpin,
-{
-    type Output = Result<Bytes, HttpsError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        loop {
-            let bytes = match self.stream.next().poll_unpin(cx) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(Some(Ok(bytes))) => bytes,
-                Poll::Ready(None) => return Poll::Ready(Err("not all bytes received".into())),
-                Poll::Ready(Some(Err(e))) => return Poll::Ready(Err(e.into())),
-            };
-
-            let bytes = if let Some(length) = self.length {
-                // wait until we have all the bytes
-                if bytes.len() < length {
-                    continue;
-                }
-
-                // this will trim the bytes back to whatever we didn't consume
-                bytes.slice_to(length)
-            } else {
-                warn!("no content-length, assuming we have all the bytes");
-                bytes.slice_from(0)
-            };
-
-            //let message = Message::from_vec(&bytes)?;
-            return Poll::Ready(Ok(bytes));
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use futures::executor::block_on;
