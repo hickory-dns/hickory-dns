@@ -120,7 +120,7 @@ where
     finally_ip_addr: Option<RData>,
 }
 
-impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
+impl<C: DnsHandle + Sync + 'static> Future for LookupIpFuture<C> {
     type Output = Result<LookupIp, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -150,7 +150,8 @@ impl<C: DnsHandle + 'static> Future for LookupIpFuture<C> {
                         self.client_cache.clone(),
                         self.options.clone(),
                         self.hosts.clone(),
-                    );
+                    )
+                    .boxed();
                     // Continue looping with the new query. It will be polled
                     // on the next iteration of the loop.
                     continue;
@@ -208,7 +209,6 @@ where
             finally_ip_addr,
         }
     }
-
     pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
         LookupIpFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
@@ -234,122 +234,117 @@ where
         }
     }
 }
+
 /// returns a new future for lookup
-fn strategic_lookup<C: DnsHandle + 'static>(
+async fn strategic_lookup<C: DnsHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
+) -> Result<Lookup, ResolveError> {
     match strategy {
-        LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts),
-        LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts),
-        LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client, options, hosts),
-        LookupIpStrategy::Ipv6thenIpv4 => ipv6_then_ipv4(name, client, options, hosts),
-        LookupIpStrategy::Ipv4thenIpv6 => ipv4_then_ipv6(name, client, options, hosts),
+        LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts).await,
+        LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts).await,
+        LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client, options, hosts).await,
+        LookupIpStrategy::Ipv6thenIpv4 => ipv6_then_ipv4(name, client, options, hosts).await,
+        LookupIpStrategy::Ipv4thenIpv6 => ipv4_then_ipv6(name, client, options, hosts).await,
     }
 }
 
 /// first lookups in hosts, then performs the query
-fn hosts_lookup<C: DnsHandle + 'static>(
+async fn hosts_lookup<C: DnsHandle + 'static>(
     query: Query,
     mut client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
+) -> Result<Lookup, ResolveError> {
     if let Some(hosts) = hosts {
         if let Some(lookup) = hosts.lookup_static_host(&query) {
-            return future::ok(lookup).boxed();
+            return Ok(lookup);
         };
     }
 
-    // TODO: consider making the client.lookup lazily evaluated
-    client.lookup(query, options)
+    client.lookup(query, options).await
 }
 
 /// queries only for A records
-fn ipv4_only<C: DnsHandle + 'static>(
+async fn ipv4_only<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
-    hosts_lookup(Query::query(name, RecordType::A), client, options, hosts)
+) -> Result<Lookup, ResolveError> {
+    hosts_lookup(Query::query(name, RecordType::A), client, options, hosts).await
 }
 
 /// queries only for AAAA records
-fn ipv6_only<C: DnsHandle + 'static>(
+async fn ipv6_only<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
-    hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts)
+) -> Result<Lookup, ResolveError> {
+    hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts).await
 }
 
+// TODO: this really needs to have a stream interface
 /// queries only for A and AAAA in parallel
-fn ipv4_and_ipv6<C: DnsHandle + 'static>(
+async fn ipv4_and_ipv6<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
-    future::select(
+) -> Result<Lookup, ResolveError> {
+    let sel_res = future::select(
         hosts_lookup(
             Query::query(name.clone(), RecordType::A),
             client.clone(),
             options.clone(),
             hosts.clone(),
-        ),
-        hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts),
+        )
+        .boxed(),
+        hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts).boxed(),
     )
-    .then(|sel_res| {
-        let (ips, remaining_query) = match sel_res {
-            Either::Left(ips_and_remaining) => ips_and_remaining,
-            Either::Right(ips_and_remaining) => ips_and_remaining,
-        };
+    .await;
 
-        // Some ips returned, get the other record result, or else just return record
-        // One failed, just return the other
-        match ips {
-            Ok(ips) => remaining_query
-                .then(move |remaining_ips| match remaining_ips {
-                    // join AAAA and A results
-                    Ok(rem_ips) => {
-                        // TODO: create a LookupIp enum with the ability to chain these together
-                        let ips = ips.append(rem_ips);
-                        future::ok(ips)
-                    }
-                    // One failed, just return the other
-                    Err(e) => {
-                        debug!(
-                            "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
-                            e
-                        );
-                        future::ok(ips)
-                    }
-                })
-                .boxed(),
-            Err(e) => {
-                debug!(
-                    "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
-                    e
-                );
-                remaining_query.boxed()
-            }
+    let (ips, remaining_query) = match sel_res {
+        Either::Left(ips_and_remaining) => ips_and_remaining,
+        Either::Right(ips_and_remaining) => ips_and_remaining,
+    };
+
+    let next_ips = remaining_query.await;
+
+    match (ips, next_ips) {
+        (Ok(ips), Ok(next_ips)) => {
+            // TODO: create a LookupIp enum with the ability to chain these together
+            let ips = ips.append(next_ips);
+            Ok(ips)
         }
-    })
-    .boxed()
+        (Ok(ips), Err(e)) | (Err(e), Ok(ips)) => {
+            debug!(
+                "one of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy: {}",
+                e
+            );
+            Ok(ips)
+        }
+        (Err(e1), Err(e2)) => {
+            debug!(
+                "both of ipv4 or ipv6 lookup failed in ipv4_and_ipv6 strategy e1: {}, e2: {}",
+                e1, e2
+            );
+            Err(e1)
+        }
+    }
 }
 
 /// queries only for AAAA and on no results queries for A
-fn ipv6_then_ipv4<C: DnsHandle + 'static>(
+async fn ipv6_then_ipv4<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
+) -> Result<Lookup, ResolveError> {
     rt_then_swap(
         name,
         client,
@@ -358,15 +353,16 @@ fn ipv6_then_ipv4<C: DnsHandle + 'static>(
         options,
         hosts,
     )
+    .await
 }
 
 /// queries only for A and on no results queries for AAAA
-fn ipv4_then_ipv6<C: DnsHandle + 'static>(
+async fn ipv4_then_ipv6<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
+) -> Result<Lookup, ResolveError> {
     rt_then_swap(
         name,
         client,
@@ -375,50 +371,52 @@ fn ipv4_then_ipv6<C: DnsHandle + 'static>(
         options,
         hosts,
     )
+    .await
 }
 
 /// queries only for first_type and on no results queries for second_type
-fn rt_then_swap<C: DnsHandle + 'static>(
+async fn rt_then_swap<C: DnsHandle + 'static>(
     name: Name,
     client: CachingClient<C>,
     first_type: RecordType,
     second_type: RecordType,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
+) -> Result<Lookup, ResolveError> {
     let or_client = client.clone();
-    hosts_lookup(
+    let res = hosts_lookup(
         Query::query(name.clone(), first_type),
         client,
         options.clone(),
         hosts.clone(),
     )
-    .then(move |res| {
-        match res {
-            Ok(ips) => {
-                if ips.is_empty() {
-                    // no ips returns, NXDomain or Otherwise, doesn't matter
-                    hosts_lookup(
-                        Query::query(name.clone(), second_type),
-                        or_client,
-                        options,
-                        hosts,
-                    )
-                    .boxed()
-                } else {
-                    future::ok(ips).boxed()
-                }
+    .await;
+
+    match res {
+        Ok(ips) => {
+            if ips.is_empty() {
+                // no ips returns, NXDomain or Otherwise, doesn't matter
+                hosts_lookup(
+                    Query::query(name.clone(), second_type),
+                    or_client,
+                    options,
+                    hosts,
+                )
+                .await
+            } else {
+                Ok(ips)
             }
-            Err(_) => hosts_lookup(
+        }
+        Err(_) => {
+            hosts_lookup(
                 Query::query(name.clone(), second_type),
                 or_client,
                 options,
                 hosts,
             )
-            .boxed(),
+            .await
         }
-    })
-    .boxed()
+    }
 }
 
 #[cfg(test)]

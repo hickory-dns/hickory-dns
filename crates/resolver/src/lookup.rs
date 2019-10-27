@@ -191,8 +191,8 @@ pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle =
     Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+impl<C: DnsHandle + Sync, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
