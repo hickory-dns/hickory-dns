@@ -77,7 +77,7 @@ pub fn create_test() -> InMemoryAuthority {
     );
     records.upsert(
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin)
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
@@ -101,7 +101,7 @@ pub fn create_test() -> InMemoryAuthority {
     );
     records.upsert(
         Record::new()
-            .set_name(www_name.clone())
+            .set_name(www_name)
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
@@ -129,7 +129,7 @@ fn test_catalog_lookup() {
     let mut question: Message = Message::new();
 
     let mut query: Query = Query::new();
-    query.set_name(origin.clone().into());
+    query.set_name(origin.into());
 
     question.add_query(query);
 
@@ -170,7 +170,7 @@ fn test_catalog_lookup() {
 
     // other zone
     let mut query: Query = Query::new();
-    query.set_name(test_origin.clone().into());
+    query.set_name(test_origin.into());
 
     question.add_query(query);
 
@@ -202,7 +202,7 @@ fn test_catalog_nx_soa() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(example));
+    catalog.upsert(origin, Box::new(example));
 
     let mut question: Message = Message::new();
 
@@ -343,7 +343,7 @@ fn test_axfr() {
             .set_rdata(RData::A(Ipv4Addr::new(94, 184, 216, 34)))
             .clone(),
         Record::new()
-            .set_name(www_name.clone())
+            .set_name(www_name)
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
@@ -352,7 +352,7 @@ fn test_axfr() {
             )))
             .clone(),
         Record::new()
-            .set_name(origin.clone().into())
+            .set_name(origin.into())
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
@@ -384,7 +384,7 @@ fn test_axfr_refused() {
     catalog.upsert(origin.clone(), Box::new(test));
 
     let mut query: Query = Query::new();
-    query.set_name(origin.clone().into());
+    query.set_name(origin.into());
     query.set_query_type(RecordType::AXFR);
 
     let mut question: Message = Message::new();
@@ -417,7 +417,7 @@ fn test_cname_additionals() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(example));
+    catalog.upsert(origin, Box::new(example));
 
     let mut question: Message = Message::new();
 
@@ -461,7 +461,7 @@ fn test_multiple_cname_additionals() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(example));
+    catalog.upsert(origin, Box::new(example));
 
     let mut question: Message = Message::new();
 

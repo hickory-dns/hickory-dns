@@ -379,7 +379,7 @@ mod tests {
         std::thread::Builder::new()
             .name("thread_killer".to_string())
             .spawn(move || {
-                let succeeded = succeeded_clone.clone();
+                let succeeded = succeeded_clone;
                 for _ in 0..15 {
                     std::thread::sleep(std::time::Duration::from_secs(1));
                     if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
@@ -406,7 +406,7 @@ mod tests {
         let test_bytes: &'static [u8; 8] = b"DEADBEEF";
         let send_recv_times = 4;
 
-        let test_name_server = test_name.clone();
+        let test_name_server = test_name;
         // an in and out server
         let server_handle = std::thread::Builder::new()
             .name("test_udp_client_stream_ipv4:server".to_string())

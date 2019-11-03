@@ -305,11 +305,11 @@ mod tests {
 
         // record should have TTL of 3 seconds.
         let ips_ttl = vec![(
-            Record::from_rdata(name.clone(), 3, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            Record::from_rdata(name, 3, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
             3,
         )];
 
-        let rc_ips = lru.insert(query.clone(), ips_ttl, now);
+        let rc_ips = lru.insert(query, ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
         // the returned lookup should use the record's TTL, since it's
         // greater than the cache's minimum.
@@ -341,7 +341,7 @@ mod tests {
         }
 
         // neg response should have TTL of 3 seconds.
-        let nx_error = lru.negative(name.clone(), 3, now);
+        let nx_error = lru.negative(name, 3, now);
         match nx_error.kind() {
             &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
                 let valid_until = valid_until.expect("ResolveError should have a deadline");
@@ -381,11 +381,11 @@ mod tests {
 
         // record should have TTL of 59 seconds.
         let ips_ttl = vec![(
-            Record::from_rdata(name.clone(), 59, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            Record::from_rdata(name, 59, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
             59,
         )];
 
-        let rc_ips = lru.insert(query.clone(), ips_ttl, now);
+        let rc_ips = lru.insert(query, ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
         // the returned lookup should use the record's TTL, since it's
         // below than the cache's maximum.
@@ -417,7 +417,7 @@ mod tests {
         }
 
         // neg response should have TTL of 59 seconds.
-        let nx_error = lru.negative(name.clone(), 59, now);
+        let nx_error = lru.negative(name, 59, now);
         match nx_error.kind() {
             &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
                 let valid_until = valid_until.expect("resolve error should have a deadline");
@@ -436,7 +436,7 @@ mod tests {
         let name = Name::from_str("www.example.com.").unwrap();
         let query = Query::query(name.clone(), RecordType::A);
         let ips_ttl = vec![(
-            Record::from_rdata(name.clone(), 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
+            Record::from_rdata(name, 1, RData::A(Ipv4Addr::new(127, 0, 0, 1))),
             1,
         )];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
@@ -461,7 +461,7 @@ mod tests {
                 1,
             ),
             (
-                Record::from_rdata(name.clone(), 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
+                Record::from_rdata(name, 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
                 2,
             ),
         ];
@@ -494,7 +494,7 @@ mod tests {
                 1,
             ),
             (
-                Record::from_rdata(name.clone(), 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
+                Record::from_rdata(name, 2, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
                 2,
             ),
         ];
@@ -545,7 +545,7 @@ mod tests {
                 400,
             ),
             (
-                Record::from_rdata(name.clone(), 500, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
+                Record::from_rdata(name, 500, RData::A(Ipv4Addr::new(127, 0, 0, 2))),
                 500,
             ),
         ];

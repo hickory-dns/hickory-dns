@@ -75,7 +75,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
-            let succeeded = succeeded_clone.clone();
+            let succeeded = succeeded_clone;
             for _ in 0..15 {
                 thread::sleep(time::Duration::from_secs(1));
                 if succeeded.load(atomic::Ordering::Relaxed) {

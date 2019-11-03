@@ -620,7 +620,7 @@ mod tests {
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let mut question: Message = Message::new();
         let mut query: Query = Query::new();
-        query.set_name(origin.clone());
+        query.set_name(origin);
         question.add_query(query);
 
         let rsa = Rsa::generate(2048).unwrap();
@@ -686,7 +686,7 @@ mod tests {
                 .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                 .clone(),
             Record::new()
-                .set_name(origin.clone())
+                .set_name(origin)
                 .set_ttl(86400)
                 .set_rr_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
@@ -860,7 +860,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                     .clone(),
                 Record::new()
-                    .set_name(origin.clone())
+                    .set_name(origin)
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)

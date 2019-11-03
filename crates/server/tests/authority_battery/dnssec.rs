@@ -397,7 +397,7 @@ pub fn add_signers<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<
         };
 
         let signer = key_config
-            .try_into_signer(signer_name.clone())
+            .try_into_signer(signer_name)
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
         authority

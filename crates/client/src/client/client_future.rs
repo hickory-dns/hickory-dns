@@ -321,7 +321,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
         // add the query
         let mut query: Query = Query::new();
         query
-            .set_name(name.clone())
+            .set_name(name)
             .set_query_class(query_class)
             .set_query_type(query_type);
         message.add_query(query);

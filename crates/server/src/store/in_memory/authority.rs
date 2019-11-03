@@ -916,7 +916,7 @@ impl Authority for InMemoryAuthority {
                             Ok(LookupRecords::new(
                                 is_secure,
                                 supported_algorithms,
-                                rr_set.clone(),
+                                rr_set,
                             ))
                         });
 

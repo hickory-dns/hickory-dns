@@ -209,7 +209,7 @@ mod tests {
         assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]);
 
         let rdatas = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::AAAA))
+            .lookup_static_host(&Query::query(name, RecordType::AAAA))
             .unwrap()
             .iter()
             .map(ToOwned::to_owned)
@@ -222,7 +222,7 @@ mod tests {
 
         let name = Name::from_str("broadcasthost").unwrap();
         let rdatas = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+            .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
             .iter()
             .map(ToOwned::to_owned)
@@ -231,7 +231,7 @@ mod tests {
 
         let name = Name::from_str("example.com").unwrap();
         let rdatas = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+            .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
             .iter()
             .map(ToOwned::to_owned)
@@ -240,7 +240,7 @@ mod tests {
 
         let name = Name::from_str("a.example.com").unwrap();
         let rdatas = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+            .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
             .iter()
             .map(ToOwned::to_owned)
@@ -249,7 +249,7 @@ mod tests {
 
         let name = Name::from_str("b.example.com").unwrap();
         let rdatas = hosts
-            .lookup_static_host(&Query::query(name.clone(), RecordType::A))
+            .lookup_static_host(&Query::query(name, RecordType::A))
             .unwrap()
             .iter()
             .map(ToOwned::to_owned)

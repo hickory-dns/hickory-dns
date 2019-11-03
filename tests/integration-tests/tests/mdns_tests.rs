@@ -131,7 +131,7 @@ fn test_query_mdns_ipv4() {
     let message =
         io_loop
             .spawn(bg)
-            .block_on(client.query(name.clone(), DNSClass::IN, RecordType::PTR));
+            .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
 
@@ -156,7 +156,7 @@ fn test_query_mdns_ipv6() {
     let message =
         io_loop
             .spawn(bg)
-            .block_on(client.query(name.clone(), DNSClass::IN, RecordType::PTR));
+            .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
 

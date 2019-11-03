@@ -442,9 +442,9 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        let dns_hostname = dns_hostname.clone();
+        let dns_hostname = dns_hostname;
         tokio_executor::spawn({
-            let dns_hostname = dns_hostname.clone();
+            let dns_hostname = dns_hostname;
 
             listener
                 .incoming()

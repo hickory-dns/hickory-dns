@@ -64,6 +64,8 @@ dns-over-openssl = ["dns-over-tls", "trust-dns-resolver/dns-over-openssl", "trus
 dns-over-rustls = ["dns-over-tls", "trust-dns-resolver/dns-over-rustls", "trust-dns-server/dns-over-rustls"]
 dns-over-tls = []
 
+sqlite = ["trust-dns-server/sqlite"]
+
 [dependencies]
 chrono = "0.4"
 env_logger = "0.7"
@@ -84,5 +86,5 @@ trust-dns-proto = { version = "0.18.0-alpha", path = "../../crates/proto" }
 trust-dns-resolver = { version = "0.18.0-alpha", path = "../../crates/resolver" }
 trust-dns-rustls = { version = "0.18.0-alpha", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.18.0-alpha", path = "../../crates/server", features = ["sqlite"] }
+trust-dns-server = { version = "0.18.0-alpha", path = "../../crates/server" }
 webpki-roots = { version = "0.18", optional = true }

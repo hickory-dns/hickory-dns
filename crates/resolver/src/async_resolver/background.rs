@@ -51,7 +51,7 @@ pub(super) fn task(
         let pool =
             NameServerPool::<ConnectionHandle, StandardConnection>::from_config(&config, &options);
         let either;
-        let client = RetryDnsHandle::new(pool.clone(), options.attempts);
+        let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
             #[cfg(feature = "dnssec")]
             {
@@ -193,7 +193,7 @@ impl Task {
             // this is the direct name lookup
             if raw_name_first {
                 // adding the name as though it's an FQDN for lookup
-                names.push(name.clone());
+                names.push(name);
             }
 
             names

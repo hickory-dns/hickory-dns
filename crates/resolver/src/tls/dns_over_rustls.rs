@@ -53,7 +53,7 @@ pub(crate) fn new_tls_stream(
 ) {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
-        |TlsClientConfig(client_config)| client_config.clone(),
+        |TlsClientConfig(client_config)| client_config,
     );
     let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config);
     (Box::pin(stream), handle)

@@ -254,6 +254,8 @@
 //! }
 //! ```
 
+#![allow(clippy::needless_doctest_main)]
+
 extern crate chrono;
 extern crate data_encoding;
 extern crate data_encoding_macro;

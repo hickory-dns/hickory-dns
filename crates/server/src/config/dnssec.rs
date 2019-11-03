@@ -150,7 +150,7 @@ impl KeyConfig {
             .into_name()
             .map_err(|e| format!("error loading signer name: {}", e))?;
 
-        let key = load_key(signer_name.clone(), self)
+        let key = load_key(signer_name, self)
             .map_err(|e| format!("failed to load key: {:?} msg: {}", self.key_path(), e))?;
 
         key.test_key()
@@ -289,7 +289,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         .to_dnskey(algorithm)
         .map_err(|e| format!("error converting to dnskey: {}", e))?;
     Ok(Signer::dnssec(
-        dnskey.clone(),
+        dnskey,
         key,
         name,
         Duration::weeks(52),

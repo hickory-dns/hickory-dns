@@ -88,7 +88,7 @@ pub fn create_example() -> InMemoryAuthority {
     // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
     records.upsert(
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin)
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
@@ -161,7 +161,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::CNAME(www_name.clone()))
+            .set_rdata(RData::CNAME(www_name))
             .clone(),
         0,
     );
