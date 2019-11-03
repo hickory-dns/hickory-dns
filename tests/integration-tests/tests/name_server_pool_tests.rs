@@ -93,6 +93,7 @@ fn mock_nameserver_pool(
 }
 
 #[cfg(test)]
+#[allow(clippy::redundant_clone)]
 fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     udp: Vec<MockedNameServer<O>>,
     tcp: Vec<MockedNameServer<O>>,
@@ -112,7 +113,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
         &options,
         udp,
         tcp,
-        _mdns.unwrap_or_else(|| mock_nameserver_on_send(vec![], options, on_send)),
+        _mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
         conn_provider,
     );
 }
@@ -263,7 +264,7 @@ fn test_trust_nx_responses_fails_servfail() {
     let servfail_message = Ok(servfail_message);
 
     let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let success_msg = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
+    let success_msg = message(query.clone(), vec![v4_record], vec![], vec![]);
 
     let tcp_message = success_msg.clone();
     let udp_message = success_msg;
@@ -273,7 +274,7 @@ fn test_trust_nx_responses_fails_servfail() {
     // fail the first udp request
     let udp_nameserver = mock_nameserver(
         vec![
-            udp_message.clone().map(Into::into),
+            udp_message.map(Into::into),
             servfail_message.clone().map(Into::into),
         ],
         options,
@@ -319,7 +320,7 @@ fn test_distrust_nx_responses() {
     let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let success_msg = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
 
-    let tcp_message = success_msg.clone();
+    let tcp_message = success_msg;
     //let udp_message = success_msg;
 
     let mut reactor = Runtime::new().unwrap();

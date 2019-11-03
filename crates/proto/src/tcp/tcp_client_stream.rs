@@ -173,7 +173,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
-            let succeeded = succeeded_clone.clone();
+            let succeeded = succeeded_clone;
             for _ in 0..15 {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if succeeded.load(std::sync::atomic::Ordering::Relaxed) {

@@ -9,12 +9,10 @@
 
 use std::borrow::Borrow;
 use std::fmt::Debug;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
 
 use bytes::Bytes;
-use futures::{Future, FutureExt, Poll, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use h2;
 use http::{Method, Request};
 use typed_headers::{ContentLength, HeaderMapExt};
@@ -98,6 +96,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
     use futures::executor::block_on;
     use trust_dns_proto::op::Message;
 

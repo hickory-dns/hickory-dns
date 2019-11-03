@@ -589,7 +589,7 @@ mod test {
 
         // add one
         let insert1 = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(86400)
             .set_rr_type(record_type)
             .set_dns_class(DNSClass::IN)
@@ -639,7 +639,7 @@ mod test {
             )))
             .clone();
         let new_serial = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
@@ -690,14 +690,14 @@ mod test {
             .set_ttl(3600)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::CNAME(cname.clone()))
+            .set_rdata(RData::CNAME(cname))
             .clone();
         let new_record = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(3600)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::CNAME(new_cname.clone()))
+            .set_rdata(RData::CNAME(new_cname))
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
@@ -725,7 +725,7 @@ mod test {
             .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
             .clone();
         let insert1 = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(86400)
             .set_rr_type(record_type)
             .set_dns_class(DNSClass::IN)
@@ -749,7 +749,7 @@ mod test {
         let mut rr_set = RecordSet::new(&name, record_type, 0);
 
         let insert = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
@@ -783,7 +783,7 @@ mod test {
             .set_rdata(RData::NS(Name::from_str("a.iana-servers.net.").unwrap()))
             .clone();
         let ns2 = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
@@ -888,7 +888,7 @@ mod test {
             .clone();
 
         let a = Record::new()
-            .set_name(name.clone())
+            .set_name(name)
             .set_ttl(3600)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)

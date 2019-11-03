@@ -450,11 +450,11 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
 
     let result = client
-        .create(record.clone(), origin.clone())
+        .create(record, origin)
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
@@ -494,7 +494,7 @@ fn test_append() {
     assert_eq!(result.answers()[0], record);
 
     // will fail if already set and not the same value.
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
 
     let result = client
@@ -527,7 +527,7 @@ fn test_append() {
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
-        .append(record.clone(), origin.clone(), true)
+        .append(record.clone(), origin, true)
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -585,7 +585,7 @@ fn test_compare_and_swap() {
     new.set_rdata(RData::A(Ipv4Addr::new(102, 12, 102, 12)));
 
     let result = client
-        .compare_and_swap(current, new.clone(), origin.clone())
+        .compare_and_swap(current, new.clone(), origin)
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
@@ -630,7 +630,7 @@ fn test_delete_by_rdata() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -639,7 +639,7 @@ fn test_delete_by_rdata() {
 
     // verify record contents
     let result = client
-        .delete_by_rdata(record.clone(), origin.clone())
+        .delete_by_rdata(record.clone(), origin)
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -684,7 +684,7 @@ fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -693,7 +693,7 @@ fn test_delete_rrset() {
 
     // verify record contents
     let result = client
-        .delete_rrset(record.clone(), origin.clone())
+        .delete_rrset(record.clone(), origin)
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -730,7 +730,7 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rr_type(RecordType::AAAA);
     record.set_rdata(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8)));
     let result = client
@@ -740,7 +740,7 @@ fn test_delete_all() {
 
     // verify record contents
     let result = client
-        .delete_all(record.name().clone(), origin.clone(), DNSClass::IN)
+        .delete_all(record.name().clone(), origin, DNSClass::IN)
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 

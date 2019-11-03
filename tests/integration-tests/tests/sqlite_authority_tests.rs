@@ -1,3 +1,5 @@
+#![cfg(feature = "sqlite")]
+
 extern crate futures;
 extern crate rusqlite;
 extern crate trust_dns_client;
@@ -37,7 +39,7 @@ fn test_search() {
     let origin = example.origin().clone();
 
     let mut query: Query = Query::new();
-    query.set_name(origin.clone().into());
+    query.set_name(origin.into());
     let query = LowerQuery::from(query);
 
     let result = block_on(example.search(&query, false, SupportedAlgorithms::new())).unwrap();
@@ -58,7 +60,7 @@ fn test_search_www() {
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
     let mut query: Query = Query::new();
-    query.set_name(www_name.clone());
+    query.set_name(www_name);
     let query = LowerQuery::from(query);
 
     let result = block_on(example.search(&query, false, SupportedAlgorithms::new())).unwrap();
@@ -225,7 +227,7 @@ fn test_prerequisites() {
     );
     assert_eq!(
         authority.verify_prerequisites(&[Record::new()
-            .set_name(not_zone.clone())
+            .set_name(not_zone)
             .set_ttl(0)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
@@ -342,7 +344,7 @@ fn test_prerequisites() {
     // wrong Name
     assert_eq!(
         authority.verify_prerequisites(&[Record::new()
-            .set_name(not_in_zone.clone())
+            .set_name(not_in_zone)
             .set_ttl(0)
             .set_dns_class(DNSClass::IN)
             .set_rr_type(RecordType::A)
@@ -372,7 +374,7 @@ fn test_pre_scan() {
 
     assert_eq!(
         authority.pre_scan(&[Record::new()
-            .set_name(not_zone.clone())
+            .set_name(not_zone)
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
@@ -550,7 +552,7 @@ fn test_pre_scan() {
 
     assert_eq!(
         authority.pre_scan(&[Record::new()
-            .set_name(up_name.clone())
+            .set_name(up_name)
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::CH)
@@ -925,7 +927,7 @@ fn test_journal() {
     .cloned()
     .collect();
     assert!(new_rrset.iter().all(|r| *r == new_record));
-    let lower_delete_name = LowerName::from(delete_name.clone());
+    let lower_delete_name = LowerName::from(delete_name);
 
     let delete_rrset = block_on(authority.lookup(
         &lower_delete_name,

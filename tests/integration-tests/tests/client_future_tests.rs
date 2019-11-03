@@ -205,7 +205,7 @@ fn test_notify() {
     let name = Name::from_str("ping.example.com").unwrap();
 
     let message = io_loop.block_on(client.notify(
-        name.clone(),
+        name,
         DNSClass::IN,
         RecordType::A,
         None::<RecordSet>,
@@ -312,11 +312,11 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
 
     let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+        .block_on(client.create(record, origin))
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
@@ -366,11 +366,11 @@ fn test_create_multi() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 12)));
 
     let result = io_loop
-        .block_on(client.create(record.clone(), origin.clone()))
+        .block_on(client.create(record, origin))
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
@@ -432,7 +432,7 @@ fn test_append() {
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), true))
+        .block_on(client.append(record.clone(), origin, true))
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -506,7 +506,7 @@ fn test_append_multi() {
     // show that appending the same thing again is ok, but doesn't add any records
     // TODO: technically this is a test for the Server, not client...
     let result = io_loop
-        .block_on(client.append(record.clone(), origin.clone(), true))
+        .block_on(client.append(record.clone(), origin, true))
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -562,7 +562,7 @@ fn test_compare_and_swap() {
     let not = not;
 
     let result = io_loop
-        .block_on(client.compare_and_swap(current, not.clone(), origin.clone()))
+        .block_on(client.compare_and_swap(current, not.clone(), origin))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
@@ -632,7 +632,7 @@ fn test_compare_and_swap_multi() {
     let not = not;
 
     let result = io_loop
-        .block_on(client.compare_and_swap(current, not.clone(), origin.clone()))
+        .block_on(client.compare_and_swap(current, not.clone(), origin))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
@@ -681,7 +681,7 @@ fn test_delete_by_rdata() {
 
     // verify record contents
     let result = io_loop
-        .block_on(client.delete_by_rdata(record2.clone(), origin.clone()))
+        .block_on(client.delete_by_rdata(record2, origin))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -733,7 +733,7 @@ fn test_delete_by_rdata_multi() {
 
     // next create to a non-existent RRset
     let result = io_loop
-        .block_on(client.create(rrset.clone(), origin.clone()))
+        .block_on(client.create(rrset, origin.clone()))
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -755,7 +755,7 @@ fn test_delete_by_rdata_multi() {
 
     // verify record contents
     let result = io_loop
-        .block_on(client.delete_by_rdata(rrset.clone(), origin.clone()))
+        .block_on(client.delete_by_rdata(rrset, origin))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -801,7 +801,7 @@ fn test_delete_rrset() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
@@ -810,7 +810,7 @@ fn test_delete_rrset() {
 
     // verify record contents
     let result = io_loop
-        .block_on(client.delete_rrset(record.clone(), origin.clone()))
+        .block_on(client.delete_rrset(record.clone(), origin))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -848,7 +848,7 @@ fn test_delete_all() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
-    let mut record = record.clone();
+    let mut record = record;
     record.set_rr_type(RecordType::AAAA);
     record.set_rdata(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8)));
     let result = io_loop
@@ -858,7 +858,7 @@ fn test_delete_all() {
 
     // verify record contents
     let result = io_loop
-        .block_on(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
+        .block_on(client.delete_all(record.name().clone(), origin, DNSClass::IN))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -889,7 +889,7 @@ where
     assert_eq!(err.kind(), &ClientErrorKind::Timeout);
 
     io_loop
-        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::AAAA))
+        .block_on(client.query(name, DNSClass::IN, RecordType::AAAA))
         .unwrap_err();
 
     // test that we don't have any thing funky with registering new timeouts, etc...

@@ -23,6 +23,11 @@ $CARGO clean -p trust-dns-integration
 TARGETS_OPTS="--all --lib --examples --tests --bins"
 CLIPPY_OPTS="-D warnings"
 
-$CARGO clippy ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
-$CARGO clippy ${TARGETS_OPTS:?} --all-features -- ${CLIPPY_OPTS:?}
-$CARGO clippy ${TARGETS_OPTS:?} --no-default-features -- ${CLIPPY_OPTS:?}
+for i in crates/* bin tests/compatibility-tests tests/integration-tests ; do
+    echo "====> $CARGO clippy --manifest-path ${i}/Cargo.toml ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}"
+    $CARGO clippy --manifest-path ${i}/Cargo.toml ${TARGETS_OPTS:?} -- ${CLIPPY_OPTS:?}
+    echo "====> $CARGO clippy --manifest-path ${i}/Cargo.toml ${TARGETS_OPTS:?} --all-features -- ${CLIPPY_OPTS:?}"
+    $CARGO clippy --manifest-path ${i}/Cargo.toml ${TARGETS_OPTS:?} --all-features -- ${CLIPPY_OPTS:?}
+    echo "====> $CARGO clippy --manifest-path ${i}/Cargo.toml ${TARGETS_OPTS:?} --no-default-features -- ${CLIPPY_OPTS:?}"
+    $CARGO clippy --manifest-path ${i}/Cargo.toml ${TARGETS_OPTS:?} --no-default-features -- ${CLIPPY_OPTS:?}
+done

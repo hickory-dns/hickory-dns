@@ -99,7 +99,7 @@ where
     let name = Name::from_str("none.example.com").unwrap();
 
     let response = io_loop
-        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
+        .block_on(client.query(name, DNSClass::IN, RecordType::A))
         .expect("query failed");
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
@@ -129,7 +129,7 @@ where
     let name = Name::from_str("www.example.com").unwrap();
 
     let response = io_loop
-        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::NS))
+        .block_on(client.query(name, DNSClass::IN, RecordType::NS))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -209,7 +209,7 @@ where
     let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
-            let succeeded = succeeded_clone.clone();
+            let succeeded = succeeded_clone;
             for _ in 0..15 {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
@@ -262,7 +262,7 @@ where
     let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
-            let succeeded = succeeded_clone.clone();
+            let succeeded = succeeded_clone;
             for _ in 0..15 {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
@@ -299,7 +299,7 @@ where
     let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
-            let succeeded = succeeded_clone.clone();
+            let succeeded = succeeded_clone;
             for _ in 0..15 {
                 std::thread::sleep(std::time::Duration::from_secs(1));
                 if succeeded.load(std::sync::atomic::Ordering::Relaxed) {

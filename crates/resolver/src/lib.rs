@@ -180,6 +180,7 @@
 
 #![warn(missing_docs)]
 #![recursion_limit = "128"]
+#![allow(clippy::needless_doctest_main)]
 
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]

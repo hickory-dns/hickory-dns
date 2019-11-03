@@ -50,7 +50,7 @@ pub fn new(message_len: usize) -> HttpsResult<Response<()>> {
         .map_err(|e| ProtoError::from(format!("invalid response: {}", e)))?;
 
     let accepts_dns = Mime::from_str(crate::MIME_APPLICATION_DNS).unwrap();
-    let content_type = ContentType(accepts_dns.clone());
+    let content_type = ContentType(accepts_dns);
 
     response.headers_mut().typed_insert(&content_type);
     response
