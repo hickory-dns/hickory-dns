@@ -371,7 +371,7 @@ fn test_nsec_query_type() {
 // }
 
 #[allow(deprecated)]
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     use openssl::rsa::Rsa;
     use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
@@ -417,7 +417,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     (client, origin.into())
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create() {
     let catalog = Catalog::new();
@@ -459,7 +459,7 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append() {
     let catalog = Catalog::new();
@@ -538,7 +538,7 @@ fn test_append() {
     assert_eq!(result.answers().len(), 2);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap() {
     let catalog = Catalog::new();
@@ -604,7 +604,7 @@ fn test_compare_and_swap() {
         }));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata() {
     let catalog = Catalog::new();
@@ -658,7 +658,7 @@ fn test_delete_by_rdata() {
         }));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_rrset() {
     let catalog = Catalog::new();
@@ -704,7 +704,7 @@ fn test_delete_rrset() {
     assert_eq!(result.answers().len(), 0);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
     let catalog = Catalog::new();
