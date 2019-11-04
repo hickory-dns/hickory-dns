@@ -223,7 +223,7 @@ fn test_notify() {
 //
 
 /// create a client with a sig0 section
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
 fn create_sig0_ready_client(
     _io_loop: &mut Runtime,
@@ -277,7 +277,7 @@ fn create_sig0_ready_client(
     (bg, client, origin.into())
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create() {
     let mut io_loop = Runtime::new().unwrap();
@@ -321,7 +321,7 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create_multi() {
     let mut io_loop = Runtime::new().unwrap();
@@ -375,7 +375,7 @@ fn test_create_multi() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append() {
     let mut io_loop = Runtime::new().unwrap();
@@ -443,7 +443,7 @@ fn test_append() {
     assert_eq!(result.answers().len(), 2);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append_multi() {
     let mut io_loop = Runtime::new().unwrap();
@@ -517,7 +517,7 @@ fn test_append_multi() {
     assert_eq!(result.answers().len(), 3);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap() {
     let mut io_loop = Runtime::new().unwrap();
@@ -575,7 +575,7 @@ fn test_compare_and_swap() {
     assert!(!result.answers().iter().any(|rr| *rr == not));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap_multi() {
     let mut io_loop = Runtime::new().unwrap();
@@ -645,7 +645,7 @@ fn test_compare_and_swap_multi() {
     assert!(!result.answers().iter().any(|rr| *rr == not));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata() {
     let mut io_loop = Runtime::new().unwrap();
@@ -697,7 +697,7 @@ fn test_delete_by_rdata() {
     assert!(result.answers().iter().any(|rr| *rr == record1));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata_multi() {
     let mut io_loop = Runtime::new().unwrap();
@@ -774,7 +774,7 @@ fn test_delete_by_rdata_multi() {
     assert!(result.answers().iter().any(|rr| *rr == record4));
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_rrset() {
     let mut io_loop = Runtime::new().unwrap();
@@ -821,7 +821,7 @@ fn test_delete_rrset() {
     assert_eq!(result.answers().len(), 0);
 }
 
-#[cfg(feature = "dnssec")]
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
     let mut io_loop = Runtime::new().unwrap();

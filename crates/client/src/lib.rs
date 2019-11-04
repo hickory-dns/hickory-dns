@@ -255,6 +255,7 @@
 //! ```
 
 #![allow(clippy::needless_doctest_main)]
+#![allow(clippy::unknown_clippy_lints)]
 
 extern crate chrono;
 extern crate data_encoding;
