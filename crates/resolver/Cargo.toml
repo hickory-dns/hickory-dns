@@ -70,7 +70,7 @@ lru-cache = "^0.1.2"
 resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
-smallvec = "^0.6"
+smallvec = "^1.0"
 tokio = { version = "0.2.0-alpha", optional = true }
 tokio-executor = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
