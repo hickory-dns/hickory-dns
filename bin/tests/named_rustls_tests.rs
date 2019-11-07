@@ -78,8 +78,7 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let (stream, sender) =
-                tls_client_connect(addr, "ns.example.com".to_string(), config);
+            let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config);
             let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
             io_loop.spawn(bg);
 

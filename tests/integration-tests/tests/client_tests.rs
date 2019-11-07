@@ -453,9 +453,7 @@ fn test_create() {
     let mut record = record;
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
 
-    let result = client
-        .create(record, origin)
-        .expect("create failed");
+    let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
