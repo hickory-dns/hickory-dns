@@ -78,7 +78,8 @@ pub fn tls_connect(
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
-    let tls_connector = TlsConnector::from(client_config);
+    let early_data_enabled = client_config.enable_early_data;
+    let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
