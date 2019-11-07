@@ -111,14 +111,13 @@ matrix:
       script:
         - scripts/run_clippy.sh
 
-    - rust: nightly
-      env: NAME=rustfmt
+    - env: NAME=rustfmt
            RUST_BACKTRACE=full
            CARGO_BUILD_PIPELINING=true
       before_install:
-        - cargo install rustfmt-nightly --force
+        - rustup component add rustfmt 
       script:
-        - cargo fmt --all -- --write-mode=diff
+        - cargo fmt --all -- --check
 
     # benchmark tests; built but not run in Travis to avoid inconsistent timing results
     - rust: nightly
