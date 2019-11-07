@@ -18,7 +18,7 @@ use crate::config::TlsClientConfig;
 pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
-    #[cfg(feature = "dns-over-rustls")] client_config: Option<TlsClientConfig>,
+    client_config: Option<TlsClientConfig>,
 ) -> (
     Pin<
         Box<

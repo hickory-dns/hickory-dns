@@ -204,12 +204,8 @@ fn test_notify() {
 
     let name = Name::from_str("ping.example.com").unwrap();
 
-    let message = io_loop.block_on(client.notify(
-        name,
-        DNSClass::IN,
-        RecordType::A,
-        None::<RecordSet>,
-    ));
+    let message =
+        io_loop.block_on(client.notify(name, DNSClass::IN, RecordType::A, None::<RecordSet>));
     assert!(message.is_ok());
     let message = message.unwrap();
     assert_eq!(

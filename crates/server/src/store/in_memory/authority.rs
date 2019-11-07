@@ -911,13 +911,9 @@ impl Authority for InMemoryAuthority {
                         };
 
                     // map the answer to a result
-                    let answer =
-                        answer.map_or(Err(LookupError::from(ResponseCode::NXDomain)), |rr_set| {
-                            Ok(LookupRecords::new(
-                                is_secure,
-                                supported_algorithms,
-                                rr_set,
-                            ))
+                    let answer = answer
+                        .map_or(Err(LookupError::from(ResponseCode::NXDomain)), |rr_set| {
+                            Ok(LookupRecords::new(is_secure, supported_algorithms, rr_set))
                         });
 
                     let additionals = additionals

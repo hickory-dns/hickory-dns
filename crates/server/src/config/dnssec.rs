@@ -288,12 +288,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let dnskey = key
         .to_dnskey(algorithm)
         .map_err(|e| format!("error converting to dnskey: {}", e))?;
-    Ok(Signer::dnssec(
-        dnskey,
-        key,
-        name,
-        Duration::weeks(52),
-    ))
+    Ok(Signer::dnssec(dnskey, key, name, Duration::weeks(52)))
 }
 
 /// Load a Certificate from the path (with openssl)

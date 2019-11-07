@@ -96,9 +96,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use futures::executor::block_on;
     use std::pin::Pin;
     use std::task::{Context, Poll};
-    use futures::executor::block_on;
     use trust_dns_proto::op::Message;
 
     use crate::request;
