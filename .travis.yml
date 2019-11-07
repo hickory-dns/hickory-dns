@@ -117,6 +117,7 @@ matrix:
       before_install:
         - rustup component add rustfmt 
       script:
+        - cargo fmt --version
         - cargo fmt --all -- --check
 
     # benchmark tests; built but not run in Travis to avoid inconsistent timing results
