@@ -347,7 +347,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         message: DnsResponse,
     ) -> Records {
         // tracking the depth of our queries, to prevent infinite CNAME recursion
-        if dbg!(client.query_depth.load(Ordering::Acquire)) >= MAX_QUERY_DEPTH {
+        if client.query_depth.load(Ordering::Acquire) >= MAX_QUERY_DEPTH {
             // TODO: This should return an error
             Self::handle_nxdomain(is_dnssec, message, true)
         } else {
