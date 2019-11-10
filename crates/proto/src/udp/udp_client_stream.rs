@@ -153,7 +153,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             }
         };
 
-        let message_id = message.id();
+        let message_id = dbg!(message.id());
         let message = SerialMessage::new(bytes, self.name_server);
 
         UdpResponse::new::<S>(message, message_id, self.timeout)
@@ -223,11 +223,13 @@ impl Future for UdpResponse {
     type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        dbg!(
         self.0
             .as_mut()
             .poll(cx)
             .map_err(ProtoError::from)
             .map(|r| r.and_then(|r| r))
+        )
     }
 }
 

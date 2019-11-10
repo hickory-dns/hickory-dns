@@ -26,7 +26,7 @@ pub mod retry_dns_handle;
 pub mod secure_dns_handle;
 mod serial_message;
 
-pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect};
+pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect, DnsExchangeSend};
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_multiplexer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse,
@@ -131,7 +131,16 @@ where
         &self,
         msg: OneshotDnsRequest<F>,
     ) -> Result<(), TrySendError<OneshotDnsRequest<F>>> {
-        self.sender.unbounded_send(msg)
+        dbg!(self.sender.unbounded_send(msg))
+    }
+}
+
+impl<F> Drop for DnsRequestStreamHandle<F> 
+where
+    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
+{
+    fn drop(&mut self) {
+        dbg!("dropping DnsRequestStreamHandle");
     }
 }
 
@@ -151,8 +160,7 @@ where
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
-pub trait DnsRequestSender:
-    Stream<Item = Result<(), ProtoError>> + 'static + Display + Send + Unpin
+pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static 
 {
     /// A future that resolves to a response serial message
     type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>>
