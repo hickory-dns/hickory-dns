@@ -161,31 +161,38 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
     })
 }
 
-#[test]
-pub fn test() {
-    use crate::rr::dnssec::rdata::DNSSECRecordType;
-    use crate::rr::RecordType;
-    use std::str::FromStr;
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let rdata = NSEC::new(
-        Name::from_str("www.example.com").unwrap(),
-        vec![
-            RecordType::A,
-            RecordType::AAAA,
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-        ],
-    );
+    use super::*;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    #[test]
+    pub fn test() {
+        use crate::rr::dnssec::rdata::DNSSECRecordType;
+        use crate::rr::RecordType;
+        use std::str::FromStr;
 
-    println!("bytes: {:?}", bytes);
+        let rdata = NSEC::new(
+            Name::from_str("www.example.com").unwrap(),
+            vec![
+                RecordType::A,
+                RecordType::AAAA,
+                RecordType::DNSSEC(DNSSECRecordType::DS),
+                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+            ],
+        );
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let restrict = Restrict::new(bytes.len() as u16);
-    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
-    assert_eq!(rdata, read_rdata);
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
 }

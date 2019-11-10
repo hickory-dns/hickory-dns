@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! DNS over TLS client implementation for Rustls
+
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -19,6 +21,7 @@ use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use crate::tls_stream::tls_connect;
 
+/// Type of TlsClientStream used with Rustls
 pub type TlsClientStream = TcpClientStream<tokio_rustls::client::TlsStream<TokioTcpStream>>;
 
 /// Creates a new TlsStream to the specified name_server

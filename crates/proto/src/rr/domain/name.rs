@@ -1235,6 +1235,8 @@ impl<'de> Deserialize<'de> for Name {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     use std::cmp::Ordering;
     use std::str::FromStr;
 

@@ -575,6 +575,8 @@ impl MessageFinalizer for Signer {
 #[cfg(test)]
 #[cfg(feature = "openssl")]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     extern crate openssl;
     use self::openssl::bn::BigNum;
     use self::openssl::pkey::Private;

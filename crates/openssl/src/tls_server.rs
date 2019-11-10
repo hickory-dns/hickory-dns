@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! DNS over TLS server implementations for OpenSSL
+
 use std::fs::File;
 use std::io;
 use std::io::Read;

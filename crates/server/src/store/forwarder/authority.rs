@@ -129,6 +129,7 @@ impl Authority for ForwardAuthority {
         ))
     }
 
+    #[allow(clippy::unimplemented)] // FIXME: this should return an error
     fn get_nsec_records(
         &self,
         _name: &LowerName,

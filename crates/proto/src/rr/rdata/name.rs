@@ -74,6 +74,8 @@ pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> ProtoResult<()> {
 
 #[test]
 pub fn test() {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     let rdata = Name::from_ascii("WWW.example.com.").unwrap();
 
     let mut bytes = Vec::new();

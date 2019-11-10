@@ -268,6 +268,8 @@ impl KeyFormat {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     pub use super::*;
 
     #[test]

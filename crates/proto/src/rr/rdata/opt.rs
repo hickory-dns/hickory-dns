@@ -473,21 +473,28 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
     }
 }
 
-#[test]
-#[cfg(feature = "dnssec")]
-pub fn test() {
-    let mut rdata = OPT::default();
-    rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    use super::*;
 
-    println!("bytes: {:?}", bytes);
+    #[test]
+    #[cfg(feature = "dnssec")]
+    pub fn test() {
+        let mut rdata = OPT::default();
+        rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let restrict = Restrict::new(bytes.len() as u16);
-    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
-    assert_eq!(rdata, read_rdata);
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
 }

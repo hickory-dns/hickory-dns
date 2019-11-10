@@ -234,6 +234,7 @@ impl From<ResponseCode> for u16 {
 /// assert_eq!(0, var);
 /// ```
 impl From<u16> for ResponseCode {
+    #[allow(clippy::unimplemented)] // FIXME: this should be a TryFrom!
     fn from(value: u16) -> Self {
         match value {
             0 => ResponseCode::NoError, // 0    NoError    No Error                             [RFC1035]

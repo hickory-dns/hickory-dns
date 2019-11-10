@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+#![warn(
+    missing_docs,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented
+)]
+
 //! TLS protocol related components for DNS over TLS
 
 extern crate futures;

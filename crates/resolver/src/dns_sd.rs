@@ -140,6 +140,8 @@ impl ServiceInfo {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     use std::str::FromStr;
     use tokio::runtime::current_thread::Runtime;
 

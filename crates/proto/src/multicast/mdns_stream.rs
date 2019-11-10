@@ -425,6 +425,8 @@ impl Future for NextRandomUdpSocket {
 
 #[cfg(test)]
 pub mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     use super::*;
     use futures::future::Either;
     use tokio::runtime::current_thread::Runtime;

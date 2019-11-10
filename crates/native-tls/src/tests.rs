@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![allow(clippy::dbg_macro, clippy::print_stdout)]
+
 use std;
 use std::env;
 use std::fs::File;

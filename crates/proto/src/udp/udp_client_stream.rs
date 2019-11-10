@@ -343,6 +343,7 @@ impl SingleUseUdpSocket {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use futures::future;
     #[cfg(not(target_os = "linux"))]
