@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! DNS over TLS I/O stream implementation for Rustls
+
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -21,9 +23,13 @@ use webpki::{DNSName, DNSNameRef};
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::{BufStreamHandle, SerialMessage};
 
+/// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream = tokio_rustls::client::TlsStream<TokioTcpStream>;
+
+/// Predefined type for abstracting the TlsServerStream with TokioTls
 pub type TokioTlsServerStream = tokio_rustls::server::TlsStream<TokioTcpStream>;
 
+/// Predefined type for abstracting the base I/O TlsStream with TokioTls
 pub type TlsStream<S> = TcpStream<S>;
 
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.

@@ -6,7 +6,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![warn(missing_docs)]
+#![warn(
+    missing_docs,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented
+)]
 #![recursion_limit = "2048"]
 
 //! Trust-DNS Protocol library

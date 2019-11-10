@@ -833,31 +833,38 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> ProtoResult<()> {
     Ok(())
 }
 
-#[test]
-pub fn test() {
-    let rdata = KEY::new(
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Default::default(),
-        Algorithm::RSASHA256,
-        vec![0, 1, 2, 3, 4, 5, 6, 7],
-    );
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    use super::*;
 
-    println!("bytes: {:?}", bytes);
+    #[test]
+    pub fn test() {
+        let rdata = KEY::new(
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Default::default(),
+            Algorithm::RSASHA256,
+            vec![0, 1, 2, 3, 4, 5, 6, 7],
+        );
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let restrict = Restrict::new(bytes.len() as u16);
-    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
-    assert_eq!(rdata, read_rdata);
-    // #[cfg(any(feature = "openssl", feature = "ring"))]
-    // assert!(rdata
-    //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
-    //                        DigestType::SHA256)
-    //             .is_ok());
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+        // #[cfg(any(feature = "openssl", feature = "ring"))]
+        // assert!(rdata
+        //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
+        //                        DigestType::SHA256)
+        //             .is_ok());
+    }
 }

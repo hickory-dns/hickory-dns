@@ -172,6 +172,8 @@ impl Resolver {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     use std::net::*;
 
     use super::*;

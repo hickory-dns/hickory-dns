@@ -13,7 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![warn(missing_docs)]
+#![allow(clippy::needless_doctest_main)]
+#![allow(clippy::unknown_clippy_lints)]
+#![warn(
+    missing_docs,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented
+)]
 #![recursion_limit = "1024"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
@@ -253,9 +260,6 @@
 //!     assert_eq!(addr, Ipv4Addr::new(93, 184, 216, 34));
 //! }
 //! ```
-
-#![allow(clippy::needless_doctest_main)]
-#![allow(clippy::unknown_clippy_lints)]
 
 extern crate chrono;
 extern crate data_encoding;

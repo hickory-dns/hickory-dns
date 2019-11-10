@@ -21,6 +21,7 @@ use crate::rr::rdata::NULL;
 
 /// Parse the RData from a set of Tokens
 #[allow(unused)]
+#[allow(clippy::unimplemented)] // TODO: remove and change to an error
 pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<NULL> {
     unimplemented!()
 }

@@ -21,6 +21,8 @@
 //!    -p PORT, --port=PORT    Override the listening port
 //!    --tls-port=PORT         Override the listening port for TLS connections
 //! ```
+
+#![warn(missing_docs, clippy::dbg_macro, clippy::unimplemented)]
 #![recursion_limit = "128"]
 
 extern crate chrono;

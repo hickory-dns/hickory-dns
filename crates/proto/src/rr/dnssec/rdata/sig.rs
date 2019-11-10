@@ -545,34 +545,41 @@ pub fn emit_pre_sig(
     Ok(())
 }
 
-#[test]
-fn test() {
-    use std::str::FromStr;
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let rdata = SIG::new(
-        RecordType::NULL,
-        Algorithm::RSASHA256,
-        0,
-        0,
-        2,
-        1,
-        5,
-        Name::from_str("www.example.com").unwrap(),
-        vec![
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-            24, 25, 26, 27, 28, 29, 29, 31,
-        ], // 32 bytes for SHA256
-    );
+    use super::*;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    #[test]
+    fn test() {
+        use std::str::FromStr;
 
-    println!("bytes: {:?}", bytes);
+        let rdata = SIG::new(
+            RecordType::NULL,
+            Algorithm::RSASHA256,
+            0,
+            0,
+            2,
+            1,
+            5,
+            Name::from_str("www.example.com").unwrap(),
+            vec![
+                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+                23, 24, 25, 26, 27, 28, 29, 29, 31,
+            ], // 32 bytes for SHA256
+        );
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let restrict = Restrict::new(bytes.len() as u16);
-    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
-    assert_eq!(rdata, read_rdata);
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
 }

@@ -347,90 +347,97 @@ impl Display for RecordType {
     }
 }
 
-#[test]
-fn test_order() {
-    let ordered = vec![
-        RecordType::A,
-        RecordType::NS,
-        RecordType::CNAME,
-        RecordType::SOA,
-        RecordType::NULL,
-        RecordType::PTR,
-        RecordType::MX,
-        RecordType::TXT,
-        RecordType::AAAA,
-        RecordType::SRV,
-        RecordType::AXFR,
-        RecordType::ANY,
-    ];
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let mut unordered = vec![
-        RecordType::ANY,
-        RecordType::NULL,
-        RecordType::AXFR,
-        RecordType::A,
-        RecordType::NS,
-        RecordType::SOA,
-        RecordType::SRV,
-        RecordType::PTR,
-        RecordType::MX,
-        RecordType::CNAME,
-        RecordType::TXT,
-        RecordType::AAAA,
-    ];
+    use super::*;
 
-    unordered.sort();
+    #[test]
+    fn test_order() {
+        let ordered = vec![
+            RecordType::A,
+            RecordType::NS,
+            RecordType::CNAME,
+            RecordType::SOA,
+            RecordType::NULL,
+            RecordType::PTR,
+            RecordType::MX,
+            RecordType::TXT,
+            RecordType::AAAA,
+            RecordType::SRV,
+            RecordType::AXFR,
+            RecordType::ANY,
+        ];
 
-    for rtype in unordered.clone() {
-        println!("u16 for {:?}: {}", rtype, u16::from(rtype));
+        let mut unordered = vec![
+            RecordType::ANY,
+            RecordType::NULL,
+            RecordType::AXFR,
+            RecordType::A,
+            RecordType::NS,
+            RecordType::SOA,
+            RecordType::SRV,
+            RecordType::PTR,
+            RecordType::MX,
+            RecordType::CNAME,
+            RecordType::TXT,
+            RecordType::AAAA,
+        ];
+
+        unordered.sort();
+
+        for rtype in unordered.clone() {
+            println!("u16 for {:?}: {}", rtype, u16::from(rtype));
+        }
+
+        assert_eq!(ordered, unordered);
     }
 
-    assert_eq!(ordered, unordered);
-}
+    /// Check that all record type names parse into unique `RecordType` instances,
+    /// and can be converted back into the same name.
+    #[test]
+    fn test_record_type_parse() {
+        let record_names = &[
+            "A",
+            "AAAA",
+            "ANAME",
+            "CAA",
+            "CNAME",
+            "NULL",
+            "MX",
+            "NAPTR",
+            "NS",
+            "OPENPGPKEY",
+            "PTR",
+            "SOA",
+            "SRV",
+            "SSHFP",
+            "TLSA",
+            "TXT",
+            "ANY",
+            "AXFR",
+        ];
 
-/// Check that all record type names parse into unique `RecordType` instances,
-/// and can be converted back into the same name.
-#[test]
-fn test_record_type_parse() {
-    let record_names = &[
-        "A",
-        "AAAA",
-        "ANAME",
-        "CAA",
-        "CNAME",
-        "NULL",
-        "MX",
-        "NAPTR",
-        "NS",
-        "OPENPGPKEY",
-        "PTR",
-        "SOA",
-        "SRV",
-        "SSHFP",
-        "TLSA",
-        "TXT",
-        "ANY",
-        "AXFR",
-    ];
+        #[cfg(feature = "dnssec")]
+        let dnssec_record_names = &[
+            "DNSKEY",
+            "DS",
+            "KEY",
+            "NSEC",
+            "NSEC3",
+            "NSEC3PARAM",
+            "RRSIG",
+            "SIG",
+        ];
+        #[cfg(not(feature = "dnssec"))]
+        let dnssec_record_names = &[];
 
-    #[cfg(feature = "dnssec")]
-    let dnssec_record_names = &[
-        "DNSKEY",
-        "DS",
-        "KEY",
-        "NSEC",
-        "NSEC3",
-        "NSEC3PARAM",
-        "RRSIG",
-        "SIG",
-    ];
-    #[cfg(not(feature = "dnssec"))]
-    let dnssec_record_names = &[];
-
-    let mut rtypes = std::collections::HashSet::new();
-    for name in record_names.iter().chain(dnssec_record_names) {
-        let rtype: RecordType = name.parse().unwrap();
-        assert_eq!(rtype.to_string().as_str(), *name);
-        assert!(rtypes.insert(rtype));
+        let mut rtypes = std::collections::HashSet::new();
+        for name in record_names.iter().chain(dnssec_record_names) {
+            let rtype: RecordType = name.parse().unwrap();
+            assert_eq!(rtype.to_string().as_str(), *name);
+            assert!(rtypes.insert(rtype));
+        }
     }
 }

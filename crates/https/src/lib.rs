@@ -6,7 +6,12 @@
 // copied, modified, or distributed except according to those terms.
 
 //! TLS protocol related components for DNS over TLS
-#![warn(missing_docs)]
+#![warn(
+    missing_docs,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented
+)]
 
 extern crate bytes;
 extern crate data_encoding;

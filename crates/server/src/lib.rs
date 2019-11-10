@@ -13,7 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![warn(missing_docs)]
+#![warn(
+    missing_docs,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented
+)]
 #![recursion_limit = "2048"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.

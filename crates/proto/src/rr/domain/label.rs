@@ -356,6 +356,8 @@ impl IntoLabel for Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     use super::*;
 
     #[test]

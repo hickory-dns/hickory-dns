@@ -15,8 +15,12 @@
  */
 
 //! TLS protocol related components for DNS over TLS
-
-#![deny(missing_docs)]
+#![warn(
+    missing_docs,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented
+)]
 
 extern crate futures;
 extern crate native_tls;

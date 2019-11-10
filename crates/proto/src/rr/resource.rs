@@ -412,6 +412,8 @@ impl PartialOrd<Record> for Record {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
     use std::cmp::Ordering;
     use std::net::Ipv4Addr;
     use std::str::FromStr;

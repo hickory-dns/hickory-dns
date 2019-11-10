@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::dbg_macro)]
 
 extern crate chrono;
 extern crate futures;

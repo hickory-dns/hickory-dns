@@ -491,79 +491,86 @@ pub(crate) fn encode_bit_maps(
     Ok(())
 }
 
-#[test]
-pub fn test() {
-    use crate::rr::dnssec::rdata::DNSSECRecordType;
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    let rdata = NSEC3::new(
-        Nsec3HashAlgorithm::SHA1,
-        true,
-        2,
-        vec![1, 2, 3, 4, 5],
-        vec![6, 7, 8, 9, 0],
-        vec![
-            RecordType::A,
-            RecordType::AAAA,
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-        ],
-    );
+    use super::*;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.into_bytes();
+    #[test]
+    pub fn test() {
+        use crate::rr::dnssec::rdata::DNSSECRecordType;
 
-    println!("bytes: {:?}", bytes);
+        let rdata = NSEC3::new(
+            Nsec3HashAlgorithm::SHA1,
+            true,
+            2,
+            vec![1, 2, 3, 4, 5],
+            vec![6, 7, 8, 9, 0],
+            vec![
+                RecordType::A,
+                RecordType::AAAA,
+                RecordType::DNSSEC(DNSSECRecordType::DS),
+                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+            ],
+        );
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let restrict = Restrict::new(bytes.len() as u16);
-    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
-    assert_eq!(rdata, read_rdata);
-}
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
 
-#[test]
-pub fn test_dups() {
-    use crate::rr::dnssec::rdata::DNSSECRecordType;
+        println!("bytes: {:?}", bytes);
 
-    let rdata_with_dups = NSEC3::new(
-        Nsec3HashAlgorithm::SHA1,
-        true,
-        2,
-        vec![1, 2, 3, 4, 5],
-        vec![6, 7, 8, 9, 0],
-        vec![
-            RecordType::A,
-            RecordType::AAAA,
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-            RecordType::AAAA,
-            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-        ],
-    );
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
 
-    let rdata_wo = NSEC3::new(
-        Nsec3HashAlgorithm::SHA1,
-        true,
-        2,
-        vec![1, 2, 3, 4, 5],
-        vec![6, 7, 8, 9, 0],
-        vec![
-            RecordType::A,
-            RecordType::AAAA,
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-        ],
-    );
+    #[test]
+    pub fn test_dups() {
+        use crate::rr::dnssec::rdata::DNSSECRecordType;
 
-    let mut bytes = Vec::new();
-    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-    assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
-    let bytes = encoder.into_bytes();
+        let rdata_with_dups = NSEC3::new(
+            Nsec3HashAlgorithm::SHA1,
+            true,
+            2,
+            vec![1, 2, 3, 4, 5],
+            vec![6, 7, 8, 9, 0],
+            vec![
+                RecordType::A,
+                RecordType::AAAA,
+                RecordType::DNSSEC(DNSSECRecordType::DS),
+                RecordType::AAAA,
+                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+            ],
+        );
 
-    println!("bytes: {:?}", bytes);
+        let rdata_wo = NSEC3::new(
+            Nsec3HashAlgorithm::SHA1,
+            true,
+            2,
+            vec![1, 2, 3, 4, 5],
+            vec![6, 7, 8, 9, 0],
+            vec![
+                RecordType::A,
+                RecordType::AAAA,
+                RecordType::DNSSEC(DNSSECRecordType::DS),
+                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+            ],
+        );
 
-    let mut decoder: BinDecoder = BinDecoder::new(bytes);
-    let restrict = Restrict::new(bytes.len() as u16);
-    let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
-    assert_eq!(rdata_wo, read_rdata);
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata_wo, read_rdata);
+    }
 }
