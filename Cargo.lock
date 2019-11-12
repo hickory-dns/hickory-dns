@@ -1237,13 +1237,11 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.12.0-alpha.7"
+version = "0.12.0-alpha.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures-core-preview 0.3.0-alpha.19 (registry+https://github.com/rust-lang/crates.io-index)",
- "pin-project 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "smallvec 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "webpki 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1395,7 +1393,7 @@ dependencies = [
  "tokio 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-executor 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-net 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-rustls 0.12.0-alpha.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-rustls 0.12.0-alpha.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns-proto 0.18.0-alpha.1",
  "trust-dns-rustls 0.18.0-alpha.1",
  "typed-headers 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1520,7 +1518,7 @@ dependencies = [
  "tokio 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-net 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-rustls 0.12.0-alpha.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-rustls 0.12.0-alpha.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns-proto 0.18.0-alpha.1",
  "webpki 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1548,7 +1546,7 @@ dependencies = [
  "tokio-io 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-net 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-openssl 0.4.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-rustls 0.12.0-alpha.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-rustls 0.12.0-alpha.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-timer 0.3.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns-client 0.18.0-alpha.1",
@@ -1971,7 +1969,7 @@ dependencies = [
 "checksum tokio-macros 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)" = "86b616374bcdadd95974e1f0dfca07dc913f1163c53840c0d664aca35114964e"
 "checksum tokio-net 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)" = "a441682cd32f3559383112c4a7f372f5c9fa1950c5cf8c8dd05274a2ce8c2654"
 "checksum tokio-openssl 0.4.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)" = "018cf070ec0a148592b0398e1cf109e1cd825c082544949149ddaaabdd7b2b3f"
-"checksum tokio-rustls 0.12.0-alpha.7 (registry+https://github.com/rust-lang/crates.io-index)" = "c294d87262b30841ff6e7dd273a84da5c6c584222ef26b2bf8245c64a2b144c3"
+"checksum tokio-rustls 0.12.0-alpha.8 (registry+https://github.com/rust-lang/crates.io-index)" = "5ede0c54803edc16cf6352cdc4751e75ab53f20ee842bdcf16a2b94be4cb9a21"
 "checksum tokio-sync 0.2.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)" = "4f1aaeb685540f7407ea0e27f1c9757d258c7c6bf4e3eb19da6fc59b747239d2"
 "checksum tokio-timer 0.3.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)" = "b97c1587fe71018eb245a4a9daa13a5a3b681bbc1f7fdadfe24720e141472c13"
 "checksum tokio-tls 0.3.0-alpha.6 (registry+https://github.com/rust-lang/crates.io-index)" = "566b4086589c7eebb86aa625d302ab80720ef2aa088649dcae18ec4d754cbd16"
