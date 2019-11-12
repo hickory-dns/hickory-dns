@@ -263,7 +263,6 @@
 
 extern crate chrono;
 extern crate data_encoding;
-extern crate data_encoding_macro;
 extern crate failure;
 #[macro_use]
 extern crate futures;
