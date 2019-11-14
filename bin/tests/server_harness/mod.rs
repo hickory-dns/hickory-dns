@@ -202,12 +202,16 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
-pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>(
+pub fn query_all_dnssec<S, R>(
     io_loop: &mut Runtime,
-    client: BasicClientHandle<R>,
+    client: ClientFuture<S, R>,
     algorithm: Algorithm,
     with_rfc6975: bool,
-) {
+) 
+where 
+    S: DnsRequestSender<DnsResponseFuture = Resp>,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin
+{
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
     client.dnssec_ok = true;
@@ -260,23 +264,27 @@ pub fn query_all_dnssec<R: Future<Output = Result<DnsResponse, ProtoError>> + Se
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_with_rfc6975<
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
->(
+pub fn query_all_dnssec_with_rfc6975<S, R>(
     io_loop: &mut Runtime,
-    client: BasicClientHandle<R>,
+    client: ClientFuture<S, R>,
     algorithm: Algorithm,
-) {
+)
+where 
+    S: DnsRequestSender<DnsResponseFuture = Resp>,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin
+{
     query_all_dnssec(io_loop, client, algorithm, true)
 }
 
 #[allow(dead_code)]
-pub fn query_all_dnssec_wo_rfc6975<
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
->(
+pub fn query_all_dnssec_wo_rfc6975<S, R>(
     io_loop: &mut Runtime,
-    client: BasicClientHandle<R>,
+    client: ClientFuture<R>,
     algorithm: Algorithm,
-) {
+) 
+where 
+    S: DnsRequestSender<DnsResponseFuture = Resp>,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin
+{
     query_all_dnssec(io_loop, client, algorithm, false)
 }

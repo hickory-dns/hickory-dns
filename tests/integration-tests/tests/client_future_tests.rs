@@ -28,7 +28,7 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
-use trust_dns_client::client::{BasicClientHandle, ClientFuture, ClientHandle};
+use trust_dns_client::client::{ClientFuture, ClientHandle};
 use trust_dns_client::error::ClientErrorKind;
 use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "dnssec")]
@@ -39,7 +39,7 @@ use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::DnsResponse;
+use trust_dns_proto::xfer::{DnsResponse, DnsRequestSender};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse};
 use trust_dns_server::authority::{Authority, Catalog};
@@ -57,8 +57,8 @@ fn test_query_nonet() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-    io_loop.spawn(bg);
+    let mut client = ClientFuture::new(stream, Box::new(sender), None);
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
@@ -158,8 +158,9 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut BasicClientHandle<R>) -> Pin<Box<dyn Future<Output = ()>>>
+fn test_query<S, R>(client: &mut ClientFuture<S, R>) -> Pin<Box<dyn Future<Output = ()>>>
 where
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
@@ -871,8 +872,9 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query<R>(mut client: BasicClientHandle<R>, mut io_loop: Runtime)
+fn test_timeout_query<S, R>(mut client: ClientFuture<S, R>, mut io_loop: Runtime)
 where
+    S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let name = Name::from_str("www.example.com").unwrap();

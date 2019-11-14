@@ -244,10 +244,10 @@
 //! //   the client is a handle to an unbounded queue for sending requests via the
 //! //   background. The background must be scheduled to run before the client can
 //! //   send any dns requests
-//! let (bg, mut client) = ClientFuture::connect(stream);
+//! let client = ClientFuture::connect(stream);
 //!
-//! // run the background task
-//! runtime.spawn(bg);
+//! // await the connection to be established
+//! let mut client = runtime.block_on(client).expect("connection failed");
 //!
 //! // Create a query future
 //! let query = client.query(Name::from_str("www.example.com.").unwrap(), DNSClass::IN, RecordType::A);

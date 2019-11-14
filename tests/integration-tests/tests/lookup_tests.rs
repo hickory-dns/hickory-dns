@@ -37,7 +37,7 @@ fn test_lookup() {
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let (stream, handle) = DnsExchange::connect(dns_conn);
+    let stream = DnsExchange::connect(dns_conn);
     io_loop.spawn(
         stream
             .and_then(|stream| stream)

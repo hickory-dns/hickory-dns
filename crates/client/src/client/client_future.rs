@@ -13,7 +13,7 @@ use std::time::Duration;
 use futures::{Future, FutureExt, Poll};
 use proto::error::ProtoError;
 use proto::xfer::{
-    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
+    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle,
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
 };
@@ -33,23 +33,20 @@ pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct ClientFuture<SenderFuture, Sender, Response>
+pub struct ClientFuture<Sender, Response>
 where
-    SenderFuture: Future<Output = Result<Sender, ProtoError>> + 'static + Send + Unpin,
     Sender: DnsRequestSender<DnsResponseFuture = Response> + 'static,
     Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    inner: InnerClientFuture<SenderFuture, Sender, Response>,
+    exchange: DnsExchange<Sender, Response>,
 }
 
-impl<F, S>
+impl<S>
     ClientFuture<
-        DnsMultiplexerConnect<F, S, Signer>,
         DnsMultiplexer<S, Signer, Box<dyn DnsStreamHandle>>,
         DnsMultiplexerSerialResponse,
     >
 where
-    F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     S: DnsClientStream + Send + Unpin + 'static,
 {
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
@@ -60,12 +57,14 @@ where
     ///              (see TcpClientStream or UdpClientStream)
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn new(
+    pub async fn new<F>(
         stream: F,
         stream_handle: Box<dyn DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
-    ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
-        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
+    ) -> Result<Self, ProtoError> 
+    where F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static
+    {
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -78,20 +77,21 @@ where
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn with_timeout(
+    pub async fn with_timeout<F>(
         stream: F,
         stream_handle: Box<dyn DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
-    ) -> (Self, BasicClientHandle<DnsMultiplexerSerialResponse>) {
+    ) -> Result<Self, ProtoError> 
+    where F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static
+    {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        Self::connect(mp)
+        Self::connect(mp).await
     }
 }
 
-impl<F, S, R> ClientFuture<F, S, R>
+impl<S, R> ClientFuture<S, R>
 where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
@@ -103,100 +103,33 @@ where
     ///
     /// This returns a tuple of Self and a handle to send dns messages. Self is a
     ///  background task, it must be run on an executor before handle is used.
-    pub fn connect(connect_future: F) -> (Self, BasicClientHandle<R>) {
-        let (exchange, handle) = DnsExchange::connect(connect_future);
+    pub async fn connect<F>(connect_future: F) -> Result<Self, ProtoError> 
+    where F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin {
+        let exchange = DnsExchange::connect(connect_future).await?;
 
-        (
-            Self {
-                inner: InnerClientFuture::DnsExchangeConnect(exchange),
-            },
-            BasicClientHandle {
-                message_sender: BufDnsRequestStreamHandle::new(handle),
-            },
-        )
+        Ok(ClientFuture{ exchange })
     }
 }
 
-impl<SenderFuture, Sender, Response> Future for ClientFuture<SenderFuture, Sender, Response>
+impl<S, Resp> Clone for ClientFuture<S, Resp>
 where
-    SenderFuture: Future<Output = Result<Sender, ProtoError>> + Send + Unpin,
-    Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
-{
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.inner
-            .poll_unpin(cx)
-            .map_err(|e| warn!("poll errored in background ClientFuture: {}", e))
-            .map(|_: Result<(), ()>| ())
-    }
-}
-
-enum InnerClientFuture<SenderFuture, Sender, Response>
-where
-    SenderFuture: Future<Output = Result<Sender, ProtoError>> + 'static + Send + Unpin,
-    Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    DnsExchangeConnect(DnsExchangeConnect<SenderFuture, Sender, Response>),
-    DnsExchange(DnsExchange<Sender, Response>),
-}
-
-impl<SenderFuture, Sender, Response> Future for InnerClientFuture<SenderFuture, Sender, Response>
-where
-    SenderFuture: Future<Output = Result<Sender, ProtoError>> + Send + Unpin,
-    Sender: DnsRequestSender<DnsResponseFuture = Response>,
-    Response: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
-{
-    type Output = Result<(), ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        loop {
-            // we're either awaiting the connection, or we're always returning the exchange's result
-            let next = match *self {
-                InnerClientFuture::DnsExchangeConnect(ref mut connect) => {
-                    ready!(connect.poll_unpin(cx))?
-                }
-                InnerClientFuture::DnsExchange(ref mut exchange) => return exchange.poll_unpin(cx),
-            };
-
-            // asign the next and final state
-            *self = InnerClientFuture::DnsExchange(next);
-        }
-    }
-}
-
-/// Root ClientHandle implementation returned by ClientFuture
-///
-/// This can be used directly to perform queries. See `trust_dns_client::client::SecureClientHandle` for
-///  a DNSSEc chain validator.
-pub struct BasicClientHandle<Resp>
-where
-    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
-{
-    message_sender: BufDnsRequestStreamHandle<Resp>,
-}
-
-impl<Resp> DnsHandle for BasicClientHandle<Resp>
-where
+    S: DnsRequestSender<DnsResponseFuture = Resp>,
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    type Response = OneshotDnsResponseReceiver<Resp>;
-
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        self.message_sender.send(request)
+    fn clone(&self) -> Self {
+        ClientFuture{ exchange: self.exchange.clone() }
     }
 }
 
-impl<Resp> Clone for BasicClientHandle<Resp>
+impl<S, Resp> DnsHandle for ClientFuture<S, Resp>
 where
-    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    S: DnsRequestSender<DnsResponseFuture = Resp>,
+    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    fn clone(&self) -> Self {
-        Self {
-            message_sender: self.message_sender.clone(),
-        }
+    type Response = DnsExchangeSend<S, Resp>;
+
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
+        self.exchange.send(request)
     }
 }
 
