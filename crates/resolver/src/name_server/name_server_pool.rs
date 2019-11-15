@@ -133,18 +133,21 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ProtoError> {
-        // pull a lock on the shared connections, lock releases at the end of the method
-        let mut conns = conns.lock().await;
+        let conns: Vec<NameServer<C, P>> = {
+            // pull a lock on the shared connections, lock releases at the end of this scope
+            let mut conns = conns.lock().await;
 
-        // select the highest priority connection
-        //   reorder the connections based on current view...
-        //   this reorders the inner set
-        conns.sort_unstable();
+            // select the highest priority connection
+            //   reorder the connections based on current view...
+            //   this reorders the inner set
+            conns.sort_unstable();
 
-        // TODO: restrict this size to a maximum # of NameServers to try
-        // get a stable view for trying all connections
-        //   we split into chunks of the number of parallel requests to issue
-        let conns: Vec<NameServer<C, P>> = conns.clone();
+            // TODO: restrict this size to a maximum # of NameServers to try
+            // get a stable view for trying all connections
+            //   we split into chunks of the number of parallel requests to issue
+            conns.clone()
+         };
+            
         let request_loop = request.clone();
 
         parallel_conn_loop(conns, request_loop, opts).await
