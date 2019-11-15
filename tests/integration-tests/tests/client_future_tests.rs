@@ -69,8 +69,8 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let (bg, mut client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let mut client =  ClientFuture::connect(stream);
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -87,8 +87,8 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let (bg, mut client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let mut client =  ClientFuture::connect(stream);
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -100,8 +100,8 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-    io_loop.spawn(bg);
+    let mut client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -118,8 +118,8 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-    io_loop.spawn(bg);
+    let mut client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -148,24 +148,22 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let (bg, mut client) =
-        ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
-    io_loop.spawn(bg);
-
+    let mut client = ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let mut client = io_loop.block_on(client).expect("connect failed");
+    
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
 }
 
 #[cfg(test)]
-fn test_query<S, R>(client: &mut ClientFuture<S, R>) -> Pin<Box<dyn Future<Output = ()>>>
+fn test_query<S, R>(client: &mut ClientFuture<S, R>) -> impl Future<Output = ()>
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
-    Box::pin(
         client
             .query(name.clone(), DNSClass::IN, RecordType::A)
             .map_ok(move |response| {
@@ -188,8 +186,8 @@ where
                     panic!();
                 }
             })
-            .map(|r: Result<_, _>| r.expect("query failed")),
-    )
+            .map(|r: Result<_, _>| r.expect("query failed"))
+    
 }
 
 #[test]
@@ -200,8 +198,8 @@ fn test_notify() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-    io_loop.spawn(bg);
+    let mut client = ClientFuture::new(stream, Box::new(sender), None);
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
     let name = Name::from_str("ping.example.com").unwrap();
 
@@ -904,14 +902,14 @@ fn test_timeout_query_nonet() {
     env_logger::try_init().ok();
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
-    let (bg, client) = ClientFuture::with_timeout(
+    let client = ClientFuture::with_timeout(
         stream,
         Box::new(sender),
         std::time::Duration::from_millis(1),
         None,
     );
+    let mut client = io_loop.block_on(client).expect("connect failed");
 
-    io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
 }
 
@@ -929,8 +927,9 @@ fn test_timeout_query_udp() {
 
     let stream =
         UdpClientStream::<TokioUdpSocket>::with_timeout(addr, std::time::Duration::from_millis(1));
-    let (bg, client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let client = ClientFuture::connect(stream);
+    let mut client = io_loop.block_on(client).expect("connect failed");
+
     test_timeout_query(client, io_loop);
 }
 
@@ -948,12 +947,13 @@ fn test_timeout_query_tcp() {
 
     let (stream, sender) =
         TcpClientStream::<TokioTcpStream>::with_timeout(addr, std::time::Duration::from_millis(1));
-    let (bg, client) = ClientFuture::with_timeout(
+    let client = ClientFuture::with_timeout(
         Box::new(stream),
         sender,
         std::time::Duration::from_millis(1),
         None,
     );
-    io_loop.spawn(bg);
+    let mut client = io_loop.block_on(client).expect("connect failed");
+
     test_timeout_query(client, io_loop);
 }
