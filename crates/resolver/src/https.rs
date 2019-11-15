@@ -9,8 +9,8 @@ use crate::tls::CLIENT_CONFIG;
 use futures::Future;
 
 use proto::error::ProtoError;
-use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
-use trust_dns_https::{HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder};
+use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsExchangeConnect};
+use trust_dns_https::{HttpsClientResponse, HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 
 use crate::config::TlsClientConfig;
 
@@ -19,29 +19,16 @@ pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> (
-    Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        DnsExchange<HttpsClientStream, HttpsClientResponse>,
-                        ProtoError,
-                    >,
-                > + Send,
-        >,
-    >,
-    BufDnsRequestStreamHandle<HttpsClientResponse>,
-) {
+) -> DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse> {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    let (stream, handle) = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
-    let handle = BufDnsRequestStreamHandle::new(handle);
-
-    (Box::pin(stream), handle)
+    let exchange = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
+    
+    exchange
 }
 
 #[cfg(test)]

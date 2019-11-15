@@ -16,6 +16,8 @@ use futures::lock::{Mutex, MutexLockFuture};
 use tokio_executor::{DefaultExecutor, Executor};
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
+#[cfg(feature = "dns-over-rustls")]
+use tokio_rustls::client::TlsStream as TokioTlsStream;
 
 use proto;
 #[cfg(feature = "mdns")]
@@ -33,7 +35,7 @@ use proto::error::ProtoError;
 use proto::DnsStreamHandle;
 
 #[cfg(feature = "dns-over-https")]
-use trust_dns_https::{self, HttpsClientResponse};
+use trust_dns_https::{self, HttpsClientStream, HttpsClientResponse};
 
 #[cfg(feature = "dns-over-rustls")]
 use crate::config::TlsClientConfig;
@@ -192,7 +194,7 @@ impl ConnectionHandleConnect {
                 );
 
                 let handle = DnsExchange::connect(dns_conn).await?;
-                Ok(ConnectionHandleConnected::Tcp(handle))
+                Ok(ConnectionHandleConnected::Tls(handle))
             }
             #[cfg(feature = "dns-over-https")]
             Https {
@@ -203,7 +205,7 @@ impl ConnectionHandleConnect {
                 client_config,
             } => {
                 let handle =
-                    crate::https::new_https_stream(socket_addr, tls_dns_name, client_config).await;
+                    crate::https::new_https_stream(socket_addr, tls_dns_name, client_config).await?;
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -231,10 +233,12 @@ impl ConnectionHandleConnect {
 /// A representation of an established connection
 #[derive(Clone)]
 enum ConnectionHandleConnected {
-    Udp(DnsExchange<UdpClientStream<tokio::net::UdpSocket>, UdpResponse>),
-    Tcp(DnsExchange<DnsMultiplexer<TcpClientStream<tokio::net::TcpStream>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
+    Udp(DnsExchange<UdpClientStream<TokioUdpSocket>, UdpResponse>),
+    Tcp(DnsExchange<DnsMultiplexer<TcpClientStream<TokioTcpStream>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
+    #[cfg(feature = "dns-over-tls")]
+    Tls(DnsExchange<DnsMultiplexer<TcpClientStream<TokioTlsStream<TokioTcpStream>>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
-    Https(xfer::BufDnsRequestStreamHandle<HttpsClientResponse>),
+    Https(DnsExchange<HttpsClientStream, HttpsClientResponse>),
 }
 
 impl DnsHandle for ConnectionHandleConnected {
@@ -250,6 +254,10 @@ impl DnsHandle for ConnectionHandleConnected {
             }
             ConnectionHandleConnected::Tcp(ref mut conn) => {
                 ConnectionHandleResponseInner::Tcp(conn.send(request))
+            }
+            #[cfg(feature = "dns-over-tls")]
+            ConnectionHandleConnected::Tls(ref mut conn) => {
+                ConnectionHandleResponseInner::Tls(conn.send(request))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionHandleConnected::Https(ref mut https) => {
@@ -319,10 +327,12 @@ enum ConnectionHandleResponseInner {
         conn: ConnectionHandle,
         request: Option<DnsRequest>,
     },
-    Udp(DnsExchangeSend<UdpClientStream<tokio::net::UdpSocket>, UdpResponse>),
-    Tcp(DnsExchangeSend<DnsMultiplexer<TcpClientStream<tokio::net::TcpStream>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
+    Udp(DnsExchangeSend<UdpClientStream<TokioUdpSocket>, UdpResponse>),
+    Tcp(DnsExchangeSend<DnsMultiplexer<TcpClientStream<TokioTcpStream>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
+    #[cfg(feature = "dns-over-rustls")]
+    Tls(DnsExchangeSend<DnsMultiplexer<TcpClientStream<TokioTlsStream<TokioTcpStream>>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
-    Https(xfer::OneshotDnsResponseReceiver<HttpsClientResponse>),
+    Https(DnsExchangeSend<HttpsClientStream, HttpsClientResponse>),
     ProtoError(Option<proto::error::ProtoError>),
 }
 
@@ -350,6 +360,8 @@ impl Future for ConnectionHandleResponseInner {
                 },
                 Udp(ref mut resp) => return resp.poll_unpin(cx),
                 Tcp(ref mut resp) => return resp.poll_unpin(cx),
+                #[cfg(feature = "dns-over-rustls")]
+                Tls(ref mut tls) => return tls.poll_unpin(cx),
                 #[cfg(feature = "dns-over-https")]
                 Https(ref mut https) => return https.poll_unpin(cx),
                 ProtoError(ref mut e) => {
