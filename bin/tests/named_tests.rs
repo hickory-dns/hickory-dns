@@ -196,7 +196,7 @@ fn test_server_continues_on_bad_data_udp() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-        let mut client = ClientFuture::connect(stream);
+        let client = ClientFuture::connect(stream);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         query_a(&mut io_loop, &mut client);
@@ -224,7 +224,7 @@ fn test_server_continues_on_bad_data_tcp() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         query_a(&mut io_loop, &mut client);
@@ -259,7 +259,7 @@ fn test_forward() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         let response = query_message(

@@ -13,7 +13,7 @@ use std::task::Context;
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Peekable, Stream, StreamExt};
-use futures::{self, Future, FutureExt, future::Shared, Poll};
+use futures::{self, ready, Future, FutureExt, Poll};
 use futures::lock::Mutex;
 
 use crate::error::*;
@@ -32,7 +32,7 @@ where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    background: Shared<DnsExchangeBackground<S, R>>,
+    background: Arc<Mutex<DnsExchangeBackground<S, R>>>,
     sender: BufDnsRequestStreamHandle<R>,
 }
 
@@ -71,10 +71,10 @@ where
         receiver: UnboundedReceiver<OneshotDnsRequest<R>>,
         sender: DnsRequestStreamHandle<R>,
     ) -> Self {
-        let background = DnsExchangeBackground {
+        let background = Arc::new(Mutex::new(DnsExchangeBackground {
             io_stream: stream,
             outbound_messages: receiver.peekable(),
-        }.shared();
+        }));
 
         let sender = BufDnsRequestStreamHandle::new(sender);
 
@@ -127,13 +127,14 @@ where
     }
 }
 
+/// A Future that will resolve to a Response after sending the request
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsExchangeSend<S, R> 
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    exchange: Shared<DnsExchangeBackground<S, R>>,
+    exchange: Arc<Mutex<DnsExchangeBackground<S, R>>>,
     result: OneshotDnsResponseReceiver<R>,
     _sender: BufDnsRequestStreamHandle<R>,
 }
@@ -156,20 +157,24 @@ where
     type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        let mut stop = false;
         loop {
+            dbg!("DnsRequestSend::poll");
+
             // as long as there is no result, poll the exchange
             if let Poll::Ready(r) = dbg!(self.result.poll_unpin(cx)) {
                 return Poll::Ready(r)
+            } else if stop {
+                return Poll::Ready(Err("No data received".into()))
             }
 
-            match self.exchange.peek() {
-               Some(Ok(())) => continue, // this should shudown the receiver used in the other future
-               Some(Err(e)) => return Poll::Ready(Err(e.clone())),
-               None => (), // need to continue and poll...
-            }
-
-            // this shouldn't query after returning (), right?
-            futures::ready!(dbg!(self.exchange.poll_unpin(cx)));
+            if let Some(ref mut exchange) = self.exchange.try_lock() {
+                match ready!(dbg!(exchange.poll_unpin(cx))) {
+                // getting here means the exchange is done... loop one more time
+                Ok(()) => stop = true,
+                Err(e) => return Poll::Ready(Err(e)),
+                }
+            } // continue until can get lock
         }
     }
 }

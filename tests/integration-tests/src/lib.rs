@@ -49,7 +49,7 @@ pub mod tls_client_connection;
 #[allow(unused)]
 pub struct TestClientStream {
     catalog: Arc<Mutex<Catalog>>,
-    outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
+    outbound_messages: UnboundedReceiver<Vec<u8>>,
 }
 
 #[allow(unused)]
@@ -66,7 +66,7 @@ impl TestClientStream {
 
         let stream = Box::pin(future::ok(TestClientStream {
             catalog,
-            outbound_messages: outbound_messages.fuse(),
+            outbound_messages: outbound_messages,
         }));
 
         (stream, message_sender)
@@ -93,6 +93,7 @@ impl TestResponseHandler {
                 .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()
             {
+                dbg!("returning bytes");
                 let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
                 Poll::Ready(bytes)
             } else {
@@ -118,6 +119,7 @@ impl ResponseHandler for TestResponseHandler {
         response
             .destructive_emit(&mut encoder)
             .expect("could not encode");
+        dbg!("storing bytes");
         self.message_ready.store(true, Ordering::Release);
         Ok(())
     }
@@ -163,13 +165,18 @@ impl Stream for TestClientStream {
                 dbg!("catalog handled request");
 
                 let buf = block_on(response_handler.into_inner());
-                dbg!("catalog responded");
-
+                dbg!(buf.len());
+                dbg!("SOME");
                 Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
+            Poll::Ready(None) => {
+                dbg!("DONE");
+                Poll::Ready(None)
+            }
             // TODO: should we also return None if there are no more messages to send?
-            _ => {
+            Poll::Pending => {
+                //dbg!("PENDING");
                 cx.waker().wake_by_ref();
                 Poll::Pending
             }

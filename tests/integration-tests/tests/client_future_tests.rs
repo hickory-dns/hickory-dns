@@ -17,7 +17,6 @@ extern crate trust_dns_server;
 extern crate webpki_roots;
 
 use std::net::*;
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -57,10 +56,13 @@ fn test_query_nonet() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let mut client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = ClientFuture::new(stream, Box::new(sender), None);
+    dbg!("connecting");
     let mut client = io_loop.block_on(client).expect("connect failed");
 
+    dbg!("querying 1");
     io_loop.block_on(test_query(&mut client));
+    dbg!("querying 1");
     io_loop.block_on(test_query(&mut client));
 }
 
@@ -69,7 +71,7 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let mut client =  ClientFuture::connect(stream);
+    let client =  ClientFuture::connect(stream);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -87,7 +89,7 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let mut client =  ClientFuture::connect(stream);
+    let client =  ClientFuture::connect(stream);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -100,7 +102,7 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -118,7 +120,7 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -198,7 +200,7 @@ fn test_notify() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let mut client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = ClientFuture::new(stream, Box::new(sender), None);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     let name = Name::from_str("ping.example.com").unwrap();
@@ -908,7 +910,7 @@ fn test_timeout_query_nonet() {
         std::time::Duration::from_millis(1),
         None,
     );
-    let mut client = io_loop.block_on(client).expect("connect failed");
+    let client = io_loop.block_on(client).expect("connect failed");
 
     test_timeout_query(client, io_loop);
 }
@@ -928,7 +930,7 @@ fn test_timeout_query_udp() {
     let stream =
         UdpClientStream::<TokioUdpSocket>::with_timeout(addr, std::time::Duration::from_millis(1));
     let client = ClientFuture::connect(stream);
-    let mut client = io_loop.block_on(client).expect("connect failed");
+    let client = io_loop.block_on(client).expect("connect failed");
 
     test_timeout_query(client, io_loop);
 }
@@ -953,7 +955,6 @@ fn test_timeout_query_tcp() {
         std::time::Duration::from_millis(1),
         None,
     );
-    let mut client = io_loop.block_on(client).expect("connect failed");
 
-    test_timeout_query(client, io_loop);
+    assert!(io_loop.block_on(client).is_err());
 }
