@@ -147,7 +147,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             //   we split into chunks of the number of parallel requests to issue
             conns.clone()
         };
-            
+
         let request_loop = request.clone();
 
         parallel_conn_loop(conns, request_loop, opts).await
