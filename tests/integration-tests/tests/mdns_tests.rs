@@ -124,13 +124,12 @@ fn test_query_mdns_ipv4() {
 
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, None);
-    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.block_on(client).expect("failed to connect mDNS");
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
-    let message = io_loop
-        .spawn(bg)
-        .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
+    let message = io_loop.block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
 
@@ -148,12 +147,12 @@ fn test_query_mdns_ipv6() {
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     // FIXME: ipv6 if is hardcoded...
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, Some(5));
-    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.block_on(client).expect("failed to connect client");
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
     let message = io_loop
-        .spawn(bg)
         .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);

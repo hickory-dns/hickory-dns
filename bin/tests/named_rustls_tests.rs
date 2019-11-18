@@ -67,10 +67,10 @@ fn test_example_tls_toml_startup() {
 
             let (stream, sender) =
                 tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
-            let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+            let client = ClientFuture::new(stream, Box::new(sender), None);
+            let mut client = io_loop.block_on(client).expect("failed to connect client");
 
             // ipv4 should succeed
-            io_loop.spawn(bg);
             query_a(&mut io_loop, &mut client);
 
             let addr: SocketAddr = ("127.0.0.1", tls_port)
@@ -79,8 +79,8 @@ fn test_example_tls_toml_startup() {
                 .next()
                 .unwrap();
             let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config);
-            let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-            io_loop.spawn(bg);
+            let client = ClientFuture::new(stream, Box::new(sender), None);
+            let mut client = io_loop.block_on(client).expect("failed to connect ClientFuture");
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);

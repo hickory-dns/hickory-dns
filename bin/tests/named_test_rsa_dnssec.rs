@@ -63,27 +63,17 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
 }
 
 #[allow(clippy::type_complexity)]
-fn standard_conn(
+async fn standard_conn(
     port: u16,
-) -> (
-    ClientFuture<
-        DnsMultiplexerConnect<
-            TcpClientConnect<TokioTcpStream>,
-            TcpClientStream<TokioTcpStream>,
-            Signer,
-        >,
-        DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
-        DnsMultiplexerSerialResponse,
-    >,
-    BasicClientHandle<impl Future<Output = Result<DnsResponse, ProtoError>>>,
-) {
+) -> ClientFuture<DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>, DnsMultiplexerSerialResponse>
+{
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    ClientFuture::new(stream, sender, None)
+    ClientFuture::new(stream, sender, None).await.expect("new ClientFuture failed")
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
@@ -98,17 +88,17 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present
-        let (bg, client) = standard_conn(port);
-        io_loop.spawn(bg);
+        let client = standard_conn(port);
+        let mut client = io_loop.block_on(client);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let (bg, client) = standard_conn(port);
-        io_loop.spawn(bg);
+        let client = standard_conn(port);
+        let client = io_loop.block_on(client);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
-        let (bg, client) = standard_conn(port);
-        io_loop.spawn(bg);
+        let client = standard_conn(port);
+        let mut client = io_loop.block_on(client);
         let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);

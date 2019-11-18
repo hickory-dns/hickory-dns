@@ -20,9 +20,9 @@ use tokio::runtime::current_thread::Runtime;
 
 use proto::error::ProtoError;
 use proto::xfer::{DnsRequestSender, DnsResponse};
-
 #[cfg(feature = "dnssec")]
-use crate::client::SecureClientHandle;
+use proto::SecureDnsHandle;
+
 use crate::client::{ClientConnection, ClientFuture, ClientHandle};
 use crate::error::*;
 use crate::rr::dnssec::Signer;
@@ -37,7 +37,7 @@ use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
 /// for the old Client was not possible. This trait has two implementations, the `SyncClient` which
-/// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureClientHandle`
+/// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureDnsHandle`
 /// providing DNSSec validation.
 ///
 /// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
@@ -504,8 +504,8 @@ where
         let stream = self.conn.new_stream(self.signer.clone());
 
         unimplemented!()
-        // SecureClientHandle(ClientFuture)... or soemthing
-        // FIXME: add this: ClientFuture::connect(SecureClientHandle::new(stream))
+        // SecureDnsHandle(ClientFuture)... or soemthing
+        // FIXME: add this: ClientFuture::connect(SecureDnsHandle::new(stream))
     }
 }
 

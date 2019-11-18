@@ -2,14 +2,10 @@ extern crate rustls;
 extern crate webpki_roots;
 
 use std::net::SocketAddr;
-use std::pin::Pin;
 
 use crate::tls::CLIENT_CONFIG;
 
-use futures::Future;
-
-use proto::error::ProtoError;
-use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsExchangeConnect};
+use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use trust_dns_https::{HttpsClientResponse, HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 
 use crate::config::TlsClientConfig;
@@ -45,13 +41,17 @@ mod tests {
         env_logger::try_init().ok();
         let mut io_loop = Runtime::new().unwrap();
 
+        dbg!("getting resolver");
         let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
+        dbg!("spawning resolver bg");
         io_loop.spawn(bg);
 
+        dbg!("awaiting lookup");
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))
             .expect("failed to run lookup");
 
+        dbg!("evaluating response");
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {

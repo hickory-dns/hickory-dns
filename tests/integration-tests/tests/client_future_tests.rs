@@ -17,6 +17,7 @@ extern crate trust_dns_server;
 extern crate webpki_roots;
 
 use std::net::*;
+use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -222,19 +223,11 @@ fn test_notify() {
 /// create a client with a sig0 section
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
-fn create_sig0_ready_client(
-    _io_loop: &mut Runtime,
-) -> (
+async fn create_sig0_ready_client() -> (
     ClientFuture<
-        DnsMultiplexerConnect<
-            Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
-            TestClientStream,
-            Signer,
-        >,
         DnsMultiplexer<TestClientStream, Signer>,
         DnsMultiplexerSerialResponse,
     >,
-    BasicClientHandle<impl Future<Output = Result<DnsResponse, ProtoError>>>,
     Name,
 ) {
     use openssl::rsa::Rsa;
@@ -269,16 +262,16 @@ fn create_sig0_ready_client(
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, client) = ClientFuture::new(stream, Box::new(sender), Some(signer));
+    let client = ClientFuture::new(stream, Box::new(sender), Some(signer)).await.expect("failed to get new ClientFuture");
 
-    (bg, client, origin.into())
+    (client, origin.into())
 }
 
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // create a record
     let mut record = Record::with(
@@ -289,7 +282,6 @@ fn test_create() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");
@@ -322,7 +314,7 @@ fn test_create() {
 #[test]
 fn test_create_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // create a record
     let mut record = Record::with(
@@ -341,7 +333,6 @@ fn test_create_multi() {
     rrset.insert(record2.clone(), 0);
     let rrset = rrset;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(rrset.clone(), origin.clone()))
         .expect("create failed");
@@ -376,7 +367,7 @@ fn test_create_multi() {
 #[test]
 fn test_append() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // append a record
     let mut record = Record::with(
@@ -388,7 +379,6 @@ fn test_append() {
     let record = record;
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("append failed");
@@ -444,7 +434,7 @@ fn test_append() {
 #[test]
 fn test_append_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // append a record
     let mut record = Record::with(
@@ -455,7 +445,6 @@ fn test_append_multi() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("append failed");
@@ -518,7 +507,7 @@ fn test_append_multi() {
 #[test]
 fn test_compare_and_swap() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // create a record
     let mut record = Record::with(
@@ -529,7 +518,6 @@ fn test_compare_and_swap() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");
@@ -576,7 +564,7 @@ fn test_compare_and_swap() {
 #[test]
 fn test_compare_and_swap_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -593,7 +581,6 @@ fn test_compare_and_swap_multi() {
         .clone();
     let current = current;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(current.clone(), origin.clone()))
         .expect("create failed");
@@ -646,7 +633,7 @@ fn test_compare_and_swap_multi() {
 #[test]
 fn test_delete_by_rdata() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // append a record
     let mut record1 = Record::with(
@@ -657,7 +644,6 @@ fn test_delete_by_rdata() {
     record1.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_by_rdata(record1.clone(), origin.clone()))
         .expect("delete failed");
@@ -698,7 +684,7 @@ fn test_delete_by_rdata() {
 #[test]
 fn test_delete_by_rdata_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -722,7 +708,6 @@ fn test_delete_by_rdata_multi() {
     let rrset = rrset;
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_by_rdata(rrset.clone(), origin.clone()))
         .expect("delete failed");
@@ -775,7 +760,7 @@ fn test_delete_by_rdata_multi() {
 #[test]
 fn test_delete_rrset() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // append a record
     let mut record = Record::with(
@@ -786,7 +771,6 @@ fn test_delete_rrset() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_rrset(record.clone(), origin.clone()))
         .expect("delete failed");
@@ -822,7 +806,7 @@ fn test_delete_rrset() {
 #[test]
 fn test_delete_all() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let (mut client, origin) = io_loop.block_on(create_sig0_ready_client());
 
     // append a record
     let mut record = Record::with(
@@ -833,7 +817,6 @@ fn test_delete_all() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
         .expect("delete failed");

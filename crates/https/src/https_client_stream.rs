@@ -318,6 +318,8 @@ impl HttpsClientStreamBuilder {
             .iter()
             .any(|protocol| *protocol == ALPN_H2.to_vec()));
 
+        dbg!("building https client");
+
         let tls = TlsConfig {
             client_config: self.client_config,
             dns_name: Arc::new(dns_name),

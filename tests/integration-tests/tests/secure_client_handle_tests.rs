@@ -17,16 +17,16 @@ use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
 use trust_dns_client::client::{
-    BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
+    ClientFuture, ClientHandle, MemoizeClientHandle,
 };
 use trust_dns_client::op::ResponseCode;
-use trust_dns_client::rr::dnssec::TrustAnchor;
+use trust_dns_client::rr::dnssec::{Signer, TrustAnchor};
 use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{DNSClass, RData, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 
 use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream, UdpResponse};
-use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerSerialResponse};
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -50,7 +50,7 @@ fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example);
 }
 
-fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
+fn test_secure_query_example<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -92,7 +92,7 @@ fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example);
 }
 
-fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
+fn test_nsec_query_example<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -122,7 +122,7 @@ fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type);
 }
 
-fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
+fn test_nsec_query_type<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -157,7 +157,7 @@ where
 //     with_tcp(dnssec_rollernet_td_mixed_case_test);
 // }
 
-// fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
+// fn dnssec_rollernet_td_test<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
@@ -177,7 +177,7 @@ where
 //     assert!(response.answers().is_empty());
 // }
 
-// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
+// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
@@ -200,7 +200,7 @@ where
 fn with_nonet<F>(test: F)
 where
     F: Fn(
-        SecureClientHandle<MemoizeClientHandle<BasicClientHandle<DnsMultiplexerSerialResponse>>>,
+        SecureDnsHandle<MemoizeClientHandle<ClientFuture<DnsMultiplexer<TestClientStream, Signer>, DnsMultiplexerSerialResponse>>>,
         Runtime,
     ),
 {
@@ -243,11 +243,11 @@ where
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, client) = ClientFuture::new(stream, Box::new(sender), None);
+    let client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = io_loop.block_on(client).expect("failed to create new client");
     let client = MemoizeClientHandle::new(client);
-    let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
+    let secure_client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);
 
-    io_loop.spawn(bg);
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
@@ -255,7 +255,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureDnsHandle<MemoizeClientHandle<BasicClientHandle<UdpResponse>>>, Runtime),
+    F: Fn(SecureDnsHandle<MemoizeClientHandle<ClientFuture<UdpClientStream<TokioUdpSocket>, UdpResponse>>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -277,11 +277,11 @@ where
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
-    let (bg, client) = ClientFuture::connect(stream);
+    let client = ClientFuture::connect(stream);
+    let client = io_loop.block_on(client).expect("failed to create new client");
     let client = MemoizeClientHandle::new(client);
-    let secure_client = SecureClientHandle::new(client);
+    let secure_client = SecureDnsHandle::new(client);
 
-    io_loop.spawn(bg);
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
@@ -290,7 +290,7 @@ where
 fn with_tcp<F>(test: F)
 where
     F: Fn(
-        SecureClientHandle<MemoizeClientHandle<BasicClientHandle<DnsMultiplexerSerialResponse>>>,
+        SecureDnsHandle<MemoizeClientHandle<ClientFuture<DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>, DnsMultiplexerSerialResponse>>>,
         Runtime,
     ),
 {
@@ -314,11 +314,11 @@ where
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let (bg, client) = ClientFuture::new(Box::new(stream), sender, None);
+    let client = ClientFuture::new(Box::new(stream), sender, None);
+    let client = io_loop.block_on(client).expect("could not create new client");
     let client = MemoizeClientHandle::new(client);
-    let secure_client = SecureClientHandle::new(client);
+    let secure_client = SecureDnsHandle::new(client);
 
-    io_loop.spawn(bg);
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     join.join().unwrap();
