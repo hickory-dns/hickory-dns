@@ -295,8 +295,7 @@ impl ConnectionHandleInner {
                     match fut.as_mut().poll(cx) {
                         Poll::Ready(Ok(conn)) => ConnectionHandleInner::Connected(conn),
                         Poll::Ready(Err(e)) => return Poll::Ready(ConnectionHandleResponseInner::ProtoError(Some(e))),
-                        Poll::Pending => continue, // FIXME: seeing if this fixes a bug
-                        //Poll::Pending => return Poll::Pending,
+                        Poll::Pending => return Poll::Pending,
                     }
                 }
                 ConnectionHandleInner::Connected(ref mut conn) => return Poll::Ready(conn.send(request)),
@@ -358,9 +357,19 @@ impl Future for ConnectionHandleResponseInner {
                     // TODO: This should really be using the lock() primitive. The issue is the future from that captures
                     //  a lifetime associated with this object, which causes general issues when in managing that future.
                     //  We should come back and evaluate how to migrate to `async fn` for this case.
+                    
+                    // temporarily take the request...
+                    // FIXME: get rid of this clone
+                    let request_tmp = request.clone().expect("already sent request?");
+
                     match conn.0.try_lock() {
-                        Some(mut c) => ready!(c.send(request.take().expect("already sent request?"), cx)),
-                        None => continue, // TODO: this shouldn't be a hot loop, instead when generators land, use that
+                        Some(mut c) => ready!(c.send(request_tmp, cx)),
+                        None => {
+                            //*request = Some(request_tmp); // put this back
+                            //continue // TODO: this shouldn't be a hot loop, instead when generators land, use that
+                            cx.waker().wake_by_ref();
+                            return Poll::Pending;
+                        }
                     }
                 },
                 Udp(ref mut resp) => return resp.poll_unpin(cx),
