@@ -63,8 +63,8 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .next()
             .unwrap();
         let stream = UdpClientStream::<UdpSocket>::new(addr);
-        let (bg, mut client) = ClientFuture::connect(stream);
-        io_loop.spawn(bg);
+        let client = ClientFuture::connect(stream);
+        let mut client = io_loop.block_on(client).expect("failed to create client");
 
         let name = domain::Name::from_str("www.example.com.").unwrap();
         let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
@@ -121,8 +121,8 @@ where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let client = ClientFuture::connect(stream);
+    let mut client = io_loop.block_on(client).expect("failed to create client");
 
     let name = domain::Name::from_str("www.example.com.").unwrap();
 

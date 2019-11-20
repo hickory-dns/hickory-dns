@@ -17,6 +17,11 @@ use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
+#[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
+use tokio_tls::TlsStream as TokioTlsStream;
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls"), not(feature = "dns-over-native-tls")))]
+use tokio_openssl::SslStream as TokioTlsStream;
+
 
 use proto;
 #[cfg(feature = "mdns")]
@@ -331,7 +336,7 @@ enum ConnectionHandleResponseInner {
     },
     Udp(DnsExchangeSend<UdpClientStream<TokioUdpSocket>, UdpResponse>),
     Tcp(DnsExchangeSend<DnsMultiplexer<TcpClientStream<TokioTcpStream>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
-    #[cfg(feature = "dns-over-rustls")]
+    #[cfg(feature = "dns-over-tls")]
     Tls(DnsExchangeSend<DnsMultiplexer<TcpClientStream<TokioTlsStream<TokioTcpStream>>, NoopMessageFinalizer>, DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(DnsExchangeSend<HttpsClientStream, HttpsClientResponse>),
@@ -374,7 +379,7 @@ impl Future for ConnectionHandleResponseInner {
                 },
                 Udp(ref mut resp) => return resp.poll_unpin(cx),
                 Tcp(ref mut resp) => return resp.poll_unpin(cx),
-                #[cfg(feature = "dns-over-rustls")]
+                #[cfg(feature = "dns-over-tls")]
                 Tls(ref mut tls) => return tls.poll_unpin(cx),
                 #[cfg(feature = "dns-over-https")]
                 Https(ref mut https) => return https.poll_unpin(cx),
