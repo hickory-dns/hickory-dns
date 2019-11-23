@@ -23,7 +23,7 @@ use futures::future::Either;
 use futures::{future, StreamExt};
 use tokio::runtime::current_thread::Runtime;
 
-use trust_dns_client::client::{ClientFuture, ClientHandle};
+use trust_dns_client::client::{AsyncClient, ClientHandle};
 use trust_dns_client::multicast::MdnsQueryType;
 use trust_dns_client::multicast::{MdnsClientStream, MdnsStream};
 use trust_dns_client::op::Message;
@@ -124,7 +124,7 @@ fn test_query_mdns_ipv4() {
 
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, None);
-    let client = ClientFuture::new(stream, sender, None);
+    let client = AsyncClient::new(stream, sender, None);
     let mut client = io_loop.block_on(client).expect("failed to connect mDNS");
 
     // A PTR request is the DNS-SD method for doing a directory listing...
@@ -147,7 +147,7 @@ fn test_query_mdns_ipv6() {
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     // FIXME: ipv6 if is hardcoded...
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, Some(5));
-    let client = ClientFuture::new(stream, sender, None);
+    let client = AsyncClient::new(stream, sender, None);
     let mut client = io_loop.block_on(client).expect("failed to connect client");
 
     // A PTR request is the DNS-SD method for doing a directory listing...

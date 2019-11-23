@@ -67,7 +67,7 @@ fn test_example_tls_toml_startup() {
 
             let (stream, sender) =
                 tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
-            let client = ClientFuture::new(stream, Box::new(sender), None);
+            let client = AsyncClient::new(stream, Box::new(sender), None);
             let mut client = io_loop.block_on(client).expect("failed to connect client");
 
             // ipv4 should succeed
@@ -79,10 +79,10 @@ fn test_example_tls_toml_startup() {
                 .next()
                 .unwrap();
             let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config);
-            let client = ClientFuture::new(stream, Box::new(sender), None);
+            let client = AsyncClient::new(stream, Box::new(sender), None);
             let mut client = io_loop
                 .block_on(client)
-                .expect("failed to connect ClientFuture");
+                .expect("failed to connect AsyncClient");
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);

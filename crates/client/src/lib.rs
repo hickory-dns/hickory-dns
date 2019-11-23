@@ -66,7 +66,7 @@
 //!
 //! ## Objects
 //!
-//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `ClientFuture`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
+//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `AsyncClient`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
 //!
 //! First we must decide on the type of connection, there are three supported by Trust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
 //!
@@ -227,7 +227,7 @@
 //! use tokio::runtime::current_thread::Runtime;
 //!
 //! use trust_dns_client::udp::UdpClientStream;
-//! use trust_dns_client::client::{Client, ClientFuture, ClientHandle};
+//! use trust_dns_client::client::{Client, AsyncClient, ClientHandle};
 //! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
@@ -244,7 +244,7 @@
 //! //   the client is a handle to an unbounded queue for sending requests via the
 //! //   background. The background must be scheduled to run before the client can
 //! //   send any dns requests
-//! let client = ClientFuture::connect(stream);
+//! let client = AsyncClient::connect(stream);
 //!
 //! // await the connection to be established
 //! let mut client = runtime.block_on(client).expect("connection failed");

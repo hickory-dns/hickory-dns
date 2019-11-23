@@ -41,15 +41,15 @@ This repo consists of multiple crates:
 
 ## Client
 
-Using the ClientFuture is safe. ClientFuture is a brand new rewrite of the old
+Using the AsyncClient is safe. AsyncClient is a brand new rewrite of the old
  Client. It has all the same features as the old Client, but is written with the
  wonderful futures-rs library. Please send feedback! It currently does not cache
  responses, if this is a feature you'd like earlier rather than later, post a
  request. The validation of DNSSec is complete including NSEC. As of now NSEC3
  is broken, and I may never plan to support it. I have some alternative ideas
  for private data in the zone. The old Client has been deprecated, so please
- use the ClientFuture. If this is an inconvenience, I may add a convenience
- wrapper around ClientFuture that would match the old Client; if this is something
+ use the AsyncClient. If this is an inconvenience, I may add a convenience
+ wrapper around AsyncClient that would match the old Client; if this is something
  you would like to see, please file an issue.
 
 ### Unique client side implementations
@@ -70,7 +70,7 @@ These are standards supported by the DNS protocol. The client implements them
 
 ### DNS over TLS on the Client
 
-DNS over TLS is supported. This is accomplished through the use of `rust-native-tls`. To use DNS over TLS with the `Client`, the `TlsClientConnection` should be used. See the `TlsClientConnectionBuilder::add_ca()` method. Similarly, to use the tokio `ClientFuture` the `TlsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is supported for Server validation and connection privacy.
+DNS over TLS is supported. This is accomplished through the use of `rust-native-tls`. To use DNS over TLS with the `Client`, the `TlsClientConnection` should be used. See the `TlsClientConnectionBuilder::add_ca()` method. Similarly, to use the tokio `AsyncClient` the `TlsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is supported for Server validation and connection privacy.
 
 ## Server
 

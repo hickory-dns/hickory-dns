@@ -23,7 +23,7 @@ use proto::xfer::{DnsHandle, DnsResponse};
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
 
-use crate::client::{ClientConnection, ClientFuture, ClientHandle};
+use crate::client::{AsyncClient, ClientConnection, ClientHandle};
 use crate::error::*;
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
@@ -32,7 +32,7 @@ use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 /// Client trait which implements basic DNS Client operations.
 ///
-/// As of 0.10.0, the Client is now a wrapper around the `ClientFuture`, which is a futures-rs
+/// As of 0.10.0, the Client is now a wrapper around the `AsyncClient`, which is a futures-rs
 /// and tokio-rs based implementation. This trait implements synchronous functions for ease of use.
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
@@ -42,7 +42,7 @@ use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 ///
 /// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
-/// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
+/// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
 pub trait Client {
     /// The type that will be handling the message construction and validation.
     type ClientHandle: DnsHandle;
@@ -404,13 +404,13 @@ impl<CC: ClientConnection> SyncClient<CC> {
 }
 
 impl<CC: ClientConnection> Client for SyncClient<CC> {
-    type ClientHandle = ClientFuture<CC::Sender, CC::Response>;
+    type ClientHandle = AsyncClient<CC::Sender, CC::Response>;
 
     #[allow(clippy::type_complexity)]
     fn new_future(&self) -> Pin<Box<dyn Future<Output = Result<Self::ClientHandle, ProtoError>>>> {
         let stream = self.conn.new_stream(self.signer.clone());
 
-        Box::pin(ClientFuture::connect(stream))
+        Box::pin(AsyncClient::connect(stream))
     }
 }
 
@@ -440,14 +440,14 @@ impl<CC: ClientConnection> SecureSyncClient<CC> {
 
 #[cfg(feature = "dnssec")]
 impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
-    type ClientHandle = SecureDnsHandle<ClientFuture<CC::Sender, CC::Response>>;
+    type ClientHandle = SecureDnsHandle<AsyncClient<CC::Sender, CC::Response>>;
 
     #[allow(clippy::type_complexity)]
     fn new_future(&self) -> Pin<Box<dyn Future<Output = Result<Self::ClientHandle, ProtoError>>>> {
         use crate::futures::TryFutureExt;
 
         let stream = self.conn.new_stream(self.signer.clone());
-        Box::pin(ClientFuture::connect(stream).map_ok(SecureDnsHandle::new))
+        Box::pin(AsyncClient::connect(stream).map_ok(SecureDnsHandle::new))
     }
 }
 

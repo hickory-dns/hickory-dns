@@ -204,7 +204,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 #[allow(dead_code)]
 pub fn query_all_dnssec<S, R>(
     io_loop: &mut Runtime,
-    client: ClientFuture<S, R>,
+    client: AsyncClient<S, R>,
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) where
@@ -265,7 +265,7 @@ pub fn query_all_dnssec<S, R>(
 #[allow(dead_code)]
 pub fn query_all_dnssec_with_rfc6975<S, R>(
     io_loop: &mut Runtime,
-    client: ClientFuture<S, R>,
+    client: AsyncClient<S, R>,
     algorithm: Algorithm,
 ) where
     S: DnsRequestSender<DnsResponseFuture = R>,
@@ -277,7 +277,7 @@ pub fn query_all_dnssec_with_rfc6975<S, R>(
 #[allow(dead_code)]
 pub fn query_all_dnssec_wo_rfc6975<S, R>(
     io_loop: &mut Runtime,
-    client: ClientFuture<S, R>,
+    client: AsyncClient<S, R>,
     algorithm: Algorithm,
 ) where
     S: DnsRequestSender<DnsResponseFuture = R>,

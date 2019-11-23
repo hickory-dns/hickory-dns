@@ -71,7 +71,7 @@ fn test_startup(toml: &'static str) {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::new(stream, Box::new(sender), None);
+        let client = AsyncClient::new(stream, Box::new(sender), None);
         let mut client = io_loop.block_on(client).expect("failed to create client");
 
         query_a(&mut io_loop, &mut client);
@@ -85,7 +85,7 @@ fn test_startup(toml: &'static str) {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::new(stream, Box::new(sender), None);
+        let client = AsyncClient::new(stream, Box::new(sender), None);
         let mut client = io_loop.block_on(client).expect("failed to create client");
 
         // ipv6 should succeed

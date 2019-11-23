@@ -27,7 +27,7 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
-use trust_dns_client::client::{ClientFuture, ClientHandle};
+use trust_dns_client::client::{AsyncClient, ClientHandle};
 use trust_dns_client::error::ClientErrorKind;
 use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "dnssec")]
@@ -56,7 +56,7 @@ fn test_query_nonet() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = AsyncClient::new(stream, Box::new(sender), None);
     dbg!("connecting");
     let mut client = io_loop.block_on(client).expect("connect failed");
 
@@ -71,7 +71,7 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let client = ClientFuture::connect(stream);
+    let client = AsyncClient::connect(stream);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -89,7 +89,7 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let client = ClientFuture::connect(stream);
+    let client = AsyncClient::connect(stream);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -102,7 +102,7 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
+    let client = AsyncClient::new(stream, sender, None);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -120,7 +120,7 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let client = ClientFuture::new(stream, sender, None);
+    let client = AsyncClient::new(stream, sender, None);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -150,7 +150,7 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let client = ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let client = AsyncClient::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -159,7 +159,7 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<S, R>(client: &mut ClientFuture<S, R>) -> impl Future<Output = ()>
+fn test_query<S, R>(client: &mut AsyncClient<S, R>) -> impl Future<Output = ()>
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -199,7 +199,7 @@ fn test_notify() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = AsyncClient::new(stream, Box::new(sender), None);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     let name = Name::from_str("ping.example.com").unwrap();
@@ -222,7 +222,7 @@ fn test_notify() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
-    ClientFuture<DnsMultiplexer<TestClientStream, Signer>, DnsMultiplexerSerialResponse>,
+    AsyncClient<DnsMultiplexer<TestClientStream, Signer>, DnsMultiplexerSerialResponse>,
     Name,
 ) {
     use openssl::rsa::Rsa;
@@ -257,9 +257,9 @@ async fn create_sig0_ready_client() -> (
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), Some(signer))
+    let client = AsyncClient::new(stream, Box::new(sender), Some(signer))
         .await
-        .expect("failed to get new ClientFuture");
+        .expect("failed to get new AsyncClient");
 
     (client, origin.into())
 }
@@ -852,7 +852,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query<S, R>(mut client: ClientFuture<S, R>, mut io_loop: Runtime)
+fn test_timeout_query<S, R>(mut client: AsyncClient<S, R>, mut io_loop: Runtime)
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -884,7 +884,7 @@ fn test_timeout_query_nonet() {
     env_logger::try_init().ok();
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
-    let client = ClientFuture::with_timeout(
+    let client = AsyncClient::with_timeout(
         stream,
         Box::new(sender),
         std::time::Duration::from_millis(1),
@@ -909,7 +909,7 @@ fn test_timeout_query_udp() {
 
     let stream =
         UdpClientStream::<TokioUdpSocket>::with_timeout(addr, std::time::Duration::from_millis(1));
-    let client = ClientFuture::connect(stream);
+    let client = AsyncClient::connect(stream);
     let client = io_loop.block_on(client).expect("connect failed");
 
     test_timeout_query(client, io_loop);
@@ -929,7 +929,7 @@ fn test_timeout_query_tcp() {
 
     let (stream, sender) =
         TcpClientStream::<TokioTcpStream>::with_timeout(addr, std::time::Duration::from_millis(1));
-    let client = ClientFuture::with_timeout(
+    let client = AsyncClient::with_timeout(
         Box::new(stream),
         sender,
         std::time::Duration::from_millis(1),

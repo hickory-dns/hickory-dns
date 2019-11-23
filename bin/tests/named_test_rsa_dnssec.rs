@@ -61,7 +61,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
 #[allow(clippy::type_complexity)]
 async fn standard_conn(
     port: u16,
-) -> ClientFuture<
+) -> AsyncClient<
     DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
     DnsMultiplexerSerialResponse,
 > {
@@ -71,9 +71,9 @@ async fn standard_conn(
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    ClientFuture::new(stream, sender, None)
+    AsyncClient::new(stream, sender, None)
         .await
-        .expect("new ClientFuture failed")
+        .expect("new AsyncClient failed")
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {

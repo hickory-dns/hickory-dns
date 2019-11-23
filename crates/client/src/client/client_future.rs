@@ -27,13 +27,19 @@ use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 // TODO: this should be configurable
 pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 
-// TODO: ClientFuture to ClientAsync or AsyncClient?
+/// A DNS Client implemented over futures-rs.
+///
+/// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
+///  implementations.
+#[deprecated(note = "renamed to AsyncClient")]
+pub type ClientFuture<Sender, Response> = AsyncClient<Sender, Response>;
+
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct ClientFuture<Sender, Response>
+pub struct AsyncClient<Sender, Response>
 where
     Sender: DnsRequestSender<DnsResponseFuture = Response> + 'static,
     Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -42,11 +48,11 @@ where
 }
 
 impl<S>
-    ClientFuture<DnsMultiplexer<S, Signer, Box<dyn DnsStreamHandle>>, DnsMultiplexerSerialResponse>
+    AsyncClient<DnsMultiplexer<S, Signer, Box<dyn DnsStreamHandle>>, DnsMultiplexerSerialResponse>
 where
     S: DnsClientStream + Send + Unpin + 'static,
 {
-    /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
+    /// Spawns a new AsyncClient Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
     ///
@@ -65,7 +71,7 @@ where
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
     }
 
-    /// Spawns a new ClientFuture Stream.
+    /// Spawns a new AsyncClient Stream.
     ///
     /// # Arguments
     ///
@@ -89,7 +95,7 @@ where
     }
 }
 
-impl<S, R> ClientFuture<S, R>
+impl<S, R> AsyncClient<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R>,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -108,23 +114,23 @@ where
     {
         let exchange = DnsExchange::connect(connect_future).await?;
 
-        Ok(ClientFuture { exchange })
+        Ok(AsyncClient { exchange })
     }
 }
 
-impl<S, Resp> Clone for ClientFuture<S, Resp>
+impl<S, Resp> Clone for AsyncClient<S, Resp>
 where
     S: DnsRequestSender<DnsResponseFuture = Resp>,
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     fn clone(&self) -> Self {
-        ClientFuture {
+        AsyncClient {
             exchange: self.exchange.clone(),
         }
     }
 }
 
-impl<S, Resp> DnsHandle for ClientFuture<S, Resp>
+impl<S, Resp> DnsHandle for AsyncClient<S, Resp>
 where
     S: DnsRequestSender<DnsResponseFuture = Resp>,
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,

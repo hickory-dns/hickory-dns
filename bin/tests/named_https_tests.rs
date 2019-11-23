@@ -81,12 +81,12 @@ fn test_example_https_toml_startup() {
         let https_conn_builder = HttpsClientStreamBuilder::with_client_config(client_config);
 
         let mp = https_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = ClientFuture::connect(mp);
+        let client = AsyncClient::connect(mp);
 
         // ipv4 should succeed
         let mut client = io_loop
             .block_on(client)
-            .expect("failed to connect ClientFuture");
+            .expect("failed to connect AsyncClient");
         query_a(&mut io_loop, &mut client);
 
         // a second request should work...
