@@ -65,7 +65,7 @@ fn test_lookup_hosts() {
 
     let client = DnsExchange::connect(dns_conn);
     let client = io_loop.block_on(client).expect("client connect failed");
-    
+
     let mut hosts = Hosts::default();
     let record = Record::from_rdata(
         Name::from_str("www.example.com.").unwrap(),

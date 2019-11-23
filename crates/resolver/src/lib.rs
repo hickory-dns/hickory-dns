@@ -49,7 +49,7 @@
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
 //! //  in `ResolverOpts` will take effect. FQDN's are generally cheaper queries.
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
@@ -78,7 +78,7 @@
 //! # #[cfg(unix)]
 //! let resolver = Resolver::from_system_conf().unwrap();
 //! # #[cfg(unix)]
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
 //! # }
 //! # }
 //! ```
@@ -102,13 +102,13 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let (resolver, background) = AsyncResolver::new(
+//! let resolver = AsyncResolver::new(
 //!     ResolverConfig::default(),
 //!     ResolverOpts::default()
 //! );
 //! // AsyncResolver::new returns a handle for sending resolve requests and a background task
 //! // that must be spawned on an executor.
-//! io_loop.spawn(background);
+//! let resolver = io_loop.block_on(resolver).expect("failed to connect resolver");
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -243,7 +243,7 @@ mod tls;
 // reexports from proto
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
-pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
+pub use async_resolver::AsyncResolver;
 pub use hosts::Hosts;
 #[cfg(feature = "tokio")]
 pub use resolver::Resolver;

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::Future;
 use tokio::runtime::current_thread::Runtime;
@@ -48,7 +48,7 @@ pub trait Client {
     type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The actual DNS request sender, aka Connection
     type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
-    
+
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
@@ -420,7 +420,8 @@ where
     #[allow(clippy::type_complexity)]
     fn new_future(
         &self,
-    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>>
+    {
         let stream = self.conn.new_stream(self.signer.clone());
 
         Box::pin(ClientFuture::connect(stream))
@@ -500,7 +501,8 @@ where
     #[allow(clippy::type_complexity)]
     fn new_future(
         &self,
-    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>> {
+    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>>
+    {
         let stream = self.conn.new_stream(self.signer.clone());
 
         unimplemented!()

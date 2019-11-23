@@ -152,8 +152,7 @@ fn test_query_mdns_ipv6() {
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
-    let message = io_loop
-        .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
+    let message = io_loop.block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
 

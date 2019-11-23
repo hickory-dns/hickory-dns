@@ -16,9 +16,7 @@ use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 use tokio_net::udp::UdpSocket as TokioUdpSocket;
 
-use trust_dns_client::client::{
-    ClientFuture, ClientHandle, MemoizeClientHandle,
-};
+use trust_dns_client::client::{ClientFuture, ClientHandle, MemoizeClientHandle};
 use trust_dns_client::op::ResponseCode;
 use trust_dns_client::rr::dnssec::{Signer, TrustAnchor};
 use trust_dns_client::rr::Name;
@@ -200,7 +198,14 @@ where
 fn with_nonet<F>(test: F)
 where
     F: Fn(
-        SecureDnsHandle<MemoizeClientHandle<ClientFuture<DnsMultiplexer<TestClientStream, Signer>, DnsMultiplexerSerialResponse>>>,
+        SecureDnsHandle<
+            MemoizeClientHandle<
+                ClientFuture<
+                    DnsMultiplexer<TestClientStream, Signer>,
+                    DnsMultiplexerSerialResponse,
+                >,
+            >,
+        >,
         Runtime,
     ),
 {
@@ -244,7 +249,9 @@ where
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = ClientFuture::new(stream, Box::new(sender), None);
-    let client = io_loop.block_on(client).expect("failed to create new client");
+    let client = io_loop
+        .block_on(client)
+        .expect("failed to create new client");
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);
 
@@ -255,7 +262,12 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureDnsHandle<MemoizeClientHandle<ClientFuture<UdpClientStream<TokioUdpSocket>, UdpResponse>>>, Runtime),
+    F: Fn(
+        SecureDnsHandle<
+            MemoizeClientHandle<ClientFuture<UdpClientStream<TokioUdpSocket>, UdpResponse>>,
+        >,
+        Runtime,
+    ),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -278,7 +290,9 @@ where
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let client = ClientFuture::connect(stream);
-    let client = io_loop.block_on(client).expect("failed to create new client");
+    let client = io_loop
+        .block_on(client)
+        .expect("failed to create new client");
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureDnsHandle::new(client);
 
@@ -290,7 +304,14 @@ where
 fn with_tcp<F>(test: F)
 where
     F: Fn(
-        SecureDnsHandle<MemoizeClientHandle<ClientFuture<DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>, DnsMultiplexerSerialResponse>>>,
+        SecureDnsHandle<
+            MemoizeClientHandle<
+                ClientFuture<
+                    DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
+                    DnsMultiplexerSerialResponse,
+                >,
+            >,
+        >,
         Runtime,
     ),
 {
@@ -315,7 +336,9 @@ where
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let client = ClientFuture::new(Box::new(stream), sender, None);
-    let client = io_loop.block_on(client).expect("could not create new client");
+    let client = io_loop
+        .block_on(client)
+        .expect("could not create new client");
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureDnsHandle::new(client);
 

@@ -74,7 +74,7 @@ use trust_dns_server::store::StoreConfig;
 fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
-    executor: &TaskExecutor,
+    executor: &Runtime,
 ) -> Result<Box<dyn AuthorityObject>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
@@ -123,9 +123,9 @@ fn load_zone(
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
-            let (forwarder, bg) = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
+            let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
+            let forwarder = executor.block_on(forwarder)?;
 
-            executor.spawn(bg);
             Box::new(forwarder)
         }
         #[cfg(feature = "sqlite")]
@@ -371,7 +371,7 @@ pub fn main() {
             .get_zone()
             .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
-        match load_zone(&zone_dir, zone, &executor) {
+        match load_zone(&zone_dir, zone, &io_loop) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(error) => panic!("could not load zone {}: {}", zone_name, error),
         }

@@ -12,16 +12,17 @@ use std::sync::Arc;
 use std::task::Context;
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::lock::Mutex;
 use futures::stream::{Peekable, Stream, StreamExt};
 use futures::{self, ready, Future, FutureExt, Poll};
-use futures::lock::Mutex;
 
 use crate::error::*;
-use crate::xfer::{
-    BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse, OneshotDnsRequest,
-};
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::OneshotDnsResponseReceiver;
+use crate::xfer::{
+    BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse,
+    OneshotDnsRequest,
+};
 
 /// This is a generic Exchange implemented over multiplexed DNS connection providers.
 ///
@@ -36,7 +37,7 @@ where
     sender: BufDnsRequestStreamHandle<R>,
 }
 
-impl<S,R> Drop for DnsExchange<S, R>
+impl<S, R> Drop for DnsExchange<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -78,10 +79,7 @@ where
 
         let sender = BufDnsRequestStreamHandle::new(sender);
 
-        Self {
-            background,
-            sender
-        }
+        Self { background, sender }
     }
 
     /// Returns a future, which itself wraps a future which is awaiting connection.
@@ -93,7 +91,7 @@ where
     {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = DnsRequestStreamHandle::<R>::new(message_sender);
-        
+
         DnsExchangeConnect::connect(connect_future, outbound_messages, message_sender)
     }
 }
@@ -104,7 +102,7 @@ where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     fn clone(&self) -> Self {
-        Self{ 
+        Self {
             background: self.background.clone(),
             sender: self.sender.clone(),
         }
@@ -119,8 +117,8 @@ where
     type Response = DnsExchangeSend<S, Resp>;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        DnsExchangeSend { 
-            exchange: self.background.clone(), 
+        DnsExchangeSend {
+            exchange: self.background.clone(),
             result: self.sender.send(request),
             _sender: self.sender.clone(), // FIXME: HACK HACK HACK, this shouldn't be necessary, currently the presence of Senders is what allows the background to track current users, it generally is dropped right after send, this makes sure that there is at least one active after send
         }
@@ -129,7 +127,7 @@ where
 
 /// A Future that will resolve to a Response after sending the request
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeSend<S, R> 
+pub struct DnsExchangeSend<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -139,7 +137,7 @@ where
     _sender: BufDnsRequestStreamHandle<R>,
 }
 
-impl<S, R> Drop for DnsExchangeSend<S,R> 
+impl<S, R> Drop for DnsExchangeSend<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -149,7 +147,7 @@ where
     }
 }
 
-impl<S, R> Future for DnsExchangeSend<S,R> 
+impl<S, R> Future for DnsExchangeSend<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
@@ -163,16 +161,16 @@ where
 
             // as long as there is no result, poll the exchange
             if let Poll::Ready(r) = dbg!(self.result.poll_unpin(cx)) {
-                return Poll::Ready(r)
+                return Poll::Ready(r);
             } else if stop {
-                return Poll::Ready(Err("No data received".into()))
+                return Poll::Ready(Err("No data received".into()));
             }
 
             if let Some(ref mut exchange) = self.exchange.try_lock() {
                 match ready!(dbg!(exchange.poll_unpin(cx))) {
-                // getting here means the exchange is done... loop one more time
-                Ok(()) => stop = true,
-                Err(e) => return Poll::Ready(Err(e)),
+                    // getting here means the exchange is done... loop one more time
+                    Ok(()) => stop = true,
+                    Err(e) => return Poll::Ready(Err(e)),
                 }
             } // continue until can get lock
         }
@@ -274,7 +272,7 @@ where
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(None) => {
                     dbg!("all handles closed, shutting down");
-                    
+
                     // if there is nothing that can use this connection to send messages, then this is done...
                     io_stream.shutdown();
 
@@ -364,15 +362,13 @@ where
                     match connect_future.poll(cx) {
                         Poll::Ready(Ok(stream)) => {
                             //debug!("connection established: {}", stream);
-                            
+
                             return Poll::Ready(Ok(DnsExchange::from_stream_with_receiver(
                                 stream,
                                 outbound_messages
                                     .take()
                                     .expect("cannot poll after complete"),
-                                sender
-                                    .take()
-                                    .expect("cannot poll after complete"),
+                                sender.take().expect("cannot poll after complete"),
                             )));
                         }
                         Poll::Pending => return Poll::Pending,

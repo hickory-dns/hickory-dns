@@ -75,7 +75,7 @@ fn test_ipv4_only_toml_startup() {
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let mut client = ClientFuture::new(Box::new(stream), sender, None);
-        
+
         // ipv6 should fail
         assert!(io_loop.block_on(client).is_err());
     })
@@ -118,7 +118,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let mut client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
-        
+
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 

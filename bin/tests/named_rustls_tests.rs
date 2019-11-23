@@ -80,7 +80,9 @@ fn test_example_tls_toml_startup() {
                 .unwrap();
             let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config);
             let client = ClientFuture::new(stream, Box::new(sender), None);
-            let mut client = io_loop.block_on(client).expect("failed to connect ClientFuture");
+            let mut client = io_loop
+                .block_on(client)
+                .expect("failed to connect ClientFuture");
 
             // ipv6 should succeed
             query_a(&mut io_loop, &mut client);

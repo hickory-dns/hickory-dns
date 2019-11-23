@@ -6,7 +6,9 @@ use std::net::SocketAddr;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
-use trust_dns_https::{HttpsClientResponse, HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use trust_dns_https::{
+    HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
+};
 
 use crate::config::TlsClientConfig;
 
@@ -23,7 +25,7 @@ pub(crate) fn new_https_stream(
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
     let exchange = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
-    
+
     exchange
 }
 
@@ -42,9 +44,9 @@ mod tests {
         let mut io_loop = Runtime::new().unwrap();
 
         dbg!("getting resolver");
-        let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
+        let resolver = AsyncResolver::new(config, ResolverOpts::default());
         dbg!("spawning resolver bg");
-        io_loop.spawn(bg);
+        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
 
         dbg!("awaiting lookup");
         let response = io_loop

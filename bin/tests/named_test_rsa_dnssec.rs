@@ -65,15 +65,19 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
 #[allow(clippy::type_complexity)]
 async fn standard_conn(
     port: u16,
-) -> ClientFuture<DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>, DnsMultiplexerSerialResponse>
-{
+) -> ClientFuture<
+    DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
+    DnsMultiplexerSerialResponse,
+> {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    ClientFuture::new(stream, sender, None).await.expect("new ClientFuture failed")
+    ClientFuture::new(stream, sender, None)
+        .await
+        .expect("new ClientFuture failed")
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {

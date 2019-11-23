@@ -15,6 +15,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - *breaking* (server) rebranded from `trust-dns-server` to `trust-dns`
 - *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.40` minimum)
 - *breaking* (client) AsyncClient now only returns a single reference to use, no longer the background task.
+- *breaking* (resolver) AsyncResolver::new changed to AsyncResolver::connect, requires awaiting the returned future
 
 ### Fixes
 
@@ -23,6 +24,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Removed
 
 - (client) client::BasicClientHandle, ClientFuture no longer requires Background or the separate Handle, this can generally be replaced with just ClientFuture itself in most use cases.
+- *breaking* (resolver) Background type removed
+- (resolver) removed deprecated AsyncResolver::lookup_service, see AsyncResolver::lookup_srv
 
 ## 0.17.0 (Client/Server)
 

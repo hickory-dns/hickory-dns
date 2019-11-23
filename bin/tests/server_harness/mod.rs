@@ -16,7 +16,7 @@ use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::proto::error::ProtoError;
-use trust_dns_client::proto::xfer::{DnsResponse, DnsRequestSender};
+use trust_dns_client::proto::xfer::{DnsRequestSender, DnsResponse};
 use trust_dns_client::rr::dnssec::*;
 use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns_client::rr::*;
@@ -207,10 +207,9 @@ pub fn query_all_dnssec<S, R>(
     client: ClientFuture<S, R>,
     algorithm: Algorithm,
     with_rfc6975: bool,
-) 
-where 
+) where
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
 {
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
@@ -268,10 +267,9 @@ pub fn query_all_dnssec_with_rfc6975<S, R>(
     io_loop: &mut Runtime,
     client: ClientFuture<S, R>,
     algorithm: Algorithm,
-)
-where 
+) where
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
 {
     query_all_dnssec(io_loop, client, algorithm, true)
 }
@@ -281,10 +279,9 @@ pub fn query_all_dnssec_wo_rfc6975<S, R>(
     io_loop: &mut Runtime,
     client: ClientFuture<S, R>,
     algorithm: Algorithm,
-) 
-where 
+) where
     S: DnsRequestSender<DnsResponseFuture = R>,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin
+    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
 {
     query_all_dnssec(io_loop, client, algorithm, false)
 }

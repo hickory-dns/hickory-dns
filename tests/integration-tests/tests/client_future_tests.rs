@@ -39,9 +39,9 @@ use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsResponse, DnsRequestSender};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse};
+use trust_dns_proto::xfer::{DnsRequestSender, DnsResponse};
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_example;
@@ -72,7 +72,7 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let client =  ClientFuture::connect(stream);
+    let client = ClientFuture::connect(stream);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -90,7 +90,7 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let client =  ClientFuture::connect(stream);
+    let client = ClientFuture::connect(stream);
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -151,9 +151,10 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let mut client = ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let mut client =
+        ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     let mut client = io_loop.block_on(client).expect("connect failed");
-    
+
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
@@ -167,30 +168,29 @@ where
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
-        client
-            .query(name.clone(), DNSClass::IN, RecordType::A)
-            .map_ok(move |response| {
-                println!("response records: {:?}", response);
-                assert!(response
-                    .queries()
-                    .first()
-                    .expect("expected query")
-                    .name()
-                    .eq_case(&name));
+    client
+        .query(name.clone(), DNSClass::IN, RecordType::A)
+        .map_ok(move |response| {
+            println!("response records: {:?}", response);
+            assert!(response
+                .queries()
+                .first()
+                .expect("expected query")
+                .name()
+                .eq_case(&name));
 
-                let record = &response.answers()[0];
-                assert_eq!(record.name(), &name);
-                assert_eq!(record.rr_type(), RecordType::A);
-                assert_eq!(record.dns_class(), DNSClass::IN);
+            let record = &response.answers()[0];
+            assert_eq!(record.name(), &name);
+            assert_eq!(record.rr_type(), RecordType::A);
+            assert_eq!(record.dns_class(), DNSClass::IN);
 
-                if let RData::A(ref address) = *record.rdata() {
-                    assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
-                } else {
-                    panic!();
-                }
-            })
-            .map(|r: Result<_, _>| r.expect("query failed"))
-    
+            if let RData::A(ref address) = *record.rdata() {
+                assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
+            } else {
+                panic!();
+            }
+        })
+        .map(|r: Result<_, _>| r.expect("query failed"))
 }
 
 #[test]
@@ -224,10 +224,7 @@ fn test_notify() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
-    ClientFuture<
-        DnsMultiplexer<TestClientStream, Signer>,
-        DnsMultiplexerSerialResponse,
-    >,
+    ClientFuture<DnsMultiplexer<TestClientStream, Signer>, DnsMultiplexerSerialResponse>,
     Name,
 ) {
     use openssl::rsa::Rsa;
@@ -262,7 +259,9 @@ async fn create_sig0_ready_client() -> (
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = ClientFuture::new(stream, Box::new(sender), Some(signer)).await.expect("failed to get new ClientFuture");
+    let client = ClientFuture::new(stream, Box::new(sender), Some(signer))
+        .await
+        .expect("failed to get new ClientFuture");
 
     (client, origin.into())
 }

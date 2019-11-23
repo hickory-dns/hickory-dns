@@ -84,7 +84,9 @@ fn test_example_https_toml_startup() {
         let client = ClientFuture::connect(mp);
 
         // ipv4 should succeed
-        let mut client = io_loop.block_on(client).expect("failed to connect ClientFuture");
+        let mut client = io_loop
+            .block_on(client)
+            .expect("failed to connect ClientFuture");
         query_a(&mut io_loop, &mut client);
 
         // a second request should work...

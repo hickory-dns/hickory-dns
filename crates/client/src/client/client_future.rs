@@ -13,8 +13,8 @@ use std::time::Duration;
 use futures::{Future, FutureExt, Poll};
 use proto::error::ProtoError;
 use proto::xfer::{
-    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle,
-    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
+    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsExchangeSend,
+    DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
 };
 use rand;
@@ -42,10 +42,7 @@ where
 }
 
 impl<S>
-    ClientFuture<
-        DnsMultiplexer<S, Signer, Box<dyn DnsStreamHandle>>,
-        DnsMultiplexerSerialResponse,
-    >
+    ClientFuture<DnsMultiplexer<S, Signer, Box<dyn DnsStreamHandle>>, DnsMultiplexerSerialResponse>
 where
     S: DnsClientStream + Send + Unpin + 'static,
 {
@@ -61,8 +58,9 @@ where
         stream: F,
         stream_handle: Box<dyn DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
-    ) -> Result<Self, ProtoError> 
-    where F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static
+    ) -> Result<Self, ProtoError>
+    where
+        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
         Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
     }
@@ -82,8 +80,9 @@ where
         stream_handle: Box<dyn DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
-    ) -> Result<Self, ProtoError> 
-    where F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static
+    ) -> Result<Self, ProtoError>
+    where
+        F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
         Self::connect(mp).await
@@ -103,11 +102,13 @@ where
     ///
     /// This returns a tuple of Self and a handle to send dns messages. Self is a
     ///  background task, it must be run on an executor before handle is used.
-    pub async fn connect<F>(connect_future: F) -> Result<Self, ProtoError> 
-    where F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin {
+    pub async fn connect<F>(connect_future: F) -> Result<Self, ProtoError>
+    where
+        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+    {
         let exchange = DnsExchange::connect(connect_future).await?;
 
-        Ok(ClientFuture{ exchange })
+        Ok(ClientFuture { exchange })
     }
 }
 
@@ -117,7 +118,9 @@ where
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     fn clone(&self) -> Self {
-        ClientFuture{ exchange: self.exchange.clone() }
+        ClientFuture {
+            exchange: self.exchange.clone(),
+        }
     }
 }
 
