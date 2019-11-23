@@ -39,7 +39,9 @@ mod tests {
         let mut io_loop = Runtime::new().unwrap();
 
         let resolver = AsyncResolver::new(config, ResolverOpts::default());
-        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))

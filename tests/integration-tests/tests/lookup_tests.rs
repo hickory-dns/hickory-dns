@@ -9,12 +9,11 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use futures::{FutureExt, TryFutureExt};
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsMultiplexer};
+use trust_dns_proto::xfer::{DnsExchange, DnsMultiplexer};
 use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
@@ -37,7 +36,7 @@ fn test_lookup() {
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
     let client = DnsExchange::connect(dns_conn);
-    let mut client = io_loop.block_on(client).expect("client failed to connect");
+    let client = io_loop.block_on(client).expect("client failed to connect");
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],

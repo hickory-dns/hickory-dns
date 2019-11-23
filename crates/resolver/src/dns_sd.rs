@@ -19,11 +19,11 @@ use proto::rr::rdata::TXT;
 use proto::rr::{Name, RecordType};
 use proto::xfer::DnsRequestOptions;
 
-use crate::AsyncResolver;
 use crate::error::*;
 use crate::lookup::{
-    ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
+    ReverseLookup, ReverseLookupIter, TxtLookup,
 };
+use crate::AsyncResolver;
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -58,7 +58,9 @@ impl DnsSdHandle for AsyncResolver {
 }
 
 /// A DNS Service Discovery future of Services discovered through the list operation
-pub struct ListServicesFuture(Pin<Box<dyn Future<Output = Result<ReverseLookup, ResolveError>> + Send>>);
+pub struct ListServicesFuture(
+    Pin<Box<dyn Future<Output = Result<ReverseLookup, ResolveError>> + Send>>,
+);
 
 impl Future for ListServicesFuture {
     type Output = Result<ListServices, ResolveError>;
@@ -159,7 +161,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.list_services(Name::from_str("_http._tcp.local.").unwrap()))

@@ -37,16 +37,6 @@ where
     sender: BufDnsRequestStreamHandle<R>,
 }
 
-impl<S, R> Drop for DnsExchange<S, R>
-where
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    fn drop(&mut self) {
-        dbg!("dropping DnsExchange");
-    }
-}
-
 impl<S, R> DnsExchange<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
@@ -137,16 +127,6 @@ where
     _sender: BufDnsRequestStreamHandle<R>,
 }
 
-impl<S, R> Drop for DnsExchangeSend<S, R>
-where
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    fn drop(&mut self) {
-        dbg!("dropping DnsExchangeSend");
-    }
-}
-
 impl<S, R> Future for DnsExchangeSend<S, R>
 where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
@@ -157,10 +137,8 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let mut stop = false;
         loop {
-            dbg!("DnsRequestSend::poll");
-
             // as long as there is no result, poll the exchange
-            if let Poll::Ready(r) = dbg!(self.result.poll_unpin(cx)) {
+            if let Poll::Ready(r) = self.result.poll_unpin(cx) {
                 return Poll::Ready(r);
             } else if stop {
                 return Poll::Ready(Err("No data received".into()));
@@ -185,16 +163,6 @@ where
 {
     io_stream: S,
     outbound_messages: Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>,
-}
-
-impl<S, R> Drop for DnsExchangeBackground<S, R>
-where
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    fn drop(&mut self) {
-        dbg!("dropping DnsExchangeBackground");
-    }
 }
 
 impl<S, R> DnsExchangeBackground<S, R>
@@ -235,7 +203,6 @@ where
                 Poll::Pending => {
                     if io_stream.is_shutdown() {
                         // the io_stream is in a shutdown state, we are only waiting for final results...
-                        dbg!("awaiting responses");
                         return Poll::Pending;
                     }
 
@@ -271,8 +238,6 @@ where
                 // On not ready, this is our time to return...
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(None) => {
-                    dbg!("all handles closed, shutting down");
-
                     // if there is nothing that can use this connection to send messages, then this is done...
                     io_stream.shutdown();
 

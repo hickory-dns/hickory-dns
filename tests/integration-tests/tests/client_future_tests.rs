@@ -17,7 +17,6 @@ extern crate trust_dns_server;
 extern crate webpki_roots;
 
 use std::net::*;
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 

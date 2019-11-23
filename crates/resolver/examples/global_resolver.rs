@@ -94,7 +94,7 @@ pub fn resolve<N: IntoName + TryParseIp + 'static>(
     port: u16,
 ) -> impl Future<Output = io::Result<Vec<SocketAddr>>> {
     // Now we use the global resolver to perform a lookup_ip.
-    let resolve_future = GLOBAL_DNS_RESOLVER.lookup_ip(host).map(move |result| {
+    GLOBAL_DNS_RESOLVER.lookup_ip(host).map(move |result| {
         // map the result into what we want...
         result
             .map_err(move |err| {
@@ -111,10 +111,7 @@ pub fn resolve<N: IntoName + TryParseIp + 'static>(
                     .map(|ip| SocketAddr::new(ip, port))
                     .collect::<Vec<_>>()
             })
-    });
-
-    // Now return the boxed future
-    resolve_future
+    })
 }
 
 fn main() {

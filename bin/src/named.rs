@@ -50,7 +50,6 @@ use std::pin::Pin;
 use clap::{Arg, ArgMatches};
 use futures::{future, Future};
 use tokio::runtime::Runtime;
-use tokio::runtime::TaskExecutor;
 use tokio_net::tcp::TcpListener;
 use tokio_net::udp::UdpSocket;
 
@@ -363,7 +362,6 @@ pub fn main() {
         .unwrap_or_else(|| directory_config.clone());
 
     let io_loop = Runtime::new().expect("error when creating tokio Runtime");
-    let executor = io_loop.executor();
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {

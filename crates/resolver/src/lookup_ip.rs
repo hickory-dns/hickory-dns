@@ -15,7 +15,6 @@ use std::sync::Arc;
 use std::task::Context;
 use std::time::Instant;
 
-use failure::Fail;
 use futures::{future, future::Either, Future, FutureExt, Poll};
 
 use proto::op::Query;
@@ -207,30 +206,6 @@ where
             options,
             hosts,
             finally_ip_addr,
-        }
-    }
-    pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
-        LookupIpFuture {
-            // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
-            client_cache,
-            names: vec![],
-            strategy: LookupIpStrategy::default(),
-            options: DnsRequestOptions::default(),
-            query: future::err(ResolveErrorKind::Msg(format!("{}", error)).into()).boxed(),
-            hosts: None,
-            finally_ip_addr: None,
-        }
-    }
-
-    pub(crate) fn ok(client_cache: CachingClient<C>, lp: Lookup) -> Self {
-        LookupIpFuture {
-            client_cache,
-            names: vec![],
-            strategy: LookupIpStrategy::default(),
-            options: DnsRequestOptions::default(),
-            query: future::ok(lp).boxed(),
-            hosts: None,
-            finally_ip_addr: None,
         }
     }
 }

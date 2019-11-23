@@ -24,9 +24,7 @@ pub(crate) fn new_https_stream(
     );
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    let exchange = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
-
-    exchange
+    DnsExchange::connect(https_builder.build(socket_addr, dns_name))
 }
 
 #[cfg(test)]
@@ -43,17 +41,15 @@ mod tests {
         env_logger::try_init().ok();
         let mut io_loop = Runtime::new().unwrap();
 
-        dbg!("getting resolver");
         let resolver = AsyncResolver::new(config, ResolverOpts::default());
-        dbg!("spawning resolver bg");
-        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
-        dbg!("awaiting lookup");
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))
             .expect("failed to run lookup");
 
-        dbg!("evaluating response");
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {

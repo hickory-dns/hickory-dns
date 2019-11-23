@@ -66,7 +66,7 @@ impl TestClientStream {
 
         let stream = Box::pin(future::ok(TestClientStream {
             catalog,
-            outbound_messages: outbound_messages,
+            outbound_messages,
         }));
 
         (stream, message_sender)

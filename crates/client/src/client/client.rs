@@ -20,8 +20,8 @@ use tokio::runtime::current_thread::Runtime;
 
 use proto::error::ProtoError;
 use proto::xfer::{DnsRequestSender, DnsResponse};
-#[cfg(feature = "dnssec")]
-use proto::SecureDnsHandle;
+// #[cfg(feature = "dnssec")]
+// use proto::SecureDnsHandle;
 
 use crate::client::{ClientConnection, ClientFuture, ClientHandle};
 use crate::error::*;
@@ -74,7 +74,7 @@ pub trait Client {
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.query(name.clone(), query_class, query_type))
     }
@@ -98,7 +98,7 @@ pub trait Client {
         R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.notify(name, query_class, query_type, rrset))
     }
@@ -141,7 +141,7 @@ pub trait Client {
         R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.create(rrset, zone_origin))
     }
@@ -185,7 +185,7 @@ pub trait Client {
         R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.append(rrset, zone_origin, must_exist))
     }
@@ -242,7 +242,7 @@ pub trait Client {
         NR: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.compare_and_swap(current, new, zone_origin))
     }
@@ -287,7 +287,7 @@ pub trait Client {
         R: Into<RecordSet>,
     {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.delete_by_rdata(record, zone_origin))
     }
@@ -329,7 +329,7 @@ pub trait Client {
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.delete_rrset(record, zone_origin))
     }
@@ -365,7 +365,7 @@ pub trait Client {
         dns_class: DNSClass,
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
     }
@@ -484,7 +484,7 @@ where
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
-        let mut client = self.new_future();
+        let client = self.new_future();
         let mut client = reactor.block_on(client)?;
         reactor.block_on(client.query(query_name.clone(), query_class, query_type))
     }
@@ -503,7 +503,7 @@ where
         &self,
     ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>>
     {
-        let stream = self.conn.new_stream(self.signer.clone());
+        let _stream = self.conn.new_stream(self.signer.clone());
 
         unimplemented!()
         // SecureDnsHandle(ClientFuture)... or soemthing

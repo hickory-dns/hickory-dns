@@ -47,14 +47,14 @@ fn test_example_toml_startup() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
         query_a(&mut io_loop, &mut client);
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
         query_a(&mut io_loop, &mut client);
     })
@@ -66,7 +66,7 @@ fn test_ipv4_only_toml_startup() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         // ipv4 should succeed
@@ -74,7 +74,7 @@ fn test_ipv4_only_toml_startup() {
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
 
         // ipv6 should fail
         assert!(io_loop.block_on(client).is_err());
@@ -116,7 +116,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         // ipv4 should succeed
@@ -124,7 +124,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         // ipv6 should succeed
@@ -138,7 +138,7 @@ fn test_nodata_where_name_exists() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         let msg = io_loop
@@ -159,7 +159,7 @@ fn test_nxdomain_where_no_name_exists() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         let msg = io_loop
@@ -180,7 +180,7 @@ fn test_server_continues_on_bad_data_udp() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-        let mut client = ClientFuture::connect(stream);
+        let client = ClientFuture::connect(stream);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         query_a(&mut io_loop, &mut client);
@@ -209,7 +209,7 @@ fn test_server_continues_on_bad_data_tcp() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         query_a(&mut io_loop, &mut client);
@@ -242,7 +242,7 @@ fn test_forward() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let mut client = ClientFuture::new(Box::new(stream), sender, None);
+        let client = ClientFuture::new(Box::new(stream), sender, None);
         let mut client = io_loop.block_on(client).expect("client connect failed");
 
         let response = query_message(

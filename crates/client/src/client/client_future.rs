@@ -13,9 +13,9 @@ use std::time::Duration;
 use futures::{Future, FutureExt, Poll};
 use proto::error::ProtoError;
 use proto::xfer::{
-    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsExchangeSend,
-    DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
-    DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
+    DnsClientStream, DnsExchange, DnsExchangeSend,
+    DnsHandle, DnsMultiplexer, DnsMultiplexerSerialResponse, DnsRequest,
+    DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle,
 };
 use rand;
 

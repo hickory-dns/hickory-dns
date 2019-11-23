@@ -131,16 +131,7 @@ where
         &self,
         msg: OneshotDnsRequest<F>,
     ) -> Result<(), TrySendError<OneshotDnsRequest<F>>> {
-        dbg!(self.sender.unbounded_send(msg))
-    }
-}
-
-impl<F> Drop for DnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    fn drop(&mut self) {
-        dbg!("dropping DnsRequestStreamHandle");
+        self.sender.unbounded_send(msg)
     }
 }
 

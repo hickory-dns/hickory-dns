@@ -8,21 +8,18 @@
 //! Structs for creating and using a AsyncResolver
 use std::fmt;
 use std::net::IpAddr;
-use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
 
 use futures::{
     self,
-    channel::{mpsc, oneshot},
     future,
     lock::Mutex,
-    Future, FutureExt, Poll, TryFutureExt,
+    Future, TryFutureExt,
 };
 use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::TryParseIp;
-use proto::rr::{IntoName, Name, RData, Record, RecordType};
+use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 
 use crate::config::{ResolverConfig, ResolverOpts};
@@ -69,7 +66,6 @@ pub struct AsyncResolver {
     options: ResolverOpts,
     client_cache: ClientCache,
     hosts: Option<Arc<Hosts>>,
-    // request_rx: mpsc::UnboundedReceiver<Request>,
 }
 
 macro_rules! lookup_fn {
@@ -218,7 +214,12 @@ impl AsyncResolver {
         };
 
         let names = self.build_names(name);
-        future::Either::Right(LookupFuture::lookup(names, record_type, options, self.client_cache.clone()))
+        future::Either::Right(LookupFuture::lookup(
+            names,
+            record_type,
+            options,
+            self.client_cache.clone(),
+        ))
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -264,10 +265,6 @@ impl AsyncResolver {
 
             names
         }
-    }
-
-    fn oneshot_canceled(_: oneshot::Canceled) -> ResolveError {
-        ResolveErrorKind::Message("oneshot canceled unexpectedly, this is a bug").into()
     }
 
     pub(crate) fn inner_lookup<L>(
@@ -358,9 +355,6 @@ impl AsyncResolver {
 impl fmt::Debug for AsyncResolver {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("AsyncResolver")
-            // We probably don't want to print out the `fmt::Debug` output
-            // for `mpsc::UnboundedSender`, as it's *quite* wordy but not
-            // terribly useful...
             .field("request_tx", &"...")
             .finish()
     }

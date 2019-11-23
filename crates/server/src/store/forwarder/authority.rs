@@ -15,9 +15,9 @@ use trust_dns_client::op::ResponseCode;
 use trust_dns_client::rr::dnssec::SupportedAlgorithms;
 use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
 use trust_dns_resolver::config::ResolverConfig;
+use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
 use trust_dns_resolver::AsyncResolver;
-use trust_dns_resolver::error::ResolveError;
 
 use crate::authority::{
     Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
@@ -60,7 +60,9 @@ impl ForwardAuthority {
         let options = config.options.unwrap_or_default();
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = AsyncResolver::new(config, options).await.map_err(|e| format!("error constructing new Resolver: {}", e))?;
+        let resolver = AsyncResolver::new(config, options)
+            .await
+            .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         info!("forward resolver configured: {}: ", origin);
 
@@ -112,7 +114,11 @@ impl Authority for ForwardAuthority {
 
         info!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
-        Box::pin(ForwardLookupFuture(self.resolver.lookup(name, rtype, Default::default())))
+        Box::pin(ForwardLookupFuture(self.resolver.lookup(
+            name,
+            rtype,
+            Default::default(),
+        )))
     }
 
     fn search(
@@ -156,9 +162,13 @@ impl LookupObject for ForwardLookup {
     }
 }
 
-pub struct ForwardLookupFuture<F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin + 'static>(F);
+pub struct ForwardLookupFuture<
+    F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin + 'static,
+>(F);
 
-impl<F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin> Future for ForwardLookupFuture<F> {
+impl<F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin> Future
+    for ForwardLookupFuture<F>
+{
     type Output = Result<ForwardLookup, LookupError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
