@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 
 use proto::xfer::SerialMessage;
 use trust_dns_client::serialize::binary::BinEncoder;
-use trust_dns_client::BufStreamHandle;
+use trust_dns_proto::BufStreamHandle;
 
 use crate::authority::MessageResponse;
 

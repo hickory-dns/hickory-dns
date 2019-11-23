@@ -80,4 +80,4 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use crate::xfer::secure_dns_handle::SecureDnsHandle;
 #[doc(hidden)]
-pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle, MessageStreamHandle};
+pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};

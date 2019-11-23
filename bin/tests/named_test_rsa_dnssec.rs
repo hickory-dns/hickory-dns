@@ -23,6 +23,7 @@ use tokio_net::tcp::TcpStream as TokioTcpStream;
 use trust_dns_client::client::*;
 use trust_dns_client::proto::tcp::TcpClientStream;
 use trust_dns_client::proto::xfer::{DnsMultiplexer, DnsMultiplexerSerialResponse};
+use trust_dns_client::proto::SecureDnsHandle;
 use trust_dns_client::rr::dnssec::*;
 
 use server_harness::*;
@@ -99,7 +100,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
         let client = standard_conn(port);
         let client = io_loop.block_on(client);
-        let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
+        let mut client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);
     });

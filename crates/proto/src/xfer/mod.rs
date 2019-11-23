@@ -14,7 +14,6 @@ use futures::channel::oneshot::{self, Receiver, Sender};
 use futures::{ready, Future, Poll, Stream};
 
 use crate::error::*;
-use crate::op::Message;
 
 mod dns_exchange;
 pub mod dns_handle;
@@ -27,7 +26,7 @@ pub mod secure_dns_handle;
 mod serial_message;
 
 pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect, DnsExchangeSend};
-pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+pub use self::dns_handle::{DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_multiplexer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse,
 };
@@ -71,10 +70,6 @@ impl BufStreamHandle {
         self.sender.unbounded_send(msg)
     }
 }
-
-// TODO: change to Sink
-/// A sender to which a Message can be sent
-pub type MessageStreamHandle = UnboundedSender<Message>;
 
 /// A buffering stream bound to a `SocketAddr`
 pub struct BufDnsStreamHandle {

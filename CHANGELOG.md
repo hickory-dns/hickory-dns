@@ -28,6 +28,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - *breaking* (resolver) Background type removed
 - (resolver) removed deprecated AsyncResolver::lookup_service, see AsyncResolver::lookup_srv
 - (client) removed all deprecated reexports from trust_dns_proto
+- (proto) removed unused xfer::BasicDnsHandle, xfer::MessageStreamHandle,
 
 ## 0.17.0 (Client/Server)
 
