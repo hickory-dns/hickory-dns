@@ -27,7 +27,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (client) client::BasicClientHandle, ClientFuture no longer requires Background or the separate Handle, this can generally be replaced with just ClientFuture itself in most use cases.
 - *breaking* (resolver) Background type removed
 - (resolver) removed deprecated AsyncResolver::lookup_service, see AsyncResolver::lookup_srv
-
+- (client) removed all deprecated reexports from trust_dns_proto
 
 ## 0.17.0 (Client/Server)
 

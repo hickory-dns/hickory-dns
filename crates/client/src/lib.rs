@@ -73,7 +73,8 @@
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns_client::client::{Client, ClientConnection, ClientStreamHandle, SyncClient};
+//! use trust_dns_proto::DnsStreamHandle;
+//! use trust_dns_client::client::{Client, ClientConnection, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
@@ -312,15 +313,6 @@ mod https_client_connection;
 pub mod https {
     pub use super::https_client_connection::HttpsClientConnection;
 }
-
-/// A sender to which serialized DNS Messages can be sent
-#[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
-pub use proto::BufStreamHandle;
-
-/// A sender to which a Message can be sent
-// pub type MessageStreamHandle = UnboundedSender<Message>;
-#[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
-pub use proto::BufDnsStreamHandle as BufClientStreamHandle;
 
 /// Returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
