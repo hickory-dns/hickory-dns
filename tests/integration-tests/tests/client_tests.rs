@@ -155,7 +155,6 @@ fn test_secure_query_example_tcp() {
     test_secure_query_example(client);
 }
 
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example<CC>(client: SecureSyncClient<CC>)
 where
@@ -167,7 +166,7 @@ where
     let name = Name::from_str("www.example.com").unwrap();
 
     let response = client
-        .secure_query(&name, DNSClass::IN, RecordType::A)
+        .query(&name, DNSClass::IN, RecordType::A)
         .expect("Query failed");
 
     println!("response records: {:?}", response);
@@ -300,7 +299,6 @@ fn test_nsec_query_example_tcp() {
     test_nsec_query_example::<TcpClientConnection>(client);
 }
 
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_example<CC>(client: SecureSyncClient<CC>)
 where
@@ -309,7 +307,7 @@ where
     let name = Name::from_str("none.example.com").unwrap();
 
     let response = client
-        .secure_query(&name, DNSClass::IN, RecordType::A)
+        .query(&name, DNSClass::IN, RecordType::A)
         .expect("Query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
@@ -317,7 +315,6 @@ where
 
 #[test]
 #[ignore]
-#[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_type() {
     let name = Name::from_str("www.example.com").unwrap();
@@ -327,7 +324,7 @@ fn test_nsec_query_type() {
     let client = SecureSyncClient::new(conn).build();
 
     let response = client
-        .secure_query(&name, DNSClass::IN, RecordType::NS)
+        .query(&name, DNSClass::IN, RecordType::NS)
         .expect("Query failed");
 
     // TODO: it would be nice to verify that the NSEC records were validated...

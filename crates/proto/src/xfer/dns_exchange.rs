@@ -145,7 +145,7 @@ where
             }
 
             if let Some(ref mut exchange) = self.exchange.try_lock() {
-                match ready!(dbg!(exchange.poll_unpin(cx))) {
+                match ready!(exchange.poll_unpin(cx)) {
                     // getting here means the exchange is done... loop one more time
                     Ok(()) => stop = true,
                     Err(e) => return Poll::Ready(Err(e)),

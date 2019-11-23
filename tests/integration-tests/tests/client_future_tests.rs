@@ -39,7 +39,7 @@ use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse};
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerSerialResponse};
 use trust_dns_proto::xfer::{DnsRequestSender, DnsResponse};
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -150,8 +150,7 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let mut client =
-        ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let client = ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     let mut client = io_loop.block_on(client).expect("connect failed");
 
     // TODO: timeouts on these requests so that the test doesn't hang

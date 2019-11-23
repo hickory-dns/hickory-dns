@@ -17,16 +17,12 @@ use std::io::Read;
 use std::net::*;
 use std::path::Path;
 
-use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use tokio_net::tcp::TcpStream as TokioTcpStream;
 
 use trust_dns_client::client::*;
-use trust_dns_client::proto::error::ProtoError;
-use trust_dns_client::proto::tcp::{TcpClientConnect, TcpClientStream};
-use trust_dns_client::proto::xfer::{
-    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
-};
+use trust_dns_client::proto::tcp::TcpClientStream;
+use trust_dns_client::proto::xfer::{DnsMultiplexer, DnsMultiplexerSerialResponse};
 use trust_dns_client::rr::dnssec::*;
 
 use server_harness::*;
@@ -93,7 +89,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 
         // verify all records are present
         let client = standard_conn(port);
-        let mut client = io_loop.block_on(client);
+        let client = io_loop.block_on(client);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
         let client = standard_conn(port);
         let client = io_loop.block_on(client);
@@ -102,7 +98,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
         let client = standard_conn(port);
-        let mut client = io_loop.block_on(client);
+        let client = io_loop.block_on(client);
         let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);

@@ -223,8 +223,7 @@ impl Future for UdpResponse {
     type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self
-            .0
+        self.0
             .as_mut()
             .poll(cx)
             .map_err(ProtoError::from)

@@ -19,9 +19,9 @@ use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
 use proto::error::ProtoError;
-use proto::xfer::{DnsRequestSender, DnsResponse};
-// #[cfg(feature = "dnssec")]
-// use proto::SecureDnsHandle;
+use proto::xfer::{DnsHandle, DnsResponse};
+#[cfg(feature = "dnssec")]
+use proto::SecureDnsHandle;
 
 use crate::client::{ClientConnection, ClientFuture, ClientHandle};
 use crate::error::*;
@@ -44,18 +44,14 @@ use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
 pub trait Client {
-    /// The result future that will resolve into a DnsResponse
-    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
-    /// The actual DNS request sender, aka Connection
-    type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
+    /// The type that will be handling the message construction and validation.
+    type ClientHandle: DnsHandle;
 
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
     #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>>;
+    fn new_future(&self) -> Pin<Box<dyn Future<Output = Result<Self::ClientHandle, ProtoError>>>>;
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
@@ -376,15 +372,12 @@ pub trait Client {
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
-pub struct SyncClient<CC> {
+pub struct SyncClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
 }
 
-impl<CC> SyncClient<CC>
-where
-    CC: ClientConnection,
-{
+impl<CC: ClientConnection> SyncClient<CC> {
     /// Creates a new DNS client with the specified connection type
     ///
     /// # Arguments
@@ -410,18 +403,11 @@ where
     }
 }
 
-impl<CC> Client for SyncClient<CC>
-where
-    CC: ClientConnection,
-{
-    type Response = CC::Response;
-    type Sender = CC::Sender;
+impl<CC: ClientConnection> Client for SyncClient<CC> {
+    type ClientHandle = ClientFuture<CC::Sender, CC::Response>;
 
     #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>>
-    {
+    fn new_future(&self) -> Pin<Box<dyn Future<Output = Result<Self::ClientHandle, ProtoError>>>> {
         let stream = self.conn.new_stream(self.signer.clone());
 
         Box::pin(ClientFuture::connect(stream))
@@ -430,16 +416,13 @@ where
 
 /// A DNS client which will validate DNSSec records upon receipt
 #[cfg(feature = "dnssec")]
-pub struct SecureSyncClient<CC> {
+pub struct SecureSyncClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC> SecureSyncClient<CC>
-where
-    CC: ClientConnection,
-{
+impl<CC: ClientConnection> SecureSyncClient<CC> {
     /// Creates a new DNS client with the specified connection type
     ///
     /// # Arguments
@@ -453,79 +436,30 @@ where
             signer: None,
         }
     }
-
-    /// DNSSec validating query, this will return an error if the requested records can not be
-    ///  validated against the trust_anchor.
-    ///
-    /// *Deprecated* This function only exists for backward compatibility. It's just a wrapper around `Client::query` at this point
-    ///
-    /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
-    ///  make sure that the answer is correct. Then starts
-    ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
-    ///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
-    ///  records in the 'com' zone. From there see if there is a DS record for the
-    ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
-    ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
-    ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
-    ///
-    /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
-    ///        the caller.
-    ///
-    /// # Arguments
-    ///
-    /// * `query_name` - the label to lookup
-    /// * `query_class` - most likely this should always be DNSClass::IN
-    /// * `query_type` - record type to lookup
-    #[deprecated(note = "use `Client::query` instead")]
-    pub fn secure_query(
-        &self,
-        query_name: &Name,
-        query_class: DNSClass,
-        query_type: RecordType,
-    ) -> ClientResult<DnsResponse> {
-        let mut reactor = Runtime::new()?;
-        let client = self.new_future();
-        let mut client = reactor.block_on(client)?;
-        reactor.block_on(client.query(query_name.clone(), query_class, query_type))
-    }
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC> Client for SecureSyncClient<CC>
-where
-    CC: ClientConnection,
-{
-    type Response = CC::Response;
-    type Sender = CC::Sender;
+impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
+    type ClientHandle = SecureDnsHandle<ClientFuture<CC::Sender, CC::Response>>;
 
     #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> Pin<Box<dyn Future<Output = Result<ClientFuture<Self::Sender, Self::Response>, ProtoError>>>>
-    {
-        let _stream = self.conn.new_stream(self.signer.clone());
+    fn new_future(&self) -> Pin<Box<dyn Future<Output = Result<Self::ClientHandle, ProtoError>>>> {
+        use crate::futures::TryFutureExt;
 
-        unimplemented!()
-        // SecureDnsHandle(ClientFuture)... or soemthing
-        // FIXME: add this: ClientFuture::connect(SecureDnsHandle::new(stream))
+        let stream = self.conn.new_stream(self.signer.clone());
+        Box::pin(ClientFuture::connect(stream).map_ok(SecureDnsHandle::new))
     }
 }
 
 #[cfg(feature = "dnssec")]
-pub struct SecureSyncClientBuilder<CC>
-where
-    CC: ClientConnection,
-{
+pub struct SecureSyncClientBuilder<CC: ClientConnection> {
     conn: CC,
     trust_anchor: Option<TrustAnchor>,
     signer: Option<Arc<Signer>>,
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC> SecureSyncClientBuilder<CC>
-where
-    CC: ClientConnection,
-{
+impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
     /// This variant allows for the trust_anchor to be replaced
     ///
     /// # Arguments

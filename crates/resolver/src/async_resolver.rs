@@ -10,12 +10,7 @@ use std::fmt;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use futures::{
-    self,
-    future,
-    lock::Mutex,
-    Future, TryFutureExt,
-};
+use futures::{self, future, lock::Mutex, Future, TryFutureExt};
 use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::TryParseIp;

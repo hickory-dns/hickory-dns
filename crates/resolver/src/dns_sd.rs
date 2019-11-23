@@ -20,9 +20,7 @@ use proto::rr::{Name, RecordType};
 use proto::xfer::DnsRequestOptions;
 
 use crate::error::*;
-use crate::lookup::{
-    ReverseLookup, ReverseLookupIter, TxtLookup,
-};
+use crate::lookup::{ReverseLookup, ReverseLookupIter, TxtLookup};
 use crate::AsyncResolver;
 
 /// An extension for the Resolver to perform DNS Service Discovery
