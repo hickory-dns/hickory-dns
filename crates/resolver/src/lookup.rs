@@ -183,7 +183,7 @@ impl Iterator for LookupIntoIter {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> {
+pub enum LookupEither<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
     Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),

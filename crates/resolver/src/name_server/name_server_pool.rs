@@ -9,7 +9,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::Context;
 
-use futures::lock::Mutex;
 use futures::{future, Future, Poll, TryFutureExt};
 use smallvec::SmallVec;
 
@@ -27,12 +26,12 @@ use crate::name_server::{Connection, ConnectionProvider, NameServer, StandardCon
 /// This is not expected to be used directly, see [`AsyncResolver`].
 #[derive(Clone)]
 pub struct NameServerPool<
-    C: DnsHandle + Send + 'static,
+    C: DnsHandle + Send + Sync + 'static,
     P: ConnectionProvider<Conn = C> + Send + 'static,
 > {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
-    datagram_conns: Arc<Mutex<Vec<NameServer<C, P>>>>, /* All NameServers must be the same type */
-    stream_conns: Arc<Mutex<Vec<NameServer<C, P>>>>,   /* All NameServers must be the same type */
+    datagram_conns: Arc<Vec<NameServer<C, P>>>, /* All NameServers must be the same type */
+    stream_conns: Arc<Vec<NameServer<C, P>>>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -45,7 +44,9 @@ impl NameServerPool<Connection, StandardConnection> {
     }
 }
 
-impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServerPool<C, P> {
+impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
+    NameServerPool<C, P>
+{
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: &ResolverOpts,
@@ -88,8 +89,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServ
             .collect();
 
         NameServerPool {
-            datagram_conns: Arc::new(Mutex::new(datagram_conns)),
-            stream_conns: Arc::new(Mutex::new(stream_conns)),
+            datagram_conns: Arc::new(datagram_conns),
+            stream_conns: Arc::new(stream_conns),
             #[cfg(feature = "mdns")]
             mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone()),
             options: *options,
@@ -106,8 +107,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServ
         conn_provider: P,
     ) -> Self {
         NameServerPool {
-            datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
-            stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
+            datagram_conns: Arc::new(datagram_conns.into_iter().collect()),
+            stream_conns: Arc::new(stream_conns.into_iter().collect()),
             options: *options,
             conn_provider,
         }
@@ -123,8 +124,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServ
         conn_provider: P,
     ) -> Self {
         NameServerPool {
-            datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
-            stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
+            datagram_conns: Arc::new(datagram_conns.into_iter().collect()),
+            stream_conns: Arc::new(stream_conns.into_iter().collect()),
             mdns_conns,
             options: *options,
             conn_provider,
@@ -133,24 +134,15 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServ
 
     async fn try_send(
         opts: ResolverOpts,
-        conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
+        conns: Arc<Vec<NameServer<C, P>>>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ProtoError> {
-        let conns: Vec<NameServer<C, P>> = {
-            // pull a lock on the shared connections, lock releases at the end of this scope
-            let mut conns = conns.lock().await;
+        let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
 
-            // select the highest priority connection
-            //   reorder the connections based on current view...
-            //   this reorders the inner set
-            conns.sort_unstable();
-
-            // TODO: restrict this size to a maximum # of NameServers to try
-            // get a stable view for trying all connections
-            //   we split into chunks of the number of parallel requests to issue
-            conns.clone()
-        };
-
+        // select the highest priority connection
+        //   reorder the connections based on current view...
+        //   this reorders the inner set
+        conns.sort_unstable();
         let request_loop = request.clone();
 
         parallel_conn_loop(conns, request_loop, opts).await
@@ -159,7 +151,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServ
 
 impl<C, P> DnsHandle for NameServerPool<C, P>
 where
-    C: DnsHandle + 'static,
+    C: DnsHandle + Sync + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
 {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
