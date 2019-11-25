@@ -23,10 +23,10 @@ use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::lookup_state::CachingClient;
-use crate::name_server::{ConnectionHandle, NameServerPool, StandardConnection};
+use crate::name_server::{Connection, NameServerPool, StandardConnection};
 use crate::Hosts;
 
-type ClientCache = CachingClient<LookupEither<ConnectionHandle, StandardConnection>>;
+type ClientCache = CachingClient<LookupEither<Connection, StandardConnection>>;
 
 // TODO: Consider renaming to ResolverAsync
 /// A handle for resolving DNS records.
@@ -139,8 +139,7 @@ impl AsyncResolver {
     ) -> Result<Self, ResolveError> {
         debug!("trust-dns resolver running");
 
-        let pool =
-            NameServerPool::<ConnectionHandle, StandardConnection>::from_config(&config, &options);
+        let pool = NameServerPool::<Connection, StandardConnection>::from_config(&config, &options);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {

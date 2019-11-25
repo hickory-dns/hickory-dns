@@ -27,7 +27,7 @@ use crate::error::*;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupEither, LookupIntoIter, LookupIter};
 use crate::lookup_state::CachingClient;
-use crate::name_server::{ConnectionHandle, StandardConnection};
+use crate::name_server::{Connection, StandardConnection};
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -106,7 +106,7 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
+pub struct LookupIpFuture<C = LookupEither<Connection, StandardConnection>>
 where
     C: DnsHandle + 'static,
 {

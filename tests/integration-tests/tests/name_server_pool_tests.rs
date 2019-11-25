@@ -39,10 +39,12 @@ impl Default for MockConnProvider<DefaultOnSend> {
 }
 
 impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
-    type ConnHandle = MockClientHandle<O>;
+    type Conn = MockClientHandle<O>;
+    type FutureConn = future::Ready<Result<MockClientHandle<O>, ProtoError>>;
 
-    fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
-        MockClientHandle::mock_on_send(vec![], self.on_send.clone())
+    fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::FutureConn {
+        println!("MockClient::new_connection");
+        future::ok(MockClientHandle::mock_on_send(vec![], self.on_send.clone()))
     }
 }
 
@@ -381,6 +383,7 @@ async fn wait_for(
     })
     .await;
 
+    println!("done waiting");
     response
 }
 

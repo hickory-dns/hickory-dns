@@ -20,13 +20,16 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use crate::config::{ResolverConfig, ResolverOpts};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-use crate::name_server::{ConnectionHandle, ConnectionProvider, NameServer, StandardConnection};
+use crate::name_server::{Connection, ConnectionProvider, NameServer, StandardConnection};
 
 /// A pool of NameServers
 ///
 /// This is not expected to be used directly, see [`AsyncResolver`].
 #[derive(Clone)]
-pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+pub struct NameServerPool<
+    C: DnsHandle + Send + 'static,
+    P: ConnectionProvider<Conn = C> + Send + 'static,
+> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     datagram_conns: Arc<Mutex<Vec<NameServer<C, P>>>>, /* All NameServers must be the same type */
     stream_conns: Arc<Mutex<Vec<NameServer<C, P>>>>,   /* All NameServers must be the same type */
@@ -36,13 +39,13 @@ pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHand
     conn_provider: P,
 }
 
-impl NameServerPool<ConnectionHandle, StandardConnection> {
+impl NameServerPool<Connection, StandardConnection> {
     pub(crate) fn from_config(config: &ResolverConfig, options: &ResolverOpts) -> Self {
         Self::from_config_with_provider(config, options, StandardConnection)
     }
 }
 
-impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> NameServerPool<C, P> {
+impl<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> NameServerPool<C, P> {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: &ResolverOpts,
@@ -157,7 +160,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
 impl<C, P> DnsHandle for NameServerPool<C, P>
 where
     C: DnsHandle + 'static,
-    P: ConnectionProvider<ConnHandle = C> + 'static,
+    P: ConnectionProvider<Conn = C> + 'static,
 {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
@@ -189,6 +192,7 @@ where
         // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
 
+        debug!("sending request: {:?}", request.queries());
         // First try the UDP connections
         Box::pin(
             Self::try_send(opts, datagram_conns, request)
@@ -198,6 +202,7 @@ where
                         // TCP connections should not truncate
                         future::Either::Left(Self::try_send(opts, stream_conns1, tcp_message1))
                     } else {
+                        debug!("mDNS responsed for query: {:?}", response.response_code());
                         // Return the result from the UDP connection
                         future::Either::Right(future::ok(response))
                     }
@@ -217,7 +222,7 @@ async fn parallel_conn_loop<C, P>(
 ) -> Result<DnsResponse, ProtoError>
 where
     C: DnsHandle + 'static,
-    P: ConnectionProvider<ConnHandle = C> + 'static,
+    P: ConnectionProvider<Conn = C> + 'static,
 {
     let mut err = ProtoError::from("No connections available");
 
@@ -262,7 +267,7 @@ mod mdns {
     pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
     where
         C: DnsHandle + 'static,
-        P: ConnectionProvider<ConnHandle = C> + 'static,
+        P: ConnectionProvider<Conn = C> + 'static,
     {
         if request
             .queries()
@@ -278,7 +283,7 @@ mod mdns {
 
 pub enum Local {
     #[allow(dead_code)]
-    ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>),
+    ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
     NotMdns(DnsRequest),
 }
 
@@ -296,9 +301,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(
-        self,
-    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>> {
+    fn take_future(self) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),

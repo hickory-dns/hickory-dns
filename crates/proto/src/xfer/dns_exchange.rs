@@ -250,8 +250,11 @@ where
     }
 }
 
-/// A wrapper for a future DnsExchange connection
-pub struct DnsExchangeConnect<F, S, R>(DnsExchangeConnectInner<F, S, R>)
+/// A wrapper for a future DnsExchange connection.
+///
+/// DnsExchangeConnect is clonable, making it possible to share this if the connection
+///  will be shared across threads.
+pub struct DnsExchangeConnect<F, S, R>(Arc<Mutex<DnsExchangeConnectInner<F, S, R>>>)
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R> + 'static,
@@ -268,11 +271,22 @@ where
         outbound_messages: UnboundedReceiver<OneshotDnsRequest<R>>,
         sender: DnsRequestStreamHandle<R>,
     ) -> Self {
-        DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
+        DnsExchangeConnect(Arc::new(Mutex::new(DnsExchangeConnectInner::Connecting {
             connect_future,
             outbound_messages: Some(outbound_messages),
             sender: Some(sender),
-        })
+        })))
+    }
+}
+
+impl<F, S, R> Clone for DnsExchangeConnect<F, S, R>
+where
+    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender<DnsResponseFuture = R> + 'static,
+    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+{
+    fn clone(&self) -> Self {
+        DnsExchangeConnect(self.0.clone())
     }
 }
 
@@ -284,21 +298,34 @@ where
 {
     type Output = Result<DnsExchange<S, R>, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        // TODO: This should really be using the lock() primitive. The issue is the future from that captures
+        //  a lifetime associated with this object, which causes general issues when in managing that future.
+        //  We should come back and evaluate how to migrate to `async fn` for this case.
+        match self.0.try_lock() {
+            Some(mut future) => future.poll_unpin(cx),
+            None => {
+                // TODO: this shouldn't be a hot loop, instead when generators land, use that
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            }
+        }
     }
 }
 
 enum DnsExchangeConnectInner<F, S, R>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static,
+    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     Connecting {
         connect_future: F,
         outbound_messages: Option<UnboundedReceiver<OneshotDnsRequest<R>>>,
         sender: Option<DnsRequestStreamHandle<R>>,
+    },
+    Connected {
+        exchange: DnsExchange<S, R>,
     },
     FailAll {
         error: ProtoError,
@@ -328,13 +355,15 @@ where
                         Poll::Ready(Ok(stream)) => {
                             //debug!("connection established: {}", stream);
 
-                            return Poll::Ready(Ok(DnsExchange::from_stream_with_receiver(
+                            let exchange = DnsExchange::from_stream_with_receiver(
                                 stream,
                                 outbound_messages
                                     .take()
                                     .expect("cannot poll after complete"),
                                 sender.take().expect("cannot poll after complete"),
-                            )));
+                            );
+
+                            next = DnsExchangeConnectInner::Connected { exchange };
                         }
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
@@ -347,6 +376,9 @@ where
                             }
                         }
                     };
+                }
+                DnsExchangeConnectInner::Connected { ref exchange } => {
+                    return Poll::Ready(Ok(exchange.clone()));
                 }
                 DnsExchangeConnectInner::FailAll {
                     ref error,
