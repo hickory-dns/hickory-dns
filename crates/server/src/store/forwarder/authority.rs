@@ -33,19 +33,18 @@ pub struct ForwardAuthority {
 }
 
 impl ForwardAuthority {
-    /// FIXME: drop this?
+    /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub async fn new() -> Self {
-        // FIXME: error here
+    pub async fn new() -> Result<Self, String> {
         let resolver = AsyncResolver::from_system_conf()
             .await
-            .expect("failed to read system config");
+            .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
-        ForwardAuthority {
+        Ok(ForwardAuthority {
             origin: Name::root().into(),
             resolver,
-        }
+        })
     }
 
     /// Read the Authority for the origin from the specified configuration

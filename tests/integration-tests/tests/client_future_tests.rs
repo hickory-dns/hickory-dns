@@ -57,12 +57,9 @@ fn test_query_nonet() {
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
-    dbg!("connecting");
     let mut client = io_loop.block_on(client).expect("connect failed");
 
-    dbg!("querying 1");
     io_loop.block_on(test_query(&mut client));
-    dbg!("querying 1");
     io_loop.block_on(test_query(&mut client));
 }
 

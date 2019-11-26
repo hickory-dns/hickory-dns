@@ -144,13 +144,14 @@ where
                 return Poll::Ready(Err("No data received".into()));
             }
 
-            if let Some(ref mut exchange) = self.exchange.try_lock() {
-                match ready!(exchange.poll_unpin(cx)) {
-                    // getting here means the exchange is done... loop one more time
-                    Ok(()) => stop = true,
-                    Err(e) => return Poll::Ready(Err(e)),
-                }
-            } // continue until can get lock
+            let mut exchange = ready!(self.exchange.lock().poll_unpin(cx));
+
+            match ready!(exchange.poll_unpin(cx)) {
+                // getting here means the exchange is done... loop one more time
+                Ok(()) => stop = true,
+                Err(e) => return Poll::Ready(Err(e)),
+            }
+            // continue until we've gotten the response
         }
     }
 }
@@ -302,14 +303,8 @@ where
         // TODO: This should really be using the lock() primitive. The issue is the future from that captures
         //  a lifetime associated with this object, which causes general issues when in managing that future.
         //  We should come back and evaluate how to migrate to `async fn` for this case.
-        match self.0.try_lock() {
-            Some(mut future) => future.poll_unpin(cx),
-            None => {
-                // TODO: this shouldn't be a hot loop, instead when generators land, use that
-                cx.waker().wake_by_ref();
-                Poll::Pending
-            }
-        }
+        let mut future = ready!(self.0.lock().poll_unpin(cx));
+        future.poll_unpin(cx)
     }
 }
 

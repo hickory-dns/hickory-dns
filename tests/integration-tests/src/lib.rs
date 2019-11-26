@@ -93,7 +93,6 @@ impl TestResponseHandler {
                 .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()
             {
-                dbg!("returning bytes");
                 let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
                 Poll::Ready(bytes)
             } else {
@@ -153,7 +152,6 @@ impl Stream for TestClientStream {
                     src: src_addr,
                 };
 
-                dbg!("catalog handling request");
                 let response_handler = TestResponseHandler::new();
                 block_on(
                     self.catalog
@@ -162,18 +160,11 @@ impl Stream for TestClientStream {
                         .handle_request(request, response_handler.clone()),
                 );
 
-                dbg!("catalog handled request");
-
                 let buf = block_on(response_handler.into_inner());
-                dbg!(buf.len());
-                dbg!("SOME");
                 Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
-            Poll::Ready(None) => {
-                dbg!("DONE");
-                Poll::Ready(None)
-            }
+            Poll::Ready(None) => Poll::Ready(None),
             // TODO: should we also return None if there are no more messages to send?
             Poll::Pending => {
                 //dbg!("PENDING");

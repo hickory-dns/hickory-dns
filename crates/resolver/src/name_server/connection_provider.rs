@@ -54,7 +54,6 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
 pub struct StandardConnection;
 
 impl ConnectionProvider for StandardConnection {
-    // TODO: change this to a pin::box?
     type Conn = Connection;
     type FutureConn = StandardConnectionFuture;
 

@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::task::Context;
 
 use futures::lock::Mutex;
-use futures::{future::Fuse, Future, FutureExt, Poll};
+use futures::{future::Fuse, ready, Future, FutureExt, Poll};
 
 #[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>
@@ -43,28 +43,23 @@ where
         // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
-        if let Some(mut future_and_result) = self.future_and_result.try_lock() {
-            let (ref mut future, ref mut stored_result) = *future_and_result;
+        let mut future_and_result = ready!(self.future_and_result.lock().poll_unpin(cx));
+        let (ref mut future, ref mut stored_result) = *future_and_result;
 
-            // if pending it's either done, or it's actually pending
-            match future.poll_unpin(cx) {
-                Poll::Pending => (),
-                Poll::Ready(result) => {
-                    *stored_result = Some(result.clone());
-                    return Poll::Ready(result);
-                }
-            };
-
-            // check if someone else stored the result
-            if let Some(result) = stored_result.as_ref() {
-                Poll::Ready(result.clone())
-            } else {
-                // the poll on the future should wake this thread
-                Poll::Pending
+        // if pending it's either done, or it's actually pending
+        match future.poll_unpin(cx) {
+            Poll::Pending => (),
+            Poll::Ready(result) => {
+                *stored_result = Some(result.clone());
+                return Poll::Ready(result);
             }
+        };
+
+        // check if someone else stored the result
+        if let Some(result) = stored_result.as_ref() {
+            Poll::Ready(result.clone())
         } else {
-            // TODO: track wakers in a queue instead...
-            cx.waker().wake_by_ref();
+            // the poll on the future should wake this thread
             Poll::Pending
         }
     }
