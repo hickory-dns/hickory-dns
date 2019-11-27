@@ -34,8 +34,8 @@ extern crate log;
 #[cfg(feature = "dns-over-rustls")]
 extern crate rustls;
 extern crate tokio;
-extern crate tokio_executor;
-extern crate tokio_net;
+extern crate tokio;
+extern crate tokio;
 extern crate trust_dns_client;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
@@ -49,10 +49,10 @@ use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
 use futures::{future, Future};
+use tokio::net::tcp::TcpListener;
+use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 use tokio::runtime::TaskExecutor;
-use tokio_net::tcp::TcpListener;
-use tokio_net::udp::UdpSocket;
 
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::rdata::key::KeyUsage;

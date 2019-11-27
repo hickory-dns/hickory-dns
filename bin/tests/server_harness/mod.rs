@@ -12,7 +12,7 @@ use std::thread;
 use std::time::*;
 
 use futures::Future;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::proto::error::ProtoError;

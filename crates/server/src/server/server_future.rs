@@ -9,16 +9,14 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{future, Future, FutureExt, Poll, StreamExt};
+use futures::{future, Future, FutureExt, StreamExt};
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
-use tokio_executor;
-use tokio_net::driver::Handle;
-use tokio_net::{tcp, udp};
+use tokio::net;
 
 use proto::op::Edns;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
@@ -48,7 +46,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&self, socket: udp::UdpSocket) {
+    pub fn register_socket(&self, socket: net::UdpSocket) {
         debug!("registered udp: {:?}", socket);
 
         // create the new UdpStream
@@ -57,7 +55,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
-        tokio_executor::spawn(
+        tokio::spawn(
             buf_stream
                 .map(|r: Result<_, _>| match r {
                     Ok(t) => t,
@@ -74,9 +72,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket_std(&self, socket: std::net::UdpSocket) {
-        self.register_socket(
-            udp::UdpSocket::from_std(socket, &Handle::default()).expect("bad handle?"),
-        )
+        self.register_socket(net::UdpSocket::from_std(socket).expect("bad handle?"))
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -93,52 +89,60 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     pub fn register_listener(
         &self,
-        listener: tcp::TcpListener,
+        listener: net::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
         // for each incoming request...
-        tokio_executor::spawn(listener.incoming().for_each(move |tcp_stream| {
-            let tcp_stream = match tcp_stream {
-                Ok(t) => t,
-                Err(e) => {
-                    debug!("error receiving TCP request_stream error: {}", e);
+        tokio::spawn(async move {
+            let mut listener = listener;
+            listener
+                .incoming()
+                .for_each(move |tcp_stream| {
+                    let tcp_stream = match tcp_stream {
+                        Ok(t) => t,
+                        Err(e) => {
+                            debug!("error receiving TCP request_stream error: {}", e);
 
-                    return future::ready(());
-                }
-            };
+                            return future::ready(());
+                        }
+                    };
 
-            let src_addr = tcp_stream.peer_addr().unwrap();
-            debug!("accepted request from: {}", src_addr);
-            // take the created stream...
-            let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
-            let timeout_stream = TimeoutStream::new(buf_stream, timeout);
-            //let request_stream = RequestStream::new(timeout_stream, stream_handle);
-            let handler = handler.clone();
+                    let src_addr = tcp_stream.peer_addr().unwrap();
+                    debug!("accepted request from: {}", src_addr);
+                    // take the created stream...
+                    let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
+                    let timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                    //let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                    let handler = handler.clone();
 
-            // and spawn to the io_loop
-            tokio_executor::spawn(timeout_stream.for_each(move |message| {
-                message
-                    .map(|message| {
-                        Box::pin(self::handle_raw_request(
-                            message,
-                            handler.clone(),
-                            stream_handle.clone(),
-                        )) as Pin<Box<dyn Future<Output = ()> + Send>>
-                    })
-                    .unwrap_or_else(|e| {
-                        debug!(
-                            "error in TCP request_stream src: {:?} error: {}",
-                            src_addr, e
-                        );
-                        Box::pin(future::ready(())) as Pin<Box<dyn Future<Output = ()> + Send>>
-                    })
-            }));
+                    // and spawn to the io_loop
+                    tokio::spawn(timeout_stream.for_each(move |message| {
+                        message
+                            .map(|message| {
+                                Box::pin(self::handle_raw_request(
+                                    message,
+                                    handler.clone(),
+                                    stream_handle.clone(),
+                                ))
+                                    as Pin<Box<dyn Future<Output = ()> + Send>>
+                            })
+                            .unwrap_or_else(|e| {
+                                debug!(
+                                    "error in TCP request_stream src: {:?} error: {}",
+                                    src_addr, e
+                                );
+                                Box::pin(future::ready(()))
+                                    as Pin<Box<dyn Future<Output = ()> + Send>>
+                            })
+                    }));
 
-            future::ready(())
-        }));
+                    future::ready(())
+                })
+                .await
+        });
 
         Ok(())
     }
@@ -160,10 +164,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: std::net::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
-        self.register_listener(
-            tcp::TcpListener::from_std(listener, &Handle::default())?,
-            timeout,
-        )
+        self.register_listener(net::TcpListener::from_std(listener)?, timeout)
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -196,7 +197,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        tokio_executor::spawn(
+        tokio::executor::spawn(
             listener
                 .incoming()
                 .try_for_each(move |tcp_stream| {
@@ -223,7 +224,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                                 let handler = handler.clone();
 
                                 // and spawn to the io_loop
-                                tokio_executor::spawn(
+                                tokio::executor::spawn(
                                     timeout_stream
                                         .map_err(move |e| {
                                             debug!(
@@ -325,7 +326,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        tokio_executor::spawn(
+        tokio::executor::spawn(
             listener
                 .incoming()
                 // TODO: use for_each_concurrent
@@ -345,7 +346,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             let handler = handler.clone();
 
                             // and spawn to the io_loop
-                            tokio_executor::spawn(
+                            tokio::executor::spawn(
                                 timeout_stream
                                     .try_for_each(move |message| {
                                         self::handle_raw_request(
@@ -443,7 +444,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        tokio_executor::spawn({
+        tokio::executor::spawn({
             let dns_hostname = dns_hostname;
 
             listener

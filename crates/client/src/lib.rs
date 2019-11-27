@@ -218,13 +218,12 @@
 //!
 //! ```rust
 //! # extern crate tokio;
-//! # extern crate tokio_net;
 //! # extern crate trust_dns_client;
 //!
 //! use std::net::{Ipv4Addr, SocketAddr};
 //! use std::str::FromStr;
-//! use tokio_net::udp::UdpSocket;
-//! use tokio::runtime::current_thread::Runtime;
+//! use tokio::net::UdpSocket;
+//! use tokio::runtime::Runtime;
 //!
 //! use trust_dns_client::udp::UdpClientStream;
 //! use trust_dns_client::client::{Client, ClientFuture, ClientHandle};
@@ -283,7 +282,6 @@ extern crate rustls;
 #[cfg(feature = "serde-config")]
 extern crate serde;
 extern crate tokio;
-extern crate tokio_net;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
 #[cfg(feature = "tokio-tls")]

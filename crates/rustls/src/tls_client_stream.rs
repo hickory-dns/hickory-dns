@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio::net::TcpStream as TokioTcpStream;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::TcpClientStream;

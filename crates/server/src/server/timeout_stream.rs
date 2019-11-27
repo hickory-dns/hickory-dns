@@ -1,11 +1,11 @@
 use std::io;
 use std::mem;
 use std::pin::Pin;
-use std::task::Context;
-use std::time::{Duration, Instant};
+use std::task::{Context, Poll};
+use std::time::Duration;
 
-use futures::{FutureExt, Poll, Stream, StreamExt};
-use tokio_timer::Delay;
+use futures::{FutureExt, Stream, StreamExt};
+use tokio::time::Delay;
 
 /// This wraps the underlying Stream in a timeout.
 ///
@@ -25,19 +25,16 @@ impl<S> TimeoutStream<S> {
     /// * `timeout_duration` - timeout between each request, once exceed the connection is killed
     /// * `reactor_handle` - reactor used for registering new timeouts
     pub fn new(stream: S, timeout_duration: Duration) -> Self {
-        // store a Timeout for this message before sending
-        let timeout = Self::timeout(timeout_duration);
-
         TimeoutStream {
             stream,
             timeout_duration,
-            timeout,
+            timeout: None,
         }
     }
 
     fn timeout(timeout_duration: Duration) -> Option<Delay> {
         if timeout_duration > Duration::from_millis(0) {
-            Some(tokio_timer::delay(Instant::now() + timeout_duration))
+            Some(tokio::time::delay_for(timeout_duration))
         } else {
             None
         }
@@ -52,6 +49,12 @@ where
 
     // somehow insert a timeout here...
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        // if the timer isn't set, set one now
+        if let None = self.timeout {
+            let timeout = Self::timeout(self.timeout_duration);
+            mem::replace(&mut self.timeout, timeout);
+        }
+
         match self.stream.poll_next_unpin(cx) {
             r @ Poll::Ready(_) => {
                 // reset the timeout to wait for the next request...

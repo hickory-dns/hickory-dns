@@ -14,7 +14,7 @@ use futures::{Future, TryFutureExt};
 #[cfg(feature = "mtls")]
 use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::SslStream as TokioTlsStream;
 
 use trust_dns_proto::error::ProtoError;

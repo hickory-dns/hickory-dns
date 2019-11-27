@@ -30,7 +30,7 @@ use std::io::*;
 use std::net::*;
 
 use native_tls::Certificate;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_native_tls::TlsClientStreamBuilder;

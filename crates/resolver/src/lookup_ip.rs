@@ -12,11 +12,11 @@
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Instant;
 
 use failure::Fail;
-use futures::{future, future::Either, Future, FutureExt, Poll};
+use futures::{future, future::Either, Future, FutureExt};
 
 use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};

@@ -10,19 +10,18 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::channel::mpsc::unbounded;
 use futures::future;
 use futures::lock::Mutex;
 use futures::ready;
 use futures::stream::{Stream, StreamExt};
-use futures::{Future, FutureExt, Poll, TryFutureExt};
+use futures::{Future, FutureExt, TryFutureExt};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
-use tokio_net::driver::Handle;
-use tokio_net::udp::UdpSocket;
+use tokio::net::UdpSocket;
 
 use crate::multicast::MdnsQueryType;
 use crate::udp::UdpStream;
@@ -139,13 +138,10 @@ impl MdnsStream {
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream = {
-            let handle = Handle::default();
-            let handle_clone = handle.clone();
-
             Box::new(
                 next_socket
                     .map(move |socket| match socket {
-                        Ok(Some(socket)) => Ok(Some(UdpSocket::from_std(socket, &handle)?)),
+                        Ok(Some(socket)) => Ok(Some(UdpSocket::from_std(socket)?)),
                         Ok(None) => Ok(None),
                         Err(err) => Err(err),
                     })
@@ -154,8 +150,7 @@ impl MdnsStream {
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
                         let multicast: Option<_> = multicast_socket.map(|multicast_socket| {
                             Arc::new(Mutex::new(
-                                UdpSocket::from_std(multicast_socket, &handle_clone)
-                                    .expect("bad handle?"),
+                                UdpSocket::from_std(multicast_socket).expect("bad handle?"),
                             ))
                         });
 
@@ -429,8 +424,7 @@ pub mod tests {
 
     use super::*;
     use futures::future::Either;
-    use tokio::runtime::current_thread::Runtime;
-    use tokio_timer;
+    use tokio::runtime;
 
     // TODO: is there a better way?
     const BASE_TEST_PORT: u16 = 5379;
@@ -448,7 +442,7 @@ pub mod tests {
         // use env_logger;
         // env_logger::init();
 
-        let mut io_loop = Runtime::new().unwrap();
+        let mut io_loop = runtime::Runtime::new().unwrap();
         let (stream, _) = MdnsStream::new(
             SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT),
             MdnsQueryType::OneShot,
@@ -479,7 +473,7 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
-        use std::time::{Duration, Instant};
+        use std::time::Duration;
 
         let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -491,12 +485,11 @@ pub mod tests {
         let server_handle = std::thread::Builder::new()
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
-                let mut server_loop = Runtime::new().unwrap();
-                let mut timeout = future::lazy(|_| {
-                    tokio_timer::delay(Instant::now() + Duration::from_millis(100))
-                })
-                .flatten()
-                .boxed();
+                let mut server_loop = runtime::Runtime::new().unwrap();
+                let mut timeout =
+                    future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
+                        .flatten()
+                        .boxed();
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
@@ -546,7 +539,7 @@ pub mod tests {
                         Either::Right(((), buffer_and_addr_stream_tmp)) => {
                             server_stream = buffer_and_addr_stream_tmp;
                             timeout = future::lazy(|_| {
-                                tokio_timer::delay(Instant::now() + Duration::from_millis(100))
+                                tokio::time::delay_for(Duration::from_millis(100))
                             })
                             .flatten()
                             .boxed();
@@ -554,24 +547,21 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    server_loop.block_on(tokio_timer::delay(
-                        Instant::now() + Duration::from_millis(100),
-                    ));
+                    server_loop.block_on(tokio::time::delay_for(Duration::from_millis(100)));
                 }
             })
             .unwrap();
 
         // setup the client, which is going to run on the testing thread...
-        let mut io_loop = Runtime::new().unwrap();
+        let mut io_loop = runtime::Runtime::new().unwrap();
 
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
         let (stream, sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout =
-            future::lazy(|_| tokio_timer::delay(Instant::now() + Duration::from_millis(100)))
-                .flatten()
-                .boxed();
+        let mut timeout = future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
+            .flatten()
+            .boxed();
         let mut successes = 0;
 
         for _ in 0..send_recv_times {
@@ -600,11 +590,9 @@ pub mod tests {
                 }
                 Either::Right(((), buffer_and_addr_stream_tmp)) => {
                     stream = buffer_and_addr_stream_tmp;
-                    timeout = future::lazy(|_| {
-                        tokio_timer::delay(Instant::now() + Duration::from_millis(100))
-                    })
-                    .flatten()
-                    .boxed();
+                    timeout = future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
+                        .flatten()
+                        .boxed();
                 }
             }
         }
@@ -637,7 +625,7 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
-        use std::time::{Duration, Instant};
+        use std::time::Duration;
 
         let server_got_packet = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -649,12 +637,11 @@ pub mod tests {
         let _server_handle = std::thread::Builder::new()
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
-                let mut io_loop = Runtime::new().unwrap();
-                let mut timeout = future::lazy(|_| {
-                    tokio_timer::delay(Instant::now() + Duration::from_millis(100))
-                })
-                .flatten()
-                .boxed();
+                let mut io_loop = runtime::Runtime::new().unwrap();
+                let mut timeout =
+                    future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
+                        .flatten()
+                        .boxed();
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
@@ -689,7 +676,7 @@ pub mod tests {
                         Either::Right(((), buffer_and_addr_stream_tmp)) => {
                             server_stream = buffer_and_addr_stream_tmp;
                             timeout = future::lazy(|_| {
-                                tokio_timer::delay(Instant::now() + Duration::from_millis(100))
+                                tokio::time::delay_for(Duration::from_millis(100))
                             })
                             .flatten()
                             .boxed();
@@ -697,23 +684,20 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    io_loop.block_on(tokio_timer::delay(
-                        Instant::now() + Duration::from_millis(100),
-                    ));
+                    io_loop.block_on(tokio::time::delay_for(Duration::from_millis(100)));
                 }
             })
             .unwrap();
 
         // setup the client, which is going to run on the testing thread...
-        let mut io_loop = Runtime::new().unwrap();
+        let mut io_loop = runtime::Runtime::new().unwrap();
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
         let (stream, sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout =
-            future::lazy(|_| tokio_timer::delay(Instant::now() + Duration::from_millis(100)))
-                .flatten()
-                .boxed();
+        let mut timeout = future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
+            .flatten()
+            .boxed();
 
         for _ in 0..send_recv_times {
             // test once
@@ -739,11 +723,9 @@ pub mod tests {
                 }
                 Either::Right(((), buffer_and_addr_stream_tmp)) => {
                     stream = buffer_and_addr_stream_tmp;
-                    timeout = future::lazy(|_| {
-                        tokio_timer::delay(Instant::now() + Duration::from_millis(100))
-                    })
-                    .flatten()
-                    .boxed();
+                    timeout = future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
+                        .flatten()
+                        .boxed();
                 }
             }
         }

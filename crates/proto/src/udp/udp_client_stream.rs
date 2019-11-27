@@ -11,11 +11,11 @@ use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures::{Future, Poll, Stream};
-use tokio_timer::timeout::{Elapsed, Timeout};
+use futures::{Future, Stream};
+use tokio::time::Elapsed;
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
@@ -204,9 +204,9 @@ impl UdpResponse {
         message_id: u16,
         timeout: Duration,
     ) -> Self {
-        UdpResponse(Box::pin(Timeout::new(
-            SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
+        UdpResponse(Box::pin(tokio::time::timeout(
             timeout,
+            SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
         )))
     }
 
@@ -215,7 +215,7 @@ impl UdpResponse {
         f: F,
     ) -> Self {
         // TODO: this constructure isn't really necessary
-        UdpResponse(Box::pin(Timeout::new(f, Duration::from_secs(5))))
+        UdpResponse(Box::pin(tokio::time::timeout(Duration::from_secs(5), f)))
     }
 }
 
@@ -349,7 +349,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
-    use tokio_net::udp;
+    use tokio;
 
     use super::*;
     use crate::op::Message;
@@ -370,7 +370,7 @@ mod tests {
         use crate::rr::rdata::NULL;
         use crate::rr::{Name, RData, Record, RecordType};
         use std::str::FromStr;
-        use tokio::runtime::current_thread::Runtime;
+        use tokio::runtime;
 
         // use env_logger;
         // env_logger::try_init().ok();
@@ -448,13 +448,14 @@ mod tests {
             .unwrap();
 
         // setup the client, which is going to run on the testing thread...
-        let mut io_loop = Runtime::new().unwrap();
+        let mut io_loop = runtime::Runtime::new().unwrap();
 
         // the tests should run within 5 seconds... right?
         // TODO: add timeout here, so that test never hangs...
         // let timeout = Timeout::new(Duration::from_secs(5));
         let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
-        let mut stream: UdpClientStream<udp::UdpSocket> = io_loop.block_on(stream).ok().unwrap();
+        let mut stream: UdpClientStream<tokio::net::UdpSocket> =
+            io_loop.block_on(stream).ok().unwrap();
         let mut worked_once = false;
 
         for i in 0..send_recv_times {

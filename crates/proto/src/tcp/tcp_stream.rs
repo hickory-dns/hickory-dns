@@ -11,14 +11,13 @@ use std::io;
 use std::mem;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Fuse, Peekable, Stream, StreamExt};
-use futures::{ready, Future, FutureExt, Poll, TryFutureExt};
-use tokio_timer::Timeout;
+use futures::{ready, Future, FutureExt, TryFutureExt};
 
 use crate::error::*;
 use crate::xfer::{BufStreamHandle, SerialMessage};
@@ -30,7 +29,7 @@ where
     Self: Sized,
 {
     /// TcpSteam
-    type Transport: tokio_io::AsyncRead + tokio_io::AsyncWrite + Send;
+    type Transport: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send;
 
     /// connect to tcp
     async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport>;
@@ -159,7 +158,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Result<TcpStream<S::Transport>, io::Error> {
         let tcp = S::connect(&name_server);
-        Timeout::new(tcp, timeout)
+        tokio::time::timeout(timeout, tcp)
             .map_err(move |_| {
                 debug!("timed out connecting to: {}", name_server);
                 io::Error::new(
@@ -190,7 +189,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     }
 }
 
-impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite> TcpStream<S> {
+impl<S: tokio::io::AsyncRead + tokio::io::AsyncWrite> TcpStream<S> {
     /// Initializes a TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
@@ -227,7 +226,7 @@ impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite> TcpStream<S> {
     }
 }
 
-impl<S: tokio_io::AsyncRead + tokio_io::AsyncWrite + Unpin> Stream for TcpStream<S> {
+impl<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin> Stream for TcpStream<S> {
     type Item = io::Result<SerialMessage>;
 
     #[allow(clippy::cognitive_complexity)]
@@ -450,7 +449,7 @@ mod tests {
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
 
-    use tokio_net::tcp;
+    use tokio;
 
     use super::*;
 
@@ -477,7 +476,7 @@ mod tests {
     #[cfg(test)]
     fn tcp_client_stream_test(server_addr: IpAddr) {
         use std::io::{Read, Write};
-        use tokio::runtime::current_thread::Runtime;
+        use tokio::runtime;
 
         let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         let succeeded_clone = succeeded.clone();
@@ -545,12 +544,12 @@ mod tests {
             .unwrap();
 
         // setup the client, which is going to run on the testing thread...
-        let mut io_loop = Runtime::new().unwrap();
+        let mut io_loop = runtime::Runtime::new().unwrap();
 
         // the tests should run within 5 seconds... right?
         // TODO: add timeout here, so that test never hangs...
         // let timeout = Timeout::new(Duration::from_secs(5));
-        let (stream, sender) = TcpStream::<tcp::TcpStream>::new::<ProtoError>(server_addr);
+        let (stream, sender) = TcpStream::<tokio::net::TcpStream>::new::<ProtoError>(server_addr);
 
         let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 

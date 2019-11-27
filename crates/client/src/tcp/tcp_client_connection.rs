@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use proto::tcp::{TcpClientConnect, TcpClientStream};
 use proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
-use tokio_net::tcp::TcpStream;
+use tokio::net::TcpStream;
 
 use crate::client::ClientConnection;
 use crate::error::*;

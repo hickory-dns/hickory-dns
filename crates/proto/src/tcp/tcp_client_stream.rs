@@ -9,12 +9,12 @@ use std::fmt::{self, Display};
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures::{Future, Poll, Stream, StreamExt, TryFutureExt};
-use tokio_io::{AsyncRead, AsyncWrite};
+use futures::{Future, Stream, StreamExt, TryFutureExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::error::ProtoError;
 use crate::tcp::{Connect, TcpStream};
@@ -125,7 +125,7 @@ impl<S> Future for TcpClientConnect<S> {
 }
 
 #[cfg(feature = "tokio-compat")]
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio::net::TcpStream as TokioTcpStream;
 
 #[cfg(feature = "tokio-compat")]
 #[async_trait]
@@ -166,7 +166,7 @@ const TEST_BYTES_LEN: usize = 8;
 #[cfg(test)]
 fn tcp_client_stream_test(server_addr: IpAddr) {
     use std::io::{Read, Write};
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime;
 
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -234,7 +234,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
         .unwrap();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Runtime::new().unwrap();
+    let mut io_loop = runtime::Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...

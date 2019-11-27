@@ -39,14 +39,8 @@ extern crate ring;
 extern crate serde;
 extern crate smallvec;
 extern crate socket2;
-#[cfg(test)]
-extern crate tokio;
-extern crate tokio_executor;
-extern crate tokio_io;
 #[cfg(feature = "tokio-compat")]
-extern crate tokio_net;
-extern crate tokio_sync;
-extern crate tokio_timer;
+extern crate tokio;
 extern crate url;
 
 macro_rules! try_ready_stream {

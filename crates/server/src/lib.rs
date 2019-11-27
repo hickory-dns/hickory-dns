@@ -55,14 +55,10 @@ extern crate openssl;
 extern crate rustls;
 extern crate time;
 extern crate tokio;
-extern crate tokio_executor;
-extern crate tokio_io;
-extern crate tokio_net;
 #[cfg(feature = "dns-over-openssl")]
 extern crate tokio_openssl;
 #[cfg(feature = "dns-over-rustls")]
 extern crate tokio_rustls;
-extern crate tokio_timer;
 extern crate toml;
 extern crate trust_dns_client;
 #[cfg(feature = "dns-over-https")]

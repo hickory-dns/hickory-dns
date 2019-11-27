@@ -29,7 +29,7 @@ use self::openssl::x509::*;
 use futures::StreamExt;
 use rustls::Certificate;
 use rustls::ClientConfig;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_proto::xfer::SerialMessage;
 

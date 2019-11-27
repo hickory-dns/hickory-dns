@@ -6,7 +6,7 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio;
-extern crate tokio_timer;
+extern crate tokio;
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
@@ -26,7 +26,7 @@ use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::executor::block_on;
 use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
-use tokio_timer::Delay;
+use tokio::time::Delay;
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::error::ClientResult;
@@ -202,7 +202,7 @@ impl NeverReturnsClientStream {
         let message_sender = StreamHandle::new(message_sender);
 
         let stream = Box::pin(future::ok(NeverReturnsClientStream {
-            timeout: tokio_timer::delay(Instant::now() + Duration::from_secs(1)),
+            timeout: tokio::time::delay(Instant::now() + Duration::from_secs(1)),
             outbound_messages: outbound_messages.fuse(),
         }));
 

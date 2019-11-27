@@ -7,10 +7,10 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{Future, FutureExt, Poll};
+use futures::{Future, FutureExt};
 use proto::error::ProtoError;
 use proto::xfer::{
     BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,

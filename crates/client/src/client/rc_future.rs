@@ -7,10 +7,10 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::lock::Mutex;
-use futures::{future::Fuse, Future, FutureExt, Poll};
+use futures::{future::Fuse, Future, FutureExt};
 
 #[allow(clippy::type_complexity)]
 pub struct RcFuture<F: Future>

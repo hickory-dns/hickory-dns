@@ -7,10 +7,10 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::lock::Mutex;
-use futures::{future, Future, Poll, TryFutureExt};
+use futures::{future, Future, TryFutureExt};
 use smallvec::SmallVec;
 
 use proto::error::ProtoError;
@@ -336,7 +336,7 @@ mod tests {
 
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime::Runtime;
 
     use proto::op::Query;
     use proto::rr::{Name, RecordType};

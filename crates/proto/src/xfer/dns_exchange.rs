@@ -8,11 +8,11 @@
 //! This module contains all the types for demuxing DNS oriented streams.
 
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Peekable, Stream, StreamExt};
-use futures::{Future, FutureExt, Poll};
+use futures::{Future, FutureExt};
 
 use crate::error::*;
 use crate::xfer::{

@@ -48,14 +48,13 @@ path = "src/lib.rs"
 bytes = "0.4"
 data-encoding = "2.1.0"
 failure = "0.1"
-futures-preview = "0.3.0-alpha"
+futures = "0.3.0"
 h2 = { version = "0.2.0-alpha.2", features = ["unstable-stream"] }
 http = "0.1"
 log = "0.4"
 rustls = "0.16"
-tokio-executor = "0.2.0-alpha"
-tokio-rustls = "0.12.0-alpha.8"
-tokio-net = "0.2.0-alpha"
+tokio = { version = "0.2.1", features = ["tcp", "io-util"] }
+tokio-rustls = "0.12.0"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["tokio-compat"], default-features = false }
 trust-dns-rustls = { version = "0.18.0-alpha", path = "../rustls", default-features = false }
@@ -64,5 +63,4 @@ webpki-roots = { version = "0.18" }
 webpki = "0.21"
 
 [dev-dependencies]
-env_logger = "^0.7"
-tokio = "0.2.0-alpha"
+env_logger = "0.7"
