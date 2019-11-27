@@ -22,7 +22,7 @@ use std::{thread, time};
 use futures::StreamExt;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_proto::xfer::SerialMessage;
 

@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use futures::{FutureExt, TryFutureExt};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};

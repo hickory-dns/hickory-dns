@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
-use tokio_net::tcp::TcpStream;
+use tokio::net::TcpStream;
 
 use crate::client::ClientConnection;
 use crate::error::*;

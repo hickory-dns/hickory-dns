@@ -13,17 +13,17 @@ use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::task::{Context, Poll};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::channel::oneshot;
 use futures::stream::{Stream, StreamExt};
-use futures::{ready, Future, FutureExt, Poll};
+use futures::{ready, Future, FutureExt};
 use log::{debug, warn};
 use rand;
 use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
-use tokio_timer::Delay;
+use tokio::{self, time::Delay};
 
 use crate::error::*;
 use crate::op::{Message, MessageFinalizer, OpCode};
@@ -350,7 +350,7 @@ where
         }
 
         // store a Timeout for this message before sending
-        let timeout = tokio_timer::delay(Instant::now() + self.timeout_duration);
+        let timeout = tokio::time::delay_for(self.timeout_duration);
 
         let (complete, receiver) = oneshot::channel();
 

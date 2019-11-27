@@ -5,13 +5,12 @@ extern crate trust_dns_server;
 
 use std::io;
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 #[allow(deprecated)]
 use futures::stream::{iter, Stream, StreamExt, TryStreamExt};
-use futures::Poll;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_server::server::TimeoutStream;
 

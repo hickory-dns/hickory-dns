@@ -43,12 +43,12 @@ name = "trust_dns_openssl"
 path = "src/lib.rs"
 
 [dependencies]
-futures-preview = "0.3.0-alpha"
+futures = "0.3.0"
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio-openssl = "0.4.0-alpha"
-tokio-net = "0.2.0-alpha"
+tokio-openssl = "0.4.0"
+tokio = "0.2.1"
 trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["openssl"] }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = "0.2.0-alpha"
+tokio = "0.2.1"

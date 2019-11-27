@@ -65,24 +65,22 @@ name = "trust_dns_client"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = "^0.4"
+chrono = "0.4"
 data-encoding = "2.1.0"
 failure = "0.1"
-futures-preview = "0.3.0-alpha"
-lazy_static = "^1.0"
-log = "^0.4.8"
-openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
+futures = "0.3.0"
+lazy_static = "1.0"
+log = "0.4.8"
+openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.6"
 rand = "0.7"
 ring = { version = "0.16", optional = true, features = ["std"]}
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-# TODO: make this optional
-tokio = "0.2.0-alpha"
-tokio-net = "0.2.0-alpha"
+tokio = { version = "0.2.1", features = ["rt-core"] }
 trust-dns-https = {version = "0.18.0-alpha", path = "../https", optional = true }
 trust-dns-proto = {version = "0.18.0-alpha", path = "../proto", features = ["dnssec"]}
 webpki = { version = "0.21", optional = true }
 
 [dev-dependencies]
-openssl = { version = "^0.10", features = ["v102", "v110"], optional = false }
+openssl = { version = "0.10", features = ["v102", "v110"], optional = false }

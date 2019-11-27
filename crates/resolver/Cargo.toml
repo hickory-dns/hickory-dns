@@ -61,30 +61,28 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-cfg-if = "0.1"
+cfg-if = "<=0.1.9"
 failure = "0.1"
-futures-preview = "0.3.0-alpha"
-lazy_static = "^1.0"
-log = "^0.4.8"
-lru-cache = "^0.1.2"
+futures = "0.3.0"
+lazy_static = "1.0"
+log = "0.4.8"
+lru-cache = "0.1.2"
 resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
-smallvec = "^1.0"
-tokio = { version = "0.2.0-alpha", optional = true }
-tokio-executor = "0.2.0-alpha"
-tokio-net = "0.2.0-alpha"
+smallvec = "1.0"
+tokio = { version = "0.2.1", features = ["rt-core"], optional = true }
 trust-dns-https = { version = "0.18.0-alpha", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.18.0-alpha", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.18.0-alpha", path = "../openssl", optional = true }
 trust-dns-proto = { version = "0.18.0-alpha", path = "../proto" }
 trust-dns-rustls = { version = "0.18.0-alpha", path = "../rustls", optional = true }
-webpki-roots = { version = "^0.18", optional = true }
+webpki-roots = { version = "0.18", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-ipconfig = { version = "^0.2.0" }
+ipconfig = { version = "0.2.0" }
 
 [dev-dependencies]
-env_logger = "^0.7"
+env_logger = "0.7"
 tokio-io = "0.2.0-alpha"
-tokio = "0.2.0-alpha"
+tokio = "0.2.1"

@@ -7,7 +7,7 @@ extern crate lazy_static;
 extern crate log;
 extern crate openssl;
 extern crate tokio;
-extern crate tokio_timer;
+extern crate tokio;
 extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -21,7 +21,7 @@ use std::time::{Duration, Instant};
 
 use futures::future::Either;
 use futures::{future, StreamExt};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{ClientFuture, ClientHandle};
 use trust_dns_client::multicast::MdnsQueryType;
@@ -54,7 +54,7 @@ fn mdns_responsder(
             let mut io_loop = Runtime::new().unwrap();
 
             // a max time for the test to run
-            let mut timeout = tokio_timer::delay(Instant::now() + Duration::from_millis(100));
+            let mut timeout = tokio::time::delay(Instant::now() + Duration::from_millis(100));
 
             // TODO: ipv6 if is hardcoded, need a different strategy
             let (mdns_stream, mdns_handle) = MdnsStream::new(
@@ -97,7 +97,7 @@ fn mdns_responsder(
                     }
                     Either::Right(((), data_src_stream_tmp)) => {
                         stream = data_src_stream_tmp;
-                        timeout = tokio_timer::delay(Instant::now() + Duration::from_millis(100));
+                        timeout = tokio::time::delay(Instant::now() + Duration::from_millis(100));
                     }
                 }
             }

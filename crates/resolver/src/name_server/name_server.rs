@@ -245,7 +245,7 @@ mod tests {
     use std::time::Duration;
 
     use futures::{future, FutureExt};
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime::Runtime;
 
     use proto::op::{Query, ResponseCode};
     use proto::rr::{Name, RecordType};

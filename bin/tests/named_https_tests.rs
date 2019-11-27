@@ -29,7 +29,7 @@ use std::net::*;
 use std::sync::Arc;
 
 use rustls::{Certificate, ClientConfig, ProtocolVersion, RootCertStore};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
 use trust_dns_https::HttpsClientStreamBuilder;
 

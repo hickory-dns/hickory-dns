@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use bytes::Bytes;
 use h2::server;
 use proto::serialize::binary::BinDecodable;
-use tokio_io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite};
 use trust_dns_https::https_server;
 
 use crate::authority::{MessageRequest, MessageResponse};

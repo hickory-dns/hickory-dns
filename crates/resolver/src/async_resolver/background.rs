@@ -7,10 +7,10 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::lock::Mutex;
-use futures::{channel::mpsc, future, ready, Future, FutureExt, Poll, StreamExt};
+use futures::{channel::mpsc, future, ready, Future, FutureExt, StreamExt};
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
 use proto::{

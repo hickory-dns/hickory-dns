@@ -12,16 +12,16 @@ use std::net::SocketAddr;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use bytes::Bytes;
-use futures::{future, Future, FutureExt, Poll, Stream, TryFutureExt};
+use futures::{future, Future, FutureExt, Stream, TryFutureExt};
 use h2;
 use h2::client::{Connection, SendRequest};
 use http::{self, header};
 use rustls::ClientConfig;
-use tokio_executor;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::{client::TlsStream as TokioTlsClientStream, Connect, TlsConnector};
 use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
@@ -466,7 +466,7 @@ impl Future for HttpsClientConnectState {
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
-                    tokio_executor::spawn(
+                    tokio::spawn(
                         connection
                             .map_err(|e| warn!("h2 connection failed: {}", e))
                             .map(|_: Result<(), ()>| ()),
@@ -513,7 +513,7 @@ mod tests {
     use std::net::{Ipv4Addr, SocketAddr};
     use std::str::FromStr;
 
-    use self::tokio::runtime::current_thread;
+    use tokio::runtime::Runtime;
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     use webpki_roots;
 
@@ -547,7 +547,7 @@ mod tests {
         let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...
-        let mut runtime = current_thread::Runtime::new().expect("could not start runtime");
+        let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));

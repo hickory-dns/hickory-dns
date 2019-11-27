@@ -25,10 +25,7 @@
 
 extern crate futures;
 extern crate rustls;
-#[cfg(test)]
 extern crate tokio;
-extern crate tokio_io;
-extern crate tokio_net;
 extern crate tokio_rustls;
 extern crate trust_dns_proto;
 extern crate webpki;

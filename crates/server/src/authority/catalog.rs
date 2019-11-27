@@ -21,9 +21,9 @@ use std::collections::HashMap;
 use std::io;
 use std::pin::Pin;
 use std::sync::{Arc, RwLock};
-use std::task::Context;
+use std::task::{Context, Poll};
 
-use futures::{ready, Future, FutureExt, Poll, TryFutureExt};
+use futures::{ready, Future, FutureExt, TryFutureExt};
 
 use trust_dns_client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms};

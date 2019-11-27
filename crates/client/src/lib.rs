@@ -209,8 +209,8 @@
 //! ```rust
 //! use std::net::{Ipv4Addr, SocketAddr};
 //! use std::str::FromStr;
-//! use tokio_net::udp::UdpSocket;
-//! use tokio::runtime::current_thread::Runtime;
+//! use tokio::net::UdpSocket;
+//! use tokio::runtime::Runtime;
 //!
 //! use trust_dns_client::udp::UdpClientStream;
 //! use trust_dns_client::client::{Client, ClientFuture, ClientHandle};

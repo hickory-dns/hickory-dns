@@ -15,8 +15,8 @@ use std::sync::Arc;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;
-use tokio_io;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
@@ -35,7 +35,7 @@ pub type TlsStream<S> = TcpStream<S>;
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: tokio_io::AsyncRead + tokio_io::AsyncWrite>(
+pub fn tls_from_stream<S: tokio::io::AsyncRead + tokio::io::AsyncWrite>(
     stream: S,
     peer_addr: SocketAddr,
 ) -> (TlsStream<S>, BufStreamHandle) {

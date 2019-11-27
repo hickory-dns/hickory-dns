@@ -10,13 +10,13 @@ use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::lock::Mutex;
 use futures::stream::{Fuse, Peekable, Stream, StreamExt};
-use futures::{ready, Future, Poll, TryFutureExt};
+use futures::{ready, Future, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
@@ -289,10 +289,10 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 
 #[test]
 fn test_next_random_socket() {
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::{self, runtime};
 
-    let mut io_loop = Runtime::new().unwrap();
-    let (stream, _) = UdpStream::<udp::UdpSocket>::new(SocketAddr::new(
+    let mut io_loop = runtime::Runtime::new().unwrap();
+    let (stream, _) = UdpStream::<tokio::net::UdpSocket>::new(SocketAddr::new(
         IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
         52,
     ));
@@ -314,13 +314,13 @@ fn test_udp_stream_ipv6() {
     udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
 #[cfg(feature = "tokio-compat")]
-use tokio_net::udp;
+use tokio::net;
 
 #[cfg(feature = "tokio-compat")]
 #[async_trait]
-impl UdpSocket for udp::UdpSocket {
+impl UdpSocket for net::UdpSocket {
     async fn bind(addr: &SocketAddr) -> io::Result<Self> {
-        udp::UdpSocket::bind(addr).await
+        net::UdpSocket::bind(addr).await
     }
 
     async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
@@ -334,7 +334,7 @@ impl UdpSocket for udp::UdpSocket {
 
 #[cfg(test)]
 fn udp_stream_test(server_addr: IpAddr) {
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime;
 
     use std::net::ToSocketAddrs;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -388,7 +388,7 @@ fn udp_stream_test(server_addr: IpAddr) {
         .unwrap();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Runtime::new().unwrap();
+    let mut io_loop = runtime::Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
@@ -398,11 +398,11 @@ fn udp_stream_test(server_addr: IpAddr) {
     };
 
     let socket = io_loop
-        .block_on(udp::UdpSocket::bind(
+        .block_on(net::UdpSocket::bind(
             &client_addr.to_socket_addrs().unwrap().next().unwrap(),
         ))
         .expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::<udp::UdpSocket>::with_bound(socket);
+    let (mut stream, sender) = UdpStream::<net::UdpSocket>::with_bound(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {

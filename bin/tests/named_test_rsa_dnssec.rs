@@ -5,7 +5,7 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate tokio;
-extern crate tokio_net;
+extern crate tokio;
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
 
@@ -18,8 +18,8 @@ use std::net::*;
 use std::path::Path;
 
 use futures::Future;
-use tokio::runtime::current_thread::Runtime;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::proto::error::ProtoError;

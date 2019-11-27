@@ -49,7 +49,7 @@ mod tests {
     extern crate env_logger;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::AsyncResolver;

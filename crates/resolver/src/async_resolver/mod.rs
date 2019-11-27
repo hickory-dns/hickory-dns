@@ -10,14 +10,14 @@ use std::fmt;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::{
     self,
     channel::{mpsc, oneshot},
     future,
     lock::Mutex,
-    Future, FutureExt, Poll, TryFutureExt,
+    Future, FutureExt, TryFutureExt,
 };
 use proto::error::ProtoResult;
 use proto::rr::domain::TryParseIp;
@@ -389,7 +389,7 @@ mod tests {
     use std::net::*;
     use std::str::FromStr;
 
-    use self::tokio::runtime::current_thread::Runtime;
+    use self::tokio::runtime::Runtime;
     use proto::xfer::DnsRequest;
 
     use crate::config::{LookupIpStrategy, NameServerConfig};
