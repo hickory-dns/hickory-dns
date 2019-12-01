@@ -6,12 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
+#[cfg(feature = "tokio-compat")]
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+#[cfg(feature = "tokio-compat")]
 use async_trait::async_trait;
 use futures::{Future, Stream, StreamExt, TryFutureExt};
 use tokio::io::{AsyncRead, AsyncWrite};
