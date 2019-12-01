@@ -63,6 +63,7 @@ pub mod serialize;
 pub mod tcp;
 pub mod udp;
 pub mod xfer;
+pub mod tests;
 
 #[doc(hidden)]
 pub use crate::xfer::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
@@ -75,3 +76,19 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 pub use crate::xfer::secure_dns_handle::SecureDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle, MessageStreamHandle};
+
+use futures::Future;
+use tokio::runtime::Runtime;
+
+/// Generic executor.
+pub trait Executor{
+    /// Spawns a future object to run synchronously or asynchronously depending on the specific
+    /// executor.
+    fn spawn<F: Future>(&mut self, future:F)-> F::Output;
+}
+
+impl Executor for Runtime{
+    fn spawn<F: Future>(&mut self,  future:F)-> F::Output{
+        self.block_on(future)
+    }
+}

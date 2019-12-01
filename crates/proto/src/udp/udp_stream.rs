@@ -286,32 +286,6 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
     }
 }
 
-#[test]
-fn test_next_random_socket() {
-    use tokio::{self, runtime};
-
-    let mut io_loop = runtime::Runtime::new().unwrap();
-    let (stream, _) = UdpStream::<tokio::net::UdpSocket>::new(SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        52,
-    ));
-    drop(
-        io_loop
-            .block_on(stream)
-            .expect("failed to get next socket address"),
-    );
-}
-
-#[test]
-fn test_udp_stream_ipv4() {
-    udp_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
-}
-
-#[test]
-#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-fn test_udp_stream_ipv6() {
-    udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
-}
 #[cfg(feature = "tokio-compat")]
 use tokio::net;
 
@@ -332,92 +306,30 @@ impl UdpSocket for net::UdpSocket {
 }
 
 #[cfg(test)]
-fn udp_stream_test(server_addr: IpAddr) {
-    use tokio::runtime;
+mod tests{
+#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
+    use std::net::Ipv6Addr;
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio::{net::UdpSocket as tokioUdpSocket, runtime::Runtime};
+#[test]
+fn test_next_random_socket() {
+    use crate::tests::next_random_socket_test;
+    let io_loop = Runtime::new().expect("failed to create tokio runtime");
+    next_random_socket_test::<tokioUdpSocket, Runtime>(io_loop)
+}
 
-    use std::net::ToSocketAddrs;
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone;
-            for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                    return;
-                }
-            }
+#[test]
+fn test_udp_stream_ipv4() {
+    use crate::tests::udp_stream_test;
+    let io_loop = Runtime::new().expect("failed to create tokio runtime");
+    udp_stream_test::<tokioUdpSocket, Runtime>(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), io_loop);
+}
 
-            panic!("timeout");
-        })
-        .unwrap();
-
-    let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
-    server
-        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should receive something within 5 seconds...
-    server
-        .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-        .unwrap(); // should receive something within 5 seconds...
-    let server_addr = server.local_addr().unwrap();
-
-    let test_bytes: &'static [u8; 8] = b"DEADBEEF";
-    let send_recv_times = 4;
-
-    // an in and out server
-    let server_handle = std::thread::Builder::new()
-        .name("test_udp_stream_ipv4:server".to_string())
-        .spawn(move || {
-            let mut buffer = [0_u8; 512];
-
-            for _ in 0..send_recv_times {
-                // wait for some bytes...
-                let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
-
-                assert_eq!(&buffer[0..len], test_bytes);
-
-                // bounce them right back...
-                assert_eq!(
-                    server.send_to(&buffer[0..len], addr).expect("send failed"),
-                    len
-                );
-            }
-        })
-        .unwrap();
-
-    // setup the client, which is going to run on the testing thread...
-    let mut io_loop = runtime::Runtime::new().unwrap();
-
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    let client_addr = match server_addr {
-        std::net::SocketAddr::V4(_) => "127.0.0.1:0",
-        std::net::SocketAddr::V6(_) => "[::1]:0",
-    };
-
-    let socket = io_loop
-        .block_on(net::UdpSocket::bind(
-            &client_addr.to_socket_addrs().unwrap().next().unwrap(),
-        ))
-        .expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::<net::UdpSocket>::with_bound(socket);
-    //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
-
-    for _ in 0..send_recv_times {
-        // test once
-        sender
-            .unbounded_send(SerialMessage::new(test_bytes.to_vec(), server_addr))
-            .unwrap();
-        let (buffer_and_addr, stream_tmp) = io_loop.block_on(stream.into_future());
-        stream = stream_tmp;
-        let message = buffer_and_addr
-            .expect("no buffer received")
-            .expect("error receiving buffer");
-        assert_eq!(message.bytes(), test_bytes);
-        assert_eq!(message.addr(), server_addr);
-    }
-
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-    server_handle.join().expect("server thread failed");
+#[test]
+#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
+fn test_udp_stream_ipv6() {
+    use crate::tests::udp_stream_test;
+    let io_loop = Runtime::new().expect("failed to create tokio runtime");
+    udp_stream_test::<tokioUdpSocket, Runtime>(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), io_loop);
+}
 }
