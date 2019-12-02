@@ -8,6 +8,7 @@
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::marker::PhantomData;
 
 use futures::lock::Mutex;
 use futures::{future, Future, TryFutureExt};
@@ -36,9 +37,12 @@ pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHand
     conn_provider: P,
 }
 
-impl NameServerPool<ConnectionHandle, StandardConnection> {
+impl<T, U> NameServerPool<ConnectionHandle<T, U>, StandardConnection<T, U>>
+where T: 'static + proto::tcp::Connect +  Send + Sync + Unpin,
+      <T as proto::tcp::Connect>::Transport: Unpin,
+      U: 'static + proto::udp::UdpSocket +  Send + Sync + Unpin{
     pub(crate) fn from_config(config: &ResolverConfig, options: &ResolverOpts) -> Self {
-        Self::from_config_with_provider(config, options, StandardConnection)
+        Self::from_config_with_provider(config, options, StandardConnection{ _tcp_marker: PhantomData, _udp_marker: PhantomData })
     }
 }
 
@@ -337,6 +341,8 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     use tokio::runtime::Runtime;
+    use tokio::net::UdpSocket as TokioUdpSocket;
+    use tokio::net::TcpStream as TokioTcpStream;
 
     use proto::op::Query;
     use proto::rr::{Name, RecordType};
@@ -371,7 +377,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let mut io_loop = Runtime::new().unwrap();
-        let mut pool = NameServerPool::<_, StandardConnection>::from_config(
+        let mut pool = NameServerPool::<_, StandardConnection<TokioTcpStream, TokioUdpSocket>>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
         );

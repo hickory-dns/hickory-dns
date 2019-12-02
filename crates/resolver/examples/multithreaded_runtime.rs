@@ -9,6 +9,9 @@ extern crate tokio;
 extern crate trust_dns_resolver;
 
 use tokio::runtime::Runtime;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::net::UdpSocket as TokioUdpSocket;
+
 use trust_dns_resolver::AsyncResolver;
 
 fn main() {
@@ -21,7 +24,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            AsyncResolver::from_system_conf().expect("Failed to create AsyncResolver")
+            AsyncResolver::<TokioTcpStream, TokioUdpSocket>::from_system_conf().expect("Failed to create AsyncResolver")
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

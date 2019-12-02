@@ -15,6 +15,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use std::vec::IntoIter;
+use std::marker::PhantomData;
 
 use futures::{future, Future, FutureExt};
 
@@ -23,6 +24,8 @@ use proto::op::Query;
 use proto::rr::rdata;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+#[cfg(feature = "tokio-compat")]
+use tokio::net::UdpSocket as TokioUdpSocket;
 #[cfg(feature = "dnssec")]
 use proto::SecureDnsHandle;
 use proto::{DnsHandle, RetryDnsHandle};
@@ -213,8 +216,11 @@ impl<C: DnsHandle + Sync, P: ConnectionProvider<ConnHandle = C>> DnsHandle for L
 
 /// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
+pub struct LookupFuture<T, U, C = LookupEither<ConnectionHandle<T, U>, StandardConnection<T, U>>>
 where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
     C: DnsHandle + 'static,
 {
     client_cache: CachingClient<C>,
@@ -222,9 +228,17 @@ where
     record_type: RecordType,
     options: DnsRequestOptions,
     query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
+    marker_t: PhantomData<T>,
+    marker_u: PhantomData<U>,
 }
 
-impl<C: DnsHandle + 'static> LookupFuture<C> {
+impl<T, U, C> LookupFuture<T, U, C>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+    C: DnsHandle + 'static,
+{
     /// Perform a lookup from a name and type to a set of RDatas
     ///
     /// # Arguments
@@ -256,11 +270,19 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
             record_type,
             options,
             query,
+            marker_t: PhantomData,
+            marker_u: PhantomData,
         }
     }
 }
 
-impl<C: DnsHandle + 'static> Future for LookupFuture<C> {
+impl<T, U, C> Future for LookupFuture<T, U, C>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+    C: DnsHandle + 'static,
+{
     type Output = Result<Lookup, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -308,7 +330,7 @@ impl<C: DnsHandle + 'static> Future for LookupFuture<C> {
 }
 
 /// The result of an SRV lookup
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SrvLookup(Lookup);
 
 impl SrvLookup {
@@ -380,15 +402,29 @@ impl Iterator for SrvLookupIntoIter {
 }
 
 /// A Future while resolves to the Lookup type
-pub struct SrvLookupFuture(LookupFuture);
+pub struct SrvLookupFuture<T, U>(LookupFuture<T, U>)
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin;
 
-impl From<LookupFuture> for SrvLookupFuture {
-    fn from(lookup_future: LookupFuture) -> Self {
+impl<T, U> From<LookupFuture<T, U>> for SrvLookupFuture<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
+    fn from(lookup_future: LookupFuture<T, U>) -> Self {
         SrvLookupFuture(lookup_future)
     }
 }
 
-impl Future for SrvLookupFuture {
+impl<T, U> Future for SrvLookupFuture<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     type Output = Result<SrvLookup, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -474,15 +510,29 @@ macro_rules! lookup_type {
         }
 
         /// A Future while resolves to the Lookup type
-        pub struct $f(LookupFuture);
+        pub struct $f<T, U>(LookupFuture<T, U>)
+        where
+            T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+            <T as proto::tcp::Connect>::Transport: Unpin,
+            U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin;
 
-        impl From<LookupFuture> for $f {
-            fn from(lookup_future: LookupFuture) -> Self {
+        impl<T, U> From<LookupFuture<T, U>> for $f<T, U>
+        where
+            T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+            <T as proto::tcp::Connect>::Transport: Unpin,
+            U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+        {
+            fn from(lookup_future: LookupFuture<T, U>) -> Self {
                 $f(lookup_future)
             }
         }
 
-        impl Future for $f {
+        impl<T, U> Future for $f<T, U>
+        where
+            T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+            <T as proto::tcp::Connect>::Transport: Unpin,
+            U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+        {
             type Output = Result<$l, ResolveError>;
 
             fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -560,6 +610,9 @@ pub mod tests {
     use std::str::FromStr;
     use std::sync::{Arc, Mutex};
 
+    use tokio::net::TcpStream as TokioTcpStream;
+    use tokio::net::UdpSocket as TokioUdpSocket;
+
     use futures::executor::block_on;
     use futures::{future, Future};
 
@@ -610,12 +663,14 @@ pub mod tests {
     #[test]
     fn test_lookup() {
         assert_eq!(
-            block_on(LookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![v4_message()])),
-            ))
+            block_on(
+                LookupFuture::<TokioTcpStream, TokioUdpSocket, MockDnsHandle>::lookup(
+                    vec![Name::root()],
+                    RecordType::A,
+                    DnsRequestOptions::default(),
+                    CachingClient::new(0, mock(vec![v4_message()])),
+                )
+            )
             .unwrap()
             .iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -627,12 +682,14 @@ pub mod tests {
     #[test]
     fn test_lookup_into_iter() {
         assert_eq!(
-            block_on(LookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![v4_message()])),
-            ))
+            block_on(
+                LookupFuture::<TokioTcpStream, TokioUdpSocket, MockDnsHandle>::lookup(
+                    vec![Name::root()],
+                    RecordType::A,
+                    DnsRequestOptions::default(),
+                    CachingClient::new(0, mock(vec![v4_message()])),
+                )
+            )
             .unwrap()
             .into_iter()
             .map(|r| r.to_ip_addr().unwrap())
@@ -643,24 +700,28 @@ pub mod tests {
 
     #[test]
     fn test_error() {
-        assert!(block_on(LookupFuture::lookup(
-            vec![Name::root()],
-            RecordType::A,
-            DnsRequestOptions::default(),
-            CachingClient::new(0, mock(vec![error()])),
-        ))
+        assert!(block_on(
+            LookupFuture::<TokioTcpStream, TokioUdpSocket, MockDnsHandle>::lookup(
+                vec![Name::root()],
+                RecordType::A,
+                DnsRequestOptions::default(),
+                CachingClient::new(0, mock(vec![error()])),
+            )
+        )
         .is_err());
     }
 
     #[test]
     fn test_empty_no_response() {
         assert_eq!(
-            *block_on(LookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![empty()])),
-            ))
+            *block_on(
+                LookupFuture::<TokioTcpStream, TokioUdpSocket, MockDnsHandle>::lookup(
+                    vec![Name::root()],
+                    RecordType::A,
+                    DnsRequestOptions::default(),
+                    CachingClient::new(0, mock(vec![empty()])),
+                )
+            )
             .unwrap_err()
             .kind(),
             ResolveErrorKind::NoRecordsFound {

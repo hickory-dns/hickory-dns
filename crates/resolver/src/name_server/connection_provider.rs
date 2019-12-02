@@ -5,16 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{Future, FutureExt, TryFutureExt};
+use futures::{Future, FutureExt,  TryFutureExt};
 use tokio;
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio::net::UdpSocket as TokioUdpSocket;
 
 use proto;
 #[cfg(feature = "mdns")]
@@ -34,7 +33,7 @@ use crate::config::TlsClientConfig;
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 
 /// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
-pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
+pub trait ConnectionProvider: 'static  + Clone + Send + Sync + Unpin {
     type ConnHandle;
 
     /// The returned handle should
@@ -43,11 +42,21 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
-#[derive(Clone)]
-pub struct StandardConnection;
+//#[derive (Clone)]
+pub struct StandardConnection<T, U>{pub _tcp_marker: PhantomData<T>, pub _udp_marker: PhantomData<U>}
 
-impl ConnectionProvider for StandardConnection {
-    type ConnHandle = ConnectionHandle;
+impl<T, U> Clone for StandardConnection<T, U> {
+    fn clone(&self) -> Self {
+        Self{_tcp_marker:PhantomData, _udp_marker:PhantomData}
+    }
+}
+
+impl<T, U> ConnectionProvider for StandardConnection<T, U>
+where
+    T: 'static + Send + Sync + Unpin,
+    U: 'static + Send + Sync + Unpin,
+{
+    type ConnHandle = ConnectionHandle<T, U>;
 
     /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
     ///   future connection.
@@ -57,10 +66,12 @@ impl ConnectionProvider for StandardConnection {
         options: &ResolverOpts,
     ) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
-            Protocol::Udp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Udp {
-                socket_addr: config.socket_addr,
-                timeout: options.timeout,
-            })),
+            Protocol::Udp => {
+                ConnectionHandleInner::<T, U>::Connect(Some(ConnectionHandleConnect::Udp {
+                    socket_addr: config.socket_addr,
+                    timeout: options.timeout,
+                }))
+            }
             Protocol::Tcp => ConnectionHandleInner::Connect(Some(ConnectionHandleConnect::Tcp {
                 socket_addr: config.socket_addr,
                 timeout: options.timeout,
@@ -95,7 +106,7 @@ impl ConnectionProvider for StandardConnection {
 }
 
 /// The variants of all supported connections for the Resolver
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) enum ConnectionHandleConnect {
     Udp {
         socket_addr: SocketAddr,
@@ -132,7 +143,12 @@ pub(crate) enum ConnectionHandleConnect {
 impl ConnectionHandleConnect {
     /// Establishes the connection, this is allowed to perform network operations,
     ///   such as tokio::spawns of background tasks, etc.
-    fn connect(self) -> Result<ConnectionHandleConnected, proto::error::ProtoError> {
+    fn connect<T, U>(self) -> Result<ConnectionHandleConnected<T, U>, proto::error::ProtoError>
+    where
+        T: 'static + proto::tcp::Connect + Send,
+        <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+        U: 'static + proto::udp::UdpSocket + Send,
+    {
         use self::ConnectionHandleConnect::*;
 
         debug!("connecting: {:?}", self);
@@ -141,7 +157,7 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
             } => {
-                let stream = UdpClientStream::<TokioUdpSocket>::with_timeout(socket_addr, timeout);
+                let stream = UdpClientStream::<U>::with_timeout(socket_addr, timeout);
                 let (stream, handle) = DnsExchange::connect(stream);
 
                 let stream = stream
@@ -159,8 +175,7 @@ impl ConnectionHandleConnect {
                 socket_addr,
                 timeout,
             } => {
-                let (stream, handle) =
-                    TcpClientStream::<TokioTcpStream>::with_timeout(socket_addr, timeout);
+                let (stream, handle) = TcpClientStream::<T>::with_timeout(socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     Box::new(stream),
@@ -211,7 +226,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
@@ -232,7 +247,7 @@ impl ConnectionHandleConnect {
                     })
                     .map(|_| ());
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -259,7 +274,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
         }
@@ -267,21 +282,48 @@ impl ConnectionHandleConnect {
 }
 
 /// A representation of an established connection
-#[derive(Clone)]
-enum ConnectionHandleConnected {
+enum ConnectionHandleConnected<T, U> {
     Udp(xfer::BufDnsRequestStreamHandle<UdpResponse>),
     Tcp(xfer::BufDnsRequestStreamHandle<DnsMultiplexerSerialResponse>),
     #[cfg(feature = "dns-over-https")]
     Https(xfer::BufDnsRequestStreamHandle<HttpsClientResponse>),
+    #[allow(dead_code)]
+    MarkerT(PhantomData<T>),
+    #[allow(dead_code)]
+    MarkerU(PhantomData<U>),
 }
 
-impl DnsHandle for ConnectionHandleConnected {
-    type Response = ConnectionHandleResponseInner;
+impl<T, U> Clone for ConnectionHandleConnected<T, U> {
+    fn clone(&self) -> Self {
+        match self {
+            ConnectionHandleConnected::Udp(ref conn) => {
+                ConnectionHandleConnected::Udp(conn.clone())
+            }
+            ConnectionHandleConnected::Tcp(ref conn) => {
+                ConnectionHandleConnected::Tcp(conn.clone())
+            }
+            #[cfg(feature = "dns-over-https")]
+            ConnectionHandleConnected::Https(ref https) => {
+                ConnectionHandleConnected::Https(https.clone())
+            }
+            ConnectionHandleConnected::MarkerT(_) => ConnectionHandleConnected::MarkerT(PhantomData),
+            ConnectionHandleConnected::MarkerU(_) => ConnectionHandleConnected::MarkerU(PhantomData),
+        }
+    }
+}
+
+impl<T, U> DnsHandle for ConnectionHandleConnected<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Unpin,
+    <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Unpin,
+{
+    type Response = ConnectionHandleResponseInner<T, U>;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         &mut self,
         request: R,
-    ) -> ConnectionHandleResponseInner {
+    ) -> ConnectionHandleResponseInner<T, U> {
         match self {
             ConnectionHandleConnected::Udp(ref mut conn) => {
                 ConnectionHandleResponseInner::Udp(conn.send(request))
@@ -293,31 +335,54 @@ impl DnsHandle for ConnectionHandleConnected {
             ConnectionHandleConnected::Https(ref mut https) => {
                 ConnectionHandleResponseInner::Https(https.send(request))
             }
+            ConnectionHandleConnected::MarkerT(_) => unreachable!(),
+            ConnectionHandleConnected::MarkerU(_) => unreachable!(),
         }
     }
 }
 
 /// Allows us to wrap a connection that is either pending or already connected
-enum ConnectionHandleInner {
+enum ConnectionHandleInner<T, U> {
     //    Connect(Option<ConnectionHandleConnect>),
     Connect(Option<ConnectionHandleConnect>),
-    Connected(ConnectionHandleConnected),
+    Connected(ConnectionHandleConnected<T, U>),
 }
 
-impl ConnectionHandleInner {
+impl<T, U> Clone for ConnectionHandleInner<T, U> {
+    fn clone(&self) -> Self {
+        match self {
+            ConnectionHandleInner::Connect(ref conn) => {
+                match conn {
+                    Some(x) => ConnectionHandleInner::Connect(Some(x.clone())),
+                    None => ConnectionHandleInner::Connect(None)
+                }
+            }
+            ConnectionHandleInner::Connected(ref conned) => {
+                ConnectionHandleInner::Connected(conned.clone())
+            }
+        }
+    }
+}
+
+impl<T, U> ConnectionHandleInner<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Unpin,
+    <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+{
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         &mut self,
         request: R,
-    ) -> ConnectionHandleResponseInner {
+    ) -> ConnectionHandleResponseInner<T, U> {
         loop {
-            let connected: Result<ConnectionHandleConnected, proto::error::ProtoError> = match self
-            {
-                // still need to connect, drop through
-                ConnectionHandleInner::Connect(conn) => {
-                    conn.take().expect("already connected?").connect()
-                }
-                ConnectionHandleInner::Connected(conn) => return conn.send(request),
-            };
+            let connected: Result<ConnectionHandleConnected<T, U>, proto::error::ProtoError> =
+                match self {
+                    // still need to connect, drop through
+                    ConnectionHandleInner::Connect(conn) => {
+                        conn.take().expect("already connected?").connect::<T, U>()
+                    }
+                    ConnectionHandleInner::Connected(conn) => return conn.send(request),
+                };
 
             match connected {
                 Ok(connected) => *self = ConnectionHandleInner::Connected(connected),
@@ -329,13 +394,23 @@ impl ConnectionHandleInner {
 }
 
 /// ConnectionHandle is used for sending DNS requests to a specific upstream DNS resolver
-#[derive(Clone)]
-pub struct ConnectionHandle(Arc<Mutex<ConnectionHandleInner>>);
+pub struct ConnectionHandle<T, U>(Arc<Mutex<ConnectionHandleInner<T, U>>>);
 
-impl DnsHandle for ConnectionHandle {
-    type Response = ConnectionHandleResponse;
+impl<T, U> Clone for ConnectionHandle<T, U> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse {
+impl<T, U> DnsHandle for ConnectionHandle<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Unpin,
+{
+    type Response = ConnectionHandleResponse<T, U>;
+
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> ConnectionHandleResponse<T, U> {
         ConnectionHandleResponse(ConnectionHandleResponseInner::ConnectAndRequest {
             conn: self.clone(),
             request: Some(request.into()),
@@ -345,9 +420,9 @@ impl DnsHandle for ConnectionHandle {
 
 /// A wrapper type to switch over a connection that still needs to be made, or is already established
 #[must_use = "futures do nothing unless polled"]
-enum ConnectionHandleResponseInner {
+enum ConnectionHandleResponseInner<T, U> {
     ConnectAndRequest {
-        conn: ConnectionHandle,
+        conn: ConnectionHandle<T, U>,
         request: Option<DnsRequest>,
     },
     Udp(xfer::OneshotDnsResponseReceiver<UdpResponse>),
@@ -355,9 +430,18 @@ enum ConnectionHandleResponseInner {
     #[cfg(feature = "dns-over-https")]
     Https(xfer::OneshotDnsResponseReceiver<HttpsClientResponse>),
     ProtoError(Option<proto::error::ProtoError>),
+    #[allow(dead_code)]
+    MarkerT(PhantomData<T>),
+    #[allow(dead_code)]
+    MarkerU(PhantomData<U>),
 }
 
-impl Future for ConnectionHandleResponseInner {
+impl<T, U> Future for ConnectionHandleResponseInner<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Unpin,
+    <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Unpin,
+{
     type Output = Result<DnsResponse, proto::error::ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -383,6 +467,7 @@ impl Future for ConnectionHandleResponseInner {
                         .take()
                         .expect("futures cannot be polled once complete")));
                 }
+                _ => unreachable!(),
             };
 
             // ok, connected, loop around and use poll the actual send request
@@ -392,9 +477,14 @@ impl Future for ConnectionHandleResponseInner {
 
 /// A future response from a DNS request.
 #[must_use = "futures do nothing unless polled"]
-pub struct ConnectionHandleResponse(ConnectionHandleResponseInner);
+pub struct ConnectionHandleResponse<T, U>(ConnectionHandleResponseInner<T, U>);
 
-impl Future for ConnectionHandleResponse {
+impl<T, U> Future for ConnectionHandleResponse<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Unpin,
+    <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Unpin,
+{
     type Output = Result<DnsResponse, proto::error::ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {

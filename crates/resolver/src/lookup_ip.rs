@@ -14,6 +14,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
+use std::marker::PhantomData;
 
 use failure::Fail;
 use futures::{future, future::Either, Future, FutureExt};
@@ -107,9 +108,12 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
+pub struct LookupIpFuture<T, U, C = LookupEither<ConnectionHandle<T, U>, StandardConnection<T, U>>>
 where
-    C: DnsHandle + 'static,
+    T: 'static + proto::tcp::Connect +  Send + Unpin,
+    <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+    U: 'static + proto::udp::UdpSocket +  Send + Unpin,
+    C: DnsHandle + 'static + Sync,
 {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
@@ -118,9 +122,16 @@ where
     query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
     hosts: Option<Arc<Hosts>>,
     finally_ip_addr: Option<RData>,
+    marker_t:PhantomData<T>,
+    marker_u:PhantomData<U>,
 }
 
-impl<C: DnsHandle + Sync + 'static> Future for LookupIpFuture<C> {
+impl<T, U, C> Future for LookupIpFuture<T, U, C>
+    where
+        T: 'static  + proto::tcp::Connect +  Send + Unpin,
+        <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+        U: 'static + proto::udp::UdpSocket +  Send + Unpin,
+        C: DnsHandle + Sync + 'static{
     type Output = Result<LookupIp, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -176,10 +187,11 @@ impl<C: DnsHandle + Sync + 'static> Future for LookupIpFuture<C> {
     }
 }
 
-impl<C> LookupIpFuture<C>
-where
-    C: DnsHandle + 'static,
-{
+impl<T, U, C> LookupIpFuture<T, U, C>
+where T: 'static + proto::tcp::Connect +  Send + Unpin,
+      <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+      U: 'static + proto::udp::UdpSocket +  Send + Unpin,
+      C: DnsHandle + 'static + Sync{
     /// Perform a lookup from a hostname to a set of IPs
     ///
     /// # Arguments
@@ -207,6 +219,8 @@ where
             options,
             hosts,
             finally_ip_addr,
+            marker_t:PhantomData,
+            marker_u:PhantomData,
         }
     }
     pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
@@ -219,6 +233,8 @@ where
             query: future::err(ResolveErrorKind::Msg(format!("{}", error)).into()).boxed(),
             hosts: None,
             finally_ip_addr: None,
+            marker_t:PhantomData,
+            marker_u:PhantomData,
         }
     }
 
@@ -231,6 +247,8 @@ where
             query: future::ok(lp).boxed(),
             hosts: None,
             finally_ip_addr: None,
+            marker_t:PhantomData,
+            marker_u:PhantomData,
         }
     }
 }

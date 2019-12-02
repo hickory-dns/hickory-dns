@@ -39,17 +39,23 @@ use super::Request;
 /// requests, handle them, and then yield again, as long as there are still any
 /// [`AsyncResolver`] handles linked to that background task. When all of its
 /// [`AsyncResolver`]s have been dropped, the background future will finish.
-pub(super) fn task(
+pub(super) fn task<T, U>(
     config: ResolverConfig,
     options: ResolverOpts,
     lru: Arc<Mutex<DnsLru>>,
-    request_rx: mpsc::UnboundedReceiver<Request>,
-) -> impl Future<Output = ()> + Send {
+    request_rx: mpsc::UnboundedReceiver<Request<T, U>>,
+) -> impl Future<Output = ()> + Send
+where
+    T: 'static  + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static  + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     future::lazy(move |_| {
         debug!("trust-dns resolver running");
 
-        let pool =
-            NameServerPool::<ConnectionHandle, StandardConnection>::from_config(&config, &options);
+        let pool = NameServerPool::<ConnectionHandle<T, U>, StandardConnection<T, U>>::from_config(
+            &config, &options,
+        );
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
@@ -86,29 +92,44 @@ pub(super) fn task(
     .flatten()
 }
 
-type ClientCache = CachingClient<LookupEither<ConnectionHandle, StandardConnection>>;
+type ClientCache<T, U> =
+    CachingClient<LookupEither<ConnectionHandle<T, U>, StandardConnection<T, U>>>;
 
 /// Background task that resolves DNS queries.
-struct Task {
+struct Task<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: std::marker::Unpin,
+    U: 'static  + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: ClientCache,
+    client_cache: ClientCache<T, U>,
     hosts: Option<Arc<Hosts>>,
-    request_rx: mpsc::UnboundedReceiver<Request>,
+    request_rx: mpsc::UnboundedReceiver<Request<T, U>>,
 }
 
-impl Task {
+impl<T, U> Task<T, U>
+where
+    T: 'static  + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static  + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     fn lookup(
         &self,
         name: Name,
         record_type: RecordType,
         options: DnsRequestOptions,
-    ) -> LookupFuture {
+    ) -> LookupFuture<T, U> {
         let names = self.build_names(name);
         LookupFuture::lookup(names, record_type, options, self.client_cache.clone())
     }
 
-    fn lookup_ip(&self, maybe_name: ProtoResult<Name>, maybe_ip: Option<RData>) -> LookupIpFuture {
+    fn lookup_ip(
+        &self,
+        maybe_name: ProtoResult<Name>,
+        maybe_ip: Option<RData>,
+    ) -> LookupIpFuture<T, U> {
         let mut finally_ip_addr: Option<Record> = None;
 
         // if host is a ip address, return directly.
@@ -201,7 +222,12 @@ impl Task {
     }
 }
 
-impl Future for Task {
+impl<T, U> Future for Task<T, U>
+where
+    T: 'static  + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static  + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {

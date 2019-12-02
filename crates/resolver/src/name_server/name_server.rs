@@ -7,6 +7,7 @@
 
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
+use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
@@ -43,9 +44,18 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C
     }
 }
 
-impl NameServer<ConnectionHandle, StandardConnection> {
+impl<T, U> NameServer<ConnectionHandle<T, U>, StandardConnection<T, U>>
+where
+    T: 'static  + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     pub fn new(config: NameServerConfig, options: ResolverOpts) -> Self {
-        Self::new_with_provider(config, options, StandardConnection)
+        Self::new_with_provider(
+            config,
+            options,
+            StandardConnection{ _tcp_marker: PhantomData, _udp_marker: PhantomData },
+        )
     }
 }
 
@@ -246,6 +256,8 @@ mod tests {
 
     use futures::{future, FutureExt};
     use tokio::runtime::Runtime;
+    use tokio::net::UdpSocket as TokioUdpSocket;
+    use tokio::net::TcpStream as TokioTcpStream;
 
     use proto::op::{Query, ResponseCode};
     use proto::rr::{Name, RecordType};
@@ -267,7 +279,7 @@ mod tests {
         };
         let mut io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|_| {
-            NameServer::<_, StandardConnection>::new(config, ResolverOpts::default())
+            NameServer::<_, StandardConnection<TokioTcpStream, TokioUdpSocket>>::new(config, ResolverOpts::default())
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -295,7 +307,7 @@ mod tests {
         };
         let mut io_loop = Runtime::new().unwrap();
         let name_server =
-            future::lazy(|_| NameServer::<_, StandardConnection>::new(config, options));
+            future::lazy(|_| NameServer::<_, StandardConnection<TokioTcpStream, TokioUdpSocket>>::new(config, options));
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop

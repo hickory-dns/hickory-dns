@@ -9,6 +9,9 @@ extern crate trust_dns_resolver;
 use std::io;
 use std::net::SocketAddr;
 
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::net::UdpSocket as TokioUdpSocket;
+
 use futures::{Future, FutureExt};
 use trust_dns_resolver::{AsyncResolver, IntoName, TryParseIp};
 
@@ -22,12 +25,12 @@ use trust_dns_resolver::{AsyncResolver, IntoName, TryParseIp};
 //      `AsyncResolver`.
 lazy_static! {
     // First we need to setup the global Resolver
-    static ref GLOBAL_DNS_RESOLVER: AsyncResolver = {
+    static ref GLOBAL_DNS_RESOLVER: AsyncResolver<TokioTcpStream, TokioUdpSocket> = {
         use std::sync::{Arc, Mutex, Condvar};
         use std::thread;
 
         // We'll be using this condvar to get the Resolver from the thread...
-        let pair = Arc::new((Mutex::new(None::<AsyncResolver>), Condvar::new()));
+        let pair = Arc::new((Mutex::new(None::<AsyncResolver<TokioTcpStream, TokioUdpSocket>>), Condvar::new()));
         let pair2 = pair.clone();
 
 
@@ -126,7 +129,8 @@ fn main() {
         .iter()
         .map(|name| {
             let join = thread::spawn(move || {
-                let mut runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
+                let mut runtime = tokio::runtime::Runtime::new()
+                    .expect("failed to launch Runtime");
                 runtime.block_on(resolve(*name, 443))
             });
 

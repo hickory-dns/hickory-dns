@@ -60,8 +60,13 @@ mod background;
 /// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
 /// background future will finish.
 #[derive(Clone)]
-pub struct AsyncResolver {
-    request_tx: mpsc::UnboundedSender<Request>,
+pub struct AsyncResolver<T, U>
+where
+    T: 'static +  proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
+    request_tx: mpsc::UnboundedSender<Request<T, U>>,
 }
 
 /// A future that represents sending a request to a background task,
@@ -77,10 +82,10 @@ where
 }
 
 /// Future returned by `LookupIp` requests to the background task.
-pub type BackgroundLookupIp = Background<LookupIpFuture>;
+pub type BackgroundLookupIp<T, U> = Background<LookupIpFuture<T, U>>;
 
 /// Future returned by lookup requests to the background task.
-pub type BackgroundLookup<F = LookupFuture> = Background<LookupFuture, F>;
+pub type BackgroundLookup<T, U, F = LookupFuture<T, U>> = Background<LookupFuture<T, U>, F>;
 
 /// Type alias for the complex inner part of a `Background` future.
 //type BgInner<T, F, G> = future::Either<BgSend<F, G>, future::Ready<Result<T, ResolveError>>>;
@@ -96,19 +101,24 @@ type BgSend<F, G> = future::AndThen<
 
 /// Used by `AsyncResolver` for communicating with the background resolver task.
 #[allow(clippy::large_enum_variant)]
-enum Request {
+enum Request<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     /// Requests a lookup of the specified `RecordType`.
     Lookup {
         name: Name,
         record_type: RecordType,
         options: DnsRequestOptions,
-        tx: oneshot::Sender<LookupFuture>,
+        tx: oneshot::Sender<LookupFuture<T, U>>,
     },
     /// Requests an IP lookup for a name or IP address.
     Ip {
         maybe_name: ProtoResult<Name>,
         maybe_ip: Option<RData>,
-        tx: oneshot::Sender<LookupIpFuture>,
+        tx: oneshot::Sender<LookupIpFuture<T, U>>,
     },
 }
 
@@ -121,7 +131,7 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a string which parses to a domain name, failure to parse will return an error
-pub fn $p<N: IntoName>(&self, query: N) -> BackgroundLookup<$f> {
+pub fn $p<N: IntoName>(&self, query: N) -> BackgroundLookup<T, U, $f> {
     let name = match query.into_name() {
         Ok(name) => name,
         Err(err) => {
@@ -138,14 +148,19 @@ pub fn $p<N: IntoName>(&self, query: N) -> BackgroundLookup<$f> {
 /// # Arguments
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&self, query: $t) -> BackgroundLookup<$f> {
+pub fn $p(&self, query: $t) -> BackgroundLookup<T, U, $f> {
     let name = Name::from(query);
     self.inner_lookup(name, $r, DnsRequestOptions::default(),)
 }
     };
 }
 
-impl AsyncResolver {
+impl<T, U> AsyncResolver<T, U>
+where
+    T: 'static + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -215,7 +230,7 @@ impl AsyncResolver {
     /// # Returns
     ///
     //  A future for the returned Lookup RData
-    pub fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> BackgroundLookup {
+    pub fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> BackgroundLookup<T, U> {
         let name = match name.into_name() {
             Ok(name) => name,
             Err(err) => return err.into(),
@@ -228,14 +243,14 @@ impl AsyncResolver {
         ResolveErrorKind::Message("oneshot canceled unexpectedly, this is a bug").into()
     }
 
-    pub(crate) fn inner_lookup<T, F>(
+    pub(crate) fn inner_lookup<TT, F>(
         &self,
         name: Name,
         record_type: RecordType,
         options: DnsRequestOptions,
-    ) -> BackgroundLookup<F>
+    ) -> BackgroundLookup<T, U, F>
     where
-        F: From<LookupFuture> + Future<Output = Result<T, ResolveError>>,
+        F: From<LookupFuture<T, U>> + Future<Output = Result<TT, ResolveError>>,
     {
         let (tx, rx) = oneshot::channel();
         let request = Request::Lookup {
@@ -249,7 +264,7 @@ impl AsyncResolver {
             return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
         }
 
-        let f: BgSend<LookupFuture, F> = rx
+        let f: BgSend<LookupFuture<T, U>, F> = rx
             .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
             .and_then(F::from);
         BackgroundLookup::from(f)
@@ -261,7 +276,7 @@ impl AsyncResolver {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> BackgroundLookupIp {
+    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> BackgroundLookupIp<T, U> {
         let (tx, rx) = oneshot::channel();
         let maybe_ip = host.try_parse_ip();
         let request = Request::Ip {
@@ -276,7 +291,7 @@ impl AsyncResolver {
             return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
         }
 
-        let f: BgSend<LookupIpFuture, LookupIpFuture> = rx
+        let f: BgSend<LookupIpFuture<T, U>, LookupIpFuture<T, U>> = rx
             .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
             .and_then(LookupIpFuture::from);
         BackgroundLookupIp::from(f)
@@ -297,13 +312,16 @@ impl AsyncResolver {
         service: &str,
         protocol: &str,
         name: &str,
-    ) -> BackgroundLookup<lookup::SrvLookupFuture> {
+    ) -> BackgroundLookup<T, U, lookup::SrvLookupFuture<T, U>> {
         let name = format!("_{}._{}.{}", service, protocol, name);
         self.srv_lookup(name)
     }
 
     /// Lookup an SRV record.
-    pub fn lookup_srv<N: IntoName>(&self, name: N) -> BackgroundLookup<lookup::SrvLookupFuture> {
+    pub fn lookup_srv<N: IntoName>(
+        &self,
+        name: N,
+    ) -> BackgroundLookup<T, U, lookup::SrvLookupFuture<T, U>> {
         let name = match name.into_name() {
             Ok(name) => name,
             Err(err) => return err.into(),
@@ -314,21 +332,26 @@ impl AsyncResolver {
 
     lookup_fn!(
         reverse_lookup,
-        lookup::ReverseLookupFuture,
+        lookup::ReverseLookupFuture::<T, U>,
         RecordType::PTR,
         IpAddr
     );
-    lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
-    lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
-    lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
-    lookup_fn!(ns_lookup, lookup::NsLookupFuture, RecordType::NS);
-    lookup_fn!(soa_lookup, lookup::SoaLookupFuture, RecordType::SOA);
+    lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture<T, U>, RecordType::A);
+    lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture<T, U>, RecordType::AAAA);
+    lookup_fn!(mx_lookup, lookup::MxLookupFuture<T, U>, RecordType::MX);
+    lookup_fn!(ns_lookup, lookup::NsLookupFuture<T, U>, RecordType::NS);
+    lookup_fn!(soa_lookup, lookup::SoaLookupFuture<T, U>, RecordType::SOA);
     #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
-    lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
-    lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
+    lookup_fn!(srv_lookup, lookup::SrvLookupFuture<T, U>, RecordType::SRV);
+    lookup_fn!(txt_lookup, lookup::TxtLookupFuture<T, U>, RecordType::TXT);
 }
 
-impl fmt::Debug for AsyncResolver {
+impl<T, U> fmt::Debug for AsyncResolver<T, U>
+where
+    T: 'static + Clone + proto::tcp::Connect + Send + Sync + Unpin,
+    <T as proto::tcp::Connect>::Transport: Unpin,
+    U: 'static + Clone + proto::udp::UdpSocket + Send + Sync + Unpin,
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("AsyncResolver")
             // We probably don't want to print out the `fmt::Debug` output
@@ -391,6 +414,8 @@ mod tests {
 
     use self::tokio::runtime::Runtime;
     use proto::xfer::DnsRequest;
+    use tokio::net::UdpSocket as TokioUdpSocket;
+    use tokio::net::TcpStream as TokioTcpStream;
 
     use crate::config::{LookupIpStrategy, NameServerConfig};
 
@@ -411,19 +436,19 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        assert!(is_send_t::<AsyncResolver>());
-        assert!(is_sync_t::<AsyncResolver>());
+        assert!(is_send_t::<AsyncResolver<TokioTcpStream, TokioUdpSocket>>());
+        assert!(is_sync_t::<AsyncResolver<TokioTcpStream, TokioUdpSocket>>());
 
         assert!(is_send_t::<DnsRequest>());
-        assert!(is_send_t::<LookupIpFuture>());
-        assert!(is_send_t::<LookupFuture>());
+        assert!(is_send_t::<LookupIpFuture<TokioTcpStream, TokioUdpSocket>>());
+        assert!(is_send_t::<LookupFuture<TokioTcpStream, TokioUdpSocket>>());
     }
 
     fn lookup_test(config: ResolverConfig) {
         env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(config, ResolverOpts::default());
         io_loop.spawn(bg);
 
         let response = io_loop
@@ -465,7 +490,7 @@ mod tests {
         env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(ResolverConfig::default(), ResolverOpts::default());
 
         io_loop.spawn(bg);
 
@@ -497,7 +522,7 @@ mod tests {
         // AsyncResolver works correctly.
         use std::thread;
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(ResolverConfig::default(), ResolverOpts::default());
 
         thread::spawn(move || {
             let mut background_runtime = Runtime::new().unwrap();
@@ -529,7 +554,7 @@ mod tests {
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -565,7 +590,7 @@ mod tests {
     #[allow(deprecated)]
     fn test_sec_lookup_fails() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -602,7 +627,7 @@ mod tests {
     #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::from_system_conf().unwrap();
 
         io_loop.spawn(bg);
 
@@ -631,7 +656,7 @@ mod tests {
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::from_system_conf().unwrap();
 
         io_loop.spawn(bg);
 
@@ -660,7 +685,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -695,7 +720,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
@@ -733,7 +758,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // matches kubernetes default
@@ -774,7 +799,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -814,7 +839,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -842,7 +867,7 @@ mod tests {
     #[test]
     fn test_idna() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(ResolverConfig::default(), ResolverOpts::default());
 
         io_loop.spawn(bg);
 
@@ -858,7 +883,7 @@ mod tests {
     #[test]
     fn test_localhost_ipv4() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
@@ -882,7 +907,7 @@ mod tests {
     #[test]
     fn test_localhost_ipv6() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
@@ -909,7 +934,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -937,7 +962,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -965,7 +990,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = AsyncResolver::new(
+        let (resolver, bg) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,

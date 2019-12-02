@@ -38,13 +38,16 @@
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-compat")]
 //! # {
 //! use std::net::*;
+//! # use tokio::net::UdpSocket as TokioUdpSocket;
+//! # use tokio::net::TcpStream as TokioTcpStream;
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+//! let resolver = Resolver::<TokioTcpStream, TokioUdpSocket>::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
@@ -71,14 +74,17 @@
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-compat")]
 //! # {
 //! # use std::net::*;
+//! # use tokio::net::UdpSocket as TokioUdpSocket;
+//! # use tokio::net::TcpStream as TokioTcpStream;
 //! # use trust_dns_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
 //! let resolver = Resolver::from_system_conf().unwrap();
 //! # #[cfg(unix)]
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver::<TokioTcpStream, TokioUdpSocket>.lookup_ip("www.example.com.").unwrap();
 //! # }
 //! # }
 //! ```
@@ -94,6 +100,8 @@
 //! # fn main() {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
+//! use tokio::net::UdpSocket as TokioUdpSocket;
+//! use tokio::net::TcpStream as TokioTcpStream;
 //! use trust_dns_resolver::AsyncResolver;
 //! use trust_dns_resolver::config::*;
 //!
@@ -102,7 +110,7 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let (resolver, background) = AsyncResolver::new(
+//! let (resolver, background) = AsyncResolver::<TokioTcpStream, TokioUdpSocket>::new(
 //!     ResolverConfig::default(),
 //!     ResolverOpts::default()
 //! );
@@ -161,13 +169,16 @@
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-comapt")]
 //! # {
+//! use tokio::net::UdpSocket as TokioUdpSocket;
+//! use tokio::net::TcpStream as TokioTcpStream;
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
 //! # #[cfg(feature = "dns-over-tls")]
-//! let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
+//! let mut resolver = Resolver::<TokioTcpStream, TokioUdpSocket>::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
 //!
 //! // see example above...
 //! # }
@@ -255,8 +266,8 @@ pub use resolver::Resolver;
 ///
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
-#[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
-pub type ResolverFuture = AsyncResolver;
+/*#[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
+pub type ResolverFuture = AsyncResolver;*/
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
