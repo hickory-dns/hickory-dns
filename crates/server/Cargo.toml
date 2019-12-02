@@ -70,7 +70,7 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4.9"
+bytes = "0.5.2"
 chrono = "0.4"
 enum-as-inner = "0.3"
 env_logger = "0.7"

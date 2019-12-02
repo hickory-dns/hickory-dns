@@ -45,7 +45,7 @@ name = "trust_dns_https"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4"
+bytes = "0.5"
 data-encoding = "2.1.0"
 failure = "0.1"
 futures-preview = "0.3.0-alpha"
