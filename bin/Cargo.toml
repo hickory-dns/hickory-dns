@@ -76,7 +76,7 @@ clap = "2.33"
 futures-preview = "0.3.0-alpha"
 log = "0.4.8"
 rustls = { version = "0.16", optional = true }
-tokio = "0.2.0-alpha"
+tokio = "0.2.2"
 tokio-executor = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
 trust-dns-client= { version = "0.18.0-alpha", path = "../crates/client" }

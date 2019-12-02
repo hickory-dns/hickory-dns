@@ -71,7 +71,7 @@ resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "^1.0"
-tokio = { version = "0.2.0-alpha", optional = true }
+tokio = { version = "0.2.2", optional = true }
 tokio-executor = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
 trust-dns-https = { version = "0.18.0-alpha", path = "../https", optional = true }
@@ -87,4 +87,4 @@ ipconfig = { version = "^0.2.0" }
 [dev-dependencies]
 env_logger = "^0.7"
 tokio-io = "0.2.0-alpha"
-tokio = "0.2.0-alpha"
+tokio = "0.2.2"

@@ -78,7 +78,7 @@ ring = { version = "0.16", optional = true, features = ["std"]}
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 # TODO: make this optional
-tokio = "0.2.0-alpha"
+tokio = "0.2.2"
 tokio-net = "0.2.0-alpha"
 trust-dns-https = {version = "0.18.0-alpha", path = "../https", optional = true }
 trust-dns-proto = {version = "0.18.0-alpha", path = "../proto", features = ["dnssec"]}

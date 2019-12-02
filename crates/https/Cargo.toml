@@ -65,4 +65,4 @@ webpki = "0.21"
 
 [dev-dependencies]
 env_logger = "^0.7"
-tokio = "0.2.0-alpha"
+tokio = "0.2.2"

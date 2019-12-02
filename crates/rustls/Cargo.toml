@@ -57,4 +57,4 @@ webpki = "0.21"
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = "0.2.0-alpha"
+tokio = "0.2.2"

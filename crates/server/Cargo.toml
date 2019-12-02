@@ -84,7 +84,7 @@ rusqlite = { version = "0.20.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0.102", features = ["derive"] }
 time = "0.1"
-tokio = "0.2.0-alpha"
+tokio = "0.2.2"
 tokio-executor = "0.2.0-alpha"
 tokio-io = "0.2.0-alpha"
 tokio-net = "0.2.0-alpha"
