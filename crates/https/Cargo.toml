@@ -45,12 +45,12 @@ name = "trust_dns_https"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.4"
+bytes = "0.5"
 data-encoding = "2.1.0"
 failure = "0.1"
 futures = "0.3.0"
-h2 = { version = "0.2.0-alpha.2", features = ["unstable-stream"] }
-http = "0.1"
+h2 = { version = "0.2.0", features = ["stream"] }
+http = "0.2"
 log = "0.4"
 rustls = "0.16"
 tokio = { version = "0.2.1", features = ["tcp", "io-util"] }

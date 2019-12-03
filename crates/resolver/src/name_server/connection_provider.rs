@@ -211,7 +211,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
@@ -232,7 +232,7 @@ impl ConnectionHandleConnect {
                     })
                     .map(|_| ());
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -259,7 +259,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
         }

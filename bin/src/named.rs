@@ -34,8 +34,6 @@ extern crate log;
 #[cfg(feature = "dns-over-rustls")]
 extern crate rustls;
 extern crate tokio;
-extern crate tokio;
-extern crate tokio;
 extern crate trust_dns_client;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
@@ -49,10 +47,9 @@ use std::pin::Pin;
 
 use clap::{Arg, ArgMatches};
 use futures::{future, Future};
-use tokio::net::tcp::TcpListener;
+use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
-use tokio::runtime::TaskExecutor;
 
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::rdata::key::KeyUsage;
@@ -74,7 +71,7 @@ use trust_dns_server::store::StoreConfig;
 fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
-    executor: &TaskExecutor,
+    executor: &Runtime,
 ) -> Result<Box<dyn AuthorityObject>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
@@ -362,8 +359,7 @@ pub fn main() {
         .map(PathBuf::from)
         .unwrap_or_else(|| directory_config.clone());
 
-    let io_loop = Runtime::new().expect("error when creating tokio Runtime");
-    let executor = io_loop.executor();
+    let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
@@ -371,7 +367,7 @@ pub fn main() {
             .get_zone()
             .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
-        match load_zone(&zone_dir, zone, &executor) {
+        match load_zone(&zone_dir, zone, &io_loop) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(error) => panic!("could not load zone {}: {}", zone_name, error),
         }
@@ -473,7 +469,6 @@ pub fn main() {
         }));
 
     io_loop.spawn(server_future);
-    io_loop.shutdown_on_idle();
 
     // we're exiting for some reason...
     info!("Trust-DNS {} stopping", trust_dns_client::version());

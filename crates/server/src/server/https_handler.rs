@@ -9,7 +9,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use h2::server;
 use proto::serialize::binary::BinDecodable;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -66,7 +66,7 @@ pub async fn h2_handler<T, I>(
 }
 
 async fn handle_request<T>(
-    bytes: Bytes,
+    bytes: BytesMut,
     src_addr: SocketAddr,
     handler: Arc<Mutex<T>>,
     responder: HttpsResponseHandle,
@@ -87,7 +87,7 @@ async fn handle_request<T>(
 }
 
 #[derive(Clone)]
-struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<::bytes::Bytes>>>);
+struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
 impl ResponseHandler for HttpsResponseHandle {
     fn send_response(&self, response: MessageResponse) -> io::Result<()> {

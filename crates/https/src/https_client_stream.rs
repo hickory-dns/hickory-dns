@@ -14,7 +14,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::{future, Future, FutureExt, Stream, TryFutureExt};
 use h2;
 use h2::client::{Connection, SendRequest};
@@ -69,7 +69,7 @@ impl HttpsClientStream {
 
         // build up the http request
 
-        let bytes = Bytes::from(message.bytes());
+        let bytes = BytesMut::from(message.bytes());
         let request = crate::request::new(&name_server_name, bytes.len());
 
         let request =
@@ -83,7 +83,7 @@ impl HttpsClientStream {
             .map_err(|err| ProtoError::from(format!("h2 send_request error: {}", err)))?;
 
         send_stream
-            .send_data(bytes, true)
+            .send_data(bytes.freeze(), true)
             .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
 
         let mut response_stream = response_future
@@ -103,7 +103,7 @@ impl HttpsClientStream {
         // max(512) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
         //  just a little protection from malicious actors.
         let mut response_bytes =
-            Bytes::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
+            BytesMut::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
             let partial_bytes =
@@ -513,8 +513,8 @@ mod tests {
     use std::net::{Ipv4Addr, SocketAddr};
     use std::str::FromStr;
 
-    use tokio::runtime::Runtime;
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+    use tokio::runtime::Runtime;
     use webpki_roots;
 
     use trust_dns_proto::op::{Message, Query};

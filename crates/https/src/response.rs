@@ -42,9 +42,8 @@ use crate::HttpsResult;
 /// code 406, [RFC7231] Section 6.5.6), and so on.
 /// ```
 pub fn new(message_len: usize) -> HttpsResult<Response<()>> {
-    let mut response = Response::builder();
-    response.status(StatusCode::OK);
-    response.version(Version::HTTP_2);
+    let response = Response::builder();
+    let response = response.status(StatusCode::OK).version(Version::HTTP_2);
     let mut response = response
         .body(())
         .map_err(|e| ProtoError::from(format!("invalid response: {}", e)))?;

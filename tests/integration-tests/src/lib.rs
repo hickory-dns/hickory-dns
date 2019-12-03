@@ -6,7 +6,6 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio;
-extern crate tokio;
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
@@ -20,13 +19,12 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::executor::block_on;
 use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
-use tokio::time::Delay;
+use tokio::time::{Delay, Duration, Instant};
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::error::ClientResult;
@@ -202,7 +200,7 @@ impl NeverReturnsClientStream {
         let message_sender = StreamHandle::new(message_sender);
 
         let stream = Box::pin(future::ok(NeverReturnsClientStream {
-            timeout: tokio::time::delay(Instant::now() + Duration::from_secs(1)),
+            timeout: tokio::time::delay_for(Duration::from_secs(1)),
             outbound_messages: outbound_messages.fuse(),
         }));
 

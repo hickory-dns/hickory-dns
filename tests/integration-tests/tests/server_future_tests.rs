@@ -2,8 +2,6 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio;
-extern crate tokio;
-extern crate tokio;
 extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_openssl;
@@ -18,11 +16,11 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use futures::executor::block_on;
 use futures::{future, Future};
-use tokio::net::tcp::TcpListener;
+use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
@@ -287,9 +285,7 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     })));
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(tokio::time::delay(
-            Instant::now() + Duration::from_millis(10),
-        ));
+        io_loop.block_on(tokio::time::delay_for(Duration::from_millis(10)));
     }
 }
 
@@ -304,9 +300,7 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
         .expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(tokio::time::delay(
-            Instant::now() + Duration::from_millis(10),
-        ));
+        io_loop.block_on(tokio::time::delay_for(Duration::from_millis(10)));
     }
 }
 

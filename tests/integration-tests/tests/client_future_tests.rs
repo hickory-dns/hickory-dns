@@ -6,7 +6,6 @@ extern crate openssl;
 #[cfg(feature = "dns-over-https-rustls")]
 extern crate rustls;
 extern crate tokio;
-extern crate tokio;
 extern crate trust_dns_client;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
@@ -900,7 +899,7 @@ where
 #[test]
 fn test_timeout_query_nonet() {
     env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
     let (bg, client) = ClientFuture::with_timeout(
         stream,
@@ -916,7 +915,7 @@ fn test_timeout_query_nonet() {
 #[test]
 fn test_timeout_query_udp() {
     env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -935,7 +934,7 @@ fn test_timeout_query_udp() {
 #[test]
 fn test_timeout_query_tcp() {
     env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)

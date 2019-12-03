@@ -183,7 +183,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
     pub fn register_tls_listener(
         &self,
-        listener: tcp::TcpListener,
+        listener: net::TcpListener,
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
@@ -197,7 +197,9 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        tokio::executor::spawn(
+        tokio::executor::spawn(async move {
+            let mut listener = listener;
+
             listener
                 .incoming()
                 .try_for_each(move |tcp_stream| {
@@ -255,8 +257,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                     }
                 })
                 .map_err(|e| panic!("error in inbound tls_stream: {}", e))
-                .map(|_: Result<(), ()>| ()),
-        );
+                .map(|_: Result<(), ()>| ())
+                .await
+        });
 
         Ok(())
     }
@@ -304,7 +307,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(feature = "dns-over-rustls")]
     pub fn register_tls_listener(
         &self,
-        listener: tcp::TcpListener,
+        listener: net::TcpListener,
         timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
@@ -326,7 +329,9 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        tokio::executor::spawn(
+        tokio::spawn(async move {
+            let mut listener = listener;
+
             listener
                 .incoming()
                 // TODO: use for_each_concurrent
@@ -346,7 +351,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             let handler = handler.clone();
 
                             // and spawn to the io_loop
-                            tokio::executor::spawn(
+                            tokio::spawn(
                                 timeout_stream
                                     .try_for_each(move |message| {
                                         self::handle_raw_request(
@@ -369,8 +374,9 @@ impl<T: RequestHandler> ServerFuture<T> {
                         .map(|_: Result<(), ()>| Ok(()))
                 })
                 .map_err(|_| panic!("error in inbound tls_stream"))
-                .map(|_: Result<(), ()>| ()),
-        );
+                .map(|_: Result<(), ()>| ())
+                .await
+        });
 
         Ok(())
     }
@@ -417,7 +423,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(feature = "dns-over-https-rustls")]
     pub fn register_https_listener(
         &self,
-        listener: tcp::TcpListener,
+        listener: net::TcpListener,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
@@ -444,29 +450,36 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        tokio::executor::spawn({
-            let dns_hostname = dns_hostname;
+        tokio::spawn({
+            async move {
+                let mut listener = listener;
 
-            listener
-                .incoming()
-                .map_err(|e| warn!("error in inbound https_stream: {}", e))
-                .try_for_each(move |tcp_stream| {
-                    let src_addr = tcp_stream.peer_addr().unwrap();
-                    debug!("accepted request from: {}", src_addr);
-                    let handler = handler.clone();
-                    let dns_hostname = dns_hostname.clone();
+                let dns_hostname = dns_hostname;
 
-                    // TODO: need to consider timeout of total connect...
-                    // take the created stream...
-                    tls_acceptor
-                        .accept(tcp_stream)
-                        .map_err(move |e| debug!("error handling HTTPS stream {}: {}", src_addr, e))
-                        .and_then(move |tls_stream| {
-                            h2_handler(handler, tls_stream, src_addr, dns_hostname).unit_error()
-                        })
-                        .map(|_: Result<(), ()>| Ok(()))
-                })
-                .map(|_: Result<(), ()>| ())
+                listener
+                    .incoming()
+                    .map_err(|e| warn!("error in inbound https_stream: {}", e))
+                    .try_for_each(move |tcp_stream| {
+                        let src_addr = tcp_stream.peer_addr().unwrap();
+                        debug!("accepted request from: {}", src_addr);
+                        let handler = handler.clone();
+                        let dns_hostname = dns_hostname.clone();
+
+                        // TODO: need to consider timeout of total connect...
+                        // take the created stream...
+                        tls_acceptor
+                            .accept(tcp_stream)
+                            .map_err(move |e| {
+                                debug!("error handling HTTPS stream {}: {}", src_addr, e)
+                            })
+                            .and_then(move |tls_stream| {
+                                h2_handler(handler, tls_stream, src_addr, dns_hostname).unit_error()
+                            })
+                            .map(|_: Result<(), ()>| Ok(()))
+                    })
+                    .map(|_: Result<(), ()>| ())
+                    .await
+            }
         });
 
         Ok(())
