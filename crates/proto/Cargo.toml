@@ -55,7 +55,7 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.18"
+async-trait = "0.1.19"
 data-encoding = { version = "2.1.0", optional = true }
 enum-as-inner = "0.3"
 failure = "0.1"
