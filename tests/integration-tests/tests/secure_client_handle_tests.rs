@@ -240,7 +240,7 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let (bg, client) = ClientFuture::new(stream, Box::new(sender), None);
     let client = MemoizeClientHandle::new(client);
@@ -273,7 +273,7 @@ where
         })
         .unwrap();
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let (bg, client) = ClientFuture::connect(stream);
@@ -310,7 +310,7 @@ where
         })
         .unwrap();
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let (bg, client) = ClientFuture::new(Box::new(stream), sender, None);
