@@ -149,7 +149,6 @@ impl Stream for TestClientStream {
                     src: src_addr,
                 };
 
-                dbg!("catalog handling request");
                 let response_handler = TestResponseHandler::new();
                 block_on(
                     self.catalog
@@ -158,10 +157,7 @@ impl Stream for TestClientStream {
                         .handle_request(request, response_handler.clone()),
                 );
 
-                dbg!("catalog handled request");
-
                 let buf = block_on(response_handler.into_inner());
-                dbg!("catalog responded");
 
                 Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
             }
@@ -199,9 +195,11 @@ impl NeverReturnsClientStream {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream = Box::pin(future::ok(NeverReturnsClientStream {
-            timeout: tokio::time::delay_for(Duration::from_secs(1)),
-            outbound_messages: outbound_messages.fuse(),
+        let stream = Box::pin(future::lazy(|_| {
+            Ok(NeverReturnsClientStream {
+                timeout: tokio::time::delay_for(Duration::from_secs(1)),
+                outbound_messages: outbound_messages.fuse(),
+            })
         }));
 
         (stream, message_sender)
@@ -224,8 +222,6 @@ impl Stream for NeverReturnsClientStream {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        println!("still not returning");
-
         // poll the timer forever...
         if let Poll::Pending = self.timeout.poll_unpin(cx) {
             return Poll::Pending;

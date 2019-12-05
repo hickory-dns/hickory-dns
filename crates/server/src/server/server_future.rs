@@ -17,6 +17,8 @@ use futures::{future, Future, FutureExt, StreamExt};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::net;
+use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
 
 use proto::op::Edns;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
@@ -35,6 +37,7 @@ use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, Ti
 /// A Futures based implementation of a DNS server
 pub struct ServerFuture<T: RequestHandler> {
     handler: Arc<Mutex<T>>,
+    joins: Vec<JoinHandle<()>>,
 }
 
 impl<T: RequestHandler> ServerFuture<T> {
@@ -42,11 +45,12 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn new(handler: T) -> ServerFuture<T> {
         ServerFuture {
             handler: Arc::new(Mutex::new(handler)),
+            joins: vec![],
         }
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&self, socket: net::UdpSocket) {
+    pub fn register_socket(&mut self, socket: net::UdpSocket, runtime: &Runtime) {
         debug!("registered udp: {:?}", socket);
 
         // create the new UdpStream
@@ -55,7 +59,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
-        tokio::spawn(
+        let join_handle = runtime.spawn(
             buf_stream
                 .map(|r: Result<_, _>| match r {
                     Ok(t) => t,
@@ -68,11 +72,16 @@ impl<T: RequestHandler> ServerFuture<T> {
                     self::handle_raw_request(message, handler.clone(), stream_handle.clone())
                 }),
         );
+
+        self.joins.push(join_handle);
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket_std(&self, socket: std::net::UdpSocket) {
-        self.register_socket(net::UdpSocket::from_std(socket).expect("bad handle?"))
+    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket, runtime: &Runtime) {
+        self.register_socket(
+            net::UdpSocket::from_std(socket).expect("bad handle?"),
+            runtime,
+        )
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -88,15 +97,16 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     pub fn register_listener(
-        &self,
+        &mut self,
         listener: net::TcpListener,
         timeout: Duration,
+        runtime: &Runtime,
     ) -> io::Result<()> {
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
         // for each incoming request...
-        tokio::spawn(async move {
+        let join = runtime.spawn(async move {
             let mut listener = listener;
             listener
                 .incoming()
@@ -119,7 +129,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let handler = handler.clone();
 
                     // and spawn to the io_loop
-                    tokio::spawn(timeout_stream.for_each(move |message| {
+                    tokio::task::spawn(timeout_stream.for_each(move |message| {
                         message
                             .map(|message| {
                                 Box::pin(self::handle_raw_request(
@@ -144,6 +154,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                 .await
         });
 
+        self.joins.push(join);
+
         Ok(())
     }
 
@@ -160,11 +172,12 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     pub fn register_listener_std(
-        &self,
+        &mut self,
         listener: std::net::TcpListener,
         timeout: Duration,
+        runtime: &Runtime,
     ) -> io::Result<()> {
-        self.register_listener(net::TcpListener::from_std(listener)?, timeout)
+        self.register_listener(net::TcpListener::from_std(listener)?, timeout, runtime)
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -182,10 +195,11 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
     pub fn register_tls_listener(
-        &self,
+        &mut self,
         listener: net::TcpListener,
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
+        runtime: &Runtime,
     ) -> io::Result<()> {
         use futures::{TryFutureExt, TryStreamExt};
         use trust_dns_openssl::{tls_server, TlsStream};
@@ -197,7 +211,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        tokio::executor::spawn(async move {
+        let join = runtime.spawn(async move {
             let mut listener = listener;
 
             listener
@@ -226,7 +240,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                                 let handler = handler.clone();
 
                                 // and spawn to the io_loop
-                                tokio::executor::spawn(
+                                tokio::task::spawn(
                                     timeout_stream
                                         .map_err(move |e| {
                                             debug!(
@@ -261,6 +275,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                 .await
         });
 
+        self.joins.push(join);
+
         Ok(())
     }
 
@@ -279,15 +295,17 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
     pub fn register_tls_listener_std(
-        &self,
+        &mut self,
         listener: std::net::TcpListener,
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
+        runtime: &Runtime,
     ) -> io::Result<()> {
         self.register_tls_listener(
-            tcp::TcpListener::from_std(listener, &Handle::default())?,
+            net::TcpListener::from_std(listener)?,
             timeout,
             certificate_and_key,
+            runtime,
         )
     }
 
@@ -306,10 +324,11 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-rustls")]
     pub fn register_tls_listener(
-        &self,
+        &mut self,
         listener: net::TcpListener,
         timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
+        runtime: &Runtime,
     ) -> io::Result<()> {
         use futures::{TryFutureExt, TryStreamExt};
         use tokio_rustls::TlsAcceptor;
@@ -329,7 +348,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        tokio::spawn(async move {
+        let join = runtime.spawn(async move {
             let mut listener = listener;
 
             listener
@@ -351,7 +370,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             let handler = handler.clone();
 
                             // and spawn to the io_loop
-                            tokio::spawn(
+                            tokio::task::spawn(
                                 timeout_stream
                                     .try_for_each(move |message| {
                                         self::handle_raw_request(
@@ -378,6 +397,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                 .await
         });
 
+        self.joins.push(join);
+
         Ok(())
     }
 
@@ -403,6 +424,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: tcp::TcpListener,
         timeout: Duration,
         pkcs12: ParsedPkcs12,
+        runtime: &Runtime,
     ) -> io::Result<()> {
         unimplemented!("openssl based `dns-over-https` not yet supported. see the `dns-over-https-rustls` feature")
     }
@@ -422,12 +444,13 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-https-rustls")]
     pub fn register_https_listener(
-        &self,
+        &mut self,
         listener: net::TcpListener,
         // TODO: need to set a timeout between requests.
         _timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
         dns_hostname: String,
+        runtime: &Runtime,
     ) -> io::Result<()> {
         use futures::{TryFutureExt, TryStreamExt};
         use tokio_rustls::TlsAcceptor;
@@ -450,7 +473,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        tokio::spawn({
+        let join = runtime.spawn({
             async move {
                 let mut listener = listener;
 
@@ -482,7 +505,18 @@ impl<T: RequestHandler> ServerFuture<T> {
             }
         });
 
+        self.joins.push(join);
         Ok(())
+    }
+
+    /// This will run until all background tasks of the trust_dns_server end.
+    pub async fn run(self) {
+        let (result, _, _) = future::select_all(self.joins).await;
+
+        match result {
+            Ok(()) => info!("trust_dns_server shutting down"),
+            Err(e) => error!("trust_dns_server shutting down do to error: {}", e),
+        }
     }
 }
 

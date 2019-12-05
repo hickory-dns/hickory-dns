@@ -899,7 +899,7 @@ where
 #[test]
 fn test_timeout_query_nonet() {
     env_logger::try_init().ok();
-    let io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let (bg, client) = ClientFuture::with_timeout(
         stream,
