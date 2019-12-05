@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 extern crate chrono;
-extern crate env_logger;
 extern crate futures;
 #[macro_use]
 extern crate log;
@@ -252,7 +251,7 @@ fn test_server_continues_on_bad_data_tcp() {
 fn test_forward() {
     use server_harness::query_message;
 
-    env_logger::init();
+    //env_logger::init();
 
     named_test_harness("example_forwarder.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
