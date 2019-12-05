@@ -391,20 +391,6 @@ fn main() {
         .iter()
         .flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap())
         .collect();
-    // let udp_sockets: Vec<UdpSocket> = sockaddrs
-    //     .iter()
-    //     .map(|x| {
-    //         UdpSocket::bind(x).await
-    //             .unwrap_or_else(|_| panic!("could not bind to udp: {}", x))
-    //     })
-    //     .collect();
-    // let tcp_listeners: Vec<TcpListener> = sockaddrs
-    //     .iter()
-    //     .map(|x| {
-    //         TcpListener::bind(x).await
-    //             .unwrap_or_else(|_| panic!("could not bind to tcp: {}", x))
-    //     })
-    //     .collect();
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
@@ -436,7 +422,6 @@ fn main() {
     // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
     if let Some(_tls_cert_config) = tls_cert_config {
         // setup TLS listeners
-        // TODO: support rustls
         #[cfg(feature = "dns-over-tls")]
         config_tls(
             &args,
@@ -494,14 +479,7 @@ fn config_tls(
         .iter()
         .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
         .collect();
-    // let tls_listeners: Vec<TcpListener> = tls_sockaddrs
-    //     .iter()
-    //     .map(|x| {
-    //         block_on(
-    //             TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)),
-    //         )
-    //     })
-    //     .collect();
+
     if tls_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
     }
@@ -550,14 +528,7 @@ fn config_https(
         .iter()
         .flat_map(|x| (*x, https_listen_port).to_socket_addrs().unwrap())
         .collect();
-    // let https_listeners: Vec<TcpListener> = https_sockaddrs
-    //     .iter()
-    //     .map(|x| {
-    //         block_on(
-    //             TcpListener::bind(x).unwrap_or_else(|_| panic!("could not bind to tls: {}", x)),
-    //         )
-    //     })
-    //     .collect();
+
     if https_sockaddrs.is_empty() {
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
     }

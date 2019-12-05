@@ -898,7 +898,7 @@ where
 
 #[test]
 fn test_timeout_query_nonet() {
-    env_logger::try_init().ok();
+    //env_logger::try_init().ok();
     let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let (bg, client) = ClientFuture::with_timeout(
@@ -914,7 +914,7 @@ fn test_timeout_query_nonet() {
 
 #[test]
 fn test_timeout_query_udp() {
-    env_logger::try_init().ok();
+    //env_logger::try_init().ok();
     let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
@@ -933,7 +933,7 @@ fn test_timeout_query_udp() {
 
 #[test]
 fn test_timeout_query_tcp() {
-    env_logger::try_init().ok();
+    //env_logger::try_init().ok();
     let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use

@@ -63,7 +63,7 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-cfg-if = "<=0.1.9"
+cfg-if = "0.1.9"
 failure = "0.1"
 futures = "0.3.0"
 lazy_static = "1.0"
