@@ -76,7 +76,7 @@ openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.7"
 rusqlite = { version = "0.20.0", features = ["bundled"] }
 rustls = { version = "0.16" }
-tokio = { version = "0.2.1", features = ["time"] }
+tokio = { version = "0.2.1", features = ["time", "rt-core"] }
 trust-dns-client= { version = "0.18.0-alpha", path = "../../crates/client" }
 trust-dns-https = { version = "0.18.0-alpha", path = "../../crates/https" }
 trust-dns-openssl = { version = "0.18.0-alpha", path = "../../crates/openssl" }

@@ -21,7 +21,6 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::executor::block_on;
 use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
 use tokio::time::{Delay, Duration, Instant};
@@ -137,6 +136,8 @@ impl Stream for TestClientStream {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        use futures::executor::block_on;
+
         match self.outbound_messages.next().poll_unpin(cx) {
             // already handled above, here to make sure the poll() pops the next message
             Poll::Ready(Some(bytes)) => {

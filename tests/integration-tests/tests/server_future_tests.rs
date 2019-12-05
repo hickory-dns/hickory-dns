@@ -50,7 +50,7 @@ fn test_server_www_udp() {
 
     let server_thread = thread::Builder::new()
         .name("test_server:udp:server".to_string())
-        .spawn(move || server_thread_udp(udp_socket, server_continue2))
+        .spawn(move || server_thread_udp(runtime, udp_socket, server_continue2))
         .unwrap();
 
     let client_thread = thread::Builder::new()
@@ -78,7 +78,7 @@ fn test_server_www_tcp() {
 
     let server_thread = thread::Builder::new()
         .name("test_server:tcp:server".to_string())
-        .spawn(move || server_thread_tcp(tcp_listener, server_continue2))
+        .spawn(move || server_thread_tcp(runtime, tcp_listener, server_continue2))
         .unwrap();
 
     let client_thread = thread::Builder::new()
@@ -106,7 +106,7 @@ fn test_server_unknown_type() {
 
     let server_thread = thread::Builder::new()
         .name("test_server:udp:server".to_string())
-        .spawn(move || server_thread_udp(udp_socket, server_continue2))
+        .spawn(move || server_thread_udp(runtime, udp_socket, server_continue2))
         .unwrap();
 
     let conn = UdpClientConnection::new(ipaddr).unwrap();
@@ -158,7 +158,6 @@ fn read_file(path: &str) -> Vec<u8> {
 #[test]
 
 fn test_server_www_tls() {
-    use futures::executor::block_on;
     use std::env;
 
     let dns_name = "ns.example.com";
@@ -273,10 +272,13 @@ fn new_catalog() -> Catalog {
     catalog
 }
 
-fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
+fn server_thread_udp(
+    mut io_loop: Runtime,
+    udp_socket: UdpSocket,
+    server_continue: Arc<AtomicBool>,
+) {
     let catalog = new_catalog();
 
-    let mut io_loop = Runtime::new().unwrap();
     let mut server = ServerFuture::new(catalog);
     server.register_socket(udp_socket, &io_loop);
 
@@ -289,9 +291,12 @@ fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     drop(io_loop);
 }
 
-fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>) {
+fn server_thread_tcp(
+    mut io_loop: Runtime,
+    tcp_listener: TcpListener,
+    server_continue: Arc<AtomicBool>,
+) {
     let catalog = new_catalog();
-    let mut io_loop = Runtime::new().unwrap();
     let mut server = ServerFuture::new(catalog);
     server
         .register_listener(tcp_listener, Duration::from_secs(30), &io_loop)
