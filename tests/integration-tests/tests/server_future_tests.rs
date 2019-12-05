@@ -170,8 +170,9 @@ fn test_server_www_tls() {
     let pkcs12_der = read_file(&format!("{}/../../tests/test-data/cert.p12", server_path));
 
     // Server address
+    let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
-    let tcp_listener = block_on(TcpListener::bind(&addr)).unwrap();
+    let tcp_listener = runtime.block_on(TcpListener::bind(&addr)).unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
     println!("tcp_listner on port: {}", ipaddr);
@@ -180,7 +181,7 @@ fn test_server_www_tls() {
 
     let server_thread = thread::Builder::new()
         .name("test_server:tls:server".to_string())
-        .spawn(move || server_thread_tls(tcp_listener, server_continue2, pkcs12_der))
+        .spawn(move || server_thread_tls(tcp_listener, server_continue2, pkcs12_der, runtime))
         .unwrap();
 
     let client_thread = thread::Builder::new()
@@ -315,12 +316,12 @@ fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
     pkcs12_der: Vec<u8>,
+    mut io_loop: Runtime,
 ) {
     use futures::FutureExt;
     use openssl::pkcs12::Pkcs12;
 
     let catalog = new_catalog();
-    let mut io_loop = Runtime::new().unwrap();
     let mut server = ServerFuture::new(catalog);
     let pkcs12 = Pkcs12::from_der(&pkcs12_der)
         .expect("bad pkcs12 der")
