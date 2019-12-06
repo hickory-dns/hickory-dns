@@ -318,7 +318,6 @@ fn server_thread_tls(
     pkcs12_der: Vec<u8>,
     mut io_loop: Runtime,
 ) {
-    use futures::FutureExt;
     use openssl::pkcs12::Pkcs12;
 
     let catalog = new_catalog();
@@ -328,7 +327,9 @@ fn server_thread_tls(
         .parse("mypass")
         .expect("Pkcs12::from_der");
     let pkcs12 = ((pkcs12.cert, pkcs12.chain), pkcs12.pkey);
-    server.register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12, &io_loop);
+    server
+        .register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12, &io_loop)
+        .expect("failed to register TLS");
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(

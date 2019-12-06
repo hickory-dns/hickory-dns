@@ -47,7 +47,7 @@ use std::path::{Path, PathBuf};
 use clap::{Arg, ArgMatches};
 use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
-use tokio::runtime::Runtime;
+use tokio::runtime::{self, Runtime};
 
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::rdata::key::KeyUsage;
@@ -358,7 +358,13 @@ fn main() {
         .unwrap_or_else(|| directory_config.clone());
 
     // TODO: allow for num threads configured...
-    let mut runtime = Runtime::new().expect("failed to initialize Tokio Runtime");
+    let mut runtime = runtime::Builder::new()
+        .enable_all()
+        .threaded_scheduler()
+        .num_threads(4)
+        .thread_name("trust-dns-server-runtime")
+        .build()
+        .expect("failed to initialize Tokio Runtime");
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
@@ -454,10 +460,22 @@ fn main() {
     // Ideally the processing would be n-threads for receiving, which hand off to m-threads for
     //  request handling. It would generally be the case that n <= m.
     info!("Server starting up");
-    runtime.block_on(server.run());
+    match runtime.block_on(server.block_until_done()) {
+        Ok(()) => {
+            // we're exiting for some reason...
+            info!("Trust-DNS {} stopping", trust_dns_client::version());
+        }
+        Err(e) => {
+            let error_msg = format!(
+                "Trust-DNS {} has encountered an error: {}",
+                trust_dns_client::version(),
+                e
+            );
 
-    // we're exiting for some reason...
-    info!("Trust-DNS {} stopping", trust_dns_client::version());
+            error!("{}", error_msg);
+            panic!(error_msg);
+        }
+    };
 }
 
 #[cfg(feature = "dns-over-tls")]

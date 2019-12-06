@@ -9,14 +9,12 @@ use std::io;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::lock::Mutex;
 use futures::stream::{Fuse, Peekable, Stream, StreamExt};
-use futures::{ready, Future, TryFutureExt};
+use futures::{ready, Future, FutureExt, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
@@ -41,10 +39,8 @@ where
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream<S: Send> {
-    socket: Arc<Mutex<S>>,
-    sending: Option<Pin<Box<dyn Future<Output = io::Result<usize>> + Send>>>,
+    socket: S,
     outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
-    receiving: Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>,
 }
 
 impl<S: UdpSocket + Send + 'static> UdpStream<S> {
@@ -78,10 +74,8 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream = Box::new(next_socket.map_ok(move |socket| UdpStream {
-            socket: Arc::new(Mutex::new(socket)),
-            sending: None,
+            socket,
             outbound_messages: outbound_messages.fuse().peekable(),
-            receiving: None,
         }));
 
         (stream, message_sender)
@@ -105,10 +99,8 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = UdpStream {
-            socket: Arc::new(Mutex::new(socket)),
-            sending: None,
+            socket,
             outbound_messages: outbound_messages.fuse().peekable(),
-            receiving: None,
         };
 
         (stream, message_sender)
@@ -120,10 +112,8 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
-            socket: Arc::new(Mutex::new(socket)),
-            sending: None,
+            socket,
             outbound_messages: outbound_messages.fuse().peekable(),
-            receiving: None,
         }
     }
 }
@@ -133,17 +123,10 @@ impl<S: Send> UdpStream<S> {
     fn pollable_split(
         &mut self,
     ) -> (
-        &mut Arc<Mutex<S>>,
-        &mut Option<Pin<Box<dyn Future<Output = io::Result<usize>> + Send>>>,
+        &mut S,
         &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
-        &mut Option<Pin<Box<dyn Future<Output = io::Result<SerialMessage>> + Send>>>,
     ) {
-        (
-            &mut self.socket,
-            &mut self.sending,
-            &mut self.outbound_messages,
-            &mut self.receiving,
-        )
+        (&mut self.socket, &mut self.outbound_messages)
     }
 }
 
@@ -151,76 +134,44 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
     type Item = Result<SerialMessage, io::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        let (socket, sending, outbound_messages, receiving) = self.pollable_split();
+        let (socket, outbound_messages) = self.pollable_split();
+        let mut socket = Pin::new(socket);
         let mut outbound_messages = Pin::new(outbound_messages);
 
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.
         loop {
-            // if there's something currently sending, send it
-            if let Some(ref mut sending) = sending {
-                ready!(sending.as_mut().poll(cx))?;
-            }
-
-            *sending = None;
-
             // first try to send
-            match outbound_messages.as_mut().poll_next(cx) {
+            match outbound_messages.as_mut().poll_peek(cx) {
                 Poll::Ready(Some(message)) => {
-                    let socket = Arc::clone(socket);
-                    let sending_fut = async {
-                        let message = message;
-                        let socket = socket;
-                        let mut socket = socket.lock().await;
-                        let addr = &message.addr();
-                        socket.send_to(message.bytes(), addr).await
-                    };
+                    let addr = &message.addr();
 
-                    // will return if the socket will block
-                    *sending = Some(Box::pin(sending_fut));
+                    // this wiil return if not ready,
+                    //   meaning that sending will be prefered over receiving...
+
+                    // TODO: shouldn't this return the error to send to the sender?
+                    ready!(socket.send_to(message.bytes(), addr).poll_unpin(cx))?;
                 }
                 // now we get to drop through to the receives...
                 // TODO: should we also return None if there are no more messages to send?
                 Poll::Pending | Poll::Ready(None) => break,
             }
+
+            // message sent, need to pop the message
+            assert!(outbound_messages.as_mut().poll_next(cx).is_ready());
         }
 
         // For QoS, this will only accept one message and output that
         // receive all inbound messages
 
         // TODO: this should match edns settings
-        loop {
-            let msg = if let Some(receiving) = receiving {
-                // TODO: should we drop this packet if it's not from the same src as dest?
-                let msg = ready!(receiving.as_mut().poll(cx))?;
+        let mut buf = [0u8; 2048];
+        let (len, src) = ready!(socket.recv_from(&mut buf).poll_unpin(cx))?;
 
-                Some(Poll::Ready(Some(Ok(msg))))
-            } else {
-                None
-            };
-
-            *receiving = None;
-
-            if let Some(msg) = msg {
-                return msg;
-            }
-
-            let socket = Arc::clone(socket);
-            let receive_future = async {
-                let socket = socket;
-
-                let mut buf = [0u8; 2048];
-                let mut socket = socket.lock().await;
-                let (len, src) = socket.recv_from(&mut buf).await?;
-
-                Ok(SerialMessage::new(
-                    buf.iter().take(len).cloned().collect(),
-                    src,
-                ))
-            };
-
-            *receiving = Some(Box::pin(receive_future));
-        }
+        Poll::Ready(Some(Ok(SerialMessage::new(
+            buf.iter().take(len).cloned().collect(),
+            src,
+        ))))
     }
 }
 

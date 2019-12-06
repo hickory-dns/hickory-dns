@@ -524,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_https_cloudflare() {
-        self::env_logger::try_init().ok();
+        //self::env_logger::try_init().ok();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
         let mut request = Message::new();
