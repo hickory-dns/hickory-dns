@@ -27,6 +27,22 @@ macro_rules! try_ready_stream {
     }};
 }
 
+// FIXME: return a join handle when Tokio is upgraded to 0.2
+/// Spawn a background task, if it was present
+pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R>(
+    runtime: &Runtime,
+    background: Option<F>,
+) -> Option<()> {
+    use futures::FutureExt;
+
+    if let Some(bg) = background {
+        let _result: &Runtime = runtime.spawn(bg.map(|_r: R| ()));
+        Some(())
+    } else {
+        None
+    }
+}
+
 pub mod error;
 #[cfg(feature = "mdns")]
 pub mod multicast;
@@ -47,4 +63,4 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use crate::xfer::secure_dns_handle::SecureDnsHandle;
 #[doc(hidden)]
-pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle, MessageStreamHandle};
+pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};

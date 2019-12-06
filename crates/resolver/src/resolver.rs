@@ -19,6 +19,7 @@ use crate::lookup;
 use crate::lookup::Lookup;
 use crate::lookup_ip::LookupIp;
 use crate::AsyncResolver;
+use crate::TokioSpawnBg;
 
 /// The Resolver is used for performing DNS queries.
 ///
@@ -32,7 +33,7 @@ pub struct Resolver {
     //   drawbacks. One major issues, is if this Resolver is shared across threads, it will cause all to block on any
     //   query. A TLS on the other hand would not, at the cost of only allowing a Resolver to be configured once per Thread
     runtime: Mutex<Runtime>,
-    async_resolver: AsyncResolver,
+    async_resolver: AsyncResolver<TokioSpawnBg>,
 }
 
 macro_rules! lookup_fn {
@@ -73,10 +74,14 @@ impl Resolver {
     ///
     /// A new `Resolver` or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let runtime = runtime::Runtime::new()?;
-        let (async_resolver, bg) = AsyncResolver::new(config, options);
+        let mut builder = runtime::Builder::new();
+        builder.core_threads(1);
 
-        runtime.spawn(bg);
+        let runtime = builder.build()?;
+        let async_resolver = AsyncResolver::new(config, options);
+        let async_resolver = runtime
+            .block_on(async_resolver)
+            .expect("failed to create resolver");
 
         Ok(Resolver {
             runtime: Mutex::new(runtime),
@@ -113,7 +118,9 @@ impl Resolver {
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
     pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
-        let lookup = self.async_resolver.lookup(name, record_type);
+        let lookup = self
+            .async_resolver
+            .lookup(name, record_type, Default::default());
         self.runtime.lock()?.block_on(lookup)
     }
 
@@ -124,35 +131,8 @@ impl Resolver {
     /// # Arguments
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
+    pub fn lookup_ip(&self, host: String) -> ResolveResult<LookupIp> {
         let lookup = self.async_resolver.lookup_ip(host);
-        self.runtime.lock()?.block_on(lookup)
-    }
-
-    /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
-    ///
-    /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
-    ///
-    /// # Arguments
-    ///
-    /// * `service` - service to lookup, e.g. ldap or http
-    /// * `protocol` - wire protocol, e.g. udp or tcp
-    /// * `name` - zone or other name at which the service is located.
-    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
-    pub fn lookup_service(
-        &self,
-        service: &str,
-        protocol: &str,
-        name: &str,
-    ) -> ResolveResult<lookup::SrvLookup> {
-        #[allow(deprecated)]
-        let lookup = self.async_resolver.lookup_service(service, protocol, name);
-        self.runtime.lock()?.block_on(lookup)
-    }
-
-    /// Lookup an SRV record.
-    pub fn lookup_srv(&self, name: &str) -> ResolveResult<lookup::SrvLookup> {
-        let lookup = self.async_resolver.lookup_srv(name);
         self.runtime.lock()?.block_on(lookup)
     }
 
@@ -162,7 +142,6 @@ impl Resolver {
     lookup_fn!(mx_lookup, lookup::MxLookup);
     lookup_fn!(ns_lookup, lookup::NsLookup);
     lookup_fn!(soa_lookup, lookup::SoaLookup);
-    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
     lookup_fn!(srv_lookup, lookup::SrvLookup);
     lookup_fn!(txt_lookup, lookup::TxtLookup);
 }
@@ -186,7 +165,7 @@ mod tests {
     fn test_lookup() {
         let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 
-        let response = resolver.lookup_ip("www.example.com.").unwrap();
+        let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
         println!("response records: {:?}", response);
 
         assert_eq!(response.iter().count(), 1);
@@ -210,7 +189,7 @@ mod tests {
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 
-        let response = resolver.lookup_ip("www.example.com.").unwrap();
+        let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
         println!("response records: {:?}", response);
 
         assert_eq!(response.iter().count(), 1);

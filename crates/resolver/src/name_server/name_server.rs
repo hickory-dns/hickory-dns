@@ -11,7 +11,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::{future, Future, TryFutureExt};
+use futures::{Future, FutureExt};
+use tokio::spawn;
 
 use proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
@@ -24,44 +25,50 @@ use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
 use crate::name_server::NameServerState;
 use crate::name_server::NameServerStats;
-use crate::name_server::{ConnectionHandle, ConnectionProvider, StandardConnection};
+use crate::name_server::{Connection, ConnectionProvider, StandardConnection};
+use crate::{SpawnBg, TokioSpawnBg};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
-pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
+pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Send, S: SpawnBg> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: Option<C>,
+    join_bg: S::JoinHandle,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
     conn_provider: P,
+    spawn_bg: S,
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Debug for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Debug for NameServer<C, P, S> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
 }
 
-impl NameServer<ConnectionHandle, StandardConnection> {
+impl NameServer<Connection, StandardConnection, TokioSpawnBg> {
     pub fn new(config: NameServerConfig, options: ResolverOpts) -> Self {
         Self::new_with_provider(config, options, StandardConnection)
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P, S> {
     pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
         conn_provider: P,
-    ) -> NameServer<C, P> {
+        spawn_bg: S,
+    ) -> NameServer<C, P, S> {
         NameServer {
             config,
             options,
             client: None,
+            join_bg: None,
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
+            spawn_bg,
         }
     }
 
@@ -70,35 +77,45 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         config: NameServerConfig,
         options: ResolverOpts,
         client: C,
+        join_bg: S::JoinHandle,
         conn_provider: P,
-    ) -> NameServer<C, P> {
+        spawn_bg: S,
+    ) -> NameServer<C, P, S> {
         NameServer {
             config,
             options,
             client: Some(client),
+            join_bg: Some(join_bg),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
+            spawn_bg,
         }
     }
 
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    fn connected_mut_client(&mut self) -> ProtoResult<&mut C> {
+    async fn connected_mut_client(&mut self) -> ProtoResult<&mut C> {
         // if this is in a failure state
         if self.state.is_failed() || self.client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
-            // reinitialize the mutex (in case it was poisoned before)
             // TODO: we need the local EDNS options
             self.state = Arc::new(NameServerState::init(None));
 
+            let (client, bg) = self
+                .conn_provider
+                .new_connection(&self.config, &self.options)
+                .await?;
+
+            // TODO: We mignt need to extract a future here, to verify the BG hasn't exited
+            let join_bg = self.spawn_bg.spawn_bg(bg);
+            self.join_bg = Some(join_bg);
+            
             // establish a new connection
-            self.client = Some(
-                self.conn_provider
-                    .new_connection(&self.config, &self.options),
-            );
+            self.client = Some(client);
+
         }
 
         Ok(self
@@ -106,14 +123,61 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             .as_mut()
             .expect("bad state, client should be connected"))
     }
+
+    async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        mut self,
+        request: R,
+    ) -> Result<DnsResponse, ProtoError> {
+        let client = self.connected_mut_client().await?;
+        let response = client.send(request).await;
+
+        match response {
+            Ok(response) => {
+                // first we'll evaluate if the message succeeded
+                //   see https://github.com/bluejekyll/trust-dns/issues/606
+                //   TODO: there are probably other return codes from the server we may want to
+                //    retry on. We may also want to evaluate NoError responses that lack records as errors as well
+                if self.options.distrust_nx_responses {
+                    if let ResponseCode::ServFail = response.response_code() {
+                        let note = "Nameserver responded with SERVFAIL";
+                        debug!("{}", note);
+                        return Err(ProtoError::from(note));
+                    }
+                }
+
+                // TODO: consider making message::take_edns...
+                let remote_edns = response.edns().cloned();
+
+                // take the remote edns options and store them
+                self.state.establish(remote_edns);
+
+                // record the success
+                self.stats.next_success();
+                Ok(response)
+            }
+            Err(error) => {
+                debug!("name_server connection failure: {}", error);
+
+                // this transitions the state to failure
+                self.state.fail(Instant::now());
+
+                // record the failure
+                self.stats.next_failure();
+
+                // These are connection failures, not lookup failures, that is handled in the resolver layer
+                Err(error)
+            }
+        }
+    }
 }
 
-impl<C, P> DnsHandle for NameServer<C, P>
+impl<C, P, S> DnsHandle for NameServer<C, P, S>
 where
     C: DnsHandle,
-    P: ConnectionProvider<ConnHandle = C>,
+    P: ConnectionProvider<Conn = C>,
+    S: SpawnBg,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.options.validate
@@ -121,68 +185,13 @@ where
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        let distrust_nx_responses = self.options.distrust_nx_responses;
-
-        // grab a reference to the stats for this NameServer
-        let stats1 = self.stats.clone();
-        let stats2 = self.stats.clone();
-        let state1 = self.state.clone();
-        let state2 = self.state.clone();
-
-        // if state is failed, return future::err(), unless retry delay expired...
-        let client = match self.connected_mut_client() {
-            Ok(client) => client,
-            Err(e) => return Box::pin(future::err(e)) as Self::Response,
-        };
-
-        // Because a Poisoned lock error could have occurred, make sure to create a new Mutex...
-        Box::pin(
-            client
-                .send(request)
-                .and_then(move |response| {
-                    // first we'll evaluate if the message succeeded
-                    //   see https://github.com/bluejekyll/trust-dns/issues/606
-                    //   TODO: there are probably other return codes from the server we may want to
-                    //    retry on. We may also want to evaluate NoError responses that lack records as errors as well
-                    if distrust_nx_responses {
-                        if let ResponseCode::ServFail = response.response_code() {
-                            let note = "Nameserver responded with SERVFAIL";
-                            debug!("{}", note);
-                            return future::err(ProtoError::from(note));
-                        }
-                    }
-
-                    future::ok(response)
-                })
-                .and_then(move |response| {
-                    // TODO: consider making message::take_edns...
-                    let remote_edns = response.edns().cloned();
-
-                    // take the remote edns options and store them
-                    state1.establish(remote_edns);
-
-                    // record the success
-                    stats1.next_success();
-
-                    future::ok(response)
-                })
-                .or_else(move |error| {
-                    debug!("name_server connection failure: {}", error);
-
-                    // this transitions the state to failure
-                    state2.fail(Instant::now());
-
-                    // record the failure
-                    stats2.next_failure();
-
-                    // These are connection failures, not lookup failures, that is handled in the resolver layer
-                    future::err(error)
-                }),
-        )
+        let this = self.clone();
+        // if state is failed, return future::err(), unless retry delay expired..
+        Box::pin(this.inner_send(request))
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Ord for NameServer<C, P, S> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -205,27 +214,28 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, 
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> PartialOrd for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> PartialOrd for NameServer<C, P, S> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> PartialEq for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> PartialEq for NameServer<C, P, S> {
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P> {}
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Eq for NameServer<C, P, S> {}
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-pub(crate) fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P>
+pub(crate) fn mdns_nameserver<C, P, S>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P, S>
 where
     C: DnsHandle,
-    P: ConnectionProvider<ConnHandle = C>,
+    P: ConnectionProvider<Conn = C>,
+    S: SpawnBg,
 {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,

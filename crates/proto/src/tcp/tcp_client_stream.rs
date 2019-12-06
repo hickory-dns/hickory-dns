@@ -43,7 +43,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
         name_server: SocketAddr,
     ) -> (
         TcpClientConnect<S::Transport>,
-        Box<dyn DnsStreamHandle + Send>,
+        Box<dyn DnsStreamHandle + 'static + Send>,
     ) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
@@ -59,7 +59,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
         timeout: Duration,
     ) -> (
         TcpClientConnect<S::Transport>,
-        Box<dyn DnsStreamHandle + Send>,
+        Box<dyn DnsStreamHandle + 'static + Send>,
     ) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
@@ -133,8 +133,8 @@ use tokio::net::TcpStream as TokioTcpStream;
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
 
-    async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport> {
-        TokioTcpStream::connect(addr).await
+    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
+        TokioTcpStream::connect(&addr).await
     }
 }
 

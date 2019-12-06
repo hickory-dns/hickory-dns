@@ -18,6 +18,8 @@ pub struct MockClientHandle<O: OnSend> {
 impl MockClientHandle<DefaultOnSend> {
     /// constructs a new MockClient which returns each Message one after the other
     pub fn mock(messages: Vec<Result<DnsResponse, ProtoError>>) -> Self {
+        println!("MockClientHandle::mock message count: {}", messages.len());
+
         MockClientHandle {
             messages: Arc::new(Mutex::new(messages)),
             on_send: DefaultOnSend,
@@ -28,6 +30,11 @@ impl MockClientHandle<DefaultOnSend> {
 impl<O: OnSend> MockClientHandle<O> {
     /// constructs a new MockClient which returns each Message one after the other
     pub fn mock_on_send(messages: Vec<Result<DnsResponse, ProtoError>>, on_send: O) -> Self {
+        println!(
+            "MockClientHandle::mock_on_send message count: {}",
+            messages.len()
+        );
+
         MockClientHandle {
             messages: Arc::new(Mutex::new(messages)),
             on_send,
@@ -39,8 +46,14 @@ impl<O: OnSend + Unpin> DnsHandle for MockClientHandle<O> {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-        self.on_send
-            .on_send(self.messages.lock().unwrap().pop().unwrap_or_else(empty))
+        let mut messages = self.messages.lock().expect("failed to lock at messages");
+        println!("MockClientHandle::send message count: {}", messages.len());
+
+        self.on_send.on_send(
+            messages.pop().unwrap_or_else(|| {
+                error(ProtoError::from("Messages exhausted in MockClientHandle"))
+            }),
+        )
     }
 }
 

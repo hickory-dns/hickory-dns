@@ -28,7 +28,7 @@ use crate::error::*;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupEither, LookupIntoIter, LookupIter};
 use crate::lookup_state::CachingClient;
-use crate::name_server::{ConnectionHandle, StandardConnection};
+use crate::name_server::{Connection, StandardConnection};
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -107,7 +107,7 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
+pub struct LookupIpFuture<C = LookupEither<Connection, StandardConnection>>
 where
     C: DnsHandle + 'static,
 {
@@ -207,30 +207,6 @@ where
             options,
             hosts,
             finally_ip_addr,
-        }
-    }
-    pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
-        LookupIpFuture {
-            // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
-            client_cache,
-            names: vec![],
-            strategy: LookupIpStrategy::default(),
-            options: DnsRequestOptions::default(),
-            query: future::err(ResolveErrorKind::Msg(format!("{}", error)).into()).boxed(),
-            hosts: None,
-            finally_ip_addr: None,
-        }
-    }
-
-    pub(crate) fn ok(client_cache: CachingClient<C>, lp: Lookup) -> Self {
-        LookupIpFuture {
-            client_cache,
-            names: vec![],
-            strategy: LookupIpStrategy::default(),
-            options: DnsRequestOptions::default(),
-            query: future::ok(lp).boxed(),
-            hosts: None,
-            finally_ip_addr: None,
         }
     }
 }

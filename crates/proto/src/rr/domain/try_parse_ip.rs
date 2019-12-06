@@ -32,6 +32,13 @@ impl TryParseIp for str {
 //     }
 // }
 
+impl TryParseIp for String {
+    fn try_parse_ip(&self) -> Option<RData> {
+        let this = self as &str;
+        this.try_parse_ip()
+    }
+}
+
 impl TryParseIp for Name {
     /// Always returns none for Name, it assumes something that is already a name, wants to be a name
     fn try_parse_ip(&self) -> Option<RData> {

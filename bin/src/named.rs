@@ -118,9 +118,9 @@ fn load_zone(
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
-            let (forwarder, bg) = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
+            let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
+            let forwarder = executor.block_on(forwarder)?;
 
-            runtime.spawn(bg);
             Box::new(forwarder)
         }
         #[cfg(feature = "sqlite")]

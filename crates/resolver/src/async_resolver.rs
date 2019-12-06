@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -8,7 +8,6 @@
 //! Structs for creating and using a AsyncResolver
 use std::fmt;
 use std::net::IpAddr;
-use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
@@ -20,17 +19,21 @@ use futures::{
     Future, FutureExt, TryFutureExt,
 };
 use proto::error::ProtoResult;
+use proto::op::Query;
 use proto::rr::domain::TryParseIp;
-use proto::rr::{IntoName, Name, RData, RecordType};
-use proto::xfer::DnsRequestOptions;
+use proto::rr::{IntoName, Name, Record, RecordType};
+use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru};
 use crate::error::*;
-use crate::lookup::{self, LookupFuture};
-use crate::lookup_ip::LookupIpFuture;
+use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
+use crate::lookup_ip::{LookupIp, LookupIpFuture};
+use crate::lookup_state::CachingClient;
+use crate::name_server::{Connection, NameServerPool, StandardConnection};
+use crate::{Hosts, SpawnBg, TokioSpawnBg};
 
-mod background;
+type ClientCache<S: SpawnBg> = CachingClient<LookupEither<Connection, StandardConnection, S>>;
 
 // TODO: Consider renaming to ResolverAsync
 /// A handle for resolving DNS records.
@@ -60,60 +63,18 @@ mod background;
 /// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
 /// background future will finish.
 #[derive(Clone)]
-pub struct AsyncResolver {
-    request_tx: mpsc::UnboundedSender<Request>,
+pub struct AsyncResolver<S: SpawnBg> {
+    config: ResolverConfig,
+    options: ResolverOpts,
+    client_cache: ClientCache<S>,
+    hosts: Option<Arc<Hosts>>,
 }
 
-/// A future that represents sending a request to a background task,
-/// waiting for it to send back a lookup future, and then running the
-/// lookup future.
-#[derive(Debug)]
-pub struct Background<F, G = F>
-where
-    F: Future,
-    G: Future,
-{
-    inner: BgInner<G::Output, F, G>,
-}
-
-/// Future returned by `LookupIp` requests to the background task.
-pub type BackgroundLookupIp = Background<LookupIpFuture>;
-
-/// Future returned by lookup requests to the background task.
-pub type BackgroundLookup<F = LookupFuture> = Background<LookupFuture, F>;
-
-/// Type alias for the complex inner part of a `Background` future.
-//type BgInner<T, F, G> = future::Either<BgSend<F, G>, future::Ready<Result<T, ResolveError>>>;
-type BgInner<T, F, G> = future::Either<BgSend<F, G>, future::Ready<T>>;
-
-/// The branch of `BgInner` where the request was successfully sent
-/// to the background task.
-type BgSend<F, G> = future::AndThen<
-    future::MapErr<oneshot::Receiver<F>, fn(oneshot::Canceled) -> ResolveError>,
-    G,
-    fn(F) -> G,
->;
-
-/// Used by `AsyncResolver` for communicating with the background resolver task.
-#[allow(clippy::large_enum_variant)]
-enum Request {
-    /// Requests a lookup of the specified `RecordType`.
-    Lookup {
-        name: Name,
-        record_type: RecordType,
-        options: DnsRequestOptions,
-        tx: oneshot::Sender<LookupFuture>,
-    },
-    /// Requests an IP lookup for a name or IP address.
-    Ip {
-        maybe_name: ProtoResult<Name>,
-        maybe_ip: Option<RData>,
-        tx: oneshot::Sender<LookupIpFuture>,
-    },
-}
+/// An AsyncResolver used with Tokio
+pub type TokioAsyncResolver = AsyncResolver<TokioSpawnBg>;
 
 macro_rules! lookup_fn {
-    ($p:ident, $f:ty, $r:path) => {
+    ($p:ident, $l:ty, $r:path) => {
 /// Performs a lookup for the associated type.
 ///
 /// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
@@ -121,31 +82,31 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a string which parses to a domain name, failure to parse will return an error
-pub fn $p<N: IntoName>(&self, query: N) -> BackgroundLookup<$f> {
+pub fn $p<N: IntoName>(&self, query: N) -> impl Future<Output = Result<$l, ResolveError>> + Send + Unpin + 'static {
     let name = match query.into_name() {
         Ok(name) => name,
         Err(err) => {
-            return err.into();
+            return future::Either::Left(future::err(err.into()));
         }
     };
 
-    self.inner_lookup(name, $r, DnsRequestOptions::default(),)
+    future::Either::Right(self.inner_lookup(name, $r, DnsRequestOptions::default(),))
 }
     };
-    ($p:ident, $f:ty, $r:path, $t:ty) => {
+    ($p:ident, $l:ty, $r:path, $t:ty) => {
 /// Performs a lookup for the associated type.
 ///
 /// # Arguments
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&self, query: $t) -> BackgroundLookup<$f> {
+pub fn $p(&self, query: $t) -> impl Future<Output = Result<$l, ResolveError>> + Send + Unpin + 'static {
     let name = Name::from(query);
     self.inner_lookup(name, $r, DnsRequestOptions::default(),)
 }
     };
 }
 
-impl AsyncResolver {
+impl AsyncResolver<TokioSpawnBg> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -159,14 +120,8 @@ impl AsyncResolver {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub fn new(
-        config: ResolverConfig,
-        options: ResolverOpts,
-    ) -> (Self, impl Future<Output = ()> + Send) {
-        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
-        let lru = Arc::new(Mutex::new(lru));
-
-        Self::with_cache(config, options, lru)
+    pub async fn new(config: ResolverConfig, options: ResolverOpts) -> Result<Self, ResolveError> {
+        AsyncResolver::new_with_spawn(config, options, TokioSpawnBg::new()).await
     }
 
     /// Construct a new `AsyncResolver` with the associated Client and configuration.
@@ -183,24 +138,113 @@ impl AsyncResolver {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub(crate) fn with_cache(
+    pub(crate) async fn with_cache(
         config: ResolverConfig,
         options: ResolverOpts,
         lru: Arc<Mutex<DnsLru>>,
-    ) -> (Self, impl Future<Output = ()> + Send) {
-        let (request_tx, request_rx) = mpsc::unbounded();
-        let background = background::task(config, options, lru, request_rx);
-        let handle = Self { request_tx };
-        (handle, background)
+    ) -> Result<Self, ResolveError> {
+        Self::with_cache_with_spawn(config, options, lru, TokioSpawnBg::new()).await
     }
 
     /// Constructs a new Resolver with the system configuration.
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub fn from_system_conf() -> ResolveResult<(Self, impl Future<Output = ()>)> {
+    pub async fn from_system_conf() -> Result<Self, ResolveError> {
+        Self::from_system_conf_with_spawn(TokioSpawnBg::new()).await
+    }
+}
+
+impl<S: SpawnBg> AsyncResolver<S> {
+    /// Construct a new `AsyncResolver` with the provided configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - configuration, name_servers, etc. for the Resolver
+    /// * `options` - basic lookup options for the resolver
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the new `AsyncResolver` and a future that drives the
+    /// background task that runs resolutions for the `AsyncResolver`. See the
+    /// documentation for `AsyncResolver` for more information on how to use
+    /// the background future.
+    pub async fn new_with_spawn(
+        config: ResolverConfig,
+        options: ResolverOpts,
+        spawn_bg: S,
+    ) -> Result<Self, ResolveError> {
+        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
+        let lru = Arc::new(Mutex::new(lru));
+
+        Self::with_cache_with_spawn(config, options, lru, spawn_bg).await
+    }
+
+    /// Construct a new `AsyncResolver` with the associated Client and configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - configuration, name_servers, etc. for the Resolver
+    /// * `options` - basic lookup options for the resolver
+    /// * `lru` - the cache to be used with the resolver
+    ///
+    /// # Returns
+    ///
+    /// A tuple containing the new `AsyncResolver` and a future that drives the
+    /// background task that runs resolutions for the `AsyncResolver`. See the
+    /// documentation for `AsyncResolver` for more information on how to use
+    /// the background future.
+    pub(crate) async fn with_cache_with_spawn(
+        config: ResolverConfig,
+        options: ResolverOpts,
+        lru: Arc<Mutex<DnsLru>>,
+        spawn_bg: S,
+    ) -> Result<Self, ResolveError> {
+        debug!("trust-dns resolver running");
+
+        let pool =
+            NameServerPool::<Connection, StandardConnection, S>::from_config(&config, &options);
+        let either;
+        let client = RetryDnsHandle::new(pool, options.attempts);
+        if options.validate {
+            #[cfg(feature = "dnssec")]
+            {
+                use proto::xfer::SecureDnsHandle;
+                either = LookupEither::Secure(SecureDnsHandle::new(client));
+            }
+
+            #[cfg(not(feature = "dnssec"))]
+            {
+                // TODO: should this just be a panic, or a pinned error?
+                warn!("validate option is only available with 'dnssec' feature");
+                either = LookupEither::Retry(client);
+            }
+        } else {
+            either = LookupEither::Retry(client);
+        }
+
+        let hosts = if options.use_hosts_file {
+            Some(Arc::new(Hosts::new()))
+        } else {
+            None
+        };
+
+        trace!("handle passed back");
+        Ok(AsyncResolver {
+            config,
+            options,
+            client_cache: CachingClient::with_cache(lru, either, spawn_bg),
+            hosts,
+        })
+    }
+
+    /// Constructs a new Resolver with the system configuration.
+    ///
+    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
+    #[cfg(any(unix, target_os = "windows"))]
+    pub async fn from_system_conf_with_spawn(spawn_bg: S) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Ok(Self::new(config, options))
+        Self::new_with_spawn(config, options, spawn_bg).await
     }
 
     /// Generic lookup for any RecordType
@@ -215,44 +259,81 @@ impl AsyncResolver {
     /// # Returns
     ///
     //  A future for the returned Lookup RData
-    pub fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> BackgroundLookup {
+    pub fn lookup<N: IntoName>(
+        &self,
+        name: N,
+        record_type: RecordType,
+        options: DnsRequestOptions,
+    ) -> impl Future<Output = Result<Lookup, ResolveError>> + Send + Unpin + 'static {
         let name = match name.into_name() {
             Ok(name) => name,
-            Err(err) => return err.into(),
+            Err(err) => return future::Either::Left(future::err(err.into())),
         };
 
-        self.inner_lookup(name, record_type, DnsRequestOptions::default())
+        let names = self.build_names(name);
+        future::Either::Right(LookupFuture::lookup(
+            names,
+            record_type,
+            options,
+            self.client_cache.clone(),
+        ))
     }
 
-    fn oneshot_canceled(_: oneshot::Canceled) -> ResolveError {
-        ResolveErrorKind::Message("oneshot canceled unexpectedly, this is a bug").into()
+    fn push_name(name: Name, names: &mut Vec<Name>) {
+        if !names.contains(&name) {
+            names.push(name);
+        }
     }
 
-    pub(crate) fn inner_lookup<T, F>(
+    fn build_names(&self, name: Name) -> Vec<Name> {
+        // if it's fully qualified, we can short circuit the lookup logic
+        if name.is_fqdn() {
+            vec![name]
+        } else {
+            // Otherwise we have to build the search list
+            // Note: the vec is built in reverse order of precedence, for stack semantics
+            let mut names =
+                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
+
+            // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
+            let raw_name_first: bool =
+                name.num_labels() as usize > self.options.ndots || name.is_localhost();
+
+            // if not meeting ndots, we always do the raw name in the final lookup
+            if !raw_name_first {
+                names.push(name.clone());
+            }
+
+            for search in self.config.search().iter().rev() {
+                let name_search = name.clone().append_domain(search);
+                Self::push_name(name_search, &mut names);
+            }
+
+            if let Some(domain) = self.config.domain() {
+                let name_search = name.clone().append_domain(domain);
+                Self::push_name(name_search, &mut names);
+            }
+
+            // this is the direct name lookup
+            if raw_name_first {
+                // adding the name as though it's an FQDN for lookup
+                names.push(name);
+            }
+
+            names
+        }
+    }
+
+    pub(crate) fn inner_lookup<L>(
         &self,
         name: Name,
         record_type: RecordType,
         options: DnsRequestOptions,
-    ) -> BackgroundLookup<F>
+    ) -> impl Future<Output = Result<L, ResolveError>> + Send + Unpin + 'static
     where
-        F: From<LookupFuture> + Future<Output = Result<T, ResolveError>>,
+        L: From<Lookup> + Send + 'static,
     {
-        let (tx, rx) = oneshot::channel();
-        let request = Request::Lookup {
-            name,
-            record_type,
-            options,
-            tx,
-        };
-
-        if self.request_tx.unbounded_send(request).is_err() {
-            return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
-        }
-
-        let f: BgSend<LookupFuture, F> = rx
-            .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
-            .and_then(F::from);
-        BackgroundLookup::from(f)
+        self.lookup(name, record_type, options).map_ok(L::from)
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -261,122 +342,78 @@ impl AsyncResolver {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> BackgroundLookupIp {
-        let (tx, rx) = oneshot::channel();
+    pub fn lookup_ip<N: IntoName + TryParseIp>(
+        &self,
+        host: N,
+    ) -> impl Future<Output = Result<LookupIp, ResolveError>> + Send + Unpin + 'static {
+        let mut finally_ip_addr: Option<Record> = None;
         let maybe_ip = host.try_parse_ip();
-        let request = Request::Ip {
-            maybe_name: host.into_name(),
-            maybe_ip,
-            tx,
-        };
+        let maybe_name: ProtoResult<Name> = host.into_name();
 
-        if self.request_tx.unbounded_send(request).is_err() {
-            // Note: this shouldn't happen. We return a ResolveError here, but it would
-            // probably be okay to just `expect` the unbounded send to be successful.
-            return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
+        // if host is a ip address, return directly.
+        if let Some(ip_addr) = maybe_ip {
+            let name = maybe_name.clone().unwrap_or_default();
+            let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, ip_addr.clone());
+
+            // if ndots are greater than 4, then we can't assume the name is an IpAddr
+            //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
+            //   but `:` is not a valid DNS character, so technically this will fail parsing.
+            //   TODO: should we always do search before returning this?
+            if self.options.ndots > 4 {
+                finally_ip_addr = Some(record);
+            } else {
+                let query = Query::query(name, ip_addr.to_record_type());
+                let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
+                return future::Either::Left(future::ok(lookup.into()));
+            }
         }
 
-        let f: BgSend<LookupIpFuture, LookupIpFuture> = rx
-            .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
-            .and_then(LookupIpFuture::from);
-        BackgroundLookupIp::from(f)
-    }
-
-    /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
-    ///
-    /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
-    ///
-    /// # Arguments
-    ///
-    /// * `service` - service to lookup, e.g. ldap or http
-    /// * `protocol` - wire protocol, e.g. udp or tcp
-    /// * `name` - zone or other name at which the service is located.
-    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
-    pub fn lookup_service(
-        &self,
-        service: &str,
-        protocol: &str,
-        name: &str,
-    ) -> BackgroundLookup<lookup::SrvLookupFuture> {
-        let name = format!("_{}._{}.{}", service, protocol, name);
-        self.srv_lookup(name)
-    }
-
-    /// Lookup an SRV record.
-    pub fn lookup_srv<N: IntoName>(&self, name: N) -> BackgroundLookup<lookup::SrvLookupFuture> {
-        let name = match name.into_name() {
-            Ok(name) => name,
-            Err(err) => return err.into(),
+        let name = match (maybe_name, finally_ip_addr.as_ref()) {
+            (Ok(name), _) => name,
+            (Err(_), Some(ip_addr)) => {
+                // it was a valid IP, return that...
+                let query = Query::query(ip_addr.name().clone(), ip_addr.record_type());
+                let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![ip_addr.clone()]));
+                return future::Either::Left(future::ok(lookup.into()));
+            }
+            (Err(err), None) => {
+                return future::Either::Left(future::err(err.into()));
+            }
         };
 
-        self.inner_lookup(name, RecordType::SRV, DnsRequestOptions::default())
+        let names = self.build_names(name);
+        let hosts = self.hosts.as_ref().cloned();
+
+        future::Either::Right(LookupIpFuture::lookup(
+            names,
+            self.options.ip_strategy,
+            self.client_cache.clone(),
+            DnsRequestOptions::default(),
+            hosts,
+            finally_ip_addr.map(Record::unwrap_rdata),
+        ))
     }
 
     lookup_fn!(
         reverse_lookup,
-        lookup::ReverseLookupFuture,
+        lookup::ReverseLookup,
         RecordType::PTR,
         IpAddr
     );
-    lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
-    lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
-    lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
-    lookup_fn!(ns_lookup, lookup::NsLookupFuture, RecordType::NS);
-    lookup_fn!(soa_lookup, lookup::SoaLookupFuture, RecordType::SOA);
-    #[deprecated(note = "use lookup_srv instead, this interface is not ideal")]
-    lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
-    lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
+    lookup_fn!(ipv4_lookup, lookup::Ipv4Lookup, RecordType::A);
+    lookup_fn!(ipv6_lookup, lookup::Ipv6Lookup, RecordType::AAAA);
+    lookup_fn!(mx_lookup, lookup::MxLookup, RecordType::MX);
+    lookup_fn!(ns_lookup, lookup::NsLookup, RecordType::NS);
+    lookup_fn!(soa_lookup, lookup::SoaLookup, RecordType::SOA);
+    lookup_fn!(srv_lookup, lookup::SrvLookup, RecordType::SRV);
+    lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
 }
 
-impl fmt::Debug for AsyncResolver {
+impl<S: SpawnBg> fmt::Debug for AsyncResolver<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("AsyncResolver")
-            // We probably don't want to print out the `fmt::Debug` output
-            // for `mpsc::UnboundedSender`, as it's *quite* wordy but not
-            // terribly useful...
             .field("request_tx", &"...")
             .finish()
-    }
-}
-
-// ===== impl Background =====
-
-impl<F, G> Future for Background<F, G>
-where
-    F: Future + Unpin,
-    G: Future + Unpin,
-    BgInner<G::Output, F, G>: Future<Output = G::Output>,
-{
-    type Output = G::Output;
-
-    #[inline]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.inner.poll_unpin(cx)
-    }
-}
-
-impl<TF, TG, E, F, G> From<E> for Background<F, G>
-where
-    E: Into<ResolveError>,
-    F: Future<Output = Result<TF, ResolveError>>,
-    G: Future<Output = Result<TG, ResolveError>>,
-{
-    fn from(err: E) -> Self {
-        Background {
-            inner: future::Either::Right(future::err(err.into())),
-        }
-    }
-}
-
-impl<F, G> From<BgSend<F, G>> for Background<F, G>
-where
-    F: Future,
-    G: Future,
-{
-    fn from(f: BgSend<F, G>) -> Self {
-        Background {
-            inner: future::Either::Left(f),
-        }
     }
 }
 
@@ -423,8 +460,10 @@ mod tests {
         //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
-        io_loop.spawn(bg);
+        let resolver = AsyncResolver::new(config, ResolverOpts::default());
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -465,9 +504,10 @@ mod tests {
         //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
-
-        io_loop.spawn(bg);
+        let resolver = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("10.1.0.2"))
@@ -497,47 +537,66 @@ mod tests {
         // AsyncResolver works correctly.
         use std::thread;
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
-        thread::spawn(move || {
-            let mut background_runtime = Runtime::new().unwrap();
-            background_runtime.block_on(bg);
+        let resolver_one = resolver.clone();
+        let resolver_two = resolver.clone();
+
+        //FIXME: put the logic in two separate threads...
+
+        let test_fn = |resolver: AsyncResolver| {
+            let mut io_loop = Runtime::new().unwrap();
+
+            let response = io_loop
+                .block_on(resolver.lookup_ip("10.1.0.2"))
+                .expect("failed to run lookup");
+
+            assert_eq!(
+                Some(IpAddr::V4(Ipv4Addr::new(10, 1, 0, 2))),
+                response.iter().next()
+            );
+
+            let response = io_loop
+                .block_on(resolver.lookup_ip("2606:2800:220:1:248:1893:25c8:1946"))
+                .expect("failed to run lookup");
+
+            assert_eq!(
+                Some(IpAddr::V6(Ipv6Addr::new(
+                    0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                ))),
+                response.iter().next()
+            );
+        };
+
+        let thread_one = thread::spawn(move || {
+            test_fn(resolver_one);
         });
 
-        let response = io_loop
-            .block_on(resolver.lookup_ip("10.1.0.2"))
-            .expect("failed to run lookup");
+        let thread_two = thread::spawn(move || {
+            test_fn(resolver_two);
+        });
 
-        assert_eq!(
-            Some(IpAddr::V4(Ipv4Addr::new(10, 1, 0, 2))),
-            response.iter().next()
-        );
-
-        let response = io_loop
-            .block_on(resolver.lookup_ip("2606:2800:220:1:248:1893:25c8:1946"))
-            .expect("failed to run lookup");
-
-        assert_eq!(
-            Some(IpAddr::V6(Ipv6Addr::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
-            ))),
-            response.iter().next()
-        );
+        thread_one.join().expect("thread_one failed");
+        thread_two.join().expect("thread_two failed");
     }
 
     #[test]
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -565,7 +624,7 @@ mod tests {
     #[allow(deprecated)]
     fn test_sec_lookup_fails() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -573,8 +632,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
         let name = Name::from_str("www.trust-dns.org.").unwrap();
@@ -602,9 +662,10 @@ mod tests {
     #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
-
-        io_loop.spawn(bg);
+        let resolver = AsyncResolver::from_system_conf();
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -631,9 +692,10 @@ mod tests {
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
-
-        io_loop.spawn(bg);
+        let resolver = AsyncResolver::from_system_conf();
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("a.com"))
@@ -660,15 +722,16 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))
@@ -695,7 +758,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
@@ -704,8 +767,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         // notice this is not a FQDN, no trailing dot.
         let response = io_loop
@@ -733,7 +797,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // matches kubernetes default
@@ -742,8 +806,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         // notice this is not a FQDN, no trailing dot.
         let response = io_loop
@@ -774,15 +839,16 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         // notice no dots, should not trigger ndots rule
         let response = io_loop
@@ -814,15 +880,16 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         // notice no dots, should not trigger ndots rule
         let response = io_loop
@@ -842,9 +909,10 @@ mod tests {
     #[test]
     fn test_idna() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
-
-        io_loop.spawn(bg);
+        let resolver = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("中国.icom.museum."))
@@ -858,15 +926,16 @@ mod tests {
     #[test]
     fn test_localhost_ipv4() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("localhost"))
@@ -882,15 +951,16 @@ mod tests {
     #[test]
     fn test_localhost_ipv6() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("localhost"))
@@ -909,7 +979,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -917,8 +987,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("198.51.100.35"))
@@ -937,7 +1008,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -945,8 +1016,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("2001:db8::c633:6423"))
@@ -965,7 +1037,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -973,8 +1045,9 @@ mod tests {
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("2001:db8::198.51.100.35"))

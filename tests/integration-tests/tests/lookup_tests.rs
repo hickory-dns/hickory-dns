@@ -14,7 +14,7 @@ use tokio::runtime::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer::{BufDnsRequestStreamHandle, DnsExchange, DnsMultiplexer};
+use trust_dns_proto::xfer::{DnsExchange, DnsMultiplexer};
 use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
@@ -33,21 +33,13 @@ fn test_lookup() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let client = DnsExchange::connect(dns_conn);
 
-    let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(
-        stream
-            .and_then(|stream| stream)
-            .map_err(|e| {
-                println!("error, udp connection shutting down: {}", e);
-            })
-            .map(|_: Result<_, _>| ()),
-    );
-
-    let client = BufDnsRequestStreamHandle::new(handle);
+    let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -69,21 +61,13 @@ fn test_lookup_hosts() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(
-        stream
-            .and_then(|stream| stream)
-            .map_err(|e| {
-                println!("error, udp connection shutting down: {}", e);
-            })
-            .map(|_: Result<_, _>| ()),
-    );
-
-    let client = BufDnsRequestStreamHandle::new(handle);
+    let client = DnsExchange::connect(dns_conn);
+    let (client, bg) = io_loop.block_on(client).expect("client connect failed");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let mut hosts = Hosts::default();
     let record = Record::from_rdata(
@@ -135,21 +119,13 @@ fn test_lookup_ipv4_like() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(
-        stream
-            .and_then(|stream| stream)
-            .map_err(|e| {
-                println!("error, udp connection shutting down: {}", e);
-            })
-            .map(|_: Result<_, _>| ()),
-    );
-
-    let client = BufDnsRequestStreamHandle::new(handle);
+    let client = DnsExchange::connect(dns_conn);
+    let (client, bg) = io_loop.block_on(client).expect("client connect failed");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
@@ -173,21 +149,13 @@ fn test_lookup_ipv4_like_fall_through() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let (stream, handle) = DnsExchange::connect(dns_conn);
-    io_loop.spawn(
-        stream
-            .and_then(|stream| stream)
-            .map_err(|e| {
-                println!("error, udp connection shutting down: {}", e);
-            })
-            .map(|_: Result<_, _>| ()),
-    );
-
-    let client = BufDnsRequestStreamHandle::new(handle);
+    let client = DnsExchange::connect(dns_conn);
+    let (client, bg) = io_loop.block_on(client).expect("client connect failed");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
@@ -222,7 +190,7 @@ fn test_mock_lookup() {
         CachingClient::new(0, client),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -252,7 +220,7 @@ fn test_cname_lookup() {
         CachingClient::new(0, client),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -287,7 +255,7 @@ fn test_chained_cname_lookup() {
         CachingClient::new(0, client),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -374,7 +342,7 @@ fn test_max_chained_lookup_depth() {
         client.clone(),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     println!("performing max cname validation");
     // TODO: validate exact error

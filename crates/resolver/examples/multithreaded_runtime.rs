@@ -15,13 +15,14 @@ fn main() {
     env_logger::init();
 
     // Set up the standard tokio runtime (multithreaded by default).
-    let mut runtime = Runtime::new().expect("Failed to create runtime");
-    let (resolver, bg) = {
+    let runtime = Runtime::new().expect("Failed to create runtime");
+
+    let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            AsyncResolver::from_system_conf().expect("Failed to create AsyncResolver")
+            AsyncResolver::from_system_conf()
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
@@ -37,7 +38,9 @@ fn main() {
 
     // The resolver background task needs to be created in the runtime so it can
     // connect to the reactor.
-    runtime.spawn(bg);
+    let resolver = runtime
+        .block_on(resolver)
+        .expect("failed to create resolver");
 
     // Create some futures representing name lookups.
     let names = &["www.google.com", "www.reddit.com", "www.wikipedia.org"];
@@ -57,5 +60,6 @@ fn main() {
     }
 
     // Drop the resolver, which means that the runtime will become idle.
+    drop(futures);
     drop(resolver);
 }

@@ -22,7 +22,7 @@ use futures::future::Either;
 use futures::{future, StreamExt};
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::{ClientFuture, ClientHandle};
+use trust_dns_client::client::{AsyncClient, ClientHandle};
 use trust_dns_client::multicast::MdnsQueryType;
 use trust_dns_client::multicast::{MdnsClientStream, MdnsStream};
 use trust_dns_client::op::Message;
@@ -50,7 +50,7 @@ fn mdns_responsder(
     let join_handle = std::thread::Builder::new()
         .name(format!("{}:server", test_name))
         .spawn(move || {
-            let mut io_loop = Runtime::new().unwrap();
+            let io_loop = Runtime::new().unwrap();
 
             // a max time for the test to run
             let mut timeout = tokio::time::delay_for(Duration::from_millis(100));
@@ -118,16 +118,17 @@ fn test_query_mdns_ipv4() {
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
 
     // Check that the server is ready before sending...
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
 
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, None);
-    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    let client = AsyncClient::new(stream, sender, None);
+    let (mut client, bg) = io_loop.block_on(client).expect("failed to connect mDNS");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
-    io_loop.spawn(bg);
     let message = io_loop.block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
@@ -141,16 +142,17 @@ fn test_query_mdns_ipv6() {
     let addr = SocketAddr::new(*TEST_MDNS_IPV6, MDNS_PORT + 2);
     let client_done = Arc::new(AtomicBool::new(false));
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     // FIXME: ipv6 if is hardcoded...
     let (stream, sender) = MdnsClientStream::new(addr, MdnsQueryType::OneShot, None, None, Some(5));
-    let (bg, mut client) = ClientFuture::new(stream, sender, None);
+    let client = AsyncClient::new(stream, sender, None);
+    let (mut client, bg) = io_loop.block_on(client).expect("failed to connect client");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
-    io_loop.spawn(bg);
     let message = io_loop.block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);

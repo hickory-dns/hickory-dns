@@ -18,6 +18,7 @@ use trust_dns_server::store::forwarder::ForwardAuthority;
 #[test]
 fn test_lookup() {
     let forwarder = ForwardAuthority::new();
+    let forwarder = block_on(forwarder).expect("failed to create forwarder");
 
     let lookup = block_on(forwarder.lookup(
         &Name::from_str("www.example.com.").unwrap().into(),

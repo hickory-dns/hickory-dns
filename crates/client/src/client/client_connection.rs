@@ -25,7 +25,7 @@ use trust_dns_proto::{
 use crate::rr::dnssec::Signer;
 
 /// Trait for client connections
-pub trait ClientConnection: 'static + Sized + Send + Unpin {
+pub trait ClientConnection: 'static + Sized + Send + Sync + Unpin {
     /// The associated DNS RequestSender type.
     type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
     /// Response type of the RequestSender

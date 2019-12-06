@@ -39,13 +39,13 @@ lazy_static! {
             let mut runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
 
             // our platform independent future, result, see next blocks
-            let (resolver, bg) = {
+            let resolver = {
 
                 // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
                 #[cfg(any(unix, windows))]
                 {
                     // use the system resolver configuration
-                    AsyncResolver::from_system_conf().expect("Failed to create AsyncResolver")
+                    AsyncResolver::from_system_conf()
                 }
 
                 // For other operating systems, we can use one of the preconfigured definitions
@@ -61,11 +61,12 @@ lazy_static! {
 
             let &(ref lock, ref cvar) = &*pair2;
             let mut started = lock.lock().unwrap();
+
+            let resolver = runtime.block_on(resolver).expect("failed to create trust-dns-resolver");
+
             *started = Some(resolver);
             cvar.notify_one();
             drop(started);
-
-            runtime.block_on(bg);
         });
 
         // Wait for the thread to start up.
@@ -87,12 +88,12 @@ lazy_static! {
 ///
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
-pub fn resolve<N: IntoName + TryParseIp>(
+pub fn resolve<N: IntoName + TryParseIp + 'static>(
     host: N,
     port: u16,
 ) -> impl Future<Output = io::Result<Vec<SocketAddr>>> {
     // Now we use the global resolver to perform a lookup_ip.
-    let resolve_future = GLOBAL_DNS_RESOLVER.lookup_ip(host).map(move |result| {
+    GLOBAL_DNS_RESOLVER.lookup_ip(host).map(move |result| {
         // map the result into what we want...
         result
             .map_err(move |err| {
@@ -109,10 +110,7 @@ pub fn resolve<N: IntoName + TryParseIp>(
                     .map(|ip| SocketAddr::new(ip, port))
                     .collect::<Vec<_>>()
             })
-    });
-
-    // Now return the boxed future
-    Box::new(resolve_future)
+    })
 }
 
 fn main() {

@@ -18,33 +18,25 @@
 
 #[allow(clippy::module_inception)]
 mod client;
-mod client_connection;
+pub mod client_connection;
+// FIXME: rename to async_client
+#[cfg(feature = "dnssec")]
+pub(crate) mod async_secure_client;
 pub(crate) mod client_future;
 mod memoize_client_handle;
 mod rc_future;
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
+pub use self::async_secure_client::{
+    AsyncSecureClient, AsyncSecureClientBuilder, AsyncSecureClientConnect,
+};
+#[cfg(feature = "dnssec")]
 pub use self::client::SecureSyncClient;
 #[allow(deprecated)]
 pub use self::client::{Client, SyncClient};
 pub use self::client_connection::ClientConnection;
 #[allow(deprecated)]
-pub use self::client_future::{BasicClientHandle, ClientFuture, ClientHandle, ClientResponse};
+pub use self::client_future::{
+    AsyncClient, AsyncClientConnect, ClientFuture, ClientHandle, ClientResponse,
+};
 pub use self::memoize_client_handle::MemoizeClientHandle;
-
-/// This is an alias for [`trust_dns_proto::StreamHandle`]
-#[deprecated(note = "use [`trust_dns_proto::StreamHandle`] instead")]
-pub use trust_dns_proto::StreamHandle;
-
-/// This is an alias for [`trust_dns_proto::DnsStreamHandle`]
-#[deprecated(note = "use [`trust_dns_proto::DnsStreamHandle`] instead")]
-pub use trust_dns_proto::DnsStreamHandle as ClientStreamHandle;
-
-/// This is an alias for [`trust_dns_proto::RetryDnsHandle`]
-#[deprecated(note = "use [`trust_dns_proto::RetryDnsHandle`] instead")]
-pub use trust_dns_proto::RetryDnsHandle as RetryClientHandle;
-
-/// This is an alias for [`trust_dns_proto::SecureDnsHandle`]
-#[cfg(feature = "dnssec")]
-#[deprecated(note = "use [`trust_dns_proto::SecureDnsHandle`] instead")]
-pub use trust_dns_proto::SecureDnsHandle as SecureClientHandle;

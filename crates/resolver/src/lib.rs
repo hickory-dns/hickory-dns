@@ -49,7 +49,7 @@
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
 //! //  in `ResolverOpts` will take effect. FQDN's are generally cheaper queries.
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
@@ -78,7 +78,7 @@
 //! # #[cfg(unix)]
 //! let resolver = Resolver::from_system_conf().unwrap();
 //! # #[cfg(unix)]
-//! let response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
 //! # }
 //! # }
 //! ```
@@ -102,13 +102,13 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let (resolver, background) = AsyncResolver::new(
+//! let resolver = AsyncResolver::new(
 //!     ResolverConfig::default(),
 //!     ResolverOpts::default()
 //! );
 //! // AsyncResolver::new returns a handle for sending resolve requests and a background task
 //! // that must be spawned on an executor.
-//! io_loop.spawn(background);
+//! let resolver = io_loop.block_on(resolver).expect("failed to connect resolver");
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -231,6 +231,7 @@ pub mod lookup_state;
 pub mod name_server;
 #[cfg(feature = "tokio")]
 mod resolver;
+mod spawn_bg;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -238,10 +239,13 @@ mod tls;
 // reexports from proto
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
-pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
+pub use async_resolver::AsyncResolver;
+#[cfg(feature = "tokio")]
+pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 #[cfg(feature = "tokio")]
 pub use resolver::Resolver;
+pub(crate) use spawn_bg::{SpawnBg, TokioSpawnBg};
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
@@ -256,7 +260,7 @@ pub use resolver::Resolver;
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
 #[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
-pub type ResolverFuture = AsyncResolver;
+pub type ResolverFuture = TokioAsyncResolver;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

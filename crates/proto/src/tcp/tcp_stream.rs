@@ -33,7 +33,7 @@ where
     type Transport: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send;
 
     /// connect to tcp
-    async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport>;
+    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport>;
 }
 
 /// Current state while writing to the remote of the TCP connection

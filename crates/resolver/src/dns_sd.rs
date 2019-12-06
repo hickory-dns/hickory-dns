@@ -19,11 +19,9 @@ use proto::rr::rdata::TXT;
 use proto::rr::{Name, RecordType};
 use proto::xfer::DnsRequestOptions;
 
-use crate::async_resolver::{AsyncResolver, BackgroundLookup};
 use crate::error::*;
-use crate::lookup::{
-    ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
-};
+use crate::lookup::{ReverseLookup, ReverseLookupIter, TxtLookup};
+use crate::AsyncResolver;
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -46,8 +44,7 @@ impl DnsSdHandle for AsyncResolver {
             expects_multiple_responses: true,
         };
 
-        let ptr_future: BackgroundLookup<ReverseLookupFuture> =
-            self.inner_lookup(name, RecordType::PTR, options);
+        let ptr_future = self.inner_lookup(name, RecordType::PTR, options);
 
         ListServicesFuture(Box::pin(ptr_future))
     }
@@ -59,7 +56,9 @@ impl DnsSdHandle for AsyncResolver {
 }
 
 /// A DNS Service Discovery future of Services discovered through the list operation
-pub struct ListServicesFuture(Pin<Box<BackgroundLookup<ReverseLookupFuture>>>);
+pub struct ListServicesFuture(
+    Pin<Box<dyn Future<Output = Result<ReverseLookup, ResolveError>> + Send>>,
+);
 
 impl Future for ListServicesFuture {
     type Output = Result<ListServices, ResolveError>;
@@ -97,7 +96,7 @@ impl<'i> Iterator for ListServicesIter<'i> {
 }
 
 /// A Future that resolves to the TXT information for a service
-pub struct ServiceInfoFuture(Pin<Box<BackgroundLookup<TxtLookupFuture>>>);
+pub struct ServiceInfoFuture(Pin<Box<dyn Future<Output = Result<TxtLookup, ResolveError>> + Send>>);
 
 impl Future for ServiceInfoFuture {
     type Output = Result<ServiceInfo, ResolveError>;
@@ -153,15 +152,16 @@ mod tests {
     #[ignore]
     fn test_list_services() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.list_services(Name::from_str("_http._tcp.local.").unwrap()))
@@ -170,7 +170,7 @@ mod tests {
         for name in response.iter() {
             println!("service: {}", name);
             let srvs = io_loop
-                .block_on(resolver.lookup_srv(name.clone()))
+                .block_on(resolver.srv_lookup(name.clone()))
                 .expect("failed to lookup name");
 
             for srv in srvs.iter() {

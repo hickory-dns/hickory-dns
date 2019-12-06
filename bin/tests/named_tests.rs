@@ -45,17 +45,21 @@ fn test_example_toml_startup() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
+
         query_a(&mut io_loop, &mut client);
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
+
         query_a(&mut io_loop, &mut client);
     })
 }
@@ -66,26 +70,25 @@ fn test_ipv4_only_toml_startup() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        assert!(io_loop.block_on(client).is_err());
+        //let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        //trust_dns_proto::spawn_bg(&io_loop, bg);
 
         // ipv6 should fail
-        let message = io_loop.block_on(client.query(
-            Name::from_str("www.example.com").unwrap(),
-            DNSClass::IN,
-            RecordType::AAAA,
-        ));
-        assert!(message.is_err());
+        // FIXME: probably need to send something for proper test... maybe use JoinHandle in tokio 0.2
+        // assert!(io_loop.block_on(client).is_err());
     })
 }
 
@@ -99,7 +102,7 @@ fn test_ipv4_only_toml_startup() {
 //     let mut io_loop = Runtime::new().unwrap();
 //     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
 //     let (stream, sender) = TcpClientStream::new(addr);
-//     let client = ClientFuture::new(stream, sender, None);
+//     let client = AsyncClient::new(stream, sender, None);
 //     let mut client = io_loop.block_on(client).unwrap();
 //
 //     // ipv4 should fail
@@ -107,7 +110,7 @@ fn test_ipv4_only_toml_startup() {
 //
 //     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
 //     let (stream, sender) = TcpClientStream::new(addr);
-//     let client = ClientFuture::new(stream, sender, None);
+//     let client = AsyncClient::new(stream, sender, None);
 //     let mut client = io_loop.block_on(client).unwrap();
 //
 //     // ipv6 should succeed
@@ -124,18 +127,18 @@ fn test_ipv4_and_ipv6_toml_startup() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
-
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-
-        io_loop.spawn(bg);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);
@@ -145,12 +148,12 @@ fn test_ipv4_and_ipv6_toml_startup() {
 #[test]
 fn test_nodata_where_name_exists() {
     named_test_harness("example.toml", |port, _, _| {
-        let mut io_loop = Runtime::new().unwrap();
+        let io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-
-        io_loop.spawn(bg);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         let msg = io_loop
             .block_on(client.query(
@@ -167,12 +170,12 @@ fn test_nodata_where_name_exists() {
 #[test]
 fn test_nxdomain_where_no_name_exists() {
     named_test_harness("example.toml", |port, _, _| {
-        let mut io_loop = Runtime::new().unwrap();
+        let io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-
-        io_loop.spawn(bg);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         let msg = io_loop
             .block_on(client.query(
@@ -192,9 +195,9 @@ fn test_server_continues_on_bad_data_udp() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-        let (bg, mut client) = ClientFuture::connect(stream);
-
-        io_loop.spawn(bg);
+        let client = AsyncClient::connect(stream);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
@@ -209,8 +212,10 @@ fn test_server_continues_on_bad_data_udp() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-        let (bg, mut client) = ClientFuture::connect(stream);
-        io_loop.spawn(bg);
+        let client = AsyncClient::connect(stream);
+
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
     })
@@ -222,9 +227,10 @@ fn test_server_continues_on_bad_data_tcp() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
 
@@ -238,9 +244,9 @@ fn test_server_continues_on_bad_data_tcp() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-
-        io_loop.spawn(bg);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         query_a(&mut io_loop, &mut client);
     })
@@ -257,9 +263,11 @@ fn test_forward() {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
+
         let response = query_message(
             &mut io_loop,
             &mut client,
@@ -274,9 +282,11 @@ fn test_forward() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-        let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
+        let client = AsyncClient::new(Box::new(stream), sender, None);
 
-        io_loop.spawn(bg);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
+
         let response = query_message(
             &mut io_loop,
             &mut client,
