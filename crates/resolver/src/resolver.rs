@@ -73,10 +73,7 @@ impl Resolver {
     ///
     /// A new `Resolver` or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let mut builder = runtime::Builder::new();
-        builder.core_threads(1);
-
-        let runtime = builder.build()?;
+        let runtime = runtime::Runtime::new()?;
         let (async_resolver, bg) = AsyncResolver::new(config, options);
 
         runtime.spawn(bg);

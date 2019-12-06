@@ -8,10 +8,10 @@
 use std::fmt::{self, Display};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::stream::{StreamExt, TryStreamExt};
-use futures::{Future, FutureExt, Poll, Stream, TryFutureExt};
+use futures::{Future, FutureExt, Stream, TryFutureExt};
 
 use crate::error::ProtoError;
 use crate::multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};

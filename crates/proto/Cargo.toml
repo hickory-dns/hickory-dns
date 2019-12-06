@@ -39,7 +39,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
 dnssec = ["data-encoding"]
-tokio-compat = ["tokio-net"]
+tokio-compat = ["tokio"]
 default = ["tokio-compat"]
 
 serde-config = ["serde"]
@@ -59,23 +59,18 @@ async-trait = "0.1.18"
 data-encoding = { version = "2.1.0", optional = true }
 enum-as-inner = "0.3"
 failure = "0.1"
-futures-preview = "0.3.0-alpha"
-idna = "^0.2.0"
-lazy_static = "^1.0"
-log = "^0.4.8"
-openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
+futures = "0.3.0"
+idna = "0.2.0"
+lazy_static = "1.0"
+log = "0.4.8"
+openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rand = "0.7"
 ring = { version = "0.16", optional = true, features = ["std"] }
 serde = { version = "1.0", optional = true }
-smallvec = "^1.0"
-socket2 = { version = "^0.3.10" }
-tokio-executor = "0.2.0-alpha"
-tokio-io = "0.2.0-alpha"
-tokio-sync = "0.2.0-alpha"
-tokio-net = { version = "0.2.0-alpha", optional = true }
-tokio-timer = "0.3.0-alpha"
+smallvec = "1.0"
+socket2 = { version = "0.3.10" }
+tokio = { version = "0.2.1", features = ["time", "udp", "tcp"], optional = true }
 url = "2.1.0"
 
 [dev-dependencies]
-env_logger = "^0.7"
-tokio = "0.2.0-alpha"
+env_logger = "0.7"

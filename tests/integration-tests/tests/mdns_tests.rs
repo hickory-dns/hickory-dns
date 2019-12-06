@@ -7,7 +7,6 @@ extern crate lazy_static;
 extern crate log;
 extern crate openssl;
 extern crate tokio;
-extern crate tokio_timer;
 extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -17,11 +16,11 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use futures::future::Either;
 use futures::{future, StreamExt};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{ClientFuture, ClientHandle};
 use trust_dns_client::multicast::MdnsQueryType;
@@ -54,7 +53,7 @@ fn mdns_responsder(
             let mut io_loop = Runtime::new().unwrap();
 
             // a max time for the test to run
-            let mut timeout = tokio_timer::delay(Instant::now() + Duration::from_millis(100));
+            let mut timeout = tokio::time::delay_for(Duration::from_millis(100));
 
             // TODO: ipv6 if is hardcoded, need a different strategy
             let (mdns_stream, mdns_handle) = MdnsStream::new(
@@ -97,7 +96,7 @@ fn mdns_responsder(
                     }
                     Either::Right(((), data_src_stream_tmp)) => {
                         stream = data_src_stream_tmp;
-                        timeout = tokio_timer::delay(Instant::now() + Duration::from_millis(100));
+                        timeout = tokio::time::delay_for(Duration::from_millis(100));
                     }
                 }
             }
@@ -128,9 +127,8 @@ fn test_query_mdns_ipv4() {
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
-    let message = io_loop
-        .spawn(bg)
-        .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
+    io_loop.spawn(bg);
+    let message = io_loop.block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
 
@@ -152,9 +150,8 @@ fn test_query_mdns_ipv6() {
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
-    let message = io_loop
-        .spawn(bg)
-        .block_on(client.query(name, DNSClass::IN, RecordType::PTR));
+    io_loop.spawn(bg);
+    let message = io_loop.block_on(client.query(name, DNSClass::IN, RecordType::PTR));
 
     client_done.store(true, Ordering::Relaxed);
 

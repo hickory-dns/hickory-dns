@@ -12,16 +12,16 @@ use std::net::SocketAddr;
 use std::ops::DerefMut;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
-use bytes::Bytes;
-use futures::{future, Future, FutureExt, Poll, Stream, TryFutureExt};
+use bytes::{Bytes, BytesMut};
+use futures::{future, Future, FutureExt, Stream, TryFutureExt};
 use h2;
 use h2::client::{Connection, SendRequest};
 use http::{self, header};
 use rustls::ClientConfig;
-use tokio_executor;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::{client::TlsStream as TokioTlsClientStream, Connect, TlsConnector};
 use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
@@ -69,7 +69,7 @@ impl HttpsClientStream {
 
         // build up the http request
 
-        let bytes = Bytes::from(message.bytes());
+        let bytes = BytesMut::from(message.bytes());
         let request = crate::request::new(&name_server_name, bytes.len());
 
         let request =
@@ -83,7 +83,7 @@ impl HttpsClientStream {
             .map_err(|err| ProtoError::from(format!("h2 send_request error: {}", err)))?;
 
         send_stream
-            .send_data(bytes, true)
+            .send_data(bytes.freeze(), true)
             .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
 
         let mut response_stream = response_future
@@ -103,7 +103,7 @@ impl HttpsClientStream {
         // max(512) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
         //  just a little protection from malicious actors.
         let mut response_bytes =
-            Bytes::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
+            BytesMut::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
             let partial_bytes =
@@ -466,7 +466,7 @@ impl Future for HttpsClientConnectState {
 
                     // TODO: hand this back for others to run rather than spawning here?
                     debug!("h2 connection established to: {}", name_server);
-                    tokio_executor::spawn(
+                    tokio::spawn(
                         connection
                             .map_err(|e| warn!("h2 connection failed: {}", e))
                             .map(|_: Result<(), ()>| ()),
@@ -513,8 +513,8 @@ mod tests {
     use std::net::{Ipv4Addr, SocketAddr};
     use std::str::FromStr;
 
-    use self::tokio::runtime::current_thread;
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+    use tokio::runtime::Runtime;
     use webpki_roots;
 
     use trust_dns_proto::op::{Message, Query};
@@ -524,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_https_cloudflare() {
-        self::env_logger::try_init().ok();
+        //self::env_logger::try_init().ok();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
         let mut request = Message::new();
@@ -547,7 +547,7 @@ mod tests {
         let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...
-        let mut runtime = current_thread::Runtime::new().expect("could not start runtime");
+        let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));

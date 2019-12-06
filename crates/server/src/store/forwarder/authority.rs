@@ -6,9 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 
-use futures::{Future, FutureExt, Poll};
+use futures::{Future, FutureExt};
 
 use trust_dns_client::op::LowerQuery;
 use trust_dns_client::op::ResponseCode;

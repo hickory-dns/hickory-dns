@@ -6,7 +6,6 @@ extern crate openssl;
 #[cfg(feature = "dns-over-https-rustls")]
 extern crate rustls;
 extern crate tokio;
-extern crate tokio_net;
 extern crate trust_dns_client;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
@@ -24,9 +23,9 @@ use std::sync::{Arc, Mutex};
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
 use futures::{Future, FutureExt, TryFutureExt};
-use tokio::runtime::current_thread::Runtime;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
-use tokio_net::udp::UdpSocket as TokioUdpSocket;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::net::UdpSocket as TokioUdpSocket;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns_client::error::ClientErrorKind;
@@ -899,8 +898,8 @@ where
 
 #[test]
 fn test_timeout_query_nonet() {
-    env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    //env_logger::try_init().ok();
+    let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let (bg, client) = ClientFuture::with_timeout(
         stream,
@@ -915,8 +914,8 @@ fn test_timeout_query_nonet() {
 
 #[test]
 fn test_timeout_query_udp() {
-    env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    //env_logger::try_init().ok();
+    let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -934,8 +933,8 @@ fn test_timeout_query_udp() {
 
 #[test]
 fn test_timeout_query_tcp() {
-    env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    //env_logger::try_init().ok();
+    let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)

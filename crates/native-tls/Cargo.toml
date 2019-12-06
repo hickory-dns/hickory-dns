@@ -45,16 +45,15 @@ name = "trust_dns_native_tls"
 path = "src/lib.rs"
 
 [dependencies]
-futures-preview = "0.3.0-alpha"
+futures = "0.3.0"
 native-tls = "0.2"
-tokio-net = "0.2.0-alpha"
-tokio-tls = "0.3.0-alpha"
+tokio = "0.2.1"
+tokio-tls = "0.3.0"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["tokio-compat"], default-features = false }
 
 [dev-dependencies]
-tokio = "0.2.0-alpha"
 
 ## Commented out until MTLS support is complete
 # [target.'cfg(target_os = "linux")'.dependencies]
-# openssl = { version = "^0.10", features = ["v102", "v110"] }
+# openssl = { version = "0.10", features = ["v102", "v110"] }

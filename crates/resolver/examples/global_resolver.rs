@@ -4,7 +4,6 @@
 extern crate lazy_static;
 extern crate futures;
 extern crate tokio;
-extern crate tokio_io;
 extern crate trust_dns_resolver;
 
 use std::io;
@@ -37,7 +36,7 @@ lazy_static! {
         // This thread will manage the actual resolution runtime
         thread::spawn(move || {
             // A runtime for this new thread
-            let mut runtime = tokio::runtime::current_thread::Runtime::new().expect("failed to launch Runtime");
+            let mut runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
 
             // our platform independent future, result, see next blocks
             let (resolver, bg) = {
@@ -127,8 +126,7 @@ fn main() {
         .iter()
         .map(|name| {
             let join = thread::spawn(move || {
-                let mut runtime = tokio::runtime::current_thread::Runtime::new()
-                    .expect("failed to launch Runtime");
+                let mut runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
                 runtime.block_on(resolve(*name, 443))
             });
 

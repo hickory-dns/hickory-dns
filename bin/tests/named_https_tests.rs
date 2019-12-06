@@ -29,7 +29,7 @@ use std::net::*;
 use std::sync::Arc;
 
 use rustls::{Certificate, ClientConfig, ProtocolVersion, RootCertStore};
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
 use trust_dns_https::HttpsClientStreamBuilder;
 
@@ -37,8 +37,8 @@ use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_https_toml_startup() {
-    extern crate env_logger;
-    env_logger::try_init().ok();
+    // extern crate env_logger;
+    // env_logger::try_init().ok();
 
     const ALPN_H2: &[u8] = b"h2";
 

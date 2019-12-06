@@ -143,7 +143,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use std::str::FromStr;
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime::Runtime;
 
     use crate::config::*;
 

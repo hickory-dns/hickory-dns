@@ -8,9 +8,9 @@
 //! All authority related types
 
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 
-use futures::{future, Future, Poll, TryFutureExt};
+use futures::{future, Future, TryFutureExt};
 
 use trust_dns_client::op::LowerQuery;
 use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;

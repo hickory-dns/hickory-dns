@@ -12,7 +12,7 @@ use std::thread;
 use std::time::*;
 
 use futures::Future;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::proto::error::ProtoError;
@@ -22,6 +22,16 @@ use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns_client::rr::*;
 
 use self::mut_message_client::MutMessageHandle;
+
+fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
+    output.clear();
+    read.read_line(output).expect("could not read stdio");
+
+    if !output.is_empty() {
+        // uncomment for debugging
+        // println!("SRV: {}", output.trim_end());
+    }
+}
 
 /// Spins up a Server and handles shutting it down after running the test
 #[allow(dead_code)]
@@ -113,25 +123,18 @@ where
 
     while Instant::now() < wait_for_start_until {
         {
-            assert!(
-                named
-                    .lock()
-                    .unwrap()
-                    .try_wait()
-                    .expect("failed to check status of named")
-                    .is_none(),
-                "named has already exited"
-            );
+            if let Some(ret_code) = named
+                .lock()
+                .unwrap()
+                .try_wait()
+                .expect("failed to check status of named")
+            {
+                panic!("named has already exited with code: {}", ret_code);
+            }
         }
 
-        output.clear();
-        named_out
-            .read_line(&mut output)
-            .expect("could not read stdout");
-        if !output.is_empty() {
-            // uncomment for debugging
-            // println!("SRV: {}", output.trim_end());
-        }
+        collect_and_print(&mut named_out, &mut output);
+
         if output.contains("awaiting connections...") {
             found = true;
             break;
@@ -149,13 +152,16 @@ where
         .spawn(move || {
             let succeeded = succeeded_clone;
             while !succeeded.load(atomic::Ordering::Relaxed) {
-                output.clear();
-                named_out
-                    .read_line(&mut output)
-                    .expect("could not read stdout");
-                if !output.is_empty() {
-                    // uncomment for debugging
-                    // println!("SRV: {}", output.trim_end());
+                collect_and_print(&mut named_out, &mut output);
+
+                if let Some(_ret_code) = named
+                    .lock()
+                    .unwrap()
+                    .try_wait()
+                    .expect("failed to check status of named")
+                {
+                    // uncomment for debugging:
+                    // println!("named exited with code: {}", _ret_code);
                 }
             }
         })

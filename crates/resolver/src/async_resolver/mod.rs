@@ -10,14 +10,14 @@ use std::fmt;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 
 use futures::{
     self,
     channel::{mpsc, oneshot},
     future,
     lock::Mutex,
-    Future, FutureExt, Poll, TryFutureExt,
+    Future, FutureExt, TryFutureExt,
 };
 use proto::error::ProtoResult;
 use proto::rr::domain::TryParseIp;
@@ -389,7 +389,7 @@ mod tests {
     use std::net::*;
     use std::str::FromStr;
 
-    use self::tokio::runtime::current_thread::Runtime;
+    use self::tokio::runtime::Runtime;
     use proto::xfer::DnsRequest;
 
     use crate::config::{LookupIpStrategy, NameServerConfig};
@@ -420,7 +420,7 @@ mod tests {
     }
 
     fn lookup_test(config: ResolverConfig) {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
         let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
@@ -462,7 +462,7 @@ mod tests {
 
     #[test]
     fn test_ip_lookup() {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
         let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
@@ -762,7 +762,7 @@ mod tests {
 
     #[test]
     fn test_domain_search() {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         // domain is good now, should be combined with the name to form www.example.com
         let domain = Name::from_str("example.com.").unwrap();
@@ -801,7 +801,7 @@ mod tests {
 
     #[test]
     fn test_search_list() {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![

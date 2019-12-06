@@ -11,3 +11,6 @@ members = ["crates/client",
            "tests/integration-tests",
            "bin",
            "util"]
+
+[patch.crates-io]
+typed-headers = { git = "https://github.com/o01eg/typed-headers", branch = "update-dependencies" }

@@ -8,13 +8,13 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{Future, FutureExt, Poll, TryFutureExt};
-use tokio_executor::{DefaultExecutor, Executor};
-use tokio_net::tcp::TcpStream as TokioTcpStream;
-use tokio_net::udp::UdpSocket as TokioUdpSocket;
+use futures::{Future, FutureExt, TryFutureExt};
+use tokio;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::net::UdpSocket as TokioUdpSocket;
 
 use proto;
 #[cfg(feature = "mdns")]
@@ -152,7 +152,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(stream.boxed())?;
+                tokio::spawn(stream.boxed());
                 Ok(ConnectionHandleConnected::Udp(handle))
             }
             Tcp {
@@ -178,7 +178,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(stream.boxed())?;
+                tokio::spawn(stream.boxed());
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-tls")]
@@ -211,7 +211,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
             #[cfg(feature = "dns-over-https")]
@@ -232,7 +232,7 @@ impl ConnectionHandleConnect {
                     })
                     .map(|_| ());
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Https(handle))
             }
             #[cfg(feature = "mdns")]
@@ -259,7 +259,7 @@ impl ConnectionHandleConnect {
                     .map(|_| ());
                 let handle = BufDnsRequestStreamHandle::new(handle);
 
-                DefaultExecutor::current().spawn(Box::pin(stream))?;
+                tokio::spawn(Box::pin(stream));
                 Ok(ConnectionHandleConnected::Tcp(handle))
             }
         }

@@ -245,7 +245,7 @@ mod tests {
     use std::time::Duration;
 
     use futures::{future, FutureExt};
-    use tokio::runtime::current_thread::Runtime;
+    use tokio::runtime::Runtime;
 
     use proto::op::{Query, ResponseCode};
     use proto::rr::{Name, RecordType};
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_name_server() {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),

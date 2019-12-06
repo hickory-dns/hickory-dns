@@ -92,12 +92,12 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
     }
 
     // we only accept HTTPS
-    if Some(&uri::Scheme::HTTPS) != uri.scheme_part() {
+    if Some(&uri::Scheme::HTTPS) != uri.scheme() {
         return Err("must be HTTPS scheme".into());
     }
 
     // the authority must match our nameserver name
-    if let Some(authority) = uri.authority_part() {
+    if let Some(authority) = uri.authority() {
         if authority.host() != name_server {
             return Err("incorrect authority".into());
         }

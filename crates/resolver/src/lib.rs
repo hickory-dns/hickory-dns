@@ -93,7 +93,7 @@
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! use std::net::*;
-//! use tokio::runtime::current_thread::Runtime;
+//! use tokio::runtime::Runtime;
 //! use trust_dns_resolver::AsyncResolver;
 //! use trust_dns_resolver::config::*;
 //!
@@ -205,10 +205,7 @@ extern crate resolv_conf;
 #[macro_use]
 extern crate serde;
 extern crate smallvec;
-#[cfg(feature = "tokio")]
 extern crate tokio;
-extern crate tokio_executor;
-extern crate tokio_net;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
 #[cfg(feature = "dns-over-native-tls")]

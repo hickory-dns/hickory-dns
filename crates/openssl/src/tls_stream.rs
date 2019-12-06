@@ -17,7 +17,7 @@ use openssl::ssl::{ConnectConfiguration, SslConnector, SslContextBuilder, SslMet
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::{X509Ref, X509};
-use tokio_net::tcp::TcpStream as TokioTcpStream;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use trust_dns_proto::tcp::TcpStream;

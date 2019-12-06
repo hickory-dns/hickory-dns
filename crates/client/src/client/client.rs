@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use futures::Future;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use trust_dns_proto::{
     error::ProtoError,
@@ -83,9 +83,8 @@ pub trait Client {
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.query(name.clone(), query_class, query_type))
+        reactor.spawn(bg);
+        reactor.block_on(client.query(name.clone(), query_class, query_type))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -108,9 +107,8 @@ pub trait Client {
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.notify(name, query_class, query_type, rrset))
+        reactor.spawn(bg);
+        reactor.block_on(client.notify(name, query_class, query_type, rrset))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -152,9 +150,8 @@ pub trait Client {
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.create(rrset, zone_origin))
+        reactor.spawn(bg);
+        reactor.block_on(client.create(rrset, zone_origin))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -197,9 +194,8 @@ pub trait Client {
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.append(rrset, zone_origin, must_exist))
+        reactor.spawn(bg);
+        reactor.block_on(client.append(rrset, zone_origin, must_exist))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -255,9 +251,8 @@ pub trait Client {
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.compare_and_swap(current, new, zone_origin))
+        reactor.spawn(bg);
+        reactor.block_on(client.compare_and_swap(current, new, zone_origin))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -301,9 +296,8 @@ pub trait Client {
     {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.delete_by_rdata(record, zone_origin))
+        reactor.spawn(bg);
+        reactor.block_on(client.delete_by_rdata(record, zone_origin))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -344,9 +338,8 @@ pub trait Client {
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.delete_rrset(record, zone_origin))
+        reactor.spawn(bg);
+        reactor.block_on(client.delete_rrset(record, zone_origin))
     }
 
     /// Deletes all records at the specified name
@@ -381,9 +374,8 @@ pub trait Client {
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.delete_all(name_of_records, zone_origin, dns_class))
+        reactor.spawn(bg);
+        reactor.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
     }
 }
 
@@ -505,9 +497,8 @@ where
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let (bg, mut client) = self.new_future();
-        reactor
-            .spawn(bg)
-            .block_on(client.query(query_name.clone(), query_class, query_type))
+        reactor.spawn(bg);
+        reactor.block_on(client.query(query_name.clone(), query_class, query_type))
     }
 }
 

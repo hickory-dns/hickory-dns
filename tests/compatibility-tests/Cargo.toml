@@ -45,10 +45,10 @@ name = "trust_dns_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = "^0.4"
+chrono = "0.4"
 data-encoding = "2.1.0"
 env_logger = "0.7"
-futures-preview = "0.3.0-alpha"
+futures = "0.3.0"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.7"
 trust-dns-client= { version = "0.18.0-alpha", path="../../crates/client", features = ["dnssec-openssl"] }

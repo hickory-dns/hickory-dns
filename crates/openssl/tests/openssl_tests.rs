@@ -26,7 +26,7 @@ use openssl::pkey::*;
 use openssl::ssl::*;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::*;
-use tokio::runtime::current_thread::Runtime;
+use tokio::runtime::Runtime;
 
 use openssl::asn1::*;
 use openssl::bn::*;

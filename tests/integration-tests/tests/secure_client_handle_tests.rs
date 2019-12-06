@@ -2,7 +2,6 @@
 
 extern crate futures;
 extern crate tokio;
-extern crate tokio_net;
 extern crate trust_dns_client;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -12,9 +11,9 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use tokio::runtime::current_thread::Runtime;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
-use tokio_net::udp::UdpSocket as TokioUdpSocket;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::net::UdpSocket as TokioUdpSocket;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{
     BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle,
@@ -241,7 +240,7 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let (bg, client) = ClientFuture::new(stream, Box::new(sender), None);
     let client = MemoizeClientHandle::new(client);
@@ -274,7 +273,7 @@ where
         })
         .unwrap();
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let (bg, client) = ClientFuture::connect(stream);
@@ -311,7 +310,7 @@ where
         })
         .unwrap();
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let (bg, client) = ClientFuture::new(Box::new(stream), sender, None);

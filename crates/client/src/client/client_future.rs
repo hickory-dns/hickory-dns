@@ -7,7 +7,7 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::Duration;
 
 use crate::proto::error::ProtoError;
@@ -16,7 +16,7 @@ use crate::proto::xfer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
 };
-use futures::{ready, Future, FutureExt, Poll};
+use futures::{ready, Future, FutureExt};
 use log::{debug, warn};
 use rand;
 

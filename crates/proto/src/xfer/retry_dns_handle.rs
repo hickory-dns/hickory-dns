@@ -8,9 +8,9 @@
 //! `RetryDnsHandle` allows for DnsQueries to be reattempted on failure
 
 use std::pin::Pin;
-use std::task::Context;
+use std::task::{Context, Poll};
 
-use futures::{Future, FutureExt, Poll};
+use futures::{Future, FutureExt};
 
 use crate::error::ProtoError;
 use crate::xfer::{DnsRequest, DnsResponse};

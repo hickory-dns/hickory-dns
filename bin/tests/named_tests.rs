@@ -6,12 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 extern crate chrono;
-extern crate env_logger;
 extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate tokio;
-extern crate tokio_net;
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -25,9 +23,9 @@ use std::io::Write;
 use std::net::*;
 use std::str::FromStr;
 
-use tokio::runtime::current_thread::Runtime;
-use tokio_net::tcp::TcpStream as TokioTcpStream;
-use tokio_net::udp::UdpSocket as TokioUdpSocket;
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::net::UdpSocket as TokioUdpSocket;
+use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::op::ResponseCode;
@@ -253,7 +251,7 @@ fn test_server_continues_on_bad_data_tcp() {
 fn test_forward() {
     use server_harness::query_message;
 
-    env_logger::init();
+    //env_logger::init();
 
     named_test_harness("example_forwarder.toml", |port, _, _| {
         let mut io_loop = Runtime::new().unwrap();

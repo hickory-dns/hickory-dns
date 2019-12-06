@@ -12,11 +12,11 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
 use std::slice::Iter;
 use std::sync::Arc;
-use std::task::Context;
+use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use std::vec::IntoIter;
 
-use futures::{future, Future, FutureExt, Poll};
+use futures::{future, Future, FutureExt};
 
 use proto::error::ProtoError;
 use proto::op::Query;
