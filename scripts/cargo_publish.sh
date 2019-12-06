@@ -19,4 +19,7 @@ for p in ${packages_ordered:?} ; do
     cargo publish --verbose --locked --dry-run --manifest-path ${p:?}/Cargo.toml
     echo "====> publishing $p"
     cargo publish --verbose --locked --manifest-path ${p:?}/Cargo.toml
+
+    # this seems to be enough time to let crates.io update
+    sleep 10
 done
