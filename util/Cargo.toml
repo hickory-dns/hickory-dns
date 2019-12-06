@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-util"
-version = "0.18.0-alpha.1"
+version = "0.18.0-alpha.2"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
