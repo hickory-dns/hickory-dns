@@ -36,7 +36,7 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["tokio"]
+default = ["tokio-compat"]
 dns-over-native-tls = ["dns-over-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl"]
@@ -56,12 +56,14 @@ serde-config = ["serde", "trust-dns-proto/serde-config"]
 # enables experimental the mDNS (multicast) feature
 mdns = ["trust-dns-proto/mdns"]
 
+tokio-compat = ["tokio", "trust-dns-proto/tokio-compat"]
+
 [lib]
 name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-cfg-if = "<=0.1.9"
+cfg-if = "0.1.9"
 failure = "0.1"
 futures = "0.3.0"
 lazy_static = "1.0"
@@ -84,5 +86,3 @@ ipconfig = { version = "0.2.0" }
 
 [dev-dependencies]
 env_logger = "0.7"
-tokio-io = "0.2.0-alpha"
-tokio = "0.2.1"

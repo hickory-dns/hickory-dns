@@ -6,7 +6,6 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio;
-extern crate tokio;
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
@@ -20,13 +19,11 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use std::time::{Duration, Instant};
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::executor::block_on;
 use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
-use tokio::time::Delay;
+use tokio::time::{Delay, Duration, Instant};
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::error::ClientResult;
@@ -139,6 +136,8 @@ impl Stream for TestClientStream {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        use futures::executor::block_on;
+
         match self.outbound_messages.next().poll_unpin(cx) {
             // already handled above, here to make sure the poll() pops the next message
             Poll::Ready(Some(bytes)) => {
@@ -151,7 +150,6 @@ impl Stream for TestClientStream {
                     src: src_addr,
                 };
 
-                dbg!("catalog handling request");
                 let response_handler = TestResponseHandler::new();
                 block_on(
                     self.catalog
@@ -160,10 +158,7 @@ impl Stream for TestClientStream {
                         .handle_request(request, response_handler.clone()),
                 );
 
-                dbg!("catalog handled request");
-
                 let buf = block_on(response_handler.into_inner());
-                dbg!("catalog responded");
 
                 Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
             }
@@ -201,9 +196,11 @@ impl NeverReturnsClientStream {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream = Box::pin(future::ok(NeverReturnsClientStream {
-            timeout: tokio::time::delay(Instant::now() + Duration::from_secs(1)),
-            outbound_messages: outbound_messages.fuse(),
+        let stream = Box::pin(future::lazy(|_| {
+            Ok(NeverReturnsClientStream {
+                timeout: tokio::time::delay_for(Duration::from_secs(1)),
+                outbound_messages: outbound_messages.fuse(),
+            })
         }));
 
         (stream, message_sender)
@@ -226,8 +223,6 @@ impl Stream for NeverReturnsClientStream {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
-        println!("still not returning");
-
         // poll the timer forever...
         if let Poll::Pending = self.timeout.poll_unpin(cx) {
             return Poll::Pending;

@@ -20,7 +20,7 @@ use std::{fmt, io};
 
 use failure::{Backtrace, Context, Fail};
 use futures::channel::mpsc::SendError;
-use proto::error::{ProtoError, ProtoErrorKind};
+use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
 use crate::error::{DnsSecError, DnsSecErrorKind};
 

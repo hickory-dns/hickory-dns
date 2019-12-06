@@ -13,6 +13,7 @@ use std::task::{Context, Poll};
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Peekable, Stream, StreamExt};
 use futures::{Future, FutureExt};
+use log::{debug, warn};
 
 use crate::error::*;
 use crate::xfer::{

@@ -58,12 +58,6 @@
 //! trust-dns-client = { version = "*", default-features = false }
 //! ```
 //!
-//! Extern the crate into your program or library:
-//!
-//! ```rust
-//! extern crate trust_dns_client;
-//! ```
-//!
 //! ## Objects
 //!
 //! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `ClientFuture`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
@@ -133,10 +127,6 @@
 
 //!
 //! ```rust,no_run
-//! # extern crate chrono;
-//! # extern crate openssl;
-//! # extern crate trust_dns_client;
-//!
 //! use std::fs::File;
 //! use std::io::Read;
 //! use std::net::Ipv4Addr;
@@ -217,9 +207,6 @@
 //! The below example uses a single threaded tokio runtime example for the client. Tokio can get much more complex with multiple runtimes on many threads. This example is meant to show basic usage, the Tokio documentation should be reviewed for more advanced usage.
 //!
 //! ```rust
-//! # extern crate tokio;
-//! # extern crate trust_dns_client;
-//!
 //! use std::net::{Ipv4Addr, SocketAddr};
 //! use std::str::FromStr;
 //! use tokio::net::UdpSocket;
@@ -260,38 +247,6 @@
 //! }
 //! ```
 
-extern crate chrono;
-extern crate data_encoding;
-extern crate failure;
-#[macro_use]
-extern crate futures;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
-#[cfg(feature = "native-tls")]
-extern crate native_tls;
-#[cfg(feature = "openssl")]
-extern crate openssl;
-extern crate radix_trie;
-extern crate rand;
-#[cfg(feature = "ring")]
-extern crate ring;
-#[cfg(feature = "dns-over-https-rustls")]
-extern crate rustls;
-#[cfg(feature = "serde-config")]
-extern crate serde;
-extern crate tokio;
-#[cfg(feature = "tokio-openssl")]
-extern crate tokio_openssl;
-#[cfg(feature = "tokio-tls")]
-extern crate tokio_tls;
-#[cfg(feature = "dns-over-https")]
-extern crate trust_dns_https;
-pub extern crate trust_dns_proto as proto;
-#[cfg(feature = "dns-over-https")]
-extern crate webpki;
-
 pub mod client;
 pub mod error;
 #[cfg(feature = "mdns")]
@@ -305,6 +260,8 @@ pub mod udp;
 // TODO: consider removing tcp/udp/https modules...
 #[cfg(feature = "dns-over-https")]
 mod https_client_connection;
+
+pub use trust_dns_proto as proto;
 
 /// The https module which contains all https related connection types
 #[cfg(feature = "dns-over-https")]

@@ -18,6 +18,7 @@ use async_trait::async_trait;
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
 use futures::stream::{Fuse, Peekable, Stream, StreamExt};
 use futures::{ready, Future, FutureExt, TryFutureExt};
+use log::debug;
 
 use crate::error::*;
 use crate::xfer::{BufStreamHandle, SerialMessage};

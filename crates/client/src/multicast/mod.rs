@@ -8,7 +8,7 @@
 //! UDP protocol related components for DNS
 
 mod mdns_client_connection;
-use proto::multicast;
+use crate::proto::multicast;
 
 pub use self::mdns_client_connection::MdnsClientConnection;
 pub use self::multicast::{MdnsClientStream, MdnsQueryType, MdnsStream, MDNS_IPV4, MDNS_IPV6};

@@ -55,7 +55,7 @@ mod tests {
     use crate::AsyncResolver;
 
     fn https_test(config: ResolverConfig) {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
         let mut io_loop = Runtime::new().unwrap();
 
         let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());

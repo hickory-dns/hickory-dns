@@ -8,8 +8,6 @@
 #![feature(test)]
 
 extern crate test;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
 
 use std::str::FromStr;
 

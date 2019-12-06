@@ -21,12 +21,12 @@ mod lower_name;
 mod rr_key;
 pub mod zone;
 
-use proto::rr;
-pub use proto::rr::dns_class;
-pub use proto::rr::domain;
-pub use proto::rr::record_data;
-pub use proto::rr::record_type;
-pub use proto::rr::resource;
+use crate::proto::rr;
+pub use crate::proto::rr::dns_class;
+pub use crate::proto::rr::domain;
+pub use crate::proto::rr::record_data;
+pub use crate::proto::rr::record_type;
+pub use crate::proto::rr::resource;
 
 pub use self::dns_class::DNSClass;
 pub use self::lower_name::LowerName;
@@ -41,6 +41,6 @@ pub use self::rr_key::RrKey;
 
 /// All record data structures and related serialization methods
 pub mod rdata {
-    pub use proto::rr::dnssec::rdata::*;
-    pub use proto::rr::rdata::*;
+    pub use crate::proto::rr::dnssec::rdata::*;
+    pub use crate::proto::rr::rdata::*;
 }

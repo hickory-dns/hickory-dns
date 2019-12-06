@@ -21,7 +21,7 @@ mod key_format;
 mod keypair;
 mod signer;
 
-use proto::rr::dnssec;
+use crate::proto::rr::dnssec;
 
 pub use self::dnssec::tbs;
 pub use self::dnssec::Algorithm;

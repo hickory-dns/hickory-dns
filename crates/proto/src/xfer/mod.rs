@@ -12,6 +12,7 @@ use std::task::{Context, Poll};
 use futures::channel::mpsc::{TrySendError, UnboundedSender};
 use futures::channel::oneshot::{self, Receiver, Sender};
 use futures::{ready, Future, Stream};
+use log::{debug, warn};
 
 use crate::error::*;
 use crate::op::Message;

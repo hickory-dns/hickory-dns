@@ -11,7 +11,7 @@ use std::borrow::Borrow;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use futures::{Stream, StreamExt};
 use h2;
 use http::{Method, Request};
@@ -26,7 +26,7 @@ use crate::HttpsError;
 pub async fn message_from<R>(
     this_server_name: Arc<String>,
     request: Request<R>,
-) -> Result<Bytes, HttpsError>
+) -> Result<BytesMut, HttpsError>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
@@ -61,15 +61,15 @@ where
 pub(crate) async fn message_from_post<R>(
     mut request_stream: R,
     length: Option<usize>,
-) -> Result<Bytes, HttpsError>
+) -> Result<BytesMut, HttpsError>
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
-    let mut bytes = Bytes::with_capacity(length.unwrap_or(0).min(512).max(4096));
+    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).min(512).max(4096));
 
     loop {
         match request_stream.next().await {
-            Some(Ok(frame)) => bytes.extend_from_slice(&frame.slice_from(0)),
+            Some(Ok(mut frame)) => bytes.extend_from_slice(&frame.split_off(0)),
             Some(Err(err)) => return Err(err.into()),
             None => {
                 return if let Some(length) = length {

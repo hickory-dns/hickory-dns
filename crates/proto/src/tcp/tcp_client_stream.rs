@@ -16,6 +16,7 @@ use std::time::Duration;
 #[cfg(feature = "tokio-compat")]
 use async_trait::async_trait;
 use futures::{Future, Stream, StreamExt, TryFutureExt};
+use log::warn;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::error::ProtoError;

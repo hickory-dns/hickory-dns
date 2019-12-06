@@ -17,8 +17,10 @@ use std::sync::Arc;
 use futures::Future;
 use tokio::runtime::Runtime;
 
-use proto::error::ProtoError;
-use proto::xfer::{DnsRequestSender, DnsResponse};
+use trust_dns_proto::{
+    error::ProtoError,
+    xfer::{DnsRequestSender, DnsResponse},
+};
 
 #[cfg(feature = "dnssec")]
 use crate::client::SecureClientHandle;

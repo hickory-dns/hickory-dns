@@ -14,7 +14,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::Index;
 use std::str::FromStr;
 
-use proto::error::*;
+use crate::proto::error::*;
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 

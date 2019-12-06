@@ -7,6 +7,7 @@
 
 //! SSHFP records for SSH public key fingerprints
 use data_encoding::{Encoding, Specification};
+use lazy_static::lazy_static;
 
 use crate::error::*;
 use crate::rr::rdata::SSHFP;

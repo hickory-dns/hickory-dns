@@ -16,8 +16,10 @@
 
 //! mail exchange, email, record
 
-use proto::rr::rdata::caa;
-use proto::rr::rdata::caa::{Property, Value};
+use log::warn;
+
+use crate::proto::rr::rdata::caa;
+use crate::proto::rr::rdata::caa::{Property, Value};
 
 use crate::error::*;
 use crate::rr::rdata::CAA;

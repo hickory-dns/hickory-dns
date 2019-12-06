@@ -10,13 +10,14 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{Future, FutureExt};
-use proto::error::ProtoError;
-use proto::xfer::{
+use crate::proto::error::ProtoError;
+use crate::proto::xfer::{
     BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
 };
+use futures::{ready, Future, FutureExt};
+use log::{debug, warn};
 use rand;
 
 use crate::error::*;

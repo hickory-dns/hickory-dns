@@ -50,7 +50,7 @@ where
     // somehow insert a timeout here...
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         // if the timer isn't set, set one now
-        if let None = self.timeout {
+        if self.timeout.is_none() {
             let timeout = Self::timeout(self.timeout_duration);
             mem::replace(&mut self.timeout, timeout);
         }

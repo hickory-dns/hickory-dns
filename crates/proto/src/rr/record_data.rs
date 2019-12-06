@@ -21,6 +21,9 @@ use std::cmp::Ordering;
 use std::convert::From;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
+use enum_as_inner::EnumAsInner;
+use log::{debug, warn};
+
 use super::domain::Name;
 use super::rdata;
 use super::rdata::{CAA, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, TLSA, TXT};

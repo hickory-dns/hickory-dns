@@ -21,6 +21,8 @@ use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use log::debug;
+
 use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 use crate::error::*;
 use crate::rr::{Record, RecordType};

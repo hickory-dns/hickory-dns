@@ -16,33 +16,6 @@
 
 //! Trust-DNS Protocol library
 
-extern crate async_trait;
-#[cfg(feature = "dnssec")]
-extern crate data_encoding;
-#[macro_use]
-extern crate enum_as_inner;
-#[cfg(test)]
-extern crate env_logger;
-extern crate failure;
-extern crate futures;
-extern crate idna;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
-#[cfg(feature = "openssl")]
-extern crate openssl;
-extern crate rand;
-#[cfg(feature = "ring")]
-extern crate ring;
-#[cfg(feature = "serde-config")]
-extern crate serde;
-extern crate smallvec;
-extern crate socket2;
-#[cfg(feature = "tokio-compat")]
-extern crate tokio;
-extern crate url;
-
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {

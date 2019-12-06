@@ -1,12 +1,14 @@
+use std::io::{Read, Write};
+use std::net::{IpAddr, SocketAddr};
+use std::sync::{atomic::AtomicBool, Arc};
+
+use futures::stream::StreamExt;
+use tokio::io::{AsyncRead, AsyncWrite};
+
 use crate::error::ProtoError;
 use crate::tcp::{Connect, TcpClientStream, TcpStream};
 use crate::xfer::SerialMessage;
 use crate::Executor;
-use futures::stream::StreamExt;
-use std::io::{Read, Write};
-use std::net::{IpAddr, SocketAddr};
-use std::sync::{atomic::AtomicBool, Arc};
-use tokio::io::{AsyncRead, AsyncWrite};
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
