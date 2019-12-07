@@ -1,4 +1,4 @@
-//! Tests for TCP and DUP stream and client
+//! Tests for TCP and UDP stream and client
 
 mod tcp;
 mod udp;

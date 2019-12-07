@@ -84,7 +84,6 @@ fn tcp_server_setup(
 }
 
 /// Test tcp_stream.
-#[allow(dead_code)]
 pub fn tcp_stream_test<S: Connect + 'static, E: Executor>(server_addr: IpAddr, mut exec: E)
 where
     <S as Connect>::Transport: AsyncRead + AsyncWrite + Unpin,
@@ -99,15 +98,17 @@ where
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::<S>::new::<ProtoError>(server_addr);
 
-    let mut stream = exec.spawn(stream).expect("run failed to get stream");
+    let mut stream = exec
+        .block_on(stream)
+        .expect("run failed to get stream");
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
         sender
             .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        //let (buffer, stream_tmp) = exec.spawn(stream.into_future());
-        let (buffer, stream_tmp) = exec.spawn(stream.into_future());
+
+        let (buffer, stream_tmp) = exec.block_on(stream.into_future());
         stream = stream_tmp;
         let message = buffer
             .expect("no buffer received")
@@ -120,7 +121,6 @@ where
 }
 
 /// Test tcp_client_stream.
-#[allow(dead_code)]
 pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor>(
     server_addr: IpAddr,
     mut exec: E,
@@ -137,14 +137,16 @@ pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor>(
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, mut sender) = TcpClientStream::<S>::new(server_addr);
 
-    let mut stream = exec.spawn(stream).expect("run failed to get stream");
+    let mut stream = exec
+        .block_on(stream)
+        .expect("run failed to get stream");
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
         sender
             .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = exec.spawn(stream.into_future());
+        let (buffer, stream_tmp) = exec.block_on(stream.into_future());
         stream = stream_tmp;
         let buffer = buffer
             .expect("no buffer received")
