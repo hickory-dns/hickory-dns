@@ -12,7 +12,7 @@ pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut e
     let (stream, _) =
         UdpStream::<S>::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
     drop(
-        exec.spawn(stream)
+        exec.run_until_completion(stream)
             .expect("failed to get next socket address"),
     );
 }
@@ -85,7 +85,7 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     };
 
     let socket = exec
-        .spawn(S::bind(
+        .run_until_completion(S::bind(
             &client_addr.to_socket_addrs().unwrap().next().unwrap(),
         ))
         .expect("could not create socket"); // some random address...
@@ -96,7 +96,7 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
         sender
             .unbounded_send(SerialMessage::new(test_bytes.to_vec(), server_addr))
             .unwrap();
-        let (buffer_and_addr, stream_tmp) = exec.spawn(stream.into_future());
+        let (buffer_and_addr, stream_tmp) = exec.run_until_completion(stream.into_future());
         stream = stream_tmp;
         let message = buffer_and_addr
             .expect("no buffer received")
@@ -111,6 +111,7 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
 
 /// Test udp_client_stream.
 #[allow(dead_code)]
+#[allow(clippy::print_stdout)]
 pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     server_addr: IpAddr,
     mut exec: E,
@@ -203,16 +204,16 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
     let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
-    let mut stream: UdpClientStream<S> = exec.spawn(stream).ok().unwrap();
+    let mut stream: UdpClientStream<S> = exec.run_until_completion(stream).ok().unwrap();
     let mut worked_once = false;
 
     for i in 0..send_recv_times {
         // test once
-        let response_future = exec.spawn(future::lazy(|cx| {
+        let response_future = exec.run_until_completion(future::lazy(|cx| {
             stream.send_message(DnsRequest::new(query.clone(), Default::default()), cx)
         }));
         println!("client sending request {}", i);
-        let response = match exec.spawn(response_future) {
+        let response = match exec.run_until_completion(response_future) {
             Ok(response) => response,
             Err(err) => {
                 println!("failed to get message: {}", err);

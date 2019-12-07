@@ -99,15 +99,17 @@ where
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::<S>::new::<ProtoError>(server_addr);
 
-    let mut stream = exec.spawn(stream).expect("run failed to get stream");
+    let mut stream = exec
+        .run_until_completion(stream)
+        .expect("run failed to get stream");
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
         sender
             .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        //let (buffer, stream_tmp) = exec.spawn(stream.into_future());
-        let (buffer, stream_tmp) = exec.spawn(stream.into_future());
+
+        let (buffer, stream_tmp) = exec.run_until_completion(stream.into_future());
         stream = stream_tmp;
         let message = buffer
             .expect("no buffer received")
@@ -137,14 +139,16 @@ pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor>(
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, mut sender) = TcpClientStream::<S>::new(server_addr);
 
-    let mut stream = exec.spawn(stream).expect("run failed to get stream");
+    let mut stream = exec
+        .run_until_completion(stream)
+        .expect("run failed to get stream");
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
         sender
             .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = exec.spawn(stream.into_future());
+        let (buffer, stream_tmp) = exec.run_until_completion(stream.into_future());
         stream = stream_tmp;
         let buffer = buffer
             .expect("no buffer received")

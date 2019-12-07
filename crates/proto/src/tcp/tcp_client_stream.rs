@@ -140,125 +140,34 @@ impl Connect for TokioTcpStream {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
 #[cfg(test)]
-use std::net::Ipv6Addr;
-#[cfg(test)]
-use std::net::{IpAddr, Ipv4Addr};
+mod tests {
+    #[cfg(not(target_os = "linux"))]
+    use std::net::Ipv6Addr;
+    use std::net::{IpAddr, Ipv4Addr};
+    use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime};
 
-#[test]
-// this fails on linux for some reason. It appears that a buffer somewhere is dirty
-//  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
-//  but not 3?
-// #[cfg(not(target_os = "linux"))]
-fn test_tcp_client_stream_ipv4() {
-    tcp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
-}
-
-#[test]
-#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-fn test_tcp_client_stream_ipv6() {
-    tcp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
-}
-
-#[cfg(test)]
-const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
-#[cfg(test)]
-const TEST_BYTES_LEN: usize = 8;
-
-#[cfg(test)]
-fn tcp_client_stream_test(server_addr: IpAddr) {
-    use std::io::{Read, Write};
-    use tokio::runtime;
-
-    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
-        .name("thread_killer".to_string())
-        .spawn(move || {
-            let succeeded = succeeded_clone;
-            for _ in 0..15 {
-                std::thread::sleep(std::time::Duration::from_secs(1));
-                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                    return;
-                }
-            }
-
-            panic!("timeout");
-        })
-        .unwrap();
-
-    // TODO: need a timeout on listen
-    let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
-    let server_addr = server.local_addr().unwrap();
-
-    let send_recv_times = 4;
-
-    // an in and out server
-    let server_handle = std::thread::Builder::new()
-        .name("test_tcp_client_stream_ipv4:server".to_string())
-        .spawn(move || {
-            let (mut socket, _) = server.accept().expect("accept failed");
-
-            socket
-                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap(); // should receive something within 5 seconds...
-            socket
-                .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-                .unwrap(); // should receive something within 5 seconds...
-
-            for _ in 0..send_recv_times {
-                // wait for some bytes...
-                let mut len_bytes = [0_u8; 2];
-                socket
-                    .read_exact(&mut len_bytes)
-                    .expect("SERVER: receive failed");
-                let length =
-                    u16::from(len_bytes[0]) << 8 & 0xFF00 | u16::from(len_bytes[1]) & 0x00FF;
-                assert_eq!(length as usize, TEST_BYTES_LEN);
-
-                let mut buffer = [0_u8; TEST_BYTES_LEN];
-                socket.read_exact(&mut buffer).unwrap();
-
-                // println!("read bytes iter: {}", i);
-                assert_eq!(&buffer, TEST_BYTES);
-
-                // bounce them right back...
-                socket
-                    .write_all(&len_bytes)
-                    .expect("SERVER: send length failed");
-                socket
-                    .write_all(&buffer)
-                    .expect("SERVER: send buffer failed");
-                // println!("wrote bytes iter: {}", i);
-                std::thread::yield_now();
-            }
-        })
-        .unwrap();
-
-    // setup the client, which is going to run on the testing thread...
-    let mut io_loop = runtime::Runtime::new().unwrap();
-
-    // the tests should run within 5 seconds... right?
-    // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::<TokioTcpStream>::new(server_addr);
-
-    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
-
-    for _ in 0..send_recv_times {
-        // test once
-        sender
-            .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
-            .expect("send failed");
-        let (buffer, stream_tmp) = io_loop.block_on(stream.into_future());
-        stream = stream_tmp;
-        let buffer = buffer
-            .expect("no buffer received")
-            .expect("error recieving buffer");
-        assert_eq!(buffer.bytes(), TEST_BYTES);
+    use crate::tests::tcp_client_stream_test;
+    #[test]
+    // this fails on linux for some reason. It appears that a buffer somewhere is dirty
+    //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
+    //  but not 3?
+    // #[cfg(not(target_os = "linux"))]
+    fn test_tcp_stream_ipv4() {
+        let io_loop = Runtime::new().expect("failed to create tokio runtime");
+        tcp_client_stream_test::<TokioTcpStream, Runtime>(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            io_loop,
+        )
     }
 
-    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-    server_handle.join().expect("server thread failed");
+    #[test]
+    #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
+    fn test_tcp_stream_ipv6() {
+        let io_loop = Runtime::new().expect("failed to create tokio runtime");
+        tcp_client_stream_test::<TokioTcpStream, Runtime>(
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            io_loop,
+        )
+    }
 }

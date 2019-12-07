@@ -449,7 +449,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
-    use tokio::{net::TcpStream as tokioTcpStream, runtime::Runtime};
+    use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime};
 
     use crate::tests::tcp_stream_test;
     #[test]
@@ -459,13 +459,16 @@ mod tests {
     // #[cfg(not(target_os = "linux"))]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<tokioTcpStream, Runtime>(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), io_loop)
+        tcp_stream_test::<TokioTcpStream, Runtime>(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), io_loop)
     }
 
     #[test]
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<tokioTcpStream, Runtime>(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), io_loop)
+        tcp_stream_test::<TokioTcpStream, Runtime>(
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            io_loop,
+        )
     }
 }

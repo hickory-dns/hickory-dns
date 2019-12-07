@@ -346,22 +346,28 @@ impl SingleUseUdpSocket {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use crate::tests::udp_client_stream_test;
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
-    use tokio::{net::UdpSocket as tokioUdpSocket, runtime::Runtime};
-    use crate::tests::udp_client_stream_test;
+    use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
 
     #[test]
     fn test_udp_client_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<tokioUdpSocket, Runtime>(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), io_loop)
+        udp_client_stream_test::<TokioUdpSocket, Runtime>(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            io_loop,
+        )
     }
 
     #[test]
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_udp_client_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<tokioUdpSocket, Runtime>(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), io_loop)
+        udp_client_stream_test::<TokioUdpSocket, Runtime>(
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            io_loop,
+        )
     }
 }
