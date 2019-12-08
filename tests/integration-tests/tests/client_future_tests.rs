@@ -228,11 +228,9 @@ fn test_notify() {
 async fn create_sig0_ready_client() -> (
     (
         AsyncClient<DnsMultiplexerSerialResponse>,
-        Option<
-            DnsExchangeBackground<
-                DnsMultiplexer<TestClientStream, Signer, Box<dyn DnsStreamHandle>>,
-                DnsMultiplexerSerialResponse,
-            >,
+        DnsExchangeBackground<
+            DnsMultiplexer<TestClientStream, Signer, Box<dyn DnsStreamHandle>>,
+            DnsMultiplexerSerialResponse,
         >,
     ),
     Name,

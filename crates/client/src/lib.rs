@@ -237,11 +237,7 @@
 //! let (mut client, bg) = runtime.block_on(client).expect("connection failed");
 //!
 //! // make sure to run the background task
-//! if let Some(bg) = bg {
-//!     use futures::FutureExt;
-//!     // FIXME: change this back to Result<(), ProtoError> after tokio 0.2 update
-//!     runtime.spawn(bg.map(|r: Result<(), _>| ()));
-//! }
+//! runtime.spawn(bg);
 //!
 //! // Create a query future
 //! let query = client.query(Name::from_str("www.example.com.").unwrap(), DNSClass::IN, RecordType::A);

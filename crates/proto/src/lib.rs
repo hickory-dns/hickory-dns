@@ -35,13 +35,9 @@ macro_rules! try_ready_stream {
 /// Spawn a background task, if it was present
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
-    background: Option<F>,
-) -> Option<JoinHandle<R>> {
-    if let Some(bg) = background {
-        Some(runtime.spawn(bg))
-    } else {
-        None
-    }
+    background: F,
+) -> JoinHandle<R> {
+    runtime.spawn(background)
 }
 
 pub mod error;

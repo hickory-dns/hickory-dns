@@ -44,19 +44,14 @@ impl SpawnBg for FuturesSpawnBg {
 
     fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
         &self,
-        background: Option<F>,
-    ) -> Option<Self::JoinHandle> {
-        if let Some(bg) = background {
-            let result = self.0.spawn_obj(FutureObj::new(Box::pin(
-                bg.map_err(|e| println!("error in background task: {}", e))
-                    .map(|_| ()),
-            )));
-            Some(future::ready(result.map_err(|e| {
-                ProtoError::from(format!("error spawning: {}", e))
-            })))
-        } else {
-            None
-        }
+        background: F,
+    ) -> Self::JoinHandle {
+        let result = self.0.spawn_obj(FutureObj::new(Box::pin(
+            background
+                .map_err(|e| println!("error in background task: {}", e))
+                .map(|_| ()),
+        )));
+        future::ready(result.map_err(|e| ProtoError::from(format!("error spawning: {}", e))))
     }
 }
 
@@ -77,13 +72,13 @@ impl Default for MockConnProvider<DefaultOnSend> {
 impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
     type Conn = MockClientHandle<O>;
     type Background = future::Ready<Result<(), ProtoError>>;
-    type FutureConn = future::Ready<Result<(Self::Conn, Option<Self::Background>), ProtoError>>;
+    type FutureConn = future::Ready<Result<(Self::Conn, Self::Background), ProtoError>>;
 
     fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::FutureConn {
         println!("MockClient::new_connection");
         future::ok((
             MockClientHandle::mock_on_send(vec![], self.on_send.clone()),
-            Some(future::ok(())),
+            future::ok(()),
         ))
     }
 }

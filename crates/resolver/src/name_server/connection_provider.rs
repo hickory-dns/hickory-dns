@@ -44,8 +44,7 @@ use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     type Conn: DnsHandle + Clone + Send + 'static;
     type Background: Future<Output = Result<(), ProtoError>> + Send + 'static;
-    type FutureConn: Future<Output = Result<(Self::Conn, Option<Self::Background>), ProtoError>>
-        + Clone
+    type FutureConn: Future<Output = Result<(Self::Conn, Self::Background), ProtoError>>
         + Send
         + 'static;
 
@@ -55,7 +54,6 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
-#[derive(Clone)]
 pub struct StandardConnection;
 
 impl ConnectionProvider for StandardConnection {
@@ -155,8 +153,13 @@ impl ConnectionProvider for StandardConnection {
     }
 }
 
+impl Clone for StandardConnection {
+    fn clone(&self) -> Self {
+        StandardConnection
+    }
+}
+
 /// The variants of all supported connections for the Resolver
-#[derive(Clone)]
 #[allow(clippy::type_complexity)]
 pub(crate) enum ConnectionConnect {
     Udp(
@@ -212,56 +215,45 @@ pub(crate) enum ConnectionConnect {
 }
 
 /// Resolves to a new Connection
-#[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
 pub struct StandardConnectionFuture(ConnectionConnect);
 
 impl Future for StandardConnectionFuture {
-    type Output = Result<(Connection, Option<ConnectionBackground>), ProtoError>;
+    type Output = Result<(Connection, ConnectionBackground), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let connection = match &mut self.0 {
             ConnectionConnect::Udp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 let conn = Connection(ConnectionConnected::Udp(conn));
-                let bg = bg
-                    .map(ConnectionBackgroundInner::Udp)
-                    .map(ConnectionBackground);
+                let bg = ConnectionBackground(ConnectionBackgroundInner::Udp(bg));
                 (conn, bg)
             }
             ConnectionConnect::Tcp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 let conn = Connection(ConnectionConnected::Tcp(conn));
-                let bg = bg
-                    .map(ConnectionBackgroundInner::Tcp)
-                    .map(ConnectionBackground);
+                let bg = ConnectionBackground(ConnectionBackgroundInner::Tcp(bg));
                 (conn, bg)
             }
             #[cfg(feature = "dns-over-tls")]
             ConnectionConnect::Tls(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 let conn = Connection(ConnectionConnected::Tls(conn));
-                let bg = bg
-                    .map(ConnectionBackgroundInner::Tls)
-                    .map(ConnectionBackground);
+                let bg = ConnectionBackground(ConnectionBackgroundInner::Tls(bg));
                 (conn, bg)
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnect::Https(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 let conn = Connection(ConnectionConnected::Https(conn));
-                let bg = bg
-                    .map(ConnectionBackgroundInner::Https)
-                    .map(ConnectionBackground);
+                let bg = ConnectionBackground(ConnectionBackgroundInner::Https(bg));
                 (conn, bg)
             }
             #[cfg(feature = "mdns")]
             ConnectionConnect::Mdns(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 let conn = Connection(ConnectionConnected::Mdns(conn));
-                let bg = bg
-                    .map(ConnectionBackgroundInner::Mdns)
-                    .map(ConnectionBackground);
+                let bg = ConnectionBackground(ConnectionBackgroundInner::Mdns(bg));
                 (conn, bg)
             }
         };

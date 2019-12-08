@@ -62,13 +62,11 @@ pub trait Client {
                     Output = Result<
                         (
                             Self::Handle,
-                            Option<
-                                Box<
-                                    dyn Future<Output = Result<(), ProtoError>>
-                                        + 'static
-                                        + Send
-                                        + Unpin,
-                                >,
+                            Box<
+                                dyn Future<Output = Result<(), ProtoError>>
+                                    + 'static
+                                    + Send
+                                    + Unpin,
                             >,
                         ),
                         ProtoError,
@@ -93,9 +91,7 @@ pub trait Client {
         let (client, bg) = reactor.block_on(client)?;
 
         // FIXME: when upgrade to tokio 0.2 change this to pass in the Result<(), ProtoError>
-        if let Some(bg) = bg {
-            reactor.spawn(bg.map(|_r: Result<(), _>| ()));
-        }
+        reactor.spawn(bg.map(|_r: Result<(), _>| ()));
 
         Ok((client, reactor))
     }
@@ -455,13 +451,11 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
                     Output = Result<
                         (
                             Self::Handle,
-                            Option<
-                                Box<
-                                    dyn Future<Output = Result<(), ProtoError>>
-                                        + 'static
-                                        + Send
-                                        + Unpin,
-                                >,
+                            Box<
+                                dyn Future<Output = Result<(), ProtoError>>
+                                    + 'static
+                                    + Send
+                                    + Unpin,
                             >,
                         ),
                         ProtoError,
@@ -476,7 +470,7 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
         let connect = async move {
             let (client, bg) = AsyncClient::connect(stream).await?;
 
-            let bg = bg.map(|bg| Box::new(bg) as _);
+            let bg = Box::new(bg) as _;
             Ok((client, bg))
         };
 
@@ -523,13 +517,11 @@ impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
                     Output = Result<
                         (
                             Self::Handle,
-                            Option<
-                                Box<
-                                    dyn Future<Output = Result<(), ProtoError>>
-                                        + 'static
-                                        + Send
-                                        + Unpin,
-                                >,
+                            Box<
+                                dyn Future<Output = Result<(), ProtoError>>
+                                    + 'static
+                                    + Send
+                                    + Unpin,
                             >,
                         ),
                         ProtoError,
@@ -544,7 +536,7 @@ impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
         let connect = async move {
             let (client, bg) = AsyncSecureClient::connect(stream).await?;
 
-            let bg = bg.map(|bg| Box::new(bg) as _);
+            let bg = Box::new(bg) as _;
             Ok((client, bg))
         };
 

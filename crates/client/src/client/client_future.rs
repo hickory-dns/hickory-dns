@@ -159,7 +159,7 @@ where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    type Output = Result<(AsyncClient<R>, Option<DnsExchangeBackground<S, R>>), ProtoError>;
+    type Output = Result<(AsyncClient<R>, DnsExchangeBackground<S, R>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));

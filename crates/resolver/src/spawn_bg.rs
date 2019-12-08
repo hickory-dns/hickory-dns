@@ -19,8 +19,8 @@ pub trait SpawnBg: Clone + Send + Sync + Unpin + 'static {
     /// Spawn an (optional) background task
     fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
         &self,
-        background: Option<F>,
-    ) -> Option<Self::JoinHandle>;
+        background: F,
+    ) -> Self::JoinHandle;
 }
 
 /// Used to spawn background tasks on a Tokio Runtime
@@ -39,13 +39,9 @@ impl SpawnBg for TokioSpawnBg {
 
     fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
         &self,
-        background: Option<F>,
-    ) -> Option<Self::JoinHandle> {
-        if let Some(bg) = background {
-            self.0.spawn(bg);
-            Some(future::ready(Ok(())))
-        } else {
-            None
-        }
+        background: F,
+    ) -> Self::JoinHandle {
+        self.0.spawn(background);
+        future::ready(Ok(()))
     }
 }

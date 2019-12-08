@@ -65,11 +65,9 @@ async fn standard_conn(
     port: u16,
 ) -> (
     AsyncClient<DnsMultiplexerSerialResponse>,
-    Option<
-        DnsExchangeBackground<
-            DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
-            DnsMultiplexerSerialResponse,
-        >,
+    DnsExchangeBackground<
+        DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexerSerialResponse,
     >,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)

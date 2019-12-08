@@ -274,17 +274,6 @@ where
     }
 }
 
-impl<F, S, R> Clone for DnsExchangeConnect<F, S, R>
-where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    fn clone(&self) -> Self {
-        DnsExchangeConnect(self.0.clone())
-    }
-}
-
 #[allow(clippy::type_complexity)]
 impl<F, S, R> Future for DnsExchangeConnect<F, S, R>
 where
@@ -292,7 +281,7 @@ where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    type Output = Result<(DnsExchange<R>, Option<DnsExchangeBackground<S, R>>), ProtoError>;
+    type Output = Result<(DnsExchange<R>, DnsExchangeBackground<S, R>), ProtoError>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let mut future = ready!(self.0.lock().poll_unpin(cx));
@@ -328,7 +317,7 @@ where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    type Output = Result<(DnsExchange<R>, Option<DnsExchangeBackground<S, R>>), ProtoError>;
+    type Output = Result<(DnsExchange<R>, DnsExchangeBackground<S, R>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {
@@ -374,7 +363,7 @@ where
                     ref mut background,
                 } => {
                     let exchange = exchange.clone();
-                    let background = background.take();
+                    let background = background.take().expect("cannot poll after complete");
 
                     return Poll::Ready(Ok((exchange, background)));
                 }
