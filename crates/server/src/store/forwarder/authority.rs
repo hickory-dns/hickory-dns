@@ -9,6 +9,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{Future, FutureExt};
+use tokio::runtime::Handle;
 
 use trust_dns_client::op::LowerQuery;
 use trust_dns_client::op::ResponseCode;
@@ -17,7 +18,7 @@ use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
 use trust_dns_resolver::config::ResolverConfig;
 use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
-use trust_dns_resolver::AsyncResolver;
+use trust_dns_resolver::{AsyncResolver, TokioSpawnBg};
 
 use crate::authority::{
     Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
@@ -29,15 +30,15 @@ use crate::store::forwarder::ForwardConfig;
 /// This uses the trust-dns-resolver for resolving requests.
 pub struct ForwardAuthority {
     origin: LowerName,
-    resolver: AsyncResolver,
+    resolver: AsyncResolver<TokioSpawnBg>,
 }
 
 impl ForwardAuthority {
     /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub async fn new() -> Result<Self, String> {
-        let resolver = AsyncResolver::from_system_conf()
+    pub async fn new(runtime: Handle) -> Result<Self, String> {
+        let resolver = AsyncResolver::from_system_conf(runtime)
             .await
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
@@ -52,6 +53,7 @@ impl ForwardAuthority {
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,
+        runtime: Handle,
     ) -> Result<Self, String> {
         info!("loading forwarder config: {}", origin);
 
@@ -59,7 +61,7 @@ impl ForwardAuthority {
         let options = config.options.unwrap_or_default();
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = AsyncResolver::new(config, options)
+        let resolver = AsyncResolver::new(config, options, runtime)
             .await
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 

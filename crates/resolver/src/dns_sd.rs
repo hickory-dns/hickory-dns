@@ -21,7 +21,7 @@ use proto::xfer::DnsRequestOptions;
 
 use crate::error::*;
 use crate::lookup::{ReverseLookup, ReverseLookupIter, TxtLookup};
-use crate::AsyncResolver;
+use crate::{AsyncResolver, SpawnBg};
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -38,7 +38,7 @@ pub trait DnsSdHandle {
     fn service_info(&self, name: Name) -> ServiceInfoFuture;
 }
 
-impl DnsSdHandle for AsyncResolver {
+impl<S: SpawnBg> DnsSdHandle for AsyncResolver<S> {
     fn list_services(&self, name: Name) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,
@@ -158,6 +158,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)

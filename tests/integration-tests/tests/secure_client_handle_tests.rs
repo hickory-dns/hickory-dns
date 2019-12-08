@@ -47,7 +47,7 @@ fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example);
 }
 
-fn test_secure_query_example<H>(mut client: SecureDnsHandle<H>, io_loop: Runtime)
+fn test_secure_query_example<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -89,7 +89,7 @@ fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example);
 }
 
-fn test_nsec_query_example<H>(mut client: SecureDnsHandle<H>, io_loop: Runtime)
+fn test_nsec_query_example<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -119,7 +119,7 @@ fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type);
 }
 
-fn test_nsec_query_type<H>(mut client: SecureDnsHandle<H>, io_loop: Runtime)
+fn test_nsec_query_type<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -235,7 +235,7 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
 
@@ -273,7 +273,7 @@ where
         })
         .unwrap();
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let client = AsyncClient::connect(stream);
@@ -309,7 +309,7 @@ where
         })
         .unwrap();
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let client = AsyncClient::new(Box::new(stream), sender, None);

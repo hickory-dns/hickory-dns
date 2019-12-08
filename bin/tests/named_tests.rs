@@ -148,7 +148,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
 #[test]
 fn test_nodata_where_name_exists() {
     named_test_harness("example.toml", |port, _, _| {
-        let io_loop = Runtime::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -170,7 +170,7 @@ fn test_nodata_where_name_exists() {
 #[test]
 fn test_nxdomain_where_no_name_exists() {
     named_test_harness("example.toml", |port, _, _| {
-        let io_loop = Runtime::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);

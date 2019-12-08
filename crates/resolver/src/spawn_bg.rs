@@ -6,36 +6,44 @@
 // copied, modified, or distributed except according to those terms.
 use std::future::Future;
 
-use tokio::{self, executor::Spawn};
-use tokio::runtime::TaskExecutor;
-use futures::{future, FutureExt};
+use futures::future;
+use tokio::{self, runtime::Handle};
 
-use crate::error::ResolveError;
+use crate::proto::error::ProtoError;
 
 /// A trait for spawning resolver background tasks
-pub trait SpawnBg: Send + 'static {
-    type JoinHandle: Future<Output = Result<(), ResolveError>> + Send + Unpin + 'static;
+pub trait SpawnBg: Clone + Send + Sync + Unpin + 'static {
+    /// THe future that will resolve when the background task completes.
+    type JoinHandle: Future<Output = Result<(), ProtoError>> + Send + Sync + Unpin + 'static;
 
-    fn spawn_bg<F: Future<Output = Result<(), ResolveError>> + Send + 'static>(&self, background: Option<F>) -> Option<Self::JoinHandle>;
+    /// Spawn an (optional) background task
+    fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
+        &self,
+        background: Option<F>,
+    ) -> Option<Self::JoinHandle>;
 }
 
 /// Used to spawn background tasks on a Tokio Runtime
-pub struct TokioSpawnBg();
+#[derive(Clone)]
+pub struct TokioSpawnBg(Handle);
 
 impl TokioSpawnBg {
-    pub(crate) fn new() -> Self {
-        TokioSpawnBg()
+    pub(crate) fn new(runtime: Handle) -> Self {
+        TokioSpawnBg(runtime)
     }
 }
 
 impl SpawnBg for TokioSpawnBg {
-    // TODO: change to join handle on update to tokio 0.2
-    type JoinHandle = future::Pending<Result<(), ResolveError>>;
+    // FIXME: let's remove this JoinHandle for now
+    type JoinHandle = future::Ready<Result<(), ProtoError>>;
 
-    fn spawn_bg<F: Future<Output = Result<(), ResolveError>> + Send + 'static>(&self, background: Option<F>) -> Option<Self::JoinHandle> {
+    fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
+        &self,
+        background: Option<F>,
+    ) -> Option<Self::JoinHandle> {
         if let Some(bg) = background {
-            let _: Spawn = tokio::spawn(bg.map(|_| ()));
-            Some(future::pending::<Result<(), ResolveError>>())
+            self.0.spawn(bg);
+            Some(future::ready(Ok(())))
         } else {
             None
         }

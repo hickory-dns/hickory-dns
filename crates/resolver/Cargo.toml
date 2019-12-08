@@ -37,7 +37,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 
 [features]
 default = ["tokio-compat"]
-dns-over-native-tls = ["dns-over-tls", "trust-dns-native-tls"]
+dns-over-native-tls = ["dns-over-tls", "tokio-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tokio-openssl"]
 dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "trust-dns-rustls", "webpki-roots"]

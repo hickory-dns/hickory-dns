@@ -9,7 +9,6 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use futures::{FutureExt, TryFutureExt};
 use tokio::runtime::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
@@ -33,7 +32,7 @@ fn test_lookup() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
     let client = DnsExchange::connect(dns_conn);
@@ -61,7 +60,7 @@ fn test_lookup_hosts() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
@@ -119,7 +118,7 @@ fn test_lookup_ipv4_like() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
@@ -149,7 +148,7 @@ fn test_lookup_ipv4_like_fall_through() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
@@ -190,7 +189,7 @@ fn test_mock_lookup() {
         CachingClient::new(0, client),
     );
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -220,7 +219,7 @@ fn test_cname_lookup() {
         CachingClient::new(0, client),
     );
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -255,7 +254,7 @@ fn test_chained_cname_lookup() {
         CachingClient::new(0, client),
     );
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -342,7 +341,7 @@ fn test_max_chained_lookup_depth() {
         client.clone(),
     );
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     println!("performing max cname validation");
     // TODO: validate exact error

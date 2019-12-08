@@ -158,7 +158,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         timeout: Duration,
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Result<TcpStream<S::Transport>, io::Error> {
-        let tcp = S::connect(&name_server);
+        let tcp = S::connect(name_server);
         tokio::time::timeout(timeout, tcp)
             .map_err(move |_| {
                 debug!("timed out connecting to: {}", name_server);

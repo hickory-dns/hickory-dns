@@ -10,12 +10,14 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{ready, Future, FutureExt};
-use proto::error::ProtoError;
-use proto::rr::dnssec::TrustAnchor;
-use proto::xfer::{DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse};
-use proto::SecureDnsHandle;
 
 use crate::client::{AsyncClient, AsyncClientConnect};
+use crate::proto::error::ProtoError;
+use crate::proto::rr::dnssec::TrustAnchor;
+use crate::proto::xfer::{
+    DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
+};
+use crate::proto::SecureDnsHandle;
 
 // FIXME: rename to AsyncDnsSecClient
 /// A DNSSEC Client implemented over futures-rs.

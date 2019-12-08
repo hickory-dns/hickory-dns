@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures::lock::Mutex;
-use futures::{future::Fuse, Future, FutureExt};
+use futures::{future::Fuse, ready, Future, FutureExt};
 
 #[allow(clippy::type_complexity)]
 #[must_use = "futures do nothing unless polled"]

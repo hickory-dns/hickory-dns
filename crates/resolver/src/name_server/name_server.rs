@@ -11,8 +11,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::{Future, FutureExt};
-use tokio::spawn;
+use futures::Future;
+use tokio::runtime::Handle;
 
 use proto::error::{ProtoError, ProtoResult};
 #[cfg(feature = "mdns")]
@@ -34,7 +34,6 @@ pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Sen
     config: NameServerConfig,
     options: ResolverOpts,
     client: Option<C>,
-    join_bg: S::JoinHandle,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
     conn_provider: P,
@@ -48,8 +47,13 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Debug for NameSe
 }
 
 impl NameServer<Connection, StandardConnection, TokioSpawnBg> {
-    pub fn new(config: NameServerConfig, options: ResolverOpts) -> Self {
-        Self::new_with_provider(config, options, StandardConnection)
+    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: Handle) -> Self {
+        Self::new_with_provider(
+            config,
+            options,
+            StandardConnection,
+            TokioSpawnBg::new(runtime),
+        )
     }
 }
 
@@ -64,7 +68,6 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
             config,
             options,
             client: None,
-            join_bg: None,
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
@@ -77,7 +80,6 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
         config: NameServerConfig,
         options: ResolverOpts,
         client: C,
-        join_bg: S::JoinHandle,
         conn_provider: P,
         spawn_bg: S,
     ) -> NameServer<C, P, S> {
@@ -85,7 +87,6 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
             config,
             options,
             client: Some(client),
-            join_bg: Some(join_bg),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
@@ -110,12 +111,10 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
                 .await?;
 
             // TODO: We mignt need to extract a future here, to verify the BG hasn't exited
-            let join_bg = self.spawn_bg.spawn_bg(bg);
-            self.join_bg = Some(join_bg);
-            
+            let _join_bg = self.spawn_bg.spawn_bg(bg);
+            //self.join_bg = join_bg;
             // establish a new connection
             self.client = Some(client);
-
         }
 
         Ok(self
@@ -231,7 +230,11 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Eq for NameServe
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-pub(crate) fn mdns_nameserver<C, P, S>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P, S>
+pub(crate) fn mdns_nameserver<C, P, S>(
+    options: ResolverOpts,
+    conn_provider: P,
+    spawn_bg: S,
+) -> NameServer<C, P, S>
 where
     C: DnsHandle,
     P: ConnectionProvider<Conn = C>,
@@ -244,7 +247,7 @@ where
         #[cfg(feature = "dns-over-rustls")]
         tls_config: None,
     };
-    NameServer::new_with_provider(config, options, conn_provider)
+    NameServer::new_with_provider(config, options, conn_provider, spawn_bg)
 }
 
 #[cfg(test)]
@@ -276,8 +279,13 @@ mod tests {
             tls_config: None,
         };
         let mut io_loop = Runtime::new().unwrap();
+        let runtime_handle = io_loop.handle().clone();
         let name_server = future::lazy(|_| {
-            NameServer::<_, StandardConnection>::new(config, ResolverOpts::default())
+            NameServer::<_, StandardConnection, _>::new(
+                config,
+                ResolverOpts::default(),
+                runtime_handle,
+            )
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -304,8 +312,10 @@ mod tests {
             tls_config: None,
         };
         let mut io_loop = Runtime::new().unwrap();
-        let name_server =
-            future::lazy(|_| NameServer::<_, StandardConnection>::new(config, options));
+        let runtime_handle = io_loop.handle().clone();
+        let name_server = future::lazy(|_| {
+            NameServer::<_, StandardConnection, _>::new(config, options, runtime_handle)
+        });
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop

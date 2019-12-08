@@ -16,6 +16,11 @@
 
 //! Trust-DNS Protocol library
 
+use std::future::Future;
+
+use tokio::runtime::Runtime;
+use tokio::task::JoinHandle;
+
 macro_rules! try_ready_stream {
     ($e:expr) => {{
         match $e {
@@ -27,17 +32,13 @@ macro_rules! try_ready_stream {
     }};
 }
 
-// FIXME: return a join handle when Tokio is upgraded to 0.2
 /// Spawn a background task, if it was present
-pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R>(
+pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: Option<F>,
-) -> Option<()> {
-    use futures::FutureExt;
-
+) -> Option<JoinHandle<R>> {
     if let Some(bg) = background {
-        let _result: &Runtime = runtime.spawn(bg.map(|_r: R| ()));
-        Some(())
+        Some(runtime.spawn(bg))
     } else {
         None
     }

@@ -104,7 +104,8 @@
 //! // Construct a new Resolver with default configuration options
 //! let resolver = AsyncResolver::new(
 //!     ResolverConfig::default(),
-//!     ResolverOpts::default()
+//!     ResolverOpts::default(),
+//!     io_loop.handle().clone(),
 //! );
 //! // AsyncResolver::new returns a handle for sending resolve requests and a background task
 //! // that must be spawned on an executor.
@@ -245,7 +246,7 @@ pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 #[cfg(feature = "tokio")]
 pub use resolver::Resolver;
-pub(crate) use spawn_bg::{SpawnBg, TokioSpawnBg};
+pub use spawn_bg::{SpawnBg, TokioSpawnBg};
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.

@@ -16,17 +16,16 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::Future;
-use tokio::runtime::Runtime;
-
-use trust_dns_proto::{
-    error::ProtoError,
-    xfer::{DnsRequestSender, DnsResponse},
-};
+use tokio::runtime::{self, Runtime};
 
 #[cfg(feature = "dnssec")]
 use crate::client::AsyncSecureClient;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle};
 use crate::error::*;
+use crate::proto::{
+    error::ProtoError,
+    xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
+};
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
@@ -82,9 +81,13 @@ pub trait Client {
 
     /// This will create a new AsyncClient and spawn it into a new Runtime
     fn spawn_client(&self) -> ClientResult<(Self::Handle, Runtime)> {
-        use crate::futures::FutureExt;
+        use futures::FutureExt;
 
-        let mut reactor = Runtime::new()?;
+        let mut builder = runtime::Builder::new();
+        builder.basic_scheduler();
+        builder.enable_all();
+
+        let mut reactor = builder.build()?;
         let client = self.new_future();
 
         let (client, bg) = reactor.block_on(client)?;

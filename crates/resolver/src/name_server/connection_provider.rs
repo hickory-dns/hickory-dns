@@ -6,14 +6,22 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
-use std::time::Duration;
 
-use futures::{Future, FutureExt, TryFutureExt};
+use futures::{ready, Future, FutureExt};
 use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
+#[cfg(all(
+    feature = "dns-over-openssl",
+    not(feature = "dns-over-rustls"),
+    not(feature = "dns-over-native-tls")
+))]
+use tokio_openssl::SslStream as TokioTlsStream;
+#[cfg(feature = "dns-over-rustls")]
+use tokio_rustls::client::TlsStream as TokioTlsStream;
+#[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
+use tokio_tls::TlsStream as TokioTlsStream;
 
 use proto;
 use proto::error::ProtoError;

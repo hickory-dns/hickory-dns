@@ -16,7 +16,6 @@ use std::io::Read;
 use std::net::*;
 use std::path::Path;
 
-use futures::Future;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 

@@ -71,7 +71,7 @@ chrono = "0.4"
 env_logger = "0.7"
 lazy_static = "1.0"
 log = "0.4.8"
-futures = "0.3.0"
+futures = "0.3.1"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.7"
 rusqlite = { version = "0.20.0", features = ["bundled"] }
@@ -86,3 +86,6 @@ trust-dns-rustls = { version = "0.18.0-alpha", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
 trust-dns-server = { version = "0.18.0-alpha", path = "../../crates/server" }
 webpki-roots = { version = "0.18", optional = true }
+
+[dev-dependencies]
+futures = { version = "0.3.1", features = ["thread-pool"] }

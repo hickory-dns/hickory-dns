@@ -15,7 +15,6 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
 
-use failure::Fail;
 use futures::{future, future::Either, Future, FutureExt};
 
 use proto::op::Query;
@@ -29,6 +28,7 @@ use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupEither, LookupIntoIter, LookupIter};
 use crate::lookup_state::CachingClient;
 use crate::name_server::{Connection, StandardConnection};
+use crate::TokioSpawnBg;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -107,7 +107,7 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C = LookupEither<Connection, StandardConnection>>
+pub struct LookupIpFuture<C = LookupEither<Connection, StandardConnection, TokioSpawnBg>>
 where
     C: DnsHandle + 'static,
 {

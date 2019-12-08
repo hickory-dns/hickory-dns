@@ -15,14 +15,14 @@ fn main() {
     env_logger::init();
 
     // Set up the standard tokio runtime (multithreaded by default).
-    let runtime = Runtime::new().expect("Failed to create runtime");
+    let mut runtime = Runtime::new().expect("Failed to create runtime");
 
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            AsyncResolver::from_system_conf()
+            AsyncResolver::from_system_conf(runtime.handle().clone())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
@@ -32,7 +32,11 @@ fn main() {
             use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
-            AsyncResolver::new(ResolverConfig::google(), ResolverOpts::default())
+            AsyncResolver::new(
+                ResolverConfig::google(),
+                ResolverOpts::default(),
+                runtime.handle().clone(),
+            )
         }
     };
 

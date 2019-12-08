@@ -7,22 +7,17 @@
 
 //! Structs for creating and using a AsyncResolver
 use std::fmt;
+use std::future::Future;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::task::{Context, Poll};
 
-use futures::{
-    self,
-    channel::{mpsc, oneshot},
-    future,
-    lock::Mutex,
-    Future, FutureExt, TryFutureExt,
-};
+use futures::{self, future, lock::Mutex, TryFutureExt};
 use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::TryParseIp;
 use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
+use tokio::runtime::Handle;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru};
@@ -33,7 +28,7 @@ use crate::lookup_state::CachingClient;
 use crate::name_server::{Connection, NameServerPool, StandardConnection};
 use crate::{Hosts, SpawnBg, TokioSpawnBg};
 
-type ClientCache<S: SpawnBg> = CachingClient<LookupEither<Connection, StandardConnection, S>>;
+type ClientCache<S> = CachingClient<LookupEither<Connection, StandardConnection, S>>;
 
 // TODO: Consider renaming to ResolverAsync
 /// A handle for resolving DNS records.
@@ -120,42 +115,24 @@ impl AsyncResolver<TokioSpawnBg> {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub async fn new(config: ResolverConfig, options: ResolverOpts) -> Result<Self, ResolveError> {
-        AsyncResolver::new_with_spawn(config, options, TokioSpawnBg::new()).await
-    }
-
-    /// Construct a new `AsyncResolver` with the associated Client and configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - configuration, name_servers, etc. for the Resolver
-    /// * `options` - basic lookup options for the resolver
-    /// * `lru` - the cache to be used with the resolver
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
-    pub(crate) async fn with_cache(
+    pub async fn new(
         config: ResolverConfig,
         options: ResolverOpts,
-        lru: Arc<Mutex<DnsLru>>,
+        runtime: Handle,
     ) -> Result<Self, ResolveError> {
-        Self::with_cache_with_spawn(config, options, lru, TokioSpawnBg::new()).await
+        AsyncResolver::new_with_spawn(config, options, TokioSpawnBg::new(runtime)).await
     }
 
     /// Constructs a new Resolver with the system configuration.
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub async fn from_system_conf() -> Result<Self, ResolveError> {
-        Self::from_system_conf_with_spawn(TokioSpawnBg::new()).await
+    pub async fn from_system_conf(runtime: Handle) -> Result<Self, ResolveError> {
+        Self::from_system_conf_with_spawn(TokioSpawnBg::new(runtime)).await
     }
 }
 
-impl<S: SpawnBg> AsyncResolver<S> {
+impl<S: SpawnBg + Send> AsyncResolver<S> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -202,8 +179,12 @@ impl<S: SpawnBg> AsyncResolver<S> {
     ) -> Result<Self, ResolveError> {
         debug!("trust-dns resolver running");
 
-        let pool =
-            NameServerPool::<Connection, StandardConnection, S>::from_config(&config, &options);
+        let pool = NameServerPool::<Connection, StandardConnection, S>::from_config_with_provider(
+            &config,
+            &options,
+            StandardConnection,
+            spawn_bg,
+        );
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
@@ -233,7 +214,7 @@ impl<S: SpawnBg> AsyncResolver<S> {
         Ok(AsyncResolver {
             config,
             options,
-            client_cache: CachingClient::with_cache(lru, either, spawn_bg),
+            client_cache: CachingClient::with_cache(lru, either),
             hosts,
         })
     }
@@ -448,8 +429,8 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        assert!(is_send_t::<AsyncResolver>());
-        assert!(is_sync_t::<AsyncResolver>());
+        assert!(is_send_t::<AsyncResolver<TokioSpawnBg>>());
+        assert!(is_sync_t::<AsyncResolver<TokioSpawnBg>>());
 
         assert!(is_send_t::<DnsRequest>());
         assert!(is_send_t::<LookupIpFuture>());
@@ -460,7 +441,8 @@ mod tests {
         //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(config, ResolverOpts::default());
+        let resolver =
+            AsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone());
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -504,7 +486,11 @@ mod tests {
         //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = AsyncResolver::new(
+            ResolverConfig::default(),
+            ResolverOpts::default(),
+            io_loop.handle().clone(),
+        );
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -537,7 +523,11 @@ mod tests {
         // AsyncResolver works correctly.
         use std::thread;
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = AsyncResolver::new(
+            ResolverConfig::default(),
+            ResolverOpts::default(),
+            io_loop.handle().clone(),
+        );
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -547,7 +537,7 @@ mod tests {
 
         //FIXME: put the logic in two separate threads...
 
-        let test_fn = |resolver: AsyncResolver| {
+        let test_fn = |resolver: AsyncResolver<TokioSpawnBg>| {
             let mut io_loop = Runtime::new().unwrap();
 
             let response = io_loop
@@ -593,6 +583,7 @@ mod tests {
                 validate: true,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -631,6 +622,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -662,7 +654,7 @@ mod tests {
     #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::from_system_conf();
+        let resolver = AsyncResolver::from_system_conf(io_loop.handle().clone());
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -692,7 +684,7 @@ mod tests {
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::from_system_conf();
+        let resolver = AsyncResolver::from_system_conf(io_loop.handle().clone());
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -728,6 +720,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -766,6 +759,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -805,6 +799,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -845,6 +840,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -886,6 +882,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -909,7 +906,11 @@ mod tests {
     #[test]
     fn test_idna() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
+        let resolver = AsyncResolver::new(
+            ResolverConfig::default(),
+            ResolverOpts::default(),
+            io_loop.handle().clone(),
+        );
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -932,6 +933,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -957,6 +959,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -986,6 +989,7 @@ mod tests {
                 ndots: 5,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -1015,6 +1019,7 @@ mod tests {
                 ndots: 5,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)
@@ -1044,6 +1049,7 @@ mod tests {
                 ndots: 5,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
         let resolver = io_loop
             .block_on(resolver)

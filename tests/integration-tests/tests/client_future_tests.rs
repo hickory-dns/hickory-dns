@@ -55,7 +55,7 @@ fn test_query_nonet() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -67,7 +67,7 @@ fn test_query_nonet() {
 
 #[test]
 fn test_query_udp_ipv4() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
     let client = AsyncClient::connect(stream);
@@ -82,7 +82,7 @@ fn test_query_udp_ipv4() {
 #[test]
 #[ignore]
 fn test_query_udp_ipv6() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("2001:4860:4860::8888", 53)
         .to_socket_addrs()
         .unwrap()
@@ -100,7 +100,7 @@ fn test_query_udp_ipv6() {
 
 #[test]
 fn test_query_tcp_ipv4() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
@@ -115,7 +115,7 @@ fn test_query_tcp_ipv4() {
 #[test]
 #[ignore]
 fn test_query_tcp_ipv6() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("2001:4860:4860::8888", 53)
         .to_socket_addrs()
         .unwrap()
@@ -139,7 +139,7 @@ fn test_query_https() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("1.1.1.1", 443).to_socket_addrs().unwrap().next().unwrap();
 
     // using the mozilla default root store
@@ -200,7 +200,7 @@ fn test_notify() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -279,7 +279,7 @@ async fn create_sig0_ready_client() -> (
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -323,7 +323,7 @@ fn test_create() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create_multi() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -377,7 +377,7 @@ fn test_create_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -445,7 +445,7 @@ fn test_append() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append_multi() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -519,7 +519,7 @@ fn test_append_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -577,7 +577,7 @@ fn test_compare_and_swap() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap_multi() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -647,7 +647,7 @@ fn test_compare_and_swap_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -699,7 +699,7 @@ fn test_delete_by_rdata() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata_multi() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -776,7 +776,7 @@ fn test_delete_by_rdata_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_rrset() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -823,7 +823,7 @@ fn test_delete_rrset() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -874,7 +874,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query<R>(mut client: AsyncClient<R>, io_loop: Runtime)
+fn test_timeout_query<R>(mut client: AsyncClient<R>, mut io_loop: Runtime)
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
@@ -903,7 +903,7 @@ where
 #[test]
 fn test_timeout_query_nonet() {
     //env_logger::try_init().ok();
-    let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
+    let mut io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = AsyncClient::with_timeout(
         stream,
@@ -920,7 +920,7 @@ fn test_timeout_query_nonet() {
 #[test]
 fn test_timeout_query_udp() {
     //env_logger::try_init().ok();
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -941,7 +941,7 @@ fn test_timeout_query_udp() {
 #[test]
 fn test_timeout_query_tcp() {
     //env_logger::try_init().ok();
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)

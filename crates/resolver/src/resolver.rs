@@ -75,10 +75,11 @@ impl Resolver {
     /// A new `Resolver` or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
         let mut builder = runtime::Builder::new();
-        builder.core_threads(1);
+        builder.basic_scheduler();
+        builder.enable_all();
 
-        let runtime = builder.build()?;
-        let async_resolver = AsyncResolver::new(config, options);
+        let mut runtime = builder.build()?;
+        let async_resolver = AsyncResolver::new(config, options, runtime.handle().clone());
         let async_resolver = runtime
             .block_on(async_resolver)
             .expect("failed to create resolver");

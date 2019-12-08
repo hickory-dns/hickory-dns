@@ -9,9 +9,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures::lock::Mutex;
 use futures::{future, Future, TryFutureExt};
 use smallvec::SmallVec;
+#[cfg(test)]
+use tokio::runtime::Handle;
 
 use proto::error::ProtoError;
 use proto::op::ResponseCode;
@@ -20,8 +21,12 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use crate::config::{ResolverConfig, ResolverOpts};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-use crate::name_server::{Connection, ConnectionProvider, NameServer, StandardConnection};
-use crate::{SpawnBg, TokioSpawnBg};
+#[cfg(test)]
+use crate::name_server::{Connection, StandardConnection};
+use crate::name_server::{ConnectionProvider, NameServer};
+use crate::SpawnBg;
+#[cfg(test)]
+use crate::TokioSpawnBg;
 
 /// A pool of NameServers
 ///
@@ -41,9 +46,19 @@ pub struct NameServerPool<
     conn_provider: P,
 }
 
+#[cfg(test)]
 impl NameServerPool<Connection, StandardConnection, TokioSpawnBg> {
-    pub(crate) fn from_config(config: &ResolverConfig, options: &ResolverOpts) -> Self {
-        Self::from_config_with_provider(config, options, StandardConnection, TokioSpawnBg::new())
+    pub(crate) fn from_config(
+        config: &ResolverConfig,
+        options: &ResolverOpts,
+        runtime: Handle,
+    ) -> Self {
+        Self::from_config_with_provider(
+            config,
+            options,
+            StandardConnection,
+            TokioSpawnBg::new(runtime),
+        )
     }
 }
 
@@ -54,8 +69,9 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
         config: &ResolverConfig,
         options: &ResolverOpts,
         conn_provider: P,
+        spawn_bg: S,
     ) -> NameServerPool<C, P, S> {
-        let datagram_conns: Vec<NameServer<C, P>> = config
+        let datagram_conns: Vec<NameServer<C, P, S>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -69,11 +85,16 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
+                NameServer::<C, P, S>::new_with_provider(
+                    ns_config,
+                    *options,
+                    conn_provider.clone(),
+                    spawn_bg.clone(),
+                )
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<C, P>> = config
+        let stream_conns: Vec<NameServer<C, P, S>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -87,7 +108,12 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
+                NameServer::<C, P, S>::new_with_provider(
+                    ns_config,
+                    *options,
+                    conn_provider.clone(),
+                    spawn_bg.clone(),
+                )
             })
             .collect();
 
@@ -95,7 +121,11 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
             datagram_conns: Arc::new(datagram_conns),
             stream_conns: Arc::new(stream_conns),
             #[cfg(feature = "mdns")]
-            mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone()),
+            mdns_conns: name_server::mdns_nameserver(
+                *options,
+                conn_provider.clone(),
+                spawn_bg.clone(),
+            ),
             options: *options,
             conn_provider,
         }
@@ -105,8 +135,8 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
     #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: &ResolverOpts,
-        datagram_conns: Vec<NameServer<C, P>>,
-        stream_conns: Vec<NameServer<C, P>>,
+        datagram_conns: Vec<NameServer<C, P, S>>,
+        stream_conns: Vec<NameServer<C, P, S>>,
         conn_provider: P,
     ) -> Self {
         NameServerPool {
@@ -125,7 +155,6 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
         stream_conns: Vec<NameServer<C, P, S>>,
         mdns_conns: NameServer<C, P, S>,
         conn_provider: P,
-        spawn_bg: S,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::new(datagram_conns.into_iter().collect()),
@@ -133,7 +162,6 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
             mdns_conns,
             options: *options,
             conn_provider,
-            spawn_bg,
         }
     }
 
@@ -229,7 +257,7 @@ where
         let request_cont = request.clone();
 
         // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
+        let mut par_conns = SmallVec::<[NameServer<C, P, S>; 2]>::new();
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
         for conn in conns.drain(..count) {
             par_conns.push(conn);
@@ -374,9 +402,10 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let mut io_loop = Runtime::new().unwrap();
-        let mut pool = NameServerPool::<_, StandardConnection>::from_config(
+        let mut pool = NameServerPool::<_, StandardConnection, _>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
+            io_loop.handle().clone(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();

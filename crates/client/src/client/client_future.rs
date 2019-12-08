@@ -12,12 +12,12 @@ use std::time::Duration;
 
 use crate::proto::error::ProtoError;
 use crate::proto::xfer::{
-    BufDnsRequestStreamHandle, DnsClientStream, DnsExchange, DnsExchangeConnect, DnsHandle,
-    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
-    DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle, OneshotDnsResponseReceiver,
+    DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
+    DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
+    DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle,
 };
 use futures::{ready, Future, FutureExt};
-use log::{debug, warn};
+use log::debug;
 use rand;
 
 use crate::error::*;
