@@ -111,6 +111,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
                 .await?;
 
             // TODO: We mignt need to extract a future here, to verify the BG hasn't exited
+            //  it the JoinBg to be cloneable, and as of today Tokio's JoinHandle is not nor is Futures RemoteHandle.
             let _join_bg = self.spawn_bg.spawn_bg(bg);
             //self.join_bg = join_bg;
             // establish a new connection

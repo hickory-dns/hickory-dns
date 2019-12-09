@@ -15,9 +15,8 @@ use std::sync::{
 use std::task::Poll;
 
 use futures::executor::{block_on, ThreadPool};
-use futures::future::FutureObj;
-use futures::task::Spawn;
-use futures::{future, Future, FutureExt, TryFutureExt};
+use futures::task::SpawnExt;
+use futures::{future, Future};
 
 use trust_dns_client::op::Query;
 use trust_dns_client::rr::{Name, RecordType};
@@ -26,7 +25,7 @@ use trust_dns_proto::error::{ProtoError, ProtoResult};
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
-use trust_dns_resolver::SpawnBg;
+use trust_dns_resolver::{BgJoinHandle, SpawnBg};
 
 /// Used to spawn background tasks on a Tokio Runtime
 #[derive(Clone)]
@@ -39,19 +38,22 @@ impl FuturesSpawnBg {
 }
 
 impl SpawnBg for FuturesSpawnBg {
-    // FIXME: let's remove this JoinHandle for now
-    type JoinHandle = future::Ready<Result<(), ProtoError>>;
-
     fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
         &self,
         background: F,
-    ) -> Self::JoinHandle {
-        let result = self.0.spawn_obj(FutureObj::new(Box::pin(
-            background
-                .map_err(|e| println!("error in background task: {}", e))
-                .map(|_| ()),
-        )));
-        future::ready(result.map_err(|e| ProtoError::from(format!("error spawning: {}", e))))
+    ) -> BgJoinHandle {
+        let result = self.0.spawn_with_handle(background);
+
+        match result {
+            Err(e) => {
+                let fut = future::err(ProtoError::from(format!(
+                    "Error spawning to Futures ThreadPool: {}",
+                    e
+                )));
+                Box::pin(fut) as _
+            }
+            Ok(r) => Box::pin(r) as _,
+        }
     }
 }
 

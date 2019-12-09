@@ -246,7 +246,7 @@ pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 #[cfg(feature = "tokio")]
 pub use resolver::Resolver;
-pub use spawn_bg::{SpawnBg, TokioSpawnBg};
+pub use spawn_bg::{BgJoinHandle, SpawnBg, TokioSpawnBg};
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
