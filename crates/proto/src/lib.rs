@@ -55,6 +55,8 @@ use futures::Future;
 use tokio::runtime::Runtime;
 
 /// Generic executor.
+// This trait is created to facilitate running the tests defined in the tests mod using different types of
+// executors. It's used in Fuchsia OS, please be mindful when update it.
 pub trait Executor {
     /// Spawns a future object to run synchronously or asynchronously depending on the specific
     /// executor.

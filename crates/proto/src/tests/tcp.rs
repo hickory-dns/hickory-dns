@@ -98,9 +98,7 @@ where
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::<S>::new::<ProtoError>(server_addr);
 
-    let mut stream = exec
-        .block_on(stream)
-        .expect("run failed to get stream");
+    let mut stream = exec.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
@@ -137,9 +135,7 @@ pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor>(
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, mut sender) = TcpClientStream::<S>::new(server_addr);
 
-    let mut stream = exec
-        .block_on(stream)
-        .expect("run failed to get stream");
+    let mut stream = exec.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..SEND_RECV_TIMES {
         // test once
