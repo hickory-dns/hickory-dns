@@ -73,7 +73,7 @@ resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.0"
-tokio = { version = "0.2.1", features = ["rt-core"], optional = true }
+tokio = { version = "0.2.4", features = ["rt-core"], optional = true }
 trust-dns-https = { version = "0.18.0-alpha", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.18.0-alpha", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.18.0-alpha", path = "../openssl", optional = true }

@@ -46,9 +46,9 @@ path = "src/lib.rs"
 futures = "0.3.0"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 tokio-openssl = "0.4.0"
-tokio = "0.2.1"
+tokio = "0.2.4"
 trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["openssl"] }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = "0.2.1"
+tokio = "0.2.4"
