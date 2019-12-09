@@ -21,6 +21,9 @@ pub type BgJoinHandle =
 /// A trait for spawning resolver background tasks
 pub trait SpawnBg: Clone + Send + Sync + Unpin + 'static {
     /// Spawn an (optional) background task
+    ///
+    /// It is important that the returned future is not required for the spawned background to make progress.
+    /// TODO: should we just drop the returned future all together, it isn't aparent that it's useful.
     fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
         &self,
         background: F,

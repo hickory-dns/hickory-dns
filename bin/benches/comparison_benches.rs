@@ -9,7 +9,7 @@ extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::env;
-use std::fs::DirBuilder;
+use std::fs::{DirBuilder, File};
 use std::mem;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
@@ -63,7 +63,8 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .unwrap();
         let stream = UdpClientStream::<UdpSocket>::new(addr);
         let client = AsyncClient::connect(stream);
-        let mut client = io_loop.block_on(client).expect("failed to create client");
+        let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
+        io_loop.spawn(bg);
 
         let name = domain::Name::from_str("www.example.com.").unwrap();
         let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
@@ -88,19 +89,23 @@ fn trust_dns_process() -> (NamedProcess, u16) {
     // find a random port to listen on
     let test_port = find_test_port();
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
+    let ws_root = env::var("WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
+    let named_path = format!("{}/target/release/named", ws_root);
+    let config_path = format!(
+        "{}/tests/test-data/named_test_configs/example.toml",
+        ws_root
+    );
+    let zone_dir = format!("{}/tests/test-data/named_test_configs", ws_root);
 
-    let named = Command::new(&format!("{}/../../target/release/named", server_path))
+    File::open(&named_path).expect(&named_path);
+    File::open(&config_path).expect(&config_path);
+    File::open(&zone_dir).expect(&zone_dir);
+
+    let named = Command::new(&named_path)
         .stdout(Stdio::null())
         .arg("-q") // TODO: need to rethink this one...
-        .arg(&format!(
-            "--config={}/tests/test-data/named_test_configs/example.toml",
-            server_path
-        ))
-        .arg(&format!(
-            "--zonedir={}/tests/test-data/named_test_configs",
-            server_path
-        ))
+        .arg(&format!("--config={}", config_path))
+        .arg(&format!("--zonedir={}", zone_dir))
         .arg(&format!("--port={}", test_port))
         .spawn()
         .expect("failed to start named");
@@ -121,7 +126,8 @@ where
 {
     let mut io_loop = Runtime::new().unwrap();
     let client = AsyncClient::connect(stream);
-    let mut client = io_loop.block_on(client).expect("failed to create client");
+    let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
+    io_loop.spawn(bg);
 
     let name = domain::Name::from_str("www.example.com.").unwrap();
 

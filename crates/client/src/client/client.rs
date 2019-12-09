@@ -31,6 +31,23 @@ use crate::rr::dnssec::Signer;
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
+#[allow(clippy::type_complexity)]
+pub type NewFutureObj<H> = Pin<
+    Box<
+        dyn Future<
+                Output = Result<
+                    (
+                        H,
+                        Box<dyn Future<Output = Result<(), ProtoError>> + 'static + Send + Unpin>,
+                    ),
+                    ProtoError,
+                >,
+            >
+            + 'static
+            + Send,
+    >,
+>;
+
 /// Client trait which implements basic DNS Client operations.
 ///
 /// As of 0.10.0, the Client is now a wrapper around the `AsyncClient`, which is a futures-rs
@@ -53,34 +70,10 @@ pub trait Client {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
-    #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        (
-                            Self::Handle,
-                            Box<
-                                dyn Future<Output = Result<(), ProtoError>>
-                                    + 'static
-                                    + Send
-                                    + Unpin,
-                            >,
-                        ),
-                        ProtoError,
-                    >,
-                >
-                + 'static
-                + Send,
-        >,
-    >;
+    fn new_future(&self) -> NewFutureObj<Self::Handle>;
 
     /// This will create a new AsyncClient and spawn it into a new Runtime
     fn spawn_client(&self) -> ClientResult<(Self::Handle, Runtime)> {
-        use futures::FutureExt;
-
         let mut builder = runtime::Builder::new();
         builder.basic_scheduler();
         builder.enable_all();
@@ -90,8 +83,8 @@ pub trait Client {
 
         let (client, bg) = reactor.block_on(client)?;
 
-        // FIXME: when upgrade to tokio 0.2 change this to pass in the Result<(), ProtoError>
-        reactor.spawn(bg.map(|_r: Result<(), _>| ()));
+        // TODO: should we return this?
+        let _join_bg = reactor.spawn(bg);
 
         Ok((client, reactor))
     }
@@ -442,29 +435,7 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
     type Response = DnsExchangeSend<CC::Response>;
     type Handle = AsyncClient<CC::Response>;
 
-    #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        (
-                            Self::Handle,
-                            Box<
-                                dyn Future<Output = Result<(), ProtoError>>
-                                    + 'static
-                                    + Send
-                                    + Unpin,
-                            >,
-                        ),
-                        ProtoError,
-                    >,
-                >
-                + 'static
-                + Send,
-        >,
-    > {
+    fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
 
         let connect = async move {
@@ -509,28 +480,7 @@ impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
     type Handle = AsyncSecureClient<CC::Response>;
 
     #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        (
-                            Self::Handle,
-                            Box<
-                                dyn Future<Output = Result<(), ProtoError>>
-                                    + 'static
-                                    + Send
-                                    + Unpin,
-                            >,
-                        ),
-                        ProtoError,
-                    >,
-                >
-                + 'static
-                + Send,
-        >,
-    > {
+    fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
 
         let connect = async move {

@@ -14,9 +14,11 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - *breaking* (client) rebranded from `trust-dns` to `trust-dns-client`
 - *breaking* (server) rebranded from `trust-dns-server` to `trust-dns`
 - *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.39` minimum)
-- *breaking* (client) AsyncClient now only returns a single reference to use, no longer the background task.
+- *breaking* (client) AsyncClient now returns a connect future which resolves to the client and it's background.
 - *breaking* (resolver) AsyncResolver::new changed to AsyncResolver::connect, requires awaiting the returned future
 - (client) ClientFuture renamed to AsyncClient
+- (resolver) AsyncResolver now requires a SpawnBg type parameter, see TokioAsyncResolver as a predefined type without it
+- (resolver) Now returns a connect future to connect the start all background tasks
 
 ### Fixes
 

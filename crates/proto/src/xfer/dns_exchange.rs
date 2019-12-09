@@ -8,13 +8,11 @@
 //! This module contains all the types for demuxing DNS oriented streams.
 
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::lock::Mutex;
 use futures::stream::{Peekable, Stream, StreamExt};
-use futures::{ready, Future, FutureExt};
+use futures::{Future, FutureExt};
 use log::{debug, warn};
 
 use crate::error::*;
@@ -249,7 +247,7 @@ where
 /// The future will return a tuple of the DnsExchange (for sending messages) and a background
 ///  for running the background tasks. The background is optional as only one thread should run
 ///  the background. If returned, it must be spawned before any dns requests will function.
-pub struct DnsExchangeConnect<F, S, R>(Arc<Mutex<DnsExchangeConnectInner<F, S, R>>>)
+pub struct DnsExchangeConnect<F, S, R>(DnsExchangeConnectInner<F, S, R>)
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R> + 'static,
@@ -266,11 +264,11 @@ where
         outbound_messages: UnboundedReceiver<OneshotDnsRequest<R>>,
         sender: DnsRequestStreamHandle<R>,
     ) -> Self {
-        DnsExchangeConnect(Arc::new(Mutex::new(DnsExchangeConnectInner::Connecting {
+        DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
             connect_future,
             outbound_messages: Some(outbound_messages),
             sender: Some(sender),
-        })))
+        })
     }
 }
 
@@ -283,9 +281,8 @@ where
 {
     type Output = Result<(DnsExchange<R>, DnsExchangeBackground<S, R>), ProtoError>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let mut future = ready!(self.0.lock().poll_unpin(cx));
-        future.poll_unpin(cx)
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+        self.0.poll_unpin(cx)
     }
 }
 

@@ -9,7 +9,7 @@
 
 use std::fmt::Debug;
 
-use crate::client::client_future::MAX_PAYLOAD_LEN;
+use crate::client::async_client::MAX_PAYLOAD_LEN;
 use crate::op::{Message, MessageType, OpCode, Query};
 use crate::rr::rdata::NULL;
 use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
