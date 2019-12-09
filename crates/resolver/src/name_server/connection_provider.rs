@@ -85,7 +85,7 @@ impl ConnectionProvider for StandardConnection {
                     TcpClientStream::<TokioTcpStream>::with_timeout(socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
-                    Box::new(stream),
+                    stream,
                     handle,
                     timeout,
                     NoopMessageFinalizer::new(),
@@ -160,7 +160,7 @@ impl Clone for StandardConnection {
 }
 
 /// The variants of all supported connections for the Resolver
-#[allow(clippy::type_complexity)]
+#[allow(clippy::large_enum_variant, clippy::type_complexity)]
 pub(crate) enum ConnectionConnect {
     Udp(
         DnsExchangeConnect<
@@ -172,7 +172,7 @@ pub(crate) enum ConnectionConnect {
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                Box<TcpClientConnect<TokioTcpStream>>,
+                TcpClientConnect<TokioTcpStream>,
                 TcpClientStream<TokioTcpStream>,
                 NoopMessageFinalizer,
             >,
