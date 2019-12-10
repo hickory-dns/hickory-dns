@@ -17,7 +17,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - *breaking* (client) AsyncClient now returns a connect future which resolves to the client and it's background.
 - *breaking* (resolver) AsyncResolver::new changed to AsyncResolver::connect, requires awaiting the returned future
 - (client) ClientFuture renamed to AsyncClient
-- (resolver) AsyncResolver now requires a SpawnBg type parameter, see TokioAsyncResolver as a predefined type without it
+- (resolver) AsyncResolver now requires a ConnectionProvider type parameter, see TokioAsyncResolver as a predefined type without it
 - (resolver) Now returns a connect future to connect the start all background tasks
 
 ### Fixes

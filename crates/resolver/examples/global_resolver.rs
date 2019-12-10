@@ -10,7 +10,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use futures::{Future, FutureExt};
-use trust_dns_resolver::{AsyncResolver, IntoName, TokioSpawnBg, TryParseIp};
+use trust_dns_resolver::{IntoName, TokioAsyncResolver, TryParseIp};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -22,12 +22,12 @@ use trust_dns_resolver::{AsyncResolver, IntoName, TokioSpawnBg, TryParseIp};
 //      `AsyncResolver`.
 lazy_static! {
     // First we need to setup the global Resolver
-    static ref GLOBAL_DNS_RESOLVER: AsyncResolver<TokioSpawnBg> = {
+    static ref GLOBAL_DNS_RESOLVER: TokioAsyncResolver = {
         use std::sync::{Arc, Mutex, Condvar};
         use std::thread;
 
         // We'll be using this condvar to get the Resolver from the thread...
-        let pair = Arc::new((Mutex::new(None::<AsyncResolver<TokioSpawnBg>>), Condvar::new()));
+        let pair = Arc::new((Mutex::new(None::<TokioAsyncResolver>), Condvar::new()));
         let pair2 = pair.clone();
 
 
@@ -45,7 +45,7 @@ lazy_static! {
                 #[cfg(any(unix, windows))]
                 {
                     // use the system resolver configuration
-                    AsyncResolver::from_system_conf(runtime.handle().clone())
+                    TokioAsyncResolver::from_system_conf(runtime.handle().clone())
                 }
 
                 // For other operating systems, we can use one of the preconfigured definitions
@@ -55,7 +55,7 @@ lazy_static! {
                     use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 
                     // Get a new resolver with the google nameservers as the upstream recursive resolvers
-                    AsyncResolver::new(ResolverConfig::google(), ResolverOpts::default(), runtime.handle().clone())
+                    TokioAsyncResolver::new(ResolverConfig::google(), ResolverOpts::default(), runtime.handle().clone())
                 }
             };
 

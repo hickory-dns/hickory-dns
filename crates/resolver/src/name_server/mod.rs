@@ -13,7 +13,8 @@ mod name_server_state;
 mod name_server_stats;
 
 pub use self::connection_provider::ConnectionProvider;
-pub(crate) use self::connection_provider::{Connection, StandardConnection};
+#[cfg(feature = "tokio")]
+pub use self::connection_provider::{TokioConnection, TokioConnectionProvider};
 #[cfg(feature = "mdns")]
 pub(crate) use self::name_server::mdns_nameserver;
 pub use self::name_server::NameServer;

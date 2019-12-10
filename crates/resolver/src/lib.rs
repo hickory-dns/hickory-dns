@@ -232,7 +232,6 @@ pub mod lookup_state;
 pub mod name_server;
 #[cfg(feature = "tokio")]
 mod resolver;
-mod spawn_bg;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -244,9 +243,11 @@ pub use async_resolver::AsyncResolver;
 #[cfg(feature = "tokio")]
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
+pub use name_server::ConnectionProvider;
+#[cfg(feature = "tokio")]
+pub use name_server::{TokioConnection, TokioConnectionProvider};
 #[cfg(feature = "tokio")]
 pub use resolver::Resolver;
-pub use spawn_bg::{BgJoinHandle, SpawnBg, TokioSpawnBg};
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.

@@ -9,9 +9,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{ready, Future, FutureExt};
-use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
+use tokio::{self, runtime::Handle};
 #[cfg(all(
     feature = "dns-over-openssl",
     not(feature = "dns-over-rustls"),
@@ -41,25 +41,41 @@ use trust_dns_https::{self, HttpsClientConnect, HttpsClientResponse, HttpsClient
 use crate::config::{NameServerConfig, Protocol, ResolverOpts};
 
 /// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
+///
+/// ConnectionProvider is responsible for spawning any background tasks as necessary.
 pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
-    type Conn: DnsHandle + Clone + Send + 'static;
-    type Background: Future<Output = Result<(), ProtoError>> + Send + 'static;
-    type FutureConn: Future<Output = Result<(Self::Conn, Self::Background), ProtoError>>
-        + Send
-        + 'static;
+    /// The handle to the connect for sending DNS requests.
+    type Conn: DnsHandle + Clone + Send + Sync + 'static;
+
+    /// Ths future is responsible for spawning any background tasks as necessary
+    type FutureConn: Future<Output = Result<Self::Conn, ProtoError>> + Send + 'static;
 
     /// The returned handle should
     fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
         -> Self::FutureConn;
 }
 
-/// Standard connection implements the default mechanism for creating new Connections
-pub struct StandardConnection;
+fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
+    spawner: &Handle,
+    background: F,
+) {
+    // TODO: maybe do something with this in the future?
+    let _join = spawner.spawn(background);
+}
 
-impl ConnectionProvider for StandardConnection {
-    type Conn = Connection;
-    type Background = ConnectionBackground;
-    type FutureConn = StandardConnectionFuture;
+/// Standard connection implements the default mechanism for creating new Connections
+#[derive(Clone)]
+pub struct TokioConnectionProvider(Handle);
+
+impl TokioConnectionProvider {
+    pub(crate) fn new(runtime: Handle) -> Self {
+        Self(runtime)
+    }
+}
+
+impl ConnectionProvider for TokioConnectionProvider {
+    type Conn = TokioConnection;
+    type FutureConn = TokioConnectionFuture;
 
     /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
     ///   future connection.
@@ -149,13 +165,10 @@ impl ConnectionProvider for StandardConnection {
             }
         };
 
-        StandardConnectionFuture(dns_connect)
-    }
-}
-
-impl Clone for StandardConnection {
-    fn clone(&self) -> Self {
-        StandardConnection
+        TokioConnectionFuture {
+            connect: dns_connect,
+            spawner: self.0.clone(),
+        }
     }
 }
 
@@ -216,57 +229,61 @@ pub(crate) enum ConnectionConnect {
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub struct StandardConnectionFuture(ConnectionConnect);
+pub struct TokioConnectionFuture {
+    connect: ConnectionConnect,
+    spawner: Handle,
+}
 
-impl Future for StandardConnectionFuture {
-    type Output = Result<(Connection, ConnectionBackground), ProtoError>;
+impl Future for TokioConnectionFuture {
+    type Output = Result<TokioConnection, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let connection = match &mut self.0 {
+        let (connection, bg) = match &mut self.connect {
             ConnectionConnect::Udp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = Connection(ConnectionConnected::Udp(conn));
+                let conn = TokioConnection(ConnectionConnected::Udp(conn));
                 let bg = ConnectionBackground(ConnectionBackgroundInner::Udp(bg));
                 (conn, bg)
             }
             ConnectionConnect::Tcp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = Connection(ConnectionConnected::Tcp(conn));
+                let conn = TokioConnection(ConnectionConnected::Tcp(conn));
                 let bg = ConnectionBackground(ConnectionBackgroundInner::Tcp(bg));
                 (conn, bg)
             }
             #[cfg(feature = "dns-over-tls")]
             ConnectionConnect::Tls(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = Connection(ConnectionConnected::Tls(conn));
+                let conn = TokioConnection(ConnectionConnected::Tls(conn));
                 let bg = ConnectionBackground(ConnectionBackgroundInner::Tls(bg));
                 (conn, bg)
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnect::Https(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = Connection(ConnectionConnected::Https(conn));
+                let conn = TokioConnection(ConnectionConnected::Https(conn));
                 let bg = ConnectionBackground(ConnectionBackgroundInner::Https(bg));
                 (conn, bg)
             }
             #[cfg(feature = "mdns")]
             ConnectionConnect::Mdns(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = Connection(ConnectionConnected::Mdns(conn));
+                let conn = TokioConnection(ConnectionConnected::Mdns(conn));
                 let bg = ConnectionBackground(ConnectionBackgroundInner::Mdns(bg));
                 (conn, bg)
             }
         };
 
+        spawn_bg(&self.spawner, bg);
         Poll::Ready(Ok(connection))
     }
 }
 
 /// A connected DNS handle
 #[derive(Clone)]
-pub struct Connection(ConnectionConnected);
+pub struct TokioConnection(ConnectionConnected);
 
-impl DnsHandle for Connection {
+impl DnsHandle for TokioConnection {
     type Response = ConnectionResponse;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {

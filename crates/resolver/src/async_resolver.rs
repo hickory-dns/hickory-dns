@@ -17,6 +17,7 @@ use proto::op::Query;
 use proto::rr::domain::TryParseIp;
 use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
+use proto::DnsHandle;
 use tokio::runtime::Handle;
 
 use crate::config::{ResolverConfig, ResolverOpts};
@@ -25,10 +26,10 @@ use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::lookup_state::CachingClient;
-use crate::name_server::{Connection, NameServerPool, StandardConnection};
-use crate::{Hosts, SpawnBg, TokioSpawnBg};
-
-type ClientCache<S> = CachingClient<LookupEither<Connection, StandardConnection, S>>;
+use crate::name_server::{
+    ConnectionProvider, NameServerPool, TokioConnection, TokioConnectionProvider,
+};
+use crate::Hosts;
 
 // TODO: Consider renaming to ResolverAsync
 /// A handle for resolving DNS records.
@@ -58,15 +59,15 @@ type ClientCache<S> = CachingClient<LookupEither<Connection, StandardConnection,
 /// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
 /// background future will finish.
 #[derive(Clone)]
-pub struct AsyncResolver<S: SpawnBg> {
+pub struct AsyncResolver<C: DnsHandle, P: ConnectionProvider<Conn = C>> {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: ClientCache<S>,
+    client_cache: CachingClient<LookupEither<C, P>>,
     hosts: Option<Arc<Hosts>>,
 }
 
 /// An AsyncResolver used with Tokio
-pub type TokioAsyncResolver = AsyncResolver<TokioSpawnBg>;
+pub type TokioAsyncResolver = AsyncResolver<TokioConnection, TokioConnectionProvider>;
 
 macro_rules! lookup_fn {
     ($p:ident, $l:ty, $r:path) => {
@@ -101,7 +102,8 @@ pub fn $p(&self, query: $t) -> impl Future<Output = Result<$l, ResolveError>> + 
     };
 }
 
-impl AsyncResolver<TokioSpawnBg> {
+#[cfg(feature = "tokio")]
+impl AsyncResolver<TokioConnection, TokioConnectionProvider> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -120,7 +122,12 @@ impl AsyncResolver<TokioSpawnBg> {
         options: ResolverOpts,
         runtime: Handle,
     ) -> Result<Self, ResolveError> {
-        AsyncResolver::new_with_spawn(config, options, TokioSpawnBg::new(runtime)).await
+        AsyncResolver::<TokioConnection, TokioConnectionProvider>::new_with_conn(
+            config,
+            options,
+            TokioConnectionProvider::new(runtime),
+        )
+        .await
     }
 
     /// Constructs a new Resolver with the system configuration.
@@ -128,11 +135,11 @@ impl AsyncResolver<TokioSpawnBg> {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     pub async fn from_system_conf(runtime: Handle) -> Result<Self, ResolveError> {
-        Self::from_system_conf_with_spawn(TokioSpawnBg::new(runtime)).await
+        Self::from_system_conf_with_provider(TokioConnectionProvider::new(runtime)).await
     }
 }
 
-impl<S: SpawnBg + Send> AsyncResolver<S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -146,15 +153,15 @@ impl<S: SpawnBg + Send> AsyncResolver<S> {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub async fn new_with_spawn(
+    pub async fn new_with_conn(
         config: ResolverConfig,
         options: ResolverOpts,
-        spawn_bg: S,
+        conn_provider: P,
     ) -> Result<Self, ResolveError> {
         let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         let lru = Arc::new(Mutex::new(lru));
 
-        Self::with_cache_with_spawn(config, options, lru, spawn_bg).await
+        Self::with_cache_with_provider(config, options, lru, conn_provider).await
     }
 
     /// Construct a new `AsyncResolver` with the associated Client and configuration.
@@ -171,20 +178,15 @@ impl<S: SpawnBg + Send> AsyncResolver<S> {
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub(crate) async fn with_cache_with_spawn(
+    pub(crate) async fn with_cache_with_provider(
         config: ResolverConfig,
         options: ResolverOpts,
         lru: Arc<Mutex<DnsLru>>,
-        spawn_bg: S,
+        conn_provider: P,
     ) -> Result<Self, ResolveError> {
         debug!("trust-dns resolver running");
 
-        let pool = NameServerPool::<Connection, StandardConnection, S>::from_config_with_provider(
-            &config,
-            &options,
-            StandardConnection,
-            spawn_bg,
-        );
+        let pool = NameServerPool::from_config_with_provider(&config, &options, conn_provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
         if options.validate {
@@ -223,9 +225,9 @@ impl<S: SpawnBg + Send> AsyncResolver<S> {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub async fn from_system_conf_with_spawn(spawn_bg: S) -> Result<Self, ResolveError> {
+    pub async fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Self::new_with_spawn(config, options, spawn_bg).await
+        Self::new_with_conn(config, options, conn_provider).await
     }
 
     /// Generic lookup for any RecordType
@@ -390,7 +392,7 @@ impl<S: SpawnBg + Send> AsyncResolver<S> {
     lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
 }
 
-impl<S: SpawnBg> fmt::Debug for AsyncResolver<S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> fmt::Debug for AsyncResolver<C, P> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("AsyncResolver")
             .field("request_tx", &"...")
@@ -429,8 +431,12 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        assert!(is_send_t::<AsyncResolver<TokioSpawnBg>>());
-        assert!(is_sync_t::<AsyncResolver<TokioSpawnBg>>());
+        assert!(is_send_t::<
+            AsyncResolver<TokioConnection, TokioConnectionProvider>,
+        >());
+        assert!(is_sync_t::<
+            AsyncResolver<TokioConnection, TokioConnectionProvider>,
+        >());
 
         assert!(is_send_t::<DnsRequest>());
         assert!(is_send_t::<LookupIpFuture>());
@@ -537,7 +543,7 @@ mod tests {
 
         //FIXME: put the logic in two separate threads...
 
-        let test_fn = |resolver: AsyncResolver<TokioSpawnBg>| {
+        let test_fn = |resolver: AsyncResolver<TokioConnection, TokioConnectionProvider>| {
             let mut io_loop = Runtime::new().unwrap();
 
             let response = io_loop

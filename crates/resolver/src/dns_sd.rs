@@ -18,10 +18,12 @@ use futures::Future;
 use proto::rr::rdata::TXT;
 use proto::rr::{Name, RecordType};
 use proto::xfer::DnsRequestOptions;
+use proto::DnsHandle;
 
 use crate::error::*;
 use crate::lookup::{ReverseLookup, ReverseLookupIter, TxtLookup};
-use crate::{AsyncResolver, SpawnBg};
+use crate::name_server::ConnectionProvider;
+use crate::AsyncResolver;
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -38,7 +40,7 @@ pub trait DnsSdHandle {
     fn service_info(&self, name: Name) -> ServiceInfoFuture;
 }
 
-impl<S: SpawnBg> DnsSdHandle for AsyncResolver<S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> DnsSdHandle for AsyncResolver<C, P> {
     fn list_services(&self, name: Name) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,

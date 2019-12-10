@@ -14,8 +14,7 @@ use std::sync::{
 };
 use std::task::Poll;
 
-use futures::executor::{block_on, ThreadPool};
-use futures::task::SpawnExt;
+use futures::executor::block_on;
 use futures::{future, Future};
 
 use trust_dns_client::op::Query;
@@ -25,37 +24,6 @@ use trust_dns_proto::error::{ProtoError, ProtoResult};
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
-use trust_dns_resolver::{BgJoinHandle, SpawnBg};
-
-/// Used to spawn background tasks on a Tokio Runtime
-#[derive(Clone)]
-pub struct FuturesSpawnBg(ThreadPool);
-
-impl FuturesSpawnBg {
-    pub fn new(spawner: ThreadPool) -> Self {
-        FuturesSpawnBg(spawner)
-    }
-}
-
-impl SpawnBg for FuturesSpawnBg {
-    fn spawn_bg<F: Future<Output = Result<(), ProtoError>> + Send + 'static>(
-        &self,
-        background: F,
-    ) -> BgJoinHandle {
-        let result = self.0.spawn_with_handle(background);
-
-        match result {
-            Err(e) => {
-                let fut = future::err(ProtoError::from(format!(
-                    "Error spawning to Futures ThreadPool: {}",
-                    e
-                )));
-                Box::pin(fut) as _
-            }
-            Ok(r) => Box::pin(r) as _,
-        }
-    }
-}
 
 #[derive(Clone)]
 struct MockConnProvider<O: OnSend> {
@@ -73,29 +41,23 @@ impl Default for MockConnProvider<DefaultOnSend> {
 #[allow(clippy::type_complexity)]
 impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
     type Conn = MockClientHandle<O>;
-    type Background = future::Ready<Result<(), ProtoError>>;
-    type FutureConn = future::Ready<Result<(Self::Conn, Self::Background), ProtoError>>;
+    type FutureConn = future::Ready<Result<Self::Conn, ProtoError>>;
 
     fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::FutureConn {
         println!("MockClient::new_connection");
-        future::ok((
-            MockClientHandle::mock_on_send(vec![], self.on_send.clone()),
-            future::ok(()),
-        ))
+        future::ok(MockClientHandle::mock_on_send(vec![], self.on_send.clone()))
     }
 }
 
-type MockedNameServer<O> = NameServer<MockClientHandle<O>, MockConnProvider<O>, FuturesSpawnBg>;
-type MockedNameServerPool<O> =
-    NameServerPool<MockClientHandle<O>, MockConnProvider<O>, FuturesSpawnBg>;
+type MockedNameServer<O> = NameServer<MockClientHandle<O>, MockConnProvider<O>>;
+type MockedNameServerPool<O> = NameServerPool<MockClientHandle<O>, MockConnProvider<O>>;
 
 #[cfg(test)]
 fn mock_nameserver(
     messages: Vec<ProtoResult<DnsResponse>>,
     options: ResolverOpts,
-    spawner: FuturesSpawnBg,
 ) -> MockedNameServer<DefaultOnSend> {
-    mock_nameserver_on_send(messages, options, DefaultOnSend, spawner)
+    mock_nameserver_on_send(messages, options, DefaultOnSend)
 }
 
 #[cfg(test)]
@@ -103,7 +65,6 @@ fn mock_nameserver_on_send<O: OnSend + Unpin>(
     messages: Vec<ProtoResult<DnsResponse>>,
     options: ResolverOpts,
     on_send: O,
-    spawner: FuturesSpawnBg,
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
@@ -121,7 +82,6 @@ fn mock_nameserver_on_send<O: OnSend + Unpin>(
         options,
         client,
         conn_provider,
-        spawner,
     )
 }
 
@@ -131,9 +91,8 @@ fn mock_nameserver_pool(
     tcp: Vec<MockedNameServer<DefaultOnSend>>,
     _mdns: Option<MockedNameServer<DefaultOnSend>>,
     options: ResolverOpts,
-    spawn_bg: FuturesSpawnBg,
 ) -> MockedNameServerPool<DefaultOnSend> {
-    mock_nameserver_pool_on_send::<DefaultOnSend>(udp, tcp, _mdns, options, DefaultOnSend, spawn_bg)
+    mock_nameserver_pool_on_send::<DefaultOnSend>(udp, tcp, _mdns, options, DefaultOnSend)
 }
 
 #[cfg(test)]
@@ -144,7 +103,6 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
     _mdns: Option<MockedNameServer<O>>,
     options: ResolverOpts,
     on_send: O,
-    _spawn_bg: FuturesSpawnBg,
 ) -> MockedNameServerPool<O> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
@@ -158,7 +116,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
         &options,
         udp,
         tcp,
-        _mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send, _spawn_bg)),
+        _mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
         conn_provider,
     );
 }
@@ -172,27 +130,14 @@ fn test_datagram() {
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
-
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
-    let udp_nameserver = mock_nameserver(
-        vec![udp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![tcp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
         Default::default(),
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -218,26 +163,14 @@ fn test_datagram_stream_upgrade() {
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
-    let udp_nameserver = mock_nameserver(
-        vec![udp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![tcp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
         Default::default(),
-        spawner.clone(),
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -260,26 +193,14 @@ fn test_datagram_fails_to_stream() {
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
-    let udp_nameserver = mock_nameserver(
-        vec![udp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![tcp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         None,
         Default::default(),
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -304,31 +225,15 @@ fn test_local_mdns() {
 
     let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor);
-
-    let udp_nameserver = mock_nameserver(
-        vec![udp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
-    let tcp_nameserver = mock_nameserver(
-        vec![tcp_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
-    let mdns_nameserver = mock_nameserver(
-        vec![mdns_message.map(Into::into)],
-        Default::default(),
-        spawner.clone(),
-    );
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
+    let mdns_nameserver = mock_nameserver(vec![mdns_message.map(Into::into)], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
         Some(mdns_nameserver),
         Default::default(),
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -358,9 +263,6 @@ fn test_trust_nx_responses_fails_servfail() {
     let tcp_message = success_msg.clone();
     let udp_message = success_msg;
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
     // fail the first udp request
     let udp_nameserver = mock_nameserver(
         vec![
@@ -368,21 +270,11 @@ fn test_trust_nx_responses_fails_servfail() {
             servfail_message.clone().map(Into::into),
         ],
         options,
-        spawner.clone(),
     );
-    let tcp_nameserver = mock_nameserver(
-        vec![Err(ProtoError::from("Forced Testing Error"))],
-        options,
-        spawner.clone(),
-    );
+    let tcp_nameserver =
+        mock_nameserver(vec![Err(ProtoError::from("Forced Testing Error"))], options);
 
-    let mut pool = mock_nameserver_pool(
-        vec![udp_nameserver],
-        vec![tcp_nameserver],
-        None,
-        options,
-        spawner.clone(),
-    );
+    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query.clone(), vec![], vec![], vec![]).unwrap();
@@ -392,21 +284,10 @@ fn test_trust_nx_responses_fails_servfail() {
     assert!(response.response_code() == ResponseCode::ServFail);
 
     // fail all udp succeed tcp
-    let udp_nameserver = mock_nameserver(
-        vec![servfail_message.map(Into::into)],
-        options,
-        spawner.clone(),
-    );
-    let tcp_nameserver =
-        mock_nameserver(vec![tcp_message.map(Into::into)], options, spawner.clone());
+    let udp_nameserver = mock_nameserver(vec![servfail_message.map(Into::into)], options);
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], options);
 
-    let mut pool = mock_nameserver_pool(
-        vec![udp_nameserver],
-        vec![tcp_nameserver],
-        None,
-        options,
-        spawner.clone(),
-    );
+    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     let request = message(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
@@ -434,25 +315,11 @@ fn test_distrust_nx_responses() {
     let tcp_message = success_msg;
     //let udp_message = success_msg;
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
     // fail the first udp request
-    let udp_nameserver = mock_nameserver(
-        vec![servfail_message.map(Into::into)],
-        options,
-        spawner.clone(),
-    );
-    let tcp_nameserver =
-        mock_nameserver(vec![tcp_message.map(Into::into)], options, spawner.clone());
+    let udp_nameserver = mock_nameserver(vec![servfail_message.map(Into::into)], options);
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], options);
 
-    let mut pool = mock_nameserver_pool(
-        vec![udp_nameserver],
-        vec![tcp_nameserver],
-        None,
-        options,
-        spawner.clone(),
-    );
+    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]).unwrap();
@@ -524,15 +391,8 @@ fn test_concurrent_requests() {
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
-    let udp1_nameserver = mock_nameserver_on_send(
-        vec![udp_message.map(Into::into)],
-        options,
-        on_send.clone(),
-        spawner.clone(),
-    );
+    let udp1_nameserver =
+        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -541,7 +401,6 @@ fn test_concurrent_requests() {
         None,
         options,
         on_send,
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -572,15 +431,8 @@ fn test_concurrent_requests_more_than_conns() {
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
-    let udp1_nameserver = mock_nameserver_on_send(
-        vec![udp_message.map(Into::into)],
-        options,
-        on_send.clone(),
-        spawner.clone(),
-    );
+    let udp1_nameserver =
+        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -589,7 +441,6 @@ fn test_concurrent_requests_more_than_conns() {
         None,
         options,
         on_send,
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -613,8 +464,6 @@ fn test_concurrent_requests_1_conn() {
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
     let on_send = OnSendBarrier::new(1);
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -622,12 +471,8 @@ fn test_concurrent_requests_1_conn() {
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
-    let udp1_nameserver = mock_nameserver_on_send(
-        vec![udp_message.map(Into::into)],
-        options,
-        on_send.clone(),
-        spawner.clone(),
-    );
+    let udp1_nameserver =
+        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -636,7 +481,6 @@ fn test_concurrent_requests_1_conn() {
         None,
         options,
         on_send,
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail
@@ -667,15 +511,8 @@ fn test_concurrent_requests_0_conn() {
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
-    let reactor = ThreadPool::new().expect("failed to create Futures ThreadPool");
-    let spawner = FuturesSpawnBg::new(reactor.clone());
-
-    let udp1_nameserver = mock_nameserver_on_send(
-        vec![udp_message.map(Into::into)],
-        options,
-        on_send.clone(),
-        spawner.clone(),
-    );
+    let udp1_nameserver =
+        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -684,7 +521,6 @@ fn test_concurrent_requests_0_conn() {
         None,
         options,
         on_send,
-        spawner,
     );
 
     // lookup on UDP succeeds, any other would fail

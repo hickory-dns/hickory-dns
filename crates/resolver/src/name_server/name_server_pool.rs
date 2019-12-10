@@ -21,12 +21,9 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use crate::config::{ResolverConfig, ResolverOpts};
 #[cfg(feature = "mdns")]
 use crate::name_server;
-#[cfg(test)]
-use crate::name_server::{Connection, StandardConnection};
 use crate::name_server::{ConnectionProvider, NameServer};
-use crate::SpawnBg;
 #[cfg(test)]
-use crate::TokioSpawnBg;
+use crate::name_server::{TokioConnection, TokioConnectionProvider};
 
 /// A pool of NameServers
 ///
@@ -35,43 +32,36 @@ use crate::TokioSpawnBg;
 pub struct NameServerPool<
     C: DnsHandle + Send + Sync + 'static,
     P: ConnectionProvider<Conn = C> + Send + 'static,
-    S: SpawnBg,
 > {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
-    datagram_conns: Arc<Vec<NameServer<C, P, S>>>, /* All NameServers must be the same type */
-    stream_conns: Arc<Vec<NameServer<C, P, S>>>,   /* All NameServers must be the same type */
+    datagram_conns: Arc<Vec<NameServer<C, P>>>, /* All NameServers must be the same type */
+    stream_conns: Arc<Vec<NameServer<C, P>>>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
-    mdns_conns: NameServer<C, P, S>, /* All NameServers must be the same type */
+    mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
     conn_provider: P,
 }
 
 #[cfg(test)]
-impl NameServerPool<Connection, StandardConnection, TokioSpawnBg> {
+impl NameServerPool<TokioConnection, TokioConnectionProvider> {
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
         runtime: Handle,
     ) -> Self {
-        Self::from_config_with_provider(
-            config,
-            options,
-            StandardConnection,
-            TokioSpawnBg::new(runtime),
-        )
+        Self::from_config_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
 }
 
-impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S: SpawnBg>
-    NameServerPool<C, P, S>
+impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
+    NameServerPool<C, P>
 {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
         options: &ResolverOpts,
         conn_provider: P,
-        spawn_bg: S,
-    ) -> NameServerPool<C, P, S> {
-        let datagram_conns: Vec<NameServer<C, P, S>> = config
+    ) -> NameServerPool<C, P> {
+        let datagram_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -85,16 +75,11 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<C, P, S>::new_with_provider(
-                    ns_config,
-                    *options,
-                    conn_provider.clone(),
-                    spawn_bg.clone(),
-                )
+                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<C, P, S>> = config
+        let stream_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -108,12 +93,7 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let ns_config = { ns_config.clone() };
 
-                NameServer::<C, P, S>::new_with_provider(
-                    ns_config,
-                    *options,
-                    conn_provider.clone(),
-                    spawn_bg.clone(),
-                )
+                NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
 
@@ -121,11 +101,7 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
             datagram_conns: Arc::new(datagram_conns),
             stream_conns: Arc::new(stream_conns),
             #[cfg(feature = "mdns")]
-            mdns_conns: name_server::mdns_nameserver(
-                *options,
-                conn_provider.clone(),
-                spawn_bg.clone(),
-            ),
+            mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone()),
             options: *options,
             conn_provider,
         }
@@ -135,8 +111,8 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
     #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: &ResolverOpts,
-        datagram_conns: Vec<NameServer<C, P, S>>,
-        stream_conns: Vec<NameServer<C, P, S>>,
+        datagram_conns: Vec<NameServer<C, P>>,
+        stream_conns: Vec<NameServer<C, P>>,
         conn_provider: P,
     ) -> Self {
         NameServerPool {
@@ -151,9 +127,9 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
     #[cfg(feature = "mdns")]
     pub fn from_nameservers(
         options: &ResolverOpts,
-        datagram_conns: Vec<NameServer<C, P, S>>,
-        stream_conns: Vec<NameServer<C, P, S>>,
-        mdns_conns: NameServer<C, P, S>,
+        datagram_conns: Vec<NameServer<C, P>>,
+        stream_conns: Vec<NameServer<C, P>>,
+        mdns_conns: NameServer<C, P>,
         conn_provider: P,
     ) -> Self {
         NameServerPool {
@@ -167,10 +143,10 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
 
     async fn try_send(
         opts: ResolverOpts,
-        conns: Arc<Vec<NameServer<C, P, S>>>,
+        conns: Arc<Vec<NameServer<C, P>>>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ProtoError> {
-        let mut conns: Vec<NameServer<C, P, S>> = conns.to_vec();
+        let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
 
         // select the highest priority connection
         //   reorder the connections based on current view...
@@ -182,11 +158,10 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static, S
     }
 }
 
-impl<C, P, S> DnsHandle for NameServerPool<C, P, S>
+impl<C, P> DnsHandle for NameServerPool<C, P>
 where
     C: DnsHandle + Sync + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
-    S: SpawnBg,
 {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
@@ -241,15 +216,14 @@ where
 
 // TODO: we should be able to have a self-referential future here with Pin and not require cloned conns
 /// An async function that will loop over all the conns with a max parallel request count of ops.num_concurrent_req
-async fn parallel_conn_loop<C, P, S>(
-    mut conns: Vec<NameServer<C, P, S>>,
+async fn parallel_conn_loop<C, P>(
+    mut conns: Vec<NameServer<C, P>>,
     request: DnsRequest,
     opts: ResolverOpts,
 ) -> Result<DnsResponse, ProtoError>
 where
     C: DnsHandle + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
-    S: SpawnBg,
 {
     let mut err = ProtoError::from("No connections available");
 
@@ -257,7 +231,7 @@ where
         let request_cont = request.clone();
 
         // construct the parallel requests, 2 is the default
-        let mut par_conns = SmallVec::<[NameServer<C, P, S>; 2]>::new();
+        let mut par_conns = SmallVec::<[NameServer<C, P>; 2]>::new();
         let count = conns.len().min(opts.num_concurrent_reqs.max(1));
         for conn in conns.drain(..count) {
             par_conns.push(conn);
@@ -291,11 +265,11 @@ mod mdns {
     use proto::DnsHandle;
 
     /// Returns true
-    pub fn maybe_local<C, P, S>(name_server: &mut NameServer<C, P, S>, request: DnsRequest) -> Local
+    pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
     where
         C: DnsHandle + 'static,
         P: ConnectionProvider<Conn = C> + 'static,
-        S: SpawnBg,
+        P: ConnectionProvider,
     {
         if request
             .queries()
@@ -402,7 +376,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let mut io_loop = Runtime::new().unwrap();
-        let mut pool = NameServerPool::<_, StandardConnection, _>::from_config(
+        let mut pool = NameServerPool::<_, TokioConnectionProvider>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
             io_loop.handle().clone(),

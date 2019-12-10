@@ -18,7 +18,7 @@ use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
 use trust_dns_resolver::config::ResolverConfig;
 use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
-use trust_dns_resolver::{AsyncResolver, TokioSpawnBg};
+use trust_dns_resolver::{AsyncResolver, TokioConnection, TokioConnectionProvider};
 
 use crate::authority::{
     Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
@@ -30,7 +30,7 @@ use crate::store::forwarder::ForwardConfig;
 /// This uses the trust-dns-resolver for resolving requests.
 pub struct ForwardAuthority {
     origin: LowerName,
-    resolver: AsyncResolver<TokioSpawnBg>,
+    resolver: AsyncResolver<TokioConnection, TokioConnectionProvider>,
 }
 
 impl ForwardAuthority {

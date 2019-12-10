@@ -23,47 +23,39 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
-use crate::name_server::NameServerState;
-use crate::name_server::NameServerStats;
-use crate::name_server::{Connection, ConnectionProvider, StandardConnection};
-use crate::{SpawnBg, TokioSpawnBg};
+use crate::name_server::{
+    ConnectionProvider, NameServerState, NameServerStats, TokioConnection, TokioConnectionProvider,
+};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
-pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Send, S: SpawnBg> {
+pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Send> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: Option<C>,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
     conn_provider: P,
-    spawn_bg: S,
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Debug for NameServer<C, P, S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Debug for NameServer<C, P> {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
 }
 
-impl NameServer<Connection, StandardConnection, TokioSpawnBg> {
+impl NameServer<TokioConnection, TokioConnectionProvider> {
     pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: Handle) -> Self {
-        Self::new_with_provider(
-            config,
-            options,
-            StandardConnection,
-            TokioSpawnBg::new(runtime),
-        )
+        Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P, S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
     pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
         conn_provider: P,
-        spawn_bg: S,
-    ) -> NameServer<C, P, S> {
+    ) -> NameServer<C, P> {
         NameServer {
             config,
             options,
@@ -71,7 +63,6 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
-            spawn_bg,
         }
     }
 
@@ -81,8 +72,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
         options: ResolverOpts,
         client: C,
         conn_provider: P,
-        spawn_bg: S,
-    ) -> NameServer<C, P, S> {
+    ) -> NameServer<C, P> {
         NameServer {
             config,
             options,
@@ -90,7 +80,6 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
-            spawn_bg,
         }
     }
 
@@ -105,15 +94,11 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
             // TODO: we need the local EDNS options
             self.state = Arc::new(NameServerState::init(None));
 
-            let (client, bg) = self
+            let client = self
                 .conn_provider
                 .new_connection(&self.config, &self.options)
                 .await?;
 
-            // TODO: We mignt need to extract a future here, to verify the BG hasn't exited
-            //  it the JoinBg to be cloneable, and as of today Tokio's JoinHandle is not nor is Futures RemoteHandle.
-            let _join_bg = self.spawn_bg.spawn_bg(bg);
-            //self.join_bg = join_bg;
             // establish a new connection
             self.client = Some(client);
         }
@@ -171,11 +156,10 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> NameServer<C, P,
     }
 }
 
-impl<C, P, S> DnsHandle for NameServer<C, P, S>
+impl<C, P> DnsHandle for NameServer<C, P>
 where
     C: DnsHandle,
     P: ConnectionProvider<Conn = C>,
-    S: SpawnBg,
 {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
@@ -191,7 +175,7 @@ where
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Ord for NameServer<C, P, S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Ord for NameServer<C, P> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -214,32 +198,27 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Ord for NameServ
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> PartialOrd for NameServer<C, P, S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> PartialOrd for NameServer<C, P> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> PartialEq for NameServer<C, P, S> {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> PartialEq for NameServer<C, P> {
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>, S: SpawnBg> Eq for NameServer<C, P, S> {}
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Eq for NameServer<C, P> {}
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-pub(crate) fn mdns_nameserver<C, P, S>(
-    options: ResolverOpts,
-    conn_provider: P,
-    spawn_bg: S,
-) -> NameServer<C, P, S>
+pub(crate) fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P>
 where
     C: DnsHandle,
     P: ConnectionProvider<Conn = C>,
-    S: SpawnBg,
 {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
@@ -248,7 +227,7 @@ where
         #[cfg(feature = "dns-over-rustls")]
         tls_config: None,
     };
-    NameServer::new_with_provider(config, options, conn_provider, spawn_bg)
+    NameServer::new_with_provider(config, options, conn_provider)
 }
 
 #[cfg(test)]
@@ -282,7 +261,7 @@ mod tests {
         let mut io_loop = Runtime::new().unwrap();
         let runtime_handle = io_loop.handle().clone();
         let name_server = future::lazy(|_| {
-            NameServer::<_, StandardConnection, _>::new(
+            NameServer::<_, TokioConnectionProvider>::new(
                 config,
                 ResolverOpts::default(),
                 runtime_handle,
@@ -315,7 +294,7 @@ mod tests {
         let mut io_loop = Runtime::new().unwrap();
         let runtime_handle = io_loop.handle().clone();
         let name_server = future::lazy(|_| {
-            NameServer::<_, StandardConnection, _>::new(config, options, runtime_handle)
+            NameServer::<_, TokioConnectionProvider>::new(config, options, runtime_handle)
         });
 
         let name = Name::parse("www.example.com.", None).unwrap();

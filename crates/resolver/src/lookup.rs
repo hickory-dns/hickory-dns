@@ -31,8 +31,9 @@ use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::lookup_ip::LookupIpIter;
 use crate::lookup_state::CachingClient;
-use crate::name_server::{Connection, ConnectionProvider, NameServerPool, StandardConnection};
-use crate::{SpawnBg, TokioSpawnBg};
+use crate::name_server::{
+    ConnectionProvider, NameServerPool, TokioConnection, TokioConnectionProvider,
+};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
@@ -184,19 +185,13 @@ impl Iterator for LookupIntoIter {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<
-    C: DnsHandle + Sync + 'static,
-    P: ConnectionProvider<Conn = C> + 'static,
-    S: SpawnBg,
-> {
-    Retry(RetryDnsHandle<NameServerPool<C, P, S>>),
+pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> {
+    Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
-    Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P, S>>>),
+    Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>, S: SpawnBg> DnsHandle
-    for LookupEither<C, P, S>
-{
+impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>> DnsHandle for LookupEither<C, P> {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -218,7 +213,7 @@ impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>, S: SpawnBg> DnsHandle
 
 /// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C = LookupEither<Connection, StandardConnection, TokioSpawnBg>>
+pub struct LookupFuture<C = LookupEither<TokioConnection, TokioConnectionProvider>>
 where
     C: DnsHandle + 'static,
 {
