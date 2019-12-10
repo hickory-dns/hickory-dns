@@ -39,6 +39,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
 dnssec = ["data-encoding"]
+testing = []
 tokio-compat = ["tokio"]
 default = ["tokio-compat"]
 

@@ -50,6 +50,8 @@ pub mod op;
 pub mod rr;
 pub mod serialize;
 pub mod tcp;
+#[cfg(any(test, feature = "testing"))]
+pub mod tests;
 pub mod udp;
 pub mod xfer;
 
@@ -63,4 +65,22 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use crate::xfer::secure_dns_handle::SecureDnsHandle;
 #[doc(hidden)]
-pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};
+pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle, MessageStreamHandle};
+
+use futures::Future;
+use tokio::runtime::Runtime;
+
+/// Generic executor.
+// This trait is created to facilitate running the tests defined in the tests mod using different types of
+// executors. It's used in Fuchsia OS, please be mindful when update it.
+pub trait Executor {
+    /// Spawns a future object to run synchronously or asynchronously depending on the specific
+    /// executor.
+    fn block_on<F: Future>(&mut self, future: F) -> F::Output;
+}
+
+impl Executor for Runtime {
+    fn block_on<F: Future>(&mut self, future: F) -> F::Output {
+        self.block_on(future)
+    }
+}
