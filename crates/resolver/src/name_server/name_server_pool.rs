@@ -23,7 +23,7 @@ use crate::config::{ResolverConfig, ResolverOpts};
 use crate::name_server;
 use crate::name_server::{ConnectionProvider, NameServer};
 #[cfg(test)]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider};
 
 /// A pool of NameServers
@@ -44,7 +44,7 @@ pub struct NameServerPool<
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 impl NameServerPool<TokioConnection, TokioConnectionProvider> {
     pub(crate) fn from_config(
         config: &ResolverConfig,
@@ -338,7 +338,7 @@ impl Future for Local {
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     extern crate env_logger;
 

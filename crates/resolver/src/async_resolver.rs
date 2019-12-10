@@ -18,7 +18,7 @@ use proto::rr::domain::TryParseIp;
 use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use proto::DnsHandle;
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
 use crate::config::{ResolverConfig, ResolverOpts};
@@ -28,7 +28,7 @@ use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::lookup_state::CachingClient;
 use crate::name_server::{ConnectionProvider, NameServerPool};
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider};
 use crate::Hosts;
 
@@ -68,7 +68,7 @@ pub struct AsyncResolver<C: DnsHandle, P: ConnectionProvider<Conn = C>> {
 }
 
 /// An AsyncResolver used with Tokio
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 pub type TokioAsyncResolver = AsyncResolver<TokioConnection, TokioConnectionProvider>;
 
 macro_rules! lookup_fn {
@@ -104,7 +104,7 @@ pub fn $p(&self, query: $t) -> impl Future<Output = Result<$l, ResolveError>> + 
     };
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 impl AsyncResolver<TokioConnection, TokioConnectionProvider> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
@@ -403,7 +403,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> fmt::Debug for AsyncResolver
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     extern crate env_logger;
     extern crate tokio;
@@ -434,19 +434,19 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        #[cfg(feature = "tokio-compat")]
+        #[cfg(feature = "tokio-runtime")]
         assert!(is_send_t::<
             AsyncResolver<TokioConnection, TokioConnectionProvider>,
         >());
-        #[cfg(feature = "tokio-compat")]
+        #[cfg(feature = "tokio-runtime")]
         assert!(is_sync_t::<
             AsyncResolver<TokioConnection, TokioConnectionProvider>,
         >());
 
         assert!(is_send_t::<DnsRequest>());
-        #[cfg(feature = "tokio-compat")]
+        #[cfg(feature = "tokio-runtime")]
         assert!(is_send_t::<LookupIpFuture<TokioConnection>>());
-        #[cfg(feature = "tokio-compat")]
+        #[cfg(feature = "tokio-runtime")]
         assert!(is_send_t::<LookupFuture<TokioConnection>>());
     }
 

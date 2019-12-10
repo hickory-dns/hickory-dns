@@ -19,6 +19,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (client) ClientFuture renamed to AsyncClient
 - (resolver) AsyncResolver now requires a ConnectionProvider type parameter, see TokioAsyncResolver as a predefined type without it
 - (resolver) Now returns a connect future to connect the start all background tasks
+- (proto, resolver) renamed the `tokio-compat` feature to `tokio-runtime`
 
 ### Fixes
 

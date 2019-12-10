@@ -8,7 +8,7 @@ extern crate futures;
 extern crate tokio;
 extern crate trust_dns_resolver;
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 fn main() {
     use tokio::runtime::Runtime;
     use trust_dns_resolver::AsyncResolver;
@@ -69,7 +69,7 @@ fn main() {
     drop(resolver);
 }
 
-#[cfg(not(feature = "tokio-compat"))]
+#[cfg(not(feature = "tokio-runtime"))]
 fn main() {
-    println!("tokio-compat feature must be enabled")
+    println!("tokio-runtime feature must be enabled")
 }

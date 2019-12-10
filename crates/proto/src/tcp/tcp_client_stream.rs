@@ -6,14 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use async_trait::async_trait;
 use futures::{Future, Stream, StreamExt, TryFutureExt};
 use log::warn;
@@ -127,10 +127,10 @@ impl<S> Future for TcpClientConnect<S> {
     }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
@@ -141,7 +141,7 @@ impl Connect for TokioTcpStream {
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;

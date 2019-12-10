@@ -238,10 +238,10 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
     }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use tokio::net;
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl UdpSocket for net::UdpSocket {
     async fn bind(addr: &SocketAddr) -> io::Result<Self> {
@@ -258,7 +258,7 @@ impl UdpSocket for net::UdpSocket {
 }
 
 #[cfg(test)]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     use std::net::Ipv6Addr;

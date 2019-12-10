@@ -20,10 +20,10 @@
 use std::future::Future;
 
 #[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Runtime;
 #[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use tokio::task::JoinHandle;
 
 macro_rules! try_ready_stream {
@@ -39,7 +39,7 @@ macro_rules! try_ready_stream {
 
 /// Spawn a background task, if it was present
 #[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,
@@ -82,7 +82,7 @@ pub trait Executor {
 }
 
 #[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 impl Executor for Runtime {
     fn block_on<F: Future>(&mut self, future: F) -> F::Output {
         self.block_on(future)

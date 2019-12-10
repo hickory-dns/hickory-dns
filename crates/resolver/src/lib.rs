@@ -37,7 +37,7 @@
 //! ```rust
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio-compat")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use std::net::*;
 //! use trust_dns_resolver::Resolver;
@@ -70,7 +70,7 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio-compat")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! # use std::net::*;
 //! # use trust_dns_resolver::Resolver;
@@ -92,7 +92,7 @@
 //! # extern crate tokio;
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio-compat")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
@@ -164,7 +164,7 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio-compat")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
@@ -233,7 +233,7 @@ pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server;
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
@@ -243,13 +243,13 @@ mod tls;
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
 pub use async_resolver::AsyncResolver;
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 pub use name_server::ConnectionProvider;
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 pub use name_server::{TokioConnection, TokioConnectionProvider};
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
@@ -265,7 +265,7 @@ pub use resolver::Resolver;
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
 #[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 pub type ResolverFuture = TokioAsyncResolver;
 
 /// returns a version as specified in Cargo.toml
