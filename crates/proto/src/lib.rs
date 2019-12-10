@@ -16,11 +16,12 @@
 
 //! Trust-DNS Protocol library
 
+#[cfg(any(test, feature = "testing"))]
 use std::future::Future;
 
-#[cfg(feature = "tokio")]
+#[cfg(any(test, feature = "testing"))]
 use tokio::runtime::Runtime;
-#[cfg(feature = "tokio")]
+#[cfg(any(test, feature = "testing"))]
 use tokio::task::JoinHandle;
 
 macro_rules! try_ready_stream {
@@ -35,7 +36,7 @@ macro_rules! try_ready_stream {
 }
 
 /// Spawn a background task, if it was present
-#[cfg(feature = "tokio")]
+#[cfg(any(test, feature = "testing"))]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,
@@ -65,20 +66,19 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use crate::xfer::secure_dns_handle::SecureDnsHandle;
 #[doc(hidden)]
-pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle, MessageStreamHandle};
-
-use futures::Future;
-use tokio::runtime::Runtime;
+pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};
 
 /// Generic executor.
 // This trait is created to facilitate running the tests defined in the tests mod using different types of
 // executors. It's used in Fuchsia OS, please be mindful when update it.
+#[cfg(any(test, feature = "testing"))]
 pub trait Executor {
     /// Spawns a future object to run synchronously or asynchronously depending on the specific
     /// executor.
     fn block_on<F: Future>(&mut self, future: F) -> F::Output;
 }
 
+#[cfg(any(test, feature = "testing"))]
 impl Executor for Runtime {
     fn block_on<F: Future>(&mut self, future: F) -> F::Output {
         self.block_on(future)
