@@ -8,10 +8,11 @@ extern crate futures;
 extern crate tokio;
 extern crate trust_dns_resolver;
 
-use tokio::runtime::Runtime;
-use trust_dns_resolver::AsyncResolver;
-
+#[cfg(feature = "tokio-compat")]
 fn main() {
+    use tokio::runtime::Runtime;
+    use trust_dns_resolver::AsyncResolver;
+
     env_logger::init();
 
     // Set up the standard tokio runtime (multithreaded by default).
@@ -66,4 +67,9 @@ fn main() {
     // Drop the resolver, which means that the runtime will become idle.
     drop(futures);
     drop(resolver);
+}
+
+#[cfg(not(feature = "tokio-compat"))]
+fn main() {
+    println!("tokio-compat feature must be enabled")
 }

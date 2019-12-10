@@ -6,11 +6,17 @@ extern crate futures;
 extern crate tokio;
 extern crate trust_dns_resolver;
 
+#[cfg(feature = "tokio-compat")]
 use std::io;
+#[cfg(feature = "tokio-compat")]
 use std::net::SocketAddr;
 
+#[cfg(feature = "tokio-compat")]
 use futures::{Future, FutureExt};
-use trust_dns_resolver::{IntoName, TokioAsyncResolver, TryParseIp};
+#[cfg(feature = "tokio-compat")]
+use trust_dns_resolver::TokioAsyncResolver;
+#[cfg(feature = "tokio-compat")]
+use trust_dns_resolver::{IntoName, TryParseIp};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -20,6 +26,7 @@ use trust_dns_resolver::{IntoName, TokioAsyncResolver, TryParseIp};
 // Thank you to @zonyitoo for the original example.
 // TODO: this example can probably be made much simpler with the new
 //      `AsyncResolver`.
+#[cfg(feature = "tokio-compat")]
 lazy_static! {
     // First we need to setup the global Resolver
     static ref GLOBAL_DNS_RESOLVER: TokioAsyncResolver = {
@@ -88,6 +95,7 @@ lazy_static! {
 ///
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
+#[cfg(feature = "tokio-compat")]
 pub fn resolve<N: IntoName + TryParseIp + 'static>(
     host: N,
     port: u16,
@@ -113,6 +121,7 @@ pub fn resolve<N: IntoName + TryParseIp + 'static>(
     })
 }
 
+#[cfg(feature = "tokio-compat")]
 fn main() {
     use std::thread;
 
@@ -139,4 +148,9 @@ fn main() {
             .unwrap_or_else(|_| panic!("error resolving: {}", name));
         println!("{} resolved to {:?}", name, result);
     }
+}
+
+#[cfg(not(feature = "tokio-compat"))]
+fn main() {
+    println!("tokio-compat feature must be enabled")
 }

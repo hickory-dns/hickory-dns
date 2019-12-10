@@ -23,9 +23,9 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
-use crate::name_server::{
-    ConnectionProvider, NameServerState, NameServerStats, TokioConnection, TokioConnectionProvider,
-};
+use crate::name_server::{ConnectionProvider, NameServerState, NameServerStats};
+#[cfg(feature = "tokio-compat")]
+use crate::name_server::{TokioConnection, TokioConnectionProvider};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
@@ -44,6 +44,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Debug for NameServer<C, P> {
     }
 }
 
+#[cfg(feature = "tokio-compat")]
 impl NameServer<TokioConnection, TokioConnectionProvider> {
     pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: Handle) -> Self {
         Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
@@ -231,6 +232,7 @@ where
 }
 
 #[cfg(test)]
+#[cfg(feature = "tokio-compat")]
 mod tests {
     extern crate env_logger;
 

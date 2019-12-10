@@ -37,7 +37,7 @@
 //! ```rust
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-compat")]
 //! # {
 //! use std::net::*;
 //! use trust_dns_resolver::Resolver;
@@ -70,7 +70,7 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-compat")]
 //! # {
 //! # use std::net::*;
 //! # use trust_dns_resolver::Resolver;
@@ -92,6 +92,8 @@
 //! # extern crate tokio;
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
+//! # #[cfg(feature = "tokio-compat")]
+//! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
 //! use trust_dns_resolver::AsyncResolver;
@@ -128,6 +130,7 @@
 //!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
 //! # }
+//! # }
 //! ```
 //!
 //! Generally after a lookup in an asynchronous context, there would probably be a connection made to a server, for example:
@@ -161,7 +164,7 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-compat")]
 //! # {
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
@@ -230,7 +233,7 @@ pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server;
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-compat")]
 mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
@@ -240,13 +243,13 @@ mod tls;
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
 pub use async_resolver::AsyncResolver;
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-compat")]
 pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 pub use name_server::ConnectionProvider;
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-compat")]
 pub use name_server::{TokioConnection, TokioConnectionProvider};
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-compat")]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
@@ -262,6 +265,7 @@ pub use resolver::Resolver;
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
 #[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
+#[cfg(feature = "tokio-compat")]
 pub type ResolverFuture = TokioAsyncResolver;
 
 /// returns a version as specified in Cargo.toml

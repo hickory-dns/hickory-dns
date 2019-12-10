@@ -25,9 +25,8 @@ use crate::config::LookupIpStrategy;
 use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::hosts::Hosts;
-use crate::lookup::{Lookup, LookupEither, LookupIntoIter, LookupIter};
+use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
 use crate::lookup_state::CachingClient;
-use crate::name_server::{TokioConnection, TokioConnectionProvider};
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -106,7 +105,7 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C = LookupEither<TokioConnection, TokioConnectionProvider>>
+pub struct LookupIpFuture<C>
 where
     C: DnsHandle + 'static,
 {

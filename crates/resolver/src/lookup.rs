@@ -31,9 +31,7 @@ use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::lookup_ip::LookupIpIter;
 use crate::lookup_state::CachingClient;
-use crate::name_server::{
-    ConnectionProvider, NameServerPool, TokioConnection, TokioConnectionProvider,
-};
+use crate::name_server::{ConnectionProvider, NameServerPool};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
@@ -213,7 +211,7 @@ impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>> DnsHandle for LookupE
 
 /// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C = LookupEither<TokioConnection, TokioConnectionProvider>>
+pub struct LookupFuture<C>
 where
     C: DnsHandle + 'static,
 {

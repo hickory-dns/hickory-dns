@@ -445,6 +445,7 @@ impl<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin> Stream for TcpStre
 }
 
 #[cfg(test)]
+#[cfg(feature = "tokio-compat")]
 mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;

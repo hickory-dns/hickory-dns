@@ -23,9 +23,7 @@ use openssl::error::ErrorStack as SslErrorStack;
 use ring::error::Unspecified;
 
 use failure::{Backtrace, Context, Fail};
-#[cfg(feature = "tokio")]
 use tokio::time::Elapsed;
-#[cfg(feature = "tokio")]
 use tokio::time::Error as TimerError;
 
 /// An alias for results returned by functions of this crate
@@ -174,7 +172,6 @@ pub enum ProtoErrorKind {
     SSL,
 
     /// A tokio timer error
-    #[cfg(feature = "tokio")]
     #[fail(display = "timer error")]
     Timer,
 
@@ -281,14 +278,12 @@ impl From<SslErrorStack> for ProtoError {
     }
 }
 
-#[cfg(feature = "tokio")]
 impl From<TimerError> for ProtoError {
     fn from(e: TimerError) -> ProtoError {
         e.context(ProtoErrorKind::Timer).into()
     }
 }
 
-#[cfg(feature = "tokio")]
 impl From<Elapsed> for ProtoError {
     fn from(e: Elapsed) -> ProtoError {
         e.context(ProtoErrorKind::Timeout).into()

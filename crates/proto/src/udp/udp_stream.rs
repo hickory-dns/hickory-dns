@@ -258,6 +258,7 @@ impl UdpSocket for net::UdpSocket {
 }
 
 #[cfg(test)]
+#[cfg(feature = "tokio-compat")]
 mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     use std::net::Ipv6Addr;
