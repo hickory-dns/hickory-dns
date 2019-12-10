@@ -49,7 +49,7 @@
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
 //! //  in `ResolverOpts` will take effect. FQDN's are generally cheaper queries.
-//! let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
+//! let response = resolver.lookup_ip("www.example.com.").unwrap();
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
@@ -78,7 +78,7 @@
 //! # #[cfg(unix)]
 //! let resolver = Resolver::from_system_conf().unwrap();
 //! # #[cfg(unix)]
-//! let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
+//! let response = resolver.lookup_ip("www.example.com.").unwrap();
 //! # }
 //! # }
 //! ```

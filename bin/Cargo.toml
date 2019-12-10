@@ -86,6 +86,7 @@ trust-dns-server = { version = "0.18.0-alpha", path = "../crates/server" }
 [dev-dependencies]
 env_logger = "0.7"
 native-tls = "0.2"
+trust-dns-proto = { version = "0.18.0-alpha", path = "../crates/proto", features = ["testing"] }
 trust-dns-native-tls = { version = "0.18.0-alpha", path = "../crates/native-tls" }
 trust-dns-https = { version = "0.18.0-alpha", path = "../crates/https" }
 webpki-roots = { version = "0.18" }

@@ -132,7 +132,7 @@ impl Resolver {
     /// # Arguments
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip(&self, host: String) -> ResolveResult<LookupIp> {
+    pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
         let lookup = self.async_resolver.lookup_ip(host);
         self.runtime.lock()?.block_on(lookup)
     }
@@ -166,7 +166,7 @@ mod tests {
     fn test_lookup() {
         let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 
-        let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
+        let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);
 
         assert_eq!(response.iter().count(), 1);
@@ -190,7 +190,7 @@ mod tests {
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 
-        let response = resolver.lookup_ip("www.example.com.".to_string()).unwrap();
+        let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);
 
         assert_eq!(response.iter().count(), 1);
