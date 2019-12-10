@@ -18,7 +18,9 @@
 
 use std::future::Future;
 
+#[cfg(feature = "tokio")]
 use tokio::runtime::Runtime;
+#[cfg(feature = "tokio")]
 use tokio::task::JoinHandle;
 
 macro_rules! try_ready_stream {
@@ -33,6 +35,7 @@ macro_rules! try_ready_stream {
 }
 
 /// Spawn a background task, if it was present
+#[cfg(feature = "tokio")]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,

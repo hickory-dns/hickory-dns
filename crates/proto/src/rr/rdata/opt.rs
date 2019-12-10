@@ -479,6 +479,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    #[cfg(feature = "dnssec")]
     use super::*;
 
     #[test]
