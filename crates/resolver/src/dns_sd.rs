@@ -42,18 +42,25 @@ pub trait DnsSdHandle {
 
 impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> DnsSdHandle for AsyncResolver<C, P> {
     fn list_services(&self, name: Name) -> ListServicesFuture {
-        let options = DnsRequestOptions {
-            expects_multiple_responses: true,
-        };
+        let this = self.clone();
 
-        let ptr_future = self.inner_lookup(name, RecordType::PTR, options);
+        let ptr_future = async move {
+            let options = DnsRequestOptions {
+                expects_multiple_responses: true,
+            };
+
+            this.inner_lookup(name, RecordType::PTR, options).await
+        };
 
         ListServicesFuture(Box::pin(ptr_future))
     }
 
     fn service_info(&self, name: Name) -> ServiceInfoFuture {
-        let txt_future = self.txt_lookup(name);
-        ServiceInfoFuture(Box::pin(txt_future))
+        let this = self.clone();
+
+        let ptr_future = async move { this.txt_lookup(name).await };
+
+        ServiceInfoFuture(Box::pin(ptr_future))
     }
 }
 
