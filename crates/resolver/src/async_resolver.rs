@@ -80,15 +80,15 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a string which parses to a domain name, failure to parse will return an error
-pub fn $p<N: IntoName>(&self, query: N) -> impl Future<Output = Result<$l, ResolveError>> + Send + Unpin + 'static {
+pub async fn $p<N: IntoName>(&self, query: N) -> Result<$l, ResolveError> {
     let name = match query.into_name() {
         Ok(name) => name,
         Err(err) => {
-            return future::Either::Left(future::err(err.into()));
+            return Err(err.into());
         }
     };
 
-    future::Either::Right(self.inner_lookup(name, $r, DnsRequestOptions::default(),))
+    self.inner_lookup(name, $r, DnsRequestOptions::default()).await
 }
     };
     ($p:ident, $l:ty, $r:path, $t:ty) => {
@@ -97,9 +97,9 @@ pub fn $p<N: IntoName>(&self, query: N) -> impl Future<Output = Result<$l, Resol
 /// # Arguments
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&self, query: $t) -> impl Future<Output = Result<$l, ResolveError>> + Send + Unpin + 'static {
+pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
     let name = Name::from(query);
-    self.inner_lookup(name, $r, DnsRequestOptions::default(),)
+    self.inner_lookup(name, $r, DnsRequestOptions::default()).await
 }
     };
 }
@@ -309,16 +309,16 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
         }
     }
 
-    pub(crate) fn inner_lookup<L>(
+    pub(crate) async fn inner_lookup<L>(
         &self,
         name: Name,
         record_type: RecordType,
         options: DnsRequestOptions,
-    ) -> impl Future<Output = Result<L, ResolveError>> + Send + Unpin + 'static
+    ) -> Result<L, ResolveError>
     where
         L: From<Lookup> + Send + 'static,
     {
-        self.lookup(name, record_type, options).map_ok(L::from)
+        self.lookup(name, record_type, options).await.map(L::from)
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -327,10 +327,10 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip<N: IntoName + TryParseIp>(
+    pub async fn lookup_ip<N: IntoName + TryParseIp>(
         &self,
         host: N,
-    ) -> impl Future<Output = Result<LookupIp, ResolveError>> + Send + Unpin + 'static {
+    ) -> Result<LookupIp, ResolveError> {
         let mut finally_ip_addr: Option<Record> = None;
         let maybe_ip = host.try_parse_ip();
         let maybe_name: ProtoResult<Name> = host.into_name();
@@ -349,7 +349,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
             } else {
                 let query = Query::query(name, ip_addr.to_record_type());
                 let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
-                return future::Either::Left(future::ok(lookup.into()));
+                return Ok(lookup.into());
             }
         }
 
@@ -359,24 +359,25 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
                 // it was a valid IP, return that...
                 let query = Query::query(ip_addr.name().clone(), ip_addr.record_type());
                 let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![ip_addr.clone()]));
-                return future::Either::Left(future::ok(lookup.into()));
+                return Ok(lookup.into());
             }
             (Err(err), None) => {
-                return future::Either::Left(future::err(err.into()));
+                return Err(err.into());
             }
         };
 
         let names = self.build_names(name);
         let hosts = self.hosts.as_ref().cloned();
 
-        future::Either::Right(LookupIpFuture::lookup(
+        LookupIpFuture::lookup(
             names,
             self.options.ip_strategy,
             self.client_cache.clone(),
             DnsRequestOptions::default(),
             hosts,
             finally_ip_addr.map(Record::unwrap_rdata),
-        ))
+        )
+        .await
     }
 
     lookup_fn!(

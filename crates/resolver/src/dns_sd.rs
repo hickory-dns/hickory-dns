@@ -59,7 +59,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> DnsSdHandle for AsyncResolve
 
 /// A DNS Service Discovery future of Services discovered through the list operation
 pub struct ListServicesFuture(
-    Pin<Box<dyn Future<Output = Result<ReverseLookup, ResolveError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<ReverseLookup, ResolveError>> + Send + 'static>>,
 );
 
 impl Future for ListServicesFuture {
@@ -98,7 +98,9 @@ impl<'i> Iterator for ListServicesIter<'i> {
 }
 
 /// A Future that resolves to the TXT information for a service
-pub struct ServiceInfoFuture(Pin<Box<dyn Future<Output = Result<TxtLookup, ResolveError>> + Send>>);
+pub struct ServiceInfoFuture(
+    Pin<Box<dyn Future<Output = Result<TxtLookup, ResolveError>> + Send + 'static>>,
+);
 
 impl Future for ServiceInfoFuture {
     type Output = Result<ServiceInfo, ResolveError>;
