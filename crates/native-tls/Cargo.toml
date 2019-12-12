@@ -37,6 +37,8 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 
 [features]
 
+dns-over-native-tls = []
+
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
 

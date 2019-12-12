@@ -9,8 +9,8 @@ on:
       - cargo-make-automation
 
 jobs:
-  cargo-make:
-    name: install cargo-make
+  default-features:
+    name: default features
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -18,4 +18,15 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: download and install cargo-make
-      run: scripts/install-cargo-make.sh
+      run: cargo make default-features
+
+  no-default-features:
+    name: no default features
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - name: download and install cargo-make
+      run: cargo make no-default-features

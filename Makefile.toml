@@ -12,21 +12,30 @@ private = true
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 
+[tasks.clean]
+command = "cargo"
+args = ["clean", "-p", "${CARGO_MAKE_CRATE_NAME}"]
+
 [tasks.fmt]
 command = "cargo"
 args = ["fmt", "--", "--check"]
 
+[tasks.check]
+command = "cargo"
+args = ["check", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
+
 [tasks.build]
 command = "cargo"
-args = ["build", "@@remove-empty(FEATURES)"]
+args = ["build", "--lib", "--bins",  "@@remove-empty(FEATURES)"]
 
 [tasks.test]
 command = "cargo"
-args = ["test", "@@remove-empty(FEATURES)"]
+args = ["test", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
 
 [tasks.clippy]
+dependencies = ["clean"]
 command = "cargo"
-args = ["clippy", "--all", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)", "--", "-D", "warnings"]
+args = ["clippy", "--lib", "--examples", "--tests", "--bins", "--all-features", "--", "-D", "warnings"]
 
 [tasks.build-bench]
 command = "cargo"
@@ -34,21 +43,20 @@ toolchain = "nightly"
 args = ["bench", "--no-run"]
 
 [tasks.all]
-dependencies = ["build", "test", "clippy", "fmt"]
+dependencies = ["check", "build", "test"]
 
 [tasks.default]
 dependencies = ["all"]
 
-
 ## defined tasks
-[tasks.no-default-features]
-workspace = false
-env = { FEATURES = "--no-default-features" }
-run_task = { name = "all", fork = true }
-
 [tasks.default-features]
 workspace = false
 env = { FEATURES = "" }
+run_task = { name = "all", fork = true }
+
+[tasks.no-default-features]
+workspace = false
+env = { FEATURES = "--no-default-features", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "tests/compatibility-tests" }
 run_task = { name = "all", fork = true }
 
 [tasks.all-features]
@@ -58,32 +66,38 @@ run_task = { name = "all", fork = true }
 
 [tasks.dns-over-rustls]
 workspace = false
-env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/https;tests/compatibility-tests;util" }
+run_task = { name = "all", fork = true }
+
+[tasks.dns-over-https-rustls]
+workspace = false
+env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-native-tls]
 workspace = false
-env = { FEATURES = "--features dns-over-native-tls" }
+# TODO: seems like a gap in testing if there are no testst in client for native-tls
+env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/openssl;crates/rustls;crates/https;crates/client;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-openssl]
 workspace = false
-FEATURES = "--features dns-over-openssl"
+env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
-[tasks.dns-dnssec-openssl]
+[tasks.dnssec-openssl]
 workspace = false
-FEATURES = "--features dnssec-openssl"
+env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto" }
 run_task = { name = "all", fork = true }
 
-[tasks.dns-dnssec-ring]
+[tasks.dnssec-ring]
 workspace = false
-FEATURES = "--features dnssec-ring"
+env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.mdns]
 workspace = false
-FEATURES = "--features mdns"
+env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.world]
