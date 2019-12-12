@@ -1,4 +1,11 @@
-# This is a Makefile for `cargo make`, to use it first istall cargo-make with `cargo install cargo-make`
+# Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+#
+# Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+# http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+# http://opensource.org/licenses/MIT>, at your option. This file may not be
+# copied, modified, or distributed except according to those terms.
+
+# This is a Makefile for `cargo make`, to use it first install cargo-make with `cargo install cargo-make`
 
 [config]
 skip_core_tasks = true
@@ -11,6 +18,22 @@ private = true
 ## Feature profiles
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
+
+[tasks.install-openssl]
+condition = { platforms = ["windows"] }
+env = { OPENSSL_VERSION = "1_1_1d", OPENSSL_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}\\target\\OpenSSL" }
+script_runner = "powershell"
+script_extension = "ps1"
+script = [
+'''
+Set-PSDebug -Trace 1
+mkdir ${env:CARGO_MAKE_WORKING_DIRECTORY}\\target
+mkdir ${env:CARGO_MAKE_WORKING_DIRECTORY}\\target\OpenSSL
+Invoke-WebRequest -URI "http://slproweb.com/download/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKING_DIRECTORY}\target\OpenSSL.exe"
+Start-Process -FilePath "${env:CARGO_MAKE_WORKING_DIRECTORY}\target\OpenSSL.exe" -ArgumentList "/SILENT /VERYSILENT /SP- /DIR=${env:OPENSSL_DIR}"
+Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\cacert.pem"
+'''
+]
 
 [tasks.clean]
 command = "cargo"
@@ -60,8 +83,26 @@ env = { FEATURES = "--no-default-features", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = 
 run_task = { name = "all", fork = true }
 
 [tasks.all-features]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--all-features" }
+run_task = { name = "all", fork = true }
+
+[tasks.dns-over-openssl]
+dependencies = ["install-openssl"]
+workspace = false
+env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
+run_task = { name = "all", fork = true }
+
+[tasks.dnssec-openssl]
+dependencies = ["install-openssl"]
+workspace = false
+env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
+run_task = { name = "all", fork = true }
+
+[tasks.dnssec-ring]
+workspace = false
+env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-rustls]
@@ -71,28 +112,13 @@ run_task = { name = "all", fork = true }
 
 [tasks.dns-over-https-rustls]
 workspace = false
-env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dns-over-https-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-native-tls]
 workspace = false
 # TODO: seems like a gap in testing if there are no testst in client for native-tls
 env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/openssl;crates/rustls;crates/https;crates/client;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
-run_task = { name = "all", fork = true }
-
-[tasks.dns-over-openssl]
-workspace = false
-env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
-run_task = { name = "all", fork = true }
-
-[tasks.dnssec-openssl]
-workspace = false
-env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto" }
-run_task = { name = "all", fork = true }
-
-[tasks.dnssec-ring]
-workspace = false
-env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.mdns]
