@@ -10,7 +10,7 @@ on:
 
 jobs:
   features-matrix:
-    name: ${{ matix.feature }}
+    name: features matrix
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -18,7 +18,7 @@ jobs:
         feature: [default-features, no-default-features, all-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns]
     steps:
     - uses: actions/checkout@v1
-    - name: cargo make ${{ matrix.feature }}
+    - name: cargo make
       run: cargo make ${{ matrix.feature }}
 
   clippy:
