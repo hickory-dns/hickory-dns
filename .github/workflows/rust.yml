@@ -8,6 +8,9 @@ on:
     branches:
       - cargo-make-automation
 
+env:
+  PATH: $PATH:$HOME/.cargo/bin 
+
 jobs:
   cargo-make:
     name: install cargo-make
