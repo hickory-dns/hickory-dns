@@ -52,6 +52,7 @@ pub use ring::digest::Digest;
 pub struct Digest;
 
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[allow(clippy::should_implement_trait)]
 impl Digest {
     /// This is an empty type, enable Ring or OpenSSL for this feature
     pub fn as_ref(&self) -> &Self {
