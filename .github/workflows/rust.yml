@@ -8,17 +8,20 @@ on:
     branches:
       - cargo-make-automation
 
-env:
-  PATH: $PATH:$HOME/.cargo/bin 
-
 jobs:
   cargo-make:
-    name: install cargo-make
+    name: test cargo-make
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: davidB/rust-cargo-make@v1
     - name: download and install cargo-make
-      run: scripts/install-cargo-make.sh
+      run: cargo make --version
