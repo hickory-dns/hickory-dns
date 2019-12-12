@@ -100,21 +100,24 @@ mod test {
     use crate::op::*;
     use futures::executor::block_on;
     use futures::future::*;
-    use std::cell::Cell;
+    use std::sync::{
+        atomic::{AtomicU16, Ordering},
+        Arc,
+    };
     use DnsHandle;
 
     #[derive(Clone)]
     struct TestClient {
         last_succeed: bool,
         retries: u16,
-        attempts: Cell<u16>,
+        attempts: Arc<AtomicU16>,
     }
 
     impl DnsHandle for TestClient {
         type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-            let i = self.attempts.get();
+            let i = self.attempts.load(Ordering::SeqCst);
 
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
                 let mut message = Message::new();
@@ -122,7 +125,7 @@ mod test {
                 return Box::new(ok(message.into()));
             }
 
-            self.attempts.set(i + 1);
+            self.attempts.fetch_add(1, Ordering::SeqCst);
             Box::new(err(ProtoError::from("last retry set to fail")))
         }
     }
@@ -133,7 +136,7 @@ mod test {
             TestClient {
                 last_succeed: true,
                 retries: 1,
-                attempts: Cell::new(0),
+                attempts: Arc::new(AtomicU16::new(0)),
             },
             2,
         );
@@ -148,7 +151,7 @@ mod test {
             TestClient {
                 last_succeed: false,
                 retries: 1,
-                attempts: Cell::new(0),
+                attempts: Arc::new(AtomicU16::new(0)),
             },
             2,
         );

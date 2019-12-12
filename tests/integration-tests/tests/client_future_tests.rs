@@ -16,7 +16,6 @@ extern crate trust_dns_server;
 extern crate webpki_roots;
 
 use std::net::*;
-use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
@@ -27,7 +26,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::{BasicClientHandle, ClientFuture, ClientHandle};
+use trust_dns_client::client::{AsyncClient, ClientHandle};
 use trust_dns_client::error::ClientErrorKind;
 use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "dnssec")]
@@ -40,7 +39,9 @@ use trust_dns_client::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::DnsResponse;
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse};
+use trust_dns_proto::xfer::{
+    DnsExchangeBackground, DnsMultiplexer, DnsMultiplexerSerialResponse, DnsStreamHandle,
+};
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_example;
@@ -56,8 +57,9 @@ fn test_query_nonet() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-    io_loop.spawn(bg);
+    let client = AsyncClient::new(stream, Box::new(sender), None);
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
@@ -68,8 +70,9 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let (bg, mut client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let client = AsyncClient::connect(stream);
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -86,8 +89,9 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let (bg, mut client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let client = AsyncClient::connect(stream);
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -99,8 +103,9 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-    io_loop.spawn(bg);
+    let client = AsyncClient::new(stream, sender, None);
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -117,8 +122,9 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    let (bg, mut client) = ClientFuture::new(Box::new(stream), sender, None);
-    io_loop.spawn(bg);
+    let client = AsyncClient::new(stream, sender, None);
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -147,9 +153,9 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let (bg, mut client) =
-        ClientFuture::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
-    io_loop.spawn(bg);
+    let client = AsyncClient::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
@@ -157,37 +163,35 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut BasicClientHandle<R>) -> Pin<Box<dyn Future<Output = ()>>>
+fn test_query<R>(client: &mut AsyncClient<R>) -> impl Future<Output = ()>
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
-    Box::pin(
-        client
-            .query(name.clone(), DNSClass::IN, RecordType::A)
-            .map_ok(move |response| {
-                println!("response records: {:?}", response);
-                assert!(response
-                    .queries()
-                    .first()
-                    .expect("expected query")
-                    .name()
-                    .eq_case(&name));
+    client
+        .query(name.clone(), DNSClass::IN, RecordType::A)
+        .map_ok(move |response| {
+            println!("response records: {:?}", response);
+            assert!(response
+                .queries()
+                .first()
+                .expect("expected query")
+                .name()
+                .eq_case(&name));
 
-                let record = &response.answers()[0];
-                assert_eq!(record.name(), &name);
-                assert_eq!(record.rr_type(), RecordType::A);
-                assert_eq!(record.dns_class(), DNSClass::IN);
+            let record = &response.answers()[0];
+            assert_eq!(record.name(), &name);
+            assert_eq!(record.rr_type(), RecordType::A);
+            assert_eq!(record.dns_class(), DNSClass::IN);
 
-                if let RData::A(ref address) = *record.rdata() {
-                    assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
-                } else {
-                    panic!();
-                }
-            })
-            .map(|r: Result<_, _>| r.expect("query failed")),
-    )
+            if let RData::A(ref address) = *record.rdata() {
+                assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
+            } else {
+                panic!();
+            }
+        })
+        .map(|r: Result<_, _>| r.expect("query failed"))
 }
 
 #[test]
@@ -198,8 +202,9 @@ fn test_notify() {
 
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-    io_loop.spawn(bg);
+    let client = AsyncClient::new(stream, Box::new(sender), None);
+    let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let name = Name::from_str("ping.example.com").unwrap();
 
@@ -220,19 +225,14 @@ fn test_notify() {
 /// create a client with a sig0 section
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[allow(clippy::type_complexity)]
-fn create_sig0_ready_client(
-    _io_loop: &mut Runtime,
-) -> (
-    ClientFuture<
-        DnsMultiplexerConnect<
-            Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
-            TestClientStream,
-            Signer,
+async fn create_sig0_ready_client() -> (
+    (
+        AsyncClient<DnsMultiplexerSerialResponse>,
+        DnsExchangeBackground<
+            DnsMultiplexer<TestClientStream, Signer, Box<dyn DnsStreamHandle>>,
+            DnsMultiplexerSerialResponse,
         >,
-        DnsMultiplexer<TestClientStream, Signer>,
-        DnsMultiplexerSerialResponse,
-    >,
-    BasicClientHandle<impl Future<Output = Result<DnsResponse, ProtoError>>>,
+    ),
     Name,
 ) {
     use openssl::rsa::Rsa;
@@ -267,16 +267,19 @@ fn create_sig0_ready_client(
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let (bg, client) = ClientFuture::new(stream, Box::new(sender), Some(signer));
+    let client = AsyncClient::new(stream, Box::new(sender), Some(signer))
+        .await
+        .expect("failed to get new AsyncClient");
 
-    (bg, client, origin.into())
+    (client, origin.into())
 }
 
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut record = Record::with(
@@ -287,7 +290,6 @@ fn test_create() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");
@@ -320,7 +322,8 @@ fn test_create() {
 #[test]
 fn test_create_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut record = Record::with(
@@ -339,7 +342,6 @@ fn test_create_multi() {
     rrset.insert(record2.clone(), 0);
     let rrset = rrset;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(rrset.clone(), origin.clone()))
         .expect("create failed");
@@ -374,7 +376,8 @@ fn test_create_multi() {
 #[test]
 fn test_append() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -386,7 +389,6 @@ fn test_append() {
     let record = record;
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("append failed");
@@ -442,7 +444,8 @@ fn test_append() {
 #[test]
 fn test_append_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -453,7 +456,6 @@ fn test_append_multi() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.append(record.clone(), origin.clone(), true))
         .expect("append failed");
@@ -516,7 +518,8 @@ fn test_append_multi() {
 #[test]
 fn test_compare_and_swap() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut record = Record::with(
@@ -527,7 +530,6 @@ fn test_compare_and_swap() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(record.clone(), origin.clone()))
         .expect("create failed");
@@ -574,7 +576,8 @@ fn test_compare_and_swap() {
 #[test]
 fn test_compare_and_swap_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -591,7 +594,6 @@ fn test_compare_and_swap_multi() {
         .clone();
     let current = current;
 
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.create(current.clone(), origin.clone()))
         .expect("create failed");
@@ -644,7 +646,8 @@ fn test_compare_and_swap_multi() {
 #[test]
 fn test_delete_by_rdata() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record1 = Record::with(
@@ -655,7 +658,6 @@ fn test_delete_by_rdata() {
     record1.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_by_rdata(record1.clone(), origin.clone()))
         .expect("delete failed");
@@ -696,7 +698,8 @@ fn test_delete_by_rdata() {
 #[test]
 fn test_delete_by_rdata_multi() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -720,7 +723,6 @@ fn test_delete_by_rdata_multi() {
     let rrset = rrset;
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_by_rdata(rrset.clone(), origin.clone()))
         .expect("delete failed");
@@ -773,7 +775,8 @@ fn test_delete_by_rdata_multi() {
 #[test]
 fn test_delete_rrset() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -784,7 +787,6 @@ fn test_delete_rrset() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_rrset(record.clone(), origin.clone()))
         .expect("delete failed");
@@ -820,7 +822,8 @@ fn test_delete_rrset() {
 #[test]
 fn test_delete_all() {
     let mut io_loop = Runtime::new().unwrap();
-    let (bg, mut client, origin) = create_sig0_ready_client(&mut io_loop);
+    let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
     // append a record
     let mut record = Record::with(
@@ -831,7 +834,6 @@ fn test_delete_all() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    io_loop.spawn(bg);
     let result = io_loop
         .block_on(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
         .expect("delete failed");
@@ -870,7 +872,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query<R>(mut client: BasicClientHandle<R>, mut io_loop: Runtime)
+fn test_timeout_query<R>(mut client: AsyncClient<R>, mut io_loop: Runtime)
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
@@ -899,23 +901,24 @@ where
 #[test]
 fn test_timeout_query_nonet() {
     //env_logger::try_init().ok();
-    let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
+    let mut io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
-    let (bg, client) = ClientFuture::with_timeout(
+    let client = AsyncClient::with_timeout(
         stream,
         Box::new(sender),
         std::time::Duration::from_millis(1),
         None,
     );
+    let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
 
-    io_loop.spawn(bg);
     test_timeout_query(client, io_loop);
 }
 
 #[test]
 fn test_timeout_query_udp() {
     //env_logger::try_init().ok();
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -926,15 +929,17 @@ fn test_timeout_query_udp() {
 
     let stream =
         UdpClientStream::<TokioUdpSocket>::with_timeout(addr, std::time::Duration::from_millis(1));
-    let (bg, client) = ClientFuture::connect(stream);
-    io_loop.spawn(bg);
+    let client = AsyncClient::connect(stream);
+    let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
+    trust_dns_proto::spawn_bg(&io_loop, bg);
+
     test_timeout_query(client, io_loop);
 }
 
 #[test]
 fn test_timeout_query_tcp() {
     //env_logger::try_init().ok();
-    let io_loop = Runtime::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -945,12 +950,12 @@ fn test_timeout_query_tcp() {
 
     let (stream, sender) =
         TcpClientStream::<TokioTcpStream>::with_timeout(addr, std::time::Duration::from_millis(1));
-    let (bg, client) = ClientFuture::with_timeout(
+    let client = AsyncClient::with_timeout(
         Box::new(stream),
         sender,
         std::time::Duration::from_millis(1),
         None,
     );
-    io_loop.spawn(bg);
-    test_timeout_query(client, io_loop);
+
+    assert!(io_loop.block_on(client).is_err());
 }

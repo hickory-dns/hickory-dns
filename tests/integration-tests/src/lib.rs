@@ -46,7 +46,7 @@ pub mod tls_client_connection;
 #[allow(unused)]
 pub struct TestClientStream {
     catalog: Arc<Mutex<Catalog>>,
-    outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
+    outbound_messages: UnboundedReceiver<Vec<u8>>,
 }
 
 #[allow(unused)]
@@ -63,7 +63,7 @@ impl TestClientStream {
 
         let stream = Box::pin(future::ok(TestClientStream {
             catalog,
-            outbound_messages: outbound_messages.fuse(),
+            outbound_messages,
         }));
 
         (stream, message_sender)
@@ -159,12 +159,13 @@ impl Stream for TestClientStream {
                 );
 
                 let buf = block_on(response_handler.into_inner());
-
                 Poll::Ready(Some(Ok(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
+            Poll::Ready(None) => Poll::Ready(None),
             // TODO: should we also return None if there are no more messages to send?
-            _ => {
+            Poll::Pending => {
+                //dbg!("PENDING");
                 cx.waker().wake_by_ref();
                 Poll::Pending
             }
@@ -178,7 +179,7 @@ impl fmt::Debug for TestClientStream {
     }
 }
 
-// need to do something with the message channel, otherwise the ClientFuture will think there
+// need to do something with the message channel, otherwise the AsyncClient will think there
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {

@@ -37,7 +37,7 @@
 //! ```rust
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use std::net::*;
 //! use trust_dns_resolver::Resolver;
@@ -70,7 +70,7 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! # use std::net::*;
 //! # use trust_dns_resolver::Resolver;
@@ -92,6 +92,8 @@
 //! # extern crate tokio;
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
+//! # #[cfg(feature = "tokio-runtime")]
+//! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
 //! use trust_dns_resolver::AsyncResolver;
@@ -102,13 +104,14 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let (resolver, background) = AsyncResolver::new(
+//! let resolver = AsyncResolver::new(
 //!     ResolverConfig::default(),
-//!     ResolverOpts::default()
+//!     ResolverOpts::default(),
+//!     io_loop.handle().clone(),
 //! );
 //! // AsyncResolver::new returns a handle for sending resolve requests and a background task
 //! // that must be spawned on an executor.
-//! io_loop.spawn(background);
+//! let resolver = io_loop.block_on(resolver).expect("failed to connect resolver");
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -126,6 +129,7 @@
 //! } else {
 //!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
+//! # }
 //! # }
 //! ```
 //!
@@ -160,7 +164,7 @@
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
-//! # #[cfg(feature = "tokio")]
+//! # #[cfg(feature = "tokio-runtime")]
 //! # {
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
@@ -229,7 +233,7 @@ pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server;
-#[cfg(feature = "tokio")]
+#[cfg(feature = "tokio-runtime")]
 mod resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
@@ -238,9 +242,14 @@ mod tls;
 // reexports from proto
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
-pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
+pub use async_resolver::AsyncResolver;
+#[cfg(feature = "tokio-runtime")]
+pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
-#[cfg(feature = "tokio")]
+pub use name_server::ConnectionProvider;
+#[cfg(feature = "tokio-runtime")]
+pub use name_server::{TokioConnection, TokioConnectionProvider};
+#[cfg(feature = "tokio-runtime")]
 pub use resolver::Resolver;
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
@@ -256,7 +265,8 @@ pub use resolver::Resolver;
 /// See the [`AsyncResolver`] documentation for more information on how to
 /// use the background future.
 #[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
-pub type ResolverFuture = AsyncResolver;
+#[cfg(feature = "tokio-runtime")]
+pub type ResolverFuture = TokioAsyncResolver;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

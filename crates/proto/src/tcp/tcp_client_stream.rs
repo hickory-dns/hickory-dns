@@ -6,14 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use async_trait::async_trait;
 use futures::{Future, Stream, StreamExt, TryFutureExt};
 use log::warn;
@@ -45,7 +45,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
         name_server: SocketAddr,
     ) -> (
         TcpClientConnect<S::Transport>,
-        Box<dyn DnsStreamHandle + Send>,
+        Box<dyn DnsStreamHandle + 'static + Send>,
     ) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
@@ -61,7 +61,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
         timeout: Duration,
     ) -> (
         TcpClientConnect<S::Transport>,
-        Box<dyn DnsStreamHandle + Send>,
+        Box<dyn DnsStreamHandle + 'static + Send>,
     ) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
@@ -127,20 +127,21 @@ impl<S> Future for TcpClientConnect<S> {
     }
 }
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 
-#[cfg(feature = "tokio-compat")]
+#[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl Connect for TokioTcpStream {
     type Transport = TokioTcpStream;
 
-    async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport> {
-        TokioTcpStream::connect(addr).await
+    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
+        TokioTcpStream::connect(&addr).await
     }
 }
 
 #[cfg(test)]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;

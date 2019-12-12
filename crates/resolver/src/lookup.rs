@@ -31,9 +31,7 @@ use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::lookup_ip::LookupIpIter;
 use crate::lookup_state::CachingClient;
-use crate::name_server::{
-    ConnectionHandle, ConnectionProvider, NameServerPool, StandardConnection,
-};
+use crate::name_server::{ConnectionProvider, NameServerPool};
 
 /// Result of a DNS query when querying for any record type supported by the Trust-DNS Proto library.
 ///
@@ -185,13 +183,13 @@ impl Iterator for LookupIntoIter {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
     Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: DnsHandle + Sync, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
+impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>> DnsHandle for LookupEither<C, P> {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -213,7 +211,7 @@ impl<C: DnsHandle + Sync, P: ConnectionProvider<ConnHandle = C>> DnsHandle for L
 
 /// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C = LookupEither<ConnectionHandle, StandardConnection>>
+pub struct LookupFuture<C>
 where
     C: DnsHandle + 'static,
 {
@@ -379,30 +377,9 @@ impl Iterator for SrvLookupIntoIter {
     }
 }
 
-/// A Future while resolves to the Lookup type
-pub struct SrvLookupFuture(LookupFuture);
-
-impl From<LookupFuture> for SrvLookupFuture {
-    fn from(lookup_future: LookupFuture) -> Self {
-        SrvLookupFuture(lookup_future)
-    }
-}
-
-impl Future for SrvLookupFuture {
-    type Output = Result<SrvLookup, ResolveError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match self.0.poll_unpin(cx) {
-            Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(SrvLookup(lookup))),
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-        }
-    }
-}
-
 /// Creates a Lookup result type from the specified components
 macro_rules! lookup_type {
-    ($l:ident, $i:ident, $ii:ident, $f:ident, $r:path, $t:path) => {
+    ($l:ident, $i:ident, $ii:ident, $r:path, $t:path) => {
         /// Contains the results of a lookup for the associated RecordType
         #[derive(Debug, Clone)]
         pub struct $l(Lookup);
@@ -472,27 +449,6 @@ macro_rules! lookup_type {
                 .next()
             }
         }
-
-        /// A Future while resolves to the Lookup type
-        pub struct $f(LookupFuture);
-
-        impl From<LookupFuture> for $f {
-            fn from(lookup_future: LookupFuture) -> Self {
-                $f(lookup_future)
-            }
-        }
-
-        impl Future for $f {
-            type Output = Result<$l, ResolveError>;
-
-            fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-                match self.0.poll_unpin(cx) {
-                    Poll::Ready(Ok(lookup)) => Poll::Ready(Ok($l(lookup))),
-                    Poll::Pending => Poll::Pending,
-                    Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
-                }
-            }
-        }
     };
 }
 
@@ -501,7 +457,6 @@ lookup_type!(
     ReverseLookup,
     ReverseLookupIter,
     ReverseLookupIntoIter,
-    ReverseLookupFuture,
     RData::PTR,
     Name
 );
@@ -509,7 +464,6 @@ lookup_type!(
     Ipv4Lookup,
     Ipv4LookupIter,
     Ipv4LookupIntoIter,
-    Ipv4LookupFuture,
     RData::A,
     Ipv4Addr
 );
@@ -517,7 +471,6 @@ lookup_type!(
     Ipv6Lookup,
     Ipv6LookupIter,
     Ipv6LookupIntoIter,
-    Ipv6LookupFuture,
     RData::AAAA,
     Ipv6Addr
 );
@@ -525,7 +478,6 @@ lookup_type!(
     MxLookup,
     MxLookupIter,
     MxLookupIntoIter,
-    MxLookupFuture,
     RData::MX,
     rdata::MX
 );
@@ -533,7 +485,6 @@ lookup_type!(
     TxtLookup,
     TxtLookupIter,
     TxtLookupIntoIter,
-    TxtLookupFuture,
     RData::TXT,
     rdata::TXT
 );
@@ -541,18 +492,10 @@ lookup_type!(
     SoaLookup,
     SoaLookupIter,
     SoaLookupIntoIter,
-    SoaLookupFuture,
     RData::SOA,
     rdata::SOA
 );
-lookup_type!(
-    NsLookup,
-    NsLookupIter,
-    NsLookupIntoIter,
-    NsLookupFuture,
-    RData::NS,
-    Name
-);
+lookup_type!(NsLookup, NsLookupIter, NsLookupIntoIter, RData::NS, Name);
 
 #[cfg(test)]
 pub mod tests {

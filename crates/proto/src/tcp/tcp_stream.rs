@@ -33,7 +33,7 @@ where
     type Transport: tokio::io::AsyncRead + tokio::io::AsyncWrite + Send;
 
     /// connect to tcp
-    async fn connect(addr: &SocketAddr) -> io::Result<Self::Transport>;
+    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport>;
 }
 
 /// Current state while writing to the remote of the TCP connection
@@ -158,7 +158,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         timeout: Duration,
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Result<TcpStream<S::Transport>, io::Error> {
-        let tcp = S::connect(&name_server);
+        let tcp = S::connect(name_server);
         tokio::time::timeout(timeout, tcp)
             .map_err(move |_| {
                 debug!("timed out connecting to: {}", name_server);
@@ -445,6 +445,7 @@ impl<S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin> Stream for TcpStre
 }
 
 #[cfg(test)]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;

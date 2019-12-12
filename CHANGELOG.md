@@ -13,8 +13,26 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (all) After the 0.18 release, all crates will be versioned uniformally, and released at the same time, this will resolve some issues around consistency with releases. The final Resolver release before this was `0.12`.
 - *breaking* (client) rebranded from `trust-dns` to `trust-dns-client`
 - *breaking* (server) rebranded from `trust-dns-server` to `trust-dns`
-- *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.40` minimum)
+- *breaking* (all) all internals updated to std::future and async/await (requires `Rust 1.39` minimum)
+- *breaking* (client) AsyncClient now returns a connect future which resolves to the client and it's background.
+- *breaking* (resolver) AsyncResolver::new changed to AsyncResolver::connect, requires awaiting the returned future
+- (client) ClientFuture renamed to AsyncClient
+- (resolver) AsyncResolver now requires a ConnectionProvider type parameter, see TokioAsyncResolver as a predefined type without it
+- (resolver) Now returns a connect future to connect the start all background tasks
+- (proto, resolver) renamed the `tokio-compat` feature to `tokio-runtime`
 
+### Fixes
+
+- (proto) DnsExchange no longer spawns a background task
+
+### Removed
+
+- (client) client::BasicClientHandle, ClientFuture no longer requires Background or the separate Handle, this can generally be replaced with just ClientFuture itself in most use cases.
+- *breaking* (resolver) Background type removed
+- (resolver) removed deprecated AsyncResolver::lookup_service, see AsyncResolver::lookup_srv
+- (client) removed all deprecated reexports from trust_dns_proto
+- (proto) removed unused xfer::BasicDnsHandle, xfer::MessageStreamHandle
+- (resolver) removed all unused custom LookupFuture types SrvLookupFuture, ReverseLookupFuture, Ipv4LookupFuture, Ipv6LookupFuture, MxLookupFuture, TxtLookupFuture, SoaLookupFuture, NsLookupFuture
 
 ## 0.17.0 (Client/Server)
 

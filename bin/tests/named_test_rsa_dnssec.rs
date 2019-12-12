@@ -16,16 +16,15 @@ use std::io::Read;
 use std::net::*;
 use std::path::Path;
 
-use futures::Future;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
-use trust_dns_client::proto::error::ProtoError;
-use trust_dns_client::proto::tcp::{TcpClientConnect, TcpClientStream};
+use trust_dns_client::proto::tcp::TcpClientStream;
 use trust_dns_client::proto::xfer::{
-    DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsResponse,
+    DnsExchangeBackground, DnsMultiplexer, DnsMultiplexerSerialResponse,
 };
+use trust_dns_client::proto::SecureDnsHandle;
 use trust_dns_client::rr::dnssec::*;
 
 use server_harness::*;
@@ -62,19 +61,14 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
 }
 
 #[allow(clippy::type_complexity)]
-fn standard_conn(
+async fn standard_conn(
     port: u16,
 ) -> (
-    ClientFuture<
-        DnsMultiplexerConnect<
-            TcpClientConnect<TokioTcpStream>,
-            TcpClientStream<TokioTcpStream>,
-            Signer,
-        >,
+    AsyncClient<DnsMultiplexerSerialResponse>,
+    DnsExchangeBackground<
         DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
         DnsMultiplexerSerialResponse,
     >,
-    BasicClientHandle<impl Future<Output = Result<DnsResponse, ProtoError>>>,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
@@ -82,7 +76,9 @@ fn standard_conn(
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
-    ClientFuture::new(stream, sender, None)
+    AsyncClient::new(stream, sender, None)
+        .await
+        .expect("new AsyncClient failed")
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
@@ -97,18 +93,21 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present
-        let (bg, client) = standard_conn(port);
-        io_loop.spawn(bg);
+        let client = standard_conn(port);
+        let (client, bg) = io_loop.block_on(client);
+        trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let (bg, client) = standard_conn(port);
-        io_loop.spawn(bg);
+        let client = standard_conn(port);
+        let (client, bg) = io_loop.block_on(client);
+        trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
-        let (bg, client) = standard_conn(port);
-        io_loop.spawn(bg);
-        let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
+        let client = standard_conn(port);
+        let (client, bg) = io_loop.block_on(client);
+        trust_dns_proto::spawn_bg(&io_loop, bg);
+        let mut client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);
     });

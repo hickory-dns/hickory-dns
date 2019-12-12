@@ -15,7 +15,6 @@ use futures::{ready, Future, Stream};
 use log::{debug, warn};
 
 use crate::error::*;
-use crate::op::Message;
 
 mod dns_exchange;
 pub mod dns_handle;
@@ -27,8 +26,10 @@ pub mod retry_dns_handle;
 pub mod secure_dns_handle;
 mod serial_message;
 
-pub use self::dns_exchange::{DnsExchange, DnsExchangeConnect};
-pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+pub use self::dns_exchange::{
+    DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
+};
+pub use self::dns_handle::{DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_multiplexer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse,
 };
@@ -72,10 +73,6 @@ impl BufStreamHandle {
         self.sender.unbounded_send(msg)
     }
 }
-
-// TODO: change to Sink
-/// A sender to which a Message can be sent
-pub type MessageStreamHandle = UnboundedSender<Message>;
 
 /// A buffering stream bound to a `SocketAddr`
 pub struct BufDnsStreamHandle {
@@ -152,9 +149,7 @@ where
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
-pub trait DnsRequestSender:
-    Stream<Item = Result<(), ProtoError>> + 'static + Display + Send + Unpin
-{
+pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static {
     /// A future that resolves to a response serial message
     type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>>
         + 'static

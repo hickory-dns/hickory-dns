@@ -27,7 +27,7 @@ if [%ALL_FEATURES_SUITE%] EQU [1] (
 )
 
 if [%NO_DEFAULT_FEATURES_SUITE%] EQU [1] (
-    cargo test --manifest-path crates\proto\Cargo.toml --no-default-features --features tokio-compat
+    cargo test --manifest-path crates\proto\Cargo.toml --no-default-features --features tokio-runtime
     cargo test --manifest-path crates\client\Cargo.toml --no-default-features
     cargo test --manifest-path crates\resolver\Cargo.toml --no-default-features --features tokio
     cargo test --manifest-path crates\server\Cargo.toml --no-default-features

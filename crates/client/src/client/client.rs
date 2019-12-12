@@ -12,58 +12,82 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::Future;
-use tokio::runtime::Runtime;
-
-use trust_dns_proto::{
-    error::ProtoError,
-    xfer::{DnsRequestSender, DnsResponse},
-};
+use tokio::runtime::{self, Runtime};
 
 #[cfg(feature = "dnssec")]
-use crate::client::SecureClientHandle;
-use crate::client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
+use crate::client::AsyncSecureClient;
+use crate::client::{AsyncClient, ClientConnection, ClientHandle};
 use crate::error::*;
+use crate::proto::{
+    error::ProtoError,
+    xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
+};
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
+#[allow(clippy::type_complexity)]
+pub type NewFutureObj<H> = Pin<
+    Box<
+        dyn Future<
+                Output = Result<
+                    (
+                        H,
+                        Box<dyn Future<Output = Result<(), ProtoError>> + 'static + Send + Unpin>,
+                    ),
+                    ProtoError,
+                >,
+            >
+            + 'static
+            + Send,
+    >,
+>;
+
 /// Client trait which implements basic DNS Client operations.
 ///
-/// As of 0.10.0, the Client is now a wrapper around the `ClientFuture`, which is a futures-rs
+/// As of 0.10.0, the Client is now a wrapper around the `AsyncClient`, which is a futures-rs
 /// and tokio-rs based implementation. This trait implements synchronous functions for ease of use.
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
 /// for the old Client was not possible. This trait has two implementations, the `SyncClient` which
-/// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureClientHandle`
+/// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureDnsHandle`
 /// providing DNSSec validation.
 ///
 /// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
-/// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
+/// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
 pub trait Client {
     /// The result future that will resolve into a DnsResponse
     type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
-    /// The actual DNS request sender, aka Connection
-    type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
-    /// A future that resolves into the Sender after connection
-    type SenderFuture: Future<Output = Result<Self::Sender, ProtoError>> + 'static + Send + Unpin;
-    /// A handle to send messages to the Sender
-    type Handle: ClientHandle;
+    /// The AsyncClient type used
+    type Handle: DnsHandle<Response = Self::Response> + 'static + Send + Unpin;
 
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
-    #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> (
-        ClientFuture<Self::SenderFuture, Self::Sender, Self::Response>,
-        Self::Handle,
-    );
+    fn new_future(&self) -> NewFutureObj<Self::Handle>;
+
+    /// This will create a new AsyncClient and spawn it into a new Runtime
+    fn spawn_client(&self) -> ClientResult<(Self::Handle, Runtime)> {
+        let mut builder = runtime::Builder::new();
+        builder.basic_scheduler();
+        builder.enable_all();
+
+        let mut reactor = builder.build()?;
+        let client = self.new_future();
+
+        let (client, bg) = reactor.block_on(client)?;
+
+        // TODO: should we return this?
+        let _join_bg = reactor.spawn(bg);
+
+        Ok((client, reactor))
+    }
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
@@ -81,10 +105,9 @@ pub trait Client {
         query_class: DNSClass,
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.query(name.clone(), query_class, query_type))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.query(name.clone(), query_class, query_type))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -105,10 +128,9 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.notify(name, query_class, query_type, rrset))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.notify(name, query_class, query_type, rrset))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -148,10 +170,9 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.create(rrset, zone_origin))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.create(rrset, zone_origin))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -192,10 +213,9 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.append(rrset, zone_origin, must_exist))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.append(rrset, zone_origin, must_exist))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -249,10 +269,9 @@ pub trait Client {
         CR: Into<RecordSet>,
         NR: Into<RecordSet>,
     {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.compare_and_swap(current, new, zone_origin))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.compare_and_swap(current, new, zone_origin))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -294,10 +313,9 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.delete_by_rdata(record, zone_origin))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.delete_by_rdata(record, zone_origin))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -336,10 +354,9 @@ pub trait Client {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.delete_rrset(record, zone_origin))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.delete_rrset(record, zone_origin))
     }
 
     /// Deletes all records at the specified name
@@ -372,10 +389,9 @@ pub trait Client {
         zone_origin: Name,
         dns_class: DNSClass,
     ) -> ClientResult<DnsResponse> {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
+        let (mut client, mut runtime) = self.spawn_client()?;
+
+        runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
     }
 }
 
@@ -384,15 +400,12 @@ pub trait Client {
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
-pub struct SyncClient<CC> {
+pub struct SyncClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
 }
 
-impl<CC> SyncClient<CC>
-where
-    CC: ClientConnection,
-{
+impl<CC: ClientConnection> SyncClient<CC> {
     /// Creates a new DNS client with the specified connection type
     ///
     /// # Arguments
@@ -418,40 +431,33 @@ where
     }
 }
 
-impl<CC> Client for SyncClient<CC>
-where
-    CC: ClientConnection,
-{
-    type Response = CC::Response;
-    type Sender = CC::Sender;
-    type SenderFuture = CC::SenderFuture;
-    type Handle = BasicClientHandle<CC::Response>;
+impl<CC: ClientConnection> Client for SyncClient<CC> {
+    type Response = DnsExchangeSend<CC::Response>;
+    type Handle = AsyncClient<CC::Response>;
 
-    #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> (
-        ClientFuture<Self::SenderFuture, Self::Sender, Self::Response>,
-        Self::Handle,
-    ) {
+    fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
 
-        ClientFuture::connect(stream)
+        let connect = async move {
+            let (client, bg) = AsyncClient::connect(stream).await?;
+
+            let bg = Box::new(bg) as _;
+            Ok((client, bg))
+        };
+
+        Box::pin(connect)
     }
 }
 
 /// A DNS client which will validate DNSSec records upon receipt
 #[cfg(feature = "dnssec")]
-pub struct SecureSyncClient<CC> {
+pub struct SecureSyncClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC> SecureSyncClient<CC>
-where
-    CC: ClientConnection,
-{
+impl<CC: ClientConnection> SecureSyncClient<CC> {
     /// Creates a new DNS client with the specified connection type
     ///
     /// # Arguments
@@ -465,82 +471,38 @@ where
             signer: None,
         }
     }
-
-    /// DNSSec validating query, this will return an error if the requested records can not be
-    ///  validated against the trust_anchor.
-    ///
-    /// *Deprecated* This function only exists for backward compatibility. It's just a wrapper around `Client::query` at this point
-    ///
-    /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
-    ///  make sure that the answer is correct. Then starts
-    ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
-    ///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
-    ///  records in the 'com' zone. From there see if there is a DS record for the
-    ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
-    ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
-    ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
-    ///
-    /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
-    ///        the caller.
-    ///
-    /// # Arguments
-    ///
-    /// * `query_name` - the label to lookup
-    /// * `query_class` - most likely this should always be DNSClass::IN
-    /// * `query_type` - record type to lookup
-    #[deprecated(note = "use `Client::query` instead")]
-    pub fn secure_query(
-        &self,
-        query_name: &Name,
-        query_class: DNSClass,
-        query_type: RecordType,
-    ) -> ClientResult<DnsResponse> {
-        let mut reactor = Runtime::new()?;
-        let (bg, mut client) = self.new_future();
-        reactor.spawn(bg);
-        reactor.block_on(client.query(query_name.clone(), query_class, query_type))
-    }
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC> Client for SecureSyncClient<CC>
-where
-    CC: ClientConnection,
-{
-    type Response = CC::Response;
-    type Sender = CC::Sender;
-    type SenderFuture = CC::SenderFuture;
-    type Handle = SecureClientHandle<BasicClientHandle<Self::Response>>;
+impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
+    type Response =
+        Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
+    type Handle = AsyncSecureClient<CC::Response>;
 
     #[allow(clippy::type_complexity)]
-    fn new_future(
-        &self,
-    ) -> (
-        ClientFuture<Self::SenderFuture, Self::Sender, Self::Response>,
-        Self::Handle,
-    ) {
+    fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
 
-        let (background, handle) = ClientFuture::connect(stream);
-        (background, SecureClientHandle::new(handle))
+        let connect = async move {
+            let (client, bg) = AsyncSecureClient::connect(stream).await?;
+
+            let bg = Box::new(bg) as _;
+            Ok((client, bg))
+        };
+
+        Box::pin(connect)
     }
 }
 
 #[cfg(feature = "dnssec")]
-pub struct SecureSyncClientBuilder<CC>
-where
-    CC: ClientConnection,
-{
+pub struct SecureSyncClientBuilder<CC: ClientConnection> {
     conn: CC,
     trust_anchor: Option<TrustAnchor>,
     signer: Option<Arc<Signer>>,
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC> SecureSyncClientBuilder<CC>
-where
-    CC: ClientConnection,
-{
+impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
     /// This variant allows for the trust_anchor to be replaced
     ///
     /// # Arguments

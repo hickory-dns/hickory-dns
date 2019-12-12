@@ -18,12 +18,12 @@ use futures::Future;
 use proto::rr::rdata::TXT;
 use proto::rr::{Name, RecordType};
 use proto::xfer::DnsRequestOptions;
+use proto::DnsHandle;
 
-use crate::async_resolver::{AsyncResolver, BackgroundLookup};
 use crate::error::*;
-use crate::lookup::{
-    ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
-};
+use crate::lookup::{ReverseLookup, ReverseLookupIter, TxtLookup};
+use crate::name_server::ConnectionProvider;
+use crate::AsyncResolver;
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -40,26 +40,34 @@ pub trait DnsSdHandle {
     fn service_info(&self, name: Name) -> ServiceInfoFuture;
 }
 
-impl DnsSdHandle for AsyncResolver {
+impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> DnsSdHandle for AsyncResolver<C, P> {
     fn list_services(&self, name: Name) -> ListServicesFuture {
-        let options = DnsRequestOptions {
-            expects_multiple_responses: true,
-        };
+        let this = self.clone();
 
-        let ptr_future: BackgroundLookup<ReverseLookupFuture> =
-            self.inner_lookup(name, RecordType::PTR, options);
+        let ptr_future = async move {
+            let options = DnsRequestOptions {
+                expects_multiple_responses: true,
+            };
+
+            this.inner_lookup(name, RecordType::PTR, options).await
+        };
 
         ListServicesFuture(Box::pin(ptr_future))
     }
 
     fn service_info(&self, name: Name) -> ServiceInfoFuture {
-        let txt_future = self.txt_lookup(name);
-        ServiceInfoFuture(Box::pin(txt_future))
+        let this = self.clone();
+
+        let ptr_future = async move { this.txt_lookup(name).await };
+
+        ServiceInfoFuture(Box::pin(ptr_future))
     }
 }
 
 /// A DNS Service Discovery future of Services discovered through the list operation
-pub struct ListServicesFuture(Pin<Box<BackgroundLookup<ReverseLookupFuture>>>);
+pub struct ListServicesFuture(
+    Pin<Box<dyn Future<Output = Result<ReverseLookup, ResolveError>> + Send + 'static>>,
+);
 
 impl Future for ListServicesFuture {
     type Output = Result<ListServices, ResolveError>;
@@ -97,7 +105,9 @@ impl<'i> Iterator for ListServicesIter<'i> {
 }
 
 /// A Future that resolves to the TXT information for a service
-pub struct ServiceInfoFuture(Pin<Box<BackgroundLookup<TxtLookupFuture>>>);
+pub struct ServiceInfoFuture(
+    Pin<Box<dyn Future<Output = Result<TxtLookup, ResolveError>> + Send + 'static>>,
+);
 
 impl Future for ServiceInfoFuture {
     type Output = Result<ServiceInfo, ResolveError>;
@@ -153,15 +163,17 @@ mod tests {
     #[ignore]
     fn test_list_services() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = AsyncResolver::new(
+        let resolver = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
+            io_loop.handle().clone(),
         );
-
-        io_loop.spawn(bg);
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.list_services(Name::from_str("_http._tcp.local.").unwrap()))
@@ -170,7 +182,7 @@ mod tests {
         for name in response.iter() {
             println!("service: {}", name);
             let srvs = io_loop
-                .block_on(resolver.lookup_srv(name.clone()))
+                .block_on(resolver.srv_lookup(name.clone()))
                 .expect("failed to lookup name");
 
             for srv in srvs.iter() {

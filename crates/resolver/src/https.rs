@@ -2,15 +2,13 @@ extern crate rustls;
 extern crate webpki_roots;
 
 use std::net::SocketAddr;
-use std::pin::Pin;
 
 use crate::tls::CLIENT_CONFIG;
 
-use futures::Future;
-
-use proto::error::ProtoError;
-use proto::xfer::{BufDnsRequestStreamHandle, DnsExchange};
-use trust_dns_https::{HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder};
+use proto::xfer::{DnsExchange, DnsExchangeConnect};
+use trust_dns_https::{
+    HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
+};
 
 use crate::config::TlsClientConfig;
 
@@ -19,29 +17,14 @@ pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> (
-    Pin<
-        Box<
-            dyn Future<
-                    Output = Result<
-                        DnsExchange<HttpsClientStream, HttpsClientResponse>,
-                        ProtoError,
-                    >,
-                > + Send,
-        >,
-    >,
-    BufDnsRequestStreamHandle<HttpsClientResponse>,
-) {
+) -> DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse> {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    let (stream, handle) = DnsExchange::connect(https_builder.build(socket_addr, dns_name));
-    let handle = BufDnsRequestStreamHandle::new(handle);
-
-    (Box::pin(stream), handle)
+    DnsExchange::connect(https_builder.build(socket_addr, dns_name))
 }
 
 #[cfg(test)]
@@ -58,8 +41,11 @@ mod tests {
         //env_logger::try_init().ok();
         let mut io_loop = Runtime::new().unwrap();
 
-        let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
-        io_loop.spawn(bg);
+        let resolver =
+            AsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone());
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))

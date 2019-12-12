@@ -9,14 +9,16 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{Future, FutureExt};
+use tokio::runtime::Handle;
 
 use trust_dns_client::op::LowerQuery;
 use trust_dns_client::op::ResponseCode;
 use trust_dns_client::rr::dnssec::SupportedAlgorithms;
 use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
 use trust_dns_resolver::config::ResolverConfig;
+use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::Lookup as ResolverLookup;
-use trust_dns_resolver::{AsyncResolver, BackgroundLookup};
+use trust_dns_resolver::{AsyncResolver, TokioConnection, TokioConnectionProvider};
 
 use crate::authority::{
     Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
@@ -28,54 +30,54 @@ use crate::store::forwarder::ForwardConfig;
 /// This uses the trust-dns-resolver for resolving requests.
 pub struct ForwardAuthority {
     origin: LowerName,
-    resolver: AsyncResolver,
+    resolver: AsyncResolver<TokioConnection, TokioConnectionProvider>,
 }
 
 impl ForwardAuthority {
-    /// FIXME: drop this?
+    /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub fn new() -> Self {
-        // FIXME: error here
-        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
-        let _bg = Box::new(bg);
+    pub async fn new(runtime: Handle) -> Result<Self, String> {
+        let resolver = AsyncResolver::from_system_conf(runtime)
+            .await
+            .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
-        ForwardAuthority {
+        Ok(ForwardAuthority {
             origin: Name::root().into(),
             resolver,
-        }
+        })
     }
 
     /// Read the Authority for the origin from the specified configuration
-    pub fn try_from_config(
+    pub async fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,
-    ) -> Result<(Self, impl Future<Output = ()>), String> {
+        runtime: Handle,
+    ) -> Result<Self, String> {
         info!("loading forwarder config: {}", origin);
 
         let name_servers = config.name_servers.clone();
         let options = config.options.unwrap_or_default();
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let (resolver, bg) = AsyncResolver::new(config, options);
+        let resolver = AsyncResolver::new(config, options, runtime)
+            .await
+            .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         info!("forward resolver configured: {}: ", origin);
 
         // TODO: this might be infallible?
-        Ok((
-            ForwardAuthority {
-                origin: origin.into(),
-                resolver,
-            },
-            bg,
-        ))
+        Ok(ForwardAuthority {
+            origin: origin.into(),
+            resolver,
+        })
     }
 }
 
 impl Authority for ForwardAuthority {
     type Lookup = ForwardLookup;
-    type LookupFuture = ForwardLookupFuture;
+    type LookupFuture = Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Always Forward
     fn zone_type(&self) -> ZoneType {
@@ -112,7 +114,12 @@ impl Authority for ForwardAuthority {
         assert!(self.origin.zone_of(name));
 
         info!("forwarding lookup: {} {}", name, rtype);
-        Box::pin(ForwardLookupFuture(self.resolver.lookup(name, rtype)))
+        let name: LowerName = name.clone();
+        Box::pin(ForwardLookupFuture(self.resolver.lookup(
+            name,
+            rtype,
+            Default::default(),
+        )))
     }
 
     fn search(
@@ -156,9 +163,13 @@ impl LookupObject for ForwardLookup {
     }
 }
 
-pub struct ForwardLookupFuture(BackgroundLookup);
+pub struct ForwardLookupFuture<
+    F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin + 'static,
+>(F);
 
-impl Future for ForwardLookupFuture {
+impl<F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin> Future
+    for ForwardLookupFuture<F>
+{
     type Output = Result<ForwardLookup, LookupError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {

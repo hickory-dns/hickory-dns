@@ -60,14 +60,15 @@
 //!
 //! ## Objects
 //!
-//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `ClientFuture`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
+//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `AsyncClient`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
 //!
 //! First we must decide on the type of connection, there are three supported by Trust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
 //!
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns_client::client::{Client, ClientConnection, ClientStreamHandle, SyncClient};
+//! use trust_dns_proto::DnsStreamHandle;
+//! use trust_dns_client::client::{Client, ClientConnection, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
@@ -213,7 +214,7 @@
 //! use tokio::runtime::Runtime;
 //!
 //! use trust_dns_client::udp::UdpClientStream;
-//! use trust_dns_client::client::{Client, ClientFuture, ClientHandle};
+//! use trust_dns_client::client::{Client, AsyncClient, ClientHandle};
 //! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
@@ -230,9 +231,12 @@
 //! //   the client is a handle to an unbounded queue for sending requests via the
 //! //   background. The background must be scheduled to run before the client can
 //! //   send any dns requests
-//! let (bg, mut client) = ClientFuture::connect(stream);
+//! let client = AsyncClient::connect(stream);
 //!
-//! // run the background task
+//! // await the connection to be established
+//! let (mut client, bg) = runtime.block_on(client).expect("connection failed");
+//!
+//! // make sure to run the background task
 //! runtime.spawn(bg);
 //!
 //! // Create a query future
@@ -268,15 +272,6 @@ pub use trust_dns_proto as proto;
 pub mod https {
     pub use super::https_client_connection::HttpsClientConnection;
 }
-
-/// A sender to which serialized DNS Messages can be sent
-#[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
-pub use proto::BufStreamHandle;
-
-/// A sender to which a Message can be sent
-// pub type MessageStreamHandle = UnboundedSender<Message>;
-#[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
-pub use proto::BufDnsStreamHandle as BufClientStreamHandle;
 
 /// Returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

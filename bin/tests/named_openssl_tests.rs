@@ -71,10 +71,10 @@ fn test_startup(toml: &'static str) {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
+        let client = AsyncClient::new(stream, Box::new(sender), None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
-        // ipv4 should succeed
-        io_loop.spawn(bg);
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = ("127.0.0.1", tls_port)
@@ -86,8 +86,9 @@ fn test_startup(toml: &'static str) {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let (bg, mut client) = ClientFuture::new(stream, Box::new(sender), None);
-        io_loop.spawn(bg);
+        let client = AsyncClient::new(stream, Box::new(sender), None);
+        let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
+        trust_dns_proto::spawn_bg(&io_loop, bg);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);

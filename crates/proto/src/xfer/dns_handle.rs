@@ -98,7 +98,7 @@ impl DnsHandle for BasicDnsHandle {
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait DnsHandle: 'static + Clone + Send + Unpin {
+pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// The associated response from the response future, this should resolve to the Response message
     type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
 

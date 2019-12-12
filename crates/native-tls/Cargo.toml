@@ -50,7 +50,7 @@ native-tls = "0.2"
 tokio = "0.2.1"
 tokio-tls = "0.3.0"
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["tokio-compat"], default-features = false }
+trust-dns-proto = { version = "0.18.0-alpha", path = "../proto", features = ["tokio-runtime"], default-features = false }
 
 [dev-dependencies]
 

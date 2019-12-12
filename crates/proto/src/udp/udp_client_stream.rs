@@ -343,6 +343,7 @@ impl SingleUseUdpSocket {
 }
 
 #[cfg(test)]
+#[cfg(feature = "tokio-runtime")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
