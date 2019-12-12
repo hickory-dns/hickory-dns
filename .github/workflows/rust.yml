@@ -9,19 +9,22 @@ on:
       - cargo-make-automation
 
 jobs:
-  cargo-make:
-    name: test cargo-make
+  features-matrix:
+    name: ${{ matix.feature }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        feature: [default-features, no-default-features, all-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns]
     steps:
     - uses: actions/checkout@v1
-    - uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        override: true
-    - uses: davidB/rust-cargo-make@v1
-    - name: download and install cargo-make
-      run: cargo make --version
+    - name: cargo make ${{ matrix.feature }}
+      run: cargo make ${{ matrix.feature }}
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: cargo make clippy
+      run: cargo make clippy
