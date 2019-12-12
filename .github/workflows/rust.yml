@@ -9,15 +9,38 @@ on:
       - cargo-make-automation
 
 jobs:
-  features-matrix:
-    name: features matrix
+  default-features-matrix:
+    name: default features matrix
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        feature: [default-features, no-default-features, all-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns]
+        feature: [default-features, no-default-features, all-features]
     steps:
     - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: davidB/rust-cargo-make@v1
+    - name: cargo make
+      run: cargo make ${{ matrix.feature }}
+
+  exhaustive-features-matrix:
+    name: exhaustive features matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature: [dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns]
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: davidB/rust-cargo-make@v1
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
 
@@ -26,5 +49,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: davidB/rust-cargo-make@v1
     - name: cargo make clippy
       run: cargo make clippy
