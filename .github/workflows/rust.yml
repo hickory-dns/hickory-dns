@@ -1,9 +1,9 @@
 name: rust
 
 on:
-  # push:
-  #   branches:
-  #     - master
+  push:
+    branches:
+      - cargo-make-automation
   pull_request:
     branches:
       - cargo-make-automation
