@@ -20,13 +20,13 @@ private = true
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 
 [tasks.install-openssl]
+description = "Installs OpenSSL on Windows"
 env = { OPENSSL_VERSION = "1_1_1d", OPENSSL_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}\\target\\OpenSSL" }
 condition = { platforms = ["windows"], not_file_exists = "${OPENSSL_DIR}" }
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
 '''
-Set-PSDebug -Trace 1
 mkdir ${env:CARGO_MAKE_WORKING_DIRECTORY}\\target
 mkdir ${env:CARGO_MAKE_WORKING_DIRECTORY}\\target\OpenSSL
 Invoke-WebRequest -URI "http://slproweb.com/download/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKING_DIRECTORY}\target\OpenSSL.exe"
@@ -36,8 +36,9 @@ Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\ca
 ]
 
 [tasks.install-bind]
+description = "Installs BIND9 on Ubuntu"
 env = { TARGET_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/target", TDNS_BIND = "${CARGO_MAKE_WORKING_DIRECTORY}/target/bind", BIND_VER="9.11.7" }
-condition = { platforms = ["mac", "linux"], not_file_exists = "${TDNS_BIND}/bin/named" }
+condition = { platforms = ["mac", "linux"], not_file_exists = "${CARGO_MAKE_WORKING_DIRECTORY}/target/bin/named", env_not_set = ["TDNS_BIND"] }
 script_runner = "@shell"
 script = [
 '''
@@ -45,7 +46,7 @@ set -e
 
 ## This must run after OpenSSL installation
 
-sudo apt-get install -y python-ply
+#sudo apt-get install -y python-ply
 
 echo "----> downloading bind"
 wget -O ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz https://downloads.isc.org/isc/bind9/${BIND_VER}/bind-${BIND_VER}.tar.gz
@@ -60,11 +61,13 @@ make
 ]
 
 [tasks.install-audit]
+description = "Installs cargo-audit"
 condition_script = ["if cargo audit ; then exit 1 ; else exit 0 ; fi"]
 command = "cargo"
 args = ["install", "cargo-audit"]
 
 [tasks.clean-bind]
+description = "Remove the BIND9 build directory"
 script_runner = "@shell"
 script = [
 '''
@@ -73,104 +76,124 @@ rm -rf ${CARGO_MAKE_WORKING_DIRECTORY}/target/bind
 ]
 
 [tasks.clean]
+description = "Remove only the current workspace member"
 dependencies = ["clean-bind"]
 command = "cargo"
 args = ["clean", "-p", "${CARGO_MAKE_CRATE_NAME}"]
 
 [tasks.fmt]
+description = "Check formatting with rustfmt"
 command = "cargo"
 args = ["fmt", "--", "--check"]
 
 [tasks.check]
+description = "Run a quick check on all the crates"
 command = "cargo"
 args = ["check", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
 
 [tasks.build]
+description = "Build all the crates"
 command = "cargo"
 args = ["build", "--lib", "--bins",  "@@remove-empty(FEATURES)"]
 
 [tasks.test]
+description = "Run tests all the crates"
 command = "cargo"
 args = ["test", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
 
 [tasks.clippy]
+description = "Run the clippy linter on all crates"
 dependencies = ["clean"]
 command = "cargo"
 args = ["clippy", "--lib", "--examples", "--tests", "--bins", "--all-features", "--", "-D", "warnings"]
 
 [tasks.build-bench]
+description = "Check that all benchmarks compile"
 command = "cargo"
 toolchain = "nightly"
 args = ["bench", "--no-run"]
 
 [tasks.audit]
+description = "Run cargo audit on all crates"
 workspace = false
 dependencies = ["check", "install-audit"]
 command = "cargo"
 args = ["audit", "--deny-warnings"]
 
 [tasks.bind-compatibility]
+description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND to another BIND9 installation"
 workspace = false
 dependencies = ["install-bind"]
 command = "cargo"
 args = ["test", "--manifest-path=tests/compatibility-tests/Cargo.toml", "--no-default-features", "--features=bind"]
 
 [tasks.all]
+description = "Run check, build, and test on all crates"
 dependencies = ["check", "build", "test"]
 
 [tasks.default]
-dependencies = ["all"]
+description = "Run the all task"
+run_task = "all"
 
 ## defined tasks
 [tasks.default-features]
+description = "Run all with default features"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "" }
 run_task = { name = "all", fork = true }
 
 [tasks.no-default-features]
+description = "Run all with --no-default-features"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--no-default-features", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "tests/compatibility-tests" }
 run_task = { name = "all", fork = true }
 
 [tasks.all-features]
+description = "Run all with --all-features"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--all-features" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-openssl]
+description = "Run all with --features=dns-over-openssl"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-openssl]
+description = "Run all with --features=dnssec-openssl"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-ring]
+description = "Run all with --features=dnssec-ring"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-rustls]
+description = "Run all with --features=dns-over-rustls"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-https-rustls]
+description = "Run all with --features=dns-over-https-rustls"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-https-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-native-tls]
+description = "Run all with --features=dns-over-native-tls"
 dependencies = ["install-openssl"]
 workspace = false
 # TODO: seems like a gap in testing if there are no testst in client for native-tls
@@ -178,10 +201,12 @@ env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_M
 run_task = { name = "all", fork = true }
 
 [tasks.mdns]
+description = "Run all with --features=mdns"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.world]
+description = "Run all with every features independently (this will melt your computer)"
 dependencies = ["no-default-features", "default-features", "all-features", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dns-dnssec-openssl", "dns-dnssec-openssl", "dns-dnssec-ring", "mdns"]

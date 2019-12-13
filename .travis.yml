@@ -1,0 +1,39 @@
+sudo: required
+dist: trusty
+language: rust
+rust: stable
+
+matrix:
+  include:
+    # parallel builds for tests
+    - env: NAME=all_features
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_all_features.sh
+      after_success:
+        - scripts/run_kcov.sh
+
+    # compatiblity tests
+    - env: NAME=compatiblity
+           TDNS_BIND_PATH="../../bind-9.11.7/bin/named/named"
+           RUST_BACKTRACE=full
+      before_install:
+        - sudo apt-get install -y python-ply
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
+        - scripts/install_bind.sh
+      script:
+        - cargo test --manifest-path tests/compatibility-tests/Cargo.toml --no-default-features --features=bind
+      after_success:
+        - scripts/run_kcov.sh
+
+  allow_failures:
+    - rust: nightly
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
+
+## All scripts are run above...
+script:
+  - fail
+
+#after_success: scripts/run_kcov.sh
