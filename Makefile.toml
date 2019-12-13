@@ -9,6 +9,7 @@
 
 [config]
 skip_core_tasks = true
+init_task = "init"
 
 [config.modify_core_tasks]
 # if true, all core tasks are set to private (default false)
@@ -34,6 +35,9 @@ Start-Process -FilePath "${env:CARGO_MAKE_WORKING_DIRECTORY}\target\OpenSSL.exe"
 Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\cacert.pem"
 '''
 ]
+
+[tasks.init]
+dependencies = ["install-openssl"]
 
 [tasks.clean]
 command = "cargo"
@@ -83,19 +87,16 @@ env = { FEATURES = "--no-default-features", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = 
 run_task = { name = "all", fork = true }
 
 [tasks.all-features]
-dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--all-features" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-openssl]
-dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-openssl]
-dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
