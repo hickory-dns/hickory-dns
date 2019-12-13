@@ -17,7 +17,7 @@ mod authority_battery;
 
 fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
-        .join(module)
+        .join(module.replace("::", "_"))
         .join(test_name)
         .join("authority_battery.jrnl");
     fs::create_dir_all(journal_path.parent().unwrap()).ok();
@@ -45,7 +45,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
 #[allow(unused)]
 fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthority {
     let journal_path = PathBuf::from("target/tests")
-        .join(module)
+        .join(module.replace("::", "_"))
         .join(test_name)
         .join("authority_battery.jrnl");
     fs::create_dir_all(journal_path.parent().unwrap()).ok();
