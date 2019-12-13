@@ -89,3 +89,18 @@ jobs:
     # Audit
     - name: cargo audit
       run: cargo make audit
+
+  # Build and run bind to test our compatibility with standard name servers
+  compatibility:
+    name: compatibility
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: davidB/rust-cargo-make@v1
+    - name: cargo make bind-compatibility
+      run: cargo make bind-compatibility
