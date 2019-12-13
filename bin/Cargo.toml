@@ -51,7 +51,7 @@ sqlite = ["trust-dns-server/sqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "trust-dns-client/dns-over-https-rustls", "trust-dns-server/dns-over-https-rustls"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-server/dns-over-https-rustls"]
 dns-over-https = ["trust-dns-server/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
