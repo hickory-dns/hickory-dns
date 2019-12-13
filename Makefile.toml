@@ -9,7 +9,6 @@
 
 [config]
 skip_core_tasks = true
-init_task = "init"
 
 [config.modify_core_tasks]
 # if true, all core tasks are set to private (default false)
@@ -21,8 +20,8 @@ private = true
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 
 [tasks.install-openssl]
-condition = { platforms = ["windows"] }
 env = { OPENSSL_VERSION = "1_1_1d", OPENSSL_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}\\target\\OpenSSL" }
+condition = { platforms = ["windows"], not_file_exists = "${OPENSSL_DIR}" }
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
@@ -40,9 +39,6 @@ Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\ca
 condition_script = ["if cargo audit ; then exit 1 ; else exit 0 ; fi"]
 command = "cargo"
 args = ["install", "cargo-audit"]
-
-[tasks.init]
-dependencies = ["install-openssl"]
 
 [tasks.clean]
 command = "cargo"
@@ -88,52 +84,62 @@ dependencies = ["all"]
 
 ## defined tasks
 [tasks.default-features]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "" }
 run_task = { name = "all", fork = true }
 
 [tasks.no-default-features]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--no-default-features", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "tests/compatibility-tests" }
 run_task = { name = "all", fork = true }
 
 [tasks.all-features]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--all-features" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-openssl]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-openssl]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-ring]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-rustls]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-https-rustls]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=dns-over-https-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-native-tls]
+dependencies = ["install-openssl"]
 workspace = false
 # TODO: seems like a gap in testing if there are no testst in client for native-tls
 env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/openssl;crates/rustls;crates/https;crates/client;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.mdns]
+dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
