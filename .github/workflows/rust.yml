@@ -81,7 +81,12 @@ jobs:
         components: rustfmt, clippy
         override: true
     - uses: davidB/rust-cargo-make@v1
+    # Clippy
     - name: cargo make clippy
       run: cargo make clippy
+    # Rustfmt
     - name: cargo make fmt
       run: cargo make fmt
+    # Audit
+    - name: cargo audit
+      run: cargo make audit

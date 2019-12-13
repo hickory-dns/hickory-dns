@@ -36,6 +36,11 @@ Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\ca
 '''
 ]
 
+[tasks.install-audit]
+condition_script = ["if cargo audit ; then exit 1 ; else exit 0 ; fi"]
+command = "cargo"
+args = ["install", "cargo-audit"]
+
 [tasks.init]
 dependencies = ["install-openssl"]
 
@@ -68,6 +73,12 @@ args = ["clippy", "--lib", "--examples", "--tests", "--bins", "--all-features", 
 command = "cargo"
 toolchain = "nightly"
 args = ["bench", "--no-run"]
+
+[tasks.audit]
+workspace = false
+dependencies = ["check", "install-audit"]
+command = "cargo"
+args = ["audit", "--deny-warnings"]
 
 [tasks.all]
 dependencies = ["check", "build", "test"]
