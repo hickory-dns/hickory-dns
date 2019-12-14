@@ -192,24 +192,32 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Testing
 
--   Unit tests
+Trust-DNS uses `cargo-make` for build workflow management. While running `cargo test` at the project root will work, this is not exhaustive. Install `cargo-make` with `cargo install cargo-make`.
+
+- Default tests
 
     These are good for running on local systems. They will create sockets for
     local tests, but will not attempt to access remote systems. Tests can also
     be run from the crate directory, i.e. `client` or `server` and `cargo test`
 
-```
-  $ scripts/run_tests.sh
+```shell
+$ cargo make
 ```
 
--   Functional/Integration tests
+- Default feature tests
 
-    These will try to use some local system tools for compatibility testing,
-    and also make some remote requests to verify compatibility with other DNS
-    systems. These can not currently be run on Travis for example.
+    Trust-DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
 
+```shell
+$ cargo make all-features
 ```
-  $ scripts/run_tests.sh -- --ignored
+
+- Individual feature tests
+
+    Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `cargo-make`:
+
+```shell
+$ cargo make dns-over-https-rustls
 ```
 
 -   Benchmarks
@@ -218,10 +226,10 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Building
 
--   Production build, from the `trust-dns` base dir
+-   Production build, from the `trust-dns` base dir, to get all features, just pass the `--all-features` flag.
 
-```
-  $ cargo build --release
+```shell
+$ cargo build --release -p trust-dns
 ```
 
 ## Running
@@ -232,27 +240,28 @@ so this should allow it to work with most internal loads.
 
 -   Verify the version
 
-```
-  $ ./target/release/named --version
+```shell
+$ ./target/release/named --version
 ```
 
 -   Get help
 
-```
-  $ ./target/release/named --help
+```shell
+$ ./target/release/named --help
 ```
 
 -   Launch `named` server with test config
 
-```
-  $ cd server
-  $ ../target/release/named -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
+You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `trust-dns --help`
+
+```shell
+$ ./target/release/named -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
 ```
 
 -   Query the just launched server with `dig`
 
-```
-  $ dig @127.0.0.1 -p 24141 www.example.com
+```shell
+$ dig @127.0.0.1 -p 24141 www.example.com
 ```
 
 ## Using as a dependency and custom features
@@ -272,10 +281,13 @@ The Client has a few features which can be disabled for different reasons when e
     Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
 
 - `dns-over-rustls`
-    Uses `rustls` for DNS-over-TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired.
+    Uses `rustls` for DNS-over-TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
+
+- `dns-over-https-rustls`
+    Uses `rustls` for DNS-over-HTTPS (and DNS-over-TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
 
 - `mdns` *EXPERIMENTAL*
-    Enables the experimental mDNS features as well as DNS-SD.
+    Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.
 
 Using custom features in dependencies:
 
