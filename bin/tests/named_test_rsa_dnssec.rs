@@ -93,18 +93,18 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present
-        let client = standard_conn(port);
+        let client = standard_conn(port.expect("no udp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let client = standard_conn(port);
+        let client = standard_conn(port.expect("no udp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
-        let client = standard_conn(port);
+        let client = standard_conn(port.expect("no udp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
         let mut client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);

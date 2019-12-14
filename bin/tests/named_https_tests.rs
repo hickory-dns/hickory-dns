@@ -56,7 +56,7 @@ fn test_example_https_toml_startup() {
         .expect("failed to read cert");
 
         let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", https_port)
+        let addr: SocketAddr = ("127.0.0.1", https_port.expect("no https_port"))
             .to_socket_addrs()
             .unwrap()
             .next()

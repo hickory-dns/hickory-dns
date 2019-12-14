@@ -12,6 +12,7 @@ use std::thread;
 use std::time::*;
 
 use futures::Future;
+use regex::Regex;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
@@ -37,28 +38,8 @@ fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
 #[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
-    F: FnOnce(u16, u16, u16) -> R + UnwindSafe,
+    F: FnOnce(Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
 {
-    // find a random port to listen on
-    let (test_port, test_tls_port, test_https_port) = {
-        let server = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
-        let server_addr = server.local_addr().unwrap();
-        let test_port = server_addr.port();
-
-        let server = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
-        let server_addr = server.local_addr().unwrap();
-        let test_tls_port = server_addr.port();
-
-        let server = UdpSocket::bind(("0.0.0.0", 0)).unwrap();
-        let server_addr = server.local_addr().unwrap();
-        let test_https_port = server_addr.port();
-
-        assert!(test_port != test_tls_port);
-        assert!(test_port != test_https_port);
-        assert!(test_tls_port != test_https_port);
-        (test_port, test_tls_port, test_https_port)
-    };
-
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     println!("using server src path: {}", server_path);
 
@@ -74,9 +55,9 @@ where
         )).arg(&format!(
             "--zonedir={}/../tests/test-data/named_test_configs",
             server_path
-        )).arg(&format!("--port={}", test_port))
-        .arg(&format!("--tls-port={}", test_tls_port))
-        .arg(&format!("--https-port={}", test_https_port))
+        )).arg(&format!("--port={}", 0))
+        .arg(&format!("--tls-port={}", 0))
+        .arg(&format!("--https-port={}", 0))
         .spawn()
         .expect("failed to start named");
 
@@ -116,10 +97,21 @@ where
         })
         .expect("could not start thread killer");
 
+    // These will be collected from the server startup
+    let mut test_port = Option::<u16>::None;
+    let mut test_tls_port = Option::<u16>::None;
+    let mut test_https_port = Option::<u16>::None;
+
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
     let mut found = false;
     let wait_for_start_until = Instant::now() + Duration::from_secs(60);
+
+    // Search strings for the ports used during testing
+    let udp_regex = Regex::new(r"listening for UDP on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
+    //let tcp_regex = Regex::new(r"listening for TCP on V4\(0\.0\.0\.0\:(:?\d+)\)").unwrap();
+    let tls_regex = Regex::new(r"listening for TLS on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
+    let https_regex = Regex::new(r"listening for HTTPS on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
 
     while Instant::now() < wait_for_start_until {
         {
@@ -135,7 +127,22 @@ where
 
         collect_and_print(&mut named_out, &mut output);
 
-        if output.contains("awaiting connections...") {
+        if let Some(udp) = udp_regex.captures(&output) {
+            test_port = Some(
+                u16::from_str_radix(udp.get(1).expect("udp missing port").as_str(), 10)
+                    .expect("could not parse udp port"),
+            );
+        } else if let Some(tls) = tls_regex.captures(&output) {
+            test_tls_port = Some(
+                u16::from_str_radix(tls.get(1).expect("udp missing port").as_str(), 10)
+                    .expect("could not parse tls port"),
+            );
+        } else if let Some(https) = https_regex.captures(&output) {
+            test_https_port = Some(
+                u16::from_str_radix(https.get(1).expect("udp missing port").as_str(), 10)
+                    .expect("could not parse https port"),
+            );
+        } else if output.contains("awaiting connections...") {
             found = true;
             break;
         }
