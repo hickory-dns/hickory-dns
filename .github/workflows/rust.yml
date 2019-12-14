@@ -104,5 +104,3 @@ jobs:
     - uses: davidB/rust-cargo-make@v1
     - name: cargo make bind-compatibility
       run: cargo make bind-compatibility
-      # TODO: figure out why this is faileing, can'd d/l bind...
-      continue-on-error: true

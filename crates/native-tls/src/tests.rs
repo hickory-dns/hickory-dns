@@ -52,7 +52,6 @@ fn test_tls_client_stream_ipv4_mtls() {
 #[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 #[cfg(not(target_os = "macos"))] // certificates are failing on macOS now
-
 fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
 }

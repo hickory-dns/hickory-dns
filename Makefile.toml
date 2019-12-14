@@ -18,11 +18,13 @@ private = true
 ## Feature profiles
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
+TARGET_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/target"
+TDNS_BIND_PATH = "${TARGET_DIR}/bind"
 
 [tasks.install-openssl]
 description = "Installs OpenSSL on Windows"
 env = { OPENSSL_VERSION = "1_1_1d", OPENSSL_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}\\target\\OpenSSL" }
-condition = { platforms = ["windows"], not_file_exists = "${OPENSSL_DIR}" }
+condition = { platforms = ["windows"], files_not_exist = ["${OPENSSL_DIR}"] }
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
@@ -36,9 +38,10 @@ Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\ca
 ]
 
 [tasks.install-bind]
+workspace = false
 description = "Installs BIND9 on Ubuntu"
-env = { TARGET_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/target", TDNS_BIND = "${CARGO_MAKE_WORKING_DIRECTORY}/target/bind", BIND_VER="9.11.7" }
-condition = { platforms = ["mac", "linux"], not_file_exists = "${CARGO_MAKE_WORKING_DIRECTORY}/target/bin/named", env_not_set = ["TDNS_BIND"] }
+condition = { platforms = ["linux", "mac"], files_not_exist = ["${TDNS_BIND_PATH}/bin/named/named"] }
+env = {  BIND_VER="9.11.7" }
 script_runner = "@shell"
 script = [
 '''
@@ -46,16 +49,25 @@ set -e
 
 ## This must run after OpenSSL installation
 
-#sudo apt-get install -y python-ply
+echo installing python-ply
+if apt-get --version ; then sudo apt-get install -y python-ply ; fi
+
+if openssl version ; then WITH_OPENSSL="--with-openssl=$(dirname $(dirname $(which openssl)))" ; fi
+
+mkdir -p ${TARGET_DIR:?}
 
 echo "----> downloading bind"
+rm -rf ${TARGET_DIR:?}/bind-${BIND_VER}
 wget -O ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz https://downloads.isc.org/isc/bind9/${BIND_VER}/bind-${BIND_VER}.tar.gz
+ls -la ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz
 tar -xzf ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz -C ${TARGET_DIR:?}
 
 echo "----> compiling bind"
-mv ${TARGET_DIR:?}/bind-${BIND_VER} ${TDNS_BIND:?}
-cd ${TDNS_BIND:?}
-./configure
+rm -rf ${TDNS_BIND_PATH:?}
+mv ${TARGET_DIR:?}/bind-${BIND_VER} ${TDNS_BIND_PATH:?}
+cd ${TDNS_BIND_PATH:?}
+
+./configure ${WITH_OPENSSL}
 make
 '''
 ]
@@ -71,7 +83,8 @@ description = "Remove the BIND9 build directory"
 script_runner = "@shell"
 script = [
 '''
-rm -rf ${CARGO_MAKE_WORKING_DIRECTORY}/target/bind
+rm -rf ${TARGET_DIR}/bind
+rm -rf ${TARGET_DIR}/bind_*
 '''
 ]
 
@@ -121,7 +134,7 @@ command = "cargo"
 args = ["audit", "--deny-warnings"]
 
 [tasks.bind-compatibility]
-description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND to another BIND9 installation"
+description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND_PATH to another BIND9 installation"
 workspace = false
 dependencies = ["install-bind"]
 command = "cargo"
