@@ -11,7 +11,7 @@ on:
 jobs:
   ## Run all default oriented feature sets across all platforms.
   platform-matrix:
-    name: platforms
+    name: platform
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
