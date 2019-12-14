@@ -54,7 +54,7 @@ fn test_example_tls_toml_startup() {
             .expect("failed to read cert");
 
             let mut io_loop = Runtime::new().unwrap();
-            let addr: SocketAddr = ("127.0.0.1", tls_port)
+            let addr: SocketAddr = ("127.0.0.1", tls_port.expect("no tls_port"))
                 .to_socket_addrs()
                 .unwrap()
                 .next()
@@ -75,7 +75,7 @@ fn test_example_tls_toml_startup() {
             // ipv4 should succeed
             query_a(&mut io_loop, &mut client);
 
-            let addr: SocketAddr = ("127.0.0.1", tls_port)
+            let addr: SocketAddr = ("127.0.0.1", tls_port.expect("no tls_port"))
                 .to_socket_addrs()
                 .unwrap()
                 .next()

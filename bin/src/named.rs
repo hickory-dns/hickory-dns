@@ -407,21 +407,43 @@ fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
+    // The TCP ports will match the udp ports
+    let mut tcp_addrs = Vec::with_capacity(sockaddrs.len());
+
     // load all the listeners
     for udp_socket in &sockaddrs {
-        info!("listening for UDP on {:?}", udp_socket);
+        info!("binding UDP to {:?}", udp_socket);
         let udp_socket = runtime
             .block_on(UdpSocket::bind(udp_socket))
             .unwrap_or_else(|_| panic!("could not bind to udp: {}", udp_socket));
+
+        info!(
+            "listening for UDP on {:?}",
+            udp_socket
+                .local_addr()
+                .expect("could not lookup local address")
+        );
+        tcp_addrs.push(
+            udp_socket
+                .local_addr()
+                .expect("could not lookup local address"),
+        );
         server.register_socket(udp_socket, &runtime);
     }
 
     // and TCP as necessary
-    for tcp_listener in &sockaddrs {
-        info!("listening for TCP on {:?}", tcp_listener);
+    for tcp_listener in &tcp_addrs {
+        info!("binding TCP to {:?}", tcp_listener);
         let tcp_listener = runtime
             .block_on(TcpListener::bind(tcp_listener))
             .unwrap_or_else(|_| panic!("could not bind to tcp: {}", tcp_listener));
+
+        info!(
+            "listening for TCP on {:?}",
+            tcp_listener
+                .local_addr()
+                .expect("could not lookup local address")
+        );
         server
             .register_listener(tcp_listener, tcp_request_timeout, &runtime)
             .expect("could not register TCP listener");
@@ -516,10 +538,17 @@ fn config_tls(
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
 
-        info!("listening for TLS on {:?}", tls_listener);
+        info!("binding TLS to {:?}", tls_listener);
         let tls_listener = runtime.block_on(
             TcpListener::bind(tls_listener)
                 .unwrap_or_else(|_| panic!("could not bind to tls: {}", tls_listener)),
+        );
+
+        info!(
+            "listening for TLS on {:?}",
+            tls_listener
+                .local_addr()
+                .expect("could not lookup local address")
         );
         server
             .register_tls_listener(
@@ -566,11 +595,17 @@ fn config_https(
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
 
-        info!("listening for HTTPS on {:?}", https_listener);
-
+        info!("binding HTTPS to {:?}", https_listener);
         let https_listener = runtime.block_on(
             TcpListener::bind(https_listener)
                 .unwrap_or_else(|_| panic!("could not bind to tls: {}", https_listener)),
+        );
+
+        info!(
+            "listening for HTTPS on {:?}",
+            https_listener
+                .local_addr()
+                .expect("could not lookup local address")
         );
         server
             .register_https_listener(
