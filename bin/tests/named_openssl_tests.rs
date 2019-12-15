@@ -48,7 +48,7 @@ fn test_example_tls_rustls_and_openssl_toml_startup() {
 }
 
 fn test_startup(toml: &'static str) {
-    named_test_harness(toml, move |_, tls_port, _| {
+    named_test_harness(toml, move |_, _, tls_port, _| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         println!("using server src path: {}", server_path);

@@ -41,11 +41,11 @@ use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_toml_startup() {
-    named_test_harness("example.toml", |port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -58,7 +58,7 @@ fn test_example_toml_startup() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -72,11 +72,11 @@ fn test_example_toml_startup() {
 
 #[test]
 fn test_ipv4_only_toml_startup() {
-    named_test_harness("ipv4_only.toml", |port, _, _| {
+    named_test_harness("ipv4_only.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -89,7 +89,7 @@ fn test_ipv4_only_toml_startup() {
 
         let addr: SocketAddr = SocketAddr::new(
             Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -135,11 +135,11 @@ fn test_ipv4_only_toml_startup() {
 #[ignore]
 #[test]
 fn test_ipv4_and_ipv6_toml_startup() {
-    named_test_harness("ipv4_and_ipv6.toml", |port, _, _| {
+    named_test_harness("ipv4_and_ipv6.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -151,7 +151,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
         let addr: SocketAddr = SocketAddr::new(
             Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -165,11 +165,11 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
 #[test]
 fn test_nodata_where_name_exists() {
-    named_test_harness("example.toml", |port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -190,11 +190,11 @@ fn test_nodata_where_name_exists() {
 
 #[test]
 fn test_nxdomain_where_no_name_exists() {
-    named_test_harness("example.toml", |port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -215,11 +215,11 @@ fn test_nxdomain_where_no_name_exists() {
 
 #[test]
 fn test_server_continues_on_bad_data_udp() {
-    named_test_harness("example.toml", |port, _, _| {
+    named_test_harness("example.toml", |udp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            udp_port.expect("no udp_port"),
         );
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
         let client = AsyncClient::connect(stream);
@@ -239,7 +239,7 @@ fn test_server_continues_on_bad_data_udp() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            udp_port.expect("no udp_port"),
         );
         let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
         let client = AsyncClient::connect(stream);
@@ -253,11 +253,11 @@ fn test_server_continues_on_bad_data_udp() {
 
 #[test]
 fn test_server_continues_on_bad_data_tcp() {
-    named_test_harness("example.toml", |port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -277,7 +277,7 @@ fn test_server_continues_on_bad_data_tcp() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -295,11 +295,11 @@ fn test_forward() {
 
     //env_logger::init();
 
-    named_test_harness("example_forwarder.toml", |port, _, _| {
+    named_test_harness("example_forwarder.toml", |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);
@@ -321,7 +321,7 @@ fn test_forward() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
-            port.expect("no test_port"),
+            tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
         let client = AsyncClient::new(Box::new(stream), sender, None);

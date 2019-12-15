@@ -38,7 +38,7 @@ fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
 #[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
-    F: FnOnce(Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
+    F: FnOnce(Option<u16>, Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
 {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     println!("using server src path: {}", server_path);
@@ -98,7 +98,8 @@ where
         .expect("could not start thread killer");
 
     // These will be collected from the server startup
-    let mut test_port = Option::<u16>::None;
+    let mut test_udp_port = Option::<u16>::None;
+    let mut test_tcp_port = Option::<u16>::None;
     let mut test_tls_port = Option::<u16>::None;
     let mut test_https_port = Option::<u16>::None;
 
@@ -109,7 +110,7 @@ where
 
     // Search strings for the ports used during testing
     let udp_regex = Regex::new(r"listening for UDP on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
-    //let tcp_regex = Regex::new(r"listening for TCP on V4\(0\.0\.0\.0\:(:?\d+)\)").unwrap();
+    let tcp_regex = Regex::new(r"listening for TCP on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
     let tls_regex = Regex::new(r"listening for TLS on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
     let https_regex = Regex::new(r"listening for HTTPS on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
 
@@ -128,18 +129,23 @@ where
         collect_and_print(&mut named_out, &mut output);
 
         if let Some(udp) = udp_regex.captures(&output) {
-            test_port = Some(
+            test_udp_port = Some(
                 u16::from_str_radix(udp.get(1).expect("udp missing port").as_str(), 10)
                     .expect("could not parse udp port"),
             );
+        } else if let Some(tcp) = tcp_regex.captures(&output) {
+            test_tcp_port = Some(
+                u16::from_str_radix(tcp.get(1).expect("tcp missing port").as_str(), 10)
+                    .expect("could not parse tcp port"),
+            );
         } else if let Some(tls) = tls_regex.captures(&output) {
             test_tls_port = Some(
-                u16::from_str_radix(tls.get(1).expect("udp missing port").as_str(), 10)
+                u16::from_str_radix(tls.get(1).expect("tls missing port").as_str(), 10)
                     .expect("could not parse tls port"),
             );
         } else if let Some(https) = https_regex.captures(&output) {
             test_https_port = Some(
-                u16::from_str_radix(https.get(1).expect("udp missing port").as_str(), 10)
+                u16::from_str_radix(https.get(1).expect("https missing port").as_str(), 10)
                     .expect("could not parse https port"),
             );
         } else if output.contains("awaiting connections...") {
@@ -176,7 +182,8 @@ where
 
     println!("running test...");
 
-    let result = catch_unwind(move || test(test_port, test_tls_port, test_https_port));
+    let result =
+        catch_unwind(move || test(test_udp_port, test_tcp_port, test_tls_port, test_https_port));
 
     println!("test completed");
     succeeded.store(true, atomic::Ordering::Relaxed);
