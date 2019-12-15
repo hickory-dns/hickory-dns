@@ -68,10 +68,9 @@ fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
 {
-    let server_path =
-        env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../../crates/server".to_owned());
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     let pem_path = format!(
-        "{}/../../tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem",
+        "{}/tests/compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem",
         server_path
     );
     println!("loading pem from: {}", pem_path);
