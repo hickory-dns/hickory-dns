@@ -162,12 +162,12 @@ fn test_server_www_tls() {
 
     let dns_name = "ns.example.com";
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../../crates/server".to_owned());
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or("../..".to_owned());
     println!("using server src path: {}", server_path);
 
-    let cert_der = read_file(&format!("{}/../../tests/test-data/ca.der", server_path));
+    let cert_der = read_file(&format!("{}/tests/test-data/ca.der", server_path));
 
-    let pkcs12_der = read_file(&format!("{}/../../tests/test-data/cert.p12", server_path));
+    let pkcs12_der = read_file(&format!("{}/tests/test-data/cert.p12", server_path));
 
     // Server address
     let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");

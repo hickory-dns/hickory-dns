@@ -40,20 +40,20 @@ pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
     F: FnOnce(Option<u16>, Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
 {
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {}", server_path);
 
-    let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
+    let mut named = Command::new(&format!("{}/target/debug/named", server_path))
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
             "trust_dns_client=debug,trust_dns_https=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
         ).arg("-d")
         .arg(&format!(
-            "--config={}/../tests/test-data/named_test_configs/{}",
+            "--config={}/tests/test-data/named_test_configs/{}",
             server_path, toml
         )).arg(&format!(
-            "--zonedir={}/../tests/test-data/named_test_configs",
+            "--zonedir={}/tests/test-data/named_test_configs",
             server_path
         )).arg(&format!("--port={}", 0))
         .arg(&format!("--tls-port={}", 0))

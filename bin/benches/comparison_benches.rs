@@ -206,10 +206,10 @@ fn bind_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
     let bind_path = env::var("TDNS_BIND_PATH").unwrap_or_else(|_| "bind".to_owned());
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
 
     // create the work directory
-    let working_dir = format!("{}/../../target/bind_pwd", server_path);
+    let working_dir = format!("{}/../target/bind_pwd", server_path);
     if !Path::new(&working_dir).exists() {
         DirBuilder::new()
             .create(&working_dir)
