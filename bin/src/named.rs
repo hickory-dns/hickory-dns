@@ -407,9 +407,6 @@ fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
-    // The TCP ports will match the udp ports
-    let mut tcp_addrs = Vec::with_capacity(sockaddrs.len());
-
     // load all the listeners
     for udp_socket in &sockaddrs {
         info!("binding UDP to {:?}", udp_socket);
@@ -423,16 +420,11 @@ fn main() {
                 .local_addr()
                 .expect("could not lookup local address")
         );
-        tcp_addrs.push(
-            udp_socket
-                .local_addr()
-                .expect("could not lookup local address"),
-        );
         server.register_socket(udp_socket, &runtime);
     }
 
     // and TCP as necessary
-    for tcp_listener in &tcp_addrs {
+    for tcp_listener in &sockaddrs {
         info!("binding TCP to {:?}", tcp_listener);
         let tcp_listener = runtime
             .block_on(TcpListener::bind(tcp_listener))

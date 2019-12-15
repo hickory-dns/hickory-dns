@@ -61,7 +61,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
 }
 
 #[allow(clippy::type_complexity)]
-async fn standard_conn(
+async fn standard_tcp_conn(
     port: u16,
 ) -> (
     AsyncClient<DnsMultiplexerSerialResponse>,
@@ -89,22 +89,22 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     let server_path = Path::new(&server_path);
 
-    named_test_harness(config_toml, |port, _, _| {
+    named_test_harness(config_toml, |_, tcp_port, _, _| {
         let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present
-        let client = standard_conn(port.expect("no udp port"));
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
-        let client = standard_conn(port.expect("no udp port"));
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
-        let client = standard_conn(port.expect("no udp port"));
+        let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
         let mut client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);

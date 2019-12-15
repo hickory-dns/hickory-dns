@@ -42,7 +42,7 @@ fn test_example_https_toml_startup() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    named_test_harness("dns_over_https.toml", move |_, _, https_port| {
+    named_test_harness("dns_over_https.toml", move |_, _, _, https_port| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         println!("using server src path: {}", server_path);
