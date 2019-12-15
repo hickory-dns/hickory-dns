@@ -26,6 +26,8 @@ jobs:
     - uses: davidB/rust-cargo-make@v1
     - name: cargo make all-features
       run: cargo make all-features
+    - name: cargo make coverage
+      run: cargo make coverage
 
   ## Work through all of the variations of the different features, only on linux to save concurrent resources
   exhaustive-features-matrix:
@@ -44,6 +46,8 @@ jobs:
     - uses: davidB/rust-cargo-make@v1
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
+    - name: cargo make coverage
+      run: cargo make coverage
 
   ## Check past and future versions
   ##   this enforces the minimum version of rust this project works with
