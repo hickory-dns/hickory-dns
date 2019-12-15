@@ -28,6 +28,11 @@ jobs:
       run: cargo make all-features
     - name: cargo make coverage
       run: cargo make coverage
+    - name: upload coverage
+      if: matrix.os == 'ubuntu-latest'
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   ## Work through all of the variations of the different features, only on linux to save concurrent resources
   exhaustive-features-matrix:
@@ -48,6 +53,10 @@ jobs:
       run: cargo make ${{ matrix.feature }}
     - name: cargo make coverage
       run: cargo make coverage
+    - name: upload coverage
+      uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   ## Check past and future versions
   ##   this enforces the minimum version of rust this project works with
