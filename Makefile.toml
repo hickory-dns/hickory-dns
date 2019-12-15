@@ -14,14 +14,17 @@ skip_core_tasks = true
 # if true, all core tasks are set to private (default false)
 private = true
 
-
 ## General environment configuration
 [env]
+TARGET_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target"
+CARGO_MAKE_WORKSPACE_TARGET_DIRECTORY = "${TARGET_DIR}"
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
-TARGET_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/target"
+CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY = "${TARGET_DIR}/kcov"
+
 TDNS_BIND_PATH = "${TARGET_DIR}/bind"
 
 
+##
 ## Installation tasks
 ##
 
@@ -82,6 +85,7 @@ condition_script = ["if cargo audit ; then exit 1 ; else exit 0 ; fi"]
 command = "cargo"
 args = ["install", "cargo-audit"]
 
+##
 ## Standard tasks for testing, building, etc.
 ##
 
@@ -97,17 +101,28 @@ sleep 10
 
 [tasks.clean-bind]
 description = "Remove the BIND9 build directory"
+workspace = false
 script_runner = "@shell"
 script = [
 '''
-rm -rf ${TARGET_DIR}/bind
-rm -rf ${TARGET_DIR}/bind_*
+rm -rf ${TDNS_BIND_PATH}
+rm -rf ${TDNS_BIND_PATH}_*
+'''
+]
+
+[tasks.clean-kcov]
+description = "Remove the kcov installation"
+workspace = false
+script_runner = "@shell"
+script = [
+'''
+rm -rf ${TARGET_DIR}/
 '''
 ]
 
 [tasks.clean]
 description = "Remove only the current workspace member"
-dependencies = ["clean-bind"]
+dependencies = ["clean-bind", "clean-kcov"]
 command = "cargo"
 args = ["clean", "-p", "${CARGO_MAKE_CRATE_NAME}"]
 
@@ -170,6 +185,7 @@ dependencies = ["check", "build", "test"]
 description = "Run the all task"
 run_task = "all"
 
+##
 ## All feature testing builds
 ##
 
@@ -248,6 +264,135 @@ run_task = { name = "all", fork = true }
 description = "Run all with every features independently (this will melt your computer)"
 dependencies = ["no-default-features", "default-features", "all-features", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dns-dnssec-openssl", "dns-dnssec-openssl", "dns-dnssec-ring", "mdns"]
 
+##
+## Coverage
+##
+
+[tasks.coverage-kcov]
+description = "Installs (if missing) and runs coverage using kcov (not supported on windows)"
+windows_alias = "empty"
+mac_alias = "empty" # TODO: mac works, but is so slow it hangs on some tests...
+script_runner = "bash"
+env = { CARGO_MAKE_KCOV_INCLUDE_PATTERN = "${CARGO_MAKE_WORKING_DIRECTORY}/src/", CARGO_MAKE_KCOV_VERSION = "37", CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY = "${TARGET_DIR}/kcov-dl", CARGO_MAKE_COVERAGE_REPORT_DIRECTORY = "${TARGET_DIR}/coverage", CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER = "${CARGO_MAKE_CRATE_FS_NAME}-[a-z0-9]*$\\|test_[_a-z0-9]*-[a-z0-9]*$\\|[a-z0-9]*_tests-[_a-z0-9]*$" }
+install_script = [
+'''
+set -e
+
+echo "====> installing kcov"
+
+KCOV_INSTALLATION_DIRECTORY=""
+KCOV_BINARY_DIRECTORY=""
+if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
+    mkdir -p ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
+    cd ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
+    KCOV_INSTALLATION_DIRECTORY="$(pwd)/"
+    cd -
+    echo "Kcov Installation Directory: ${KCOV_INSTALLATION_DIRECTORY}"
+    KCOV_BINARY_DIRECTORY="${KCOV_INSTALLATION_DIRECTORY}/build/src/"
+    echo "Kcov Binary Directory: ${KCOV_BINARY_DIRECTORY}"
+fi
+
+# get help info to fetch all supported command line arguments
+KCOV_HELP_INFO=`${KCOV_BINARY_DIRECTORY}kcov --help` || true
+
+# check needed arguments are supported, else install
+if [[ $KCOV_HELP_INFO != *"--include-pattern"* ]] || [[ $KCOV_HELP_INFO != *"--exclude-line"* ]] || [[ $KCOV_HELP_INFO != *"--exclude-region"* ]]; then
+    # check we are on a supported platform
+    if [ "$(uname)" == "Linux" ]; then
+        if [ "$(grep -Ei 'debian|buntu|mint' /etc/*release)" ]; then
+            echo "Installing/Upgrading kcov..."
+            sudo apt-get update || true
+            sudo apt-get install -y libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev
+        fi
+    elif [ "$(uname)" == "Darwin" ]; then
+        brew install zlib bash cmake pkgconfig wget
+    fi
+
+    mkdir -p ${CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY}
+    cd ${CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY}
+    KCOV_DOWNLOAD_DIRECTORY=$(pwd)
+
+    wget https://github.com/SimonKagstrom/kcov/archive/v${CARGO_MAKE_KCOV_VERSION}.zip
+    unzip v${CARGO_MAKE_KCOV_VERSION}.zip
+    cd kcov-${CARGO_MAKE_KCOV_VERSION}
+    mkdir -p build
+    cd ./build
+    cmake ..
+    make
+
+    # if custom installation directory, leave kcov as local
+    if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
+        cd ${KCOV_DOWNLOAD_DIRECTORY}/kcov-${CARGO_MAKE_KCOV_VERSION}
+        mv ./* ${KCOV_INSTALLATION_DIRECTORY}
+    else
+        sudo make install
+        cd ../..
+        rm -rf kcov-${CARGO_MAKE_KCOV_VERSION}
+    fi
+fi
+'''
+]
+script = [
+'''
+set -e
+
+echo "Working Directory: ${CARGO_MAKE_WORKING_DIRECTORY}"
+
+KCOV_BINARY_DIRECTORY=""
+if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
+    cd ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
+    KCOV_INSTALLATION_DIRECTORY="$(pwd)/"
+    cd -
+    echo "Kcov Installation Directory: ${KCOV_INSTALLATION_DIRECTORY}"
+    KCOV_BINARY_DIRECTORY="${KCOV_INSTALLATION_DIRECTORY}/build/src/"
+    echo "Kcov Binary Directory: ${KCOV_BINARY_DIRECTORY}"
+fi
+
+TARGET_DIRECTORY="target/coverage"
+if [ -n "$CARGO_MAKE_COVERAGE_REPORT_DIRECTORY" ]; then
+    TARGET_DIRECTORY="$CARGO_MAKE_COVERAGE_REPORT_DIRECTORY"
+    mkdir -p ${TARGET_DIRECTORY}
+else
+    mkdir -p ./target/coverage
+fi
+
+BINARY_DIRECTORY=target/debug
+if [ -n "$CARGO_MAKE_WORKSPACE_TARGET_DIRECTORY" ]; then
+    BINARY_DIRECTORY="${CARGO_MAKE_WORKSPACE_TARGET_DIRECTORY}/debug"
+fi
+
+KCOV_EXCLUDE_LINE_ARG=""
+if [ -n "$CARGO_MAKE_KCOV_EXCLUDE_LINE" ]; then
+    KCOV_EXCLUDE_LINE_ARG="--exclude-line=${CARGO_MAKE_KCOV_EXCLUDE_LINE}"
+fi
+
+KCOV_EXCLUDE_REGION_ARG=""
+if [ -n "$CARGO_MAKE_KCOV_EXCLUDE_REGION" ]; then
+    KCOV_EXCLUDE_REGION_ARG="--exclude-region=${CARGO_MAKE_KCOV_EXCLUDE_REGION}"
+fi
+
+cd ${CARGO_MAKE_WORKING_DIRECTORY}
+echo "Running tests from directory: ${BINARY_DIRECTORY}"
+
+# Evaluate variables that may be in the expression
+# This allows us to do double expansion on a non-variable second expansion
+CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX="$(sh -c "echo \"${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER}\"")"
+echo "Test binary filter regex: ${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX}"
+
+for file in $(find "${BINARY_DIRECTORY}" -maxdepth 1 -type f | grep -e "${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX}")
+do
+    echo "Running coverage for file: $file"
+    ${KCOV_BINARY_DIRECTORY}/kcov --include-pattern=${CARGO_MAKE_KCOV_INCLUDE_PATTERN} ${KCOV_EXCLUDE_LINE_ARG} ${KCOV_EXCLUDE_REGION_ARG} "$TARGET_DIRECTORY" "$file" || true
+done
+'''
+]
+
+[tasks.coverage]
+description = "Run coverage reports on all crates"
+env = { RUSTFLAGS = "-C link-dead-code" }
+run_task = "coverage-kcov"
+
+##
 ## publishing
 ##
 
