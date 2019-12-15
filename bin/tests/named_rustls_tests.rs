@@ -42,11 +42,11 @@ fn test_example_tls_toml_startup() {
         "dns_over_tls_rustls_and_openssl.toml",
         move |_, _, tls_port, _| {
             let mut cert_der = vec![];
-            let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
+            let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
             println!("using server src path: {}", server_path);
 
             File::open(&format!(
-                "{}/../tests/test-data/named_test_configs/sec/example.cert",
+                "{}/tests/test-data/named_test_configs/sec/example.cert",
                 server_path
             ))
             .expect("failed to open cert")

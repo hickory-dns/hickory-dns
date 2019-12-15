@@ -22,7 +22,7 @@ CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY = "${TARGET_DIR}/kcov"
 
 TDNS_BIND_PATH = "${TARGET_DIR}/bind"
-
+TDNS_WORKSPACE_ROOT = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
 
 ##
 ## Installation tasks
@@ -276,7 +276,7 @@ script_runner = "bash"
 env = { CARGO_MAKE_KCOV_INCLUDE_PATTERN = "${CARGO_MAKE_WORKING_DIRECTORY}/src/", CARGO_MAKE_KCOV_VERSION = "37", CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY = "${TARGET_DIR}/kcov-dl", CARGO_MAKE_COVERAGE_REPORT_DIRECTORY = "${TARGET_DIR}/coverage", CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER = "${CARGO_MAKE_CRATE_FS_NAME}-[a-z0-9]*$\\|test_[_a-z0-9]*-[a-z0-9]*$\\|[a-z0-9]*_tests-[_a-z0-9]*$" }
 install_script = [
 '''
-set -e
+#set -e
 
 echo "====> installing kcov"
 
@@ -334,7 +334,7 @@ fi
 ]
 script = [
 '''
-set -e
+#set -e
 
 echo "Working Directory: ${CARGO_MAKE_WORKING_DIRECTORY}"
 
@@ -372,6 +372,7 @@ if [ -n "$CARGO_MAKE_KCOV_EXCLUDE_REGION" ]; then
 fi
 
 cd ${CARGO_MAKE_WORKING_DIRECTORY}
+echo "Working director: ${PWD}"
 echo "Running tests from directory: ${BINARY_DIRECTORY}"
 
 # Evaluate variables that may be in the expression
@@ -389,7 +390,6 @@ done
 
 [tasks.coverage]
 description = "Run coverage reports on all crates"
-env = { RUSTFLAGS = "-C link-dead-code" }
 run_task = "coverage-kcov"
 
 ##
