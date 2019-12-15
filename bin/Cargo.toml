@@ -37,9 +37,9 @@ categories = ["network-programming"]
 license = "MIT/Apache-2.0"
 
 [badges]
-travis-ci = { repository = "bluejekyll/trust-dns" }
 #github-actions = { repository = "bluejekyll/trust-dns", branch = "master", workflow = "test" }
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+maintenance = { status = "actively-developed" }
 
 [features]
 default = ["sqlite", "resolver"]

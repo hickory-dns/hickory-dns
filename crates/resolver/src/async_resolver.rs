@@ -588,7 +588,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // these appear to not work on travis
+    #[ignore] // these appear to not work on CI
     fn test_sec_lookup() {
         let mut io_loop = Runtime::new().unwrap();
         let resolver = AsyncResolver::new(
@@ -624,7 +624,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // these appear to not work on travis
+    #[ignore] // these appear to not work on CI
     #[allow(deprecated)]
     fn test_sec_lookup_fails() {
         let mut io_loop = Runtime::new().unwrap();
@@ -693,7 +693,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
+    // these appear to not work on CI, test on macos with `10.1.0.104  a.com`
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Runtime::new().unwrap();
