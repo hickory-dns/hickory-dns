@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-compatibility"
-version = "0.18.0-alpha.2"
+version = "0.18.0-alpha.3"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -32,7 +32,7 @@ license = "MIT/Apache-2.0"
 
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
-appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+#github-actions = { repository = "bluejekyll/trust-dns", branch = "master", workflow = "test" }
 
 [features]
 default = ["none"]

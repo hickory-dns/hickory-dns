@@ -15,11 +15,15 @@ skip_core_tasks = true
 private = true
 
 
-## Feature profiles
+## General environment configuration
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 TARGET_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}/target"
 TDNS_BIND_PATH = "${TARGET_DIR}/bind"
+
+
+## Installation tasks
+##
 
 [tasks.install-openssl]
 description = "Installs OpenSSL on Windows"
@@ -78,6 +82,19 @@ condition_script = ["if cargo audit ; then exit 1 ; else exit 0 ; fi"]
 command = "cargo"
 args = ["install", "cargo-audit"]
 
+## Standard tasks for testing, building, etc.
+##
+
+# TODO: actually make this await rather than sleep
+[tasks.await-update]
+description = "awaits the package to show up in crates.io"
+script_runner = "@shell"
+script = [
+'''
+sleep 10
+'''
+]
+
 [tasks.clean-bind]
 description = "Remove the BIND9 build directory"
 script_runner = "@shell"
@@ -93,6 +110,11 @@ description = "Remove only the current workspace member"
 dependencies = ["clean-bind"]
 command = "cargo"
 args = ["clean", "-p", "${CARGO_MAKE_CRATE_NAME}"]
+
+[tasks.update]
+description = "Update dependecies"
+command = "cargo"
+args = ["update", "-p", "${CARGO_MAKE_CRATE_NAME}"]
 
 [tasks.fmt]
 description = "Check formatting with rustfmt"
@@ -148,7 +170,9 @@ dependencies = ["check", "build", "test"]
 description = "Run the all task"
 run_task = "all"
 
-## defined tasks
+## All feature testing builds
+##
+
 [tasks.default-features]
 description = "Run all with default features"
 dependencies = ["install-openssl"]
@@ -223,3 +247,18 @@ run_task = { name = "all", fork = true }
 [tasks.world]
 description = "Run all with every features independently (this will melt your computer)"
 dependencies = ["no-default-features", "default-features", "all-features", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dns-dnssec-openssl", "dns-dnssec-openssl", "dns-dnssec-ring", "mdns"]
+
+## publishing
+##
+
+[tasks.package]
+description = "package artifacts for each crate"
+command = "cargo"
+args = ["package", "--locked"]
+
+[tasks.publish]
+description = "publish next release"
+dependencies = ["await-update", "update", "check", "package"]
+env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "test/*"}
+command = "cargo"
+args = ["publish", "--verbose", "--locked"]

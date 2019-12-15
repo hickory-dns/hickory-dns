@@ -20,10 +20,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (resolver) AsyncResolver now requires a ConnectionProvider type parameter, see TokioAsyncResolver as a predefined type without it
 - (resolver) Now returns a connect future to connect the start all background tasks
 - (proto, resolver) renamed the `tokio-compat` feature to `tokio-runtime`
+- (all) added cargo-make Makefile.toml to support all automation in Github workflow
 
 ### Fixes
 
-- (proto) DnsExchange no longer spawns a background task
+- (proto) Removed deadlock from UDPSocket stream impl
+- (named) made tests a little more resilient to port stealing
 
 ### Removed
 
@@ -33,6 +35,11 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (client) removed all deprecated reexports from trust_dns_proto
 - (proto) removed unused xfer::BasicDnsHandle, xfer::MessageStreamHandle
 - (resolver) removed all unused custom LookupFuture types SrvLookupFuture, ReverseLookupFuture, Ipv4LookupFuture, Ipv6LookupFuture, MxLookupFuture, TxtLookupFuture, SoaLookupFuture, NsLookupFuture
+- (resolver) removed Background, BackgroundLookup, and BackgroundLookupIp
+
+### Added
+
+- (proto) proto now has a `testing` feature to allow dependencies that might want access to some of the testing harnesses.
 
 ## 0.17.0 (Client/Server)
 
