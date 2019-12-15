@@ -1,4 +1,4 @@
-name: rust
+name: test
 
 on:
   push:
