@@ -18,16 +18,39 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
     - uses: actions/checkout@v1
+
+    - name: cargo cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
+    
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
         override: true
     - uses: davidB/rust-cargo-make@v1
+
+    - name: cargo target cache
+      uses: actions/cache@v1
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-target
+
+
     - name: cargo make all-features
       run: cargo make all-features
+    
     - name: cargo make coverage
       run: cargo make coverage
+    
     - name: upload coverage
       if: matrix.os == 'ubuntu-latest'
       uses: codecov/codecov-action@v1
@@ -43,16 +66,39 @@ jobs:
         feature: [default-features, no-default-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns]
     steps:
     - uses: actions/checkout@v1
+
+    - name: cargo cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
+    
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
         override: true
     - uses: davidB/rust-cargo-make@v1
+
+    - name: cargo target cache
+      uses: actions/cache@v1
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ matrix.feature }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-${{ matrix.feature }}-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-target-${{ matrix.feature }}
+          ${{ runner.os }}-cargo-target
+
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
+    
     - name: cargo make coverage
       run: cargo make coverage
+    
     - name: upload coverage
       uses: codecov/codecov-action@v1
       with:
@@ -68,14 +114,36 @@ jobs:
         version: ['1.39.0', beta, nightly]
     steps:
     - uses: actions/checkout@v1
+
+    - name: cargo cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
+
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: ${{ matrix.version }}
         override: true
     - uses: davidB/rust-cargo-make@v1
+
+    - name: cargo target cache
+      uses: actions/cache@v1
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-target-${{ matrix.version }}
+          ${{ runner.os }}-cargo-target
+
     - name: cargo make all-features
       run: cargo make all-features
+
     - name: cargo make build-bench
       if: matrix.version == 'nightly'
       run: cargo make build-bench
@@ -86,6 +154,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+
+    - name: cargo cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-cargo-cleanliness-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-cleanliness-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-cleanliness
+          ${{ runner.os }}-cargo
+
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
@@ -93,6 +172,17 @@ jobs:
         components: rustfmt, clippy
         override: true
     - uses: davidB/rust-cargo-make@v1
+
+    - name: cargo target cache
+      uses: actions/cache@v1
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-cleanliness-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-cleanliness-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-target-cleanliness
+          ${{ runner.os }}-cargo-target
+
     # Clippy
     - name: cargo make clippy
       run: cargo make clippy
@@ -109,11 +199,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
+
+    - name: cargo cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.cargo
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
+
+    
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
         override: true
     - uses: davidB/rust-cargo-make@v1
+
+    - name: cargo target cache
+      uses: actions/cache@v1
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-target-compat-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-target-compat-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-target-compat
+          ${{ runner.os }}-cargo-target
+
     - name: cargo make bind-compatibility
       run: cargo make bind-compatibility
