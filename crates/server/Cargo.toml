@@ -80,7 +80,7 @@ h2 = { version = "0.2.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 log = "0.4.10"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-rusqlite = { version = "0.20.0", features = ["bundled"], optional = true }
+rusqlite = { version = "0.21.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0.102", features = ["derive"] }
 time = "0.1"
