@@ -37,7 +37,7 @@ jobs:
       with:
         version: '0.24.2'
 
-    - name: target/debug/deps
+    - name: target/debug/deps cache
       uses: actions/cache@v1
       with:
         path: target/debug/deps
@@ -86,7 +86,7 @@ jobs:
       with:
         version: '0.24.2'
 
-    - name: target/debug/deps
+    - name: target/debug/deps cache
       uses: actions/cache@v1
       with:
         path: target/debug/deps
@@ -135,7 +135,7 @@ jobs:
       with:
         version: '0.24.2'
 
-    - name: target/debug/deps
+    - name: target/debug/deps cache
       uses: actions/cache@v1
       with:
         path: target/debug/deps
@@ -214,7 +214,7 @@ jobs:
       with:
         version: '0.24.2'
 
-    - name: target/bind
+    - name: target/bind cache
       uses: actions/cache@v1
       with:
         path: target/bind
@@ -223,7 +223,7 @@ jobs:
           ${{ runner.os }}-cargo-target-bind-${{ hashFiles('**/Makefile.toml') }}
           ${{ runner.os }}-cargo-target-bind
     
-    - name: target/debug/deps
+    - name: target/debug/deps cache
       uses: actions/cache@v1
       with:
         path: target/debug/deps
