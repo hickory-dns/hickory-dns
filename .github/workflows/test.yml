@@ -43,10 +43,10 @@ jobs:
       uses: actions/cache@v1
       with:
         path: target/debug/deps
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo
+          ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-deps
 
     - name: cargo make all-features
       run: cargo make all-features
