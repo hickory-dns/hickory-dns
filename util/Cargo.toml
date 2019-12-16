@@ -54,5 +54,5 @@ trust-dns-client= { version = "0.18.0-alpha", features = ["dnssec-openssl"], pat
 trust-dns-proto = { version = "0.18.0-alpha", features = ["dnssec-openssl"], path = "../crates/proto" }
 trust-dns-resolver = { version = "0.18.0-alpha", features = ["dnssec-openssl"], path = "../crates/resolver" }
 env_logger = "0.7"
-log = "0.4.8"
+log = "0.4.10"
 openssl = { version = "0.10", features = ["v102", "v110"] }

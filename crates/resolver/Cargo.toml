@@ -67,7 +67,7 @@ cfg-if = "0.1.9"
 failure = "0.1"
 futures = "0.3.0"
 lazy_static = "1.0"
-log = "0.4.8"
+log = "0.4.10"
 lru-cache = "0.1.2"
 resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
