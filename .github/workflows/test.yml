@@ -34,15 +34,17 @@ jobs:
         toolchain: stable
         override: true
     - uses: davidB/rust-cargo-make@v1
+      with:
+        version: '0.24.2'
 
-    # - name: target/debug/deps
-    #   uses: actions/cache@v1
-    #   with:
-    #     path: target/debug/deps
-    #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-    #       ${{ runner.os }}-cargo
+    - name: target/debug/deps
+      uses: actions/cache@v1
+      with:
+        path: target/debug/deps
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -81,6 +83,8 @@ jobs:
         toolchain: stable
         override: true
     - uses: davidB/rust-cargo-make@v1
+      with:
+        version: '0.24.2'
 
     - name: target/debug/deps
       uses: actions/cache@v1
@@ -128,6 +132,8 @@ jobs:
         toolchain: ${{ matrix.version }}
         override: true
     - uses: davidB/rust-cargo-make@v1
+      with:
+        version: '0.24.2'
 
     - name: target/debug/deps
       uses: actions/cache@v1
@@ -170,6 +176,8 @@ jobs:
         components: rustfmt, clippy
         override: true
     - uses: davidB/rust-cargo-make@v1
+      with:
+        version: '0.24.2'
 
     # Clippy
     - name: cargo make clippy
@@ -203,6 +211,8 @@ jobs:
         toolchain: stable
         override: true
     - uses: davidB/rust-cargo-make@v1
+      with:
+        version: '0.24.2'
 
     - name: target/bind
       uses: actions/cache@v1
