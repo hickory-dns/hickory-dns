@@ -48,7 +48,16 @@ jobs:
 
     - name: cargo make all-features
       run: cargo make all-features
-    
+
+    - name: target/kcov cache
+      uses: actions/cache@v1
+      with:
+        path: target/kcov
+        key: ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-kcov
+
     - name: cargo make coverage
       run: cargo make coverage
     
@@ -90,14 +99,23 @@ jobs:
       uses: actions/cache@v1
       with:
         path: target/debug/deps
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo
+          ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-deps
 
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
-    
+
+    - name: target/kcov cache
+      uses: actions/cache@v1
+      with:
+        path: target/kcov
+        key: ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-kcov
+
     - name: cargo make coverage
       run: cargo make coverage
     
@@ -139,11 +157,11 @@ jobs:
       uses: actions/cache@v1
       with:
         path: target/debug/deps
-        key: ${{ runner.os }}-cargo-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-deps-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-${{ matrix.version }}
-          ${{ runner.os }}-cargo
+          ${{ runner.os }}-deps-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-deps-${{ matrix.version }}
+          ${{ runner.os }}-deps
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -218,20 +236,19 @@ jobs:
       uses: actions/cache@v1
       with:
         path: target/bind
-        key: ${{ runner.os }}-cargo-target-bind-${{ hashFiles('**/Makefile.toml') }}
+        key: ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-target-bind-${{ hashFiles('**/Makefile.toml') }}
-          ${{ runner.os }}-cargo-target-bind
+          ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
+          ${{ runner.os }}-bind
     
     - name: target/debug/deps cache
       uses: actions/cache@v1
       with:
         path: target/debug/deps
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo
-
+          ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-deps
 
     - name: cargo make bind-compatibility
       run: cargo make bind-compatibility
