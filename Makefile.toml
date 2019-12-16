@@ -47,12 +47,14 @@ Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\ca
 [tasks.install-bind]
 workspace = false
 description = "Installs BIND9 on Ubuntu"
-condition = { platforms = ["linux", "mac"], files_not_exist = ["${TDNS_BIND_PATH}/bin/named/named"] }
-env = {  BIND_VER="9.11.7" }
+condition = { platforms = ["linux", "mac"], files_not_exist = ["${TDNS_BIND_PATH}/sbin/named"] }
+env = { BIND_VER="9.11.7" }
 script_runner = "@shell"
 script = [
 '''
 set -e
+
+if ${TDNS_BIND_PATH}/sbin/named -v ; then exit 0 ; fi
 
 ## This must run after OpenSSL installation
 
@@ -70,12 +72,16 @@ ls -la ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz
 tar -xzf ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz -C ${TARGET_DIR:?}
 
 echo "----> compiling bind"
-rm -rf ${TDNS_BIND_PATH:?}
-mv ${TARGET_DIR:?}/bind-${BIND_VER} ${TDNS_BIND_PATH:?}
-cd ${TDNS_BIND_PATH:?}
+cd ${TARGET_DIR:?}/bind-${BIND_VER}
 
-./configure ${WITH_OPENSSL}
-make
+./configure --prefix ${TDNS_BIND_PATH:?} ${WITH_OPENSSL}
+make install
+cd -
+
+${TDNS_BIND_PATH}/sbin/named -v
+
+rm ${TARGET_DIR:?}/bind-${BIND_VER}.tar.gz
+rm -rf ${TARGET_DIR:?}/bind-${BIND_VER}
 '''
 ]
 

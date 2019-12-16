@@ -35,15 +35,14 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
 
-    - name: cargo target cache
+    - name: target/debug/deps
       uses: actions/cache@v1
       with:
-        path: target
-        key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        path: target/debug/deps
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-target
-
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -83,15 +82,14 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
 
-    - name: cargo target cache
+    - name: target/debug/deps
       uses: actions/cache@v1
       with:
-        path: target
-        key: ${{ runner.os }}-cargo-target-${{ matrix.feature }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        path: target/debug/deps
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-target-${{ matrix.feature }}-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-target-${{ matrix.feature }}
-          ${{ runner.os }}-cargo-target
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
 
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
@@ -131,15 +129,15 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
 
-    - name: cargo target cache
+    - name: target/debug/deps
       uses: actions/cache@v1
       with:
-        path: target
-        key: ${{ runner.os }}-cargo-target-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        path: target/debug/deps
+        key: ${{ runner.os }}-cargo-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-target-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-target-${{ matrix.version }}
-          ${{ runner.os }}-cargo-target
+          ${{ runner.os }}-cargo-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-${{ matrix.version }}
+          ${{ runner.os }}-cargo
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -159,10 +157,10 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-cargo-cleanliness-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-cleanliness-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-cleanliness
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
           ${{ runner.os }}-cargo
 
     - uses: actions-rs/toolchain@v1
@@ -172,16 +170,6 @@ jobs:
         components: rustfmt, clippy
         override: true
     - uses: davidB/rust-cargo-make@v1
-
-    - name: cargo target cache
-      uses: actions/cache@v1
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-target-cleanliness-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-target-cleanliness-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-target-cleanliness
-          ${{ runner.os }}-cargo-target
 
     # Clippy
     - name: cargo make clippy
@@ -209,7 +197,6 @@ jobs:
           ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           ${{ runner.os }}-cargo
 
-    
     - uses: actions-rs/toolchain@v1
       with:
         profile: minimal
@@ -217,15 +204,24 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
 
-    - name: cargo target cache
+    - name: target/bind
       uses: actions/cache@v1
       with:
-        path: target
-        key: ${{ runner.os }}-cargo-target-compat-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        path: target/bind
+        key: ${{ runner.os }}-cargo-target-bind-${{ hashFiles('**/Makefile.toml') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-target-compat-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo-target-compat
-          ${{ runner.os }}-cargo-target
+          ${{ runner.os }}-cargo-target-bind-${{ hashFiles('**/Makefile.toml') }}
+          ${{ runner.os }}-cargo-target-bind
+    
+    - name: target/debug/deps
+      uses: actions/cache@v1
+      with:
+        path: target/debug/deps
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo
+
 
     - name: cargo make bind-compatibility
       run: cargo make bind-compatibility

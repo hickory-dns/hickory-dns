@@ -20,7 +20,7 @@ pub fn named_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
     let bind_path = env::var("TDNS_BIND_PATH").expect("TDNS_BIND_PATH not set");
-    let bind_path = format!("{}/bin/named/named", bind_path);
+    let bind_path = format!("{}/sbin/named", bind_path);
 
     println!(
         "Path to BIND '{}' this can be changed with the TDNS_BIND_PATH environment variable",
