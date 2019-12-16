@@ -70,6 +70,8 @@ jobs:
   ## Work through all of the variations of the different features, only on linux to save concurrent resources
   exhaustive-features-matrix:
     name: exhaustive
+    # Let's wait for the all-features cache
+    needs: platform-matrix
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -128,6 +130,8 @@ jobs:
   ##   this enforces the minimum version of rust this project works with
   past-future-matrix:
     name: past-future
+    # Let's wait for the all-features cache
+    needs: platform-matrix
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -139,8 +143,9 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
+          ${{ runner.os }}-cargo-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
           ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
           ${{ runner.os }}-cargo
 
@@ -177,14 +182,15 @@ jobs:
     steps:
     - uses: actions/checkout@v1
 
-    - name: cargo cache
+    # not using the cargo cache here, since this differs significantly
+    - name: cargo-all cache
       uses: actions/cache@v1
       with:
         path: ~/.cargo
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+        key: ${{ runner.os }}-cargo-all-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo
+          ${{ runner.os }}-cargo-all-${{ hashFiles('**/Cargo.toml') }}
+          ${{ runner.os }}-cargo-all
           ${{ runner.os }}-cargo
 
     - uses: actions-rs/toolchain@v1
@@ -210,6 +216,8 @@ jobs:
   # Build and run bind to test our compatibility with standard name servers
   compatibility:
     name: compatibility
+    # wait for the cache from all-features
+    needs: platform-matrix
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
