@@ -35,14 +35,14 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
 
-    - name: target/debug/deps
-      uses: actions/cache@v1
-      with:
-        path: target/debug/deps
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-cargo
+    # - name: target/debug/deps
+    #   uses: actions/cache@v1
+    #   with:
+    #     path: target/debug/deps
+    #     key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+    #       ${{ runner.os }}-cargo
 
     - name: cargo make all-features
       run: cargo make all-features
