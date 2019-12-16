@@ -78,7 +78,7 @@ failure = "0.1"
 futures = "0.3.0"
 h2 = { version = "0.2.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
-log = "0.4.8"
+log = "0.4.10"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rusqlite = { version = "0.20.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
