@@ -2,13 +2,13 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{atomic::AtomicBool, Arc};
 
+use futures::io::{AsyncRead, AsyncWrite};
 use futures::stream::StreamExt;
-use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::error::ProtoError;
 use crate::tcp::{Connect, TcpClientStream, TcpStream};
 use crate::xfer::SerialMessage;
-use crate::Executor;
+use crate::{Executor, Time};
 
 const TEST_BYTES: &[u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
@@ -84,8 +84,10 @@ fn tcp_server_setup(
 }
 
 /// Test tcp_stream.
-pub fn tcp_stream_test<S: Connect + 'static, E: Executor>(server_addr: IpAddr, mut exec: E)
-where
+pub fn tcp_stream_test<S: Connect + 'static, E: Executor, TE: Time>(
+    server_addr: IpAddr,
+    mut exec: E,
+) where
     <S as Connect>::Transport: AsyncRead + AsyncWrite + Unpin,
 {
     let (succeeded, server_handle, server_addr) =
@@ -96,7 +98,7 @@ where
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, sender) = TcpStream::<S>::new::<ProtoError>(server_addr);
+    let (stream, sender) = TcpStream::<S>::new::<ProtoError, TE>(server_addr);
 
     let mut stream = exec.block_on(stream).expect("run failed to get stream");
 
@@ -119,7 +121,7 @@ where
 }
 
 /// Test tcp_client_stream.
-pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor>(
+pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor, TE: Time + 'static>(
     server_addr: IpAddr,
     mut exec: E,
 ) where
@@ -133,7 +135,7 @@ pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor>(
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::<S>::new(server_addr);
+    let (stream, mut sender) = TcpClientStream::<S>::new::<TE>(server_addr);
 
     let mut stream = exec.block_on(stream).expect("run failed to get stream");
 

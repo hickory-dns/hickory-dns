@@ -21,6 +21,7 @@ use tokio::runtime::Runtime;
 use tokio::task::JoinHandle;
 
 use proto::error::ProtoError;
+use proto::iocompat::Compat02As03;
 use proto::op::Edns;
 use proto::serialize::binary::{BinDecodable, BinDecoder};
 use proto::tcp::TcpStream;
@@ -141,7 +142,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
-                    let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
+                    let (buf_stream, stream_handle) =
+                        TcpStream::from_stream(Compat02As03(tcp_stream), src_addr);
                     let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
                     //let request_stream = RequestStream::new(timeout_stream, stream_handle);
 

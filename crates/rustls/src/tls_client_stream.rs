@@ -16,13 +16,15 @@ use rustls::ClientConfig;
 use tokio::net::TcpStream as TokioTcpStream;
 
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::Compat02As03;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use crate::tls_stream::tls_connect;
 
 /// Type of TlsClientStream used with Rustls
-pub type TlsClientStream = TcpClientStream<tokio_rustls::client::TlsStream<TokioTcpStream>>;
+pub type TlsClientStream =
+    TcpClientStream<Compat02As03<tokio_rustls::client::TlsStream<TokioTcpStream>>>;
 
 /// Creates a new TlsStream to the specified name_server
 ///
