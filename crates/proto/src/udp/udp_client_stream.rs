@@ -353,7 +353,6 @@ impl SingleUseUdpSocket {
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
-
     use crate::tests::udp_client_stream_test;
     use crate::TokioTime;
     #[cfg(not(target_os = "linux"))]

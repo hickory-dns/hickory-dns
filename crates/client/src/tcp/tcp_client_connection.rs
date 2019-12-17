@@ -11,7 +11,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::proto::iocompat::Compat02As03;
+use crate::proto::iocompat::AsyncIo02As03;
 use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 use crate::proto::TokioTime;
@@ -62,16 +62,16 @@ impl TcpClientConnection {
 }
 
 impl ClientConnection for TcpClientConnection {
-    type Sender = DnsMultiplexer<TcpClientStream<Compat02As03<TcpStream>>, Signer>;
+    type Sender = DnsMultiplexer<TcpClientStream<AsyncIo02As03<TcpStream>>, Signer>;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
-        TcpClientConnect<Compat02As03<TcpStream>>,
-        TcpClientStream<Compat02As03<TcpStream>>,
+        TcpClientConnect<AsyncIo02As03<TcpStream>>,
+        TcpClientStream<AsyncIo02As03<TcpStream>>,
         Signer,
     >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (tcp_client_stream, handle) = TcpClientStream::<Compat02As03<TcpStream>>::with_timeout::<
+        let (tcp_client_stream, handle) = TcpClientStream::<AsyncIo02As03<TcpStream>>::with_timeout::<
             TokioTime,
         >(self.name_server, self.timeout);
         DnsMultiplexer::new(tcp_client_stream, handle, signer)

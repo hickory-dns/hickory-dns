@@ -23,11 +23,9 @@ use futures::TryFutureExt;
 use std::marker::{Send, Unpin};
 use std::pin::Pin;
 use std::time::Duration;
-#[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::runtime::Runtime;
-#[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::task::JoinHandle;
 
 macro_rules! try_ready_stream {
@@ -42,8 +40,7 @@ macro_rules! try_ready_stream {
 }
 
 /// Spawn a background task, if it was present
-#[cfg(any(test, feature = "testing"))]
-#[cfg(feature = "tokio-runtime")]
+#[cfg(any(test, feature = "tokio-runtime"))]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,
@@ -86,10 +83,10 @@ pub mod iocompat {
     use tokio::io::{AsyncRead as AsyncRead02, AsyncWrite as AsyncWrite02};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
-    pub struct Compat02As03<T>(pub T);
+    pub struct AsyncIo02As03<T>(pub T);
 
-    impl<T> Unpin for Compat02As03<T> {}
-    impl<R: AsyncRead02 + Unpin> AsyncRead for Compat02As03<R> {
+    impl<T> Unpin for AsyncIo02As03<T> {}
+    impl<R: AsyncRead02 + Unpin> AsyncRead for AsyncIo02As03<R> {
         fn poll_read(
             mut self: Pin<&mut Self>,
             cx: &mut Context,
@@ -99,7 +96,7 @@ pub mod iocompat {
         }
     }
 
-    impl<W: AsyncWrite02 + Unpin> AsyncWrite for Compat02As03<W> {
+    impl<W: AsyncWrite02 + Unpin> AsyncWrite for AsyncIo02As03<W> {
         fn poll_write(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -110,8 +107,8 @@ pub mod iocompat {
         fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
             Pin::new(&mut self.0).poll_flush(cx)
         }
-        fn poll_close(self: Pin<&mut Self>, _: &mut Context<'_>) -> Poll<io::Result<()>> {
-            unimplemented!()
+        fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.0).poll_shutdown(cx)
         }
     }
 }
@@ -167,7 +164,7 @@ impl Time for TokioTime {
         future: F,
     ) -> Pin<Box<dyn Future<Output = Result<F::Output, std::io::Error>> + Send>> {
         Box::pin(tokio::time::timeout(duration, future).map_err(move |_| {
-            std::io::Error::new(std::io::ErrorKind::TimedOut, format!("future timed out"))
+            std::io::Error::new(std::io::ErrorKind::TimedOut, "future timed out")
         }))
     }
 }
