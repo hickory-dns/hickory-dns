@@ -82,7 +82,7 @@ log = "0.4.10"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rusqlite = { version = "0.21.0", features = ["bundled"], optional = true }
 rustls = { version = "0.16", optional = true }
-serde = { version = "1.0.102", features = ["derive"] }
+serde = { version = "1.0.104", features = ["derive"] }
 time = "0.1"
 tokio = { version = "0.2.1", features = ["stream", "tcp", "udp"] }
 tokio-openssl = { version = "0.4.0", optional = true }
