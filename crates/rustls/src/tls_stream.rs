@@ -20,7 +20,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
-use trust_dns_proto::iocompat::Compat02As03;
+use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::{BufStreamHandle, SerialMessage};
 
@@ -81,7 +81,7 @@ pub fn tls_connect(
 ) -> (
     Pin<
         Box<
-            dyn Future<Output = Result<TlsStream<Compat02As03<TokioTlsClientStream>>, io::Error>>
+            dyn Future<Output = Result<TlsStream<AsyncIo02As03<TokioTlsClientStream>>, io::Error>>
                 + Send,
         >,
     >,
@@ -110,7 +110,7 @@ async fn connect_tls(
     name_server: SocketAddr,
     dns_name: String,
     outbound_messages: UnboundedReceiver<SerialMessage>,
-) -> io::Result<TcpStream<Compat02As03<TokioTlsClientStream>>> {
+) -> io::Result<TcpStream<AsyncIo02As03<TokioTlsClientStream>>> {
     let tcp = TokioTcpStream::connect(&name_server).await?;
 
     let dns_name = DNSNameRef::try_from_ascii_str(&dns_name)
@@ -128,7 +128,7 @@ async fn connect_tls(
         .await?;
 
     Ok(TcpStream::from_stream_with_receiver(
-        Compat02As03(s),
+        AsyncIo02As03(s),
         name_server,
         outbound_messages,
     ))

@@ -14,6 +14,7 @@ use tokio::runtime::Runtime;
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::xfer::{DnsExchange, DnsMultiplexer};
+use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
@@ -35,7 +36,7 @@ fn test_lookup() {
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
-    let client = DnsExchange::connect(dns_conn);
+    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -64,7 +65,7 @@ fn test_lookup_hosts() {
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let client = DnsExchange::connect(dns_conn);
+    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -122,7 +123,7 @@ fn test_lookup_ipv4_like() {
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let client = DnsExchange::connect(dns_conn);
+    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -152,7 +153,7 @@ fn test_lookup_ipv4_like_fall_through() {
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
-    let client = DnsExchange::connect(dns_conn);
+    let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 

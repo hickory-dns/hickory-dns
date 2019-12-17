@@ -25,7 +25,7 @@ use tokio_tls::TlsStream as TokioTlsStream;
 
 use proto;
 use proto::error::ProtoError;
-use proto::iocompat::Compat02As03;
+use proto::iocompat::AsyncIo02As03;
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 use proto::op::NoopMessageFinalizer;
@@ -100,7 +100,7 @@ impl ConnectionProvider for TokioConnectionProvider {
                 let timeout = options.timeout;
 
                 let (stream, handle) =
-                    TcpClientStream::<Compat02As03<TokioTcpStream>>::with_timeout::<TokioTime>(
+                    TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::with_timeout::<TokioTime>(
                         socket_addr,
                         timeout,
                     );
@@ -191,11 +191,11 @@ pub(crate) enum ConnectionConnect {
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                TcpClientConnect<Compat02As03<TokioTcpStream>>,
-                TcpClientStream<Compat02As03<TokioTcpStream>>,
+                TcpClientConnect<AsyncIo02As03<TokioTcpStream>>,
+                TcpClientStream<AsyncIo02As03<TokioTcpStream>>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexer<TcpClientStream<Compat02As03<TokioTcpStream>>, NoopMessageFinalizer>,
+            DnsMultiplexer<TcpClientStream<AsyncIo02As03<TokioTcpStream>>, NoopMessageFinalizer>,
             DnsMultiplexerSerialResponse,
             TokioTime,
         >,
@@ -208,18 +208,18 @@ pub(crate) enum ConnectionConnect {
                     Box<
                         dyn futures::Future<
                                 Output = Result<
-                                    TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
+                                    TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
                                     ProtoError,
                                 >,
                             > + Send
                             + 'static,
                     >,
                 >,
-                TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
+                TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
             DnsMultiplexer<
-                TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
+                TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
             DnsMultiplexerSerialResponse,
@@ -227,7 +227,9 @@ pub(crate) enum ConnectionConnect {
         >,
     ),
     #[cfg(feature = "dns-over-https")]
-    Https(DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse>),
+    Https(
+        DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse, TokioTime>,
+    ),
     #[cfg(feature = "mdns")]
     Mdns(
         DnsExchangeConnect<
@@ -409,7 +411,7 @@ pub(crate) enum ConnectionBackgroundInner {
     Udp(DnsExchangeBackground<UdpClientStream<TokioUdpSocket>, UdpResponse, TokioTime>),
     Tcp(
         DnsExchangeBackground<
-            DnsMultiplexer<TcpClientStream<Compat02As03<TokioTcpStream>>, NoopMessageFinalizer>,
+            DnsMultiplexer<TcpClientStream<AsyncIo02As03<TokioTcpStream>>, NoopMessageFinalizer>,
             DnsMultiplexerSerialResponse,
             TokioTime,
         >,
@@ -418,7 +420,7 @@ pub(crate) enum ConnectionBackgroundInner {
     Tls(
         DnsExchangeBackground<
             DnsMultiplexer<
-                TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
+                TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
             DnsMultiplexerSerialResponse,
@@ -426,7 +428,7 @@ pub(crate) enum ConnectionBackgroundInner {
         >,
     ),
     #[cfg(feature = "dns-over-https")]
-    Https(DnsExchangeBackground<HttpsClientStream, HttpsClientResponse>),
+    Https(DnsExchangeBackground<HttpsClientStream, HttpsClientResponse, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(
         DnsExchangeBackground<

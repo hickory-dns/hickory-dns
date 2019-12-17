@@ -450,14 +450,14 @@ mod tests {
     use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
-    use crate::iocompat::Compat02As03;
+    use crate::iocompat::AsyncIo02As03;
     use crate::TokioTime;
 
     use crate::tests::tcp_stream_test;
     #[test]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<Compat02As03<TokioTcpStream>, Runtime, TokioTime>(
+        tcp_stream_test::<AsyncIo02As03<TokioTcpStream>, Runtime, TokioTime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
         )
@@ -467,7 +467,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<Compat02As03<TokioTcpStream>, Runtime, TokioTime>(
+        tcp_stream_test::<AsyncIo02As03<TokioTcpStream>, Runtime, TokioTime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
         )

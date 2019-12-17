@@ -18,12 +18,12 @@ use native_tls::{Certificate, Identity, TlsConnector};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
-use trust_dns_proto::iocompat::Compat02As03;
+use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::{BufStreamHandle, SerialMessage};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
-pub type TlsStream = TcpStream<Compat02As03<TokioTlsStream<TokioTcpStream>>>;
+pub type TlsStream = TcpStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>;
 
 fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsConnector> {
     let mut builder = TlsConnector::builder();
@@ -55,7 +55,7 @@ pub fn tls_from_stream(
     let message_sender = BufStreamHandle::new(message_sender);
 
     let stream =
-        TcpStream::from_stream_with_receiver(Compat02As03(stream), peer_addr, outbound_messages);
+        TcpStream::from_stream_with_receiver(AsyncIo02As03(stream), peer_addr, outbound_messages);
 
     (stream, message_sender)
 }
@@ -172,7 +172,7 @@ impl TlsStreamBuilder {
             .await?;
 
         Ok(TcpStream::from_stream_with_receiver(
-            Compat02As03(tls_connected),
+            AsyncIo02As03(tls_connected),
             name_server,
             outbound_messages,
         ))

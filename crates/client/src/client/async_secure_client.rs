@@ -18,6 +18,7 @@ use crate::proto::xfer::{
     DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
 };
 use crate::proto::SecureDnsHandle;
+use crate::proto::TokioTime;
 
 // FIXME: rename to AsyncDnsSecClient
 /// A DNSSEC Client implemented over futures-rs.
@@ -152,7 +153,8 @@ where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    type Output = Result<(AsyncSecureClient<R>, DnsExchangeBackground<S, R>), ProtoError>;
+    type Output =
+        Result<(AsyncSecureClient<R>, DnsExchangeBackground<S, R, TokioTime>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let result = ready!(self.client_connect.poll_unpin(cx));
