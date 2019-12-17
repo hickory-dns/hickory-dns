@@ -4,7 +4,7 @@ use futures::stream::StreamExt;
 use log::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
-use crate::Executor;
+use crate::{Executor, Time};
 
 /// Test next random udpsocket.
 pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut exec: E) {
@@ -109,7 +109,7 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
+pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Time>(
     server_addr: IpAddr,
     mut exec: E,
 ) {
@@ -207,7 +207,7 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     for i in 0..send_recv_times {
         // test once
         let response_future = exec.block_on(future::lazy(|cx| {
-            stream.send_message(DnsRequest::new(query.clone(), Default::default()), cx)
+            stream.send_message::<TE>(DnsRequest::new(query.clone(), Default::default()), cx)
         }));
         println!("client sending request {}", i);
         let response = match exec.block_on(response_future) {

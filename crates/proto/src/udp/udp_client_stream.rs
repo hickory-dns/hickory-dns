@@ -7,6 +7,7 @@
 
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
+use std::io;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -16,13 +17,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{Future, Stream};
 use log::{debug, warn};
-use tokio::time::Elapsed;
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{MessageFinalizer, OpCode};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
+use crate::Time;
 
 /// A UDP client stream of DNS binary packets
 ///
@@ -109,7 +110,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 {
     type DnsResponseFuture = UdpResponse;
 
-    fn send_message(
+    fn send_message<TE: Time>(
         &mut self,
         mut message: DnsRequest,
         _cx: &mut Context,
@@ -130,7 +131,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             Err(err) => {
                 let err: ProtoError = err;
 
-                return UdpResponse::complete(SingleUseUdpSocket::errored(err));
+                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err));
             }
         };
 
@@ -142,7 +143,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             if let Some(ref signer) = self.signer {
                 if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return UdpResponse::complete(SingleUseUdpSocket::errored(e));
+                    return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(e));
                 }
             }
         }
@@ -150,18 +151,18 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
-                return UdpResponse::complete(SingleUseUdpSocket::errored(err));
+                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err));
             }
         };
 
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
-        UdpResponse::new::<S>(message, message_id, self.timeout)
+        UdpResponse::new::<S, TE>(message, message_id, self.timeout)
     }
 
-    fn error_response(err: ProtoError) -> Self::DnsResponseFuture {
-        UdpResponse::complete(SingleUseUdpSocket::errored(err))
+    fn error_response<TE: Time>(err: ProtoError) -> Self::DnsResponseFuture {
+        UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err))
     }
 
     fn shutdown(&mut self) {
@@ -190,7 +191,7 @@ impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
 /// A future that resolves to
 #[allow(clippy::type_complexity)]
 pub struct UdpResponse(
-    Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, Elapsed>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send>>,
 );
 
 impl UdpResponse {
@@ -200,23 +201,29 @@ impl UdpResponse {
     ///
     /// * `request` - Serialized message being sent
     /// * `message_id` - Id of the message that was encoded in the serial message
-    fn new<S: UdpSocket + Send + Unpin + 'static>(
+    fn new<S: UdpSocket + Send + Unpin + 'static, T: Time>(
         request: SerialMessage,
         message_id: u16,
         timeout: Duration,
     ) -> Self {
-        UdpResponse(Box::pin(tokio::time::timeout(
+        UdpResponse(T::timeout::<
+            Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
+        >(
             timeout,
-            SingleUseUdpSocket::send_serial_message::<S>(request, message_id),
-        )))
+            Box::pin(SingleUseUdpSocket::send_serial_message::<S>(
+                request, message_id,
+            )),
+        ))
     }
 
     /// ad already completed future
-    fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static>(
+    fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static, T: Time>(
         f: F,
     ) -> Self {
         // TODO: this constructure isn't really necessary
-        UdpResponse(Box::pin(tokio::time::timeout(Duration::from_secs(5), f)))
+        UdpResponse(T::timeout::<
+            Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
+        >(Duration::from_secs(5), Box::pin(f)))
     }
 }
 
@@ -348,6 +355,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use crate::tests::udp_client_stream_test;
+    use crate::TokioTime;
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
@@ -356,7 +364,7 @@ mod tests {
     #[test]
     fn test_udp_client_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpSocket, Runtime>(
+        udp_client_stream_test::<TokioUdpSocket, Runtime, TokioTime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
         )
@@ -366,7 +374,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_udp_client_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpSocket, Runtime>(
+        udp_client_stream_test::<TokioUdpSocket, Runtime, TokioTime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
         )

@@ -25,6 +25,7 @@ use tokio_tls::TlsStream as TokioTlsStream;
 
 use proto;
 use proto::error::ProtoError;
+use proto::iocompat::Compat02As03;
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 use proto::op::NoopMessageFinalizer;
@@ -34,6 +35,7 @@ use proto::xfer::{
     DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend, DnsHandle,
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
+use proto::TokioTime;
 
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https::{self, HttpsClientConnect, HttpsClientResponse, HttpsClientStream};
@@ -98,7 +100,10 @@ impl ConnectionProvider for TokioConnectionProvider {
                 let timeout = options.timeout;
 
                 let (stream, handle) =
-                    TcpClientStream::<TokioTcpStream>::with_timeout(socket_addr, timeout);
+                    TcpClientStream::<Compat02As03<TokioTcpStream>>::with_timeout::<TokioTime>(
+                        socket_addr,
+                        timeout,
+                    );
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
@@ -180,17 +185,19 @@ pub(crate) enum ConnectionConnect {
             UdpClientConnect<TokioUdpSocket>,
             UdpClientStream<TokioUdpSocket>,
             UdpResponse,
+            TokioTime,
         >,
     ),
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                TcpClientConnect<TokioTcpStream>,
-                TcpClientStream<TokioTcpStream>,
+                TcpClientConnect<Compat02As03<TokioTcpStream>>,
+                TcpClientStream<Compat02As03<TokioTcpStream>>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexer<TcpClientStream<TokioTcpStream>, NoopMessageFinalizer>,
+            DnsMultiplexer<TcpClientStream<Compat02As03<TokioTcpStream>>, NoopMessageFinalizer>,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
     #[cfg(feature = "dns-over-tls")]
@@ -201,18 +208,22 @@ pub(crate) enum ConnectionConnect {
                     Box<
                         dyn futures::Future<
                                 Output = Result<
-                                    TcpClientStream<TokioTlsStream<TokioTcpStream>>,
+                                    TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
                                     ProtoError,
                                 >,
                             > + Send
                             + 'static,
                     >,
                 >,
-                TcpClientStream<TokioTlsStream<TokioTcpStream>>,
+                TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexer<TcpClientStream<TokioTlsStream<TokioTcpStream>>, NoopMessageFinalizer>,
+            DnsMultiplexer<
+                TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
+                NoopMessageFinalizer,
+            >,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
     #[cfg(feature = "dns-over-https")]
@@ -223,6 +234,7 @@ pub(crate) enum ConnectionConnect {
             DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, NoopMessageFinalizer>,
             DnsMultiplexer<MdnsClientStream, NoopMessageFinalizer>,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
 }
@@ -394,18 +406,23 @@ impl Future for ConnectionBackground {
 #[allow(clippy::type_complexity)]
 #[must_use = "futures do nothing unless polled"]
 pub(crate) enum ConnectionBackgroundInner {
-    Udp(DnsExchangeBackground<UdpClientStream<TokioUdpSocket>, UdpResponse>),
+    Udp(DnsExchangeBackground<UdpClientStream<TokioUdpSocket>, UdpResponse, TokioTime>),
     Tcp(
         DnsExchangeBackground<
-            DnsMultiplexer<TcpClientStream<TokioTcpStream>, NoopMessageFinalizer>,
+            DnsMultiplexer<TcpClientStream<Compat02As03<TokioTcpStream>>, NoopMessageFinalizer>,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
     #[cfg(feature = "dns-over-tls")]
     Tls(
         DnsExchangeBackground<
-            DnsMultiplexer<TcpClientStream<TokioTlsStream<TokioTcpStream>>, NoopMessageFinalizer>,
+            DnsMultiplexer<
+                TcpClientStream<TokioTlsStream<Compat02As03<TokioTcpStream>>>,
+                NoopMessageFinalizer,
+            >,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
     #[cfg(feature = "dns-over-https")]
@@ -415,6 +432,7 @@ pub(crate) enum ConnectionBackgroundInner {
         DnsExchangeBackground<
             DnsMultiplexer<MdnsClientStream, NoopMessageFinalizer>,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
 }
