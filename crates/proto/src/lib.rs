@@ -53,7 +53,7 @@ pub mod op;
 pub mod rr;
 pub mod serialize;
 pub mod tcp;
-//#[cfg(any(test, feature = "testing"))]
+#[cfg(any(test, feature = "testing"))]
 pub mod tests;
 pub mod udp;
 pub mod xfer;
@@ -70,7 +70,7 @@ pub use crate::xfer::secure_dns_handle::SecureDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};
 
-#[cfg(feature = "tokio-io")]
+#[cfg(feature = "tokio-runtime")]
 #[doc(hidden)]
 pub mod iocompat {
     use std::io;
@@ -144,10 +144,10 @@ pub trait Time {
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
-#[cfg(any(test, feature = "tokio-time"))]
+#[cfg(any(test, feature = "tokio-runtime"))]
 pub struct TokioTime;
 
-#[cfg(any(test, feature = "tokio-time"))]
+#[cfg(any(test, feature = "tokio-runtime"))]
 #[async_trait]
 impl Time for TokioTime {
     async fn delay_for(duration: Duration) -> () {

@@ -56,7 +56,7 @@ serde-config = ["serde", "trust-dns-proto/serde-config"]
 # enables experimental the mDNS (multicast) feature
 mdns = ["trust-dns-proto/mdns"]
 
-tokio-runtime = ["tokio/rt-core", "trust-dns-proto/tokio-runtime", "trust-dns-proto/tokio-time"]
+tokio-runtime = ["tokio/rt-core", "trust-dns-proto/tokio-runtime"]
 
 [lib]
 name = "trust_dns_resolver"

@@ -20,7 +20,7 @@ use futures::{Future, Stream, StreamExt, TryFutureExt};
 use log::warn;
 
 use crate::error::ProtoError;
-#[cfg(feature = "tokio-io")]
+#[cfg(feature = "tokio-runtime")]
 use crate::iocompat::AsyncIo02As03;
 use crate::tcp::{Connect, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
