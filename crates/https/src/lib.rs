@@ -35,7 +35,6 @@ const MIME_APPLICATION: &str = "application";
 const MIME_DNS_BINARY: &str = "dns-message";
 const MIME_APPLICATION_DNS: &str = "application/dns-message";
 const DNS_QUERY_PATH: &str = "/dns-query";
-const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 //pub mod https_client_connection;
 mod error;
