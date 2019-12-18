@@ -61,7 +61,7 @@ jobs:
           ${{ runner.os }}-kcov
 
     - name: cargo make coverage
-      run: cargo make coverage
+      run: cargo make coverage --env="FEATURES=--all-features"
     
     - name: upload coverage
       if: matrix.os == 'ubuntu-latest'
@@ -121,7 +121,7 @@ jobs:
           ${{ runner.os }}-kcov
 
     - name: cargo make coverage
-      run: cargo make coverage
+      run: cargo make coverage --env=FEATURES="--features ${{ matrix.feature }}"
     
     - name: upload coverage
       uses: codecov/codecov-action@v1
