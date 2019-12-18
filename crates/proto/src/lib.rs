@@ -16,12 +16,10 @@
 
 //! Trust-DNS Protocol library
 
+use async_trait::async_trait;
 use futures::Future;
-#[cfg(any(test, feature = "tokio-time"))]
-use futures::TryFutureExt;
 
-use std::marker::{Send, Unpin};
-use std::pin::Pin;
+use std::marker::Send;
 use std::time::Duration;
 #[cfg(any(test, feature = "tokio-runtime"))]
 use tokio::runtime::Runtime;
@@ -55,7 +53,7 @@ pub mod op;
 pub mod rr;
 pub mod serialize;
 pub mod tcp;
-#[cfg(any(test, feature = "testing"))]
+//#[cfg(any(test, feature = "testing"))]
 pub mod tests;
 pub mod udp;
 pub mod xfer;
@@ -132,19 +130,17 @@ impl Executor for Runtime {
 
 /// Generic Time for Delay and Timeout.
 // This trait is created to allow to use different types of time systems. It's used in Fuchsia OS, please be mindful when update it.
+#[async_trait]
 pub trait Time {
-    /// Delay type
-    type Delay: 'static + Future<Output = ()> + Send + Unpin;
-
     /// Return a type that implements `Future` that will wait until the specified duration has
     /// elapsed.
-    fn delay_for(duration: Duration) -> Self::Delay;
+    async fn delay_for(duration: Duration) -> ();
 
     /// Return a type that implement `Future` to complete before the specified duration has elapsed.
-    fn timeout<F: 'static + Future + Send>(
+    async fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
-    ) -> Pin<Box<dyn Future<Output = Result<F::Output, std::io::Error>> + Send>>;
+    ) -> Result<F::Output, std::io::Error>;
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
@@ -152,19 +148,18 @@ pub trait Time {
 pub struct TokioTime;
 
 #[cfg(any(test, feature = "tokio-time"))]
+#[async_trait]
 impl Time for TokioTime {
-    type Delay = tokio::time::Delay;
-
-    fn delay_for(duration: Duration) -> Self::Delay {
-        tokio::time::delay_for(duration)
+    async fn delay_for(duration: Duration) -> () {
+        tokio::time::delay_for(duration).await
     }
 
-    fn timeout<F: 'static + Future + Send>(
+    async fn timeout<F: 'static + Future + Send>(
         duration: Duration,
         future: F,
-    ) -> Pin<Box<dyn Future<Output = Result<F::Output, std::io::Error>> + Send>> {
-        Box::pin(tokio::time::timeout(duration, future).map_err(move |_| {
-            std::io::Error::new(std::io::ErrorKind::TimedOut, "future timed out")
-        }))
+    ) -> Result<F::Output, std::io::Error> {
+        tokio::time::timeout(duration, future)
+            .await
+            .map_err(move |_| std::io::Error::new(std::io::ErrorKind::TimedOut, "future timed out"))
     }
 }

@@ -161,29 +161,27 @@ impl<S: Connect + 'static> TcpStream<S> {
         outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Result<TcpStream<S::Transport>, io::Error> {
         let tcp = S::connect(name_server);
-        TE::timeout::<
-            Pin<Box<dyn Future<Output = Result<<S as Connect>::Transport, io::Error>> + Send>>,
-        >(timeout, tcp)
-        .map(
-            move |tcp_stream: Result<Result<S::Transport, io::Error>, _>| {
-                tcp_stream
-                    .and_then(|tcp_stream| tcp_stream)
-                    .map(|tcp_stream| {
-                        debug!("TCP connection established to: {}", name_server);
-                        TcpStream {
-                            socket: tcp_stream,
-                            outbound_messages: outbound_messages.fuse().peekable(),
-                            send_state: None,
-                            read_state: ReadTcpState::LenBytes {
-                                pos: 0,
-                                bytes: [0u8; 2],
-                            },
-                            peer_addr: name_server,
-                        }
-                    })
-            },
-        )
-        .await
+        TE::timeout(timeout, tcp)
+            .map(
+                move |tcp_stream: Result<Result<S::Transport, io::Error>, _>| {
+                    tcp_stream
+                        .and_then(|tcp_stream| tcp_stream)
+                        .map(|tcp_stream| {
+                            debug!("TCP connection established to: {}", name_server);
+                            TcpStream {
+                                socket: tcp_stream,
+                                outbound_messages: outbound_messages.fuse().peekable(),
+                                send_state: None,
+                                read_state: ReadTcpState::LenBytes {
+                                    pos: 0,
+                                    bytes: [0u8; 2],
+                                },
+                                peer_addr: name_server,
+                            }
+                        })
+                },
+            )
+            .await
     }
 }
 

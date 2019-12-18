@@ -355,7 +355,7 @@ where
         }
 
         // store a Timeout for this message before sending
-        let timeout: TE::Delay = TE::delay_for(self.timeout_duration);
+        let timeout = TE::delay_for(self.timeout_duration);
 
         let (complete, receiver) = oneshot::channel();
 
