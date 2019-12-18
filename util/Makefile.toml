@@ -10,7 +10,7 @@ private = true
 ## Feature profiles
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
-TDNS_WITH_KCOV_ARGS = "--bin=dnskey-to-pem --bin=get-root-ksks --bin=pem-to-public-dnskey"
+TDNS_WITH_KCOV_ARGS = "--bins --tests --examples"
 
 # TODO: add --lib back when there is a common cli library in util
 #  probably just remove this override file at that point
