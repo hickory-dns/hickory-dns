@@ -121,8 +121,8 @@ workspace = false
 script_runner = "@shell"
 script = [
 '''
-rm -rf ${TDNS_BIND_PATH}
-rm -rf ${TDNS_BIND_PATH}_*
+rm -rf ${TDNS_BIND_PATH:?}
+rm -rf ${TDNS_BIND_PATH:?}_*
 '''
 ]
 
@@ -132,15 +132,24 @@ workspace = false
 script_runner = "@shell"
 script = [
 '''
-rm -rf ${TARGET_DIR}/
+rm -rf ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY:?}
 '''
 ]
 
 [tasks.clean]
 description = "Remove only the current workspace member"
-dependencies = ["clean-bind", "clean-kcov"]
 command = "cargo"
 args = ["clean", "-p", "${CARGO_MAKE_CRATE_NAME}"]
+
+[tasks.clean-all]
+description = "Remove only the current workspace member"
+script_runner = "@shell"
+script = [
+'''
+rm -rf ${TARGET_DIR:?}
+rm -rf target
+'''
+]
 
 [tasks.update]
 description = "Update dependencies"
@@ -371,12 +380,12 @@ if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
     echo "Kcov Binary Directory: ${KCOV_BINARY_DIRECTORY}"
 fi
 
-TARGET_DIRECTORY="target/coverage"
+TARGET_DIRECTORY="target/coverage/${CARGO_MAKE_CRATE_FS_NAME}"
 if [ -n "$CARGO_MAKE_COVERAGE_REPORT_DIRECTORY" ]; then
-    TARGET_DIRECTORY="$CARGO_MAKE_COVERAGE_REPORT_DIRECTORY"
+    TARGET_DIRECTORY="$CARGO_MAKE_COVERAGE_REPORT_DIRECTORY/${CARGO_MAKE_CRATE_FS_NAME}"
     mkdir -p ${TARGET_DIRECTORY}
 else
-    mkdir -p ./target/coverage
+    mkdir -p ${TARGET_DIRECTORY}
 fi
 
 BINARY_DIRECTORY=target/debug
@@ -403,10 +412,8 @@ echo "Running tests from directory: ${BINARY_DIRECTORY}"
 CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX="$(sh -c "echo \"${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER}\"")"
 echo "Test binary filter regex: ${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX}"
 
-#for test_arg in ${CARGO_MAKE_WITH_KCOV_ARGS} ; do
-    echo "Running coverage for ${CARGO_MAKE_CRATE_FS_NAME} ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES}"
-    cargo with "${KCOV_BINARY_DIRECTORY}/kcov --include-pattern=${CARGO_MAKE_KCOV_INCLUDE_PATTERN} ${KCOV_EXCLUDE_LINE_ARG} ${KCOV_EXCLUDE_REGION_ARG} ${TARGET_DIRECTORY} {bin} {args}" -- test ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES} || true
-#done
+echo "Running coverage for ${CARGO_MAKE_CRATE_FS_NAME} ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES}"
+cargo with "${KCOV_BINARY_DIRECTORY}/kcov --include-pattern=${CARGO_MAKE_KCOV_INCLUDE_PATTERN} ${KCOV_EXCLUDE_LINE_ARG} ${KCOV_EXCLUDE_REGION_ARG} ${TARGET_DIRECTORY} {bin} {args}" -- test ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES} || true
 '''
 ]
 

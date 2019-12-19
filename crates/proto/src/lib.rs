@@ -134,7 +134,7 @@ impl Executor for Runtime {
 pub trait Time {
     /// Return a type that implements `Future` that will wait until the specified duration has
     /// elapsed.
-    async fn delay_for(duration: Duration) -> ();
+    async fn delay_for(duration: Duration);
 
     /// Return a type that implement `Future` to complete before the specified duration has elapsed.
     async fn timeout<F: 'static + Future + Send>(
@@ -150,7 +150,7 @@ pub struct TokioTime;
 #[cfg(any(test, feature = "tokio-runtime"))]
 #[async_trait]
 impl Time for TokioTime {
-    async fn delay_for(duration: Duration) -> () {
+    async fn delay_for(duration: Duration) {
         tokio::time::delay_for(duration).await
     }
 

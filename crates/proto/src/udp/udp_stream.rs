@@ -140,22 +140,15 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
 
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.
-        loop {
+        while let Poll::Ready(Some(message)) = outbound_messages.as_mut().poll_peek(cx) {
             // first try to send
-            match outbound_messages.as_mut().poll_peek(cx) {
-                Poll::Ready(Some(message)) => {
-                    let addr = &message.addr();
+            let addr = &message.addr();
 
-                    // this wiil return if not ready,
-                    //   meaning that sending will be prefered over receiving...
+            // this wiil return if not ready,
+            //   meaning that sending will be prefered over receiving...
 
-                    // TODO: shouldn't this return the error to send to the sender?
-                    ready!(socket.send_to(message.bytes(), addr).poll_unpin(cx))?;
-                }
-                // now we get to drop through to the receives...
-                // TODO: should we also return None if there are no more messages to send?
-                Poll::Pending | Poll::Ready(None) => break,
-            }
+            // TODO: shouldn't this return the error to send to the sender?
+            ready!(socket.send_to(message.bytes(), addr).poll_unpin(cx))?;
 
             // message sent, need to pop the message
             assert!(outbound_messages.as_mut().poll_next(cx).is_ready());

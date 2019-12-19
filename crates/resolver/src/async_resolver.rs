@@ -547,7 +547,7 @@ mod tests {
             .expect("failed to create resolver");
 
         let resolver_one = resolver.clone();
-        let resolver_two = resolver.clone();
+        let resolver_two = resolver;
 
         //FIXME: put the logic in two separate threads...
 
