@@ -63,7 +63,7 @@ failure = "0.1"
 futures = "0.3.0"
 idna = "0.2.0"
 lazy_static = "1.0"
-log = "0.4.10"
+log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rand = "0.7"
 ring = { version = "0.16", optional = true, features = ["std"] }
