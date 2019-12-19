@@ -108,10 +108,6 @@ workspace = false
 script_runner = "bash"
 install_script = [
 '''
-set -e
-
-echo "====> installing kcov"
-
 KCOV_INSTALLATION_DIRECTORY=""
 KCOV_BINARY_DIRECTORY=""
 if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
@@ -371,7 +367,7 @@ dependencies = ["no-default-features", "default-features", "all-features", "dns-
 [tasks.coverage-kcov]
 description = "Installs (if missing) and runs coverage using kcov (not supported on windows)"
 windows_alias = "empty"
-#mac_alias = "empty" # TODO: mac works, but is so slow it hangs on some tests...
+mac_alias = "empty" # TODO: mac works, but is so slow it hangs on some tests...
 dependencies = ["install-with", "install-kcov"]
 script_runner = "bash"
 env = { CARGO_MAKE_KCOV_INCLUDE_PATTERN = "${CARGO_MAKE_WORKING_DIRECTORY}/src/", CARGO_MAKE_COVERAGE_REPORT_DIRECTORY = "${TARGET_DIR}/coverage", CARGO_MAKE_WITH_KCOV_ARGS = "${TDNS_WITH_KCOV_ARGS}" }
@@ -423,8 +419,17 @@ echo "Running tests from directory: ${BINARY_DIRECTORY}"
 CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX="$(sh -c "echo \"${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER}\"")"
 echo "Test binary filter regex: ${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX}"
 
+## Setup the env for the kcov script
+KCOV=${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY:?}/scripts/kcov.sh
+
+export KCOV_BINARY=${KCOV_BINARY_DIRECTORY:?}/kcov
+export KCOV_TARGET_DIRECTORY=${TARGET_DIRECTORY:?}
+export KCOV_INCLUDE_PATTERN=${CARGO_MAKE_KCOV_INCLUDE_PATTERN:?}
+export KCOV_EXCLUDE_LINE_ARG
+export KCOV_EXCLUDE_REGION_ARG
+
 echo "Running coverage for ${CARGO_MAKE_CRATE_FS_NAME} ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES}"
-cargo with "${KCOV_BINARY_DIRECTORY}/kcov --include-pattern=${CARGO_MAKE_KCOV_INCLUDE_PATTERN} ${KCOV_EXCLUDE_LINE_ARG} ${KCOV_EXCLUDE_REGION_ARG} ${TARGET_DIRECTORY}/{bin} {bin} {args}" -- test ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES} || true
+cargo with "${KCOV:?} {bin} {args}" -- test ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES} || true
 '''
 ]
 
