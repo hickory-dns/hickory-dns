@@ -48,7 +48,7 @@ path = "src/lib.rs"
 
 [dependencies]
 futures = "0.3.0"
-log = "0.4.10"
+log = "0.4"
 rustls = "0.16"
 tokio = { version = "0.2.1", features = ["tcp", "io-util"] }
 tokio-rustls = { version = "0.12.1", features = ["early-data"] }

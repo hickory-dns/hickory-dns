@@ -74,7 +74,7 @@ path = "src/named.rs"
 chrono = "0.4"
 clap = "2.33"
 futures = "0.3.0"
-log = "0.4.10"
+log = "0.4"
 rustls = { version = "0.16", optional = true }
 tokio = { version = "0.2.1", features = ["rt-core", "rt-threaded", "time"] }
 trust-dns-client= { version = "0.18.0-alpha", path = "../crates/client" }
