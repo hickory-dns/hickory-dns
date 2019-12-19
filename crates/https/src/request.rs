@@ -58,7 +58,6 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
 
     // TODO: add user agent to TypedHeaders
     let mut request = Request::post(url)
-        .header(header::USER_AGENT, crate::USER_AGENT)
         .version(Version::HTTP_2)
         .body(())
         .map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))?;
