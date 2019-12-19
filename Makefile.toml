@@ -87,7 +87,7 @@ rm -rf ${TARGET_DIR:?}/bind-${BIND_VER}
 
 [tasks.install-audit]
 description = "Installs cargo-audit"
-condition_script = ["if cargo audit ; then exit 1 ; else exit 0 ; fi"]
+condition_script = ["if cargo audit --version ; then exit 1 ; else exit 0 ; fi"]
 command = "cargo"
 args = ["install", "cargo-audit"]
 
@@ -174,7 +174,7 @@ description = "Run cargo audit on all crates"
 workspace = false
 dependencies = ["check", "install-audit"]
 command = "cargo"
-args = ["audit", "--deny-warnings"]
+args = ["audit", "--deny-warnings", "--ignore=RUSTSEC-2019-0031"]
 
 [tasks.bind-compatibility]
 description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND_PATH to another BIND9 installation"
