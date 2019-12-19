@@ -366,7 +366,7 @@ fn main() {
     let mut runtime = runtime::Builder::new()
         .enable_all()
         .threaded_scheduler()
-        .num_threads(4)
+        .core_threads(4)
         .thread_name("trust-dns-server-runtime")
         .build()
         .expect("failed to initialize Tokio Runtime");
