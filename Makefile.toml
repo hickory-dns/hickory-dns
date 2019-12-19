@@ -20,6 +20,8 @@ TARGET_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target"
 CARGO_MAKE_WORKSPACE_TARGET_DIRECTORY = "${TARGET_DIR}"
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
 CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY = "${TARGET_DIR}/kcov"
+CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY = "${TARGET_DIR}/kcov-dl"
+CARGO_MAKE_KCOV_VERSION = "37"
 
 TDNS_BIND_PATH = "${TARGET_DIR}/bind"
 TDNS_WORKSPACE_ROOT = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
@@ -100,6 +102,79 @@ condition_script = ["if cargo with --version ; then exit 1 ; else exit 0 ; fi"]
 command = "cargo"
 args = ["install", "cargo-with", "--git=https://github.com/bluejekyll/cargo-with.git", "--branch=master"]
 
+[tasks.install-kcov]
+description = "Installs the kcov coverage tool"
+workspace = false
+script_runner = "bash"
+install_script = [
+'''
+set -e
+
+echo "====> installing kcov"
+
+KCOV_INSTALLATION_DIRECTORY=""
+KCOV_BINARY_DIRECTORY=""
+if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
+    mkdir -p ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
+    cd ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
+    KCOV_INSTALLATION_DIRECTORY="$(pwd)/"
+    cd -
+    echo "Kcov Installation Directory: ${KCOV_INSTALLATION_DIRECTORY}"
+    KCOV_BINARY_DIRECTORY="${KCOV_INSTALLATION_DIRECTORY}/build/src/"
+    echo "Kcov Binary Directory: ${KCOV_BINARY_DIRECTORY}"
+fi
+
+if ${KCOV_BINARY_DIRECTORY}kcov --version ; then exit 0 ; fi
+
+# get help info to fetch all supported command line arguments
+KCOV_HELP_INFO=`${KCOV_BINARY_DIRECTORY}kcov --help` || true
+
+# check needed arguments are supported, else install
+if [[ $KCOV_HELP_INFO != *"--include-pattern"* ]] || [[ $KCOV_HELP_INFO != *"--exclude-line"* ]] || [[ $KCOV_HELP_INFO != *"--exclude-region"* ]]; then
+    # check we are on a supported platform
+    if [ "$(uname)" == "Linux" ]; then
+        if [ "$(grep -Ei 'debian|buntu|mint' /etc/*release)" ]; then
+            echo "Installing/Upgrading kcov..."
+            sudo apt-get update || true
+            sudo apt-get install -y libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev
+        fi
+    elif [ "$(uname)" == "Darwin" ]; then
+        for brew_install in zlib bash cmake pkgconfig wget ; do
+            if brew info ${brew_install} | grep "Not installed" ; then
+                brew install ${brew_install}
+            else 
+                echo "skipping ${brew_install} already installed"
+            fi
+        done
+    fi
+
+    mkdir -p ${CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY}
+    cd ${CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY}
+    KCOV_DOWNLOAD_DIRECTORY=$(pwd)
+
+    rm -rf kcov-${CARGO_MAKE_KCOV_VERSION:?}
+    rm -f v${CARGO_MAKE_KCOV_VERSION}.zip
+
+    wget https://github.com/SimonKagstrom/kcov/archive/v${CARGO_MAKE_KCOV_VERSION}.zip
+    unzip v${CARGO_MAKE_KCOV_VERSION}.zip
+    cd kcov-${CARGO_MAKE_KCOV_VERSION}
+    mkdir -p build
+    cd ./build
+    cmake ..
+    make
+
+    # if custom installation directory, leave kcov as local
+    if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
+        cd ${KCOV_DOWNLOAD_DIRECTORY}/kcov-${CARGO_MAKE_KCOV_VERSION}
+        mv ./* ${KCOV_INSTALLATION_DIRECTORY}
+    else
+        sudo make install
+        cd ../..
+        rm -rf kcov-${CARGO_MAKE_KCOV_VERSION}
+    fi
+fi
+'''
+]
 
 ##
 ## Standard tasks for testing, building, etc.
@@ -295,75 +370,11 @@ dependencies = ["no-default-features", "default-features", "all-features", "dns-
 
 [tasks.coverage-kcov]
 description = "Installs (if missing) and runs coverage using kcov (not supported on windows)"
-dependencies = ["install-with"]
 windows_alias = "empty"
-mac_alias = "empty" # TODO: mac works, but is so slow it hangs on some tests...
+#mac_alias = "empty" # TODO: mac works, but is so slow it hangs on some tests...
+dependencies = ["install-with", "install-kcov"]
 script_runner = "bash"
-env = { CARGO_MAKE_KCOV_INCLUDE_PATTERN = "${CARGO_MAKE_WORKING_DIRECTORY}/src/", CARGO_MAKE_KCOV_VERSION = "37", CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY = "${TARGET_DIR}/kcov-dl", CARGO_MAKE_COVERAGE_REPORT_DIRECTORY = "${TARGET_DIR}/coverage", CARGO_MAKE_WITH_KCOV_ARGS = "${TDNS_WITH_KCOV_ARGS}" }
-install_script = [
-'''
-set -e
-
-echo "====> installing kcov"
-
-KCOV_INSTALLATION_DIRECTORY=""
-KCOV_BINARY_DIRECTORY=""
-if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
-    mkdir -p ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
-    cd ${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}
-    KCOV_INSTALLATION_DIRECTORY="$(pwd)/"
-    cd -
-    echo "Kcov Installation Directory: ${KCOV_INSTALLATION_DIRECTORY}"
-    KCOV_BINARY_DIRECTORY="${KCOV_INSTALLATION_DIRECTORY}/build/src/"
-    echo "Kcov Binary Directory: ${KCOV_BINARY_DIRECTORY}"
-fi
-
-# get help info to fetch all supported command line arguments
-KCOV_HELP_INFO=`${KCOV_BINARY_DIRECTORY}kcov --help` || true
-
-# check needed arguments are supported, else install
-if [[ $KCOV_HELP_INFO != *"--include-pattern"* ]] || [[ $KCOV_HELP_INFO != *"--exclude-line"* ]] || [[ $KCOV_HELP_INFO != *"--exclude-region"* ]]; then
-    # check we are on a supported platform
-    if [ "$(uname)" == "Linux" ]; then
-        if [ "$(grep -Ei 'debian|buntu|mint' /etc/*release)" ]; then
-            echo "Installing/Upgrading kcov..."
-            sudo apt-get update || true
-            sudo apt-get install -y libcurl4-openssl-dev libelf-dev libdw-dev cmake gcc binutils-dev
-        fi
-    elif [ "$(uname)" == "Darwin" ]; then
-        for brew_install in zlib bash cmake pkgconfig wget ; do
-            if brew info ${brew_install} | grep "Not installed" ; then
-                brew install ${brew_install}
-            else 
-                echo "skipping ${brew_install} already installed"
-            fi
-        done
-    fi
-
-    mkdir -p ${CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY}
-    cd ${CARGO_MAKE_KCOV_DOWNLOAD_DIRECTORY}
-    KCOV_DOWNLOAD_DIRECTORY=$(pwd)
-
-    wget https://github.com/SimonKagstrom/kcov/archive/v${CARGO_MAKE_KCOV_VERSION}.zip
-    unzip v${CARGO_MAKE_KCOV_VERSION}.zip
-    cd kcov-${CARGO_MAKE_KCOV_VERSION}
-    mkdir -p build
-    cd ./build
-    cmake ..
-    make
-
-    # if custom installation directory, leave kcov as local
-    if [ -n "${CARGO_MAKE_KCOV_INSTALLATION_DIRECTORY}" ]; then
-        cd ${KCOV_DOWNLOAD_DIRECTORY}/kcov-${CARGO_MAKE_KCOV_VERSION}
-        mv ./* ${KCOV_INSTALLATION_DIRECTORY}
-    else
-        sudo make install
-        cd ../..
-        rm -rf kcov-${CARGO_MAKE_KCOV_VERSION}
-    fi
-fi
-'''
-]
+env = { CARGO_MAKE_KCOV_INCLUDE_PATTERN = "${CARGO_MAKE_WORKING_DIRECTORY}/src/", CARGO_MAKE_COVERAGE_REPORT_DIRECTORY = "${TARGET_DIR}/coverage", CARGO_MAKE_WITH_KCOV_ARGS = "${TDNS_WITH_KCOV_ARGS}" }
 script = [
 '''
 set -e
@@ -413,7 +424,7 @@ CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX="$(sh -c "echo \"${CARGO_MAKE_TEST_
 echo "Test binary filter regex: ${CARGO_MAKE_TEST_COVERAGE_BINARY_FILTER_REGEX}"
 
 echo "Running coverage for ${CARGO_MAKE_CRATE_FS_NAME} ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES}"
-cargo with "${KCOV_BINARY_DIRECTORY}/kcov --include-pattern=${CARGO_MAKE_KCOV_INCLUDE_PATTERN} ${KCOV_EXCLUDE_LINE_ARG} ${KCOV_EXCLUDE_REGION_ARG} ${TARGET_DIRECTORY} {bin} {args}" -- test ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES} || true
+cargo with "${KCOV_BINARY_DIRECTORY}/kcov --include-pattern=${CARGO_MAKE_KCOV_INCLUDE_PATTERN} ${KCOV_EXCLUDE_LINE_ARG} ${KCOV_EXCLUDE_REGION_ARG} ${TARGET_DIRECTORY}/{bin} {bin} {args}" -- test ${CARGO_MAKE_WITH_KCOV_ARGS} ${FEATURES} || true
 '''
 ]
 

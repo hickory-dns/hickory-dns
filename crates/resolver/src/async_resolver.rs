@@ -549,8 +549,6 @@ mod tests {
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
 
-        //FIXME: put the logic in two separate threads...
-
         let test_fn = |resolver: AsyncResolver<TokioConnection, TokioConnectionProvider>| {
             let mut io_loop = Runtime::new().unwrap();
 
