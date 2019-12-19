@@ -33,6 +33,7 @@ use trust_dns_client::tcp::*;
 use trust_dns_client::udp::*;
 use trust_dns_proto::error::*;
 use trust_dns_proto::xfer::*;
+use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 
 fn find_test_port() -> u16 {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
@@ -189,7 +190,7 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<TcpStream>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TcpStream>>::new::<TokioTime>(addr);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
     bench(b, mp);
 
@@ -264,7 +265,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<TcpStream>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TcpStream>>::new::<TokioTime>(addr);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
     bench(b, mp);
 

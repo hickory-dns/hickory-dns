@@ -18,13 +18,14 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::SslStream as TokioTlsStream;
 
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use super::TlsStreamBuilder;
 
 /// A Type definition for the TLS stream
-pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
+pub type TlsClientStream = TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>;
 
 /// A Builder for the TlsClientStream
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);

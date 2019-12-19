@@ -42,6 +42,7 @@ use trust_dns_proto::xfer::DnsResponse;
 use trust_dns_proto::xfer::{
     DnsExchangeBackground, DnsMultiplexer, DnsMultiplexerSerialResponse, DnsStreamHandle,
 };
+use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_example;
@@ -102,7 +103,7 @@ fn test_query_udp_ipv6() {
 fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -121,7 +122,7 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -231,6 +232,7 @@ async fn create_sig0_ready_client() -> (
         DnsExchangeBackground<
             DnsMultiplexer<TestClientStream, Signer, Box<dyn DnsStreamHandle>>,
             DnsMultiplexerSerialResponse,
+            TokioTime,
         >,
     ),
     Name,
@@ -948,8 +950,9 @@ fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) =
-        TcpClientStream::<TokioTcpStream>::with_timeout(addr, std::time::Duration::from_millis(1));
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::with_timeout::<
+        TokioTime,
+    >(addr, std::time::Duration::from_millis(1));
     let client = AsyncClient::with_timeout(
         Box::new(stream),
         sender,

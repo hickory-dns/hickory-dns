@@ -15,6 +15,7 @@ use futures::{ready, Future, Stream};
 use log::{debug, warn};
 
 use crate::error::*;
+use crate::Time;
 
 mod dns_exchange;
 pub mod dns_handle;
@@ -161,10 +162,14 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message(&mut self, message: DnsRequest, cx: &mut Context) -> Self::DnsResponseFuture;
+    fn send_message<TE: Time>(
+        &mut self,
+        message: DnsRequest,
+        cx: &mut Context,
+    ) -> Self::DnsResponseFuture;
 
     /// Constructs an error response
-    fn error_response(error: ProtoError) -> Self::DnsResponseFuture;
+    fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///

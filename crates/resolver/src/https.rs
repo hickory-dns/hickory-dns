@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
+use proto::TokioTime;
 use trust_dns_https::{
     HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
 };
@@ -17,7 +18,7 @@ pub(crate) fn new_https_stream(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse> {
+) -> DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse, TokioTime> {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,

@@ -28,6 +28,7 @@ use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
+use trust_dns_proto::Time;
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -223,7 +224,7 @@ impl DnsRequestSender for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message(
+    fn send_message<TE: Time>(
         &mut self,
         mut message: DnsRequest,
         _cx: &mut Context,
@@ -249,7 +250,7 @@ impl DnsRequestSender for HttpsClientStream {
         )))
     }
 
-    fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
+    fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture {
         HttpsClientResponse(Box::pin(future::err(error)))
     }
 
@@ -519,6 +520,7 @@ mod tests {
 
     use trust_dns_proto::op::{Message, Query};
     use trust_dns_proto::rr::{Name, RData, RecordType};
+    use trust_dns_proto::TokioTime;
 
     use super::*;
 
@@ -550,7 +552,9 @@ mod tests {
         let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
-        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
+        let sending = runtime.block_on(future::lazy(|cx| {
+            https.send_message::<TokioTime>(request, cx)
+        }));
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
         //assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));

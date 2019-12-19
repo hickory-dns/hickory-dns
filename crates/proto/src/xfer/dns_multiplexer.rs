@@ -11,6 +11,7 @@ use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
+use std::marker::Unpin;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -23,7 +24,6 @@ use log::{debug, warn};
 use rand;
 use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
-use tokio::{self, time::Delay};
 
 use crate::error::*;
 use crate::op::{Message, MessageFinalizer, OpCode};
@@ -32,6 +32,7 @@ use crate::xfer::{
     SerialMessage,
 };
 use crate::DnsStreamHandle;
+use crate::Time;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
@@ -45,7 +46,7 @@ struct ActiveRequest {
     //  expecting more than one response
     // TODO: change the completion above to a Stream, and don't hold messages...
     responses: SmallVec<[Message; 1]>,
-    timeout: Delay,
+    timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
 }
 
 impl ActiveRequest {
@@ -53,7 +54,7 @@ impl ActiveRequest {
         completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         request_options: DnsRequestOptions,
-        timeout: Delay,
+        timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
     ) -> Self {
         ActiveRequest {
             completion,
@@ -308,7 +309,11 @@ where
 {
     type DnsResponseFuture = DnsMultiplexerSerialResponse;
 
-    fn send_message(&mut self, request: DnsRequest, cx: &mut Context) -> Self::DnsResponseFuture {
+    fn send_message<TE: Time>(
+        &mut self,
+        request: DnsRequest,
+        cx: &mut Context,
+    ) -> Self::DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -350,12 +355,13 @@ where
         }
 
         // store a Timeout for this message before sending
-        let timeout = tokio::time::delay_for(self.timeout_duration);
+        let timeout = TE::delay_for(self.timeout_duration);
 
         let (complete, receiver) = oneshot::channel();
 
         // send the message
-        let active_request = ActiveRequest::new(complete, request.id(), request_options, timeout);
+        let active_request =
+            ActiveRequest::new(complete, request.id(), request_options, Box::new(timeout));
 
         match request.to_vec() {
             Ok(buffer) => {
@@ -385,7 +391,7 @@ where
         DnsMultiplexerSerialResponseInner::Completion(receiver).into()
     }
 
-    fn error_response(error: ProtoError) -> Self::DnsResponseFuture {
+    fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture {
         DnsMultiplexerSerialResponseInner::Err(Some(error)).into()
     }
 

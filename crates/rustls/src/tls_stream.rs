@@ -20,6 +20,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
+use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::{BufStreamHandle, SerialMessage};
 
@@ -35,7 +36,7 @@ pub type TlsStream<S> = TcpStream<S>;
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: tokio::io::AsyncRead + tokio::io::AsyncWrite>(
+pub fn tls_from_stream<S: futures::io::AsyncRead + futures::io::AsyncWrite>(
     stream: S,
     peer_addr: SocketAddr,
 ) -> (TlsStream<S>, BufStreamHandle) {
@@ -78,7 +79,12 @@ pub fn tls_connect(
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsStream<TokioTlsClientStream>, io::Error>> + Send>>,
+    Pin<
+        Box<
+            dyn Future<Output = Result<TlsStream<AsyncIo02As03<TokioTlsClientStream>>, io::Error>>
+                + Send,
+        >,
+    >,
     BufStreamHandle,
 ) {
     let (message_sender, outbound_messages) = unbounded();
@@ -104,7 +110,7 @@ async fn connect_tls(
     name_server: SocketAddr,
     dns_name: String,
     outbound_messages: UnboundedReceiver<SerialMessage>,
-) -> io::Result<TcpStream<TokioTlsClientStream>> {
+) -> io::Result<TcpStream<AsyncIo02As03<TokioTlsClientStream>>> {
     let tcp = TokioTcpStream::connect(&name_server).await?;
 
     let dns_name = DNSNameRef::try_from_ascii_str(&dns_name)
@@ -122,7 +128,7 @@ async fn connect_tls(
         .await?;
 
     Ok(TcpStream::from_stream_with_receiver(
-        s,
+        AsyncIo02As03(s),
         name_server,
         outbound_messages,
     ))

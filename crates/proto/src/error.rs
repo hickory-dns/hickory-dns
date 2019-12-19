@@ -23,8 +23,6 @@ use openssl::error::ErrorStack as SslErrorStack;
 use ring::error::Unspecified;
 
 use failure::{Backtrace, Context, Fail};
-use tokio::time::Elapsed;
-use tokio::time::Error as TimerError;
 
 /// An alias for results returned by functions of this crate
 pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
@@ -275,18 +273,6 @@ impl From<Unspecified> for ProtoError {
 impl From<SslErrorStack> for ProtoError {
     fn from(e: SslErrorStack) -> ProtoError {
         e.context(ProtoErrorKind::SSL).into()
-    }
-}
-
-impl From<TimerError> for ProtoError {
-    fn from(e: TimerError) -> ProtoError {
-        e.context(ProtoErrorKind::Timer).into()
-    }
-}
-
-impl From<Elapsed> for ProtoError {
-    fn from(e: Elapsed) -> ProtoError {
-        e.context(ProtoErrorKind::Timeout).into()
     }
 }
 

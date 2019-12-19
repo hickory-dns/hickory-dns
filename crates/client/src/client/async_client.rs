@@ -16,6 +16,7 @@ use crate::proto::xfer::{
     DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
     DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle,
 };
+use crate::proto::TokioTime;
 use futures::{ready, Future, FutureExt};
 use log::debug;
 use rand;
@@ -146,7 +147,7 @@ where
 
 /// A future that resolves to an AsyncClient
 #[must_use = "futures do nothing unless polled"]
-pub struct AsyncClientConnect<F, S, R>(DnsExchangeConnect<F, S, R>)
+pub struct AsyncClientConnect<F, S, R>(DnsExchangeConnect<F, S, R, TokioTime>)
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender<DnsResponseFuture = R> + 'static,
@@ -159,7 +160,7 @@ where
     S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    type Output = Result<(AsyncClient<R>, DnsExchangeBackground<S, R>), ProtoError>;
+    type Output = Result<(AsyncClient<R>, DnsExchangeBackground<S, R, TokioTime>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));

@@ -26,6 +26,7 @@ use trust_dns_client::proto::xfer::{
 };
 use trust_dns_client::proto::SecureDnsHandle;
 use trust_dns_client::rr::dnssec::*;
+use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 
 use server_harness::*;
 
@@ -66,8 +67,9 @@ async fn standard_tcp_conn(
 ) -> (
     AsyncClient<DnsMultiplexerSerialResponse>,
     DnsExchangeBackground<
-        DnsMultiplexer<TcpClientStream<TokioTcpStream>, Signer>,
+        DnsMultiplexer<TcpClientStream<AsyncIo02As03<TokioTcpStream>>, Signer>,
         DnsMultiplexerSerialResponse,
+        TokioTime,
     >,
 ) {
     let addr: SocketAddr = ("127.0.0.1", port)
@@ -75,7 +77,7 @@ async fn standard_tcp_conn(
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<TokioTcpStream>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
     AsyncClient::new(stream, sender, None)
         .await
         .expect("new AsyncClient failed")
