@@ -19,7 +19,7 @@ use futures::Future;
 use tokio::runtime::{self, Runtime};
 
 #[cfg(feature = "dnssec")]
-use crate::client::AsyncSecureClient;
+use crate::client::AsyncDnssecClient;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle};
 use crate::error::*;
 use crate::proto::{
@@ -477,14 +477,14 @@ impl<CC: ClientConnection> SecureSyncClient<CC> {
 impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
     type Response =
         Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
-    type Handle = AsyncSecureClient<CC::Response>;
+    type Handle = AsyncDnssecClient<CC::Response>;
 
     #[allow(clippy::type_complexity)]
     fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
 
         let connect = async move {
-            let (client, bg) = AsyncSecureClient::connect(stream).await?;
+            let (client, bg) = AsyncDnssecClient::connect(stream).await?;
 
             let bg = Box::new(bg) as _;
             Ok((client, bg))
