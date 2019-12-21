@@ -135,7 +135,6 @@ impl Parser {
     /// # Return
     ///
     /// A pair of the Zone origin name and a map of all Keys to RecordSets
-    #[allow(clippy::unimplemented)] // FIXME: remove when unimplenteds removed below
     pub fn parse(
         &mut self,
         lexer: Lexer,
@@ -159,7 +158,11 @@ impl Parser {
 
                     match t {
                         // if Dollar, then $INCLUDE or $ORIGIN
-                        Token::Include => unimplemented!(), // FIXME: return error
+                        Token::Include => {
+                            return Err(ParseError::from(ParseErrorKind::Message(
+                                "$INCLUDE is not yet implemented",
+                            )))
+                        }
                         Token::Origin => State::Origin,
                         Token::Ttl => State::Ttl,
 
@@ -198,7 +201,11 @@ impl Parser {
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
                     }
                 }
-                State::Include => unimplemented!(), // FIXME: return error
+                State::Include => {
+                    return Err(ParseError::from(ParseErrorKind::Message(
+                        "$INCLUDE is not yet implemented",
+                    )))
+                }
                 State::TtlClassType => {
                     match t {
                         // if number, TTL
