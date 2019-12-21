@@ -24,7 +24,7 @@ use trust_dns_client::tcp::TcpClientStream;
 
 use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream, UdpResponse};
 use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
-use trust_dns_proto::SecureDnsHandle;
+use trust_dns_proto::DnssecDnsHandle;
 use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -48,7 +48,7 @@ fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example);
 }
 
-fn test_secure_query_example<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
+fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -90,7 +90,7 @@ fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example);
 }
 
-fn test_nsec_query_example<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
+fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -120,7 +120,7 @@ fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type);
 }
 
-fn test_nsec_query_type<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
+fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -155,7 +155,7 @@ where
 //     with_tcp(dnssec_rollernet_td_mixed_case_test);
 // }
 
-// fn dnssec_rollernet_td_test<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
+// fn dnssec_rollernet_td_test<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
@@ -175,7 +175,7 @@ where
 //     assert!(response.answers().is_empty());
 // }
 
-// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureDnsHandle<H>, mut io_loop: Runtime)
+// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
@@ -197,7 +197,7 @@ where
 
 fn with_nonet<F>(test: F)
 where
-    F: Fn(SecureDnsHandle<MemoizeClientHandle<AsyncClient<DnsMultiplexerSerialResponse>>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient<DnsMultiplexerSerialResponse>>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -246,7 +246,7 @@ where
 
     trust_dns_proto::spawn_bg(&io_loop, bg);
     let client = MemoizeClientHandle::new(client);
-    let secure_client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);
+    let secure_client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -255,7 +255,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureDnsHandle<MemoizeClientHandle<AsyncClient<UdpResponse>>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient<UdpResponse>>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -282,7 +282,7 @@ where
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let client = MemoizeClientHandle::new(client);
-    let secure_client = SecureDnsHandle::new(client);
+    let secure_client = DnssecDnsHandle::new(client);
 
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -291,7 +291,7 @@ where
 
 fn with_tcp<F>(test: F)
 where
-    F: Fn(SecureDnsHandle<MemoizeClientHandle<AsyncClient<DnsMultiplexerSerialResponse>>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient<DnsMultiplexerSerialResponse>>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -318,7 +318,7 @@ where
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
     let client = MemoizeClientHandle::new(client);
-    let secure_client = SecureDnsHandle::new(client);
+    let secure_client = DnssecDnsHandle::new(client);
 
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

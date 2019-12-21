@@ -24,7 +24,7 @@ use trust_dns_client::proto::tcp::TcpClientStream;
 use trust_dns_client::proto::xfer::{
     DnsExchangeBackground, DnsMultiplexer, DnsMultiplexerSerialResponse,
 };
-use trust_dns_client::proto::SecureDnsHandle;
+use trust_dns_client::proto::DnssecDnsHandle;
 use trust_dns_client::rr::dnssec::*;
 use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 
@@ -104,12 +104,12 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
         trust_dns_proto::spawn_bg(&io_loop, bg);
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
-        // test that request with Secure client is successful, i.e. validates chain
+        // test that request with Dnssec client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
         let client = standard_tcp_conn(tcp_port.expect("no tcp port"));
         let (client, bg) = io_loop.block_on(client);
         trust_dns_proto::spawn_bg(&io_loop, bg);
-        let mut client = SecureDnsHandle::with_trust_anchor(client, trust_anchor);
+        let mut client = DnssecDnsHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);
     });

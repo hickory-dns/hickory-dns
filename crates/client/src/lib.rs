@@ -60,7 +60,7 @@
 //!
 //! ## Objects
 //!
-//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `AsyncClient`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
+//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `AsyncClient`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SyncDnssecClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
 //!
 //! First we must decide on the type of connection, there are three supported by Trust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
 //!
@@ -78,7 +78,7 @@
 //! let client = SyncClient::new(conn);
 //! ```
 //!
-//! At this point the client is ready to be used. See also `client::SecureSyncClient` for DNSSec validation. The rest of these examples will assume that the above boilerplate has already been performed.
+//! At this point the client is ready to be used. See also `client::SyncDnssecClient` for DNSSec validation. The rest of these examples will assume that the above boilerplate has already been performed.
 //!
 //! ## Querying
 //!

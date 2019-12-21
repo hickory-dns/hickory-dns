@@ -24,7 +24,7 @@ use proto::rr::rdata;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 #[cfg(feature = "dnssec")]
-use proto::SecureDnsHandle;
+use proto::DnssecDnsHandle;
 use proto::{DnsHandle, RetryDnsHandle};
 
 use crate::dns_lru::MAX_TTL;
@@ -186,7 +186,7 @@ impl Iterator for LookupIntoIter {
 pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
-    Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
+    Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
 impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>> DnsHandle for LookupEither<C, P> {
