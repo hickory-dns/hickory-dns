@@ -20,20 +20,18 @@ use crate::proto::xfer::{
 use crate::proto::SecureDnsHandle;
 use crate::proto::TokioTime;
 
-// FIXME: rename to AsyncDnsSecClient
 /// A DNSSEC Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
-pub struct AsyncSecureClient<R>
+pub struct AsyncDnssecClient<R>
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-    // FIXME: add memoizer here, to reduce # of requests
 {
     client: SecureDnsHandle<AsyncClient<R>>,
 }
 
-impl<R> AsyncSecureClient<R>
+impl<R> AsyncDnssecClient<R>
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
@@ -66,18 +64,18 @@ where
     }
 }
 
-impl<R> Clone for AsyncSecureClient<R>
+impl<R> Clone for AsyncDnssecClient<R>
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     fn clone(&self) -> Self {
-        AsyncSecureClient {
+        AsyncDnssecClient {
             client: self.client.clone(),
         }
     }
 }
 
-impl<Resp> DnsHandle for AsyncSecureClient<Resp>
+impl<Resp> DnsHandle for AsyncDnssecClient<Resp>
 where
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
@@ -134,7 +132,7 @@ where
     }
 }
 
-/// A future which will resolve to a AsyncSecureClient
+/// A future which will resolve to a AsyncDnssecClient
 #[must_use = "futures do nothing unless polled"]
 pub struct AsyncSecureClientConnect<F, S, R>
 where
@@ -154,7 +152,7 @@ where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Output =
-        Result<(AsyncSecureClient<R>, DnsExchangeBackground<S, R, TokioTime>), ProtoError>;
+        Result<(AsyncDnssecClient<R>, DnsExchangeBackground<S, R, TokioTime>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let result = ready!(self.client_connect.poll_unpin(cx));
@@ -164,7 +162,7 @@ where
             .expect("TrustAnchor is None, was the future already complete?");
 
         let client_background =
-            result.map(|(client, bg)| (AsyncSecureClient::from_client(client, trust_anchor), bg));
+            result.map(|(client, bg)| (AsyncDnssecClient::from_client(client, trust_anchor), bg));
         Poll::Ready(client_background)
     }
 }

@@ -31,7 +31,7 @@ pub use self::async_client::{
 };
 #[cfg(feature = "dnssec")]
 pub use self::async_secure_client::{
-    AsyncSecureClient, AsyncSecureClientBuilder, AsyncSecureClientConnect,
+    AsyncDnssecClient, AsyncSecureClientBuilder, AsyncSecureClientConnect,
 };
 #[cfg(feature = "dnssec")]
 pub use self::client::SecureSyncClient;
