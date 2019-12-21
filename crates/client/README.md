@@ -8,7 +8,7 @@ This library contains basic implementations for DNS record serialization, and co
 
 The `client` is capable of DNSSec validation as well as offering higher order functions for performing DNS operations:
 
-- [SecureSyncClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SecureSyncClient.html) - DNSSec validation
+- [SyncDnssecClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SyncDnssecClient.html) - DNSSec validation
 - [create](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
 - [append](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.append) - verify existence of a record and append to it
 - [compare_and_swap](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap

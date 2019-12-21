@@ -55,10 +55,10 @@ pub type NewFutureObj<H> = Pin<
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
 /// for the old Client was not possible. This trait has two implementations, the `SyncClient` which
-/// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureDnsHandle`
+/// is a standard DNS Client, and the `SyncDnssecClient` which is a wrapper on `DnssecDnsHandle`
 /// providing DNSSec validation.
 ///
-/// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
+/// *note* When upgrading from previous usage, both `SyncClient` and `SyncDnssecClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
 pub trait Client {
@@ -451,13 +451,13 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
 
 /// A DNS client which will validate DNSSec records upon receipt
 #[cfg(feature = "dnssec")]
-pub struct SecureSyncClient<CC: ClientConnection> {
+pub struct SyncDnssecClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC: ClientConnection> SecureSyncClient<CC> {
+impl<CC: ClientConnection> SyncDnssecClient<CC> {
     /// Creates a new DNS client with the specified connection type
     ///
     /// # Arguments
@@ -474,7 +474,7 @@ impl<CC: ClientConnection> SecureSyncClient<CC> {
 }
 
 #[cfg(feature = "dnssec")]
-impl<CC: ClientConnection> Client for SecureSyncClient<CC> {
+impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
     type Response =
         Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
     type Handle = AsyncDnssecClient<CC::Response>;
@@ -526,8 +526,8 @@ impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
         self
     }
 
-    pub fn build(self) -> SecureSyncClient<CC> {
-        SecureSyncClient {
+    pub fn build(self) -> SyncDnssecClient<CC> {
+        SyncDnssecClient {
             conn: self.conn,
             signer: self.signer,
         }
@@ -550,6 +550,6 @@ fn test_sync_client_send_and_sync() {
 fn test_secure_client_send_and_sync() {
     use crate::tcp::TcpClientConnection;
     use crate::udp::UdpClientConnection;
-    assert_send_and_sync::<SecureSyncClient<UdpClientConnection>>();
-    assert_send_and_sync::<SecureSyncClient<TcpClientConnection>>();
+    assert_send_and_sync::<SyncDnssecClient<UdpClientConnection>>();
+    assert_send_and_sync::<SyncDnssecClient<TcpClientConnection>>();
 }

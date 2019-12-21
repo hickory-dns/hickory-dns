@@ -22,6 +22,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (resolver) Now returns a connect future to connect the start all background tasks
 - (proto, resolver) renamed the `tokio-compat` feature to `tokio-runtime`
 - (all) added cargo-make Makefile.toml to support all automation in Github workflow
+- (proto) renamed `SecureDnsHandle` to `DnssecDnsHandle`
+- (client) renamed `SecureSyncClient` to `SyncDnssecClient`
 
 ### Fixes
 
@@ -41,6 +43,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Added
 
 - (proto) proto now has a `testing` feature to allow dependencies that might want access to some of the testing harnesses.
+- (client) 
 
 ## 0.17.0 (Client/Server)
 

@@ -19,7 +19,7 @@ use chrono::Duration;
 use futures::Future;
 
 #[cfg(feature = "dnssec")]
-use trust_dns_client::client::SecureSyncClient;
+use trust_dns_client::client::SyncDnssecClient;
 #[allow(deprecated)]
 use trust_dns_client::client::{Client, ClientConnection, SyncClient};
 use trust_dns_client::error::ClientErrorKind;
@@ -138,7 +138,7 @@ where
 fn test_secure_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
-    let client = SecureSyncClient::new(conn).build();
+    let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
 }
@@ -150,13 +150,13 @@ fn test_secure_query_example_udp() {
 fn test_secure_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
-    let client = SecureSyncClient::new(conn).build();
+    let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
 }
 
 #[cfg(feature = "dnssec")]
-fn test_secure_query_example<CC>(client: SecureSyncClient<CC>)
+fn test_secure_query_example<CC>(client: SyncDnssecClient<CC>)
 where
     CC: ClientConnection,
 {
@@ -240,7 +240,7 @@ fn test_timeout_query_tcp() {
 // #[ignore]
 // #[allow(deprecated)]
 // fn test_dnssec_rollernet_td_udp() {
-//     let c = SecureSyncClient::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
+//     let c = SyncDnssecClient::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
 //         .build();
 //     c.secure_query(
 //         &Name::parse("rollernet.us.", None).unwrap(),
@@ -254,7 +254,7 @@ fn test_timeout_query_tcp() {
 // #[ignore]
 // #[allow(deprecated)]
 // fn test_dnssec_rollernet_td_tcp() {
-//     let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
+//     let c = SyncDnssecClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
 //         .build();
 //     c.secure_query(
 //         &Name::parse("rollernet.us.", None).unwrap(),
@@ -268,7 +268,7 @@ fn test_timeout_query_tcp() {
 // #[ignore]
 // #[allow(deprecated)]
 // fn test_dnssec_rollernet_td_tcp_mixed_case() {
-//     let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
+//     let c = SyncDnssecClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
 //         .build();
 //     c.secure_query(
 //         &Name::parse("RollErnet.Us.", None).unwrap(),
@@ -284,7 +284,7 @@ fn test_timeout_query_tcp() {
 fn test_nsec_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
-    let client = SecureSyncClient::new(conn).build();
+    let client = SyncDnssecClient::new(conn).build();
     test_nsec_query_example::<UdpClientConnection>(client);
 }
 
@@ -295,12 +295,12 @@ fn test_nsec_query_example_udp() {
 fn test_nsec_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
-    let client = SecureSyncClient::new(conn).build();
+    let client = SyncDnssecClient::new(conn).build();
     test_nsec_query_example::<TcpClientConnection>(client);
 }
 
 #[cfg(feature = "dnssec")]
-fn test_nsec_query_example<CC>(client: SecureSyncClient<CC>)
+fn test_nsec_query_example<CC>(client: SyncDnssecClient<CC>)
 where
     CC: ClientConnection,
 {
@@ -321,7 +321,7 @@ fn test_nsec_query_type() {
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
-    let client = SecureSyncClient::new(conn).build();
+    let client = SyncDnssecClient::new(conn).build();
 
     let response = client
         .query(&name, DNSClass::IN, RecordType::NS)

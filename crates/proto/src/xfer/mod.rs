@@ -22,9 +22,9 @@ pub mod dns_handle;
 pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
-pub mod retry_dns_handle;
 #[cfg(feature = "dnssec")]
-pub mod secure_dns_handle;
+pub mod dnssec_dns_handle;
+pub mod retry_dns_handle;
 mod serial_message;
 
 pub use self::dns_exchange::{
@@ -36,9 +36,9 @@ pub use self::dns_multiplexer::{
 };
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
-pub use self::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
-pub use self::secure_dns_handle::SecureDnsHandle;
+pub use self::dnssec_dns_handle::DnssecDnsHandle;
+pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors

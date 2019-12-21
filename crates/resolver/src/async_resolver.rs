@@ -194,8 +194,8 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
         if options.validate {
             #[cfg(feature = "dnssec")]
             {
-                use proto::xfer::SecureDnsHandle;
-                either = LookupEither::Secure(SecureDnsHandle::new(client));
+                use proto::xfer::DnssecDnsHandle;
+                either = LookupEither::Secure(DnssecDnsHandle::new(client));
             }
 
             #[cfg(not(feature = "dnssec"))]

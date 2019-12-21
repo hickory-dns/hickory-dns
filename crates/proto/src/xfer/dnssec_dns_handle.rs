@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! The `SecureDnsHandle` is used to validate all DNS responses for correct DNSSec signatures.
+//! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSec signatures.
 
 use std::clone::Clone;
 use std::collections::HashSet;
@@ -42,7 +42,7 @@ struct Rrset {
 ///  this process.
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a DnsHandle"]
-pub struct SecureDnsHandle<H>
+pub struct DnssecDnsHandle<H>
 where
     H: DnsHandle + Unpin + 'static,
 {
@@ -53,29 +53,29 @@ where
     minimum_algorithm: Algorithm, // used to prevent down grade attacks...
 }
 
-impl<H> SecureDnsHandle<H>
+impl<H> DnssecDnsHandle<H>
 where
     H: DnsHandle + Unpin + 'static,
 {
-    /// Create a new SecureDnsHandle wrapping the specified handle.
+    /// Create a new DnssecDnsHandle wrapping the specified handle.
     ///
     /// This uses the compiled in TrustAnchor default trusted keys.
     ///
     /// # Arguments
     /// * `handle` - handle to use for all connections to a remote server.
-    pub fn new(handle: H) -> SecureDnsHandle<H> {
+    pub fn new(handle: H) -> DnssecDnsHandle<H> {
         Self::with_trust_anchor(handle, TrustAnchor::default())
     }
 
-    /// Create a new SecureDnsHandle wrapping the specified handle.
+    /// Create a new DnssecDnsHandle wrapping the specified handle.
     ///
     /// This allows a custom TrustAnchor to be define.
     ///
     /// # Arguments
     /// * `handle` - handle to use for all connections to a remote server.
     /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
-    pub fn with_trust_anchor(handle: H, trust_anchor: TrustAnchor) -> SecureDnsHandle<H> {
-        SecureDnsHandle {
+    pub fn with_trust_anchor(handle: H, trust_anchor: TrustAnchor) -> DnssecDnsHandle<H> {
+        DnssecDnsHandle {
             handle,
             trust_anchor: Arc::new(trust_anchor),
             request_depth: 0,
@@ -88,7 +88,7 @@ where
     ///  original handle, such as the request_depth such that infinite recursion does
     ///  not occur.
     fn clone_with_context(&self) -> Self {
-        SecureDnsHandle {
+        DnssecDnsHandle {
             handle: self.handle.clone(),
             trust_anchor: Arc::clone(&self.trust_anchor),
             request_depth: self.request_depth + 1,
@@ -98,7 +98,7 @@ where
     }
 }
 
-impl<H: DnsHandle + Sync + Unpin> DnsHandle for SecureDnsHandle<H> {
+impl<H: DnsHandle + Sync + Unpin> DnsHandle for DnssecDnsHandle<H> {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -125,7 +125,7 @@ impl<H: DnsHandle + Sync + Unpin> DnsHandle for SecureDnsHandle<H> {
                 .first()
                 .cloned()
                 .expect("no queries in request");
-            let handle: SecureDnsHandle<H> = self.clone_with_context();
+            let handle: DnssecDnsHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
             #[cfg(feature = "dnssec")]
@@ -214,7 +214,7 @@ impl<H: DnsHandle + Sync + Unpin> DnsHandle for SecureDnsHandle<H> {
 ///  validate all of them.
 #[allow(clippy::type_complexity)]
 async fn verify_rrsets<H: DnsHandle + Sync + Unpin>(
-    handle: SecureDnsHandle<H>,
+    handle: DnssecDnsHandle<H>,
     message_result: DnsResponse,
     dns_class: DNSClass,
 ) -> Result<DnsResponse, ProtoError> {
@@ -398,7 +398,7 @@ where
 ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
 async fn verify_rrset<H>(
-    handle: SecureDnsHandle<H>,
+    handle: DnssecDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
 ) -> Result<Rrset, ProtoError>
@@ -433,7 +433,7 @@ where
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
 async fn verify_dnskey_rrset<H>(
-    mut handle: SecureDnsHandle<H>,
+    mut handle: DnssecDnsHandle<H>,
     rrset: Rrset,
 ) -> Result<Rrset, ProtoError>
 where
@@ -603,7 +603,7 @@ fn test_preserve() {
 ///  then the RRSET will be valid.
 #[allow(clippy::block_in_if_condition_stmt)]
 async fn verify_default_rrset<H>(
-    handle: &SecureDnsHandle<H>,
+    handle: &DnssecDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
 ) -> Result<Rrset, ProtoError>

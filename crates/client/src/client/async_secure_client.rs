@@ -17,7 +17,7 @@ use crate::proto::rr::dnssec::TrustAnchor;
 use crate::proto::xfer::{
     DnsExchangeBackground, DnsHandle, DnsRequest, DnsRequestSender, DnsResponse,
 };
-use crate::proto::SecureDnsHandle;
+use crate::proto::DnssecDnsHandle;
 use crate::proto::TokioTime;
 
 /// A DNSSEC Client implemented over futures-rs.
@@ -28,7 +28,7 @@ pub struct AsyncDnssecClient<R>
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
-    client: SecureDnsHandle<AsyncClient<R>>,
+    client: DnssecDnsHandle<AsyncClient<R>>,
 }
 
 impl<R> AsyncDnssecClient<R>
@@ -59,7 +59,7 @@ where
 
     fn from_client(client: AsyncClient<R>, trust_anchor: TrustAnchor) -> Self {
         Self {
-            client: SecureDnsHandle::with_trust_anchor(client, trust_anchor),
+            client: DnssecDnsHandle::with_trust_anchor(client, trust_anchor),
         }
     }
 }
