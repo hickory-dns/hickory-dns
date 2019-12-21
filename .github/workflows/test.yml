@@ -4,9 +4,13 @@ on:
   push:
     branches:
       - master
+      - release/**
+    tags:
+      - *
   pull_request:
     branches:
       - master
+      - release/**
   schedule:
     - cron:  '0 3 * * 4'
 
