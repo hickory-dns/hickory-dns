@@ -24,6 +24,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (all) added cargo-make Makefile.toml to support all automation in Github workflow
 - (proto) renamed `SecureDnsHandle` to `DnssecDnsHandle`
 - (client) renamed `SecureSyncClient` to `SyncDnssecClient`
+- Abstractions around Tokio for generic Executors #960 (@chunyingw)
+- Enable early data on tokio-rustls #911 (@daareiza)
 
 ### Fixes
 
@@ -40,11 +42,11 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) removed unused xfer::BasicDnsHandle, xfer::MessageStreamHandle
 - (resolver) removed all unused custom LookupFuture types SrvLookupFuture, ReverseLookupFuture, Ipv4LookupFuture, Ipv6LookupFuture, MxLookupFuture, TxtLookupFuture, SoaLookupFuture, NsLookupFuture
 - (resolver) removed Background, BackgroundLookup, and BackgroundLookupIp
+- (resolver|client) DoH no longer sends User-Agent header #962 (@quininer)
 
 ### Added
 
-- (proto) proto now has a `testing` feature to allow dependencies that might want access to some of the testing harnesses.
-- (client) 
+- (proto) proto now has a `testing` feature to allow dependencies that might want access to some of the testing harnesses. #936 (@chunyingw)
 
 ## 0.17.0 (Client/Server)
 
