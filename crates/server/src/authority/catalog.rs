@@ -769,7 +769,7 @@ enum AuthorityLookupState {
     },
 }
 
-// FIXME: turn this into a real future
+// TODO: turn this into a real future
 impl AuthorityLookupState {
     #[allow(clippy::type_complexity)]
     fn poll<R: ResponseHandler>(

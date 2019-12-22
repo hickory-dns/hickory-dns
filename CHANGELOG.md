@@ -29,6 +29,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (proto) Removed deadlock from UDPSocket stream impl
 - (named) made tests a little more resilient to port stealing
+- (proto) Unknown ResponseCodes will no longer cause a panic
 
 ### Removed
 

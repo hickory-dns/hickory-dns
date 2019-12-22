@@ -136,14 +136,14 @@ impl Authority for ForwardAuthority {
         ))
     }
 
-    #[allow(clippy::unimplemented)] // FIXME: this should return an error
+    #[allow(clippy::unimplemented)]
     fn get_nsec_records(
         &self,
         _name: &LowerName,
         _is_secure: bool,
         _supported_algorithms: SupportedAlgorithms,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        unimplemented!()
+        future::err(io::Error)
     }
 }
 
