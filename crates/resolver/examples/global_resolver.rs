@@ -12,8 +12,6 @@ use std::io;
 use std::net::SocketAddr;
 
 #[cfg(feature = "tokio-runtime")]
-use futures::{Future, FutureExt};
-#[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::TokioAsyncResolver;
 #[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::{IntoName, TryParseIp};
@@ -96,29 +94,28 @@ lazy_static! {
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
 #[cfg(feature = "tokio-runtime")]
-pub fn resolve<N: IntoName + TryParseIp + 'static>(
+pub async fn resolve<N: IntoName + TryParseIp + 'static>(
     host: N,
     port: u16,
-) -> impl Future<Output = io::Result<Vec<SocketAddr>>> {
+) -> io::Result<Vec<SocketAddr>> {
     // Now we use the global resolver to perform a lookup_ip.
-    GLOBAL_DNS_RESOLVER.lookup_ip(host).map(move |result| {
-        // map the result into what we want...
-        result
-            .map_err(move |err| {
-                // we transform the error into a standard IO error for convenience
-                io::Error::new(
-                    io::ErrorKind::AddrNotAvailable,
-                    format!("dns resolution error: {}", err),
-                )
-            })
-            .map(move |lookup_ip| {
-                // we take all the IPs returned, and then send back the set of IPs
-                lookup_ip
-                    .iter()
-                    .map(|ip| SocketAddr::new(ip, port))
-                    .collect::<Vec<_>>()
-            })
-    })
+    let result = GLOBAL_DNS_RESOLVER.lookup_ip(host).await;
+    // map the result into what we want...
+    result
+        .map_err(move |err| {
+            // we transform the error into a standard IO error for convenience
+            io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                format!("dns resolution error: {}", err),
+            )
+        })
+        .map(move |lookup_ip| {
+            // we take all the IPs returned, and then send back the set of IPs
+            lookup_ip
+                .iter()
+                .map(|ip| SocketAddr::new(ip, port))
+                .collect::<Vec<_>>()
+        })
 }
 
 #[cfg(feature = "tokio-runtime")]
