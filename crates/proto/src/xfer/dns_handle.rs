@@ -6,17 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
-use std::pin::Pin;
-
 use futures::channel::mpsc::UnboundedSender;
-use futures::channel::oneshot;
-use futures::future::{Future, FutureExt, TryFutureExt};
+use futures::future::Future;
 use log::debug;
 use rand;
 
 use crate::error::*;
 use crate::op::{Message, MessageType, OpCode, Query};
-use crate::xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -43,57 +40,6 @@ impl DnsStreamHandle for StreamHandle {
     fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
         UnboundedSender::unbounded_send(&self.sender, buffer.unwrap().0)
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
-    }
-}
-
-/// Root DnsHandle implementation returned by DnsMultiplexer
-///
-/// This can be used directly to perform queries. See `trust_dns_client::client::DnssecDnsHandle` for
-///  a DNSSEc chain validator.
-#[derive(Clone)]
-pub struct BasicDnsHandle {
-    message_sender: UnboundedSender<(DnsRequest, oneshot::Sender<Result<DnsResponse, ProtoError>>)>,
-}
-
-impl BasicDnsHandle {
-    /// Returns a new BasicDnsHandle wrapping the `message_sender`
-    pub fn new(
-        message_sender: UnboundedSender<(
-            DnsRequest,
-            oneshot::Sender<Result<DnsResponse, ProtoError>>,
-        )>,
-    ) -> Self {
-        BasicDnsHandle { message_sender }
-    }
-}
-
-impl DnsHandle for BasicDnsHandle {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
-
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
-        let request = request.into();
-        let (complete, receiver) = oneshot::channel();
-        let message_sender: &mut _ = &mut self.message_sender;
-
-        // TODO: update to use Sink::send
-        let receiver = match UnboundedSender::unbounded_send(message_sender, (request, complete)) {
-            Ok(()) => receiver,
-            Err(e) => {
-                let (complete, receiver) = oneshot::channel();
-                ignore_send(complete.send(Err(ProtoError::from(format!(
-                    "error sending to channel: {}",
-                    e
-                )))));
-                receiver
-            }
-        };
-
-        // convert the oneshot into a Box of a Future message and error.
-        Box::pin(
-            receiver
-                .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
-                .map(|r| r.and_then(|r| r)),
-        )
     }
 }
 

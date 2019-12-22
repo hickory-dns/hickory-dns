@@ -5,10 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{Future, FutureExt};
+use futures::{future, Future, FutureExt};
 use tokio::runtime::Handle;
 
 use trust_dns_client::op::LowerQuery;
@@ -143,7 +144,10 @@ impl Authority for ForwardAuthority {
         _is_secure: bool,
         _supported_algorithms: SupportedAlgorithms,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        future::err(io::Error)
+        Box::pin(future::err(LookupError::from(io::Error::new(
+            io::ErrorKind::Other,
+            "Getting NSEC records is unimplemented for the forwarder",
+        ))))
     }
 }
 

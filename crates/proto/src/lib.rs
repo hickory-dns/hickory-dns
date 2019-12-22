@@ -59,7 +59,7 @@ pub mod udp;
 pub mod xfer;
 
 #[doc(hidden)]
-pub use crate::xfer::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle, StreamHandle};
 #[doc(hidden)]
 pub use crate::xfer::dns_multiplexer::DnsMultiplexer;
 #[doc(hidden)]
