@@ -38,18 +38,15 @@ This repo consists of multiple crates:
 
 # Status:
 
+## Resolver
+
+The Trust-DNS Resolver is a native Rust implementation for stub resolution in Rust applications. The Resolver supports many common query patterns, all of which can be configured when creating the Resolver. It is capable of using system configuration on Unix and Windows. On Windows there is a known issue that relates to a large set of interfaces being registered for use, so might require ignoring the system configuration.
+
+The Resolver will properly follow CNAME chains as well as SRV record lookups. There is a long term plan to make the Resolver capable of fully recursive queries, but that's not currently possible.
+
 ## Client
 
-Using the AsyncClient is safe. AsyncClient is a brand new rewrite of the old
- Client. It has all the same features as the old Client, but is written with the
- wonderful futures-rs library. Please send feedback! It currently does not cache
- responses, if this is a feature you'd like earlier rather than later, post a
- request. The validation of DNSSec is complete including NSEC. As of now NSEC3
- is broken, and I may never plan to support it. I have some alternative ideas
- for private data in the zone. The old Client has been deprecated, so please
- use the AsyncClient. If this is an inconvenience, I may add a convenience
- wrapper around AsyncClient that would match the old Client; if this is something
- you would like to see, please file an issue.
+The Trust-DNS Client is intended to be used for operating against a DNS server directly. It can be used for verifying records or updating records for servers that support SIG0 and dynamic update. The Client is also capable of validating DNSSEC. As of now NSEC3 validation is not yet supported, though NSEC is. There are two interfaces that can be used, the async/await compatible AsyncClient  and a blocking Client for ease of use. Today, Tokio is required for the executor Runtime.
 
 ### Unique client side implementations
 
@@ -66,10 +63,6 @@ These are standards supported by the DNS protocol. The client implements them
 | [delete_rrset](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_rrset) | delete an entire record set |
 | [delete_all](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_all) | delete all records sets with a given name |
 | [notify](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.notify) | notify server that it should reload a zone |
-
-### DNS over TLS on the Client
-
-DNS over TLS is supported. This is accomplished through the use of `rust-native-tls`. To use DNS over TLS with the `Client`, the `TlsClientConnection` should be used. See the `TlsClientConnectionBuilder::add_ca()` method. Similarly, to use the tokio `AsyncClient` the `TlsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is supported for Server validation and connection privacy.
 
 ## Server
 
@@ -96,9 +89,17 @@ Zone signing support is complete, to insert a key store a pem encoded rsa file
  key rotation. Rotating the key currently is not available online and requires
  a restart of the server process.
 
-### DNS over TLS on the Server
+### DNS-over-TLS and DNS-over-HTTPS on the Server
 
 Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/master/crates/server/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+
+## DNS-over-TLS and DNS-over-HTTPS
+
+DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires only requires valid DoT or DoH resolvers being registered in order to be used.
+
+To use with the `Client`, the `TlsClientConnection` or `HttpsClientConnection` should be used. Similarly, to use with the tokio `AsyncClient` the `TlsClientStream` or `HttpsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is useful for Server authentication and connection privacy.
+
+To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
 
 ## DNSSec status
 
@@ -108,7 +109,7 @@ Currently the root key is hardcoded into the system. This gives validation of
  appear to rate limit the connections, validating RRSIG records back to the root
  can require a significant number of additional queries for those records.
 
-Zones will be automatically resigned on any record updates via dynamic DNS.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-rustls` must be enabled.
 
 ## RFCs implemented
 
