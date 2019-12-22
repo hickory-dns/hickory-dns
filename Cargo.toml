@@ -8,6 +8,6 @@ members = ["crates/proto",
            "crates/client", 
            "crates/server",
            "bin",
+           "util",
            "tests/compatibility-tests",
-           "tests/integration-tests",
-           "util"]
+           "tests/integration-tests"]
