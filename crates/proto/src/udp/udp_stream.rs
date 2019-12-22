@@ -223,7 +223,7 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 
         debug!("could not get next random port, delaying");
 
-        // FIXME: this replaced task::current().notify();
+        // TODO: because no interest is registered anywhere, we must awake.
         cx.waker().wake_by_ref();
 
         // returning NotReady here, perhaps the next poll there will be some more socket available.

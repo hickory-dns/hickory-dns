@@ -798,7 +798,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
         return Err("extended flags currently not supported".into());
     }
 
-    // FIXME: protocol my be infallible
+    // TODO: protocol my be infallible
     let protocol = Protocol::from(decoder.read_u8()?.unverified(/*Protocol is verified as safe*/));
 
     let algorithm: Algorithm = Algorithm::read(decoder)?;

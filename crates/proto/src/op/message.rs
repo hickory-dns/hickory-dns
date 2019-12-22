@@ -792,7 +792,7 @@ impl<'r> BinDecodable<'r> for Message {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let header = Header::read(decoder)?;
 
-        // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
+        // TODO: return just header, and in the case of the rest of message getting an error.
         //  this could improve error detection while decoding.
 
         // get the questions

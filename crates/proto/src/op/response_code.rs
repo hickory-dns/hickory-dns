@@ -126,6 +126,8 @@ pub enum ResponseCode {
     // 3841-4095    Reserved for Private Use                        [RFC6895]
     // 4096-65534   Unassigned
     // 65535        Reserved, can be allocated by Standards Action  [RFC6895]
+    /// An unknown or unregisterd response code was received.
+    Unknown(u16),
 }
 
 impl ResponseCode {
@@ -167,6 +169,7 @@ impl ResponseCode {
             ResponseCode::BADALG => "Algorithm not supported", // 21    BADALG        Algorithm not supported             [RFC2930]
             ResponseCode::BADTRUNC => "Bad truncation", // 22    BADTRUNC      Bad Truncation                      [RFC4635]
             ResponseCode::BADCOOKIE => "Bad server cookie", // 23    BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)    Bad/missing server cookie    [draft-ietf-dnsop-cookies]
+            ResponseCode::Unknown(_) => "Unknown response code",
         }
     }
 }
@@ -217,6 +220,7 @@ impl From<ResponseCode> for u16 {
             ResponseCode::BADTRUNC => 22, // 22  BADTRUNC  Bad Truncation                         [RFC4635]
             // 23  BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)    Bad/missing server cookie    [draft-ietf-dnsop-cookies]
             ResponseCode::BADCOOKIE => 23,
+            ResponseCode::Unknown(code) => code,
         }
     }
 }
@@ -234,7 +238,7 @@ impl From<ResponseCode> for u16 {
 /// assert_eq!(0, var);
 /// ```
 impl From<u16> for ResponseCode {
-    #[allow(clippy::unimplemented)] // FIXME: this should be a TryFrom!
+    #[allow(clippy::unimplemented)]
     fn from(value: u16) -> Self {
         match value {
             0 => ResponseCode::NoError, // 0    NoError    No Error                             [RFC1035]
@@ -259,7 +263,7 @@ impl From<u16> for ResponseCode {
             21 => ResponseCode::BADALG, // 21    BADALG    Algorithm not supported              [RFC2930]
             22 => ResponseCode::BADTRUNC, // 22    BADTRUNC  Bad Truncation                       [RFC4635]
             23 => ResponseCode::BADCOOKIE, // 23    BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)    Bad/missing server cookie    [draft-ietf-dnsop-cookies]
-            _ => unimplemented!(),
+            code => ResponseCode::Unknown(code),
         }
     }
 }

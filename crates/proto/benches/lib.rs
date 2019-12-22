@@ -20,7 +20,7 @@ fn bench_emit_header(b: &mut Bencher) {
     })
 }
 
-// FIXME:
+// TODO:
 // This is a bit silly, because everywhere in the codebase, we reserve 512 bytes for the buffer.
 // But what we want to measure here is the cost of reserving more space, which can happen for big
 // messages exceeding 512 bytes. A better benchmark would be to emit such a big message.

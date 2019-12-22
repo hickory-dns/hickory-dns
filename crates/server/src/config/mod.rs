@@ -222,8 +222,8 @@ impl ZoneConfig {
     /// this is ony used on first load, if dynamic update is enabled for the zone, then the journal
     /// file is the actual source of truth for the zone.
     pub fn get_file(&self) -> PathBuf {
-        // FIXME: Option on PathBuf
-        PathBuf::from(self.file.as_ref().unwrap())
+        // TODO: Option on PathBuf
+        PathBuf::from(self.file.as_ref().expect("file was none"))
     }
 
     /// enable dynamic updates for the zone (see SIG0 and the registered keys)

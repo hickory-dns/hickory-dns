@@ -59,7 +59,7 @@ impl AuthLookup {
 
     /// Returns true if either the associated Records are empty, or this is a NameExists or NxDomain
     pub fn is_empty(&self) -> bool {
-        // FIXME: this needs to be cheap
+        // TODO: this needs to be cheap
         self.was_empty()
     }
 
@@ -125,7 +125,7 @@ impl<'a> IntoIterator for &'a AuthLookup {
     fn into_iter(self) -> Self::IntoIter {
         match self {
             AuthLookup::Empty => AuthLookupIter::Empty,
-            // FIXME: what about the additionals? is IntoIterator a bad idea?
+            // TODO: what about the additionals? is IntoIterator a bad idea?
             AuthLookup::Records { answers: r, .. } | AuthLookup::SOA(r) => {
                 AuthLookupIter::Records(r.into_iter())
             }
