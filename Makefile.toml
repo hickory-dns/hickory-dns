@@ -446,9 +446,15 @@ description = "package artifacts for each crate"
 command = "cargo"
 args = ["package", "--locked"]
 
-[tasks.publish]
+[tasks.inner_publish]
 description = "publish next release"
 dependencies = ["await-update", "update", "check", "package"]
-env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "test/*"}
+private = true
 command = "cargo"
 args = ["publish", "--verbose", "--locked"]
+
+[tasks.publish]
+description = "publish next release"
+workspace = false
+env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "tests/*"}
+run_task = { name = "inner_publish", fork = true }
