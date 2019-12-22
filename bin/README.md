@@ -14,6 +14,26 @@ This a named implementation for DNS zone hosting. It is capable of performing si
 - ANAME resolution, for zone mapping aliass to A and AAAA records
 - Additionals section generation for aliasing record types
 
+## DNS-over-TLS and DNS-over-HTTPS
+
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/master/crates/server/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
+
+DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires only requires valid DoT or DoH resolvers being registered in order to be used.
+
+To use with the `Client`, the `TlsClientConnection` or `HttpsClientConnection` should be used. Similarly, to use with the tokio `AsyncClient` the `TlsClientStream` or `HttpsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is useful for Server authentication and connection privacy.
+
+To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
+
+## DNSSec status
+
+Currently the root key is hardcoded into the system. This gives validation of
+ DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
+ Because caching is not yet enabled, it has been noticed that some DNS servers
+ appear to rate limit the connections, validating RRSIG records back to the root
+ can require a significant number of additional queries for those records.
+
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-rustls` must be enabled.
+
 ## Future goals
 
 - Distributed dynamic DNS updates, with consensus

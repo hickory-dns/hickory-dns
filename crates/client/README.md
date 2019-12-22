@@ -54,6 +54,24 @@ if let &RData::A(ref ip) = answers[0].rdata() {
 }
 ```
 
+## DNS-over-TLS and DNS-over-HTTPS
+
+DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH).
+
+To use with the `Client`, the `TlsClientConnection` or `HttpsClientConnection` should be used. Similarly, to use with the tokio `AsyncClient` the `TlsClientStream` or `HttpsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is useful for Server authentication and connection privacy.
+
+To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
+
+## DNSSec status
+
+Currently the root key is hardcoded into the system. This gives validation of
+ DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
+ Because caching is not yet enabled, it has been noticed that some DNS servers
+ appear to rate limit the connections, validating RRSIG records back to the root
+ can require a significant number of additional queries for those records.
+
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-rustls` must be enabled.
+
 ## Minimum Rust Version
 
 The current minimum rustc version for this project is `1.39`
