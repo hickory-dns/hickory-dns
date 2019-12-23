@@ -12,7 +12,7 @@ use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
 use rusqlite::{self, types::ToSql, Connection};
-use time;
+use time::PrimitiveDateTime;
 
 use trust_dns_client::rr::Record;
 use trust_dns_client::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
@@ -86,7 +86,7 @@ impl Journal {
             record.emit(&mut encoder)?;
         }
 
-        let timestamp = time::get_time();
+        let timestamp = PrimitiveDateTime::now().timestamp();
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
         let soa_serial: i64 = i64::from(soa_serial);
 
