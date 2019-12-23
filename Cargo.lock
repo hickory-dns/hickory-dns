@@ -994,6 +994,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "tokio"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1269,7 +1274,7 @@ dependencies = [
  "rusqlite 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
- "time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)",
+ "time 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-openssl 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-rustls 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1673,6 +1678,7 @@ dependencies = [
 "checksum textwrap 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 "checksum thread_local 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c6b53e329000edc2b34dbe8545fd20e55a333362d0a321909685a19bd28c3f1b"
 "checksum time 0.1.42 (registry+https://github.com/rust-lang/crates.io-index)" = "db8dcfca086c1143c9270ac42a2bbd8a7ee477b78ac8e45b19abfb0cbede4b6f"
+"checksum time 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fcc26de0a81a07c8352b548977862908fa9863e0e6e4f0eb36b2a9f4f8845585"
 "checksum tokio 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0e1bef565a52394086ecac0a6fa3b8ace4cb3a138ee1d96bd2b93283b56824e3"
 "checksum tokio-openssl 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3c4b08c5f4208e699ede3df2520aca2e82401b2de33f45e96696a074480be594"
 "checksum tokio-rustls 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ea2ce8e6bc7ce619b4fc05761a550c8a750f6bf551f2e9b1efaec93124e13d51"
