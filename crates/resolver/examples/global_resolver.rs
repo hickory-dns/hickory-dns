@@ -6,10 +6,14 @@ extern crate futures;
 extern crate tokio;
 extern crate trust_dns_resolver;
 
+use std::fmt::Display;
 #[cfg(feature = "tokio-runtime")]
 use std::io;
 #[cfg(feature = "tokio-runtime")]
 use std::net::SocketAddr;
+use std::task::Poll;
+
+use futures::future;
 
 #[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::TokioAsyncResolver;
@@ -72,6 +76,8 @@ lazy_static! {
             *started = Some(resolver);
             cvar.notify_one();
             drop(started);
+
+            runtime.block_on(future::poll_fn(|_cx| Poll::<()>::Pending))
         });
 
         // Wait for the thread to start up.
@@ -94,11 +100,12 @@ lazy_static! {
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
 #[cfg(feature = "tokio-runtime")]
-pub async fn resolve<N: IntoName + TryParseIp + 'static>(
+pub async fn resolve<N: IntoName + Display + TryParseIp + 'static>(
     host: N,
     port: u16,
 ) -> io::Result<Vec<SocketAddr>> {
     // Now we use the global resolver to perform a lookup_ip.
+    let name = host.to_string();
     let result = GLOBAL_DNS_RESOLVER.lookup_ip(host).await;
     // map the result into what we want...
     result
@@ -106,7 +113,7 @@ pub async fn resolve<N: IntoName + TryParseIp + 'static>(
             // we transform the error into a standard IO error for convenience
             io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
-                format!("dns resolution error: {}", err),
+                format!("dns resolution error for {}: {}", name, err),
             )
         })
         .map(move |lookup_ip| {
@@ -142,7 +149,8 @@ fn main() {
     for (name, join) in threads {
         let result = join
             .join()
-            .unwrap_or_else(|_| panic!("error resolving: {}", name));
+            .expect("resolution thread failed")
+            .expect("resolution failed");
         println!("{} resolved to {:?}", name, result);
     }
 }
