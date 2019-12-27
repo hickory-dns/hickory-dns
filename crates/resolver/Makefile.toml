@@ -1,0 +1,27 @@
+# This is a Makefile for `cargo make`, to use it first istall cargo-make with `cargo install cargo-make`
+
+[config]
+skip_core_tasks = true
+
+[config.modify_core_tasks]
+# if true, all core tasks are set to private (default false)
+private = true
+
+## Feature profiles
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = "true"
+
+# TODO: add --lib back when there is a common cli library in util
+#  probably just remove this override file at that point
+
+[tasks.example-global_resolver]
+command = "cargo"
+args = ["run", "--example=global_resolver"]
+
+[tasks.example-multithreaded_runtime]
+command = "cargo"
+args = ["run", "--example=multithreaded_runtime"]
+
+# Also test that the examples run
+[tasks.test]
+dependencies = ["example-global_resolver", "example-multithreaded_runtime"]
