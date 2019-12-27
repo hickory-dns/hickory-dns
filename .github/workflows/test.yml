@@ -41,15 +41,6 @@ jobs:
       with:
         version: '0.24.2'
 
-    - name: target/debug/deps cache
-      uses: actions/cache@v1
-      with:
-        path: target/debug/deps
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-deps
-
     - name: cargo make all-features
       run: cargo make all-features
 
@@ -100,15 +91,6 @@ jobs:
     - uses: davidB/rust-cargo-make@v1
       with:
         version: '0.24.2'
-
-    - name: target/debug/deps cache
-      uses: actions/cache@v1
-      with:
-        path: target/debug/deps
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-deps
 
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
@@ -161,16 +143,6 @@ jobs:
     - uses: davidB/rust-cargo-make@v1
       with:
         version: '0.24.2'
-
-    - name: target/debug/deps cache
-      uses: actions/cache@v1
-      with:
-        path: target/debug/deps
-        key: ${{ runner.os }}-deps-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-${{ matrix.version }}-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-deps-${{ matrix.version }}
-          ${{ runner.os }}-deps
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -253,14 +225,5 @@ jobs:
           ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
           ${{ runner.os }}-bind
     
-    - name: target/debug/deps cache
-      uses: actions/cache@v1
-      with:
-        path: target/debug/deps
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-${{ hashFiles('**/Cargo.toml') }}
-          ${{ runner.os }}-deps
-
     - name: cargo make bind-compatibility
       run: cargo make bind-compatibility
