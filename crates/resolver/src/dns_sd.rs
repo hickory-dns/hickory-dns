@@ -156,6 +156,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::*;
+    use crate::TokioAsyncResolver;
 
     use super::*;
 
@@ -163,7 +164,7 @@ mod tests {
     #[ignore]
     fn test_list_services() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,

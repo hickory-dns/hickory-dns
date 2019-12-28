@@ -12,12 +12,14 @@ mod name_server_pool;
 mod name_server_state;
 mod name_server_stats;
 
-pub use self::connection_provider::ConnectionProvider;
-#[cfg(feature = "tokio-runtime")]
-pub use self::connection_provider::{TokioConnection, TokioConnectionProvider};
+pub use self::connection_provider::{ConnectionProvider, RuntimeProvider, Spawn};
+pub use self::connection_provider::{GenericConnection, GenericConnectionProvider};
 #[cfg(feature = "mdns")]
 pub(crate) use self::name_server::mdns_nameserver;
 pub use self::name_server::NameServer;
 pub use self::name_server_pool::NameServerPool;
 use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
+
+#[cfg(feature = "tokio-runtime")]
+pub use self::connection_provider::default_runtime::{TokioConnection, TokioConnectionProvider};

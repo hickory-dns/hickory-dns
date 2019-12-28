@@ -96,7 +96,7 @@
 //! # {
 //! use std::net::*;
 //! use tokio::runtime::Runtime;
-//! use trust_dns_resolver::AsyncResolver;
+//! use trust_dns_resolver::TokioAsyncResolver;
 //! use trust_dns_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
@@ -104,7 +104,7 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = AsyncResolver::new(
+//! let resolver = TokioAsyncResolver::new(
 //!     ResolverConfig::default(),
 //!     ResolverOpts::default(),
 //!     io_loop.handle().clone(),
@@ -209,6 +209,7 @@ extern crate resolv_conf;
 #[macro_use]
 extern crate serde;
 extern crate smallvec;
+#[cfg(feature = "tokio-runtime")]
 extern crate tokio;
 #[cfg(feature = "dns-over-https")]
 extern crate trust_dns_https;
