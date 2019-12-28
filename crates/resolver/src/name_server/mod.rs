@@ -22,4 +22,4 @@ use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
 
 #[cfg(feature = "tokio-runtime")]
-pub use self::connection_provider::default_runtime::{TokioConnection, TokioConnectionProvider};
+pub use self::connection_provider::tokio_runtime::{TokioConnection, TokioConnectionProvider};

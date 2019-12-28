@@ -87,10 +87,9 @@ pub trait RuntimeProvider: Clone + 'static {
 
 /// A type defines the Handle which can spawn future.
 pub trait Spawn {
-    fn spawn_bg(
-        &mut self,
-        future: Pin<Box<dyn Future<Output = Result<(), ProtoError>> + Send + 'static>>,
-    );
+    fn spawn_bg<F>(&mut self, future: F)
+    where
+        F: Future<Output = Result<(), ProtoError>> + Send + 'static;
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
@@ -512,15 +511,15 @@ where
 }
 
 #[cfg(feature = "tokio-runtime")]
-pub mod default_runtime {
+pub mod tokio_runtime {
     use super::*;
     use tokio::net::UdpSocket as TokioUdpSocket;
 
     impl Spawn for tokio::runtime::Handle {
-        fn spawn_bg(
-            &mut self,
-            future: Pin<Box<dyn Future<Output = Result<(), ProtoError>> + Send + 'static>>,
-        ) {
+        fn spawn_bg<F>(&mut self, future: F)
+        where
+            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
+        {
             let _join = self.spawn(future);
         }
     }
