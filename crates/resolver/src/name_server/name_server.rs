@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures::Future;
+#[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
 use proto::error::{ProtoError, ProtoResult};

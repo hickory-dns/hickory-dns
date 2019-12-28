@@ -12,6 +12,7 @@ use std::task::{Context, Poll};
 use futures::{future, Future, TryFutureExt};
 use smallvec::SmallVec;
 #[cfg(test)]
+#[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
 use proto::error::ProtoError;
