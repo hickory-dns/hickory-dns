@@ -33,23 +33,24 @@ TDNS_WITH_KCOV_ARGS = "--lib --bins --tests --examples"
 
 [tasks.install-openssl]
 description = "Installs OpenSSL on Windows"
-env = { OPENSSL_VERSION = "1_1_1d", OPENSSL_DIR = "${CARGO_MAKE_WORKING_DIRECTORY}\\target\\OpenSSL" }
+workspace = false
+env = { OPENSSL_VERSION = "1_1_1d", OPENSSL_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\\OpenSSL" }
 condition = { platforms = ["windows"], files_not_exist = ["${OPENSSL_DIR}"] }
 script_runner = "powershell"
 script_extension = "ps1"
 script = [
 '''
-mkdir ${env:CARGO_MAKE_WORKING_DIRECTORY}\\target
-mkdir ${env:CARGO_MAKE_WORKING_DIRECTORY}\\target\OpenSSL
-Invoke-WebRequest -URI "http://slproweb.com/download/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKING_DIRECTORY}\target\OpenSSL.exe"
-Start-Process -FilePath "${env:CARGO_MAKE_WORKING_DIRECTORY}\target\OpenSSL.exe" -ArgumentList "/SILENT /VERYSILENT /SP- /DIR=${env:OPENSSL_DIR}"
+mkdir ${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target
+mkdir ${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\OpenSSL
+Invoke-WebRequest -URI "http://slproweb.com/download/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\target\OpenSSL.exe"
+Start-Process -FilePath "${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\target\OpenSSL.exe" -ArgumentList "/SILENT /VERYSILENT /SP- /DIR=${env:OPENSSL_DIR}"
 Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\cacert.pem"
 '''
 ]
 
 [tasks.install-bind]
-workspace = false
 description = "Installs BIND9 on Ubuntu"
+workspace = false
 condition = { platforms = ["linux", "mac"], files_not_exist = ["${TDNS_BIND_PATH}/sbin/named"] }
 env = { BIND_VER="9.11.7" }
 script_runner = "@shell"
