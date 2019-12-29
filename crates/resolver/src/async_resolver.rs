@@ -16,10 +16,9 @@ use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::TryParseIp;
 use proto::rr::{IntoName, Name, Record, RecordType};
+use proto::tcp::Connect;
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use proto::DnsHandle;
-#[cfg(feature = "tokio-runtime")]
-use tokio::runtime::Handle;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru};
@@ -27,7 +26,10 @@ use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::lookup_state::CachingClient;
-use crate::name_server::{ConnectionProvider, NameServerPool};
+use crate::name_server::{
+    ConnectionProvider, GenericConnection, GenericConnectionProvider, NameServerPool,
+    RuntimeProvider,
+};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider};
 use crate::Hosts;
@@ -104,8 +106,10 @@ pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
     };
 }
 
-#[cfg(feature = "tokio-runtime")]
-impl AsyncResolver<TokioConnection, TokioConnectionProvider> {
+impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvider<R>>
+where
+    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
+{
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -122,12 +126,12 @@ impl AsyncResolver<TokioConnection, TokioConnectionProvider> {
     pub async fn new(
         config: ResolverConfig,
         options: ResolverOpts,
-        runtime: Handle,
+        runtime: R::Handle,
     ) -> Result<Self, ResolveError> {
-        AsyncResolver::<TokioConnection, TokioConnectionProvider>::new_with_conn(
+        AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new_with_conn(
             config,
             options,
-            TokioConnectionProvider::new(runtime),
+            GenericConnectionProvider::<R>::new(runtime),
         )
         .await
     }
@@ -136,8 +140,8 @@ impl AsyncResolver<TokioConnection, TokioConnectionProvider> {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub async fn from_system_conf(runtime: Handle) -> Result<Self, ResolveError> {
-        Self::from_system_conf_with_provider(TokioConnectionProvider::new(runtime)).await
+    pub async fn from_system_conf(runtime: R::Handle) -> Result<Self, ResolveError> {
+        Self::from_system_conf_with_provider(GenericConnectionProvider::<R>::new(runtime)).await
     }
 }
 
@@ -431,7 +435,7 @@ mod tests {
     #[test]
     fn test_send_sync() {
         assert!(is_send_t::<ResolverConfig>());
-        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_sync_t::<ResolverConfig>());
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
@@ -456,7 +460,7 @@ mod tests {
 
         let mut io_loop = Runtime::new().unwrap();
         let resolver =
-            AsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone());
+            TokioAsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone());
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -500,7 +504,7 @@ mod tests {
         //env_logger::try_init().ok();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
             io_loop.handle().clone(),
@@ -537,7 +541,7 @@ mod tests {
         // AsyncResolver works correctly.
         use std::thread;
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
             io_loop.handle().clone(),
@@ -589,7 +593,7 @@ mod tests {
     #[ignore] // these appear to not work on CI
     fn test_sec_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -626,7 +630,7 @@ mod tests {
     #[allow(deprecated)]
     fn test_sec_lookup_fails() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -665,7 +669,7 @@ mod tests {
     #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::from_system_conf(io_loop.handle().clone());
+        let resolver = TokioAsyncResolver::from_system_conf(io_loop.handle().clone());
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -695,7 +699,7 @@ mod tests {
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::from_system_conf(io_loop.handle().clone());
+        let resolver = TokioAsyncResolver::from_system_conf(io_loop.handle().clone());
         let resolver = io_loop
             .block_on(resolver)
             .expect("failed to create resolver");
@@ -725,7 +729,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -762,7 +766,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
@@ -802,7 +806,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // matches kubernetes default
@@ -845,7 +849,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -887,7 +891,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -917,7 +921,7 @@ mod tests {
     #[test]
     fn test_idna() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
             io_loop.handle().clone(),
@@ -938,7 +942,7 @@ mod tests {
     #[test]
     fn test_localhost_ipv4() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
@@ -964,7 +968,7 @@ mod tests {
     #[test]
     fn test_localhost_ipv6() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
@@ -993,7 +997,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -1023,7 +1027,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -1053,7 +1057,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let resolver = AsyncResolver::new(
+        let resolver = TokioAsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,

@@ -5,13 +5,14 @@
 
 extern crate env_logger;
 extern crate futures;
+#[cfg(feature = "tokio-runtime")]
 extern crate tokio;
 extern crate trust_dns_resolver;
 
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     use tokio::runtime::Runtime;
-    use trust_dns_resolver::AsyncResolver;
+    use trust_dns_resolver::TokioAsyncResolver;
 
     env_logger::init();
 
@@ -23,7 +24,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            AsyncResolver::from_system_conf(runtime.handle().clone())
+            TokioAsyncResolver::from_system_conf(runtime.handle().clone())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
