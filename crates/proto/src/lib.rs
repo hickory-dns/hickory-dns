@@ -120,7 +120,7 @@ pub trait Executor {
     fn block_on<F: Future>(&mut self, future: F) -> F::Output;
 }
 
-#[cfg(any(test, feature = "testing"))]
+//#[cfg(any(test, feature = "testing"))]
 #[cfg(feature = "tokio-runtime")]
 impl Executor for Runtime {
     fn block_on<F: Future>(&mut self, future: F) -> F::Output {
