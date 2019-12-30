@@ -243,6 +243,8 @@ mod tls;
 // reexports from proto
 pub use self::proto::rr::{IntoName, Name, TryParseIp};
 
+#[cfg(feature = "testing")]
+pub use async_resolver::testing;
 pub use async_resolver::AsyncResolver;
 #[cfg(feature = "tokio-runtime")]
 pub use async_resolver::TokioAsyncResolver;

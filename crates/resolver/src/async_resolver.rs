@@ -407,8 +407,10 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> fmt::Debug for AsyncResolver
     }
 }
 
+/// Unit tests compatible with different runtime.
 #[cfg(any(test, feature = "testing"))]
-mod testing {
+#[allow(dead_code)]
+pub mod testing {
     use std::{marker::Unpin, net::*, str::FromStr};
 
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
@@ -416,6 +418,7 @@ mod testing {
     use crate::AsyncResolver;
     use proto::{rr::Name, tcp::Connect, Executor};
 
+    /// Test IP lookup from URLs.
     pub fn lookup_test<E: Executor, R: RuntimeProvider>(
         config: ResolverConfig,
         mut exec: E,
@@ -449,6 +452,7 @@ mod testing {
         }
     }
 
+    /// Test IP lookup from IP literals.
     pub fn ip_lookup_test<E: Executor, R: RuntimeProvider>(mut exec: E, handle: R::Handle)
     where
         <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
@@ -481,10 +485,9 @@ mod testing {
         );
     }
 
+    /// Test IP lookup from IP literals across threads.
     pub fn ip_lookup_across_threads_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
-        exec1: E,
-        exec2: E,
         handle: R::Handle,
     ) where
         <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
@@ -503,8 +506,9 @@ mod testing {
         let resolver_one = resolver.clone();
         let resolver_two = resolver;
 
-        let test_fn = |resolver: AsyncResolver<GenericConnection, GenericConnectionProvider<R>>,
-                       mut exec: E| {
+        let test_fn = |resolver: AsyncResolver<GenericConnection, GenericConnectionProvider<R>>| {
+            let mut exec = E::new();
+
             let response = exec
                 .block_on(resolver.lookup_ip("10.1.0.2"))
                 .expect("failed to run lookup");
@@ -527,17 +531,18 @@ mod testing {
         };
 
         let thread_one = thread::spawn(move || {
-            test_fn(resolver_one, exec1);
+            test_fn(resolver_one);
         });
 
         let thread_two = thread::spawn(move || {
-            test_fn(resolver_two, exec2);
+            test_fn(resolver_two);
         });
 
         thread_one.join().expect("thread_one failed");
         thread_two.join().expect("thread_two failed");
     }
 
+    /// Test IP lookup from URLs with DNSSec validation.
     pub fn sec_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -574,6 +579,7 @@ mod testing {
         }
     }
 
+    /// Test IP lookup from domains that exist but unsigned with DNSSec validation.
     #[allow(deprecated)]
     pub fn sec_lookup_fails_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
@@ -616,6 +622,7 @@ mod testing {
         assert_eq!(*error.kind(), ResolveErrorKind::Proto);
     }
 
+    /// Test AsyncResolver created from system configuration with IP lookup.
     pub fn system_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -647,6 +654,7 @@ mod testing {
         }
     }
 
+    /// Test AsyncResolver created from system configuration with host lookups.
     pub fn hosts_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -673,6 +681,7 @@ mod testing {
         }
     }
 
+    /// Test fqdn.
     pub fn fqdn_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -711,6 +720,7 @@ mod testing {
         }
     }
 
+    /// Test ndots with non-fqdn.
     pub fn ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -752,6 +762,7 @@ mod testing {
         }
     }
 
+    /// Test large ndots with non-fqdn.
     pub fn large_ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -793,6 +804,7 @@ mod testing {
         }
     }
 
+    /// Test domain search.
     pub fn domain_search_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -835,6 +847,7 @@ mod testing {
         }
     }
 
+    /// Test search lists.
     pub fn search_list_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -876,6 +889,7 @@ mod testing {
         }
     }
 
+    /// Test idna.
     pub fn idna_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -898,6 +912,7 @@ mod testing {
         assert!(response.iter().next().is_some());
     }
 
+    /// Test ipv4 localhost.
     pub fn localhost_ipv4_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -925,6 +940,7 @@ mod testing {
         );
     }
 
+    /// Test ipv6 localhost.
     pub fn localhost_ipv6_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -952,6 +968,7 @@ mod testing {
         );
     }
 
+    /// Test ipv4 search with large ndots.
     pub fn search_ipv4_large_ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -983,6 +1000,7 @@ mod testing {
         );
     }
 
+    /// Test ipv6 search with large ndots.
     pub fn search_ipv6_large_ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -1014,6 +1032,7 @@ mod testing {
         );
     }
 
+    /// Test ipv6 name parse fails.
     pub fn search_ipv6_name_parse_fails_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -1123,9 +1142,7 @@ mod tests {
         use super::testing::ip_lookup_across_threads_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = io_loop.handle().clone();
-        let io_loop1 = Runtime::new().expect("failed to create tokio runtime io_loop1");
-        let io_loop2 = Runtime::new().expect("failed to create tokio runtime io_loop2");
-        ip_lookup_across_threads_test::<Runtime, TokioRuntime>(io_loop, io_loop1, io_loop2, handle)
+        ip_lookup_across_threads_test::<Runtime, TokioRuntime>(io_loop, handle)
     }
 
     #[test]
