@@ -115,14 +115,20 @@ pub mod iocompat {
 // This trait is created to facilitate running the tests defined in the tests mod using different types of
 // executors. It's used in Fuchsia OS, please be mindful when update it.
 pub trait Executor {
+    /// Create the implementor itself.
+    fn new() -> Self;
+
     /// Spawns a future object to run synchronously or asynchronously depending on the specific
     /// executor.
     fn block_on<F: Future>(&mut self, future: F) -> F::Output;
 }
 
-#[cfg(any(test, feature = "testing"))]
 #[cfg(feature = "tokio-runtime")]
 impl Executor for Runtime {
+    fn new() -> Self {
+        Runtime::new().expect("failed to create tokio runtime")
+    }
+
     fn block_on<F: Future>(&mut self, future: F) -> F::Output {
         self.block_on(future)
     }
