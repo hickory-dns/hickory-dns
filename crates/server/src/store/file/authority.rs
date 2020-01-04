@@ -92,6 +92,7 @@ impl FileAuthority {
             origin,
             records.len()
         );
+        debug!("zone: {:#?}", records);
 
         FileAuthority::new(origin, records, zone_type, allow_axfr)
     }
