@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.18.1
+
+### Fixes
+
+- (server) Fix issue when MX or other records collect additionals based of `.`, root, targets #980
+
 ## 0.18.0
 
 ### Changes
