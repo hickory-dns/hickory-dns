@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-proto"
-version = "0.18.0"
+version = "0.18.1"
 edition = "2018"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
