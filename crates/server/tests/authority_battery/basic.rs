@@ -146,6 +146,29 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
+pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(
+        Name::from_str("no-service.example.com.").unwrap(),
+        RecordType::MX,
+    );
+
+    let mut lookup =
+        block_on(authority.search(&query.into(), false, SupportedAlgorithms::new())).unwrap();
+
+    // In this case there should be no additional records
+    assert!(lookup.take_additionals().is_none());
+
+    let mx = lookup
+        .into_iter()
+        .next()
+        .expect("MX record not found in authority")
+        .rdata()
+        .as_mx()
+        .expect("Not an MX record");
+
+    assert_eq!(Name::from_str(".").unwrap(), *mx.exchange());
+}
+
 pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(
         Name::from_str("alias.example.com.").unwrap(),
@@ -565,6 +588,9 @@ macro_rules! define_basic_test {
         $(
             #[test]
             fn $f () {
+                // Useful for getting debug logs
+                // env_logger::init();
+
                 let authority = crate::$new("../../tests/test-data/named_test_configs/example.com.zone", module_path!(), stringify!($f));
                 crate::authority_battery::basic::$f(authority);
             }
@@ -583,6 +609,7 @@ macro_rules! basic_battery {
                     test_ns,
                     test_ns_lookup,
                     test_mx,
+                    test_mx_to_null,
                     test_cname,
                     test_cname_alias,
                     test_cname_chain,
