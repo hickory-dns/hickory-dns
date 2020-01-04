@@ -227,7 +227,8 @@ impl InMemoryAuthority {
         and_rrsigs: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Option<Arc<RecordSet>> {
-        let wildcard = if name.is_wildcard() {
+        // if this is a wildcard or a root, both should break continued lookups
+        let wildcard = if name.is_wildcard() || name.is_root() {
             return None;
         } else {
             name.clone().into_wildcard()
