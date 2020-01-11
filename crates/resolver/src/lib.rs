@@ -104,10 +104,9 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = TokioAsyncResolver::new(
+//! let resolver = TokioAsyncResolver::tokio(
 //!     ResolverConfig::default(),
 //!     ResolverOpts::default(),
-//!     io_loop.handle().clone(),
 //! );
 //! // AsyncResolver::new returns a handle for sending resolve requests and a background task
 //! // that must be spawned on an executor.
@@ -145,11 +144,11 @@
 //!
 //! It's beyond the scope of these examples to show how to deal with connection failures and looping etc. But if you wanted to say try a different address from the result set after a connection failure, it will be necessary to create a type that implements the `Future` trait. Inside the `Future::poll` method would be the place to implement a loop over the different IP addresses.
 //!
-//! ## DNS-over-TLS
+//! ## DNS-over-TLS and DNS-over-HTTPS
 //!
-//! DNS over TLS is experimental in the Trust-DNS Resolver library. The underlying implementations have been available as addon libraries to the Client and Server, but the configuration is experimental in Trust-DNS Resolver. *WARNING* The trust-dns developers make no claims on the security and/or privacy guarantees of this implementation.
+//! DNS-over-TLS and DNS-over-HTTPS are supported in the Trust-DNS Resolver library. The underlying implementations are available as addon libraries. *WARNING* The trust-dns developers make no claims on the security and/or privacy guarantees of this implementation.
 //!
-//! To use you must compile in support with one of the `dns-over-tls` features. There are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. The reason for each is to make the Trust-DNS libraries flexible for different deployments, and/or security concerns. The easiest to use will generally be `dns-over-rustls` which utilizes the native Rust library (a rework of the `boringssl` project), this should compile and be usable on most ARM and x86 platforms. `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to `openssl` where not. `dns-over-openssl` will specify that `openssl` should be used (which is a perfect fine option if required). If more than one is specified, the precedence will be in this order (i.e. only one can be used at a time) `dns-over-rustls`, `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the trust-dns developers are not responsible for any choice of library that does not meet required security requirements.
+//! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. For DNS-over-HTTPS only rustls is supported with the `dns-over-https-rustls`, this implicitly enables support for DNS-over-TLS as well. The reason for each is to make the Trust-DNS libraries flexible for different deployments, and/or security concerns. The easiest to use will generally be `dns-over-rustls` which utilizes the `*ring*` Rust cryptography library (a rework of the `boringssl` project), this should compile and be usable on most ARM and x86 platforms. `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used (which is a perfectly fine option if required). If more than one is specified, the precedence will be in this order (i.e. only one can be used at a time) `dns-over-rustls`, `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the trust-dns developers are not responsible for any choice of library that does not meet required security requirements.
 //!
 //! ### Example
 //!
