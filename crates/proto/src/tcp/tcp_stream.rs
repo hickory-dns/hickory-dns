@@ -31,7 +31,7 @@ where
     Self: Sized,
 {
     /// TcpSteam
-    type Transport: futures::io::AsyncRead + futures::io::AsyncWrite + Send;
+    type Transport: futures::io::AsyncRead + futures::io::AsyncWrite + Send + Unpin;
 
     /// connect to tcp
     async fn connect(addr: SocketAddr) -> io::Result<Self::Transport>;

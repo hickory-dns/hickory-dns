@@ -5,6 +5,17 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.0
+
+### Changes
+
+- (resolver) AsyncResolver abstract over `RuntimeProvider` (@chunyingw) #975
+- (resolver) TokioAsyncResolver implementation now has default methods that have a default Handle::current sed `TokioAsyncResolver::tokio`
+
+### Added
+
+- (resolver) testing module for generic tests across generic async runtime impls (@chunyingw) #979
+
 ## 0.18.1
 
 ### Fixes
