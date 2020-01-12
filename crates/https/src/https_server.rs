@@ -15,6 +15,7 @@ use bytes::{Bytes, BytesMut};
 use futures::{Stream, StreamExt};
 use h2;
 use http::{Method, Request};
+use log::debug;
 use typed_headers::{ContentLength, HeaderMapExt};
 
 use crate::HttpsError;

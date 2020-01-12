@@ -5,12 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::error;
-use std::fmt;
 use std::io;
 
-#[cfg(feature = "trust-dns-resolver")]
-use failure::{Compat, Fail};
+use thiserror::Error;
 
 use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "trust-dns-resolver")]
@@ -18,16 +15,20 @@ use trust_dns_resolver::error::ResolveError;
 
 // TODO: should this implement Failure?
 /// A query could not be fulfilled
-#[derive(Debug, EnumAsInner)]
+#[derive(Debug, EnumAsInner, Error)]
 pub enum LookupError {
     /// A record at the same Name as the query exists, but not of the queried RecordType
+    #[error("The name exists, but not for the record requested")]
     NameExists,
     /// There was an error performing the lookup
+    #[error("Error performing lookup: {0}")]
     ResponseCode(ResponseCode),
     /// Resolve Error
     #[cfg(feature = "trust-dns-resolver")]
-    ResolveError(Compat<ResolveError>),
+    #[error("Resolution error: {0}")]
+    ResolveError(#[from] ResolveError),
     /// An underlying IO error occurred
+    #[error("io error: {0}")]
     Io(io::Error),
 }
 
@@ -62,52 +63,11 @@ impl LookupError {
     }
 }
 
-impl fmt::Display for LookupError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            LookupError::NameExists => write!(f, "NameExists"),
-            LookupError::ResponseCode(rc) => write!(f, "response_code: {}", rc),
-            #[cfg(feature = "trust-dns-resolver")]
-            LookupError::ResolveError(e) => write!(f, "resolve_error: {}", e),
-            LookupError::Io(e) => write!(f, "io: {}", e),
-        }
-    }
-}
-
-impl error::Error for LookupError {
-    fn description(&self) -> &str {
-        match self {
-            LookupError::NameExists => "record type not found at name, but others exist",
-            LookupError::ResponseCode(_rc) => "an response code other than NoError returned",
-            #[cfg(feature = "trust-dns-resolver")]
-            LookupError::ResolveError(_e) => "the resolver encountered an error",
-            LookupError::Io(_e) => "there was an underlying IO error during search",
-        }
-    }
-
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            LookupError::NameExists => None,
-            LookupError::ResponseCode(_rc) => None,
-            #[cfg(feature = "trust-dns-resolver")]
-            LookupError::ResolveError(e) => e.source(),
-            LookupError::Io(e) => e.source(),
-        }
-    }
-}
-
 impl From<ResponseCode> for LookupError {
     fn from(code: ResponseCode) -> Self {
         // this should never be a NoError
         debug_assert!(code != ResponseCode::NoError);
         LookupError::ResponseCode(code)
-    }
-}
-
-#[cfg(feature = "trust-dns-resolver")]
-impl From<ResolveError> for LookupError {
-    fn from(e: ResolveError) -> Self {
-        LookupError::ResolveError(e.compat())
     }
 }
 

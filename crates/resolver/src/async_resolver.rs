@@ -613,7 +613,6 @@ pub mod testing {
         <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
     {
         use crate::error::*;
-        use failure::Fail;
         use proto::rr::RecordType;
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             ResolverConfig::default(),
@@ -635,7 +634,7 @@ pub mod testing {
 
         use proto::error::{ProtoError, ProtoErrorKind};
 
-        let error_str = format!("{}", error.root_cause());
+        let error_str = format!("{}", error);
         let expected_str = format!(
             "{}",
             ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
@@ -644,7 +643,10 @@ pub mod testing {
             })
         );
         assert_eq!(error_str, expected_str);
-        assert_eq!(*error.kind(), ResolveErrorKind::Proto);
+        if let ResolveErrorKind::Proto(_) = *error.kind() {
+        } else {
+            panic!("wrong error")
+        }
     }
 
     /// Test AsyncResolver created from system configuration with IP lookup.

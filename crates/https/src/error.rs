@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,74 +7,67 @@
 
 use std::{fmt, io};
 
-use failure::{Backtrace, Context, Fail};
 use h2;
+use thiserror::Error;
 use trust_dns_proto::error::ProtoError;
 use typed_headers;
+
+use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-#[derive(Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ErrorKind {
     /// An error with an arbitrary message, referenced as &'static str
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Message(&'static str),
 
     /// An error with an arbitrary message, stored as String
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Msg(String),
 
-    #[fail(display = "proto error: {}", _0)]
-    ProtoError(ProtoError),
+    #[error("proto error: {0}")]
+    ProtoError(#[from] ProtoError),
 
-    #[fail(display = "bad header: {}", _0)]
-    TypedHeaders(typed_headers::Error),
+    #[error("bad header: {0}")]
+    TypedHeaders(#[from] typed_headers::Error),
 
-    #[fail(display = "h2: {}", _0)]
-    H2(h2::Error),
+    #[error("h2: {0}")]
+    H2(#[from] h2::Error),
 }
 
 /// The error type for errors that get returned in the crate
 #[derive(Debug)]
 pub struct Error {
-    inner: Context<ErrorKind>,
+    kind: ErrorKind,
+    backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
     /// Get the kind of the error
     pub fn kind(&self) -> &ErrorKind {
-        self.inner.get_context()
-    }
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
+        &self.kind
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        if let Some(ref backtrace) = self.backtrack {
+            fmt::Display::fmt(&self.kind, f)?;
+            fmt::Debug::fmt(backtrace, f)
+        } else {
+            fmt::Display::fmt(&self.kind, f)
+        }
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
-            inner: Context::new(kind),
+            kind,
+            backtrack: trace!(),
         }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
     }
 }
 

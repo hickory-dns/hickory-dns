@@ -1,27 +1,29 @@
-// Copyright 2015-2016 Benjamin Fry
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use failure::{Backtrace, Context, Fail};
 use std::fmt;
 
 use proto::error::*;
+use thiserror::Error;
+
+use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for errors that get returned in the crate
-#[derive(Clone, Eq, PartialEq, Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ErrorKind {
     /// An error that occurred when recovering from journal
-    #[fail(display = "error recovering from journal: {}", _0)]
+    #[error("error recovering from journal: {}", _0)]
     Recovery(&'static str),
 
     /// The number of inserted records didn't match the expected amount
-    #[fail(display = "wrong insert count: {} expect: {}", got, expect)]
+    #[error("wrong insert count: {} expect: {}", got, expect)]
     WrongInsertCount {
         /// The number of inserted records
         got: usize,
@@ -31,67 +33,58 @@ pub enum ErrorKind {
 
     // foreign
     /// An error got returned by the trust-dns-proto crate
-    #[fail(display = "proto error")]
-    Proto,
+    #[error("proto error: {0}")]
+    Proto(#[from] ProtoError),
 
     /// An error got returned from the rusqlite crate
     #[cfg(feature = "sqlite")]
-    #[fail(display = "sqlite error")]
-    Sqlite,
+    #[error("sqlite error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
 
     /// A request timed out
-    #[fail(display = "request timed out")]
+    #[error("request timed out")]
     Timeout,
 }
 
 /// The error type for errors that get returned in the crate
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub struct Error {
-    inner: Context<ErrorKind>,
+    kind: ErrorKind,
+    backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
     /// Get the kind of the error
     pub fn kind(&self) -> &ErrorKind {
-        self.inner.get_context()
-    }
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
+        &self.kind
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        if let Some(ref backtrace) = self.backtrack {
+            fmt::Display::fmt(&self.kind, f)?;
+            fmt::Debug::fmt(backtrace, f)
+        } else {
+            fmt::Display::fmt(&self.kind, f)
+        }
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
-            inner: Context::new(kind),
+            kind,
+            backtrack: trace!(),
         }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
     }
 }
 
 impl From<ProtoError> for Error {
     fn from(e: ProtoError) -> Error {
         match *e.kind() {
-            ProtoErrorKind::Timeout => e.context(ErrorKind::Timeout).into(),
-            _ => e.context(ErrorKind::Proto).into(),
+            ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
+            _ => ErrorKind::from(e).into(),
         }
     }
 }
@@ -99,6 +92,6 @@ impl From<ProtoError> for Error {
 #[cfg(feature = "sqlite")]
 impl From<rusqlite::Error> for Error {
     fn from(e: rusqlite::Error) -> Error {
-        e.context(ErrorKind::Sqlite).into()
+        ErrorKind::from(e).into()
     }
 }

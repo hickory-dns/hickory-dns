@@ -64,8 +64,8 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
+backtrace = "0.3.40"
 cfg-if = "0.1.9"
-failure = "0.1"
 futures = "0.3.0"
 lazy_static = "1.0"
 log = "0.4"
@@ -74,6 +74,7 @@ resolv-conf = { version = "0.6.0", features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.0"
+thiserror = "1.0.9"
 tokio = { version = "0.2.1", optional = true }
 tokio-tls = { version = "0.3.0", optional = true }
 tokio-openssl = { version = "0.4.0", optional = true }

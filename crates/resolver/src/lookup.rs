@@ -541,7 +541,7 @@ pub mod tests {
     }
 
     pub fn error() -> ProtoResult<DnsResponse> {
-        Err(ProtoErrorKind::Io.into())
+        Err(ProtoErrorKind::from(std::io::Error::from(std::io::ErrorKind::Other)).into())
     }
 
     pub fn mock(messages: Vec<ProtoResult<DnsResponse>>) -> MockDnsHandle {
@@ -597,20 +597,21 @@ pub mod tests {
 
     #[test]
     fn test_empty_no_response() {
-        assert_eq!(
-            *block_on(LookupFuture::lookup(
+        if let ResolveErrorKind::NoRecordsFound { query, valid_until } =
+            block_on(LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![empty()])),
             ))
             .unwrap_err()
-            .kind(),
-            ResolveErrorKind::NoRecordsFound {
-                query: Query::query(Name::root(), RecordType::A),
-                valid_until: None,
-            }
-        );
+            .kind()
+        {
+            assert_eq!(*query, Query::query(Name::root(), RecordType::A));
+            assert_eq!(*valid_until, None);
+        } else {
+            panic!("wrong error recieved");
+        }
     }
 
     #[test]

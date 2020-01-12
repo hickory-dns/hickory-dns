@@ -1,131 +1,104 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Error types for the crate
 
 use std::{fmt, io};
 
-use failure::{Backtrace, Context, Fail};
-use futures::channel::mpsc::SendError;
+use futures::channel::mpsc;
+use thiserror::Error;
 use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
 use crate::error::{DnsSecError, DnsSecErrorKind};
+use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for errors that get returned in the crate
-#[derive(Eq, PartialEq, Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ErrorKind {
     /// An error with an arbitrary message, referenced as &'static str
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Message(&'static str),
 
     /// An error with an arbitrary message, stored as String
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Msg(String),
 
     // foreign
     /// A dnssec error
-    #[fail(display = "dnssec error")]
-    DnsSec,
+    #[error("dnssec error")]
+    DnsSec(#[from] DnsSecError),
 
     /// An error got returned from IO
-    #[fail(display = "io error")]
-    Io,
+    #[error("io error")]
+    Io(#[from] std::io::Error),
 
     /// An error got returned by the trust-dns-proto crate
-    #[fail(display = "proto error")]
-    Proto,
+    #[error("proto error")]
+    Proto(#[from] ProtoError),
+
+    /// Queue send error
+    #[error("error sending to mpsc: {0}")]
+    SendError(#[from] mpsc::SendError),
 
     /// A request timed out
-    #[fail(display = "request timed out")]
+    #[error("request timed out")]
     Timeout,
 }
 
 impl Clone for ErrorKind {
     fn clone(&self) -> Self {
         use self::ErrorKind::*;
-        match *self {
+        match self {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             // foreign
-            DnsSec => DnsSec,
-            Io => Io,
-            Proto => Proto,
+            DnsSec(dnssec) => DnsSec(dnssec.clone()),
+            Io(io) => Io(std::io::Error::from(io.kind())),
+            Proto(proto) => Proto(proto.clone()),
+            SendError(e) => SendError(e.clone()),
             Timeout => Timeout,
         }
     }
 }
 
 /// The error type for errors that get returned in the crate
-#[derive(Debug)]
+#[derive(Debug, Error, Clone)]
 pub struct Error {
-    inner: Context<ErrorKind>,
+    kind: ErrorKind,
+    backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
     /// Get the kind of the error
     pub fn kind(&self) -> &ErrorKind {
-        self.inner.get_context()
-    }
-}
-
-impl Clone for Error {
-    fn clone(&self) -> Self {
-        use self::ErrorKind::*;
-        match *self.kind() {
-            Message(msg) => Message(msg).into(),
-            Msg(ref msg) => Msg(msg.clone()).into(),
-            //foreign
-            DnsSec => DnsSec.into(),
-            Io => Io.into(),
-            Proto => Proto.into(),
-            Timeout => Timeout.into(),
-        }
-    }
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
+        &self.kind
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        if let Some(ref backtrace) = self.backtrack {
+            fmt::Display::fmt(&self.kind, f)?;
+            fmt::Debug::fmt(backtrace, f)
+        } else {
+            fmt::Display::fmt(&self.kind, f)
+        }
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
-            inner: Context::new(kind),
+            kind,
+            backtrack: trace!(),
         }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
     }
 }
 
@@ -135,10 +108,9 @@ impl From<&'static str> for Error {
     }
 }
 
-impl From<SendError> for Error {
-    fn from(e: SendError) -> Self {
-        e.context(ErrorKind::Message("error sending to mpsc"))
-            .into()
+impl From<mpsc::SendError> for Error {
+    fn from(e: mpsc::SendError) -> Self {
+        ErrorKind::from(e).into()
     }
 }
 
@@ -151,8 +123,8 @@ impl From<String> for Error {
 impl From<DnsSecError> for Error {
     fn from(e: DnsSecError) -> Error {
         match *e.kind() {
-            DnsSecErrorKind::Timeout => e.context(ErrorKind::Timeout).into(),
-            _ => e.context(ErrorKind::DnsSec).into(),
+            DnsSecErrorKind::Timeout => ErrorKind::Timeout.into(),
+            _ => ErrorKind::from(e).into(),
         }
     }
 }
@@ -160,8 +132,8 @@ impl From<DnsSecError> for Error {
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         match e.kind() {
-            io::ErrorKind::TimedOut => e.context(ErrorKind::Timeout).into(),
-            _ => e.context(ErrorKind::Io).into(),
+            io::ErrorKind::TimedOut => ErrorKind::Timeout.into(),
+            _ => ErrorKind::from(e).into(),
         }
     }
 }
@@ -169,8 +141,8 @@ impl From<io::Error> for Error {
 impl From<ProtoError> for Error {
     fn from(e: ProtoError) -> Error {
         match *e.kind() {
-            ProtoErrorKind::Timeout => e.context(ErrorKind::Timeout).into(),
-            _ => e.context(ErrorKind::Proto).into(),
+            ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
+            _ => ErrorKind::from(e).into(),
         }
     }
 }
@@ -178,8 +150,8 @@ impl From<ProtoError> for Error {
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match *e.kind() {
-            ErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e.compat()),
-            _ => io::Error::new(io::ErrorKind::Other, e.compat()),
+            ErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e),
+            _ => io::Error::new(io::ErrorKind::Other, e),
         }
     }
 }

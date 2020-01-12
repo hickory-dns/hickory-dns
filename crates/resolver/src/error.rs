@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,27 +7,30 @@
 
 //! Error types for the crate
 
-use failure::{Backtrace, Context, Fail};
-use proto::error::{ProtoError, ProtoErrorKind};
-use proto::op::Query;
 use std::{fmt, io, sync, time::Instant};
+
+use thiserror::Error;
+
+use crate::proto::error::{ProtoError, ProtoErrorKind};
+use crate::proto::op::Query;
+use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
 pub type ResolveResult<T> = ::std::result::Result<T, ResolveError>;
 
 /// The error kind for errors that get returned in the crate
-#[derive(Eq, PartialEq, Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ResolveErrorKind {
     /// An error with an arbitrary message, referenced as &'static str
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Message(&'static str),
 
     /// An error with an arbitrary message, stored as String
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Msg(String),
 
     /// No records were found for a query
-    #[fail(display = "no record found for {}", query)]
+    #[error("no record found for {query}")]
     NoRecordsFound {
         /// The query for which no records were found.
         query: Query,
@@ -38,22 +41,22 @@ pub enum ResolveErrorKind {
 
     // foreign
     /// An error got returned from IO
-    #[fail(display = "io error")]
-    Io,
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
 
     /// An error got returned by the trust-dns-proto crate
-    #[fail(display = "proto error")]
-    Proto,
+    #[error("proto error: {0}")]
+    Proto(#[from] ProtoError),
 
     /// A request timed out
-    #[fail(display = "request timed out")]
+    #[error("request timed out")]
     Timeout,
 }
 
 impl Clone for ResolveErrorKind {
     fn clone(&self) -> Self {
         use self::ResolveErrorKind::*;
-        match *self {
+        match self {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             NoRecordsFound {
@@ -61,65 +64,48 @@ impl Clone for ResolveErrorKind {
                 valid_until,
             } => NoRecordsFound {
                 query: query.clone(),
-                valid_until,
+                valid_until: *valid_until,
             },
 
             // foreign
-            Io => Io,
-            Proto => Proto,
+            Io(io) => ResolveErrorKind::from(std::io::Error::from(io.kind())),
+            Proto(proto) => ResolveErrorKind::from(proto.clone()),
             Timeout => Timeout,
         }
     }
 }
 
 /// The error type for errors that get returned in the crate
-#[derive(Debug)]
+#[derive(Debug, Clone, Error)]
 pub struct ResolveError {
-    inner: Context<ResolveErrorKind>,
+    kind: ResolveErrorKind,
+    backtrack: Option<ExtBacktrace>,
 }
 
 impl ResolveError {
     /// Get the kind of the error
     pub fn kind(&self) -> &ResolveErrorKind {
-        self.inner.get_context()
-    }
-}
-
-impl Clone for ResolveError {
-    fn clone(&self) -> Self {
-        ResolveError {
-            inner: Context::new(self.inner.get_context().clone()),
-        }
-    }
-}
-
-impl Fail for ResolveError {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
+        &self.kind
     }
 }
 
 impl fmt::Display for ResolveError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        if let Some(ref backtrace) = self.backtrack {
+            fmt::Display::fmt(&self.kind, f)?;
+            fmt::Debug::fmt(backtrace, f)
+        } else {
+            fmt::Display::fmt(&self.kind, f)
+        }
     }
 }
 
 impl From<ResolveErrorKind> for ResolveError {
     fn from(kind: ResolveErrorKind) -> ResolveError {
         ResolveError {
-            inner: Context::new(kind),
+            kind,
+            backtrack: trace!(),
         }
-    }
-}
-
-impl From<Context<ResolveErrorKind>> for ResolveError {
-    fn from(inner: Context<ResolveErrorKind>) -> ResolveError {
-        ResolveError { inner }
     }
 }
 
@@ -132,8 +118,7 @@ impl From<&'static str> for ResolveError {
 #[cfg(target_os = "windows")]
 impl From<ipconfig::error::Error> for ResolveError {
     fn from(e: ipconfig::error::Error) -> ResolveError {
-        e.context(ResolveErrorKind::Message("failed to read from registry"))
-            .into()
+        ResolveErrorKind::Msg(format!("failed to read from registry: {}", e)).into()
     }
 }
 
@@ -146,8 +131,8 @@ impl From<String> for ResolveError {
 impl From<io::Error> for ResolveError {
     fn from(e: io::Error) -> ResolveError {
         match e.kind() {
-            io::ErrorKind::TimedOut => e.context(ResolveErrorKind::Timeout).into(),
-            _ => e.context(ResolveErrorKind::Io).into(),
+            io::ErrorKind::TimedOut => ResolveErrorKind::Timeout.into(),
+            _ => ResolveErrorKind::from(e).into(),
         }
     }
 }
@@ -155,17 +140,17 @@ impl From<io::Error> for ResolveError {
 impl From<ProtoError> for ResolveError {
     fn from(e: ProtoError) -> ResolveError {
         match *e.kind() {
-            ProtoErrorKind::Timeout => e.context(ResolveErrorKind::Timeout).into(),
-            _ => e.context(ResolveErrorKind::Proto).into(),
+            ProtoErrorKind::Timeout => ResolveErrorKind::Timeout.into(),
+            _ => ResolveErrorKind::from(e).into(),
         }
     }
 }
 
 impl From<ResolveError> for io::Error {
     fn from(e: ResolveError) -> Self {
-        match *e.kind() {
-            ResolveErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e.compat()),
-            _ => io::Error::new(io::ErrorKind::Other, e.compat()),
+        match e.kind() {
+            ResolveErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e),
+            _ => io::Error::new(io::ErrorKind::Other, e),
         }
     }
 }

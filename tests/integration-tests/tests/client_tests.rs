@@ -195,7 +195,10 @@ where
 
     let err = response.unwrap_err();
 
-    assert_eq!(err.kind(), &ClientErrorKind::Timeout);
+    if let ClientErrorKind::Timeout = err.kind() {
+    } else {
+        panic!("expected timeout error")
+    }
 }
 
 #[test]

@@ -1,152 +1,135 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- * Copyright (C) 2017 Google LLC.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
+// Copyright (C) 2017 Google LLC.
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Parse error types for the crate
 
 use std::{fmt, io};
 
-use failure::{Backtrace, Context, Fail};
+use thiserror::Error;
 use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
 use super::LexerError;
+use crate::proto::{trace, ExtBacktrace};
 use crate::serialize::txt::Token;
 
 /// An alias for parse results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for parse errors that get returned in the crate
-#[derive(Eq, PartialEq, Debug, Fail)]
+#[derive(Debug, Error)]
 pub enum ErrorKind {
     /// An invalid numerical character was found
-    #[fail(display = "invalid numerical character: {}", _0)]
+    #[error("invalid numerical character: {0}")]
     CharToInt(char),
 
     /// An error with an arbitrary message, referenced as &'static str
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Message(&'static str),
 
     /// A token is missing
-    #[fail(display = "token is missing: {}", _0)]
+    #[error("token is missing: {0}")]
     MissingToken(String),
 
     /// An error with an arbitrary message, stored as String
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Msg(String),
 
     /// A time string could not be parsed
-    #[fail(display = "invalid time string: {}", _0)]
+    #[error("invalid time string: {0}")]
     ParseTime(String),
 
     /// Found an unexpected token in a stream
-    #[fail(display = "unrecognized token in stream: {:?}", _0)]
+    #[error("unrecognized token in stream: {0:?}")]
     UnexpectedToken(Token),
 
     // foreign
     /// An address parse error
-    #[fail(display = "network address parse error")]
-    AddrParse,
+    #[error("network address parse error: {0}")]
+    AddrParse(#[from] std::net::AddrParseError),
 
     /// A data encoding error
-    #[fail(display = "data encoding error")]
-    DataEncoding,
+    #[error("data encoding error: {0}")]
+    DataEncoding(#[from] data_encoding::DecodeError),
 
     /// An error got returned from IO
-    #[fail(display = "io error")]
-    Io,
+    #[error("io error: {0}")]
+    Io(#[from] std::io::Error),
 
     /// An error from the lexer
-    #[fail(display = "lexer error")]
-    Lexer,
+    #[error("lexer error: {0}")]
+    Lexer(#[from] LexerError),
 
     /// A number parsing error
-    #[fail(display = "error parsing number")]
-    ParseInt,
+    #[error("error parsing number: {0}")]
+    ParseInt(#[from] std::num::ParseIntError),
 
     /// An error got returned by the trust-dns-proto crate
-    #[fail(display = "proto error")]
-    Proto,
+    #[error("proto error: {0}")]
+    Proto(#[from] ProtoError),
 
     /// A request timed out
-    #[fail(display = "request timed out")]
+    #[error("request timed out")]
     Timeout,
 }
 
 impl Clone for ErrorKind {
     fn clone(&self) -> Self {
         use self::ErrorKind::*;
-        match *self {
-            CharToInt(c) => CharToInt(c),
+        match self {
+            CharToInt(c) => CharToInt(*c),
             Message(msg) => Message(msg),
             MissingToken(ref s) => MissingToken(s.clone()),
             Msg(ref msg) => Msg(msg.clone()),
             ParseTime(ref s) => ParseTime(s.clone()),
             UnexpectedToken(ref token) => UnexpectedToken(token.clone()),
 
-            AddrParse => AddrParse,
-            DataEncoding => DataEncoding,
-            Io => Io,
-            Lexer => Lexer,
-            ParseInt => ParseInt,
-            Proto => Proto,
+            AddrParse(e) => AddrParse(e.clone()),
+            DataEncoding(e) => DataEncoding(*e),
+            Io(e) => Io(std::io::Error::from(e.kind())),
+            Lexer(e) => Lexer(e.clone()),
+            ParseInt(e) => ParseInt(e.clone()),
+            Proto(e) => Proto(e.clone()),
             Timeout => Timeout,
         }
     }
 }
 
 /// The error type for parse errors that get returned in the crate
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct Error {
-    inner: Context<ErrorKind>,
+    kind: ErrorKind,
+    backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
     /// Get the kind of the error
     pub fn kind(&self) -> &ErrorKind {
-        self.inner.get_context()
-    }
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
+        &self.kind
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        if let Some(ref backtrace) = self.backtrack {
+            fmt::Display::fmt(&self.kind, f)?;
+            fmt::Debug::fmt(backtrace, f)
+        } else {
+            fmt::Display::fmt(&self.kind, f)
+        }
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
-            inner: Context::new(kind),
+            kind,
+            backtrack: trace!(),
         }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
     }
 }
 
@@ -162,44 +145,44 @@ impl From<String> for Error {
     }
 }
 
-impl From<::std::net::AddrParseError> for Error {
-    fn from(e: ::std::net::AddrParseError) -> Error {
-        e.context(ErrorKind::AddrParse).into()
+impl From<std::net::AddrParseError> for Error {
+    fn from(e: std::net::AddrParseError) -> Error {
+        ErrorKind::from(e).into()
     }
 }
 
 impl From<::data_encoding::DecodeError> for Error {
-    fn from(e: ::data_encoding::DecodeError) -> Error {
-        e.context(ErrorKind::DataEncoding).into()
+    fn from(e: data_encoding::DecodeError) -> Error {
+        ErrorKind::from(e).into()
     }
 }
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
         match e.kind() {
-            io::ErrorKind::TimedOut => e.context(ErrorKind::Timeout).into(),
-            _ => e.context(ErrorKind::Io).into(),
+            io::ErrorKind::TimedOut => ErrorKind::Timeout.into(),
+            _ => ErrorKind::from(e).into(),
         }
     }
 }
 
 impl From<LexerError> for Error {
     fn from(e: LexerError) -> Error {
-        e.context(ErrorKind::Lexer).into()
+        ErrorKind::from(e).into()
     }
 }
 
-impl From<::std::num::ParseIntError> for Error {
-    fn from(e: ::std::num::ParseIntError) -> Error {
-        e.context(ErrorKind::ParseInt).into()
+impl From<std::num::ParseIntError> for Error {
+    fn from(e: std::num::ParseIntError) -> Error {
+        ErrorKind::from(e).into()
     }
 }
 
 impl From<ProtoError> for Error {
     fn from(e: ProtoError) -> Error {
         match *e.kind() {
-            ProtoErrorKind::Timeout => e.context(ErrorKind::Timeout).into(),
-            _ => e.context(ErrorKind::Proto).into(),
+            ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
+            _ => ErrorKind::from(e).into(),
         }
     }
 }
@@ -207,8 +190,8 @@ impl From<ProtoError> for Error {
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match *e.kind() {
-            ErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e.compat()),
-            _ => io::Error::new(io::ErrorKind::Other, e.compat()),
+            ErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e),
+            _ => io::Error::new(io::ErrorKind::Other, e),
         }
     }
 }

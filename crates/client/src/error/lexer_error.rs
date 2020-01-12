@@ -1,124 +1,91 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Lexer error types for the crate
 
 use std::fmt;
 
-use failure::{Backtrace, Context, Fail};
+use thiserror::Error;
+
+use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for lexer results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for lexer errors that get returned in the crate
-#[derive(Eq, PartialEq, Debug, Fail)]
+#[derive(Eq, PartialEq, Debug, Error, Clone)]
 pub enum ErrorKind {
     /// Unexpected end of input
-    #[fail(display = "unexpected end of input")]
+    #[error("unexpected end of input")]
     EOF,
 
     /// An illegal character was found
-    #[fail(display = "illegal character input: {}", _0)]
+    #[error("illegal character input: {0}")]
     IllegalCharacter(char),
 
     /// An illegal state was reached
-    #[fail(display = "illegal state: {}", _0)]
+    #[error("illegal state: {0}")]
     IllegalState(&'static str),
 
     /// An error with an arbitrary message, referenced as &'static str
-    #[fail(display = "{}", _0)]
+    #[error("{0}")]
     Message(&'static str),
 
     /// An unclosed list was found
-    #[fail(display = "unclosed list, missing ')'")]
+    #[error("unclosed list, missing ')'")]
     UnclosedList,
 
     /// An unclosed quoted string was found
-    #[fail(display = "unclosed quoted string")]
+    #[error("unclosed quoted string")]
     UnclosedQuotedString,
 
     /// An unrecognized character was found
-    #[fail(display = "unrecognized character input: {}", _0)]
+    #[error("unrecognized character input: {0}")]
     UnrecognizedChar(char),
 
     /// An unrecognized dollar content was found
-    #[fail(display = "unrecognized dollar content: {}", _0)]
+    #[error("unrecognized dollar content: {0}")]
     UnrecognizedDollar(String),
 
     /// An unrecognized octet was found
-    #[fail(display = "unrecognized octet: {:x}", _0)]
+    #[error("unrecognized octet: {0:x}")]
     UnrecognizedOctet(u32),
 }
 
-impl Clone for ErrorKind {
-    fn clone(&self) -> Self {
-        use self::ErrorKind::*;
-        match *self {
-            EOF => EOF,
-            IllegalCharacter(c) => IllegalCharacter(c),
-            IllegalState(s) => IllegalState(s),
-            Message(msg) => Message(msg),
-            UnclosedList => UnclosedList,
-            UnclosedQuotedString => UnclosedQuotedString,
-            UnrecognizedChar(c) => UnrecognizedChar(c),
-            UnrecognizedDollar(ref s) => UnrecognizedDollar(s.clone()),
-            UnrecognizedOctet(o) => UnrecognizedOctet(o),
-        }
-    }
-}
-
 /// The error type for lexer errors that get returned in the crate
-#[derive(Debug)]
+#[derive(Clone, Error, Debug)]
 pub struct Error {
-    inner: Context<ErrorKind>,
+    kind: ErrorKind,
+    backtrack: Option<ExtBacktrace>,
 }
 
 impl Error {
     /// Get the kind of the error
     pub fn kind(&self) -> &ErrorKind {
-        self.inner.get_context()
+        &self.kind
     }
 }
 
 impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
-            inner: Context::new(kind),
+            kind,
+            backtrack: trace!(),
         }
-    }
-}
-
-impl From<Context<ErrorKind>> for Error {
-    fn from(inner: Context<ErrorKind>) -> Error {
-        Error { inner }
-    }
-}
-
-impl Fail for Error {
-    fn cause(&self) -> Option<&dyn Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&Backtrace> {
-        self.inner.backtrace()
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Display::fmt(&self.inner, f)
+        if let Some(ref backtrace) = self.backtrack {
+            fmt::Display::fmt(&self.kind, f)?;
+            fmt::Debug::fmt(backtrace, f)
+        } else {
+            fmt::Display::fmt(&self.kind, f)
+        }
     }
 }
