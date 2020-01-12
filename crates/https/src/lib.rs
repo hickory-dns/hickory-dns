@@ -13,24 +13,6 @@
     clippy::unimplemented
 )]
 
-extern crate bytes;
-extern crate data_encoding;
-#[macro_use]
-extern crate futures;
-extern crate h2;
-extern crate http;
-#[macro_use]
-extern crate log;
-extern crate failure;
-extern crate rustls;
-extern crate tokio;
-extern crate tokio_rustls;
-extern crate trust_dns_proto;
-extern crate trust_dns_rustls;
-extern crate typed_headers;
-extern crate webpki;
-extern crate webpki_roots;
-
 const MIME_APPLICATION: &str = "application";
 const MIME_DNS_BINARY: &str = "dns-message";
 const MIME_APPLICATION_DNS: &str = "application/dns-message";
@@ -43,6 +25,8 @@ pub mod https_server;
 pub mod request;
 pub mod response;
 //pub mod https_stream;
+
+pub use trust_dns_proto as proto;
 
 pub use self::error::{Error as HttpsError, Result as HttpsResult};
 

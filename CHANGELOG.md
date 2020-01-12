@@ -16,6 +16,10 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (resolver) testing module for generic tests across generic async runtime impls (@chunyingw) #979
 
+### Removed
+
+- (all) failure is no longer used for error types, std::Error impls only
+
 ## 0.18.1
 
 ### Fixes

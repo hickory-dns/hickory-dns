@@ -885,7 +885,10 @@ where
         .unwrap_err();
 
     println!("got error: {:?}", err);
-    assert_eq!(err.kind(), &ClientErrorKind::Timeout);
+    if let ClientErrorKind::Timeout = err.kind() {
+    } else {
+        panic!("expected timeout error");
+    }
 
     io_loop
         .block_on(client.query(name, DNSClass::IN, RecordType::AAAA))

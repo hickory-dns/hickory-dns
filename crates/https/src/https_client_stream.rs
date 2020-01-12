@@ -15,10 +15,11 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::{Bytes, BytesMut};
-use futures::{future, Future, FutureExt, Stream, TryFutureExt};
+use futures::{future, ready, Future, FutureExt, Stream, TryFutureExt};
 use h2;
 use h2::client::{Connection, SendRequest};
 use http::{self, header};
+use log::{debug, warn};
 use rustls::ClientConfig;
 use tokio;
 use tokio::net::TcpStream as TokioTcpStream;

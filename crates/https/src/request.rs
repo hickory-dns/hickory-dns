@@ -10,6 +10,7 @@
 use std::str::FromStr;
 
 use http::{header, uri, Method, Request, Uri, Version};
+use log::debug;
 use typed_headers::{
     mime::Mime, Accept, ContentLength, ContentType, HeaderMapExt, Quality, QualityItem,
 };

@@ -425,19 +425,17 @@ mod tests {
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client);
 
-        assert_eq!(
-            *block_on(CachingClient::inner_lookup(
-                Query::new(),
-                Default::default(),
-                client,
-            ))
-            .unwrap_err()
-            .kind(),
-            ResolveErrorKind::NoRecordsFound {
-                query: Query::new(),
-                valid_until: None,
-            }
-        );
+        if let ResolveErrorKind::NoRecordsFound { query, valid_until } = block_on(
+            CachingClient::inner_lookup(Query::new(), Default::default(), client),
+        )
+        .unwrap_err()
+        .kind()
+        {
+            assert_eq!(*query, Query::new());
+            assert_eq!(*valid_until, None);
+        } else {
+            panic!("wrong error received")
+        }
     }
 
     #[test]

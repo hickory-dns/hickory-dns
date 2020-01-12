@@ -37,7 +37,6 @@ extern crate chrono;
 #[macro_use]
 extern crate enum_as_inner;
 extern crate env_logger;
-extern crate failure;
 extern crate futures;
 #[macro_use]
 extern crate log;
