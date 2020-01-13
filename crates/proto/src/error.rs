@@ -353,8 +353,8 @@ impl From<ProtoError> for String {
     }
 }
 
-#[cfg(feature = "wasm-bindgen-impls")]
-impl From<ProtoError> for wasm_bindgen::JsValue {
+#[cfg(feature = "wasm-bindgen")]
+impl From<ProtoError> for wasm_bindgen_crate::JsValue {
     fn from(e: ProtoError) -> Self {
         e.to_string().into()
     }
