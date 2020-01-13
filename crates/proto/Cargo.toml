@@ -51,7 +51,7 @@ mdns = ["socket2/reuseport"]
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
 
-wasm-bindgen-impls = ["wasm-bindgen"]
+wasm-bindgen = ["wasm-bindgen-crate"]
 
 [lib]
 name = "trust_dns_proto"
@@ -75,7 +75,7 @@ socket2 = { version = "0.3.10", optional = true }
 thiserror = "1.0.9"
 tokio = { version = "0.2.1", optional = true }
 url = "2.1.0"
-wasm-bindgen = { version = "0.2.58", optional = true }
+wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bindgen" }
 
 [dev-dependencies]
 env_logger = "0.7"
