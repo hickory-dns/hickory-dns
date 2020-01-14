@@ -10,11 +10,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Changes
 
 - (resolver) AsyncResolver abstract over `RuntimeProvider` (@chunyingw) #975
-- (resolver) TokioAsyncResolver implementation now has default methods that have a default Handle::current sed `TokioAsyncResolver::tokio`
+- (resolver) TokioAsyncResolver implementation now has default methods that have a default Handle::current set `TokioAsyncResolver::tokio`
 
 ### Added
 
 - (resolver) testing module for generic tests across generic async runtime impls (@chunyingw) #979
+- (proto) support for building into WASM (@moshevds) #987 #990 #991
 
 ### Removed
 
