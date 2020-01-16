@@ -36,7 +36,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["tokio-runtime"]
+default = ["system-config", "tokio-runtime"]
 dns-over-native-tls = ["dns-over-tls", "tokio-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tokio-openssl"]
@@ -52,6 +52,7 @@ dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 serde-config = ["serde", "trust-dns-proto/serde-config"]
+system-config = ["ipconfig", "resolv-conf"]
 
 # enables experimental the mDNS (multicast) feature
 mdns = ["trust-dns-proto/mdns"]
@@ -70,7 +71,7 @@ futures = "0.3.0"
 lazy_static = "1.0"
 log = "0.4"
 lru-cache = "0.1.2"
-resolv-conf = { version = "0.6.0", features = ["system"] }
+resolv-conf = { version = "0.6.0", optional = true, features = ["system"] }
 rustls = {version  = "0.16", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.0"
@@ -87,7 +88,7 @@ trust-dns-rustls = { version = "0.19.0", path = "../rustls", optional = true }
 webpki-roots = { version = "0.18", optional = true }
 
 [target.'cfg(windows)'.dependencies]
-ipconfig = { version = "0.2.0" }
+ipconfig = { version = "0.2.0", optional = true }
 
 [dev-dependencies]
 env_logger = "0.7"

@@ -13,13 +13,17 @@
 #![allow(missing_docs, unused_extern_crates)]
 
 #[cfg(unix)]
+#[cfg(feature = "system-config")]
 mod unix;
 
 #[cfg(unix)]
+#[cfg(feature = "system-config")]
 pub use self::unix::read_system_conf;
 
 #[cfg(windows)]
+#[cfg(feature = "system-config")]
 mod windows;
 
 #[cfg(target_os = "windows")]
+#[cfg(feature = "system-config")]
 pub use self::windows::read_system_conf;

@@ -131,6 +131,7 @@ impl TokioAsyncResolver {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
     pub async fn tokio_from_system_conf() -> Result<Self, ResolveError> {
         use tokio::runtime::Handle;
         Self::from_system_conf(Handle::current()).await
@@ -168,6 +169,7 @@ impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvi
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
     pub async fn from_system_conf(runtime: R::Handle) -> Result<Self, ResolveError> {
         Self::from_system_conf_with_provider(GenericConnectionProvider::<R>::new(runtime)).await
     }
@@ -256,6 +258,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
     pub async fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Self::new_with_conn(config, options, conn_provider).await
@@ -649,6 +652,7 @@ pub mod testing {
         }
     }
 
+    #[cfg(feature = "system-config")]
     /// Test AsyncResolver created from system configuration with IP lookup.
     pub fn system_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
@@ -681,6 +685,7 @@ pub mod testing {
         }
     }
 
+    #[cfg(feature = "system-config")]
     /// Test AsyncResolver created from system configuration with host lookups.
     pub fn hosts_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
@@ -1193,6 +1198,7 @@ mod tests {
     #[test]
     #[ignore]
     #[cfg(any(unix, target_os = "windows"))]
+    #[cfg(feature = "system-config")]
     fn test_system_lookup() {
         use super::testing::system_lookup_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
