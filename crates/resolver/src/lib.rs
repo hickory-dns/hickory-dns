@@ -202,6 +202,7 @@ extern crate lazy_static;
 #[macro_use]
 extern crate log;
 extern crate lru_cache;
+#[cfg(feature = "unix-config")]
 extern crate resolv_conf;
 #[cfg(feature = "serde-config")]
 #[macro_use]
