@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.1
+
+### Changes
+
+- (resolver) dependency on `trust-dns-proto` no is no-default-features (chunyingw) #993
+
 ## 0.19.0
 
 ### Changes
