@@ -82,7 +82,7 @@ tokio-rustls = { version = "0.12.1", optional = true }
 trust-dns-https = { version = "0.19.0", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.19.0", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.19.0", path = "../openssl", optional = true }
-trust-dns-proto = { version = "0.19.0", path = "../proto" }
+trust-dns-proto = { version = "0.19.0", path = "../proto" , default-features = false }
 trust-dns-rustls = { version = "0.19.0", path = "../rustls", optional = true }
 webpki-roots = { version = "0.18", optional = true }
 
