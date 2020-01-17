@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.2
+
+### Changes
+
+- (resolver) make system config loading optional to support fuchsia (chunyingw) #996
+
 ## 0.19.1
 
 ### Changes
