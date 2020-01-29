@@ -80,4 +80,5 @@ wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bind
 
 [dev-dependencies]
 env_logger = "0.7"
+futures = { version = "0.3.0", default-features = false, features = ["std", "executor"] }
 tokio = { version = "0.2.1", features = ["rt-core", "time"] }
