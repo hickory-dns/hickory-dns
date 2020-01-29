@@ -7,7 +7,7 @@ edition = "2018"
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS library. This is the Client library with DNSec support. 
+Trust-DNS is a safe and secure DNS library. This is the Client library with DNSec support.
  DNSSec with NSEC validation for negative records, is complete. The client supports
  dynamic DNS with SIG0 authenticated requests, implementing easy to use high level
  funtions. Trust-DNS is based on the Tokio and Futures libraries, which means
@@ -68,7 +68,7 @@ path = "src/lib.rs"
 backtrace = "0.3.40"
 chrono = "0.4"
 data-encoding = "2.1.0"
-futures = "0.3.0"
+futures = { version = "0.3.0", default-features = false, features = ["std"] }
 lazy_static = "1.0"
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
