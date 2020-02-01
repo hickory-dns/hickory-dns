@@ -50,7 +50,7 @@ path = "src/lib.rs"
 backtrace = "0.3.40"
 bytes = "0.5"
 data-encoding = "2.1.0"
-futures = "0.3.0"
+futures = { version = "0.3.0", default-features = false, features = ["std"] }
 h2 = { version = "0.2.0", features = ["stream"] }
 http = "0.2"
 log = "0.4"
@@ -67,3 +67,4 @@ webpki = "0.21"
 
 [dev-dependencies]
 env_logger = "0.7"
+futures = { version = "0.3.0", default-features = false, features = ["std", "executor"] }
