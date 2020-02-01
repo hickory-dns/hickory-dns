@@ -28,13 +28,13 @@ use super::Digest;
 /// This is the digest format for the
 ///
 ///```text
-/// 0	Reserved	-	[RFC3658]
-/// 1	SHA-1	MANDATORY	[RFC3658]
-/// 2	SHA-256	MANDATORY	[RFC4509]
-/// 3	GOST R 34.11-94	OPTIONAL	[RFC5933]
-/// 4	SHA-384	OPTIONAL	[RFC6605]
+/// 0 Reserved - [RFC3658]
+/// 1 SHA-1 MANDATORY [RFC3658]
+/// 2 SHA-256 MANDATORY [RFC4509]
+/// 3 GOST R 34.11-94 OPTIONAL [RFC5933]
+/// 4 SHA-384 OPTIONAL [RFC6605]
 /// 5 ED25519 [RFC draft-ietf-curdle-dnskey-eddsa-03]
-/// 5-255	Unassigned	-
+/// 5-255 Unassigned -
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum DigestType {
