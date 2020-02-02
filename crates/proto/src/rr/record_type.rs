@@ -52,17 +52,17 @@ pub enum RecordType {
     AXFR,
     /// RFC 6844 Certification Authority Authorization
     CAA,
-    //  CERT,       //	37	RFC 4398	Certificate record
+    //  CERT,       // 37 RFC 4398 Certificate record
     /// RFC 1035[1] Canonical name record
     CNAME,
-    //  DHCID,      //	49	RFC 4701	DHCP identifier
-    //  DNAME,      //	39	RFC 2672	Delegation Name
-    //  HIP,        //	55	RFC 5205	Host Identity Protocol
-    //  IPSECKEY,   //	45	RFC 4025	IPsec Key
+    //  DHCID,      // 49 RFC 4701 DHCP identifier
+    //  DNAME,      // 39 RFC 2672 Delegation Name
+    //  HIP,        // 55 RFC 5205 Host Identity Protocol
+    //  IPSECKEY,   // 45 RFC 4025 IPsec Key
     /// RFC 1996 Incremental Zone Transfer
     IXFR,
-    //  KX,         //	36	RFC 2230	Key eXchanger record
-    //  LOC,        //	29	RFC 1876	Location record
+    //  KX,         // 36 RFC 2230 Key eXchanger record
+    //  LOC,        // 29 RFC 1876 Location record
     /// RFC 1035[1] Mail exchange record
     MX,
     /// RFC 3403 Naming Authority Pointer
@@ -71,24 +71,24 @@ pub enum RecordType {
     NS,
     /// RFC 1035[1] Null server record, for testing
     NULL,
-    /// RFC 7929	OpenPGP public key
+    /// RFC 7929 OpenPGP public key
     OPENPGPKEY,
-    /// RFC 6891	Option
+    /// RFC 6891 Option
     OPT,
     /// RFC 1035[1] Pointer record
     PTR,
-    //  RP,         //	17	RFC 1183	Responsible person
-    /// RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
+    //  RP,         // 17 RFC 1183 Responsible person
+    /// RFC 1035[1] and RFC 2308[9] Start of [a zone of] authority record
     SOA,
     /// RFC 2782 Service locator
     SRV,
     /// RFC 4255 SSH Public Key Fingerprint
     SSHFP,
-    //  TA,         //	32768	N/A	DNSSEC Trust Authorities
-    //  TKEY,       //	249	RFC 2930	Secret key record
+    //  TA,         // 32768 N/A DNSSEC Trust Authorities
+    //  TKEY,       // 249 RFC 2930 Secret key record
     /// RFC 6698 TLSA certificate association
     TLSA,
-    //  TSIG,       //	250	RFC 2845	Transaction Signature
+    //  TSIG,       // 250 RFC 2845 Transaction Signature
     /// RFC 1035[1] Text record
     TXT,
 
