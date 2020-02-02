@@ -642,12 +642,12 @@ pub struct ResolverOpts {
     /// Number of attempts before giving up. Defaults to 2
     pub attempts: usize,
     /// Rotate through the resource records in the response (if there is more than one for a given name)
-    pub(crate) rotate: bool,
+    pub rotate: bool,
     /// Validate the names in the response, not implemented don't really see the point unless you need to support
     ///  badly configured DNS
-    pub(crate) check_names: bool,
+    pub check_names: bool,
     /// Enable edns, for larger records
-    pub(crate) edns0: bool,
+    pub edns0: bool,
     /// Use DNSSec to validate the request
     pub validate: bool,
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
