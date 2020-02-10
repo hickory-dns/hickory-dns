@@ -47,7 +47,7 @@ name = "trust_dns_rustls"
 path = "src/lib.rs"
 
 [dependencies]
-futures = { version = "0.3.0", default-features = false, features = ["std"] }
+futures = { version = "0.3.4", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = "0.16"
 tokio = { version = "0.2.1", features = ["tcp", "io-util"] }

@@ -68,7 +68,7 @@ path = "src/lib.rs"
 backtrace = "0.3.40"
 chrono = "0.4"
 data-encoding = "2.1.0"
-futures = { version = "0.3.0", default-features = false, features = ["std"] }
+futures = { version = "0.3.4", default-features = false, features = ["std"] }
 lazy_static = "1.0"
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
@@ -84,5 +84,5 @@ trust-dns-proto = { version = "0.19.2", path = "../proto", features = ["dnssec"]
 webpki = { version = "0.21", optional = true }
 
 [dev-dependencies]
-futures = { version = "0.3.0", default-features = false, features = ["std", "executor"] }
+futures = { version = "0.3.4", default-features = false, features = ["std", "executor"] }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = false }
