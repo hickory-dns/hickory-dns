@@ -70,12 +70,12 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.40"
+backtrace = "0.3.43"
 bytes = "0.5"
 chrono = "0.4"
 enum-as-inner = "0.3"
 env_logger = "0.7"
-futures = "0.3.0"
+futures = "0.3.4"
 h2 = { version = "0.2.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 log = "0.4"
