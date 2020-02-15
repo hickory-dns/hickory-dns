@@ -12,6 +12,9 @@ on:
   schedule:
     - cron:  '0 3 * * 4'
 
+env:
+  CARGO_MAKE_VERSION: '0.27.0'
+
 jobs:
   ## Run all default oriented feature sets across all platforms.
   platform-matrix:
@@ -30,7 +33,7 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
       with:
-        version: '0.24.2'
+        version: ${{ env.CARGO_MAKE_VERSION }}
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -72,7 +75,7 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
       with:
-        version: '0.24.2'
+        version: ${{ env.CARGO_MAKE_VERSION }}
 
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
@@ -114,7 +117,7 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
       with:
-        version: '0.24.2'
+        version: ${{ env.CARGO_MAKE_VERSION }}
 
     - name: cargo make all-features
       run: cargo make all-features
@@ -149,7 +152,7 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
       with:
-        version: '0.24.2'
+        version: ${{ env.CARGO_MAKE_VERSION }}
 
     # Clippy
     - name: cargo make clippy
@@ -177,7 +180,7 @@ jobs:
         override: true
     - uses: davidB/rust-cargo-make@v1
       with:
-        version: '0.24.2'
+        version: ${{ env.CARGO_MAKE_VERSION }}
 
     - name: target/bind cache
       uses: actions/cache@v1

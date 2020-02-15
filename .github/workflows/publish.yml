@@ -1,0 +1,31 @@
+name: publish
+
+on:
+  release:
+    types:
+      - published
+
+env:
+  CARGO_MAKE_VERSION: '0.27.0'
+
+jobs:
+  publish:
+    name: publish
+    # wait for the cache from all-features
+    #  TODO: we really want this:
+    # needs: ./.github/workflows/test/platform-matrix
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+    - uses: davidB/rust-cargo-make@v1
+      with:
+        version: ${{ env.CARGO_MAKE_VERSION }}
+    
+    - name: cargo make publish
+      run: cargo make publish
