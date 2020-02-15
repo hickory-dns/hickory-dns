@@ -28,4 +28,6 @@ jobs:
         version: ${{ env.CARGO_MAKE_VERSION }}
     
     - name: cargo make publish
+      env:
+        CRATES_IO_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
       run: cargo make publish
