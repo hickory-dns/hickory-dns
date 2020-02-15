@@ -51,21 +51,21 @@ pub enum DNSSECRecordType {
     //  CDS,        //	59	RFC 7344	Child DS
     //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
     //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
-    /// RFC 4034	DNS Key record: RSASHA256 and RSASHA512, RFC5702
+    /// RFC 4034 DNS Key record: RSASHA256 and RSASHA512, RFC5702
     DNSKEY,
-    /// RFC 4034	Delegation signer: RSASHA256 and RSASHA512, RFC5702
+    /// RFC 4034 Delegation signer: RSASHA256 and RSASHA512, RFC5702
     DS,
-    /// RFC 2535[3] and RFC 2930[4]	Key record
+    /// RFC 2535[3] and RFC 2930[4] Key record
     KEY,
-    /// RFC 4034	Next-Secure record
+    /// RFC 4034 Next-Secure record
     NSEC,
-    /// RFC 5155	NSEC record version 3
+    /// RFC 5155 NSEC record version 3
     NSEC3,
-    /// RFC 5155	NSEC3 parameters
+    /// RFC 5155 NSEC3 parameters
     NSEC3PARAM,
-    /// RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
+    /// RFC 4034 DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
     RRSIG,
-    /// RFC 2535 (2931)	Signature, to support 2137 Update.
+    /// RFC 2535 (2931) Signature, to support 2137 Update.
     ///
     /// This isn't really a DNSSEC record type, but it is here because, at least
     /// for now, we enable/disable SIG(0) in exactly the same circumstances that

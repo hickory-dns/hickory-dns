@@ -1,13 +1,13 @@
 [package]
 name = "trust-dns-client"
-version = "0.19.2"
+version = "0.19.3"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS library. This is the Client library with DNSec support. 
+Trust-DNS is a safe and secure DNS library. This is the Client library with DNSec support.
  DNSSec with NSEC validation for negative records, is complete. The client supports
  dynamic DNS with SIG0 authenticated requests, implementing easy to use high level
  funtions. Trust-DNS is based on the Tokio and Futures libraries, which means
@@ -65,10 +65,10 @@ name = "trust_dns_client"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.40"
+backtrace = "0.3.44"
 chrono = "0.4"
 data-encoding = "2.1.0"
-futures = "0.3.0"
+futures = { version = "0.3.4", default-features = false, features = ["std"] }
 lazy_static = "1.0"
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
@@ -77,11 +77,12 @@ rand = "0.7"
 ring = { version = "0.16", optional = true, features = ["std"]}
 rustls = { version = "0.16", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "1.0.9"
-tokio = { version = "0.2.1", features = ["rt-core"] }
-trust-dns-https = { version = "0.19.2", path = "../https", optional = true }
-trust-dns-proto = { version = "0.19.2", path = "../proto", features = ["dnssec"]}
+thiserror = "1.0.10"
+tokio = { version = "0.2.11", features = ["rt-core"] }
+trust-dns-https = { version = "0.19.3", path = "../https", optional = true }
+trust-dns-proto = { version = "0.19.3", path = "../proto", features = ["dnssec"]}
 webpki = { version = "0.21", optional = true }
 
 [dev-dependencies]
+futures = { version = "0.3.4", default-features = false, features = ["std", "executor"] }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = false }

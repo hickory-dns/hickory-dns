@@ -5,17 +5,26 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.3
+
+### Changes
+
+- (all) update all dependencies
+- (all) minimize `futures` dependency to `std` features (@antonylsg) #1003
+- (all) cleanup clippy warnings for Rust v.1.41 #1008
+- (proto) make all fields public on `ResolverOpts` for ease of use (@ackintosh) #1009
+
 ## 0.19.2
 
 ### Changes
 
-- (resolver) make system config loading optional to support fuchsia (chunyingw) #996
+- (resolver) make system config loading optional to support fuchsia (@chunyingw) #996
 
 ## 0.19.1
 
 ### Changes
 
-- (resolver) dependency on `trust-dns-proto` no is no-default-features (chunyingw) #993
+- (resolver) dependency on `trust-dns-proto` no is no-default-features (@chunyingw) #993
 
 ## 0.19.0
 
