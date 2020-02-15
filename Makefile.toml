@@ -27,6 +27,8 @@ TDNS_BIND_PATH = "${TARGET_DIR}/bind"
 TDNS_WORKSPACE_ROOT = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
 TDNS_WITH_KCOV_ARGS = "--lib --bins --tests --examples"
 
+CARGO_MAKE_CRATES_IO_TOKEN = { value = "--token=${CRATES_IO_TOKEN}", condition = { env_set = ["CRATES_IO_TOKEN"] } }
+
 ##
 ## Installation tasks
 ##
@@ -452,7 +454,7 @@ description = "publish next release"
 dependencies = ["await-update", "update", "check", "package"]
 private = true
 command = "cargo"
-args = ["publish", "--verbose", "--locked"]
+args = ["publish", "--verbose", "--locked", "@@remove-empty(CARGO_MAKE_CRATES_IO_TOKEN)"]
 
 [tasks.publish]
 description = "publish next release"
