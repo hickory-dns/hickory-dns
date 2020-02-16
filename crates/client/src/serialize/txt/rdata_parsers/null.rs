@@ -22,5 +22,7 @@ use crate::rr::rdata::NULL;
 /// Parse the RData from a set of Tokens
 #[allow(unused)]
 pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<NULL> {
-    Err(ParseError::from(ParseErrorKind::Msg("Parse is not implemented for NULL record".to_string())))
+    Err(ParseError::from(ParseErrorKind::Msg(
+        "Parse is not implemented for NULL record".to_string(),
+    )))
 }
