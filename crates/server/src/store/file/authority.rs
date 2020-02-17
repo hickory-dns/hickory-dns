@@ -8,6 +8,8 @@
 //! All authority related types
 
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -54,38 +56,72 @@ impl FileAuthority {
         InMemoryAuthority::new(origin, records, zone_type, allow_axfr).map(Self)
     }
 
+    /// Read given file line by line and recursively invokes reader for
+    /// $INCLUDE directives
+    ///
+    /// TODO: it looks hacky as far we effectively duplicate lexer functionallity
+    /// (at least partially). Better solution requires us to change lexer to deal
+    /// with Lines-like iterator instead of String buf.
+    fn read_file(root_dir: PathBuf, filename: &String, buf: &mut String) -> Result<(), String> {
+        let zone_path = root_dir.join(filename);
+
+        let include_root_dir = zone_path
+            .parent()
+            .map_or(root_dir.clone(), |p| p.to_path_buf());
+
+        let file = File::open(&zone_path)
+            .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
+        let reader = BufReader::new(file);
+        for line in reader.lines() {
+            let content = line.unwrap();
+            // TODO: $INCLUDE might have comment at the end (?)
+            // use Lexer to avoid problems like that
+            if !content.starts_with("$INCLUDE") {
+                buf.push_str(&content);
+            } else {
+                let include_path = content.replace("$INCLUDE ", "");
+
+                // TODO: this is ugly, need to find a way to pass the same buffer
+                let mut include_buf = String::new();
+                // TODO: check RFC if I'm allowed to use parent or something else
+                FileAuthority::read_file(
+                    include_root_dir.clone(),
+                    &include_path,
+                    &mut include_buf,
+                )?;
+                buf.push_str(&include_buf);
+            }
+            buf.push('\n');
+        }
+        Ok(())
+    }
+
     /// Read the Authority for the origin from the specified configuration
     pub fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
+        // TODO: why 2 different configurations?
         root_dir: Option<&Path>,
         config: &FileConfig,
     ) -> Result<Self, String> {
-        use std::fs::File;
-        use std::io::Read;
         use trust_dns_client::serialize::txt::{Lexer, Parser};
 
-        let zone_path = root_dir
-            .map(PathBuf::from)
-            .unwrap_or_else(PathBuf::new)
-            .join(&config.zone_file_path);
+        let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_else(PathBuf::new);
 
-        info!("loading zone file: {:?}", zone_path);
-
-        let mut file = File::open(&zone_path)
-            .map_err(|e| format!("error opening {}: {:?}", zone_path.display(), e))?;
-
+        // TODO: get logging back
+        // info!("loading zone file: {:?}", zone_path);
         let mut buf = String::new();
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        file.read_to_string(&mut buf)
-            .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
+        FileAuthority::read_file(root_dir_path, &config.zone_file_path, &mut buf)
+            .map_err(|e| format!("failed to read {}: {:?}", config.zone_file_path, e))?;
+
         let lexer = Lexer::new(&buf);
         let (origin, records) = Parser::new()
             .parse(lexer, Some(origin))
-            .map_err(|e| format!("failed to parse {}: {:?}", zone_path.display(), e))?;
+            .map_err(|e| format!("failed to parse {}: {:?}", config.zone_file_path, e))?;
 
         info!(
             "zone file loaded: {} with {} records",
@@ -289,6 +325,14 @@ mod tests {
             _ => panic!("wrong rdata type returned"),
         }
 
+        /// some options how to make it happen:
+        /// 1. parser:parse_file that builds lexer's as it needs
+        ///    (mut lexer should be replaced with current_lexer and
+        ///    stack of "previous" lexer's, swap when we finished with
+        ///    the lexer)
+        /// 2. pub function to "prepare" file before building lexer,
+        ///    going line by line and simply injecting content of a different
+        ///    file before even creating lexer
         let include_lookup = block_on(Authority::lookup(
             &authority,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
