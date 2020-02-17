@@ -158,11 +158,7 @@ impl Parser {
 
                     match t {
                         // if Dollar, then $INCLUDE or $ORIGIN
-                        Token::Include => {
-                            return Err(ParseError::from(ParseErrorKind::Message(
-                                "$INCLUDE is not yet implemented",
-                            )))
-                        }
+                        Token::Include => State::Include,
                         Token::Origin => State::Origin,
                         Token::Ttl => State::Ttl,
 
@@ -202,9 +198,12 @@ impl Parser {
                     }
                 }
                 State::Include => {
-                    return Err(ParseError::from(ParseErrorKind::Message(
-                        "$INCLUDE is not yet implemented",
-                    )))
+                    match t {
+                        Token::CharData(filepath) => {
+                            State::StartLine // TODO: next token should be EOL
+                        }
+                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                    }
                 }
                 State::TtlClassType => {
                     match t {

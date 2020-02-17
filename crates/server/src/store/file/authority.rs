@@ -288,5 +288,24 @@ mod tests {
             RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
             _ => panic!("wrong rdata type returned"),
         }
+
+        let include_lookup = block_on(Authority::lookup(
+            &authority,
+            &LowerName::from_str("include.alias.example.com.").unwrap(),
+            RecordType::A,
+            false,
+            SupportedAlgorithms::new(),
+        ))
+        .expect("INCLUDE lookup failed");
+
+        match include_lookup
+            .into_iter()
+            .next()
+            .expect("A record not found in authity")
+            .rdata()
+        {
+            RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 5), *ip),
+            _ => panic!("wrong rdata type returned"),
+        }
     }
 }
