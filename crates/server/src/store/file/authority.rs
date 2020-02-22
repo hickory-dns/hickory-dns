@@ -71,7 +71,8 @@ impl FileAuthority {
     /// even make it configurable, in practice it's hard to expect INCLUDES deeper than
     /// 3-4 levels anyways).
     ///
-    /// TODO: $INCLUDE could specify domain name
+    /// TODO: $INCLUDE could specify domain name -- to support on-flight swap for Origin
+    /// value we definitely need to rethink and rework loader/parser/lexer
     fn read_file(zone_path: PathBuf, buf: &mut String) -> Result<(), String> {
         let file = File::open(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
