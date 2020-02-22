@@ -69,18 +69,10 @@ impl FileAuthority {
     ///
     /// TODO: we should probably track depth of recursion here and set max level (or
     /// even make it configurable, in practice it's hard to expect INCLUDES deeper than
-    /// 3-4 levels anyways)
-    fn read_file(root_dir: PathBuf, filename: &String, buf: &mut String) -> Result<(), String> {
-        let zone_path = root_dir.join(filename);
-
-        info!("loading zone file: {:?}", zone_path);
-
-        // TODO: check RFC if I'm allowed to use parent or something else
-        let include_root_dir = zone_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .expect("file has to have parent folder");
-
+    /// 3-4 levels anyways).
+    ///
+    /// TODO: $INCLUDE could specify domain name
+    fn read_file(zone_path: PathBuf, buf: &mut String) -> Result<(), String> {
         let file = File::open(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
         let reader = BufReader::new(file);
@@ -90,12 +82,29 @@ impl FileAuthority {
 
             match (lexer.next_token(), lexer.next_token()) {
                 (Ok(Some(Token::Include)), Ok(Some(Token::CharData(include_path)))) => {
+                    // RFC1035 (section 5) does not specify how filename for $INCLUDE
+                    // should be resolved into file path. The underlying code implements the
+                    // following:
+                    // * if the path is absolute (relies on Path::is_absolute), it uses normalized path
+                    // * otherwise, it joins the path with parent root of the current file
+                    //
+                    // TODO: Inlining files specified using non-relative path might potentially introduce
+                    // security issue in some cases (e.g. when working with zone files from untrusted sources)
+                    // and should probably be configurable by user.
+                    let include_path = Path::new(&include_path);
+                    let include_zone_path = if include_path.is_absolute() {
+                        include_path.to_path_buf()
+                    } else {
+                        let parent_dir =
+                            zone_path.parent().expect("file has to have parent folder");
+                        parent_dir.join(include_path)
+                    };
+
                     let mut include_buf = String::new();
-                    FileAuthority::read_file(
-                        include_root_dir.clone(),
-                        &include_path,
-                        &mut include_buf,
-                    )?;
+
+                    debug!("loading included zone file: {:?}", include_zone_path);
+
+                    FileAuthority::read_file(include_zone_path, &mut include_buf)?;
                     buf.push_str(&include_buf);
                 }
                 _ => {
@@ -117,13 +126,16 @@ impl FileAuthority {
         config: &FileConfig,
     ) -> Result<Self, String> {
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_else(PathBuf::new);
+        let zone_path = root_dir_path.join(&config.zone_file_path);
+
+        info!("loading zone file: {:?}", zone_path);
 
         let mut buf = String::new();
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        FileAuthority::read_file(root_dir_path, &config.zone_file_path, &mut buf)
-            .map_err(|e| format!("failed to read {}: {:?}", config.zone_file_path, e))?;
+        FileAuthority::read_file(zone_path, &mut buf)
+            .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
         let lexer = Lexer::new(&buf);
         let (origin, records) = Parser::new()
