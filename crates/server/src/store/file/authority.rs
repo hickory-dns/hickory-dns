@@ -25,6 +25,8 @@ use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, Zon
 use crate::store::file::FileConfig;
 use crate::store::in_memory::InMemoryAuthority;
 
+use trust_dns_client::serialize::txt::{Lexer, Parser, Token};
+
 /// FileAuthority is responsible for storing the resource records for a particular zone.
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
@@ -59,38 +61,48 @@ impl FileAuthority {
     /// Read given file line by line and recursively invokes reader for
     /// $INCLUDE directives
     ///
-    /// TODO: it looks hacky as far we effectively duplicate lexer functionallity
-    /// (at least partially). Better solution requires us to change lexer to deal
-    /// with Lines-like iterator instead of String buf.
+    /// TODO: it looks hacky as far we effectively duplicate parser's functionallity
+    /// (at least partially) and performing lexing twice.
+    /// Better solution requires us to change lexer to deal
+    /// with Lines-like iterator instead of String buf (or capability to combine a few
+    /// lexer instances into a single lexer).
+    ///
+    /// TODO: we should probably track depth of recursion here and set max level (or
+    /// even make it configurable, in practice it's hard to expect INCLUDES deeper than
+    /// 3-4 levels anyways)
     fn read_file(root_dir: PathBuf, filename: &String, buf: &mut String) -> Result<(), String> {
         let zone_path = root_dir.join(filename);
 
+        info!("loading zone file: {:?}", zone_path);
+
+        // TODO: check RFC if I'm allowed to use parent or something else
         let include_root_dir = zone_path
             .parent()
-            .map_or(root_dir.clone(), |p| p.to_path_buf());
+            .map(|p| p.to_path_buf())
+            .expect("file has to have parent folder");
 
         let file = File::open(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
         let reader = BufReader::new(file);
         for line in reader.lines() {
             let content = line.unwrap();
-            // TODO: $INCLUDE might have comment at the end (?)
-            // use Lexer to avoid problems like that
-            if !content.starts_with("$INCLUDE") {
-                buf.push_str(&content);
-            } else {
-                let include_path = content.replace("$INCLUDE ", "");
+            let mut lexer = Lexer::new(&content);
 
-                // TODO: this is ugly, need to find a way to pass the same buffer
-                let mut include_buf = String::new();
-                // TODO: check RFC if I'm allowed to use parent or something else
-                FileAuthority::read_file(
-                    include_root_dir.clone(),
-                    &include_path,
-                    &mut include_buf,
-                )?;
-                buf.push_str(&include_buf);
+            match (lexer.next_token(), lexer.next_token()) {
+                (Ok(Some(Token::Include)), Ok(Some(Token::CharData(include_path)))) => {
+                    let mut include_buf = String::new();
+                    FileAuthority::read_file(
+                        include_root_dir.clone(),
+                        &include_path,
+                        &mut include_buf,
+                    )?;
+                    buf.push_str(&include_buf);
+                }
+                _ => {
+                    buf.push_str(&content);
+                }
             }
+
             buf.push('\n');
         }
         Ok(())
@@ -101,16 +113,11 @@ impl FileAuthority {
         origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
-        // TODO: why 2 different configurations?
         root_dir: Option<&Path>,
         config: &FileConfig,
     ) -> Result<Self, String> {
-        use trust_dns_client::serialize::txt::{Lexer, Parser};
-
         let root_dir_path = root_dir.map(PathBuf::from).unwrap_or_else(PathBuf::new);
 
-        // TODO: get logging back
-        // info!("loading zone file: {:?}", zone_path);
         let mut buf = String::new();
 
         // TODO: this should really use something to read line by line or some other method to
