@@ -290,19 +290,24 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 .filter_map(|r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
-
                     // TODO: disable name validation with ResolverOpts? glibc feature...
                     // restrict to the RData type requested
                     if query.query_class() == r.dns_class() {
                         // standard evaluation, it's an any type or it's the requested type and the search_name matches
-                        // - or -
+                        if (query.query_type().is_any() || query.query_type() == r.rr_type())
+                            && (search_name.as_ref() == r.name() || query.name() == r.name()) {
+                            return Some((r, ttl))
+                        }
+                        // CNAME evaluation, it's an A/AAAA lookup and the record is from the CNAME lookup chain.
+                        if (query.query_type() == RecordType::A || query.query_type() == RecordType::AAAA)
+                            && r.rr_type() == RecordType::CNAME {
+                            return Some((r, ttl))
+                        }
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //    and it's an IP
-                        if ((query.query_type().is_any() || query.query_type() == r.rr_type())
-                            && (search_name.as_ref() == r.name() || query.name() == r.name()))
-                            || (query.query_type().is_srv()
-                                && r.rr_type().is_ip_addr()
-                                && search_name.as_ref() == r.name())
+                        if query.query_type().is_srv()
+                            && r.rr_type().is_ip_addr()
+                            && search_name.as_ref() == r.name()
                         {
                             Some((r, ttl))
                         } else {
