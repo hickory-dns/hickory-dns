@@ -103,7 +103,11 @@ impl FileAuthority {
 
                     let mut include_buf = String::new();
 
-                    debug!("loading included zone file: {:?}", include_zone_path);
+                    info!(
+                        "including file {} into {}",
+                        include_zone_path.display(),
+                        zone_path.display()
+                    );
 
                     FileAuthority::read_file(include_zone_path, &mut include_buf)?;
                     buf.push_str(&include_buf);
