@@ -295,13 +295,16 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                     if query.query_class() == r.dns_class() {
                         // standard evaluation, it's an any type or it's the requested type and the search_name matches
                         if (query.query_type().is_any() || query.query_type() == r.rr_type())
-                            && (search_name.as_ref() == r.name() || query.name() == r.name()) {
-                            return Some((r, ttl))
+                            && (search_name.as_ref() == r.name() || query.name() == r.name())
+                        {
+                            return Some((r, ttl));
                         }
                         // CNAME evaluation, it's an A/AAAA lookup and the record is from the CNAME lookup chain.
-                        if (query.query_type() == RecordType::A || query.query_type() == RecordType::AAAA)
-                            && r.rr_type() == RecordType::CNAME {
-                            return Some((r, ttl))
+                        if (query.query_type() == RecordType::A
+                            || query.query_type() == RecordType::AAAA)
+                            && r.rr_type() == RecordType::CNAME
+                        {
+                            return Some((r, ttl));
                         }
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //    and it's an IP
