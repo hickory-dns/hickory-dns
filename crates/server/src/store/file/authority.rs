@@ -33,6 +33,24 @@ use trust_dns_client::serialize::txt::{Lexer, Parser, Token};
 /// start of authority for the zone, is a slave, or a cached zone.
 pub struct FileAuthority(InMemoryAuthority);
 
+/// TODO: should be configurable
+const MAX_INCLUDE_LEVEL: u8 = 32;
+
+/// Inner state of master file loader, tracks depth of $INCLUDE
+/// loads as well as visited previously files, so the loader
+/// is able to abort e.g. when cycle is detected
+///
+/// TODO: implemented visited files tracking and cycles detection
+struct FileReaderState {
+    level: u8,
+}
+
+impl FileReaderState {
+    fn new() -> Self {
+        FileReaderState { level: 0 }
+    }
+}
+
 impl FileAuthority {
     /// Creates a new Authority.
     ///
@@ -67,13 +85,13 @@ impl FileAuthority {
     /// with Lines-like iterator instead of String buf (or capability to combine a few
     /// lexer instances into a single lexer).
     ///
-    /// TODO: we should probably track depth of recursion here and set max level (or
-    /// even make it configurable, in practice it's hard to expect INCLUDES deeper than
-    /// 3-4 levels anyways).
-    ///
     /// TODO: $INCLUDE could specify domain name -- to support on-flight swap for Origin
     /// value we definitely need to rethink and rework loader/parser/lexer
-    fn read_file(zone_path: PathBuf, buf: &mut String) -> Result<(), String> {
+    fn read_file(
+        zone_path: PathBuf,
+        buf: &mut String,
+        state: FileReaderState,
+    ) -> Result<(), String> {
         let file = File::open(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
         let reader = BufReader::new(file);
@@ -101,6 +119,10 @@ impl FileAuthority {
                         parent_dir.join(include_path)
                     };
 
+                    if state.level >= MAX_INCLUDE_LEVEL {
+                        return Err(format!("Max depth level for nested $INCLUDE is reached at {}, trying to include {}", zone_path.display(), include_zone_path.display()));
+                    }
+
                     let mut include_buf = String::new();
 
                     info!(
@@ -109,7 +131,13 @@ impl FileAuthority {
                         zone_path.display()
                     );
 
-                    FileAuthority::read_file(include_zone_path, &mut include_buf)?;
+                    FileAuthority::read_file(
+                        include_zone_path,
+                        &mut include_buf,
+                        FileReaderState {
+                            level: state.level + 1,
+                        },
+                    )?;
                     buf.push_str(&include_buf);
                 }
                 _ => {
@@ -139,7 +167,7 @@ impl FileAuthority {
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        FileAuthority::read_file(zone_path, &mut buf)
+        FileAuthority::read_file(zone_path, &mut buf, FileReaderState::new())
             .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
         let lexer = Lexer::new(&buf);
