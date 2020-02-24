@@ -7,7 +7,7 @@
 
 //! All authority related types
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::ops::{Deref, DerefMut};
@@ -39,15 +39,63 @@ const MAX_INCLUDE_LEVEL: u8 = 32;
 /// Inner state of master file loader, tracks depth of $INCLUDE
 /// loads as well as visited previously files, so the loader
 /// is able to abort e.g. when cycle is detected
-///
-/// TODO: implemented visited files tracking and cycles detection
 struct FileReaderState {
     level: u8,
+    visited: HashSet<PathBuf>,
 }
 
 impl FileReaderState {
-    fn new() -> Self {
-        FileReaderState { level: 0 }
+    fn new(initial_file: PathBuf) -> Self {
+        let mut visited = HashSet::new();
+        visited.insert(initial_file);
+        FileReaderState {
+            level: 0,
+            visited: visited,
+        }
+    }
+
+    fn visit(&mut self, include_file: PathBuf, current_file: PathBuf) -> Result<(), String> {
+        if self.level >= MAX_INCLUDE_LEVEL {
+            return Err(format!(
+                "Max depth level for nested $INCLUDE is reached at {}, trying to include {}",
+                current_file.display(),
+                include_file.display()
+            ));
+        }
+
+        // Effectively, this blocks not only cycles but any attempts to
+        // include the same file twice. Which might not be a cyclic dependency
+        // Example,
+        //
+        //        |- B.txt -|- D.txt
+        // A.txt -|
+        //        |- C.txt -|- D.txt
+        //
+        // is a "safe" operation for recursion. RFC1035 does not provide any
+        // details on how this should be handled and if this pattern should be
+        // allowed.
+        //
+        // TODO: "trully" cycle include might be detected either performing
+        // topological sort over all parent -> include pairs or keeping linked
+        // list of file tranversed through the current path (instead of set of
+        // all nodes from the entire tree)
+        if self.visited.contains(&include_file) {
+            return Err(format!(
+                "Tyring to $INCLUDE the same file more than once: {} from {}",
+                include_file.display(),
+                current_file.display(),
+            ));
+        }
+
+        info!(
+            "including file {} into {}",
+            include_file.display(),
+            current_file.display()
+        );
+
+        self.level = self.level + 1;
+        self.visited.insert(include_file);
+        Ok(())
     }
 }
 
@@ -90,7 +138,7 @@ impl FileAuthority {
     fn read_file(
         zone_path: PathBuf,
         buf: &mut String,
-        state: FileReaderState,
+        reader_state: &mut FileReaderState,
     ) -> Result<(), String> {
         let file = File::open(&zone_path)
             .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
@@ -119,25 +167,11 @@ impl FileAuthority {
                         parent_dir.join(include_path)
                     };
 
-                    if state.level >= MAX_INCLUDE_LEVEL {
-                        return Err(format!("Max depth level for nested $INCLUDE is reached at {}, trying to include {}", zone_path.display(), include_zone_path.display()));
-                    }
+                    reader_state.visit(include_zone_path.clone(), zone_path.clone())?;
 
                     let mut include_buf = String::new();
 
-                    info!(
-                        "including file {} into {}",
-                        include_zone_path.display(),
-                        zone_path.display()
-                    );
-
-                    FileAuthority::read_file(
-                        include_zone_path,
-                        &mut include_buf,
-                        FileReaderState {
-                            level: state.level + 1,
-                        },
-                    )?;
+                    FileAuthority::read_file(include_zone_path, &mut include_buf, reader_state)?;
                     buf.push_str(&include_buf);
                 }
                 _ => {
@@ -165,9 +199,11 @@ impl FileAuthority {
 
         let mut buf = String::new();
 
+        let mut reader_state = &mut FileReaderState::new(zone_path.clone());
+
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        FileAuthority::read_file(zone_path, &mut buf, FileReaderState::new())
+        FileAuthority::read_file(zone_path, &mut buf, &mut reader_state)
             .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
         let lexer = Lexer::new(&buf);
