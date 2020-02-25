@@ -210,7 +210,12 @@ fn test_cname_lookup() {
         Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
     );
-    let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
+    let message = message(
+        resp_query,
+        vec![cname_record.clone(), v4_record],
+        vec![],
+        vec![],
+    );
     let client = MockClientHandle::mock(vec![message.map(Into::into)]);
 
     let lookup = LookupFuture::lookup(
@@ -223,8 +228,10 @@ fn test_cname_lookup() {
     let mut io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
+    let mut iter = lookup.iter();
+    assert_eq!(iter.next().unwrap(), cname_record.rdata());
     assert_eq!(
-        *lookup.iter().next().unwrap(),
+        *iter.next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 }
@@ -242,7 +249,12 @@ fn test_chained_cname_lookup() {
     );
 
     // The first response should be a cname, the second will be the actual record
-    let message1 = message(resp_query.clone(), vec![cname_record], vec![], vec![]);
+    let message1 = message(
+        resp_query.clone(),
+        vec![cname_record.clone()],
+        vec![],
+        vec![],
+    );
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
@@ -258,8 +270,10 @@ fn test_chained_cname_lookup() {
     let mut io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
+    let mut iter = lookup.iter();
+    assert_eq!(iter.next().unwrap(), cname_record.rdata());
     assert_eq!(
-        *lookup.iter().next().unwrap(),
+        *iter.next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 }
@@ -345,7 +359,6 @@ fn test_max_chained_lookup_depth() {
     let mut io_loop = Runtime::new().unwrap();
 
     println!("performing max cname validation");
-    // TODO: validate exact error
     assert!(io_loop.block_on(lookup).is_err());
 
     // This query should succeed, as the queue depth should reset to 0 on a failed request
