@@ -726,7 +726,12 @@ mod tests {
 
         if let Ok(records) = records {
             if let Records::Exists(records) = records {
-                assert!(records.iter().all(|&(_, ttl)| ttl == 1));
+                for (record, ttl) in records.iter() {
+                    if record.record_type() == RecordType::CNAME {
+                        continue;
+                    }
+                    assert_eq!(ttl, &1);
+                }
             } else {
                 panic!("records don't exist");
             }
