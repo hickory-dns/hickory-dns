@@ -332,37 +332,17 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         // TODO: for SRV records we *could* do an implicit lookup, but, this requires knowing the type of IP desired
         //    for now, we'll make the API require the user to perform a follow up to the lookups.
         // It was a CNAME, but not included in the request...
-        if was_cname {
+        if was_cname && client.query_depth.load(Ordering::Acquire) < MAX_QUERY_DEPTH {
             let next_query = Query::query(search_name, query.query_type());
-            Ok(Self::next_query(
-                client, options, is_dnssec, next_query, cname_ttl, response,
-            ))
+            Ok(Records::CnameChain {
+                next: client.lookup(next_query, options),
+                min_ttl: cname_ttl,
+            })
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSec, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
             Ok(Self::handle_nxdomain(is_dnssec, response, true))
-        }
-    }
-
-    // TODO: merge this with cname
-    fn next_query(
-        client: &mut Self,
-        options: DnsRequestOptions,
-        is_dnssec: bool,
-        query: Query,
-        cname_ttl: u32,
-        message: DnsResponse,
-    ) -> Records {
-        // tracking the depth of our queries, to prevent infinite CNAME recursion
-        if client.query_depth.load(Ordering::Acquire) >= MAX_QUERY_DEPTH {
-            // TODO: This should return an error
-            Self::handle_nxdomain(is_dnssec, message, true)
-        } else {
-            Records::CnameChain {
-                next: client.lookup(query, options),
-                min_ttl: cname_ttl,
-            }
         }
     }
 
