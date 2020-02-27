@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures::lock::Mutex;
-use futures::{future, Future, FutureExt};
+use futures::Future;
 
 use proto::op::{Message, Query, ResponseCode};
 use proto::rr::domain::usage::{
@@ -76,13 +76,17 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         )
     }
 
-    pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C, preserve_intermediates: bool) -> Self {
+    pub(crate) fn with_cache(
+        lru: Arc<Mutex<DnsLru>>,
+        client: C,
+        preserve_intermediates: bool,
+    ) -> Self {
         let query_depth = Arc::new(AtomicU8::new(0));
         CachingClient {
             lru,
             client,
             query_depth,
-            preserve_intermediates
+            preserve_intermediates,
         }
     }
 
@@ -92,16 +96,24 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         query: Query,
         options: DnsRequestOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> {
-        // see https://tools.ietf.org/html/rfc6761
+        Box::pin(Self::inner_lookup(query, options, self.clone(), vec![]))
+    }
+
+    async fn inner_lookup(
+        query: Query,
+        options: DnsRequestOptions,
+        mut client: Self,
+        preserved_records: Vec<(Record, u32)>,
+    ) -> Result<Lookup, ResolveError> {
+        // see https://tools.ietf.ofc6761
         //
         // ```text
-        // Name resolution APIs and libraries SHOULD recognize localhost
-        // names as special and SHOULD always return the IP loopback address
+        // Name resolution APIs and librariesognize localhost
+        // names as special analways return the IP loopback address
         // for address queries and negative responses for all other query
-        // types.  Name resolution APIs SHOULD NOT send queries for
-        // localhost names to their configured caching DNS server(s).
+        // types.  Name resolution APIs SHOULD NOT s for
+        // localhost names to their cocachir(s).
         // ```
-        //
         // special use rules only apply to the IN Class
         if query.query_class() == DNSClass::IN {
             let usage = match query.name() {
@@ -116,16 +128,10 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
             match usage.resolver() {
                 ResolverUsage::Loopback => match query.query_type() {
                     // TODO: look in hosts for these ips/names first...
-                    RecordType::A => {
-                        return future::ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())).boxed()
-                    }
-                    RecordType::AAAA => {
-                        return future::ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())).boxed()
-                    }
-                    RecordType::PTR => {
-                        return future::ok(Lookup::from_rdata(query, LOCALHOST.clone())).boxed()
-                    }
-                    _ => return future::err(DnsLru::nx_error(query, None)).boxed(), // Are there any other types we can use?
+                    RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),
+                    RecordType::AAAA => return Ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())),
+                    RecordType::PTR => return Ok(Lookup::from_rdata(query, LOCALHOST.clone())),
+                    _ => return Err(DnsLru::nx_error(query, None)), // Are there any other types we can use?
                 },
                 // when mdns is enabled we will follow a standard query path
                 #[cfg(feature = "mdns")]
@@ -134,21 +140,11 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
                 #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
-                ResolverUsage::NxDomain => {
-                    return future::err(DnsLru::nx_error(query, None)).boxed()
-                }
+                ResolverUsage::NxDomain => return Err(DnsLru::nx_error(query, None)),
                 ResolverUsage::Normal => (),
             }
         }
 
-        Box::pin(Self::inner_lookup(query, options, self.clone()))
-    }
-
-    async fn inner_lookup(
-        query: Query,
-        options: DnsRequestOptions,
-        mut client: Self,
-    ) -> Result<Lookup, ResolveError> {
         let _tracker = DepthTracker::track(client.query_depth.clone());
         let is_dnssec = client.client.is_verifying_dnssec();
 
@@ -167,9 +163,14 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 response_message,
                 false, /* false b/c DNSSec should not cache NXDomain */
             )),
-            ResponseCode::NoError => {
-                Self::handle_noerror(&mut client, options, is_dnssec, &query, response_message)
-            }
+            ResponseCode::NoError => Self::handle_noerror(
+                &mut client,
+                options,
+                is_dnssec,
+                &query,
+                response_message,
+                preserved_records,
+            ),
             r => Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into()),
         }?;
 
@@ -230,6 +231,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         is_dnssec: bool,
         query: &Query,
         mut response: DnsResponse,
+        mut preserved_records: Vec<(Record, u32)>,
     ) -> Result<Records, ResolveError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
@@ -291,7 +293,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
             // set of names that still require resolution
             // TODO: this needs to be enhanced for SRV
             let mut found_name = false;
-            
+
             // After following all the CNAMES to the last one, try and lookup the final name
             let records = answers
                 .into_iter()
@@ -335,12 +337,18 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 })
                 .collect::<Vec<_>>();
 
-            
-            if !records.is_empty() && found_name {
-                return Ok(Records::Exists(records));
+            // adding the newly collected records to the preserved records
+            preserved_records.extend(records);
+            if !preserved_records.is_empty() && found_name {
+                return Ok(Records::Exists(preserved_records));
             }
 
-            (search_name.into_owned(), cname_ttl, was_cname, records)
+            (
+                search_name.into_owned(),
+                cname_ttl,
+                was_cname,
+                preserved_records,
+            )
         };
 
         // TODO: for SRV records we *could* do an implicit lookup, but, this requires knowing the type of IP desired
@@ -349,7 +357,12 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         if was_cname && client.query_depth.load(Ordering::Acquire) < MAX_QUERY_DEPTH {
             let next_query = Query::query(search_name, query.query_type());
             Ok(Records::CnameChain {
-                next: client.lookup(next_query, options),
+                next: Box::pin(CachingClient::inner_lookup(
+                    next_query,
+                    options,
+                    client.clone(),
+                    preserved_records,
+                )),
                 min_ttl: cname_ttl,
             })
         } else {
@@ -428,7 +441,7 @@ mod tests {
         let client = CachingClient::with_cache(cache, client, false);
 
         if let ResolveErrorKind::NoRecordsFound { query, valid_until } = block_on(
-            CachingClient::inner_lookup(Query::new(), Default::default(), client),
+            CachingClient::inner_lookup(Query::new(), Default::default(), client, vec![]),
         )
         .unwrap_err()
         .kind()
@@ -464,6 +477,7 @@ mod tests {
             Query::new(),
             Default::default(),
             client,
+            vec![],
         ))
         .unwrap();
 
@@ -484,6 +498,7 @@ mod tests {
             Query::new(),
             Default::default(),
             client,
+            vec![],
         ))
         .unwrap();
 
@@ -500,6 +515,7 @@ mod tests {
             Query::new(),
             Default::default(),
             client,
+            vec![],
         ))
         .unwrap();
 
@@ -545,6 +561,7 @@ mod tests {
             Query::query(Name::from_str("www.example.com.").unwrap(), query_type),
             Default::default(),
             client,
+            vec![],
         ))
         .expect("lookup failed");
 
@@ -579,6 +596,7 @@ mod tests {
             ),
             Default::default(),
             client,
+            vec![],
         ))
         .expect("lookup failed");
 
@@ -626,6 +644,7 @@ mod tests {
             ),
             Default::default(),
             client,
+            vec![],
         ))
         .expect("lookup failed");
 
@@ -716,6 +735,7 @@ mod tests {
             false,
             &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             message.into(),
+            vec![],
         );
 
         if let Ok(records) = records {

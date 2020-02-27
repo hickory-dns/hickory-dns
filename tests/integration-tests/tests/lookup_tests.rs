@@ -210,12 +210,7 @@ fn test_cname_lookup() {
         Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
     );
-    let message = message(
-        resp_query,
-        vec![cname_record, v4_record],
-        vec![],
-        vec![],
-    );
+    let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
     let client = MockClientHandle::mock(vec![message.map(Into::into)]);
 
     let lookup = LookupFuture::lookup(
@@ -271,7 +266,6 @@ fn test_cname_lookup_preserve() {
     );
 }
 
-
 #[test]
 fn test_chained_cname_lookup() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -285,12 +279,7 @@ fn test_chained_cname_lookup() {
     );
 
     // The first response should be a cname, the second will be the actual record
-    let message1 = message(
-        resp_query.clone(),
-        vec![cname_record],
-        vec![],
-        vec![],
-    );
+    let message1 = message(resp_query.clone(), vec![cname_record], vec![], vec![]);
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
