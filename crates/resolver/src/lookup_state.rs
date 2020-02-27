@@ -63,23 +63,26 @@ pub struct CachingClient<C: DnsHandle> {
     lru: Arc<Mutex<DnsLru>>,
     client: C,
     query_depth: Arc<AtomicU8>,
+    preserve_intermediates: bool,
 }
 
 impl<C: DnsHandle + Send + 'static> CachingClient<C> {
     #[doc(hidden)]
-    pub fn new(max_size: usize, client: C) -> Self {
+    pub fn new(max_size: usize, client: C, preserve_intermediates: bool) -> Self {
         Self::with_cache(
             Arc::new(Mutex::new(DnsLru::new(max_size, Default::default()))),
             client,
+            preserve_intermediates,
         )
     }
 
-    pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C) -> Self {
+    pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C, preserve_intermediates: bool) -> Self {
         let query_depth = Arc::new(AtomicU8::new(0));
         CachingClient {
             lru,
             client,
             query_depth,
+            preserve_intermediates
         }
     }
 
@@ -232,7 +235,10 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
 
         // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
-        let (search_name, cname_ttl, was_cname) = {
+        // FIXME: for SRV this evaluation is inadequate. CNAME is a single chain to a single record
+        //   for SRV, there could be many different targets. The search_name needs to be enhanced to
+        //   be a list of names found for SRV records.
+        let (search_name, cname_ttl, was_cname, preserved_records) = {
             // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
             let (search_name, cname_ttl, was_cname) =
                 if query.query_type().is_any() || query.query_type().is_cname() {
@@ -282,6 +288,10 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 .flat_map(Message::take_additionals)
                 .collect();
 
+            // set of names that still require resolution
+            // TODO: this needs to be enhanced for SRV
+            let mut found_name = false;
+            
             // After following all the CNAMES to the last one, try and lookup the final name
             let records = answers
                 .into_iter()
@@ -297,12 +307,14 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                         if (query.query_type().is_any() || query.query_type() == r.rr_type())
                             && (search_name.as_ref() == r.name() || query.name() == r.name())
                         {
+                            found_name = true;
                             return Some((r, ttl));
                         }
                         // CNAME evaluation, it's an A/AAAA lookup and the record is from the CNAME lookup chain.
-                        if (query.query_type() == RecordType::A
-                            || query.query_type() == RecordType::AAAA)
+                        if client.preserve_intermediates
                             && r.rr_type() == RecordType::CNAME
+                            && (query.query_type() == RecordType::A
+                                || query.query_type() == RecordType::AAAA)
                         {
                             return Some((r, ttl));
                         }
@@ -312,6 +324,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                             && r.rr_type().is_ip_addr()
                             && search_name.as_ref() == r.name()
                         {
+                            found_name = true;
                             Some((r, ttl))
                         } else {
                             None
@@ -322,11 +335,12 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 })
                 .collect::<Vec<_>>();
 
-            if !records.is_empty() {
+            
+            if !records.is_empty() && found_name {
                 return Ok(Records::Exists(records));
             }
 
-            (search_name.into_owned(), cname_ttl, was_cname)
+            (search_name.into_owned(), cname_ttl, was_cname, records)
         };
 
         // TODO: for SRV records we *could* do an implicit lookup, but, this requires knowing the type of IP desired
@@ -411,7 +425,7 @@ mod tests {
     fn test_empty_cache() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let client = CachingClient::with_cache(cache, client);
+        let client = CachingClient::with_cache(cache, client, false);
 
         if let ResolveErrorKind::NoRecordsFound { query, valid_until } = block_on(
             CachingClient::inner_lookup(Query::new(), Default::default(), client),
@@ -444,7 +458,7 @@ mod tests {
         );
 
         let client = mock(vec![empty()]);
-        let client = CachingClient::with_cache(cache, client);
+        let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::new(),
@@ -464,7 +478,7 @@ mod tests {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         // first should come from client...
         let client = mock(vec![v4_message()]);
-        let client = CachingClient::with_cache(cache.clone(), client);
+        let client = CachingClient::with_cache(cache.clone(), client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::new(),
@@ -480,7 +494,7 @@ mod tests {
 
         // next should come from cache...
         let client = mock(vec![empty()]);
-        let client = CachingClient::with_cache(cache, client);
+        let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::new(),
@@ -525,7 +539,7 @@ mod tests {
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let client = mock(vec![error(), cname_message()]);
-        let client = CachingClient::with_cache(cache, client);
+        let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::query(Name::from_str("www.example.com.").unwrap(), query_type),
@@ -556,7 +570,7 @@ mod tests {
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let client = mock(vec![error(), srv_message()]);
-        let client = CachingClient::with_cache(cache, client);
+        let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::query(
@@ -603,7 +617,7 @@ mod tests {
         ]);
 
         let client = mock(vec![error(), Ok(message)]);
-        let client = CachingClient::with_cache(cache, client);
+        let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::query(
@@ -682,7 +696,7 @@ mod tests {
     fn cname_ttl_test(first: u32, second: u32) {
         let lru = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         // expecting no queries to be performed
-        let mut client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
+        let mut client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]), false);
 
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
@@ -730,7 +744,7 @@ mod tests {
     fn test_early_return_localhost() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient::with_cache(cache, client);
+        let mut client = CachingClient::with_cache(cache, client, false);
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A);
@@ -805,7 +819,7 @@ mod tests {
     fn test_early_return_invalid() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient::with_cache(cache, client);
+        let mut client = CachingClient::with_cache(cache, client, false);
 
         assert!(block_on(client.lookup(
             Query::query(
@@ -829,7 +843,7 @@ mod tests {
         ));
 
         let client = mock(vec![error(), Ok(message)]);
-        let mut client = CachingClient::with_cache(cache, client);
+        let mut client = CachingClient::with_cache(cache, client, false);
 
         assert!(block_on(client.lookup(
             Query::query(

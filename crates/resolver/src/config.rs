@@ -688,6 +688,8 @@ pub struct ResolverOpts {
     ///
     /// 0 or 1 will configure this to execute all requests serially
     pub num_concurrent_reqs: usize,
+    /// Preserve all intermediate records in the lookup response, suchas CNAME records
+    pub preserve_intermediates: bool,
 }
 
 impl Default for ResolverOpts {
@@ -712,6 +714,7 @@ impl Default for ResolverOpts {
             negative_max_ttl: None,
             distrust_nx_responses: true,
             num_concurrent_reqs: 2,
+            preserve_intermediates: false,
         }
     }
 }

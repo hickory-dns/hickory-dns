@@ -463,7 +463,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_only(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v4_message()])),
+                CachingClient::new(0, mock(vec![v4_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -480,7 +480,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv6_only(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message()])),
+                CachingClient::new(0, mock(vec![v6_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -499,7 +499,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_and_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), v4_message()])),
+                CachingClient::new(0, mock(vec![v6_message(), v4_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -517,7 +517,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_and_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![empty(), v4_message()])),
+                CachingClient::new(0, mock(vec![empty(), v4_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -532,7 +532,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_and_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![error(), v4_message()])),
+                CachingClient::new(0, mock(vec![error(), v4_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -547,7 +547,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_and_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), empty()])),
+                CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
                 Default::default(),
                 None,
             ))
@@ -562,7 +562,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_and_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), error()])),
+                CachingClient::new(0, mock(vec![v6_message(), error()]), false),
                 Default::default(),
                 None,
             ))
@@ -580,7 +580,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv6_then_ipv4(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message()])),
+                CachingClient::new(0, mock(vec![v6_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -595,7 +595,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv6_then_ipv4(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v4_message(), empty()])),
+                CachingClient::new(0, mock(vec![v4_message(), empty()]), false),
                 Default::default(),
                 None,
             ))
@@ -610,7 +610,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv6_then_ipv4(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v4_message(), error()])),
+                CachingClient::new(0, mock(vec![v4_message(), error()]), false),
                 Default::default(),
                 None,
             ))
@@ -628,7 +628,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_then_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v4_message()])),
+                CachingClient::new(0, mock(vec![v4_message()]), false),
                 Default::default(),
                 None,
             ))
@@ -643,7 +643,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_then_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), empty()])),
+                CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
                 Default::default(),
                 None,
             ))
@@ -658,7 +658,7 @@ pub mod tests {
         assert_eq!(
             block_on(ipv4_then_ipv6(
                 Name::root(),
-                CachingClient::new(0, mock(vec![v6_message(), error()])),
+                CachingClient::new(0, mock(vec![v6_message(), error()]), false),
                 Default::default(),
                 None,
             ))
