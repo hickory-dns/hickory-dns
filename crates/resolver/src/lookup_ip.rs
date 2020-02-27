@@ -49,6 +49,13 @@ impl LookupIp {
     pub fn valid_until(&self) -> Instant {
         self.0.valid_until()
     }
+
+    /// Return a reference to the inner lookup
+    ///
+    /// This can be useful for getting all records from the request
+    pub fn as_lookup(&self) -> &Lookup {
+        &self.0
+    }
 }
 
 impl From<Lookup> for LookupIp {
