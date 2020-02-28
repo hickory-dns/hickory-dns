@@ -76,7 +76,7 @@ futures = "0.3.4"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.7"
 rusqlite = { version = "0.21.0", features = ["bundled"] }
-rustls = { version = "0.16" }
+rustls = "0.17"
 tokio = { version = "0.2.11", features = ["time", "rt-core"] }
 trust-dns-client= { version = "0.19.3", path = "../../crates/client" }
 trust-dns-https = { version = "0.19.3", path = "../../crates/https" }
