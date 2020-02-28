@@ -5,6 +5,17 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.4
+
+### Added
+
+- (resolver) option to include intermediate (CNAME) records in results (@balboah) #1028
+
+### Changed
+
+- (all) updated rustls to 0.17
+- (all) updated tokio-rustls to 0.13
+
 ## 0.19.3
 
 ### Changes
