@@ -81,13 +81,13 @@ http = { version = "0.2", optional = true }
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rusqlite = { version = "0.21.0", features = ["bundled"], optional = true }
-rustls = { version = "0.16", optional = true }
+rustls = { version = "0.17", optional = true }
 serde = { version = "1.0.104", features = ["derive"] }
 thiserror = "1.0.10"
 time = "0.1"
 tokio = { version = "0.2.11", features = ["stream", "tcp", "udp"] }
 tokio-openssl = { version = "0.4.0", optional = true }
-tokio-rustls = { version = "0.12.1", optional = true }
+tokio-rustls = { version = "0.13", optional = true }
 toml = "0.5"
 trust-dns-client= { version = "0.19.3", path = "../client" }
 trust-dns-https = { version = "0.19.3", path = "../https", optional = true }
