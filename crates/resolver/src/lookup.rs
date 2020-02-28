@@ -326,6 +326,13 @@ impl SrvLookup {
     pub fn ip_iter(&self) -> LookupIpIter {
         LookupIpIter(self.0.iter())
     }
+
+    /// Return a reference to the inner lookup
+    ///
+    /// This can be useful for getting all records from the request
+    pub fn as_lookup(&self) -> &Lookup {
+        &self.0
+    }
 }
 
 impl From<Lookup> for SrvLookup {
@@ -398,6 +405,13 @@ macro_rules! lookup_type {
             /// Returns the `Instant` at which this result is no longer valid.
             pub fn valid_until(&self) -> Instant {
                 self.0.valid_until()
+            }
+
+            /// Return a reference to the inner lookup
+            ///
+            /// This can be useful for getting all records from the request
+            pub fn as_lookup(&self) -> &Lookup {
+                &self.0
             }
         }
 
@@ -557,7 +571,7 @@ pub mod tests {
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![v4_message()])),
+                CachingClient::new(0, mock(vec![v4_message()]), false),
             ))
             .unwrap()
             .iter()
@@ -574,7 +588,7 @@ pub mod tests {
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![v4_message()])),
+                CachingClient::new(0, mock(vec![v4_message()]), false),
             ))
             .unwrap()
             .into_iter()
@@ -590,7 +604,7 @@ pub mod tests {
             vec![Name::root()],
             RecordType::A,
             DnsRequestOptions::default(),
-            CachingClient::new(0, mock(vec![error()])),
+            CachingClient::new(0, mock(vec![error()]), false),
         ))
         .is_err());
     }
@@ -602,7 +616,7 @@ pub mod tests {
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![empty()])),
+                CachingClient::new(0, mock(vec![empty()]), false),
             ))
             .unwrap_err()
             .kind()

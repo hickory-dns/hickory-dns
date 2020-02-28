@@ -249,7 +249,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
         Ok(AsyncResolver {
             config,
             options,
-            client_cache: CachingClient::with_cache(lru, either),
+            client_cache: CachingClient::with_cache(lru, either, options.preserve_intermediates),
             hosts,
         })
     }
