@@ -75,7 +75,7 @@ openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.6"
 rand = "0.7"
 ring = { version = "0.16", optional = true, features = ["std"]}
-rustls = { version = "0.16", optional = true }
+rustls = { version = "0.17", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0.10"
 tokio = { version = "0.2.11", features = ["rt-core"] }
