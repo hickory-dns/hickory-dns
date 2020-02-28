@@ -45,7 +45,7 @@ fn test_lookup() {
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
     );
     let lookup = io_loop.block_on(lookup).unwrap();
 
@@ -87,7 +87,7 @@ fn test_lookup_hosts() {
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         LookupIpStrategy::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
         Default::default(),
         Some(Arc::new(hosts)),
         None,
@@ -130,7 +130,7 @@ fn test_lookup_ipv4_like() {
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
         LookupIpStrategy::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
         Default::default(),
         Some(Arc::new(Hosts::default())),
         Some(RData::A(Ipv4Addr::new(1, 2, 3, 4))),
@@ -160,7 +160,7 @@ fn test_lookup_ipv4_like_fall_through() {
     let lookup = LookupIpFuture::lookup(
         vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
         LookupIpStrategy::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
         Default::default(),
         Some(Arc::new(Hosts::default())),
         Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))),
@@ -187,7 +187,7 @@ fn test_mock_lookup() {
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
     );
 
     let mut io_loop = Runtime::new().unwrap();
@@ -217,7 +217,7 @@ fn test_cname_lookup() {
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
     );
 
     let mut io_loop = Runtime::new().unwrap();
@@ -225,6 +225,43 @@ fn test_cname_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
+        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+    );
+}
+
+#[test]
+fn test_cname_lookup_preserve() {
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let cname_record = cname_record(
+        Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
+    );
+    let v4_record = v4_record(
+        Name::from_str("v4.example.com.").unwrap(),
+        Ipv4Addr::new(93, 184, 216, 34),
+    );
+    let message = message(
+        resp_query,
+        vec![cname_record.clone(), v4_record],
+        vec![],
+        vec![],
+    );
+    let client = MockClientHandle::mock(vec![message.map(Into::into)]);
+
+    let lookup = LookupFuture::lookup(
+        vec![Name::from_str("www.example.com.").unwrap()],
+        RecordType::A,
+        Default::default(),
+        CachingClient::new(0, client, true),
+    );
+
+    let mut io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
+
+    let mut iter = lookup.iter();
+    assert_eq!(iter.next().unwrap(), cname_record.rdata());
+    assert_eq!(
+        *iter.next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 }
@@ -252,7 +289,7 @@ fn test_chained_cname_lookup() {
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
-        CachingClient::new(0, client),
+        CachingClient::new(0, client, false),
     );
 
     let mut io_loop = Runtime::new().unwrap();
@@ -260,6 +297,48 @@ fn test_chained_cname_lookup() {
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
+        RData::A(Ipv4Addr::new(93, 184, 216, 34))
+    );
+}
+
+#[test]
+fn test_chained_cname_lookup_preserve() {
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let cname_record = cname_record(
+        Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
+    );
+    let v4_record = v4_record(
+        Name::from_str("v4.example.com.").unwrap(),
+        Ipv4Addr::new(93, 184, 216, 34),
+    );
+
+    // The first response should be a cname, the second will be the actual record
+    let message1 = message(
+        resp_query.clone(),
+        vec![cname_record.clone()],
+        vec![],
+        vec![],
+    );
+    let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
+
+    // the mock pops messages...
+    let client = MockClientHandle::mock(vec![message2.map(Into::into), message1.map(Into::into)]);
+
+    let lookup = LookupFuture::lookup(
+        vec![Name::from_str("www.example.com.").unwrap()],
+        RecordType::A,
+        Default::default(),
+        CachingClient::new(0, client, true),
+    );
+
+    let mut io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
+
+    let mut iter = lookup.iter();
+    assert_eq!(iter.next().unwrap(), cname_record.rdata());
+    assert_eq!(
+        *iter.next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 }
@@ -334,7 +413,7 @@ fn test_max_chained_lookup_depth() {
         message1.map(Into::into),
     ]);
 
-    let client = CachingClient::new(0, client);
+    let client = CachingClient::new(0, client, false);
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
@@ -345,7 +424,6 @@ fn test_max_chained_lookup_depth() {
     let mut io_loop = Runtime::new().unwrap();
 
     println!("performing max cname validation");
-    // TODO: validate exact error
     assert!(io_loop.block_on(lookup).is_err());
 
     // This query should succeed, as the queue depth should reset to 0 on a failed request

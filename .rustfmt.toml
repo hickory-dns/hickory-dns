@@ -1,3 +1,4 @@
+edition = "2018"
 # use_try_shorthand = true
 # error_on_line_overflow = false
 # error_on_line_overflow_comments = false
