@@ -387,14 +387,6 @@ mod tests {
             _ => panic!("wrong rdata type returned"),
         }
 
-        /// some options how to make it happen:
-        /// 1. parser:parse_file that builds lexer's as it needs
-        ///    (mut lexer should be replaced with current_lexer and
-        ///    stack of "previous" lexer's, swap when we finished with
-        ///    the lexer)
-        /// 2. pub function to "prepare" file before building lexer,
-        ///    going line by line and simply injecting content of a different
-        ///    file before even creating lexer
         let include_lookup = block_on(Authority::lookup(
             &authority,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
