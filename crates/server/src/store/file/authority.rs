@@ -33,21 +33,33 @@ use trust_dns_client::serialize::txt::{Lexer, Parser, Token};
 /// start of authority for the zone, is a slave, or a cached zone.
 pub struct FileAuthority(InMemoryAuthority);
 
-/// TODO: should be configurable
-const MAX_INCLUDE_LEVEL: u8 = 32;
+/// Max traversal depth for $INCLUDE files
+const MAX_INCLUDE_LEVEL: u16 = 256;
 
 /// Inner state of master file loader, tracks depth of $INCLUDE
 /// loads as well as visited previously files, so the loader
 /// is able to abort e.g. when cycle is detected
 ///
-/// TODO: implemented visited files tracking and cycles detection
+/// Note, that tracking max depth level explicitly covers also
+/// cycles in $INCLUDEs. The error description in this case would
+/// not be very helpful to decect the root cause of the problem
+/// though. The way to improve diagnose experience would be to
+/// traverse $INCLUDE files in topologically sorted order which
+/// requires quite some re-arrangements in the code and in the
+/// way loader is curretly implemented.
 struct FileReaderState {
-    level: u8,
+    level: u16,
 }
 
 impl FileReaderState {
     fn new() -> Self {
         FileReaderState { level: 0 }
+    }
+
+    fn next_level(&self) -> Self {
+        FileReaderState {
+            level: self.level + 1,
+        }
     }
 }
 
@@ -134,9 +146,7 @@ impl FileAuthority {
                     FileAuthority::read_file(
                         include_zone_path,
                         &mut include_buf,
-                        FileReaderState {
-                            level: state.level + 1,
-                        },
+                        state.next_level(),
                     )?;
                     buf.push_str(&include_buf);
                 }
