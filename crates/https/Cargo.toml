@@ -49,15 +49,15 @@ path = "src/lib.rs"
 [dependencies]
 backtrace = "0.3.44"
 bytes = "0.5"
-data-encoding = "2.1.0"
+data-encoding = "2.2.0"
 futures = { version = "0.3.4", default-features = false, features = ["std"] }
 h2 = { version = "0.2.0", features = ["stream"] }
 http = "0.2"
 log = "0.4"
-rustls = "0.16"
+rustls = "0.17"
 thiserror = "1.0.10"
 tokio = { version = "0.2.11", features = ["tcp", "io-util", "rt-core"] }
-tokio-rustls = "0.12.1"
+tokio-rustls = "0.13"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.19.3", path = "../proto", features = ["tokio-runtime"], default-features = false }
 trust-dns-rustls = { version = "0.19.3", path = "../rustls", default-features = false }
