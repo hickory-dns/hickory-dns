@@ -111,8 +111,19 @@ impl FileAuthority {
             let content = line.unwrap();
             let mut lexer = Lexer::new(&content);
 
-            match (lexer.next_token(), lexer.next_token()) {
-                (Ok(Some(Token::Include)), Ok(Some(Token::CharData(include_path)))) => {
+            match (lexer.next_token(), lexer.next_token(), lexer.next_token()) {
+                (
+                    Ok(Some(Token::Include)),
+                    Ok(Some(Token::CharData(include_path))),
+                    Ok(Some(Token::CharData(_domain))),
+                ) => {
+                    return Err(format!(
+                        "Domain name for $INCLUDE is not supported at {}, trying to include {}",
+                        zone_path.display(),
+                        include_path
+                    ));
+                }
+                (Ok(Some(Token::Include)), Ok(Some(Token::CharData(include_path))), _) => {
                     // RFC1035 (section 5) does not specify how filename for $INCLUDE
                     // should be resolved into file path. The underlying code implements the
                     // following:
