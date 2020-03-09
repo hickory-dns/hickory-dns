@@ -74,7 +74,7 @@ serde = { version = "1.0", optional = true }
 smallvec = "1.2"
 socket2 = { version = "0.3.10", optional = true }
 thiserror = "1.0.10"
-tokio = { version = "0.2.11", optional = true }
+tokio = { version = "0.2.133", optional = true }
 url = "2.1.0"
 wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bindgen" }
 
