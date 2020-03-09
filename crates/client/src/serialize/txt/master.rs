@@ -159,10 +159,8 @@ impl Parser {
                     match t {
                         // if Dollar, then $INCLUDE or $ORIGIN
                         Token::Include => {
-                            return Err(ParseError::from(ParseErrorKind::Message(
-                                "$INCLUDE is not yet implemented",
-                            )))
-                        }
+                            return Err(ParseError::from(ParseErrorKind::Message("The parser does not support $INCLUDE. Consider inlining file before parsing")))
+                        },
                         Token::Origin => State::Origin,
                         Token::Ttl => State::Ttl,
 
@@ -201,11 +199,9 @@ impl Parser {
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
                     }
                 }
-                State::Include => {
-                    return Err(ParseError::from(ParseErrorKind::Message(
-                        "$INCLUDE is not yet implemented",
-                    )))
-                }
+                State::Include => return Err(ParseError::from(ParseErrorKind::Message(
+                    "The parser does not support $INCLUDE. Consider inlining file before parsing",
+                ))),
                 State::TtlClassType => {
                     match t {
                         // if number, TTL
