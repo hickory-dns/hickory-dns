@@ -119,7 +119,7 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
     let accept = accept.ok_or_else(|| "Accept is unspecified")?;
 
     let any_application_and_dns = |q: &QualityItem<Mime>| -> bool {
-        (q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY)
+        q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY
     };
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
