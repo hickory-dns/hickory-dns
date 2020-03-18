@@ -106,7 +106,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        version: ['1.39.0', beta, nightly]
+        version: ['1.40.0', beta, nightly]
     steps:
     - uses: actions/checkout@v1
 

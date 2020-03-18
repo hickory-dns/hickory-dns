@@ -74,7 +74,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.39`
+The current minimum rustc version for this project is `1.40`
 
 ## Versioning
 
