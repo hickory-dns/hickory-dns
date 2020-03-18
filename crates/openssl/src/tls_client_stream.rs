@@ -5,7 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -48,7 +47,7 @@ impl TlsClientStreamBuilder {
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca_der(&mut self, ca_der: &[u8]) -> io::Result<()> {
         let ca = X509::from_der(&ca_der)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.description()))?;
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
         self.add_ca(ca);
         Ok(())
     }
