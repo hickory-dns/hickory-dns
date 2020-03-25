@@ -239,7 +239,8 @@ pub enum Property {
 }
 
 impl Property {
-    fn as_str(&self) -> &str {
+    /// Convert to string form
+    pub fn as_str(&self) -> &str {
         match *self {
             Property::Issue => "issue",
             Property::IssueWild => "issuewild",
