@@ -124,6 +124,47 @@ pub trait Executor {
     fn block_on<F: Future>(&mut self, future: F) -> F::Output;
 }
 
+/// The async_std runtime.
+///
+/// The runtime provides an I/O [driver], task scheduler, [timer], and blocking
+/// pool, necessary for running asynchronous tasks.
+///
+/// Instances of `AsyncStdRuntime` can be created using [`new`]. However, most
+/// users will use the `#[async_std::main]` annotation on their entry point instead.
+///
+/// See [module level][mod] documentation for more details.
+///
+/// # Shutdown
+///
+/// Shutting down the runtime is done by dropping the value. The current thread
+/// will block until the shut down operation has completed.
+///
+/// * Drain any scheduled work queues.
+/// * Drop any futures that have not yet completed.
+/// * Drop the reactor.
+///
+/// Once the reactor has dropped, any outstanding I/O resources bound to
+/// that reactor will no longer function. Calling any method on them will
+/// result in an error.
+///
+/// [driver]: crate::io::driver
+/// [timer]: crate::time
+/// [mod]: index.html
+/// [`new`]: #method.new
+#[cfg(feature = "async-std-runtime")]
+pub struct AsyncStdRuntime;
+
+#[cfg(feature = "async-std-runtime")]
+impl Executor for AsyncStdRuntime {
+    fn new() -> Self {
+        AsyncStdRuntime {}
+    }
+
+    fn block_on<F: Future>(&mut self, future: F) -> F::Output {
+        async_std::task::block_on(future)
+    }
+}
+
 #[cfg(feature = "tokio-runtime")]
 impl Executor for Runtime {
     fn new() -> Self {
@@ -148,6 +189,27 @@ pub trait Time {
         duration: Duration,
         future: F,
     ) -> Result<F::Output, std::io::Error>;
+}
+
+/// AsyncStd backed timer implementation
+#[cfg(feature = "async-std-runtime")]
+pub struct AsyncStdTime;
+
+#[cfg(feature = "async-std-runtime")]
+#[async_trait]
+impl Time for AsyncStdTime {
+    async fn delay_for(duration: Duration) {
+        async_std::task::sleep(duration).await
+    }
+
+    async fn timeout<F: 'static + Future + Send>(
+        duration: Duration,
+        future: F,
+    ) -> Result<F::Output, std::io::Error> {
+        async_std::future::timeout(duration, future)
+            .await
+            .map_err(move |_| std::io::Error::new(std::io::ErrorKind::TimedOut, "future timed out"))
+    }
 }
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
