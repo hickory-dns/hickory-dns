@@ -141,7 +141,7 @@ if [[ $KCOV_HELP_INFO != *"--include-pattern"* ]] || [[ $KCOV_HELP_INFO != *"--e
         for brew_install in zlib bash cmake pkgconfig wget ; do
             if brew info ${brew_install} | grep "Not installed" ; then
                 brew install ${brew_install}
-            else 
+            else
                 echo "skipping ${brew_install} already installed"
             fi
         done
@@ -307,6 +307,12 @@ description = "Run all with --all-features"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--all-features" }
+run_task = { name = "all", fork = true }
+
+[tasks.async-std-runtime]
+description = "Run all with --features=async-std-runtime"
+workspace = false
+env = { FEATURES = "--features=async-std-runtime", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/openssl;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-openssl]
