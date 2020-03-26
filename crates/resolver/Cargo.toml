@@ -58,6 +58,7 @@ system-config = ["ipconfig", "resolv-conf"]
 mdns = ["trust-dns-proto/mdns"]
 
 testing = []
+async-std-runtime = ["async-std", "trust-dns-proto/async-std-runtime"]
 tokio-runtime = ["tokio/rt-core", "trust-dns-proto/tokio-runtime"]
 
 [lib]
@@ -65,6 +66,7 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
+async-std = { version = "1.0", optional = true }
 backtrace = "0.3.44"
 cfg-if = "0.1.9"
 futures = { version = "0.3.4", default-features = false, features = ["std"] }
