@@ -512,7 +512,7 @@ mod tests {
     extern crate env_logger;
     extern crate tokio;
 
-    use std::net::{Ipv4Addr, SocketAddr};
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn test_https_cloudflare() {
-        //self::env_logger::try_init().ok();
+        // self::env_logger::try_init().ok();
 
         let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
         let mut request = Message::new();
@@ -558,19 +558,40 @@ mod tests {
         }));
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
-        //assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));
-
-        // let message = Message::read(&mut BinDecoder::new(response.bytes()))
-        //     .expect("failed to decode response");
-        let message = response;
-
-        let record = &message.answers()[0];
+        let record = &response.answers()[0];
         let addr = if let RData::A(addr) = record.rdata() {
             addr
         } else {
             panic!("invalid response, expected A record");
         };
 
-        assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34))
+        assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
+
+        //
+        // assert that the connection works for a second query
+        let mut request = Message::new();
+        let query = Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::AAAA,
+        );
+        request.add_query(query);
+        let request = DnsRequest::new(request, Default::default());
+
+        let sending = runtime.block_on(future::lazy(|cx| {
+            https.send_message::<TokioTime>(request, cx)
+        }));
+        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+
+        let record = &response.answers()[0];
+        let addr = if let RData::AAAA(addr) = record.rdata() {
+            addr
+        } else {
+            panic!("invalid response, expected A record");
+        };
+
+        assert_eq!(
+            addr,
+            &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+        );
     }
 }

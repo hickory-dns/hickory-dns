@@ -85,6 +85,11 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn is_connected(&self) -> bool {
+        self.client.is_some() && !self.state.is_failed()
+    }
+
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
