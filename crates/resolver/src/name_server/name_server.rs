@@ -11,7 +11,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::Future;
+use futures::{lock::Mutex, Future};
 #[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
@@ -33,7 +33,7 @@ use crate::name_server::{TokioConnection, TokioConnectionProvider};
 pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Send> {
     config: NameServerConfig,
     options: ResolverOpts,
-    client: Option<C>,
+    client: Arc<Mutex<Option<C>>>,
     state: Arc<NameServerState>,
     stats: Arc<NameServerStats>,
     conn_provider: P,
@@ -58,10 +58,10 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
         options: ResolverOpts,
         conn_provider: P,
     ) -> NameServer<C, P> {
-        NameServer {
+        Self {
             config,
             options,
-            client: None,
+            client: Arc::new(Mutex::new(None)),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
@@ -75,10 +75,10 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
         client: C,
         conn_provider: P,
     ) -> NameServer<C, P> {
-        NameServer {
+        Self {
             config,
             options,
-            client: Some(client),
+            client: Arc::new(Mutex::new(Some(client))),
             state: Arc::new(NameServerState::init(None)),
             stats: Arc::new(NameServerStats::default()),
             conn_provider,
@@ -87,32 +87,39 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
 
     #[cfg(test)]
     pub(crate) fn is_connected(&self) -> bool {
-        self.client.is_some() && !self.state.is_failed()
+        !self.state.is_failed()
+            && if let Some(client) = self.client.try_lock() {
+                client.is_some()
+            } else {
+                // assuming that if someone has it locked it will be or is connected
+                true
+            }
     }
 
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&mut self) -> ProtoResult<&mut C> {
+    async fn connected_mut_client(&mut self) -> ProtoResult<C> {
+        let mut client = self.client.lock().await;
+
         // if this is in a failure state
-        if self.state.is_failed() || self.client.is_none() {
+        if self.state.is_failed() || client.is_none() {
             debug!("reconnecting: {:?}", self.config);
 
             // TODO: we need the local EDNS options
-            self.state = Arc::new(NameServerState::init(None));
+            self.state.reinit(None);
 
-            let client = self
+            let new_client = self
                 .conn_provider
                 .new_connection(&self.config, &self.options)
                 .await?;
 
             // establish a new connection
-            self.client = Some(client);
+            *client = Some(new_client);
         }
 
-        Ok(self
-            .client
-            .as_mut()
+        Ok((*client)
+            .clone()
             .expect("bad state, client should be connected"))
     }
 
@@ -120,7 +127,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
         mut self,
         request: R,
     ) -> Result<DnsResponse, ProtoError> {
-        let client = self.connected_mut_client().await?;
+        let mut client = self.connected_mut_client().await?;
         let response = client.send(request).await;
 
         match response {

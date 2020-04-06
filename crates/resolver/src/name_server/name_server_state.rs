@@ -48,6 +48,14 @@ impl NameServerState {
         NameServerState(RwLock::new(NameServerStateInner::Init { send_edns }))
     }
 
+    /// Set at the new Init state
+    ///
+    /// If send_dns is some, this will be sent on the first request when it is established
+    pub fn reinit(&self, send_edns: Option<Edns>) {
+        let mut state = self.0.write().expect("poisoned lock");
+        *state = NameServerStateInner::Init { send_edns };
+    }
+
     /// Transition to the Established state
     ///
     /// If remote_edns is Some, then it will be used to effect things like buffer sizes based on
