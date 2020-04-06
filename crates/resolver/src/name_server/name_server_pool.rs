@@ -160,7 +160,7 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
         }
     }
 
-    #[doc(hidden)]
+    #[cfg(test)]
     #[cfg(feature = "mdns")]
     fn from_nameservers_test(
         options: &ResolverOpts,
@@ -467,7 +467,7 @@ mod tests {
         };
 
         let opts = ResolverOpts::default();
-        let ns_config = { tcp.clone() };
+        let ns_config = { tcp };
         let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider.clone());
         let name_servers = Arc::new(vec![name_server]);
 
@@ -475,6 +475,8 @@ mod tests {
             &opts,
             Arc::new(vec![]),
             Arc::clone(&name_servers),
+            #[cfg(feature = "mdns")]
+            name_server::mdns_nameserver(opts, conn_provider.clone()),
             conn_provider,
         );
 
@@ -483,7 +485,7 @@ mod tests {
         // first lookup
         let response = io_loop
             .block_on(pool.lookup(
-                Query::query(name.clone(), RecordType::A),
+                Query::query(name, RecordType::A),
                 DnsRequestOptions::default(),
             ))
             .expect("lookup failed");
