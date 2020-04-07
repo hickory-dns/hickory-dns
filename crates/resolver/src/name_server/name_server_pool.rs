@@ -377,7 +377,7 @@ impl Future for Local {
 mod tests {
     extern crate env_logger;
 
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 
     use tokio::runtime::Runtime;
@@ -485,7 +485,7 @@ mod tests {
         // first lookup
         let response = io_loop
             .block_on(pool.lookup(
-                Query::query(name, RecordType::A),
+                Query::query(name.clone(), RecordType::A),
                 DnsRequestOptions::default(),
             ))
             .expect("lookup failed");
@@ -496,6 +496,27 @@ mod tests {
                 .as_a()
                 .expect("no a record available"),
             Ipv4Addr::new(93, 184, 216, 34)
+        );
+
+        assert!(
+            name_servers[0].is_connected(),
+            "if this is failing then the NameServers aren't being properly shared."
+        );
+
+        // first lookup
+        let response = io_loop
+            .block_on(pool.lookup(
+                Query::query(name, RecordType::AAAA),
+                DnsRequestOptions::default(),
+            ))
+            .expect("lookup failed");
+
+        assert_eq!(
+            *response.answers()[0]
+                .rdata()
+                .as_aaaa()
+                .expect("no aaaa record available"),
+            Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
         );
 
         assert!(

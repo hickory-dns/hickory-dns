@@ -116,6 +116,8 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
 
             // establish a new connection
             *client = Some(new_client);
+        } else {
+            debug!("existing connection: {:?}", self.config);
         }
 
         Ok((*client)
