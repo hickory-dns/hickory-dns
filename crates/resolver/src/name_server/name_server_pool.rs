@@ -144,6 +144,40 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
         }
     }
 
+    #[cfg(test)]
+    #[cfg(not(feature = "mdns"))]
+    fn from_nameservers_test(
+        options: &ResolverOpts,
+        datagram_conns: Arc<Vec<NameServer<C, P>>>,
+        stream_conns: Arc<Vec<NameServer<C, P>>>,
+        conn_provider: P,
+    ) -> Self {
+        NameServerPool {
+            datagram_conns,
+            stream_conns,
+            options: *options,
+            conn_provider,
+        }
+    }
+
+    #[cfg(test)]
+    #[cfg(feature = "mdns")]
+    fn from_nameservers_test(
+        options: &ResolverOpts,
+        datagram_conns: Arc<Vec<NameServer<C, P>>>,
+        stream_conns: Arc<Vec<NameServer<C, P>>>,
+        mdns_conns: NameServer<C, P>,
+        conn_provider: P,
+    ) -> Self {
+        NameServerPool {
+            datagram_conns,
+            stream_conns,
+            mdns_conns,
+            options: *options,
+            conn_provider,
+        }
+    }
+
     async fn try_send(
         opts: ResolverOpts,
         conns: Arc<Vec<NameServer<C, P>>>,
@@ -343,7 +377,8 @@ impl Future for Local {
 mod tests {
     extern crate env_logger;
 
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    use std::str::FromStr;
 
     use tokio::runtime::Runtime;
 
@@ -414,5 +449,79 @@ mod tests {
                 i
             );
         }
+    }
+
+    #[test]
+    fn test_multi_use_conns() {
+        env_logger::try_init().ok();
+
+        let mut io_loop = Runtime::new().unwrap();
+        let conn_provider = TokioConnectionProvider::new(io_loop.handle().clone());
+
+        let tcp = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+            protocol: Protocol::Tcp,
+            tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
+        };
+
+        let opts = ResolverOpts::default();
+        let ns_config = { tcp };
+        let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider.clone());
+        let name_servers = Arc::new(vec![name_server]);
+
+        let mut pool = NameServerPool::from_nameservers_test(
+            &opts,
+            Arc::new(vec![]),
+            Arc::clone(&name_servers),
+            #[cfg(feature = "mdns")]
+            name_server::mdns_nameserver(opts, conn_provider.clone()),
+            conn_provider,
+        );
+
+        let name = Name::from_str("www.example.com.").unwrap();
+
+        // first lookup
+        let response = io_loop
+            .block_on(pool.lookup(
+                Query::query(name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            ))
+            .expect("lookup failed");
+
+        assert_eq!(
+            *response.answers()[0]
+                .rdata()
+                .as_a()
+                .expect("no a record available"),
+            Ipv4Addr::new(93, 184, 216, 34)
+        );
+
+        assert!(
+            name_servers[0].is_connected(),
+            "if this is failing then the NameServers aren't being properly shared."
+        );
+
+        // first lookup
+        let response = io_loop
+            .block_on(pool.lookup(
+                Query::query(name, RecordType::AAAA),
+                DnsRequestOptions::default(),
+            ))
+            .expect("lookup failed");
+
+        assert_eq!(
+            *response.answers()[0]
+                .rdata()
+                .as_aaaa()
+                .expect("no aaaa record available"),
+            Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+        );
+
+        assert!(
+            name_servers[0].is_connected(),
+            "if this is failing then the NameServers aren't being properly shared."
+        );
     }
 }

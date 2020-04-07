@@ -6,46 +6,81 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
-use std::sync::RwLock;
+use std::sync::atomic::{self, AtomicU8};
+use std::sync::Arc;
 use std::time::Instant;
 
+use futures::lock::Mutex;
 use proto::op::Edns;
 
-pub struct NameServerState(RwLock<NameServerStateInner>);
+pub struct NameServerState {
+    conn_state: AtomicU8,
+    remote_edns: Mutex<Arc<Option<Edns>>>,
+}
 
 /// State of a connection with a remote NameServer.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[repr(u8)]
 enum NameServerStateInner {
-    /// Initial state, if Edns is not none, then Edns will be requested
-    Init { send_edns: Option<Edns> },
-    /// There has been successful communication with the remote.
-    ///  if no Edns is associated, then the remote does not support Edns
-    Established { remote_edns: Option<Edns> },
     /// For some reason the connection failed. For UDP this would generally be a timeout
     ///  for TCP this could be either Connection could never be established, or it
     ///  failed at some point after. The Failed state should *not* be entered due to an
     ///  error contained in a Message received from the server. In All cases to reestablish
     ///  a new connection will need to be created.
-    Failed { when: Instant },
+    Failed = 0,
+    /// Initial state, if Edns is not none, then Edns will be requested
+    Init = 1,
+    /// There has been successful communication with the remote.
+    ///  if no Edns is associated, then the remote does not support Edns
+    Established = 2,
 }
 
-impl NameServerStateInner {
+impl From<NameServerStateInner> for u8 {
     /// used for ordering purposes. The highest priority is placed on open connections
-    fn to_usize(&self) -> usize {
-        match *self {
-            NameServerStateInner::Init { .. } => 2,
-            NameServerStateInner::Established { .. } => 3,
-            NameServerStateInner::Failed { .. } => 1,
+    fn from(val: NameServerStateInner) -> u8 {
+        val as u8
+    }
+}
+
+impl From<u8> for NameServerStateInner {
+    fn from(val: u8) -> Self {
+        match val {
+            2 => NameServerStateInner::Established,
+            1 => NameServerStateInner::Init,
+            _ => NameServerStateInner::Failed,
         }
     }
 }
 
 impl NameServerState {
+    fn store(&self, conn_state: NameServerStateInner) {
+        self.conn_state
+            .store(conn_state.into(), atomic::Ordering::Release);
+    }
+
+    fn load(&self) -> NameServerStateInner {
+        NameServerStateInner::from(self.conn_state.load(atomic::Ordering::Acquire))
+    }
+
     /// Set at the new Init state
     ///
     /// If send_dns is some, this will be sent on the first request when it is established
-    pub fn init(send_edns: Option<Edns>) -> Self {
-        NameServerState(RwLock::new(NameServerStateInner::Init { send_edns }))
+    pub fn init(_send_edns: Option<Edns>) -> Self {
+        // TODO: need to track send_edns
+        NameServerState {
+            conn_state: AtomicU8::new(NameServerStateInner::Init.into()),
+            remote_edns: Mutex::new(Arc::new(None)),
+        }
+    }
+
+    /// Set at the new Init state
+    ///
+    /// If send_dns is some, this will be sent on the first request when it is established
+    pub fn reinit(&self, _send_edns: Option<Edns>) {
+        // eventually do this
+        // self.send_edns.lock() = send_edns;
+
+        self.store(NameServerStateInner::Init);
     }
 
     /// Transition to the Established state
@@ -53,48 +88,35 @@ impl NameServerState {
     /// If remote_edns is Some, then it will be used to effect things like buffer sizes based on
     ///   the remote's support.
     pub fn establish(&self, remote_edns: Option<Edns>) {
-        let mut state = self.0.write().expect("poisoned lock");
-        *state = NameServerStateInner::Established { remote_edns };
+        if remote_edns.is_some() {
+            // best effort locking, we'll assume a different user of this connection is storing the same thing...
+            if let Some(mut current_edns) = self.remote_edns.try_lock() {
+                *current_edns = Arc::new(remote_edns)
+            }
+        }
+
+        self.store(NameServerStateInner::Established);
     }
 
     /// transition to the Failed state
     ///
     /// when is the time of the failure
-    pub fn fail(&self, when: Instant) {
-        let mut state = self.0.write().expect("poisoned lock");
-        *state = NameServerStateInner::Failed { when };
+    ///
+    /// * when - deprecated
+    pub fn fail(&self, _when: /* FIXME: remove in 0.20 */ Instant) {
+        self.store(NameServerStateInner::Failed);
     }
 
     /// True if this is in the Failed state
     pub(crate) fn is_failed(&self) -> bool {
-        if let NameServerStateInner::Failed { .. } = *self.0.read().expect("poisoned lock") {
-            true
-        } else {
-            false
-        }
+        NameServerStateInner::Failed == self.load()
     }
 }
 
 impl Ord for NameServerStateInner {
     fn cmp(&self, other: &Self) -> Ordering {
-        let (self_num, other_num) = (self.to_usize(), other.to_usize());
-        match self_num.cmp(&other_num) {
-            Ordering::Equal => match (self, other) {
-                (
-                    NameServerStateInner::Failed {
-                        when: ref self_when,
-                    },
-                    NameServerStateInner::Failed {
-                        when: ref other_when,
-                    },
-                ) => {
-                    // We reverse, because we want the "older" failures to be tried first...
-                    self_when.cmp(other_when).reverse()
-                }
-                _ => Ordering::Equal,
-            },
-            cmp => cmp,
-        }
+        let (self_num, other_num) = (u8::from(*self), u8::from(*other));
+        self_num.cmp(&other_num)
     }
 }
 
@@ -104,18 +126,10 @@ impl PartialOrd for NameServerStateInner {
     }
 }
 
-impl PartialEq for NameServerStateInner {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_usize() == other.to_usize()
-    }
-}
-
-impl Eq for NameServerStateInner {}
-
 impl Ord for NameServerState {
     fn cmp(&self, other: &Self) -> Ordering {
-        let other = other.0.read().expect("other poisoned");
-        self.0.read().expect("self poisoned").cmp(&*other)
+        let other = other.load();
+        self.load().cmp(&other)
     }
 }
 
@@ -127,8 +141,7 @@ impl PartialOrd for NameServerState {
 
 impl PartialEq for NameServerState {
     fn eq(&self, other: &Self) -> bool {
-        self.0.read().expect("self poisoned").to_usize()
-            == other.0.read().expect("self poisoned").to_usize()
+        self.load() == other.load()
     }
 }
 
@@ -143,13 +156,11 @@ mod tests {
     fn test_state_cmp() {
         let init = NameServerState::init(None);
 
-        let established = NameServerState(RwLock::new(NameServerStateInner::Established {
-            remote_edns: None,
-        }));
+        let established = NameServerState::init(None);
+        established.establish(None);
 
-        let failed = NameServerState(RwLock::new(NameServerStateInner::Failed {
-            when: Instant::now(),
-        }));
+        let failed = NameServerState::init(None);
+        failed.fail(Instant::now());
 
         assert_eq!(init.cmp(&init), Ordering::Equal);
         assert_eq!(init.cmp(&established), Ordering::Less);
