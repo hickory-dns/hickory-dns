@@ -1264,7 +1264,6 @@ dependencies = [
 name = "trust-dns-proto"
 version = "0.19.3"
 dependencies = [
- "async-std 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "async-trait 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "backtrace 0.3.46 (registry+https://github.com/rust-lang/crates.io-index)",
  "data-encoding 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1291,7 +1290,6 @@ dependencies = [
 name = "trust-dns-resolver"
 version = "0.19.3"
 dependencies = [
- "async-std 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "backtrace 0.3.46 (registry+https://github.com/rust-lang/crates.io-index)",
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1315,6 +1313,16 @@ dependencies = [
  "trust-dns-proto 0.19.3",
  "trust-dns-rustls 0.19.3",
  "webpki-roots 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "trust-dns-resolver-async-std"
+version = "0.19.3"
+dependencies = [
+ "async-std 1.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "async-trait 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trust-dns-resolver 0.19.3",
 ]
 
 [[package]]

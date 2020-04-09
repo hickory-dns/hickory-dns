@@ -309,12 +309,6 @@ workspace = false
 env = { FEATURES = "--all-features" }
 run_task = { name = "all", fork = true }
 
-[tasks.async-std-runtime]
-description = "Run all with --features=async-std-runtime"
-workspace = false
-env = { FEATURES = "--features=async-std-runtime", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/openssl;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
-run_task = { name = "all", fork = true }
-
 [tasks.dns-over-openssl]
 description = "Run all with --features=dns-over-openssl"
 dependencies = ["install-openssl"]
@@ -363,6 +357,12 @@ description = "Run all with --features=mdns"
 dependencies = ["install-openssl"]
 workspace = false
 env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
+run_task = { name = "all", fork = true }
+
+[tasks.async-std]
+description = "Run all for async-std crates"
+workspace = false
+env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = "crates/resolver-async-std" }
 run_task = { name = "all", fork = true }
 
 [tasks.world]

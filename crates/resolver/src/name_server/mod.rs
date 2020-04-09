@@ -25,8 +25,3 @@ use self::name_server_stats::NameServerStats;
 pub use self::connection_provider::tokio_runtime::{
     TokioConnection, TokioConnectionProvider, TokioRuntime,
 };
-
-#[cfg(feature = "async-std-runtime")]
-pub use self::connection_provider::async_std_runtime::{
-    AsyncStdConnection, AsyncStdConnectionProvider, AsyncStdRuntime, AsyncStdRuntimeHandle,
-};

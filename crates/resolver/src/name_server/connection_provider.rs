@@ -510,35 +510,6 @@ where
     }
 }
 
-#[cfg(feature = "async-std-runtime")]
-pub mod async_std_runtime {
-    use super::*;
-
-    use proto::AsyncStdTime;
-
-    #[derive(Clone)]
-    pub struct AsyncStdRuntimeHandle;
-    impl Spawn for AsyncStdRuntimeHandle {
-        fn spawn_bg<F>(&mut self, future: F)
-        where
-            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
-        {
-            let _join = async_std::task::spawn(future);
-        }
-    }
-
-    #[derive(Clone)]
-    pub struct AsyncStdRuntime;
-    impl RuntimeProvider for AsyncStdRuntime {
-        type Handle = AsyncStdRuntimeHandle;
-        type Tcp = async_std::net::TcpStream;
-        type Timer = AsyncStdTime;
-        type Udp = async_std::net::UdpSocket;
-    }
-    pub type AsyncStdConnection = GenericConnection;
-    pub type AsyncStdConnectionProvider = GenericConnectionProvider<AsyncStdRuntime>;
-}
-
 #[cfg(feature = "tokio-runtime")]
 pub mod tokio_runtime {
     use super::*;

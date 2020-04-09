@@ -25,8 +25,6 @@ use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
 use crate::lookup_state::CachingClient;
-#[cfg(feature = "async-std-runtime")]
-use crate::name_server::{AsyncStdConnection, AsyncStdConnectionProvider, AsyncStdRuntimeHandle};
 use crate::name_server::{
     ConnectionProvider, GenericConnection, GenericConnectionProvider, NameServerPool,
     RuntimeProvider,
@@ -70,10 +68,6 @@ pub struct AsyncResolver<C: DnsHandle, P: ConnectionProvider<Conn = C>> {
     hosts: Option<Arc<Hosts>>,
 }
 
-/// An AsyncResolver used with async_std
-#[cfg(feature = "async-std-runtime")]
-pub type AsyncStdAsyncResolver = AsyncResolver<AsyncStdConnection, AsyncStdConnectionProvider>;
-
 /// An AsyncResolver used with Tokio
 #[cfg(feature = "tokio-runtime")]
 pub type TokioAsyncResolver = AsyncResolver<TokioConnection, TokioConnectionProvider>;
@@ -109,38 +103,6 @@ pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
     self.inner_lookup(name, $r, DnsRequestOptions::default()).await
 }
     };
-}
-
-#[cfg(feature = "async-std-runtime")]
-impl AsyncStdAsyncResolver {
-    /// Construct a new async-std based `AsyncResolver` with the provided configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - configuration, name_servers, etc. for the Resolver
-    /// * `options` - basic lookup options for the resolver
-    ///
-    /// # Returns
-    ///
-    /// A tuple containing the new `AsyncResolver` and a future that drives the
-    /// background task that runs resolutions for the `AsyncResolver`. See the
-    /// documentation for `AsyncResolver` for more information on how to use
-    /// the background future.
-    pub async fn async_std(
-        config: ResolverConfig,
-        options: ResolverOpts,
-    ) -> Result<Self, ResolveError> {
-        Self::new(config, options, AsyncStdRuntimeHandle).await
-    }
-
-    /// Constructs a new async-std based Resolver with the system configuration.
-    ///
-    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
-    #[cfg(any(unix, target_os = "windows"))]
-    #[cfg(feature = "system-config")]
-    pub async fn async_std_from_system_conf() -> Result<Self, ResolveError> {
-        Self::from_system_conf(AsyncStdRuntimeHandle).await
-    }
 }
 
 #[cfg(feature = "tokio-runtime")]
