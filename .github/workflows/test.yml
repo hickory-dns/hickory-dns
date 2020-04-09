@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: [default-features, no-default-features, async-std-runtime, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns]
+        feature: [default-features, no-default-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns, async-std]
     steps:
     - uses: actions/checkout@v1
 

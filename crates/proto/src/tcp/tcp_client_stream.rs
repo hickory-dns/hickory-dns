@@ -6,14 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
-#[cfg(any(feature = "tokio-runtime", feature = "async-std-runtime"))]
+#[cfg(feature = "tokio-runtime")]
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-#[cfg(any(feature = "tokio-runtime", feature = "async-std-runtime"))]
+#[cfg(feature = "tokio-runtime")]
 use async_trait::async_trait;
 use futures::io::{AsyncRead, AsyncWrite};
 use futures::{Future, Stream, StreamExt, TryFutureExt};
@@ -127,19 +127,6 @@ impl<S> Future for TcpClientConnect<S> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx)
-    }
-}
-
-#[cfg(feature = "async-std-runtime")]
-use async_std::net::TcpStream as AsyncStdTcpStream;
-
-#[cfg(feature = "async-std-runtime")]
-#[async_trait]
-impl Connect for AsyncStdTcpStream {
-    type Transport = AsyncStdTcpStream;
-
-    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
-        AsyncStdTcpStream::connect(addr).await
     }
 }
 
