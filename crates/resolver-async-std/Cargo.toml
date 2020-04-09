@@ -1,0 +1,69 @@
+[package]
+name = "trust-dns-resolver-async-std"
+version = "0.19.3"
+authors = ["Benjamin Fry <benjaminfry@me.com>"]
+edition = "2018"
+
+# A short blurb about the package. This is not rendered in any format when
+# uploaded to crates.io (aka this is not markdown)
+description = """
+Trust-DNS is a safe and secure DNS library, for async-std. This Resolver library uses the trust-dns-proto library to perform all DNS queries. The Resolver is intended to be a high-level library for any DNS record resolution see Resolver and AsyncResolver for supported resolution types. The Client can be used for other queries.
+"""
+
+# These URLs point to more information about the repository
+documentation = "https://docs.rs/trust-dns-resolver-async-std"
+homepage = "http://www.trust-dns.org/index.html"
+repository = "https://github.com/bluejekyll/trust-dns"
+
+# This points to a file in the repository (relative to this Cargo.toml). The
+# contents of this file are stored and indexed in the registry.
+readme = "README.md"
+
+# This is a small list of keywords used to categorize and search for this
+# package.
+keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
+categories = ["network-programming"]
+
+# This is a string description of the license for this package. Currently
+# crates.io will validate the license provided against a whitelist of known
+# license identifiers from http://spdx.org/licenses/. Multiple licenses can
+# be separated with a `/`
+license = "MIT/Apache-2.0"
+
+[badges]
+#github-actions = { repository = "bluejekyll/trust-dns", branch = "master", workflow = "test" }
+codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["system-config"]
+
+# resolver configuration
+system-config = ["trust-dns-resolver/system-config"]
+
+dns-over-native-tls = ["dns-over-tls", "trust-dns-resolver/dns-over-native-tls"]
+# DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
+dns-over-openssl = ["dns-over-tls", "trust-dns-resolver/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "trust-dns-resolver/dns-over-rustls"]
+dns-over-tls = []
+
+# This requires some TLS library, currently only rustls is supported
+dns-over-https-rustls = ["trust-dns-resolver/dns-over-https-rustls"]
+dns-over-https = []
+
+dnssec-openssl = ["dnssec", "trust-dns-resolver/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns-resolver/dnssec-ring"]
+dnssec = []
+
+[lib]
+name = "trust_dns_resolver"
+path = "src/lib.rs"
+
+[dependencies]
+async-std = "1.0"
+async-trait = "0.1.27"
+futures = { version = "0.3.4", default-features = false, features = ["std"] }
+trust-dns-resolver = { version = "0.19.3", path = "../resolver", default-features = false }
+
+[dev-dependencies]
+trust-dns-resolver = { version = "0.19.3", path = "../resolver", features = ["testing"] }
