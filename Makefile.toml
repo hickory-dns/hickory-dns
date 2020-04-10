@@ -362,7 +362,7 @@ run_task = { name = "all", fork = true }
 [tasks.async-std]
 description = "Run all for async-std crates"
 workspace = false
-env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = "crates/resolver-async-std" }
+env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = "crates/async-std-resolver" }
 run_task = { name = "all", fork = true }
 
 [tasks.world]
