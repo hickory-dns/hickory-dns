@@ -1,5 +1,5 @@
 [package]
-name = "trust-dns-resolver-async-std"
+name = "async-std-resolver"
 version = "0.19.3"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
@@ -56,7 +56,7 @@ dnssec-ring = ["dnssec", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
 
 [lib]
-name = "trust_dns_resolver"
+name = "async_std_resolver"
 path = "src/lib.rs"
 
 [dependencies]
@@ -66,4 +66,5 @@ futures = { version = "0.3.4", default-features = false, features = ["std"] }
 trust-dns-resolver = { version = "0.19.3", path = "../resolver", default-features = false }
 
 [dev-dependencies]
-trust-dns-resolver = { version = "0.19.3", path = "../resolver", features = ["testing"] }
+async-std = { version = "1.0", features = ["attributes"] }
+trust-dns-resolver = { version = "0.19.3", path = "../resolver", default-features = false, features = ["testing"] }

@@ -1,3 +1,10 @@
+// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -18,11 +25,11 @@ impl UdpSocket for AsyncStdUdpSocket {
     }
 
     async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.recv_from(buf).await
+        self.0.recv_from(buf).await
     }
 
     async fn send_to(&mut self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
-        self.send_to(buf, target).await
+        self.0.send_to(buf, target).await
     }
 }
 
