@@ -102,6 +102,7 @@ fn test_system_lookup() {
 
 #[test]
 #[ignore]
+#[cfg(feature = "system-config")]
 // these appear to not work on CI, test on macos with `10.1.0.104  a.com`
 #[cfg(unix)]
 fn test_hosts_lookup() {
