@@ -11,11 +11,14 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (resolver) option to include intermediate (CNAME) records in results (@balboah) #1028
 - (async-std-resolver) added implementation for async-std! woohoo! (@belak) #1067 #1051 #926
+- (server) add support for $INCLUDE in zone files (@kachayev) #1027
+- (proto) exposed LabelIter from Name (@avitex) #1064
 
 ### Changed
 
 - (all) updated rustls to 0.17
 - (all) updated tokio-rustls to 0.13
+- (all) min rustc compiler version now 1.40
 
 ## 0.19.3
 
