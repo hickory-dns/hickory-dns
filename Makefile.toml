@@ -313,35 +313,35 @@ run_task = { name = "all", fork = true }
 description = "Run all with --features=dns-over-openssl"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dns-over-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/proto;crates/native-tls;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-openssl]
 description = "Run all with --features=dnssec-openssl"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dnssec-openssl", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dnssec-ring]
 description = "Run all with --features=dnssec-ring"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dnssec-ring", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/proto;crates/native-tls;crates/openssl;crates/rustls;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-rustls]
 description = "Run all with --features=dns-over-rustls"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/https;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dns-over-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/proto;crates/native-tls;crates/openssl;crates/https;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-https-rustls]
 description = "Run all with --features=dns-over-https-rustls"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=dns-over-https-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/native-tls;crates/openssl;crates/rustls;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=dns-over-https-rustls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/proto;crates/native-tls;crates/openssl;crates/rustls;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.dns-over-native-tls]
@@ -349,14 +349,14 @@ description = "Run all with --features=dns-over-native-tls"
 dependencies = ["install-openssl"]
 workspace = false
 # TODO: seems like a gap in testing if there are no testst in client for native-tls
-env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/proto;crates/openssl;crates/rustls;crates/https;crates/client;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
+env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/proto;crates/openssl;crates/rustls;crates/https;crates/client;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.mdns]
 description = "Run all with --features=mdns"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.async-std]
@@ -367,7 +367,8 @@ run_task = { name = "all", fork = true }
 
 [tasks.world]
 description = "Run all with every features independently (this will melt your computer)"
-dependencies = ["no-default-features", "default-features", "all-features", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dns-dnssec-openssl", "dns-dnssec-openssl", "dns-dnssec-ring", "mdns"]
+workspace = false
+run_task = { name = ["no-default-features", "default-features", "all-features", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dnssec-openssl", "dnssec-ring", "mdns", "async-std"], fork = false }
 
 ##
 ## Coverage

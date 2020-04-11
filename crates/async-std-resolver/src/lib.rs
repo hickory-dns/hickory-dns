@@ -123,6 +123,7 @@ pub async fn resolver(
 ///
 /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
 #[cfg(any(unix, target_os = "windows"))]
+#[cfg(feature = "system-config")]
 pub async fn resolver_from_system_conf() -> Result<AsyncStdResolver, ResolveError> {
     AsyncStdResolver::from_system_conf(AsyncStdRuntimeHandle).await
 }
