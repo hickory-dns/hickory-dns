@@ -526,6 +526,77 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_https_google() {
+        // self::env_logger::try_init().ok();
+
+        let google = SocketAddr::from(([8, 8, 8, 8], 443));
+        let mut request = Message::new();
+        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        request.add_query(query);
+
+        let request = DnsRequest::new(request, Default::default());
+
+        // using the mozilla default root store
+        let mut root_store = RootCertStore::empty();
+        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+        let versions = vec![ProtocolVersion::TLSv1_2];
+
+        let mut client_config = ClientConfig::new();
+        client_config.root_store = root_store;
+        client_config.versions = versions;
+        client_config.alpn_protocols.push(ALPN_H2.to_vec());
+
+        let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
+        let connect = https_builder.build(google, "dns.google".to_string());
+
+        // tokio runtime stuff...
+        let mut runtime = Runtime::new().expect("could not start runtime");
+        let mut https = runtime.block_on(connect).expect("https connect failed");
+
+        let sending = runtime.block_on(future::lazy(|cx| {
+            https.send_message::<TokioTime>(request, cx)
+        }));
+        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+
+        let record = &response.answers()[0];
+        let addr = if let RData::A(addr) = record.rdata() {
+            addr
+        } else {
+            panic!("invalid response, expected A record");
+        };
+
+        assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
+
+        //
+        // assert that the connection works for a second query
+        let mut request = Message::new();
+        let query = Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::AAAA,
+        );
+        request.add_query(query);
+        let request = DnsRequest::new(request, Default::default());
+
+        let sending = runtime.block_on(future::lazy(|cx| {
+            https.send_message::<TokioTime>(request, cx)
+        }));
+        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+
+        let record = &response.answers()[0];
+        let addr = if let RData::AAAA(addr) = record.rdata() {
+            addr
+        } else {
+            panic!("invalid response, expected A record");
+        };
+
+        assert_eq!(
+            addr,
+            &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+        );
+    }
+
+    #[test]
+    #[ignore] // cloudflare has been unreliable as a public test service.
     fn test_https_cloudflare() {
         // self::env_logger::try_init().ok();
 
