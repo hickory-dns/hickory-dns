@@ -7,6 +7,10 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ## 0.19.4
 
+### Fixed
+
+- (resolver) properly reuse connections, for TCP, TLS, and HTTPS #1058
+
 ### Added
 
 - (resolver) option to include intermediate (CNAME) records in results (@balboah) #1028

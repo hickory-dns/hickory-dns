@@ -13,7 +13,7 @@
 //!
 //! Unlike the `trust-dns-client`, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `trust-dns-client` crate must be used instead. The Resolver library is capable of searching multiple domains (this can be disabled by using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups, and features connection metric tracking for attempting to pick the best upstream DNS resolver.
 //!
-//! There are two types for performing DNS queries, [`Resolver`] and [`AsyncResolver`]. `Resolver` is the easiest to work with, it is a wrapper around [`AsyncResolver`]. `AsyncResolver` is a `Tokio` based async resolver, and can be used inside any `Tokio` based system.
+//! There are two types for performing DNS queries, [`Resolver`] and [`AsyncResolver`]. `Resolver` is the easiest to work with, it is a wrapper around [`AsyncResolver`]. `AsyncResolver` is a `async-std` based async resolver, and can be used inside any `asyn-std` based system.
 //!
 //! This as best as possible attempts to abide by the DNS RFCs, please file issues at https://github.com/bluejekyll/trust-dns .
 //!
@@ -26,9 +26,9 @@
 //! async-std-resolver = "*"
 //! ```
 //!
-//! ## Using the Tokio/Async Resolver
+//! ## Using the async-std Resolver
 //!
-//! For more advanced asynchronous usage, the `AsyncResolver`] is integrated with Tokio. In fact, the [`AsyncResolver`] is used by the synchronous Resolver for all lookups.
+//! For more advanced asynchronous usage, the [`AsyncResolver`] is integrated with async-std.
 //!
 //! ```rust
 //! use std::net::*;
