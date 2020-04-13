@@ -663,7 +663,7 @@ pub struct ResolverOpts {
     pub positive_min_ttl: Option<Duration>,
     /// Optional minimum TTL for negative (`NXDOMAIN`) responses.
     ///
-    /// If this is set, any positive responses with a TTL lower than this value will have a TTL of
+    /// If this is set, any negative responses with a TTL lower than this value will have a TTL of
     /// `negative_min_ttl` instead. Otherwise, this will default to 0 seconds.
     pub negative_min_ttl: Option<Duration>,
     /// Optional maximum TTL for positive responses.
@@ -675,7 +675,7 @@ pub struct ResolverOpts {
     pub positive_max_ttl: Option<Duration>,
     /// Optional maximum TTL for negative (`NXDOMAIN`) responses.
     ///
-    /// If this is set, any positive responses with a TTL higher than this value will have a TTL of
+    /// If this is set, any negative responses with a TTL higher than this value will have a TTL of
     /// `negative_max_ttl` instead. Otherwise, this will default to [`MAX_TTL`] seconds.
     ///
     /// [`MAX_TTL`]: ../dns_lru/const.MAX_TTL.html
