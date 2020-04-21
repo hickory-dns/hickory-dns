@@ -22,12 +22,15 @@ use http::{self, header};
 use log::{debug, warn};
 use rustls::ClientConfig;
 use tokio;
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio_rustls::{client::TlsStream as TokioTlsClientStream, Connect, TlsConnector};
+use tokio_rustls::{
+    client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
+};
 use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::AsyncIo03As02;
+use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
 use trust_dns_proto::Time;
 
@@ -313,7 +316,11 @@ impl HttpsClientStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnect {
+    pub fn build<S: Connect + 'static>(
+        self,
+        name_server: SocketAddr,
+        dns_name: String,
+    ) -> HttpsClientConnect<S> {
         assert!(self
             .client_config
             .alpn_protocols
@@ -325,7 +332,7 @@ impl HttpsClientStreamBuilder {
             dns_name: Arc::new(dns_name),
         };
 
-        HttpsClientConnect(HttpsClientConnectState::ConnectTcp {
+        HttpsClientConnect::<S>(HttpsClientConnectState::ConnectTcp {
             name_server,
             tls: Some(tls),
         })
@@ -339,9 +346,14 @@ impl Default for HttpsClientStreamBuilder {
 }
 
 /// A future that resolves to an HttpsClientStream
-pub struct HttpsClientConnect(HttpsClientConnectState);
+pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
+where
+    S: Connect + 'static;
 
-impl Future for HttpsClientConnect {
+impl<S> Future for HttpsClientConnect<S>
+where
+    S: Connect + 'static,
+{
     type Output = Result<HttpsClientStream, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -356,19 +368,22 @@ struct TlsConfig {
 
 #[allow(clippy::large_enum_variant)]
 #[allow(clippy::type_complexity)]
-enum HttpsClientConnectState {
+enum HttpsClientConnectState<S>
+where
+    S: Connect + 'static,
+{
     ConnectTcp {
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
     TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<TokioTcpStream>> + Send>>,
+        connect: Pin<Box<dyn Future<Output = io::Result<S::Transport>> + Send>>,
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
-        // TODO: abstract TLS implementation
-        tls: Connect<TokioTcpStream>,
+        // FIXME: also abstract away Tokio TLS in RuntimeProvider.
+        tls: TokioTlsConnect<AsyncIo03As02<S::Transport>>,
         name_server_name: Arc<String>,
         name_server: SocketAddr,
     },
@@ -379,7 +394,10 @@ enum HttpsClientConnectState {
                         Output = Result<
                             (
                                 SendRequest<Bytes>,
-                                Connection<TokioTlsClientStream<TokioTcpStream>, Bytes>,
+                                Connection<
+                                    TokioTlsClientStream<AsyncIo03As02<S::Transport>>,
+                                    Bytes,
+                                >,
                             ),
                             h2::Error,
                         >,
@@ -393,7 +411,10 @@ enum HttpsClientConnectState {
     Errored(Option<ProtoError>),
 }
 
-impl Future for HttpsClientConnectState {
+impl<S> Future for HttpsClientConnectState<S>
+where
+    S: Connect + 'static,
+{
     type Output = Result<HttpsClientStream, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -404,7 +425,7 @@ impl Future for HttpsClientConnectState {
                     ref mut tls,
                 } => {
                     debug!("tcp connecting to: {}", name_server);
-                    let connect = Box::pin(TokioTcpStream::connect(name_server));
+                    let connect = S::connect(name_server);
                     HttpsClientConnectState::TcpConnecting {
                         connect,
                         name_server,
@@ -428,7 +449,7 @@ impl Future for HttpsClientConnectState {
                     match DNSNameRef::try_from_ascii_str(&dns_name) {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
-                            let tls = tls.connect(dns_name, tcp);
+                            let tls = tls.connect(dns_name, AsyncIo03As02(tcp));
                             HttpsClientConnectState::TlsConnecting {
                                 name_server_name,
                                 name_server,
