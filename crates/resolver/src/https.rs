@@ -43,10 +43,8 @@ mod tests {
         let mut io_loop = Runtime::new().unwrap();
 
         let resolver =
-            TokioAsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone());
-        let resolver = io_loop
-            .block_on(resolver)
-            .expect("failed to create resolver");
+            TokioAsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone())
+                .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))

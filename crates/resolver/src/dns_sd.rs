@@ -171,10 +171,8 @@ mod tests {
                 ..ResolverOpts::default()
             },
             io_loop.handle().clone(),
-        );
-        let resolver = io_loop
-            .block_on(resolver)
-            .expect("failed to create resolver");
+        )
+        .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.list_services(Name::from_str("_http._tcp.local.").unwrap()))

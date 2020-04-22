@@ -68,7 +68,7 @@ fn test_ip_lookup_across_threads() {
     use testing::ip_lookup_across_threads_test;
     let io_loop = AsyncStdRuntime::new();
     let handle = io_loop.handle();
-    ip_lookup_across_threads_test::<AsyncStdRuntime, AsyncStdRuntime>(io_loop, handle)
+    ip_lookup_across_threads_test::<AsyncStdRuntime, AsyncStdRuntime>(handle)
 }
 
 #[test]

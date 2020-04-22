@@ -40,13 +40,8 @@ fn main() {
                 runtime.handle().clone(),
             )
         }
-    };
-
-    // The resolver background task needs to be created in the runtime so it can
-    // connect to the reactor.
-    let resolver = runtime
-        .block_on(resolver)
-        .expect("failed to create resolver");
+    }
+    .expect("failed to create resolver");
 
     // Create some futures representing name lookups.
     let names = &["www.google.com", "www.reddit.com", "www.wikipedia.org"];
