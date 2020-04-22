@@ -9,7 +9,6 @@ use std::marker::Unpin;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::io::{AsyncRead, AsyncWrite};
 use futures::ready;
 use futures::{Future, FutureExt};
 #[cfg(feature = "tokio-runtime")]
@@ -75,14 +74,14 @@ pub trait RuntimeProvider: Clone + 'static {
     /// Handle to the executor;
     type Handle: Clone + Send + Spawn + Sync + Unpin;
 
-    /// TcpStream
-    type Tcp: AsyncRead + AsyncWrite + Connect + Send + Unpin;
-
     /// Timer
-    type Timer: Send + Time + Unpin;
+    type Timer: Time + Send + Unpin;
 
     /// UdpSocket
-    type Udp: Send + UdpSocket;
+    type Udp: UdpSocket + Send;
+
+    /// TcpStream
+    type Tcp: Connect + Send + Unpin;
 }
 
 /// A type defines the Handle which can spawn future.
