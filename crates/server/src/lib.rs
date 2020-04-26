@@ -19,6 +19,7 @@
     clippy::print_stdout,
     clippy::unimplemented
 )]
+#![allow(clippy::single_component_path_imports)]
 #![recursion_limit = "2048"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.

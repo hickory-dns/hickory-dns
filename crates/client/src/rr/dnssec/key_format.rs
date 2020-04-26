@@ -25,7 +25,7 @@ pub enum KeyFormat {
 
 impl KeyFormat {
     /// Decode private key
-    #[allow(unused)]
+    #[allow(unused, clippy::match_single_binding)]
     pub fn decode_key(
         self,
         bytes: &[u8],

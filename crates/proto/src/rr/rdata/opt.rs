@@ -436,6 +436,7 @@ impl BinEncodable for EdnsOption {
 
 /// only the supported extensions are listed right now.
 impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
+    #[allow(clippy::match_single_binding)]
     fn from(value: (EdnsCode, &'a [u8])) -> EdnsOption {
         match value.0 {
             #[cfg(feature = "dnssec")]

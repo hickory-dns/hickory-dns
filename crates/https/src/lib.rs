@@ -12,6 +12,7 @@
     clippy::print_stdout,
     clippy::unimplemented
 )]
+#![allow(clippy::single_component_path_imports)]
 
 const MIME_APPLICATION: &str = "application";
 const MIME_DNS_BINARY: &str = "dns-message";

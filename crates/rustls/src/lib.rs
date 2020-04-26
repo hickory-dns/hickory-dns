@@ -20,6 +20,7 @@
     clippy::print_stdout,
     clippy::unimplemented
 )]
+#![allow(clippy::single_component_path_imports)]
 
 //! TLS protocol related components for DNS over TLS
 
