@@ -628,6 +628,7 @@ impl Message {
     /// Finalize the message prior to sending.
     ///
     /// Subsequent to calling this, the Message should not change.
+    #[allow(clippy::match_single_binding)]
     pub fn finalize<MF: MessageFinalizer>(
         &mut self,
         finalizer: &MF,

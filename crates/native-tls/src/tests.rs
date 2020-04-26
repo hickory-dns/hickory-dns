@@ -5,7 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(unused_imports, clippy::dbg_macro, clippy::print_stdout)]
+#![allow(
+    unused_imports,
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::single_component_path_imports
+)]
 
 use std;
 use std::env;

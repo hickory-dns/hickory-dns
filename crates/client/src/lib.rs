@@ -13,8 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![allow(clippy::needless_doctest_main)]
-#![allow(clippy::unknown_clippy_lints)]
+#![allow(
+    clippy::needless_doctest_main,
+    clippy::unknown_clippy_lints,
+    clippy::single_component_path_imports
+)]
 #![warn(
     missing_docs,
     clippy::dbg_macro,
