@@ -78,7 +78,7 @@ ring = { version = "0.16", optional = true, features = ["std"]}
 rustls = { version = "0.17", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0.14"
-tokio = { version = "0.2.16", features = ["rt-core"] }
+tokio = { version = "0.2.19", features = ["rt-core"] }
 trust-dns-https = { version = "0.19.4", path = "../https", optional = true }
 trust-dns-proto = { version = "0.19.4", path = "../proto", features = ["dnssec"]}
 webpki = { version = "0.21", optional = true }
