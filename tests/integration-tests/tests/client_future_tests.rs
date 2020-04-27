@@ -154,7 +154,10 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-    let client = AsyncClient::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
+    let client = AsyncClient::connect(
+        https_builder
+            .build::<AsyncIo02As03<TokioTcpStream>>(addr, "cloudflare-dns.com".to_string()),
+    );
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 

@@ -540,10 +540,11 @@ mod tests {
     use tokio::runtime::Runtime;
     use webpki_roots;
 
+    use tokio::net::TcpStream as TokioTcpStream;
+    use trust_dns_proto::iocompat::AsyncIo02As03;
     use trust_dns_proto::op::{Message, Query};
     use trust_dns_proto::rr::{Name, RData, RecordType};
     use trust_dns_proto::TokioTime;
-    use trust_dns_resolver::name_server::connection_provider::TokioRuntime;
 
     use super::*;
 
@@ -569,7 +570,8 @@ mod tests {
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder.build::<TokioRuntime>(google, "dns.google".to_string());
+        let connect =
+            https_builder.build::<AsyncIo02As03<TokioTcpStream>>(google, "dns.google".to_string());
 
         // tokio runtime stuff...
         let mut runtime = Runtime::new().expect("could not start runtime");
@@ -640,7 +642,8 @@ mod tests {
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
+        let connect = https_builder
+            .build::<AsyncIo02As03<TokioTcpStream>>(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...
         let mut runtime = Runtime::new().expect("could not start runtime");
