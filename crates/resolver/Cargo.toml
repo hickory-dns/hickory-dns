@@ -74,7 +74,7 @@ lru-cache = "0.1.2"
 resolv-conf = { version = "0.6.0", optional = true, features = ["system"] }
 rustls = {version  = "0.17", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
-smallvec = "1.2"
+smallvec = "1.4"
 thiserror = "1.0.14"
 tokio = { version = "0.2.16", optional = true }
 tokio-tls = { version = "0.3.0", optional = true }
