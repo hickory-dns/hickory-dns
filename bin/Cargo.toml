@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns"
-version = "0.19.4"
+version = "0.19.5"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -77,17 +77,17 @@ futures = { version = "0.3.4", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = { version = "0.17", optional = true }
 tokio = { version = "0.2.16", features = ["rt-core", "rt-threaded", "time"] }
-trust-dns-client= { version = "0.19.4", path = "../crates/client" }
-trust-dns-openssl = { version = "0.19.4", path = "../crates/openssl", optional = true }
-trust-dns-proto = { version = "0.19.4", path = "../crates/proto" }
-trust-dns-rustls = { version = "0.19.4", path = "../crates/rustls", optional = true }
-trust-dns-server = { version = "0.19.4", path = "../crates/server" }
+trust-dns-client= { version = "0.19.5", path = "../crates/client" }
+trust-dns-openssl = { version = "0.19.5", path = "../crates/openssl", optional = true }
+trust-dns-proto = { version = "0.19.5", path = "../crates/proto" }
+trust-dns-rustls = { version = "0.19.5", path = "../crates/rustls", optional = true }
+trust-dns-server = { version = "0.19.5", path = "../crates/server" }
 
 [dev-dependencies]
 env_logger = "0.7"
 native-tls = "0.2"
 regex = "1.3.4"
-trust-dns-proto = { version = "0.19.4", path = "../crates/proto", features = ["testing"] }
-trust-dns-native-tls = { version = "0.19.4", path = "../crates/native-tls" }
-trust-dns-https = { version = "0.19.4", path = "../crates/https" }
+trust-dns-proto = { version = "0.19.5", path = "../crates/proto", features = ["testing"] }
+trust-dns-native-tls = { version = "0.19.5", path = "../crates/native-tls" }
+trust-dns-https = { version = "0.19.5", path = "../crates/https" }
 webpki-roots = { version = "0.19" }

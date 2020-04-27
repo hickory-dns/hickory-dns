@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-integration"
-version = "0.19.4"
+version = "0.19.5"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -78,14 +78,14 @@ rand = "0.7"
 rusqlite = { version = "0.23.1", features = ["bundled"] }
 rustls = "0.17"
 tokio = { version = "0.2.16", features = ["time", "rt-core"] }
-trust-dns-client= { version = "0.19.4", path = "../../crates/client" }
-trust-dns-https = { version = "0.19.4", path = "../../crates/https" }
-trust-dns-openssl = { version = "0.19.4", path = "../../crates/openssl" }
-trust-dns-proto = { version = "0.19.4", path = "../../crates/proto", features = ["testing"] }
-trust-dns-resolver = { version = "0.19.4", path = "../../crates/resolver" }
-trust-dns-rustls = { version = "0.19.4", path = "../../crates/rustls" }
+trust-dns-client= { version = "0.19.5", path = "../../crates/client" }
+trust-dns-https = { version = "0.19.5", path = "../../crates/https" }
+trust-dns-openssl = { version = "0.19.5", path = "../../crates/openssl" }
+trust-dns-proto = { version = "0.19.5", path = "../../crates/proto", features = ["testing"] }
+trust-dns-resolver = { version = "0.19.5", path = "../../crates/resolver" }
+trust-dns-rustls = { version = "0.19.5", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.19.4", path = "../../crates/server" }
+trust-dns-server = { version = "0.19.5", path = "../../crates/server" }
 webpki-roots = { version = "0.19", optional = true }
 
 [dev-dependencies]
