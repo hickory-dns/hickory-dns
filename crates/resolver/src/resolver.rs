@@ -38,28 +38,28 @@ pub struct Resolver {
 
 macro_rules! lookup_fn {
     ($p:ident, $l:ty) => {
-/// Performs a lookup for the associated type.
-///
-/// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
-///
-/// # Arguments
-///
-/// * `query` - a `&str` which parses to a domain name, failure to parse will return an error
-pub fn $p(&self, query: &str) -> ResolveResult<$l> {
-    let lookup = self.async_resolver.$p(query);
-    self.runtime.lock()?.block_on(lookup)
-}
+        /// Performs a lookup for the associated type.
+        ///
+        /// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
+        ///
+        /// # Arguments
+        ///
+        /// * `query` - a `&str` which parses to a domain name, failure to parse will return an error
+        pub fn $p(&self, query: &str) -> ResolveResult<$l> {
+            let lookup = self.async_resolver.$p(query);
+            self.runtime.lock()?.block_on(lookup)
+        }
     };
     ($p:ident, $l:ty, $t:ty) => {
-/// Performs a lookup for the associated type.
-///
-/// # Arguments
-///
-/// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&self, query: $t) -> ResolveResult<$l> {
-    let lookup = self.async_resolver.$p(query);
-    self.runtime.lock()?.block_on(lookup)
-}
+        /// Performs a lookup for the associated type.
+        ///
+        /// # Arguments
+        ///
+        /// * `query` - a type which can be converted to `Name` via `From`.
+        pub fn $p(&self, query: $t) -> ResolveResult<$l> {
+            let lookup = self.async_resolver.$p(query);
+            self.runtime.lock()?.block_on(lookup)
+        }
     };
 }
 

@@ -74,34 +74,36 @@ pub type TokioAsyncResolver = AsyncResolver<TokioConnection, TokioConnectionProv
 
 macro_rules! lookup_fn {
     ($p:ident, $l:ty, $r:path) => {
-/// Performs a lookup for the associated type.
-///
-/// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
-///
-/// # Arguments
-///
-/// * `query` - a string which parses to a domain name, failure to parse will return an error
-pub async fn $p<N: IntoName>(&self, query: N) -> Result<$l, ResolveError> {
-    let name = match query.into_name() {
-        Ok(name) => name,
-        Err(err) => {
-            return Err(err.into());
+        /// Performs a lookup for the associated type.
+        ///
+        /// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
+        ///
+        /// # Arguments
+        ///
+        /// * `query` - a string which parses to a domain name, failure to parse will return an error
+        pub async fn $p<N: IntoName>(&self, query: N) -> Result<$l, ResolveError> {
+            let name = match query.into_name() {
+                Ok(name) => name,
+                Err(err) => {
+                    return Err(err.into());
+                }
+            };
+
+            self.inner_lookup(name, $r, DnsRequestOptions::default())
+                .await
         }
     };
-
-    self.inner_lookup(name, $r, DnsRequestOptions::default()).await
-}
-    };
     ($p:ident, $l:ty, $r:path, $t:ty) => {
-/// Performs a lookup for the associated type.
-///
-/// # Arguments
-///
-/// * `query` - a type which can be converted to `Name` via `From`.
-pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
-    let name = Name::from(query);
-    self.inner_lookup(name, $r, DnsRequestOptions::default()).await
-}
+        /// Performs a lookup for the associated type.
+        ///
+        /// # Arguments
+        ///
+        /// * `query` - a type which can be converted to `Name` via `From`.
+        pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
+            let name = Name::from(query);
+            self.inner_lookup(name, $r, DnsRequestOptions::default())
+                .await
+        }
     };
 }
 
