@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.5
+
+### Fixed
+
+- (server) updated rusqlite to 0.23.1 #1082
+
 ## 0.19.4
 
 ### Fixed
