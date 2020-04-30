@@ -281,7 +281,10 @@ fn server_thread_udp(
     let catalog = new_catalog();
 
     let mut server = ServerFuture::new(catalog);
-    server.register_socket(udp_socket, &io_loop);
+
+    io_loop
+        .handle()
+        .enter(|| server.register_socket(udp_socket));
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(
@@ -299,9 +302,12 @@ fn server_thread_tcp(
 ) {
     let catalog = new_catalog();
     let mut server = ServerFuture::new(catalog);
-    server
-        .register_listener(tcp_listener, Duration::from_secs(30), &io_loop)
-        .expect("failed to register tcp");
+
+    io_loop.handle().enter(|| {
+        server
+            .register_listener(tcp_listener, Duration::from_secs(30))
+            .expect("failed to register tcp")
+    });
 
     while server_continue.load(Ordering::Relaxed) {
         io_loop.block_on(

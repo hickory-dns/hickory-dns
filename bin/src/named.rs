@@ -407,6 +407,8 @@ fn main() {
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
     let mut server = ServerFuture::new(catalog);
 
+    let handle = runtime.handle().clone();
+
     // load all the listeners
     for udp_socket in &sockaddrs {
         info!("binding UDP to {:?}", udp_socket);
@@ -420,7 +422,8 @@ fn main() {
                 .local_addr()
                 .expect("could not lookup local address")
         );
-        server.register_socket(udp_socket, &runtime);
+
+        handle.enter(|| server.register_socket(udp_socket));
     }
 
     // and TCP as necessary
@@ -436,9 +439,12 @@ fn main() {
                 .local_addr()
                 .expect("could not lookup local address")
         );
-        server
-            .register_listener(tcp_listener, tcp_request_timeout, &runtime)
-            .expect("could not register TCP listener");
+
+        handle.enter(|| {
+            server
+                .register_listener(tcp_listener, tcp_request_timeout)
+                .expect("could not register TCP listener")
+        });
     }
 
     let tls_cert_config = config.get_tls_cert();
@@ -521,6 +527,8 @@ fn config_tls(
         warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
     }
 
+    let handle = runtime.handle().clone();
+
     for tls_listener in &tls_sockaddrs {
         info!(
             "loading cert for DNS over TLS: {:?}",
@@ -542,14 +550,12 @@ fn config_tls(
                 .local_addr()
                 .expect("could not lookup local address")
         );
-        server
-            .register_tls_listener(
-                tls_listener,
-                config.get_tcp_request_timeout(),
-                tls_cert,
-                &runtime,
-            )
-            .expect("could not register TLS listener");
+
+        handle.enter(|| {
+            server
+                .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
+                .expect("could not register TLS listener")
+        });
     }
 }
 
@@ -577,6 +583,8 @@ fn config_https(
         warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
     }
 
+    let handle = runtime.handle().clone();
+
     for https_listener in &https_sockaddrs {
         info!(
             "loading cert for DNS over TLS named {} from {:?}",
@@ -599,15 +607,17 @@ fn config_https(
                 .local_addr()
                 .expect("could not lookup local address")
         );
-        server
-            .register_https_listener(
-                https_listener,
-                config.get_tcp_request_timeout(),
-                tls_cert,
-                tls_cert_config.get_endpoint_name().to_string(),
-                runtime,
-            )
-            .expect("could not register TLS listener");
+
+        handle.enter(|| {
+            server
+                .register_https_listener(
+                    https_listener,
+                    config.get_tcp_request_timeout(),
+                    tls_cert,
+                    tls_cert_config.get_endpoint_name().to_string(),
+                )
+                .expect("could not register TLS listener")
+        });
     }
 }
 
