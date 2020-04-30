@@ -233,62 +233,70 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        let join = runtime.spawn(async move {
-            let mut listener = listener;
-            let mut incoming = listener.incoming();
+        let join = spawner.spawn({
+            let spawner = spawner.clone();
 
-            while let Some(tcp_stream) = incoming.next().await {
-                let tcp_stream = match tcp_stream {
-                    Ok(t) => t,
-                    Err(e) => {
-                        debug!("error receiving TLS tcp_stream error: {}", e);
-                        continue;
-                    }
-                };
+            async move {
+                let mut listener = listener;
+                let mut incoming = listener.incoming();
 
-                let handler = handler.clone();
-                let tls_acceptor = tls_acceptor.clone();
-
-                // kick out to a different task immediately, let them do the TLS handshake
-                spawner.spawn(async move {
-                    let src_addr = tcp_stream.peer_addr().unwrap();
-                    debug!("starting TLS request from: {}", src_addr);
-
-                    // perform the TLS
-                    let tls_stream = tokio_openssl::accept(&*tls_acceptor, tcp_stream).await;
-
-                    let tls_stream = match tls_stream {
-                        Ok(tls_stream) => tls_stream,
+                while let Some(tcp_stream) = incoming.next().await {
+                    let tcp_stream = match tcp_stream {
+                        Ok(t) => t,
                         Err(e) => {
-                            debug!("tls handshake src: {} error: {}", src_addr, e);
-                            return ();
+                            debug!("error receiving TLS tcp_stream error: {}", e);
+                            continue;
                         }
                     };
-                    debug!("accepted TLS request from: {}", src_addr);
-                    let (buf_stream, stream_handle) =
-                        TlsStream::from_stream(AsyncIo02As03(tls_stream), src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TLS request_stream src: {:?} error: {}",
-                                    src_addr, e
-                                );
 
-                                // kill this connection
+                    let handler = handler.clone();
+                    let tls_acceptor = tls_acceptor.clone();
+
+                    // kick out to a different task immediately, let them do the TLS handshake
+                    spawner.spawn(async move {
+                        let src_addr = tcp_stream.peer_addr().unwrap();
+                        debug!("starting TLS request from: {}", src_addr);
+
+                        // perform the TLS
+                        let tls_stream = tokio_openssl::accept(&*tls_acceptor, tcp_stream).await;
+
+                        let tls_stream = match tls_stream {
+                            Ok(tls_stream) => tls_stream,
+                            Err(e) => {
+                                debug!("tls handshake src: {} error: {}", src_addr, e);
                                 return ();
                             }
                         };
+                        debug!("accepted TLS request from: {}", src_addr);
+                        let (buf_stream, stream_handle) =
+                            TlsStream::from_stream(AsyncIo02As03(tls_stream), src_addr);
+                        let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                        while let Some(message) = timeout_stream.next().await {
+                            let message = match message {
+                                Ok(message) => message,
+                                Err(e) => {
+                                    debug!(
+                                        "error in TLS request_stream src: {:?} error: {}",
+                                        src_addr, e
+                                    );
 
-                        self::handle_raw_request(message, handler.clone(), stream_handle.clone())
+                                    // kill this connection
+                                    return ();
+                                }
+                            };
+
+                            self::handle_raw_request(
+                                message,
+                                handler.clone(),
+                                stream_handle.clone(),
+                            )
                             .await;
-                    }
-                });
-            }
+                        }
+                    });
+                }
 
-            Err(ProtoError::from("unexpected close of TLS socket"))
+                Err(ProtoError::from("unexpected close of TLS socket"))
+            }
         });
 
         self.joins.push(join);
@@ -315,13 +323,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: std::net::TcpListener,
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
-        runtime: &Runtime,
     ) -> io::Result<()> {
         self.register_tls_listener(
             net::TcpListener::from_std(listener)?,
             timeout,
             certificate_and_key,
-            runtime,
         )
     }
 
