@@ -17,7 +17,7 @@ use futures::{future, Future, FutureExt, StreamExt};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::net;
-use tokio::runtime::Runtime;
+use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
 use proto::error::ProtoError;
@@ -52,10 +52,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&mut self, socket: net::UdpSocket, runtime: &Runtime) {
+    pub fn register_socket(&mut self, socket: net::UdpSocket) {
         debug!("registering udp: {:?}", socket);
 
-        let spawner = runtime.handle().clone();
+        let spawner = Handle::current();
 
         // create the new UdpStream
         let (mut buf_stream, stream_handle) = UdpStream::with_bound(socket);
@@ -63,39 +63,40 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
-        let join_handle = runtime.spawn(async move {
-            while let Some(message) = buf_stream.next().await {
-                let message = match message {
-                    Err(e) => {
-                        warn!("error receiving message on udp_socket: {}", e);
-                        continue;
-                    }
-                    Ok(message) => message,
-                };
+        let join_handle = spawner.spawn({
+            let spawner = spawner.clone();
 
-                let src_addr = message.addr();
-                debug!("received udp request from: {}", src_addr);
-                let handler = handler.clone();
-                let stream_handle = stream_handle.clone();
+            async move {
+                while let Some(message) = buf_stream.next().await {
+                    let message = match message {
+                        Err(e) => {
+                            warn!("error receiving message on udp_socket: {}", e);
+                            continue;
+                        }
+                        Ok(message) => message,
+                    };
 
-                spawner.spawn(async move {
-                    self::handle_raw_request(message, handler, stream_handle).await;
-                });
+                    let src_addr = message.addr();
+                    debug!("received udp request from: {}", src_addr);
+                    let handler = handler.clone();
+                    let stream_handle = stream_handle.clone();
+
+                    spawner.spawn(async move {
+                        self::handle_raw_request(message, handler, stream_handle).await;
+                    });
+                }
+
+                // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
+                Err(ProtoError::from("unexpected close of UDP socket"))
             }
-
-            // TODO: let's consider capturing all the initial configuration details so that the socket could be recreated...
-            Err(ProtoError::from("unexpected close of UDP socket"))
         });
 
         self.joins.push(join_handle);
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket, runtime: &Runtime) {
-        self.register_socket(
-            net::UdpSocket::from_std(socket).expect("bad handle?"),
-            runtime,
-        )
+    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket) {
+        self.register_socket(net::UdpSocket::from_std(socket).expect("bad handle?"))
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -114,60 +115,67 @@ impl<T: RequestHandler> ServerFuture<T> {
         &mut self,
         listener: net::TcpListener,
         timeout: Duration,
-        runtime: &Runtime,
     ) -> io::Result<()> {
         debug!("register tcp: {:?}", listener);
 
-        let spawner = runtime.handle().clone();
+        let spawner = Handle::current();
         let handler = self.handler.clone();
 
         // for each incoming request...
-        let join = runtime.spawn(async move {
-            let mut listener = listener;
-            let mut incoming = listener.incoming();
+        let join = spawner.spawn({
+            let spawner = spawner.clone();
 
-            while let Some(tcp_stream) = incoming.next().await {
-                let tcp_stream = match tcp_stream {
-                    Ok(t) => t,
-                    Err(e) => {
-                        debug!("error receiving TCP tcp_stream error: {}", e);
-                        continue;
-                    }
-                };
+            async move {
+                let mut listener = listener;
+                let mut incoming = listener.incoming();
 
-                let handler = handler.clone();
+                while let Some(tcp_stream) = incoming.next().await {
+                    let tcp_stream = match tcp_stream {
+                        Ok(t) => t,
+                        Err(e) => {
+                            debug!("error receiving TCP tcp_stream error: {}", e);
+                            continue;
+                        }
+                    };
 
-                // and spawn to the io_loop
-                spawner.spawn(async move {
-                    let src_addr = tcp_stream.peer_addr().unwrap();
-                    debug!("accepted request from: {}", src_addr);
-                    // take the created stream...
-                    let (buf_stream, stream_handle) =
-                        TcpStream::from_stream(AsyncIo02As03(tcp_stream), src_addr);
-                    let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
-                    //let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                    let handler = handler.clone();
 
-                    while let Some(message) = timeout_stream.next().await {
-                        let message = match message {
-                            Ok(message) => message,
-                            Err(e) => {
-                                debug!(
-                                    "error in TCP request_stream src: {} error: {}",
-                                    src_addr, e
-                                );
-                                // we're going to bail on this connection...
-                                return;
-                            }
-                        };
+                    // and spawn to the io_loop
+                    spawner.spawn(async move {
+                        let src_addr = tcp_stream.peer_addr().unwrap();
+                        debug!("accepted request from: {}", src_addr);
+                        // take the created stream...
+                        let (buf_stream, stream_handle) =
+                            TcpStream::from_stream(AsyncIo02As03(tcp_stream), src_addr);
+                        let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
+                        //let request_stream = RequestStream::new(timeout_stream, stream_handle);
 
-                        // we don't spawn here to limit clients from getting too many resources
-                        self::handle_raw_request(message, handler.clone(), stream_handle.clone())
+                        while let Some(message) = timeout_stream.next().await {
+                            let message = match message {
+                                Ok(message) => message,
+                                Err(e) => {
+                                    debug!(
+                                        "error in TCP request_stream src: {} error: {}",
+                                        src_addr, e
+                                    );
+                                    // we're going to bail on this connection...
+                                    return;
+                                }
+                            };
+
+                            // we don't spawn here to limit clients from getting too many resources
+                            self::handle_raw_request(
+                                message,
+                                handler.clone(),
+                                stream_handle.clone(),
+                            )
                             .await;
-                    }
-                });
-            }
+                        }
+                    });
+                }
 
-            Err(ProtoError::from("unexpected close of TCP socket"))
+                Err(ProtoError::from("unexpected close of TCP socket"))
+            }
         });
 
         self.joins.push(join);
@@ -190,9 +198,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         &mut self,
         listener: std::net::TcpListener,
         timeout: Duration,
-        runtime: &Runtime,
     ) -> io::Result<()> {
-        self.register_listener(net::TcpListener::from_std(listener)?, timeout, runtime)
+        self.register_listener(net::TcpListener::from_std(listener)?, timeout)
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -214,13 +221,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: net::TcpListener,
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
-        runtime: &Runtime,
     ) -> io::Result<()> {
         use trust_dns_openssl::{tls_server, TlsStream};
 
         let ((cert, chain), key) = certificate_and_key;
 
-        let spawner = runtime.handle().clone();
+        let spawner = Handle::current();
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
