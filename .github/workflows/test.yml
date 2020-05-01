@@ -66,7 +66,7 @@ jobs:
       matrix:
         feature: [default-features, no-default-features, dns-over-rustls, dns-over-https-rustls, dns-over-native-tls, dns-over-openssl, dnssec-openssl, dnssec-ring, mdns, async-std]
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     - uses: actions-rs/toolchain@v1
       with:
@@ -108,7 +108,7 @@ jobs:
       matrix:
         version: ['1.40.0', beta, nightly]
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     - uses: actions-rs/toolchain@v1
       with:
@@ -131,7 +131,7 @@ jobs:
     name: cleanliness
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     # not using the cargo cache here, since this differs significantly
     - name: cargo-all cache
@@ -171,7 +171,7 @@ jobs:
     needs: platform-matrix
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     - uses: actions-rs/toolchain@v1
       with:
