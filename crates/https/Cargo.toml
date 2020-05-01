@@ -68,4 +68,3 @@ webpki = "0.21"
 [dev-dependencies]
 env_logger = "0.7"
 futures = { version = "0.3.4", default-features = false, features = ["std", "executor"] }
-trust-dns-resolver = { version = "0.19.4", path = "../resolver", default-features = false, features = ["testing"] }

@@ -1230,7 +1230,6 @@ dependencies = [
  "tokio 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-rustls 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns-proto 0.19.5",
- "trust-dns-resolver 0.19.5",
  "trust-dns-rustls 0.19.5",
  "typed-headers 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "webpki 0.21.2 (registry+https://github.com/rust-lang/crates.io-index)",
