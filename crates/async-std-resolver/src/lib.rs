@@ -116,7 +116,7 @@ pub async fn resolver(
     config: config::ResolverConfig,
     options: config::ResolverOpts,
 ) -> Result<AsyncStdResolver, ResolveError> {
-    AsyncStdResolver::new(config, options, AsyncStdRuntimeHandle).await
+    AsyncStdResolver::new(config, options, AsyncStdRuntimeHandle)
 }
 
 /// Constructs a new async-std based Resolver with the system configuration.
@@ -125,5 +125,5 @@ pub async fn resolver(
 #[cfg(any(unix, target_os = "windows"))]
 #[cfg(feature = "system-config")]
 pub async fn resolver_from_system_conf() -> Result<AsyncStdResolver, ResolveError> {
-    AsyncStdResolver::from_system_conf(AsyncStdRuntimeHandle).await
+    AsyncStdResolver::from_system_conf(AsyncStdRuntimeHandle)
 }

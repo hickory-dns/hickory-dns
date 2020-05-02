@@ -3,6 +3,7 @@ extern crate webpki_roots;
 
 use std::net::SocketAddr;
 
+use crate::name_server::RuntimeProvider;
 use crate::tls::CLIENT_CONFIG;
 
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
@@ -14,18 +15,21 @@ use trust_dns_https::{
 use crate::config::TlsClientConfig;
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_https_stream(
+pub(crate) fn new_https_stream<R>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse, TokioTime> {
+) -> DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, HttpsClientResponse, TokioTime>
+where
+    R: RuntimeProvider,
+{
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
 
     let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    DnsExchange::connect(https_builder.build(socket_addr, dns_name))
+    DnsExchange::connect(https_builder.build::<R::Tcp>(socket_addr, dns_name))
 }
 
 #[cfg(test)]
@@ -43,10 +47,8 @@ mod tests {
         let mut io_loop = Runtime::new().unwrap();
 
         let resolver =
-            TokioAsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone());
-        let resolver = io_loop
-            .block_on(resolver)
-            .expect("failed to create resolver");
+            TokioAsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone())
+                .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))

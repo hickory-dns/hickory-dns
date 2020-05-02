@@ -78,10 +78,8 @@ impl Resolver {
         builder.basic_scheduler();
         builder.enable_all();
 
-        let mut runtime = builder.build()?;
-        let async_resolver = AsyncResolver::new(config, options, runtime.handle().clone());
-        let async_resolver = runtime
-            .block_on(async_resolver)
+        let runtime = builder.build()?;
+        let async_resolver = AsyncResolver::new(config, options, runtime.handle().clone())
             .expect("failed to create resolver");
 
         Ok(Resolver {

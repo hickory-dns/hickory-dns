@@ -7,11 +7,13 @@
 
 //! UDP based DNS client connection for Client impls
 
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use rustls::{Certificate, ClientConfig};
 use trust_dns_https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
+use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::DnsRequestSender;
 
 use crate::client::ClientConnection;
@@ -21,13 +23,14 @@ use crate::rr::dnssec::Signer;
 ///
 /// Use with `trust_dns_client::client::Client` impls
 #[derive(Clone)]
-pub struct HttpsClientConnection {
+pub struct HttpsClientConnection<T> {
     name_server: SocketAddr,
     dns_name: String,
     client_config: ClientConfig,
+    marker: PhantomData<T>,
 }
 
-impl HttpsClientConnection {
+impl<T> HttpsClientConnection<T> {
     /// Creates a new client connection.
     ///
     /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
@@ -42,10 +45,13 @@ impl HttpsClientConnection {
     }
 }
 
-impl ClientConnection for HttpsClientConnection {
+impl<T> ClientConnection for HttpsClientConnection<T>
+where
+    T: Connect + 'static + Unpin + Sync + Send,
+{
     type Sender = HttpsClientStream;
     type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
-    type SenderFuture = HttpsClientConnect;
+    type SenderFuture = HttpsClientConnect<T>;
 
     fn new_stream(
         &self,
@@ -93,11 +99,12 @@ impl HttpsClientConnectionBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnection {
+    pub fn build<T>(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnection<T> {
         HttpsClientConnection {
             name_server,
             dns_name,
             client_config: self.client_config,
+            marker: PhantomData,
         }
     }
 }

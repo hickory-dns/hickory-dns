@@ -1171,6 +1171,7 @@ dependencies = [
  "trust-dns-native-tls 0.19.5",
  "trust-dns-openssl 0.19.5",
  "trust-dns-proto 0.19.5",
+ "trust-dns-resolver 0.19.5",
  "trust-dns-rustls 0.19.5",
  "trust-dns-server 0.19.5",
  "webpki-roots 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",

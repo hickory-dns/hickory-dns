@@ -29,9 +29,11 @@ use std::net::*;
 use std::sync::Arc;
 
 use rustls::{Certificate, ClientConfig, ProtocolVersion, RootCertStore};
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
 use trust_dns_https::HttpsClientStreamBuilder;
+use trust_dns_proto::iocompat::AsyncIo02As03;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -78,9 +80,10 @@ fn test_example_https_toml_startup() {
 
         let client_config = Arc::new(client_config);
 
-        let https_conn_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+        let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
 
-        let mp = https_conn_builder.build(addr, "ns.example.com".to_string());
+        let mp = https_builder
+            .build::<AsyncIo02As03<TokioTcpStream>>(addr, "ns.example.com".to_string());
         let client = AsyncClient::connect(mp);
 
         // ipv4 should succeed

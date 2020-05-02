@@ -72,7 +72,7 @@ lazy_static! {
             let &(ref lock, ref cvar) = &*pair2;
             let mut started = lock.lock().unwrap();
 
-            let resolver = runtime.block_on(resolver).expect("failed to create trust-dns-resolver");
+            let resolver = resolver.expect("failed to create trust-dns-resolver");
 
             *started = Some(resolver);
             cvar.notify_one();

@@ -111,6 +111,38 @@ pub mod iocompat {
             Pin::new(&mut self.0).poll_shutdown(cx)
         }
     }
+
+    /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
+    pub struct AsyncIo03As02<T>(pub T);
+
+    impl<R: AsyncRead + Unpin> AsyncRead02 for AsyncIo03As02<R> {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut [u8],
+        ) -> Poll<io::Result<usize>> {
+            Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
+        }
+    }
+
+    impl<W: AsyncWrite + Unpin> AsyncWrite02 for AsyncIo03As02<W> {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<Result<usize, io::Error>> {
+            Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
+        }
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+            Pin::new(&mut self.get_mut().0).poll_flush(cx)
+        }
+        fn poll_shutdown(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Result<(), io::Error>> {
+            Pin::new(&mut self.get_mut().0).poll_close(cx)
+        }
+    }
 }
 
 /// Generic executor.

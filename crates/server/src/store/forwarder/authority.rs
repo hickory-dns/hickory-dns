@@ -40,7 +40,6 @@ impl ForwardAuthority {
     #[doc(hidden)]
     pub async fn new(runtime: Handle) -> Result<Self, String> {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
-            .await
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         Ok(ForwardAuthority {
@@ -63,7 +62,6 @@ impl ForwardAuthority {
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
         let resolver = TokioAsyncResolver::new(config, options, runtime)
-            .await
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         info!("forward resolver configured: {}: ", origin);

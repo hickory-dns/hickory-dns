@@ -104,13 +104,11 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = TokioAsyncResolver::tokio(
-//!     ResolverConfig::default(),
-//!     ResolverOpts::default(),
-//! );
-//! // AsyncResolver::new returns a handle for sending resolve requests and a background task
-//! // that must be spawned on an executor.
-//! let resolver = io_loop.block_on(resolver).expect("failed to connect resolver");
+//! let resolver = io_loop.block_on(async {
+//!     TokioAsyncResolver::tokio(
+//!         ResolverConfig::default(),
+//!         ResolverOpts::default())
+//! }).expect("failed to connect resolver");
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to

@@ -9,7 +9,6 @@ use std::marker::Unpin;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::io::{AsyncRead, AsyncWrite};
 use futures::ready;
 use futures::{Future, FutureExt};
 #[cfg(feature = "tokio-runtime")]
@@ -70,19 +69,19 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
         -> Self::FutureConn;
 }
 
-/// A type defines runtime.
+/// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + 'static {
     /// Handle to the executor;
     type Handle: Clone + Send + Spawn + Sync + Unpin;
 
-    /// TcpStream
-    type Tcp: AsyncRead + AsyncWrite + Connect + Send + Unpin;
-
     /// Timer
-    type Timer: Send + Time + Unpin;
+    type Timer: Time + Send + Unpin;
 
     /// UdpSocket
-    type Udp: Send + UdpSocket;
+    type Udp: UdpSocket + Send;
+
+    /// TcpStream
+    type Tcp: Connect + Send + Unpin;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -102,8 +101,10 @@ impl<R: RuntimeProvider> GenericConnectionProvider<R> {
     }
 }
 
-impl<R: RuntimeProvider> ConnectionProvider for GenericConnectionProvider<R>
+impl<R> ConnectionProvider for GenericConnectionProvider<R>
 where
+    R: RuntimeProvider,
+    <R as RuntimeProvider>::Tcp: Connect,
     <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
 {
     type Conn = GenericConnection;
@@ -172,7 +173,7 @@ where
                 let client_config = config.tls_config.clone();
 
                 let exchange =
-                    crate::https::new_https_stream(socket_addr, tls_dns_name, client_config);
+                    crate::https::new_https_stream::<R>(socket_addr, tls_dns_name, client_config);
                 ConnectionConnect::Https(exchange)
             }
             #[cfg(feature = "mdns")]
@@ -259,7 +260,12 @@ where
     ),
     #[cfg(feature = "dns-over-https")]
     Https(
-        DnsExchangeConnect<HttpsClientConnect, HttpsClientStream, HttpsClientResponse, TokioTime>,
+        DnsExchangeConnect<
+            HttpsClientConnect<R::Tcp>,
+            HttpsClientStream,
+            HttpsClientResponse,
+            TokioTime,
+        >,
     ),
     #[cfg(feature = "mdns")]
     Mdns(
@@ -276,6 +282,7 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct ConnectionFuture<R: RuntimeProvider>
 where
+    <R as RuntimeProvider>::Tcp: Connect,
     <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
 {
     connect: ConnectionConnect<R>,
