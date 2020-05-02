@@ -5,6 +5,21 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.20.0 (unreleased)
+
+### Changed
+
+- (resolver) *BREAKING* removed async for `AsyncResolver::new` (@balboah) #1077 #1056
+- (server) *BREAKING* removed `Runtime` from `ServerFuture::register_socket` (@LucioFranco) #1088  
+
+### Fixed
+
+- (resolver) Regards NXDomain and NoError empty responses as errors (continues searching for records), #1086 #933
+
+### Added
+
+- (resolver) Allow HTTPS to be generic over Runtime (@balboah) #1077 #1074
+
 ## 0.19.5
 
 ### Fixed
