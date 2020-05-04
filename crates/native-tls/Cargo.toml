@@ -49,7 +49,7 @@ path = "src/lib.rs"
 [dependencies]
 futures = { version = "0.3.4", default-features = false, features = ["std"] }
 native-tls = "0.2"
-tokio = "0.2.16"
+tokio = "0.2.20"
 tokio-tls = "0.3.0"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.19.5", path = "../proto", features = ["tokio-runtime"], default-features = false }

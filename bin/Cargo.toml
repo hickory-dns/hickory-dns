@@ -76,7 +76,7 @@ clap = "2.33"
 futures = { version = "0.3.4", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = { version = "0.17", optional = true }
-tokio = { version = "0.2.16", features = ["rt-core", "rt-threaded", "time"] }
+tokio = { version = "0.2.20", features = ["rt-core", "rt-threaded", "time"] }
 trust-dns-client= { version = "0.19.5", path = "../crates/client" }
 trust-dns-openssl = { version = "0.19.5", path = "../crates/openssl", optional = true }
 trust-dns-proto = { version = "0.19.5", path = "../crates/proto" }
