@@ -10,6 +10,8 @@ use std::io;
 use std::net::IpAddr;
 use std::sync::Mutex;
 
+use proto::rr::domain::TryParseIp;
+use proto::rr::IntoName;
 use proto::rr::RecordType;
 use tokio::runtime::{self, Runtime};
 
@@ -45,7 +47,7 @@ macro_rules! lookup_fn {
         /// # Arguments
         ///
         /// * `query` - a `&str` which parses to a domain name, failure to parse will return an error
-        pub fn $p(&self, query: &str) -> ResolveResult<$l> {
+        pub fn $p<N: IntoName>(&self, query: N) -> ResolveResult<$l> {
             let lookup = self.async_resolver.$p(query);
             self.runtime.lock()?.block_on(lookup)
         }
@@ -117,7 +119,7 @@ impl Resolver {
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
-    pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
+    pub fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> ResolveResult<Lookup> {
         let lookup = self
             .async_resolver
             .lookup(name, record_type, Default::default());
@@ -131,7 +133,7 @@ impl Resolver {
     /// # Arguments
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
+    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> ResolveResult<LookupIp> {
         let lookup = self.async_resolver.lookup_ip(host);
         self.runtime.lock()?.block_on(lookup)
     }
