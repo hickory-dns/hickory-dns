@@ -158,7 +158,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
         // receive all inbound messages
 
         // TODO: this should match edns settings
-        let mut buf = [0u8; 2048];
+        let mut buf = [0u8; 4096];
         let (len, src) = ready!(socket.recv_from(&mut buf).poll_unpin(cx))?;
 
         Poll::Ready(Some(Ok(SerialMessage::new(
