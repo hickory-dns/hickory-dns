@@ -51,7 +51,7 @@ backtrace = "0.3.44"
 bytes = "0.5"
 data-encoding = "2.2.0"
 futures = { version = "0.3.4", default-features = false, features = ["std"] }
-h2 = { version = "0.2.4", features = ["stream"] }
+h2 = { version = "0.2.5", features = ["stream"] }
 http = "0.2"
 log = "0.4"
 rustls = "0.17"
