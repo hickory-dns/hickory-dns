@@ -75,7 +75,7 @@ bytes = "0.5"
 chrono = "0.4"
 enum-as-inner = "0.3"
 env_logger = "0.7"
-futures = "0.3.4"
+futures = "0.3.5"
 h2 = { version = "0.2.5", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 log = "0.4"
