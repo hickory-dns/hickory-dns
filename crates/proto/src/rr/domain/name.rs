@@ -718,6 +718,43 @@ impl Name {
         format!("{}", self)
     }
 
+    /// Converts a Name in a PTR record back into IpAddr.
+    fn parse_ptr_name(&self) -> Option<IpAddr> {
+        let mut iter = self.iter().rev();
+        let mut next = || match iter.next() {
+            Some(label) => std::str::from_utf8(label).unwrap_or("*"),
+            None => "0",    // zero fill the missing labels
+        };
+        if !"arpa".eq_ignore_ascii_case(next()) {
+            return None;
+        }
+        match &next().to_ascii_lowercase()[..] {
+            "in-addr" => {
+                let mut octets: [u8; 4] = [0; 4];
+                for octet in octets.iter_mut() {
+                    match next().parse() {
+                        Ok(result) => *octet = result,
+                        Err(_) => return None,
+                    }
+                }
+                Some(IpAddr::V4(Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3])))
+            }
+            "ip6" => {
+                let mut segments: [u16; 8] = [0; 8];
+                for segment in segments.iter_mut() {
+                    match u16::from_str_radix(&[next(), next(), next(), next()].concat(), 16) {
+                        Ok(result) => *segment = result,
+                        Err(_) => return None,
+                    }
+                }
+                Some(IpAddr::V6(Ipv6Addr::new(
+                    segments[0], segments[1], segments[2], segments[3], segments[4], segments[5], segments[6], segments[7]
+                )))
+            }
+            _ => None,
+        }
+    }
+
     fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error> {
         let mut iter = self.labels.iter();
         if let Some(label) = iter.next() {
