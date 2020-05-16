@@ -718,8 +718,8 @@ impl Name {
         format!("{}", self)
     }
 
-    /// Converts a Name in a PTR record back into IpAddr.
-    fn parse_ptr_name(&self) -> Option<IpAddr> {
+    /// Converts a *.arpa Name in a PTR record back into IpAddr.
+    fn parse_arpa_name(&self) -> Option<IpAddr> {
         let mut iter = self.iter().rev();
         let mut next = || match iter.next() {
             Some(label) => std::str::from_utf8(label).unwrap_or("*"),
