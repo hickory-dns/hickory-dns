@@ -2,7 +2,7 @@
 
 #[macro_use]
 extern crate lazy_static;
-extern crate futures;
+extern crate futures_util;
 #[cfg(feature = "tokio-runtime")]
 extern crate tokio;
 extern crate trust_dns_resolver;
@@ -14,7 +14,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::task::Poll;
 
-use futures::future;
+use futures_util::future;
 
 #[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::TokioAsyncResolver;

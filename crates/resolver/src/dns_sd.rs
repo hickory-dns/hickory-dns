@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::Future;
+use futures_util::future::Future;
 
 use proto::rr::rdata::TXT;
 use proto::rr::{Name, RecordType};

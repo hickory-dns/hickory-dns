@@ -9,7 +9,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures::{future, Future, TryFutureExt};
+use futures_util::{future, future::Future, TryFutureExt};
 use smallvec::SmallVec;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]

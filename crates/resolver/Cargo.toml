@@ -67,7 +67,7 @@ path = "src/lib.rs"
 [dependencies]
 backtrace = "0.3.44"
 cfg-if = "0.1.9"
-futures = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 lazy_static = "1.0"
 log = "0.4"
 lru-cache = "0.1.2"
@@ -92,4 +92,4 @@ ipconfig = { version = "0.2.2", optional = true }
 
 [dev-dependencies]
 env_logger = "0.7"
-futures = { version = "0.3.5", default-features = false, features = ["std", "executor"] }
+futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }

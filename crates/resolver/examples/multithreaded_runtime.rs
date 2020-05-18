@@ -4,7 +4,7 @@
 //! you might integrate the resolver into a more complex application.
 
 extern crate env_logger;
-extern crate futures;
+extern crate futures_util;
 #[cfg(feature = "tokio-runtime")]
 extern crate tokio;
 extern crate trust_dns_resolver;

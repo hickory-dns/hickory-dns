@@ -10,7 +10,7 @@ use std::sync::atomic::{self, AtomicU8};
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::lock::Mutex;
+use futures_util::lock::Mutex;
 use proto::op::Edns;
 
 pub struct NameServerState {
