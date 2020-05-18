@@ -2,8 +2,8 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{atomic::AtomicBool, Arc};
 
-use futures::io::{AsyncRead, AsyncWrite};
-use futures::stream::StreamExt;
+use futures_io::{AsyncRead, AsyncWrite};
+use futures_util::stream::StreamExt;
 
 use crate::error::ProtoError;
 use crate::tcp::{Connect, TcpClientStream, TcpStream};

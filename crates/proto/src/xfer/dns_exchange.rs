@@ -11,9 +11,9 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::stream::{Peekable, Stream, StreamExt};
-use futures::{Future, FutureExt};
+use futures_channel::mpsc::{unbounded, UnboundedReceiver};
+use futures_util::future::{Future, FutureExt};
+use futures_util::stream::{Peekable, Stream, StreamExt};
 use log::{debug, warn};
 
 use crate::error::*;

@@ -17,9 +17,9 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures::channel::oneshot;
-use futures::stream::{Stream, StreamExt};
-use futures::{ready, Future, FutureExt};
+use futures_channel::oneshot;
+use futures_util::stream::{Stream, StreamExt};
+use futures_util::{future::Future, ready, FutureExt};
 use log::{debug, warn};
 use rand;
 use rand::distributions::{Distribution, Standard};

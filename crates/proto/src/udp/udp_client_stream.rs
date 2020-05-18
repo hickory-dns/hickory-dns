@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures::{Future, Stream};
+use futures_util::{future::Future, stream::Stream};
 use log::{debug, warn};
 
 use crate::error::ProtoError;
@@ -345,7 +345,7 @@ impl SingleUseUdpSocket {
 
     // TODO: this is unnecessary
     async fn errored(err: ProtoError) -> Result<DnsResponse, ProtoError> {
-        futures::future::err(err).await
+        futures_util::future::err(err).await
     }
 }
 

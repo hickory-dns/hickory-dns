@@ -15,9 +15,10 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::stream::{Fuse, Peekable, Stream, StreamExt};
-use futures::{self, ready, Future, FutureExt};
+use futures_channel::mpsc::{unbounded, UnboundedReceiver};
+use futures_io::{AsyncRead, AsyncWrite};
+use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+use futures_util::{self, future::Future, ready, FutureExt};
 use log::debug;
 
 use crate::error::*;
@@ -31,7 +32,7 @@ where
     Self: Sized,
 {
     /// TcpSteam
-    type Transport: futures::io::AsyncRead + futures::io::AsyncWrite + Send + Unpin;
+    type Transport: AsyncRead + AsyncWrite + Send + Unpin;
 
     /// connect to tcp
     async fn connect(addr: SocketAddr) -> io::Result<Self::Transport>;
@@ -185,7 +186,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     }
 }
 
-impl<S: futures::io::AsyncRead + futures::io::AsyncWrite> TcpStream<S> {
+impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     /// Initializes a TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
@@ -222,7 +223,7 @@ impl<S: futures::io::AsyncRead + futures::io::AsyncWrite> TcpStream<S> {
     }
 }
 
-impl<S: futures::io::AsyncRead + futures::io::AsyncWrite + Unpin> Stream for TcpStream<S> {
+impl<S: AsyncRead + AsyncWrite + Unpin> Stream for TcpStream<S> {
     type Item = io::Result<SerialMessage>;
 
     #[allow(clippy::cognitive_complexity)]

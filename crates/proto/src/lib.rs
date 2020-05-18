@@ -18,7 +18,7 @@
 //! Trust-DNS Protocol library
 
 use async_trait::async_trait;
-use futures::Future;
+use futures_util::future::Future;
 
 use std::marker::Send;
 use std::time::Duration;
@@ -79,7 +79,7 @@ pub mod iocompat {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use futures::io::{AsyncRead, AsyncWrite};
+    use futures_io::{AsyncRead, AsyncWrite};
     use tokio::io::{AsyncRead as AsyncRead02, AsyncWrite as AsyncWrite02};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
