@@ -21,6 +21,7 @@ use crate::error::*;
 use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::*;
+use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -718,40 +719,46 @@ impl Name {
         format!("{}", self)
     }
 
-    /// Converts a *.arpa Name in a PTR record back into IpAddr.
-    fn parse_arpa_name(&self) -> Option<IpAddr> {
+    /// Converts a *.arpa Name in a PTR record back into IpNet.
+    fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
         let mut iter = self.iter().rev();
-        let mut next = || match iter.next() {
-            Some(label) => std::str::from_utf8(label).unwrap_or("*"),
-            None => "0",    // zero fill the missing labels
-        };
-        if !"arpa".eq_ignore_ascii_case(next()) {
-            return None;
+        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(iter.next().ok_or(Err("not an arpa address".into()))?)?) {
+            return Err("not an arpa address".into());
         }
-        match &next().to_ascii_lowercase()[..] {
+        let mut prefix_len: u8 = 0;
+        match &std::str::from_utf8(iter.next().ok_or(Err("invalid arpa address".into()))?)?.to_ascii_lowercase()[..] {
             "in-addr" => {
                 let mut octets: [u8; 4] = [0; 4];
                 for octet in octets.iter_mut() {
-                    match next().parse() {
-                        Ok(result) => *octet = result,
-                        Err(_) => return None,
+                    match iter.next() {
+                        Some(label) => *octet = std::str::from_utf8(label)?.parse()?,
+                        None => break,
                     }
+                    prefix_len += 8;
                 }
-                Some(IpAddr::V4(Ipv4Addr::new(octets[0], octets[1], octets[2], octets[3])))
+                Ok(IpNet::V4(Ipv4Net::new(Ipv4Addr::new(
+                    octets[0], octets[1], octets[2], octets[3]
+                ), prefix_len).expect("unexpected error")))
             }
             "ip6" => {
                 let mut segments: [u16; 8] = [0; 8];
-                for segment in segments.iter_mut() {
-                    match u16::from_str_radix(&[next(), next(), next(), next()].concat(), 16) {
-                        Ok(result) => *segment = result,
-                        Err(_) => return None,
+                while prefix_len < 128 {
+                    match iter.next() {
+                        Some(label) => if label.len() == 1 {
+                            segments[usize::from(prefix_len / 16)] |=
+                                u16::from_str_radix(std::str::from_utf8(label)?, 16)? << (prefix_len % 16);
+                        } else {
+                            return Err("invalid label length for ip6.arpa".into());
+                        }
+                        None => break,
                     }
+                    prefix_len += 4;
                 }
-                Some(IpAddr::V6(Ipv6Addr::new(
+                Ok(IpNet::V6(Ipv6Net::new(Ipv6Addr::new(
                     segments[0], segments[1], segments[2], segments[3], segments[4], segments[5], segments[6], segments[7]
-                )))
+                ), prefix_len).expect("unexpected error")))
             }
-            _ => None,
+            _ => Err("unrecognized arpa address".into()),
         }
     }
 
