@@ -16,7 +16,7 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use std::vec::IntoIter;
 
-use futures::{future, Future, FutureExt};
+use futures_util::{future, future::Future, FutureExt};
 
 use proto::error::ProtoError;
 use proto::op::Query;
@@ -517,8 +517,8 @@ pub mod tests {
     use std::str::FromStr;
     use std::sync::{Arc, Mutex};
 
-    use futures::executor::block_on;
-    use futures::{future, Future};
+    use futures_executor::block_on;
+    use futures_util::{future, future::Future};
 
     use proto::error::{ProtoErrorKind, ProtoResult};
     use proto::op::Message;

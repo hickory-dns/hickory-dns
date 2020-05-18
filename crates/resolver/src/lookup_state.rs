@@ -14,8 +14,8 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::lock::Mutex;
-use futures::Future;
+use futures_util::future::Future;
+use futures_util::lock::Mutex;
 
 use proto::op::{Message, Query, ResponseCode};
 use proto::rr::domain::usage::{
@@ -425,7 +425,7 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use futures::executor::block_on;
+    use futures_executor::block_on;
     use proto::error::ProtoResult;
     use proto::op::{Message, Query};
     use proto::rr::rdata::SRV;
