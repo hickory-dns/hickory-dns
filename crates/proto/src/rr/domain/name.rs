@@ -743,13 +743,14 @@ impl Name {
                 while prefix_len < 128 {
                     match iter.next() {
                         Some(label) => if label.len() == 1 {
-                            address |= u8::from_str_radix(std::str::from_utf8(label)?, 16)?.into() << prefix_len;
+                            prefix_len += 4;
+                            address |=
+                                u8::from_str_radix(std::str::from_utf8(label)?, 16)?.into() << (128 - prefix_len);
                         } else {
                             return Err("invalid label length for ip6.arpa".into());
                         }
                         None => break,
                     }
-                    prefix_len += 4;
                 }
                 Ok(IpNet::V6(Ipv6Net::new(address.into(), prefix_len).expect("Ipv6Net::new")))
             }
