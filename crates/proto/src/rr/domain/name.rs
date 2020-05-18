@@ -719,8 +719,8 @@ impl Name {
         format!("{}", self)
     }
 
-    /// Converts a *.arpa Name in a PTR record back into IpNet.
-    fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
+    /// Converts a *.arpa Name in a PTR record back into an IpNet if possible.
+    pub fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
         let mut iter = self.iter().rev();
         if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(iter.next().ok_or(Err("not an arpa address".into()))?)?) {
             return Err("not an arpa address".into());
@@ -736,17 +736,14 @@ impl Name {
                     }
                     prefix_len += 8;
                 }
-                Ok(IpNet::V4(Ipv4Net::new(Ipv4Addr::new(
-                    octets[0], octets[1], octets[2], octets[3]
-                ), prefix_len).expect("unexpected error")))
+                Ok(IpNet::V4(Ipv4Net::new(octets.into(), prefix_len).expect("Ipv4Net::new")))
             }
             "ip6" => {
-                let mut segments: [u16; 8] = [0; 8];
+                let mut address: u128 = 0;
                 while prefix_len < 128 {
                     match iter.next() {
                         Some(label) => if label.len() == 1 {
-                            segments[usize::from(prefix_len / 16)] |=
-                                u16::from_str_radix(std::str::from_utf8(label)?, 16)? << (prefix_len % 16);
+                            address |= u8::from_str_radix(std::str::from_utf8(label)?, 16)?.into() << prefix_len;
                         } else {
                             return Err("invalid label length for ip6.arpa".into());
                         }
@@ -754,9 +751,7 @@ impl Name {
                     }
                     prefix_len += 4;
                 }
-                Ok(IpNet::V6(Ipv6Net::new(Ipv6Addr::new(
-                    segments[0], segments[1], segments[2], segments[3], segments[4], segments[5], segments[6], segments[7]
-                ), prefix_len).expect("unexpected error")))
+                Ok(IpNet::V6(Ipv6Net::new(address.into(), prefix_len).expect("Ipv6Net::new")))
             }
             _ => Err("unrecognized arpa address".into()),
         }
