@@ -12,9 +12,9 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
-use futures::stream::{Fuse, Peekable, Stream, StreamExt};
-use futures::{ready, Future, FutureExt, TryFutureExt};
+use futures_channel::mpsc::{unbounded, UnboundedReceiver};
+use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+use futures_util::{future::Future, ready, FutureExt, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};

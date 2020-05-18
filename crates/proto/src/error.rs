@@ -61,7 +61,7 @@ pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 pub enum ProtoErrorKind {
     /// An error caused by a canceled future
     #[error("future was canceled: {0:?}")]
-    Canceled(futures::channel::oneshot::Canceled),
+    Canceled(futures_channel::oneshot::Canceled),
 
     /// Character data length exceeded the limit
     #[error("char data length exceeds {max}: {len}")]

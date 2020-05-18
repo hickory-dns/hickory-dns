@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use futures::stream::StreamExt;
+use futures_util::stream::StreamExt;
 use log::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
@@ -117,7 +117,7 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
     use crate::rr::rdata::NULL;
     use crate::rr::{Name, RData, Record, RecordType};
     use crate::xfer::{DnsRequest, DnsRequestSender};
-    use futures::future;
+    use futures_util::future;
     use std::str::FromStr;
     use std::time::Duration;
 

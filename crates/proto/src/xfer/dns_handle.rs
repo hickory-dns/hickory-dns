@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
-use futures::channel::mpsc::UnboundedSender;
-use futures::future::Future;
+use futures_channel::mpsc::UnboundedSender;
+use futures_util::future::Future;
 use log::debug;
 use rand;
 
