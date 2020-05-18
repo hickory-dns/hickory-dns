@@ -53,7 +53,7 @@ impl TXT {
         TXT {
             txt_data: txt_data
                 .into_iter()
-                .map(|s| s.as_bytes().to_vec().into_boxed_slice())
+                .map(|s| s.into_bytes().into_boxed_slice())
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
         }
