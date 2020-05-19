@@ -407,7 +407,7 @@ impl Message {
     }
 
     /// Provides mutable access to `queries`
-    pub fn queries_mut(&mut self) -> &mut [Query] {
+    pub fn queries_mut(&mut self) -> &mut Vec<Query> {
         &mut self.queries
     }
 
@@ -419,7 +419,7 @@ impl Message {
     }
 
     /// Provides mutable access to `answers`
-    pub fn answers_mut(&mut self) -> &mut [Record] {
+    pub fn answers_mut(&mut self) -> &mut Vec<Record> {
         &mut self.answers
     }
 
@@ -438,7 +438,7 @@ impl Message {
     }
 
     /// Provides mutable access to `name_servers`
-    pub fn name_servers_mut(&mut self) -> &mut [Record] {
+    pub fn name_servers_mut(&mut self) -> &mut Vec<Record> {
         &mut self.name_servers
     }
 
@@ -456,7 +456,7 @@ impl Message {
     }
 
     /// Provides mutable access to `additionals`
-    pub fn additionals_mut(&mut self) -> &mut [Record] {
+    pub fn additionals_mut(&mut self) -> &mut Vec<Record> {
         &mut self.additionals
     }
 
