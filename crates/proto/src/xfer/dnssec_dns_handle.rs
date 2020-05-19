@@ -12,8 +12,8 @@ use std::collections::HashSet;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::future;
-use futures::{Future, FutureExt, TryFutureExt};
+use futures_util::future;
+use futures_util::future::{Future, FutureExt, TryFutureExt};
 use log::debug;
 
 use crate::error::*;

@@ -12,12 +12,10 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures::channel::mpsc::unbounded;
-use futures::future;
-use futures::lock::Mutex;
-use futures::ready;
-use futures::stream::{Stream, StreamExt};
-use futures::{Future, FutureExt, TryFutureExt};
+use futures_channel::mpsc::unbounded;
+use futures_util::lock::Mutex;
+use futures_util::stream::{Stream, StreamExt};
+use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
 use lazy_static::lazy_static;
 use log::{debug, trace};
 use rand;
@@ -425,7 +423,7 @@ pub mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
-    use futures::future::Either;
+    use futures_util::future::Either;
     use tokio::runtime;
 
     // TODO: is there a better way?

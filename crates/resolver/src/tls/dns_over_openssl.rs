@@ -11,7 +11,7 @@
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::Future;
+use futures_util::future::Future;
 
 use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;

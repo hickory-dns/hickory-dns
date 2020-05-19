@@ -10,7 +10,7 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{Future, FutureExt};
+use futures_util::future::{Future, FutureExt};
 
 use crate::error::ProtoError;
 use crate::xfer::{DnsRequest, DnsResponse};
@@ -98,8 +98,8 @@ mod test {
     use super::*;
     use crate::error::*;
     use crate::op::*;
-    use futures::executor::block_on;
-    use futures::future::*;
+    use futures_executor::block_on;
+    use futures_util::future::*;
     use std::sync::{
         atomic::{AtomicU16, Ordering},
         Arc,

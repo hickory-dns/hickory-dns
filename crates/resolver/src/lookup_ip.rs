@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Instant;
 
-use futures::{future, future::Either, Future, FutureExt};
+use futures_util::{future, future::Either, future::Future, FutureExt};
 
 use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};
@@ -405,8 +405,8 @@ pub mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
     use std::sync::{Arc, Mutex};
 
-    use futures::executor::block_on;
-    use futures::{future, Future};
+    use futures_executor::block_on;
+    use futures_util::{future, future::Future};
 
     use proto::error::{ProtoError, ProtoResult};
     use proto::op::Message;
