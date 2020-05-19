@@ -55,7 +55,7 @@ h2 = { version = "0.2.5", features = ["stream"] }
 http = "0.2"
 log = "0.4"
 rustls = "0.17"
-thiserror = "1.0.14"
+thiserror = "1.0.18"
 tokio = { version = "0.2.16", features = ["tcp", "io-util", "rt-core"] }
 tokio-rustls = "0.13"
 # disables default features, i.e. openssl...
