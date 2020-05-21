@@ -39,7 +39,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("flags".to_string())))
         .map(ToString::to_string)
-        .map(|s| s.as_bytes().to_vec().into_boxed_slice())?;
+        .map(|s| s.into_bytes().into_boxed_slice())?;
     if !verify_flags(&flags) {
         return Err(ParseError::from("bad flags, must be in range [a-zA-Z0-9]"));
     }
@@ -48,13 +48,13 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("service".to_string())))
         .map(ToString::to_string)
-        .map(|s| s.as_bytes().to_vec().into_boxed_slice())?;
+        .map(|s| s.into_bytes().into_boxed_slice())?;
 
     let regexp = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("regexp".to_string())))
         .map(ToString::to_string)
-        .map(|s| s.as_bytes().to_vec().into_boxed_slice())?;
+        .map(|s| s.into_bytes().into_boxed_slice())?;
 
     let replacement: Name = tokens
         .next()

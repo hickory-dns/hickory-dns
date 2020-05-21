@@ -406,11 +406,21 @@ impl Message {
         &self.queries
     }
 
+    /// Provides mutable access to `queries`
+    pub fn queries_mut(&mut self) -> &mut Vec<Query> {
+        &mut self.queries
+    }
+
     /// ```text
     /// Answer          Carries RRs which directly answer the query.
     /// ```
     pub fn answers(&self) -> &[Record] {
         &self.answers
+    }
+
+    /// Provides mutable access to `answers`
+    pub fn answers_mut(&mut self) -> &mut Vec<Record> {
+        &mut self.answers
     }
 
     /// Removes all the answers from the Message
@@ -427,6 +437,11 @@ impl Message {
         &self.name_servers
     }
 
+    /// Provides mutable access to `name_servers`
+    pub fn name_servers_mut(&mut self) -> &mut Vec<Record> {
+        &mut self.name_servers
+    }
+
     /// Remove the name servers from the Message
     pub fn take_name_servers(&mut self) -> Vec<Record> {
         mem::replace(&mut self.name_servers, vec![])
@@ -438,6 +453,11 @@ impl Message {
     /// ```
     pub fn additionals(&self) -> &[Record] {
         &self.additionals
+    }
+
+    /// Provides mutable access to `additionals`
+    pub fn additionals_mut(&mut self) -> &mut Vec<Record> {
+        &mut self.additionals
     }
 
     /// Remove the additional Records from the Message
