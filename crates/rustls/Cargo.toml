@@ -50,7 +50,7 @@ path = "src/lib.rs"
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = "0.17"
-tokio = { version = "0.2.16", features = ["tcp", "io-util"] }
+tokio = { version = "0.2.21", features = ["tcp", "io-util"] }
 tokio-rustls = { version = "0.13", features = ["early-data"] }
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.20.0", path = "../proto", features = ["tokio-runtime"], default-features = false }
