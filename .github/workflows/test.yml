@@ -39,7 +39,7 @@ jobs:
       run: cargo make all-features
 
     - name: target/kcov cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: target/kcov
         key: ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
@@ -81,7 +81,7 @@ jobs:
       run: cargo make ${{ matrix.feature }}
 
     - name: target/kcov cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: target/kcov
         key: ${{ runner.os }}-kcov-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
@@ -135,7 +135,7 @@ jobs:
 
     # not using the cargo cache here, since this differs significantly
     - name: cargo-all cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: ~/.cargo
         key: ${{ runner.os }}-cargo-all-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('**/Cargo.lock') }}
@@ -183,7 +183,7 @@ jobs:
         version: ${{ env.CARGO_MAKE_VERSION }}
 
     - name: target/bind cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: target/bind
         key: ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
