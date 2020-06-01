@@ -59,6 +59,26 @@ impl TXT {
         }
     }
 
+    /// Creates a new TXT record data from bytes.
+    /// Allows creating binary record data.
+    ///
+    /// # Arguments
+    ///
+    /// * `txt_data` - the set of bytes which make up the txt_data.
+    ///
+    /// # Return value
+    ///
+    /// The new TXT record data.
+    pub fn from_bytes(txt_data: Vec<&[u8]>) -> TXT {
+        TXT {
+            txt_data: txt_data
+                .into_iter()
+                .map(|s| s.to_vec().into_boxed_slice())
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        }
+    }
+
     /// ```text
     /// TXT-DATA        One or more <character-string>s.
     /// ```
@@ -108,6 +128,24 @@ mod tests {
     #[test]
     fn test() {
         let rdata = TXT::new(vec!["Test me some".to_string(), "more please".to_string()]);
+
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        assert!(emit(&mut encoder, &rdata).is_ok());
+        let bytes = encoder.into_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let restrict = Restrict::new(bytes.len() as u16);
+        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn publish_binary_txt_record() {
+        let bin_data = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
+        let rdata = TXT::from_bytes(vec![b"Test me some", &bin_data]);
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
