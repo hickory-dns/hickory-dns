@@ -967,13 +967,19 @@ impl ResolveLookupState {
             // TODO: way more states to consider.
             /* *self = */
             match self {
-                // In this state we await the records, on success we transition to getting
-                //   NS records, which indicate an authoritative response.
+                // In this state we await the records.
                 //
                 // On Errors, the transition depends on the type of error.
                 ResolveLookupState::Records { record_lookup } => {
                     let records = ready!(record_lookup
-                        .map_err(|e| error!("error resolving: {}", e))
+                        .map_err(|e| {
+                            if e.is_nx_domain() {
+                                response_params
+                                    .response_header
+                                    .set_response_code(ResponseCode::NXDomain);
+                            };
+                            error!("error resolving: {}", e)
+                        })
                         .map(|r: Result<_, ()>| match r {
                             Ok(r) => r,
                             Err(()) => Box::new(EmptyLookup),

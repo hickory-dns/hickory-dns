@@ -22,10 +22,10 @@ The `client` is capable of DNSSec validation as well as offering higher order fu
 ```rust
 use std::net::Ipv4Addr;
 use std::str::FromStr;
-use trust_dns::client::{Client, SyncClient};
-use trust_dns::udp::UdpClientConnection;
-use trust_dns::op::DnsResponse;
-use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
+use trust_dns_client::client::{Client, SyncClient};
+use trust_dns_client::udp::UdpClientConnection;
+use trust_dns_client::op::DnsResponse;
+use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 
 let address = "8.8.8.8:53".parse().unwrap();
 let conn = UdpClientConnection::new(address).unwrap();
