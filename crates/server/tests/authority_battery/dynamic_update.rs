@@ -619,7 +619,7 @@ pub fn add_auth<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<Sig
             key_path: "../../tests/test-data/named_test_configs/dnssec/rsa_2048.pem".to_string(),
             password: Some("123456".to_string()),
             algorithm: Algorithm::RSASHA512.to_string(),
-            signer_name: Some(update_name.clone().to_string()),
+            signer_name: Some(update_name.to_string()),
             is_zone_signing_key: Some(true),
             is_zone_update_auth: Some(false),
         };
@@ -680,7 +680,7 @@ pub fn add_auth<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<Sig
             key_path: "../../tests/test-data/named_test_configs/dnssec/ed25519.pk8".to_string(),
             password: None,
             algorithm: Algorithm::ED25519.to_string(),
-            signer_name: Some(update_name.clone().to_string()),
+            signer_name: Some(update_name.to_string()),
             is_zone_signing_key: Some(true),
             is_zone_update_auth: Some(false),
         };
