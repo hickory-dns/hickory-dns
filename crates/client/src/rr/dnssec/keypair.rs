@@ -47,6 +47,7 @@ use crate::rr::Name;
 /// This supports all the various public/private keys which Trust-DNS is capable of using. Given
 ///  differing features, some key types may not be available. The `openssl` feature will enable RSA and EC
 ///  (P256 and P384). The `ring` feature enables ED25519, in the future, Ring will also be used for other keys.
+#[allow(clippy::large_enum_variant)]
 pub enum KeyPair<K> {
     /// RSA keypair, supported by OpenSSL
     #[cfg(feature = "openssl")]
