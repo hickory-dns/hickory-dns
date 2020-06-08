@@ -722,11 +722,13 @@ impl Name {
     /// Converts a *.arpa Name in a PTR record back into an IpNet if possible.
     pub fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
         let mut iter = self.iter().rev();
-        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(iter.next().ok_or(Err("not an arpa address".into()))?)?) {
+        let first = iter.next().ok_or_else(|| ProtoError::from("not an arpa address"))?;
+        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first)?) {
             return Err("not an arpa address".into());
         }
+        let second = iter.next().ok_or_else(|| ProtoError::from("invalid arpa address"))?;
         let mut prefix_len: u8 = 0;
-        match &std::str::from_utf8(iter.next().ok_or(Err("invalid arpa address".into()))?)?.to_ascii_lowercase()[..] {
+        match &std::str::from_utf8(second)?.to_ascii_lowercase()[..] {
             "in-addr" => {
                 let mut octets: [u8; 4] = [0; 4];
                 for octet in octets.iter_mut() {
@@ -744,8 +746,8 @@ impl Name {
                     match iter.next() {
                         Some(label) => if label.len() == 1 {
                             prefix_len += 4;
-                            address |=
-                                u8::from_str_radix(std::str::from_utf8(label)?, 16)?.into() << (128 - prefix_len);
+                            let hex = u8::from_str_radix(std::str::from_utf8(label)?, 16)?;
+                            address |= u128::from(hex) << (128 - prefix_len);
                         } else {
                             return Err("invalid label length for ip6.arpa".into());
                         }
