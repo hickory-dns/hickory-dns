@@ -721,6 +721,9 @@ impl Name {
 
     /// Converts a *.arpa Name in a PTR record back into an IpNet if possible.
     pub fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
+        if !self.is_fqdn() {
+            return Err("PQDN cannot be valid arpa name".into());
+        }
         let mut iter = self.iter().rev();
         let first = iter.next().ok_or_else(|| ProtoError::from("not an arpa address"))?;
         if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first)?) {
@@ -738,6 +741,9 @@ impl Name {
                     }
                     prefix_len += 8;
                 }
+                if iter.next().is_some() {
+                    return Err("unrecognized in-addr.arpa.".into());
+                }
                 Ok(IpNet::V4(Ipv4Net::new(octets.into(), prefix_len).expect("Ipv4Net::new")))
             }
             "ip6" => {
@@ -753,6 +759,9 @@ impl Name {
                         }
                         None => break,
                     }
+                }
+                if iter.next().is_some() {
+                    return Err("unrecognized ip6.arpa.".into());
                 }
                 Ok(IpNet::V6(Ipv6Net::new(address.into(), prefix_len).expect("Ipv6Net::new")))
             }
@@ -1685,5 +1694,44 @@ mod tests {
         Name::from_str("_begin.example.com").expect("failed at beginning");
         Name::from_str_relaxed("mid_dle.example.com").expect("failed in the middle");
         Name::from_str_relaxed("end_.example.com").expect("failed at the end");
+    }
+
+    #[test]
+    fn test_parse_arpa_name() {
+        assert!(Name::from_ascii("168.192.in-addr.arpa").unwrap().parse_arpa_name().is_err());
+        assert!(Name::from_ascii("host.example.com.").unwrap().parse_arpa_name().is_err());
+        assert!(Name::from_ascii("caffee.ip6.arpa.").unwrap().parse_arpa_name().is_err());
+        assert!(Name::from_ascii("1.4.3.3.7.0.7.3.0.E.2.A.8.9.1.3.1.3.D.8.0.3.A.5.8.8.B.D.0.1.0.0.2.ip6.arpa.").unwrap().parse_arpa_name().is_err());
+        assert!(Name::from_ascii("caffee.in-addr.arpa.").unwrap().parse_arpa_name().is_err());
+        assert!(Name::from_ascii("1.2.3.4.5.in-addr.arpa.").unwrap().parse_arpa_name().is_err());
+        assert!(Name::from_ascii("1.2.3.4.home.arpa.").unwrap().parse_arpa_name().is_err());
+        assert_eq!(
+            Name::from_ascii("168.192.in-addr.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V4(Ipv4Net::new("192.168.0.0".parse().unwrap(), 16).unwrap())
+        );
+        assert_eq!(
+            Name::from_ascii("1.0.168.192.in-addr.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V4(Ipv4Net::new("192.168.0.1".parse().unwrap(), 32).unwrap())
+        );
+        assert_eq!(
+            Name::from_ascii("0.1.0.0.2.ip6.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V6(Ipv6Net::new("2001::".parse().unwrap(), 20).unwrap())
+        );
+        assert_eq!(
+            Name::from_ascii("D.0.1.0.0.2.ip6.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V6(Ipv6Net::new("2001:d00::".parse().unwrap(), 24).unwrap())
+        );
+        assert_eq!(
+            Name::from_ascii("B.D.0.1.0.0.2.ip6.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V6(Ipv6Net::new("2001:db0::".parse().unwrap(), 28).unwrap())
+        );
+        assert_eq!(
+            Name::from_ascii("8.B.D.0.1.0.0.2.ip6.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V6(Ipv6Net::new("2001:db8::".parse().unwrap(), 32).unwrap())
+        );
+        assert_eq!(
+            Name::from_ascii("4.3.3.7.0.7.3.0.E.2.A.8.9.1.3.1.3.D.8.0.3.A.5.8.8.B.D.0.1.0.0.2.ip6.arpa.").unwrap().parse_arpa_name().unwrap(),
+            IpNet::V6(Ipv6Net::new("2001:db8:85a3:8d3:1319:8a2e:370:7334".parse().unwrap(), 128).unwrap())
+        );
     }
 }
