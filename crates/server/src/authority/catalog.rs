@@ -361,7 +361,7 @@ impl Catalog {
                 }
             }
         } else {
-            response_header.set_response_code(ResponseCode::NXDomain);
+            response_header.set_response_code(ResponseCode::Refused);
 
             send_response(
                 response_edns,

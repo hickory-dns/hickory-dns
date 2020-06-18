@@ -6,10 +6,10 @@ use std::str::FromStr;
 use futures::executor::block_on;
 use futures::future::Future;
 
-use trust_dns_client::op::{Message, Query};
+use trust_dns_client::op::{Message, Query, ResponseCode};
 use trust_dns_client::rr::dnssec::SupportedAlgorithms;
 use trust_dns_client::rr::{Name, RData, Record, RecordType};
-use trust_dns_server::authority::{AuthLookup, Authority, MessageRequest};
+use trust_dns_server::authority::{AuthLookup, Authority, LookupError, MessageRequest};
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -581,6 +581,20 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
     assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
 
+pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
+    let query = Query::query(Name::from_str("www.google.com.").unwrap(), RecordType::A);
+
+    let lookup =
+        block_on(authority.search(&query.into(), false, SupportedAlgorithms::new()));
+
+    let err = lookup.expect_err("Lookup for www.google.com succeeded");
+    match err {
+        LookupError::ResponseCode(code) =>
+            assert_eq!(code, ResponseCode::Refused),
+        _ => assert!(false, "invalid error enum variant")
+    }
+}
+
 // test some additional record collections
 
 macro_rules! define_basic_test {
@@ -621,6 +635,7 @@ macro_rules! basic_battery {
                     test_wildcard,
                     test_wildcard_chain,
                     test_srv,
+                    test_invalid_lookup,
                 );
             }
         }

@@ -938,7 +938,12 @@ impl Authority for InMemoryAuthority {
                 {
                     return Box::pin(future::err(LookupError::NameExists));
                 } else {
-                    return Box::pin(future::err(LookupError::from(ResponseCode::NXDomain)));
+                    let code = if self.origin().zone_of(name) {
+                        ResponseCode::NXDomain
+                    } else {
+                        ResponseCode::Refused
+                    };
+                    return Box::pin(future::err(LookupError::from(code)));
                 }
             }
             Err(e) => return Box::pin(future::err(e)),
