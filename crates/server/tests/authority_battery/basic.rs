@@ -584,14 +584,12 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let query = Query::query(Name::from_str("www.google.com.").unwrap(), RecordType::A);
 
-    let lookup =
-        block_on(authority.search(&query.into(), false, SupportedAlgorithms::new()));
+    let lookup = block_on(authority.search(&query.into(), false, SupportedAlgorithms::new()));
 
     let err = lookup.expect_err("Lookup for www.google.com succeeded");
     match err {
-        LookupError::ResponseCode(code) =>
-            assert_eq!(code, ResponseCode::Refused),
-        _ => panic!("invalid error enum variant")
+        LookupError::ResponseCode(code) => assert_eq!(code, ResponseCode::Refused),
+        _ => panic!("invalid error enum variant"),
     }
 }
 
