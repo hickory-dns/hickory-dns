@@ -591,7 +591,7 @@ pub fn test_invalid_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     match err {
         LookupError::ResponseCode(code) =>
             assert_eq!(code, ResponseCode::Refused),
-        _ => assert!(false, "invalid error enum variant")
+        _ => panic!("invalid error enum variant")
     }
 }
 
