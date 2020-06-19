@@ -80,12 +80,12 @@ impl SOA {
     ///
     /// # Arguments
     ///
-    /// * `mname` - the name of the ~~~master~~~, primary, authority for this zone.
+    /// * `mname` - the name of the primary or authority for this zone.
     /// * `rname` - the name of the responsible party for this zone, e.g. an email address.
     /// * `serial` - the serial number of the zone, used for caching purposes.
     /// * `refresh` - the amount of time to wait before a zone is resynched.
     /// * `retry` - the minimum period to wait if there is a failure during refresh.
-    /// * `expire` - the time until this ~~~master~~~ primary is no longer authoritative for the zone.
+    /// * `expire` - the time until this primary is no longer authoritative for the zone.
     /// * `minimum` - no zone records should have time-to-live values less than this minimum.
     ///
     /// # Return value

@@ -22,7 +22,7 @@ use crate::serialize::txt::parse_rdata::RDataParser;
 use crate::serialize::txt::zone_lex::{Lexer, Token};
 
 /// ```text
-/// 5. ZONE FILES (formerly MASTER FILES)
+/// 5. ZONE FILES
 ///
 /// Zone files are text files that contain RRs in text form.  Since the
 /// contents of a zone can be expressed in the form of a list of RRs a
