@@ -113,6 +113,8 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 ## RFCs implemented
 
+- [RFC 8499](https://tools.ietf.org/html/rfc8499): No more master/slave, in honor of [Juneteenth](https://en.wikipedia.org/wiki/Juneteenth)
+
 ### Basic operations
 - [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (see the Resolver for caching)
 - [RFC 2308](https://tools.ietf.org/html/rfc2308): Negative Caching of DNS Queries (see the Resolver)
