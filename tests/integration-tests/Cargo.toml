@@ -31,8 +31,8 @@ categories = ["network-programming"]
 license = "MIT/Apache-2.0"
 
 [badges]
-#github-actions = { repository = "bluejekyll/trust-dns", branch = "master", workflow = "test" }
-codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+#github-actions = { repository = "bluejekyll/trust-dns", branch = "main", workflow = "test" }
+codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
 [lib]
