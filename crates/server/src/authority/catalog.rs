@@ -24,6 +24,7 @@ use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
 use futures::{ready, Future, FutureExt, TryFutureExt};
+use log::warn;
 
 use trust_dns_client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms};
@@ -239,7 +240,7 @@ impl Catalog {
     ///   requestor.  Next, the ZNAME and ZCLASS are checked to see if the zone
     ///   so named is one of this server's authority zones, else signal NOTAUTH
     ///   to the requestor.  If the server is a zone slave, the request will be
-    ///   forwarded toward the primary master.
+    ///   forwarded toward the Primary Zone Server.
     ///
     ///   3.1.2 - Pseudocode For Zone Section Processing
     ///
@@ -247,11 +248,11 @@ impl Catalog {
     ///           return (FORMERR)
     ///      if (zone_type(zname, zclass) == SLAVE)
     ///           return forward()
-    ///      if (zone_type(zname, zclass) == MASTER)
+    ///      if (zone_type(zname, zclass) == PRIMARY)
     ///           return update()
     ///      return (NOTAUTH)
     ///
-    ///   Sections 3.2 through 3.8 describe the primary master's behaviour,
+    ///   Sections 3.2 through 3.8 describe the primary's behaviour,
     ///   whereas Section 6 describes a forwarder's behaviour.
     ///
     /// 3.8 - Response
@@ -321,6 +322,15 @@ impl Catalog {
             .and_then(|name| self.find(name))
         {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
+
+            // Ask for Master/Slave terms to be replaced
+            match authority.zone_type() {
+                ZoneType::Slave | ZoneType::Master => {
+                    warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
+                }
+                _ => (),
+            }
+
             match authority.zone_type() {
                 ZoneType::Slave => {
                     error!("slave forwarding for update not yet implemented");
@@ -332,7 +342,7 @@ impl Catalog {
                         response_handle,
                     )
                 }
-                ZoneType::Master => {
+                ZoneType::Master | ZoneType::Primary => {
                     let update_result = authority.update(update);
                     match update_result {
                         // successful update
@@ -564,7 +574,7 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
             };
 
             match authority.zone_type() {
-                ZoneType::Master | ZoneType::Slave => {
+                ZoneType::Master | ZoneType::Primary | ZoneType::Slave => {
                     self.lookup = Some(AuthorityLookup::authority(
                         self.request.id(),
                         response_params,

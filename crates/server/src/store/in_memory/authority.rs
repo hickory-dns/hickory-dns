@@ -966,7 +966,7 @@ impl Authority for InMemoryAuthority {
         let lookup_name = query.name();
         let record_type: RecordType = query.query_type();
 
-        // if this is an AXFR zone transfer, verify that this is either the slave or master
+        // if this is an AXFR zone transfer, verify that this is either the slave or primary
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
@@ -975,7 +975,7 @@ impl Authority for InMemoryAuthority {
             }
 
             match self.zone_type() {
-                ZoneType::Master | ZoneType::Slave => (),
+                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
                 _ => return Box::pin(future::err(LookupError::from(ResponseCode::NXDomain))),
             }

@@ -8,9 +8,12 @@
 /// The type of zone stored in a Catalog
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
+    /// This authority for a zone
+    Primary,
     /// This authority for a zone, i.e. the Primary
+    #[deprecated = "please read about Juneteenth"]
     Master,
-    /// A secondary, i.e. replicated from the Master
+    /// A secondary, i.e. replicated from the Primary
     Slave,
     /// A cached zone with recursive resolver abilities
     Hint,

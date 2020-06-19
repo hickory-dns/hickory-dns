@@ -36,17 +36,17 @@ pub struct FileAuthority(InMemoryAuthority);
 /// Max traversal depth for $INCLUDE files
 const MAX_INCLUDE_LEVEL: u16 = 256;
 
-/// Inner state of master file loader, tracks depth of $INCLUDE
+/// Inner state of zone file loader, tracks depth of $INCLUDE
 /// loads as well as visited previously files, so the loader
 /// is able to abort e.g. when cycle is detected
 ///
 /// Note, that tracking max depth level explicitly covers also
 /// cycles in $INCLUDEs. The error description in this case would
-/// not be very helpful to decect the root cause of the problem
+/// not be very helpful to detect the root cause of the problem
 /// though. The way to improve diagnose experience would be to
 /// traverse $INCLUDE files in topologically sorted order which
 /// requires quite some re-arrangements in the code and in the
-/// way loader is curretly implemented.
+/// way loader is currently implemented.
 struct FileReaderState {
     level: u16,
 }

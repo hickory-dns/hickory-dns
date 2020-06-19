@@ -74,7 +74,7 @@ pub enum RData {
     /// records.
     ///
     /// A records cause no additional section processing.  The RDATA section of
-    /// an A line in a master file is an Internet address expressed as four
+    /// an A line in a Zone File is an Internet address expressed as four
     /// decimal numbers separated by dots without any embedded spaces (e.g.,
     /// "10.2.0.52" or "192.0.5.6").
     /// ```
@@ -316,7 +316,7 @@ pub enum RData {
     /// or less.
     ///
     /// NULL records cause no additional section processing.  NULL RRs are not
-    /// allowed in master files.  NULLs are used as placeholders in some
+    /// allowed in Zone Files.  NULLs are used as placeholders in some
     /// experimental extensions of the DNS.
     /// ```
     NULL(NULL),
@@ -470,7 +470,7 @@ pub enum RData {
     /// and the MINIMUM field in the appropriate SOA.  Thus MINIMUM is a lower
     /// bound on the TTL field for all RRs in a zone.  Note that this use of
     /// MINIMUM should occur when the RRs are copied into the response and not
-    /// when the zone is loaded from a master file or via a zone transfer.  The
+    /// when the zone is loaded from a Zone File or via a zone transfer.  The
     /// reason for this provision is to allow future dynamic update facilities to
     /// change the SOA RR with known semantics.
     /// ```

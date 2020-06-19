@@ -2,27 +2,27 @@
 ##  configuration cases
 [[zones]]
 zone = "localhost"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/localhost.zone"
 
 [[zones]]
 zone = "0.0.127.in-addr.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/127.0.0.1.zone"
 
 [[zones]]
 zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/ipv6_1.zone"
 
 [[zones]]
 zone = "255.in-addr.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/255.zone"
 
 [[zones]]
 zone = "0.in-addr.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/0.zone"
 
 [[zones]]
@@ -32,7 +32,7 @@ file = "default/0.zone"
 ##  queries for "www.example.com" or "example.com" would be forwarded.
 zone = "."
 
-## zone_type: Master, Slave, Hint, Forward
+## zone_type: Primary, Slave, Hint, Forward
 zone_type = "Forward"
 
 ## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.

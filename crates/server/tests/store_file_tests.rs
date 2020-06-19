@@ -19,7 +19,7 @@ fn file(master_file_path: &str, _module: &str, _test_name: &str) -> FileAuthorit
 
     FileAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Master,
+        ZoneType::Primary,
         false,
         None,
         &config,
@@ -40,7 +40,7 @@ fn test_all_lines_are_loaded() {
 
     let authority = FileAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Master,
+        ZoneType::Primary,
         false,
         None,
         &config,

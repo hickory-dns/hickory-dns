@@ -899,7 +899,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Added
 
-- Master zone files support BIND time formats, e.g. #h#d
+- Zone files support BIND time formats, e.g. #h#d
 - Toml config file support (not compatible with BIND)
 
 ## 0.2.1 (Client/Server 2015-09-17)
@@ -927,8 +927,8 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 ### Added
 
 - Server support with catalog and tests for example.com
-- Parsing example rfc1035 master file
-- new lexer for master zone files with simplified FSM
+- Parsing example rfc1035 ~~~master~~~ zone file
+- new lexer for ~~~master~~~ zone files with simplified FSM
 - Travis CI testing support
 - Supported Client with operational query
 - Writers for Record Data

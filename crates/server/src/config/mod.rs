@@ -179,7 +179,7 @@ impl ZoneConfig {
     /// # Arguments
     ///
     /// * `zone` - name of a zone, e.g. example.com
-    /// * `zone_type` - Type of zone, e.g. Master
+    /// * `zone_type` - Type of zone, e.g. Primary, Secondary, etc.
     /// * `file` - relative to Config base path, to the zone file
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers

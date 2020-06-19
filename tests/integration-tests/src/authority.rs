@@ -12,7 +12,7 @@ pub fn create_example() -> InMemoryAuthority {
     use trust_dns_client::rr::rdata::*;
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
-    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Master, false);
+    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
 
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert(

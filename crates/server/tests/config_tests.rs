@@ -50,7 +50,7 @@ fn test_read_config() {
         [
             ZoneConfig::new(
                 "localhost".into(),
-                ZoneType::Master,
+                ZoneType::Primary,
                 "default/localhost.zone".into(),
                 None,
                 None,
@@ -59,7 +59,7 @@ fn test_read_config() {
             ),
             ZoneConfig::new(
                 "0.0.127.in-addr.arpa".into(),
-                ZoneType::Master,
+                ZoneType::Primary,
                 "default/127.0.0.1.zone".into(),
                 None,
                 None,
@@ -70,7 +70,7 @@ fn test_read_config() {
                 "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
                  ip6.arpa"
                     .into(),
-                ZoneType::Master,
+                ZoneType::Primary,
                 "default/ipv6_1.zone".into(),
                 None,
                 None,
@@ -79,7 +79,7 @@ fn test_read_config() {
             ),
             ZoneConfig::new(
                 "255.in-addr.arpa".into(),
-                ZoneType::Master,
+                ZoneType::Primary,
                 "default/255.zone".into(),
                 None,
                 None,
@@ -88,7 +88,7 @@ fn test_read_config() {
             ),
             ZoneConfig::new(
                 "0.in-addr.arpa".into(),
-                ZoneType::Master,
+                ZoneType::Primary,
                 "default/0.zone".into(),
                 None,
                 None,
@@ -97,7 +97,7 @@ fn test_read_config() {
             ),
             ZoneConfig::new(
                 "example.com".into(),
-                ZoneType::Master,
+                ZoneType::Primary,
                 "example.com.zone".into(),
                 None,
                 None,
@@ -161,7 +161,7 @@ fn test_parse_zone_keys() {
     let config: Config = "
 [[zones]]
 zone = \"example.com\"
-zone_type = \"Master\"
+zone_type = \"Primary\"
 file = \"example.com.zone\"
 
 \

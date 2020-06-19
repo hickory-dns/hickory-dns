@@ -2,5 +2,5 @@ listen_addrs_ipv4 = ["0.0.0.0"]
 
 [[zones]]
 zone = "example.com"
-zone_type = "Master"
+zone_type = "Primary"
 file = "example.com.zone"

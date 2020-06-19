@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Master file based serving with Dynamic DNS and journaling support
+//! Zone file based serving with Dynamic DNS and journaling support
 
 mod authority;
 
