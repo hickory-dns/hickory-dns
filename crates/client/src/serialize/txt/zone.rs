@@ -18,8 +18,8 @@ use std::str::FromStr;
 
 use crate::error::*;
 use crate::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-use crate::serialize::txt::master_lex::{Lexer, Token};
 use crate::serialize::txt::parse_rdata::RDataParser;
+use crate::serialize::txt::zone_lex::{Lexer, Token};
 
 /// ```text
 /// 5. ZONE FILES (formerly MASTER FILES)

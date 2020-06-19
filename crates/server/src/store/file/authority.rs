@@ -372,7 +372,7 @@ mod tests {
         };
         let authority = FileAuthority::try_from_config(
             Name::from_str("example.com.").unwrap(),
-            ZoneType::Master,
+            ZoneType::Primary,
             false,
             None,
             &config,

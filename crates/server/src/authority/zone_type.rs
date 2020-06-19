@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![allow(deprecated)]
+
 /// The type of zone stored in a Catalog
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {

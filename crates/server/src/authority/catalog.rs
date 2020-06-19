@@ -324,6 +324,7 @@ impl Catalog {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
 
             // Ask for Master/Slave terms to be replaced
+            #[allow(deprecated)]
             match authority.zone_type() {
                 ZoneType::Slave | ZoneType::Master => {
                     warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
@@ -331,6 +332,7 @@ impl Catalog {
                 _ => (),
             }
 
+            #[allow(deprecated)]
             match authority.zone_type() {
                 ZoneType::Secondary | ZoneType::Slave => {
                     error!("secondary forwarding for update not yet implemented");
@@ -573,8 +575,9 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
                 response_handle: self.response_handle.clone(),
             };
 
+            #[allow(deprecated)]
             match authority.zone_type() {
-                ZoneType::Master | ZoneType::Primary | ZoneType::Slave => {
+                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
                     self.lookup = Some(AuthorityLookup::authority(
                         self.request.id(),
                         response_params,

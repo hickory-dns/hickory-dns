@@ -974,12 +974,9 @@ impl Authority for InMemoryAuthority {
                 return Box::pin(future::err(LookupError::from(ResponseCode::Refused)));
             }
 
+            #[allow(deprecated)]
             match self.zone_type() {
-                ZoneType::Primary
-                | ZoneType::Secondary
-                | ZoneType::Master
-                | ZoneType::Secondary
-                | ZoneType::Slave => (),
+                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
                 _ => return Box::pin(future::err(LookupError::from(ResponseCode::NXDomain))),
             }
