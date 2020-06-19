@@ -209,15 +209,15 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     ///   that benefit comes at the cost of long intervals of incoherence among
     ///   authority servers whenever the zone is updated.
     ///
-    ///   1.2. The DNS NOTIFY transaction allows Primary Zone Servers to inform slave
-    ///   servers when the zone has changed -- an interrupt as opposed to poll
+    ///   1.2. The DNS NOTIFY transaction allows Primary Zone Servers to inform Secondary
+    ///   Zone Servers when the zone has changed -- an interrupt as opposed to poll
     ///   model -- which it is hoped will reduce propagation delay while not
     ///   unduly increasing the masters' load.  This specification only allows
     ///   slaves to be notified of SOA RR changes, but the architecture of
     ///   NOTIFY is intended to be extensible to other RR types.
     ///
     ///   1.3. This document intentionally gives more definition to the roles
-    ///   of "Primary", "Slave" and "Stealth" servers, their enumeration in NS
+    ///   of "Primary", "Secondary" and "Stealth" servers, their enumeration in NS
     ///   RRs, and the SOA MNAME field.  In that sense, this document can be
     ///   considered an addendum to [RFC1035].
     ///
@@ -232,21 +232,21 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
     ///   3.7. A NOTIFY request has QDCOUNT>0, ANCOUNT>=0, AUCOUNT>=0,
     ///   ADCOUNT>=0.  If ANCOUNT>0, then the answer section represents an
     ///   unsecure hint at the new RRset for this <QNAME,QCLASS,QTYPE>.  A
-    ///   slave receiving such a hint is free to treat equivilence of this
+    ///   Secondary receiving such a hint is free to treat equivilence of this
     ///   answer section with its local data as a "no further work needs to be
     ///   done" indication.  If ANCOUNT=0, or ANCOUNT>0 and the answer section
-    ///   differs from the slave's local data, then the slave should query its
+    ///   differs from the Secondary's local data, then the Secondary should query its
     ///   known Primaries to retrieve the new data.
     /// ```
     ///
     /// Client's should be ready to handle, or be aware of, a server response of NOTIMP:
     ///
     /// ```text
-    ///   3.12. If a NOTIFY request is received by a slave who does not
+    ///   3.12. If a NOTIFY request is received by a Secondary who does not
     ///   implement the NOTIFY opcode, it will respond with a NOTIMP
     ///   (unimplemented feature error) message.  A Primary Zone Server who receives
     ///   such a NOTIMP should consider the NOTIFY transaction complete for
-    ///   that slave.
+    ///   that Secondary.
     /// ```
     ///
     /// # Arguments
@@ -275,8 +275,8 @@ pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
             // 3.3. NOTIFY is similar to QUERY in that it has a request message with
             // the header QR flag "clear" and a response message with QR "set".  The
             // response message contains no useful information, but its reception by
-            // the Primary is an indication that the slave has received the NOTIFY
-            // and that the Primary Zone Server can remove the slave from any retry queue for
+            // the Primary is an indication that the Secondary has received the NOTIFY
+            // and that the Primary Zone Server can remove the Secondary from any retry queue for
             // this NOTIFY event.
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Notify);

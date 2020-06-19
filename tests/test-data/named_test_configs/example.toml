@@ -71,7 +71,7 @@ file = "default/0.zone"
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
 zone = "example.com"
 
-## zone_type: Primary, Slave, Hint, Forward
+## zone_type: Primary, Secondary, Hint, Forward
 zone_type = "Primary"
 
 ## file: this is relative to the directory above

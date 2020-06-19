@@ -239,14 +239,14 @@ impl Catalog {
     ///   RR therein and that the RR's ZTYPE is SOA, else signal FORMERR to the
     ///   requestor.  Next, the ZNAME and ZCLASS are checked to see if the zone
     ///   so named is one of this server's authority zones, else signal NOTAUTH
-    ///   to the requestor.  If the server is a zone slave, the request will be
+    ///   to the requestor.  If the server is a zone Secondary, the request will be
     ///   forwarded toward the Primary Zone Server.
     ///
     ///   3.1.2 - Pseudocode For Zone Section Processing
     ///
     ///      if (zcount != 1 || ztype != SOA)
     ///           return (FORMERR)
-    ///      if (zone_type(zname, zclass) == SLAVE)
+    ///      if (zone_type(zname, zclass) == SECONDARY)
     ///           return forward()
     ///      if (zone_type(zname, zclass) == PRIMARY)
     ///           return update()
@@ -332,8 +332,8 @@ impl Catalog {
             }
 
             match authority.zone_type() {
-                ZoneType::Slave => {
-                    error!("slave forwarding for update not yet implemented");
+                ZoneType::Secondary | ZoneType::Slave => {
+                    error!("secondary forwarding for update not yet implemented");
                     response_header.set_response_code(ResponseCode::NotImp);
 
                     send_response(
@@ -342,7 +342,7 @@ impl Catalog {
                         response_handle,
                     )
                 }
-                ZoneType::Master | ZoneType::Primary => {
+                ZoneType::Primary | ZoneType::Master => {
                     let update_result = authority.update(update);
                     match update_result {
                         // successful update

@@ -31,7 +31,7 @@ file = "default/0.zone"
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
 zone = "example.com"
 
-## zone_type: Primary, Slave, Hint, Forward
+## zone_type: Primary, Secondary, Hint, Forward
 zone_type = "Primary"
 
 ## if true, looks to see if a chained pem file exists at $file.pem (see

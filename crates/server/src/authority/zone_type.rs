@@ -14,6 +14,9 @@ pub enum ZoneType {
     #[deprecated = "please read about Juneteenth"]
     Master,
     /// A secondary, i.e. replicated from the Primary
+    Secondary,
+    /// A secondary, i.e. replicated from the Primary
+    #[deprecated = "please read about Juneteenth"]
     Slave,
     /// A cached zone with recursive resolver abilities
     Hint,
@@ -25,7 +28,7 @@ impl ZoneType {
     /// Is this an authoritative Authority, i.e. it owns the records of the zone.
     pub fn is_authoritative(self) -> bool {
         match self {
-            ZoneType::Master | ZoneType::Slave => true,
+            ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => true,
             _ => false,
         }
     }
