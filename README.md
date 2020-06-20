@@ -69,7 +69,7 @@ These are standards supported by the DNS protocol. The client implements them
 The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
  There currently is no way to limit TCP and AXFR operations, so it is still not
  recommended to put into production as TCP can be used to DOS the service.
- Master file parsing is complete and supported. There is currently no forking
+ Zone file parsing is complete and supported. There is currently no forking
  option, and the server is not yet threaded (although it is implemented with
  async IO, so threading may not be a huge benefit). There is still a lot of work
  to do before a server can be trusted with this externally. Running it behind a
@@ -112,6 +112,8 @@ Currently the root key is hardcoded into the system. This gives validation of
 Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-rustls` must be enabled.
 
 ## RFCs implemented
+
+- [RFC 8499](https://tools.ietf.org/html/rfc8499): No more master/slave, in honor of [Juneteenth](https://en.wikipedia.org/wiki/Juneteenth)
 
 ### Basic operations
 - [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (see the Resolver for caching)

@@ -18,18 +18,18 @@ use std::str::FromStr;
 
 use crate::error::*;
 use crate::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-use crate::serialize::txt::master_lex::{Lexer, Token};
 use crate::serialize::txt::parse_rdata::RDataParser;
+use crate::serialize::txt::zone_lex::{Lexer, Token};
 
 /// ```text
-/// 5. MASTER FILES
+/// 5. ZONE FILES
 ///
-/// Master files are text files that contain RRs in text form.  Since the
+/// Zone files are text files that contain RRs in text form.  Since the
 /// contents of a zone can be expressed in the form of a list of RRs a
-/// master file is most often used to define a zone, though it can be used
+/// Zone File is most often used to define a zone, though it can be used
 /// to list a cache's contents.  Hence, this section first discusses the
-/// format of RRs in a master file, and then the special considerations when
-/// a master file is used to create a zone in some name server.
+/// format of RRs in a Zone File, and then the special considerations when
+/// a Zone File is used to create a zone in some name server.
 ///
 /// 5.1. Format
 ///
@@ -38,7 +38,7 @@ use crate::serialize::txt::parse_rdata::RDataParser;
 /// a list of items across a line boundary, and text literals can contain
 /// CRLF within the text.  Any combination of tabs and spaces act as a
 /// delimiter between the separate items that make up an entry.  The end of
-/// any line in the master file can end with a comment.  The comment starts
+/// any line in the Zone File can end with a comment.  The comment starts
 /// with a ";" (semicolon).
 ///
 /// The following entries are defined:
@@ -82,14 +82,14 @@ use crate::serialize::txt::parse_rdata::RDataParser;
 /// order is different from the order used in examples and the order used in
 /// the actual RRs; the given order allows easier parsing and defaulting.)
 ///
-/// <domain-name>s make up a large share of the data in the master file.
+/// <domain-name>s make up a large share of the data in the Zone File.
 /// The labels in the domain name are expressed as character strings and
 /// separated by dots.  Quoting conventions allow arbitrary characters to be
 /// stored in domain names.  Domain names that end in a dot are called
 /// absolute, and are taken as complete.  Domain names which do not end in a
 /// dot are called relative; the actual domain name is the concatenation of
 /// the relative part with an origin specified in a $ORIGIN, $INCLUDE, or as
-/// an argument to the master file loading routine.  A relative name is an
+/// an argument to the Zone File loading routine.  A relative name is an
 /// error when no origin is available.
 ///
 /// <character-string> is expressed in one or two ways: as a contiguous set

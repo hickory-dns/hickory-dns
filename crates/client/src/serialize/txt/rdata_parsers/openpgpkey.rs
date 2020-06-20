@@ -17,7 +17,7 @@ use crate::rr::rdata::OPENPGPKEY;
 /// ```text
 /// 2.3.  The OPENPGPKEY RDATA Presentation Format
 ///
-///    The RDATA Presentation Format, as visible in master files [RFC1035],
+///    The RDATA Presentation Format, as visible in Zone Files [RFC1035],
 ///    consists of a single OpenPGP Transferable Public Key as defined in
 ///    Section 11.1 of [RFC4880] encoded in base64 as defined in Section 4
 ///    of [RFC4648].

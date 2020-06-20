@@ -33,7 +33,7 @@ use crate::authority::{
 /// InMemoryAuthority is responsible for storing the resource records for a particular zone.
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
-/// start of authority for the zone, is a slave, or a cached zone.
+/// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct InMemoryAuthority {
     origin: LowerName,
     class: DNSClass,
@@ -966,7 +966,7 @@ impl Authority for InMemoryAuthority {
         let lookup_name = query.name();
         let record_type: RecordType = query.query_type();
 
-        // if this is an AXFR zone transfer, verify that this is either the slave or master
+        // if this is an AXFR zone transfer, verify that this is either the Secondary or Primary
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
@@ -974,8 +974,9 @@ impl Authority for InMemoryAuthority {
                 return Box::pin(future::err(LookupError::from(ResponseCode::Refused)));
             }
 
+            #[allow(deprecated)]
             match self.zone_type() {
-                ZoneType::Master | ZoneType::Slave => (),
+                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
                 _ => return Box::pin(future::err(LookupError::from(ResponseCode::NXDomain))),
             }

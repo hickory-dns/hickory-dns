@@ -149,8 +149,8 @@ impl UpdateMessage for Message {
 ///
 ///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
 ///    and RDATA are those being added, and CLASS is the same as the zone
-///    class.  Any duplicate RRs will be silently ignored by the primary
-///    master.
+///    class.  Any duplicate RRs will be silently ignored by the Primary
+///    Zone Server.
 /// ```
 ///
 /// # Arguments
@@ -215,8 +215,8 @@ pub fn create(rrset: RecordSet, zone_origin: Name) -> Message {
 ///
 ///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
 ///    and RDATA are those being added, and CLASS is the same as the zone
-///    class.  Any duplicate RRs will be silently ignored by the primary
-///    master.
+///    class.  Any duplicate RRs will be silently ignored by the Primary
+///    Zone Server.
 /// ```
 ///
 /// # Arguments
@@ -284,17 +284,17 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool) -> Message 
 ///
 ///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
 ///   RDLENGTH and RDATA must match the RR being deleted.  TTL must be
-///   specified as zero (0) and will otherwise be ignored by the primary
-///   master.  CLASS must be specified as NONE to distinguish this from an
+///   specified as zero (0) and will otherwise be ignored by the Primary
+///   Zone Server.  CLASS must be specified as NONE to distinguish this from an
 ///   RR addition.  If no such RRs exist, then this Update RR will be
-///   silently ignored by the primary master.
+///   silently ignored by the Primary Zone Server.
 ///
 ///  2.5.1 - Add To An RRset
 ///
 ///   RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
 ///   and RDATA are those being added, and CLASS is the same as the zone
-///   class.  Any duplicate RRs will be silently ignored by the primary
-///   master.
+///   class.  Any duplicate RRs will be silently ignored by the Primary
+///   Zone Server.
 /// ```
 ///
 /// # Arguments
@@ -370,10 +370,10 @@ pub fn compare_and_swap(current: RecordSet, new: RecordSet, zone_origin: Name) -
 ///
 ///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
 ///   RDLENGTH and RDATA must match the RR being deleted.  TTL must be
-///   specified as zero (0) and will otherwise be ignored by the primary
-///   master.  CLASS must be specified as NONE to distinguish this from an
+///   specified as zero (0) and will otherwise be ignored by the Primary
+///   Zone Server.  CLASS must be specified as NONE to distinguish this from an
 ///   RR addition.  If no such RRs exist, then this Update RR will be
-///   silently ignored by the primary master.
+///   silently ignored by the Primary Zone Server.
 /// ```
 ///
 /// # Arguments
@@ -440,10 +440,10 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name) -> Message {
 ///
 ///   One RR is added to the Update Section whose NAME and TYPE are those
 ///   of the RRset to be deleted.  TTL must be specified as zero (0) and is
-///   otherwise not used by the primary master.  CLASS must be specified as
+///   otherwise not used by the Primary Zone Server.  CLASS must be specified as
 ///   ANY.  RDLENGTH must be zero (0) and RDATA must therefore be empty.
 ///   If no such RRset exists, then this Update RR will be silently ignored
-///   by the primary master.
+///   by the Primary Zone Server.
 /// ```
 ///
 /// # Arguments
@@ -498,10 +498,10 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
 ///
 ///   One RR is added to the Update Section whose NAME is that of the name
 ///   to be cleansed of RRsets.  TYPE must be specified as ANY.  TTL must
-///   be specified as zero (0) and is otherwise not used by the primary
-///   master.  CLASS must be specified as ANY.  RDLENGTH must be zero (0)
+///   be specified as zero (0) and is otherwise not used by the Primary
+///   Zone Server.  CLASS must be specified as ANY.  RDLENGTH must be zero (0)
 ///   and RDATA must therefore be empty.  If no such RRsets exist, then
-///   this Update RR will be silently ignored by the primary master.
+///   this Update RR will be silently ignored by the Primary Zone Server.
 /// ```
 ///
 /// # Arguments

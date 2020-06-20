@@ -32,7 +32,7 @@ use crate::store::sqlite::{Journal, SqliteConfig};
 /// SqliteAuthority is responsible for storing the resource records for a particular zone.
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
-/// start of authority for the zone, is a slave, or a cached zone.
+/// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct SqliteAuthority {
     in_memory: InMemoryAuthority,
     journal: Option<Journal>,

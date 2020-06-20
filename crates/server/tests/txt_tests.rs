@@ -69,7 +69,7 @@ _443._tcp.www.example.com. IN TLSA (
 
     let (origin, records) = records.unwrap();
 
-    let authority = InMemoryAuthority::new(origin, records, ZoneType::Master, false).unwrap();
+    let authority = InMemoryAuthority::new(origin, records, ZoneType::Primary, false).unwrap();
 
     // not validating everything, just one of each...
 
@@ -417,7 +417,7 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_err());
+    assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_err());
 }
 
 #[test]
@@ -445,7 +445,7 @@ b       A       127.0.0.2
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_err());
+    assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_err());
 }
 
 #[test]
@@ -472,5 +472,5 @@ a       A       127.0.0.1
 
     let (origin, records) = records.unwrap();
 
-    assert!(InMemoryAuthority::new(origin, records, ZoneType::Master, false).is_ok());
+    assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_ok());
 }

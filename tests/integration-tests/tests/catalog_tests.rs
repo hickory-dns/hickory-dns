@@ -23,7 +23,7 @@ use trust_dns_integration::*;
 pub fn create_test() -> InMemoryAuthority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
 
-    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Master, false);
+    let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
 
     records.upsert(
         Record::new()

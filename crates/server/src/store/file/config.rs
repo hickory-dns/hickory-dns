@@ -5,9 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-/// Configuration for master file based zones
+/// Configuration for file based zones
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct FileConfig {
-    /// path to the master file
+    /// path to the zone file
     pub zone_file_path: String,
 }

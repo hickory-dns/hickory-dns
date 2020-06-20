@@ -33,7 +33,7 @@ use crate::serialize::binary::*;
 /// or less.
 ///
 /// NULL records cause no additional section processing.  NULL RRs are not
-/// allowed in master files.  NULLs are used as placeholders in some
+/// allowed in Zone Files.  NULLs are used as placeholders in some
 /// experimental extensions of the DNS.
 /// ```
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]

@@ -33,7 +33,7 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
 
     SqliteAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Master,
+        ZoneType::Primary,
         false,
         true,
         None,
@@ -61,7 +61,7 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
 
     SqliteAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
-        ZoneType::Master,
+        ZoneType::Primary,
         false,
         true,
         None,

@@ -481,7 +481,7 @@ impl Message {
     ///  An OPT record does not carry any DNS data.  It is used only to
     ///  contain control information pertaining to the question-and-answer
     ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
-    ///  forwarded, or stored in or loaded from master files.
+    ///  forwarded, or stored in or loaded from Zone Files.
     ///
     ///  The OPT RR MAY be placed anywhere within the additional data section.
     ///  When an OPT RR is included within any DNS message, it MUST be the

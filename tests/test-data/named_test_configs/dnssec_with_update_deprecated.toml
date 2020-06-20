@@ -6,35 +6,35 @@
 ##  configuration cases
 [[zones]]
 zone = "localhost"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/localhost.zone"
 
 [[zones]]
 zone = "0.0.127.in-addr.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/127.0.0.1.zone"
 
 [[zones]]
 zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/ipv6_1.zone"
 
 [[zones]]
 zone = "255.in-addr.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/255.zone"
 
 [[zones]]
 zone = "0.in-addr.arpa"
-zone_type = "Master"
+zone_type = "Primary"
 file = "default/0.zone"
 
 [[zones]]
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
 zone = "example.com"
 
-## zone_type: Master, Slave, Hint, Forward
-zone_type = "Master"
+## zone_type: Primary, Secondary, Hint, Forward
+zone_type = "Primary"
 
 ## file: this is relative to the directory above
 file = "example.com.zone"

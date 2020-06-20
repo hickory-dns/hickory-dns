@@ -7,7 +7,7 @@
 
 use trust_dns_resolver::config::{NameServerConfigGroup, ResolverOpts};
 
-/// Configuration for master file based zones
+/// Configuration for file based zones
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct ForwardConfig {
     /// upstream name_server configurations

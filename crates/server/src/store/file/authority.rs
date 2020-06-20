@@ -30,23 +30,23 @@ use trust_dns_client::serialize::txt::{Lexer, Parser, Token};
 /// FileAuthority is responsible for storing the resource records for a particular zone.
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
-/// start of authority for the zone, is a slave, or a cached zone.
+/// start of authority for the zone, is a Secondary, or a cached zone.
 pub struct FileAuthority(InMemoryAuthority);
 
 /// Max traversal depth for $INCLUDE files
 const MAX_INCLUDE_LEVEL: u16 = 256;
 
-/// Inner state of master file loader, tracks depth of $INCLUDE
+/// Inner state of zone file loader, tracks depth of $INCLUDE
 /// loads as well as visited previously files, so the loader
 /// is able to abort e.g. when cycle is detected
 ///
 /// Note, that tracking max depth level explicitly covers also
 /// cycles in $INCLUDEs. The error description in this case would
-/// not be very helpful to decect the root cause of the problem
+/// not be very helpful to detect the root cause of the problem
 /// though. The way to improve diagnose experience would be to
 /// traverse $INCLUDE files in topologically sorted order which
 /// requires quite some re-arrangements in the code and in the
-/// way loader is curretly implemented.
+/// way loader is currently implemented.
 struct FileReaderState {
     level: u16,
 }
@@ -372,7 +372,7 @@ mod tests {
         };
         let authority = FileAuthority::try_from_config(
             Name::from_str("example.com.").unwrap(),
-            ZoneType::Master,
+            ZoneType::Primary,
             false,
             None,
             &config,

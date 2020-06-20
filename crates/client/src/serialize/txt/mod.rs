@@ -16,11 +16,11 @@
 
 //! Text serialization types
 
-mod master;
-mod master_lex;
 mod parse_rdata;
 mod rdata_parsers;
+mod zone;
+mod zone_lex;
 
-pub use self::master::Parser;
-pub use self::master_lex::Lexer;
-pub use self::master_lex::Token;
+pub use self::zone::Parser;
+pub use self::zone_lex::Lexer;
+pub use self::zone_lex::Token;

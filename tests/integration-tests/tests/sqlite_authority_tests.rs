@@ -940,7 +940,7 @@ fn test_journal() {
 
     // that record should have been recorded... let's reload the journal and see if we get it.
     let in_memory =
-        InMemoryAuthority::empty(authority.origin().clone().into(), ZoneType::Master, false);
+        InMemoryAuthority::empty(authority.origin().clone().into(), ZoneType::Primary, false);
 
     let mut recovered_authority = SqliteAuthority::new(in_memory, false, false);
     recovered_authority
@@ -984,7 +984,7 @@ fn test_recovery() {
 
     let journal = authority.journal().unwrap();
     let in_memory =
-        InMemoryAuthority::empty(authority.origin().clone().into(), ZoneType::Master, false);
+        InMemoryAuthority::empty(authority.origin().clone().into(), ZoneType::Primary, false);
 
     let mut recovered_authority = SqliteAuthority::new(in_memory, false, false);
 

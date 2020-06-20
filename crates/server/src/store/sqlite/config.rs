@@ -5,10 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-/// Configuration for master file for sqlite based zones
+/// Configuration for zone file for sqlite based zones
 #[derive(Deserialize, PartialEq, Debug)]
 pub struct SqliteConfig {
-    /// path to initial master zone file
+    /// path to initial zone file
     pub zone_file_path: String,
     /// path to the sqlite journal file
     pub journal_file_path: String,
