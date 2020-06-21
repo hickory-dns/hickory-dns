@@ -31,7 +31,7 @@ use crate::serialize::binary::*;
 
 #[cfg(feature = "mdns")]
 /// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
-/// ```
+/// ```text
 /// The cache-flush bit is the most significant bit of the second
 /// 16-bit word of a resource record in a Resource Record Section of a
 /// Multicast DNS message (the field conventionally referred to as the

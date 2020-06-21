@@ -85,28 +85,6 @@ impl DNSClass {
         let value = value.max(512);
         DNSClass::OPT(value)
     }
-
-    // #[cfg(feature = "mdns")]
-    // /// Return the value with cache flush bit removed
-    // pub fn mdns_without_cache_flush_bit(&self) -> Option<DNSClass> {
-    //     if let Self::MdnsCacheFlush(value) = *self {
-    //         let rr_class = Self::from_u16(value & !MDNS_ENABLE_CACHE_FLUSH).ok()?;
-    //         Some(rr_class)
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    // #[cfg(feature = "mdns")]
-    // /// Return the value with cache flush bit set
-    // pub fn mdns_with_cache_flush_bit(&self) -> DNSClass {
-    //     if let Self::MdnsCacheFlush(value) = *self {
-    //         Self::MdnsCacheFlush(value)
-    //     } else {
-    //         let value = u16::from(*self);
-    //         Self::MdnsCacheFlush(value | MDNS_ENABLE_CACHE_FLUSH)
-    //     }
-    // }
 }
 
 impl BinEncodable for DNSClass {
