@@ -221,12 +221,21 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
                     .map(|u| u as usize)
                     .verify_unwrap(|u| *u <= rdata_length)
                     .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
-                state = OptReadState::Data {
-                    code,
-                    length,
-                    // TODO: this can be replaced with decoder.read_vec(), right?
-                    //  the current version allows for malformed opt to be skipped...
-                    collected: Vec::<u8>::with_capacity(length),
+                // If we know that the length is 0, we can avoid the `OptReadState::Data` state
+                // and directly add the option to the map.
+                // The data state does not process 0-length correctly, since it always reads at
+                // least 1 byte, thus making the length check fail.
+                state = if length == 0 {
+                    options.insert(code, (code, &[] as &[u8]).into());
+                    OptReadState::ReadCode
+                } else {
+                    OptReadState::Data {
+                        code,
+                        length,
+                        // TODO: this cean be replaced with decoder.read_vec(), right?
+                        //  the current version allows for malformed opt to be skipped...
+                        collected: Vec::<u8>::with_capacity(length),
+                    }
                 };
             }
             OptReadState::Data {
@@ -501,4 +510,30 @@ mod tests {
         let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
+}
+
+#[test]
+pub fn test_read_empty_option_at_end_of_opt() {
+    let bytes: Vec<u8> = vec![
+        0x00, 0x0a, 0x00, 0x08, 0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f, 0x00, 0x08, 0x00,
+        0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00,
+    ];
+
+    let mut decoder: BinDecoder = BinDecoder::new(&*bytes);
+    let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
+
+    let opt = read_rdata.unwrap();
+    let mut options = HashMap::default();
+    options.insert(EdnsCode::Subnet, EdnsOption::Unknown(8, vec![0, 1, 0, 0]));
+    options.insert(
+        EdnsCode::Cookie,
+        EdnsOption::Unknown(10, vec![0x0b, 0x64, 0xb4, 0xdc, 0xd7, 0xb0, 0xcc, 0x8f]),
+    );
+    options.insert(EdnsCode::Keepalive, EdnsOption::Unknown(11, vec![]));
+    let options = OPT::new(options);
+    assert_eq!(opt, options);
 }
