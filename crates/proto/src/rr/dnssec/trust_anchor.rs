@@ -74,6 +74,11 @@ impl TrustAnchor {
     pub fn len(&self) -> usize {
         self.pkeys.len()
     }
+
+    /// returns true if there are no keys in the trust_anchor
+    pub fn is_empty(&self) -> bool {
+        self.pkeys.is_empty()
+    }
 }
 
 #[test]

@@ -575,7 +575,7 @@ pub mod testing {
     ) where
         <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
     {
-        env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             ResolverConfig::default(),
@@ -1178,7 +1178,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // these appear to not work on CI
     fn test_sec_lookup() {
         use super::testing::sec_lookup_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
@@ -1187,7 +1186,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // these appear to not work on CI
     fn test_sec_lookup_fails() {
         use super::testing::sec_lookup_fails_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
