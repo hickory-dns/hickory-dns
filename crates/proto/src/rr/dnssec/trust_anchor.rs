@@ -69,6 +69,11 @@ impl TrustAnchor {
     pub fn get(&self, idx: usize) -> &[u8] {
         &self.pkeys[idx]
     }
+
+    /// number of keys in trust_anchor
+    pub fn len(&self) -> usize {
+        self.pkeys.len()
+    }
 }
 
 #[test]

@@ -16,6 +16,8 @@
 
 //! public key record data for signing zone records
 
+use std::fmt::{self, Display, Formatter};
+
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, Digest, DigestType};
 use crate::rr::record_data::RData;
@@ -319,6 +321,19 @@ impl DNSKEY {
 impl From<DNSKEY> for RData {
     fn from(key: DNSKEY) -> RData {
         RData::DNSSEC(super::DNSSECRData::DNSKEY(key))
+    }
+}
+
+impl Display for DNSKEY {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        // this should never really fail
+        let tag = self.calculate_key_tag().unwrap_or(0);
+
+        write!(
+            f,
+            "DNSKEY(alg:{} tag:{} zk:{} scp:{})",
+            self.algorithm, tag, self.zone_key, self.secure_entry_point
+        )
     }
 }
 

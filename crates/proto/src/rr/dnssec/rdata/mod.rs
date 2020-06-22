@@ -30,7 +30,7 @@ pub mod sig;
 use std::str::FromStr;
 
 use enum_as_inner::EnumAsInner;
-use log::debug;
+use log::trace;
 
 use crate::error::*;
 use crate::rr::rdata::null;
@@ -486,39 +486,39 @@ impl DNSSECRData {
     ) -> ProtoResult<Self> {
         match record_type {
             DNSSECRecordType::DNSKEY => {
-                debug!("reading DNSKEY");
+                trace!("reading DNSKEY");
                 dnskey::read(decoder, rdata_length).map(DNSSECRData::DNSKEY)
             }
             DNSSECRecordType::DS => {
-                debug!("reading DS");
+                trace!("reading DS");
                 ds::read(decoder, rdata_length).map(DNSSECRData::DS)
             }
             DNSSECRecordType::KEY => {
-                debug!("reading KEY");
+                trace!("reading KEY");
                 key::read(decoder, rdata_length).map(DNSSECRData::KEY)
             }
             DNSSECRecordType::NSEC => {
-                debug!("reading NSEC");
+                trace!("reading NSEC");
                 nsec::read(decoder, rdata_length).map(DNSSECRData::NSEC)
             }
             DNSSECRecordType::NSEC3 => {
-                debug!("reading NSEC3");
+                trace!("reading NSEC3");
                 nsec3::read(decoder, rdata_length).map(DNSSECRData::NSEC3)
             }
             DNSSECRecordType::NSEC3PARAM => {
-                debug!("reading NSEC3PARAM");
+                trace!("reading NSEC3PARAM");
                 nsec3param::read(decoder).map(DNSSECRData::NSEC3PARAM)
             }
             DNSSECRecordType::RRSIG => {
-                debug!("reading RRSIG");
+                trace!("reading RRSIG");
                 sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
             }
             DNSSECRecordType::SIG => {
-                debug!("reading SIG");
+                trace!("reading SIG");
                 sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
             }
             DNSSECRecordType::Unknown(code) => {
-                debug!("reading unknown dnssec: {}", code);
+                trace!("reading unknown dnssec: {}", code);
                 null::read(decoder, rdata_length).map(|rdata| DNSSECRData::Unknown { code, rdata })
             }
         }
