@@ -16,6 +16,8 @@
 
 //! pointer record from parent zone to child zone for dnskey proof
 
+use std::fmt::{self, Display, Formatter};
+
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, DigestType};
 use crate::serialize::binary::*;
@@ -181,6 +183,12 @@ impl DS {
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn covers(&self, _: &Name, _: &DNSKEY) -> ProtoResult<bool> {
         Err("Ring or OpenSSL must be enabled for this feature".into())
+    }
+}
+
+impl Display for DS {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(f, "DS(tag:{} alg:{})", self.key_tag, self.algorithm)
     }
 }
 

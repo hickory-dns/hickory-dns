@@ -22,7 +22,7 @@ use std::convert::From;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use enum_as_inner::EnumAsInner;
-use log::{debug, warn};
+use log::{trace, warn};
 
 use super::domain::Name;
 use super::rdata;
@@ -619,78 +619,78 @@ impl RData {
 
         let result = match record_type {
             RecordType::A => {
-                debug!("reading A");
+                trace!("reading A");
                 rdata::a::read(decoder).map(RData::A)
             }
             RecordType::AAAA => {
-                debug!("reading AAAA");
+                trace!("reading AAAA");
                 rdata::aaaa::read(decoder).map(RData::AAAA)
             }
             RecordType::ANAME => {
-                debug!("reading ANAME");
+                trace!("reading ANAME");
                 rdata::name::read(decoder).map(RData::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
             }
             RecordType::CAA => {
-                debug!("reading CAA");
+                trace!("reading CAA");
                 rdata::caa::read(decoder, rdata_length).map(RData::CAA)
             }
             RecordType::CNAME => {
-                debug!("reading CNAME");
+                trace!("reading CNAME");
                 rdata::name::read(decoder).map(RData::CNAME)
             }
             RecordType::ZERO => {
-                debug!("reading EMPTY");
+                trace!("reading EMPTY");
                 return Ok(RData::ZERO);
             }
             RecordType::MX => {
-                debug!("reading MX");
+                trace!("reading MX");
                 rdata::mx::read(decoder).map(RData::MX)
             }
             RecordType::NAPTR => {
-                debug!("reading NAPTR");
+                trace!("reading NAPTR");
                 rdata::naptr::read(decoder).map(RData::NAPTR)
             }
             RecordType::NULL => {
-                debug!("reading NULL");
+                trace!("reading NULL");
                 rdata::null::read(decoder, rdata_length).map(RData::NULL)
             }
             RecordType::NS => {
-                debug!("reading NS");
+                trace!("reading NS");
                 rdata::name::read(decoder).map(RData::NS)
             }
             RecordType::OPENPGPKEY => {
-                debug!("reading OPENPGPKEY");
+                trace!("reading OPENPGPKEY");
                 rdata::openpgpkey::read(decoder, rdata_length).map(RData::OPENPGPKEY)
             }
             RecordType::OPT => {
-                debug!("reading OPT");
+                trace!("reading OPT");
                 rdata::opt::read(decoder, rdata_length).map(RData::OPT)
             }
             RecordType::PTR => {
-                debug!("reading PTR");
+                trace!("reading PTR");
                 rdata::name::read(decoder).map(RData::PTR)
             }
             RecordType::SOA => {
-                debug!("reading SOA");
+                trace!("reading SOA");
                 rdata::soa::read(decoder).map(RData::SOA)
             }
             RecordType::SRV => {
-                debug!("reading SRV");
+                trace!("reading SRV");
                 rdata::srv::read(decoder).map(RData::SRV)
             }
             RecordType::SSHFP => {
-                debug!("reading SSHFP");
+                trace!("reading SSHFP");
                 rdata::sshfp::read(decoder, rdata_length).map(RData::SSHFP)
             }
             RecordType::TLSA => {
-                debug!("reading TLSA");
+                trace!("reading TLSA");
                 rdata::tlsa::read(decoder, rdata_length).map(RData::TLSA)
             }
             RecordType::TXT => {
-                debug!("reading TXT");
+                trace!("reading TXT");
                 rdata::txt::read(decoder, rdata_length).map(RData::TXT)
             }
             #[cfg(feature = "dnssec")]
@@ -698,7 +698,7 @@ impl RData {
                 DNSSECRData::read(decoder, record_type, rdata_length).map(RData::DNSSEC)
             }
             RecordType::Unknown(code) => {
-                debug!("reading Unknown");
+                trace!("reading Unknown");
                 rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown { code, rdata })
             }
         };

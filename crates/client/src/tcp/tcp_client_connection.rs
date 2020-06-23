@@ -11,14 +11,14 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::proto::iocompat::AsyncIo02As03;
-use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
-use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
-use crate::proto::TokioTime;
 use tokio::net::TcpStream;
 
 use crate::client::ClientConnection;
 use crate::error::*;
+use crate::proto::iocompat::AsyncIo02As03;
+use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
+use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
 
 /// Tcp client connection

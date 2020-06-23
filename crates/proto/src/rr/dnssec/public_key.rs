@@ -391,9 +391,9 @@ impl<'k> PublicKey for Rsa<'k> {
     #[cfg(feature = "ring")]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let alg = match algorithm {
-            Algorithm::RSASHA256 => &signature::RSA_PKCS1_2048_8192_SHA256,
-            Algorithm::RSASHA512 => &signature::RSA_PKCS1_2048_8192_SHA512,
-            Algorithm::RSASHA1 => &signature::RSA_PKCS1_2048_8192_SHA1_FOR_LEGACY_USE_ONLY,
+            Algorithm::RSASHA256 => &signature::RSA_PKCS1_1024_8192_SHA256_FOR_LEGACY_USE_ONLY,
+            Algorithm::RSASHA512 => &signature::RSA_PKCS1_1024_8192_SHA512_FOR_LEGACY_USE_ONLY,
+            Algorithm::RSASHA1 => &signature::RSA_PKCS1_1024_8192_SHA1_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into())
             }

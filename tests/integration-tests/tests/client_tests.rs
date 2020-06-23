@@ -132,10 +132,11 @@ where
 }
 
 #[test]
-#[ignore]
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example_udp() {
+    // env_logger::init();
+
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();
@@ -144,10 +145,11 @@ fn test_secure_query_example_udp() {
 }
 
 #[test]
-#[ignore]
 #[allow(deprecated)]
 #[cfg(feature = "dnssec")]
 fn test_secure_query_example_tcp() {
+    // env_logger::init();
+
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
     let client = SyncDnssecClient::new(conn).build();

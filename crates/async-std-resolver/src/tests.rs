@@ -72,7 +72,7 @@ fn test_ip_lookup_across_threads() {
 }
 
 #[test]
-#[ignore] // these appear to not work on CI
+#[cfg(feature = "dnssec")]
 fn test_sec_lookup() {
     use testing::sec_lookup_test;
     let io_loop = AsyncStdRuntime::new();
@@ -81,7 +81,7 @@ fn test_sec_lookup() {
 }
 
 #[test]
-#[ignore] // these appear to not work on CI
+#[cfg(feature = "dnssec")]
 fn test_sec_lookup_fails() {
     use testing::sec_lookup_fails_test;
     let io_loop = AsyncStdRuntime::new();
