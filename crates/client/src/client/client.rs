@@ -454,6 +454,7 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
 pub struct SyncDnssecClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
+    trust_anchor: Option<TrustAnchor>,
 }
 
 #[cfg(feature = "dnssec")]
@@ -482,9 +483,14 @@ impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
     #[allow(clippy::type_complexity)]
     fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
+        let mut builder = AsyncDnssecClient::builder(stream);
+        if let Some(trust_anchor) = &self.trust_anchor {
+            builder = builder.trust_anchor(trust_anchor.clone());
+        }
+        let connect = builder.build();
 
         let connect = async move {
-            let (client, bg) = AsyncDnssecClient::connect(stream).await?;
+            let (client, bg) = connect.await?;
 
             let bg = Box::new(bg) as _;
             Ok((client, bg))
@@ -497,8 +503,8 @@ impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
 #[cfg(feature = "dnssec")]
 pub struct SecureSyncClientBuilder<CC: ClientConnection> {
     conn: CC,
-    trust_anchor: Option<TrustAnchor>,
     signer: Option<Arc<Signer>>,
+    trust_anchor: Option<TrustAnchor>,
 }
 
 #[cfg(feature = "dnssec")]
@@ -530,6 +536,7 @@ impl<CC: ClientConnection> SecureSyncClientBuilder<CC> {
         SyncDnssecClient {
             conn: self.conn,
             signer: self.signer,
+            trust_anchor: self.trust_anchor,
         }
     }
 }
