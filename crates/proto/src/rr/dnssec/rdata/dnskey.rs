@@ -328,11 +328,12 @@ impl Display for DNSKEY {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         // this should never really fail
         let tag = self.calculate_key_tag().unwrap_or(0);
+        let len: usize = self.public_key.iter().map(|_: &u8| 8).sum();
 
         write!(
             f,
-            "DNSKEY(alg:{} tag:{} zk:{} scp:{})",
-            self.algorithm, tag, self.zone_key, self.secure_entry_point
+            "DNSKEY(alg:{} tag:{} len:{} zk:{} scp:{})",
+            self.algorithm, tag, len, self.zone_key, self.secure_entry_point
         )
     }
 }
