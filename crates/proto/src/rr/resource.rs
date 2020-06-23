@@ -29,6 +29,17 @@ use crate::rr::RecordSet;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
 
+#[cfg(feature = "mdns")]
+/// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+/// ```text
+/// The cache-flush bit is the most significant bit of the second
+/// 16-bit word of a resource record in a Resource Record Section of a
+/// Multicast DNS message (the field conventionally referred to as the
+/// rrclass field), and the actual resource record class is the least
+/// significant fifteen bits of this field.
+/// ```
+const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
+
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
 /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
@@ -69,6 +80,8 @@ pub struct Record {
     dns_class: DNSClass,
     ttl: u32,
     rdata: RData,
+    #[cfg(feature = "mdns")]
+    mdns_cache_flush: bool,
 }
 
 impl Default for Record {
@@ -80,6 +93,8 @@ impl Default for Record {
             dns_class: DNSClass::IN,
             ttl: 0,
             rdata: RData::NULL(NULL::new()),
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush: false,
         }
     }
 }
@@ -107,6 +122,8 @@ impl Record {
             dns_class: DNSClass::IN,
             ttl,
             rdata: RData::NULL(NULL::new()),
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush: false,
         }
     }
 
@@ -124,6 +141,8 @@ impl Record {
             dns_class: DNSClass::IN,
             ttl,
             rdata,
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush: false,
         }
     }
 
@@ -189,6 +208,14 @@ impl Record {
         self
     }
 
+    #[cfg(feature = "mdns")]
+    /// Changes mDNS cache-flush bit
+    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+    pub fn set_mdns_cache_flush(&mut self, flag: bool) -> &mut Self {
+        self.mdns_cache_flush = flag;
+        self
+    }
+
     /// Returns the name of the record
     pub fn name(&self) -> &Name {
         &self.name_labels
@@ -220,6 +247,13 @@ impl Record {
         &self.rdata
     }
 
+    #[cfg(feature = "mdns")]
+    /// Returns if the mDNS cache-flush bit is set or not
+    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+    pub fn mdns_cache_flush(&self) -> bool {
+        self.mdns_cache_flush
+    }
+
     /// Returns a mutable reference to the Record Data
     pub fn rdata_mut(&mut self) -> &mut RData {
         &mut self.rdata
@@ -242,7 +276,18 @@ impl BinEncodable for Record {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         self.name_labels.emit(encoder)?;
         self.rr_type.emit(encoder)?;
+
+        #[cfg(not(feature = "mdns"))]
         self.dns_class.emit(encoder)?;
+
+        #[cfg(feature = "mdns")]
+        {
+            if self.mdns_cache_flush {
+                encoder.emit_u16(u16::from(self.dns_class()) | MDNS_ENABLE_CACHE_FLUSH)?;
+            } else {
+                self.dns_class.emit(encoder)?;
+            }
+        }
 
         encoder.emit_u32(self.ttl)?;
 
@@ -273,6 +318,9 @@ impl<'r> BinDecodable<'r> for Record {
         // TYPE            two octets containing one of the RR TYPE codes.
         let record_type: RecordType = RecordType::read(decoder)?;
 
+        #[cfg(feature = "mdns")]
+        let mut mdns_cache_flush = false;
+
         // CLASS           two octets containing one of the RR CLASS codes.
         let class: DNSClass = if record_type == RecordType::OPT {
             // verify that the OPT record is Root
@@ -285,7 +333,22 @@ impl<'r> BinDecodable<'r> for Record {
                 decoder.read_u16()?.unverified(/*restricted to a min of 512 in for_opt*/),
             )
         } else {
-            DNSClass::read(decoder)?
+            #[cfg(not(feature = "mdns"))]
+            {
+                DNSClass::read(decoder)?
+            }
+
+            #[cfg(feature = "mdns")]
+            {
+                let dns_class_value =
+                    decoder.read_u16()?.unverified(/*DNSClass::from_u16 will verify the value*/);
+                if dns_class_value & MDNS_ENABLE_CACHE_FLUSH > 0 {
+                    mdns_cache_flush = true;
+                    DNSClass::from_u16(dns_class_value & !MDNS_ENABLE_CACHE_FLUSH)?
+                } else {
+                    DNSClass::from_u16(dns_class_value)?
+                }
+            }
         };
 
         // TTL             a 32 bit signed integer that specifies the time interval
@@ -327,6 +390,8 @@ impl<'r> BinDecodable<'r> for Record {
             dns_class: class,
             ttl,
             rdata,
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush,
         })
     }
 }
@@ -484,5 +549,31 @@ mod tests {
             println!("r, g: {:?}, {:?}", r, g);
             assert_eq!(r.cmp(g), Ordering::Less);
         }
+    }
+
+    #[cfg(feature = "mdns")]
+    #[test]
+    fn test_mdns_cache_flush_bit_handling() {
+        const RR_CLASS_OFFSET: usize = 1 /* empty name */ +
+            std::mem::size_of::<u16>() /* rr_type */;
+
+        let mut record = Record::new();
+        record.set_mdns_cache_flush(true);
+
+        let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut vec_bytes);
+            record.emit(&mut encoder).unwrap();
+
+            let rr_class_slice = encoder.slice_of(RR_CLASS_OFFSET, RR_CLASS_OFFSET + 2);
+            assert_eq!(rr_class_slice, &[0x80, 0x01]);
+        }
+
+        let mut decoder = BinDecoder::new(&vec_bytes);
+
+        let got = Record::read(&mut decoder).unwrap();
+
+        assert_eq!(got.dns_class(), DNSClass::IN);
+        assert!(got.mdns_cache_flush());
     }
 }
