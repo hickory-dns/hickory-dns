@@ -569,6 +569,7 @@ pub mod testing {
     }
 
     /// Test IP lookup from URLs with DNSSec validation.
+    #[cfg(feature = "dnssec")]
     pub fn sec_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -609,6 +610,7 @@ pub mod testing {
 
     /// Test IP lookup from domains that exist but unsigned with DNSSec validation.
     #[allow(deprecated)]
+    #[cfg(feature = "dnssec")]
     pub fn sec_lookup_fails_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
@@ -1178,6 +1180,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dnssec")]
     fn test_sec_lookup() {
         use super::testing::sec_lookup_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
@@ -1186,6 +1189,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dnssec")]
     fn test_sec_lookup_fails() {
         use super::testing::sec_lookup_fails_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
