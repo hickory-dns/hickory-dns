@@ -65,7 +65,7 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.48"
+backtrace = "0.3.49"
 cfg-if = "0.1.9"
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 lazy_static = "1.0"
