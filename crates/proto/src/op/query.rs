@@ -25,6 +25,15 @@ use crate::rr::domain::Name;
 use crate::rr::record_type::RecordType;
 use crate::serialize::binary::*;
 
+#[cfg(feature = "mdns")]
+/// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
+/// ```text
+// To avoid large floods of potentially unnecessary responses in these
+// cases, Multicast DNS defines the top bit in the class field of a DNS
+// question as the unicast-response bit.
+/// ```
+const MDNS_UNICAST_RESPONSE: u16 = 1 << 15;
+
 /// Query struct for looking up resource records, basically a resource record without RDATA.
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -54,6 +63,8 @@ pub struct Query {
     name: Name,
     query_type: RecordType,
     query_class: DNSClass,
+    #[cfg(feature = "mdns")]
+    mdns_unicast_response: bool,
 }
 
 impl Default for Query {
@@ -63,6 +74,8 @@ impl Default for Query {
             name: Name::new(),
             query_type: RecordType::A,
             query_class: DNSClass::IN,
+            #[cfg(feature = "mdns")]
+            mdns_unicast_response: false,
         }
     }
 }
@@ -79,6 +92,8 @@ impl Query {
             name,
             query_type,
             query_class: DNSClass::IN,
+            #[cfg(feature = "mdns")]
+            mdns_unicast_response: false,
         }
     }
 
@@ -97,6 +112,14 @@ impl Query {
     /// Specify÷ the DNS class of the Query, almost always IN
     pub fn set_query_class(&mut self, query_class: DNSClass) -> &mut Self {
         self.query_class = query_class;
+        self
+    }
+
+    #[cfg(feature = "mdns")]
+    /// Changes mDNS unicast-response bit
+    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
+    pub fn set_mdns_unicast_response(&mut self, flag: bool) -> &mut Self {
+        self.mdns_unicast_response = flag;
         self
     }
 
@@ -129,13 +152,31 @@ impl Query {
     pub fn query_class(&self) -> DNSClass {
         self.query_class
     }
+
+    #[cfg(feature = "mdns")]
+    /// Returns if the mDNS unicast-response bit is set or not
+    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
+    pub fn mdns_unicast_response(&self) -> bool {
+        self.mdns_unicast_response
+    }
 }
 
 impl BinEncodable for Query {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         self.name.emit(encoder)?;
         self.query_type.emit(encoder)?;
+
+        #[cfg(not(feature = "mdns"))]
         self.query_class.emit(encoder)?;
+
+        #[cfg(feature = "mdns")]
+        {
+            if self.mdns_unicast_response {
+                encoder.emit_u16(u16::from(self.query_class()) | MDNS_UNICAST_RESPONSE)?;
+            } else {
+                self.query_class.emit(encoder)?;
+            }
+        }
 
         Ok(())
     }
@@ -145,23 +186,54 @@ impl<'r> BinDecodable<'r> for Query {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let name = Name::read(decoder)?;
         let query_type = RecordType::read(decoder)?;
+
+        #[cfg(feature = "mdns")]
+        let mut mdns_unicast_response = false;
+
+        #[cfg(not(feature = "mdns"))]
         let query_class = DNSClass::read(decoder)?;
+
+        #[cfg(feature = "mdns")]
+        let query_class = {
+            let query_class_value =
+                decoder.read_u16()?.unverified(/*DNSClass::from_u16 will verify the value*/);
+            if query_class_value & MDNS_UNICAST_RESPONSE > 0 {
+                mdns_unicast_response = true;
+                DNSClass::from_u16(query_class_value & !MDNS_UNICAST_RESPONSE)?
+            } else {
+                DNSClass::from_u16(query_class_value)?
+            }
+        };
 
         Ok(Query {
             name,
             query_type,
             query_class,
+            #[cfg(feature = "mdns")]
+            mdns_unicast_response,
         })
     }
 }
 
 impl Display for Query {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(
-            f,
-            "name: {} type: {} class: {}",
-            self.name, self.query_type, self.query_class
-        )
+        #[cfg(not(feature = "mdns"))]
+        {
+            write!(
+                f,
+                "name: {} type: {} class: {}",
+                self.name, self.query_type, self.query_class
+            )
+        }
+
+        #[cfg(feature = "mdns")]
+        {
+            write!(
+                f,
+                "name: {} type: {} class: {} mdns_unicast_response: {}",
+                self.name, self.query_type, self.query_class, self.mdns_unicast_response
+            )
+        }
     }
 }
 
@@ -171,6 +243,7 @@ fn test_read_and_emit() {
         name: Name::from_ascii("WWW.example.com").unwrap(),
         query_type: RecordType::AAAA,
         query_class: DNSClass::IN,
+        ..Query::default()
     };
 
     let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
@@ -182,4 +255,30 @@ fn test_read_and_emit() {
     let mut decoder = BinDecoder::new(&byte_vec);
     let got = Query::read(&mut decoder).unwrap();
     assert_eq!(got, expect);
+}
+
+#[cfg(feature = "mdns")]
+#[test]
+fn test_mdns_unicast_response_bit_handling() {
+    const QCLASS_OFFSET: usize = 1 /* empty name */ +
+        std::mem::size_of::<u16>() /* query_type */;
+
+    let mut query = Query::new();
+    query.set_mdns_unicast_response(true);
+
+    let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
+    {
+        let mut encoder = BinEncoder::new(&mut vec_bytes);
+        query.emit(&mut encoder).unwrap();
+
+        let query_class_slice = encoder.slice_of(QCLASS_OFFSET, QCLASS_OFFSET + 2);
+        assert_eq!(query_class_slice, &[0x80, 0x01]);
+    }
+
+    let mut decoder = BinDecoder::new(&vec_bytes);
+
+    let got = Query::read(&mut decoder).unwrap();
+
+    assert_eq!(got.query_class(), DNSClass::IN);
+    assert!(got.mdns_unicast_response());
 }
