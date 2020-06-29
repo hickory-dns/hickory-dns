@@ -127,7 +127,7 @@ where
         println!("test {}: {:?}", test_pass, binary);
 
         let decoder = BinDecoder::new(&binary);
-        assert_eq!(read_func(decoder).unwrap(), expect);
+        assert_eq!(read_func(decoder).expect("read failed"), expect);
     }
 }
 
@@ -142,7 +142,7 @@ where
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
             let mut encoder = BinEncoder::new(&mut bytes);
-            emit_func(&mut encoder, data).unwrap();
+            emit_func(&mut encoder, data).expect("emit failed");
         }
         assert_eq!(bytes, expect);
     }

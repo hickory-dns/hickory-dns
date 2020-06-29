@@ -27,6 +27,114 @@ use crate::error::*;
 const WILDCARD: &[u8] = b"*";
 const IDNA_PREFIX: &[u8] = b"xn--";
 
+pub trait DnsLabel {
+    fn as_bytes(&self) -> &[u8];
+    fn as_mut(&mut self) -> &mut [u8];
+
+    fn to_lowercase(&mut self) {
+        let bytes = self.as_mut();
+        bytes.make_ascii_lowercase();
+    }
+
+    /// Returns true if this label is the wildcard, '*', label
+    fn is_wildcard(&self) -> bool {
+        self.as_bytes() == WILDCARD
+    }
+
+    /// compares with the other label, ignoring case
+    fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
+        let s = self.as_bytes().iter();
+        let o = other.as_bytes().iter();
+
+        for (s, o) in s.zip(o) {
+            match F::cmp_u8(*s, *o) {
+                Ordering::Equal => continue,
+                not_eq => return not_eq,
+            }
+        }
+
+        self.as_bytes().len().cmp(&other.as_bytes().len())
+    }
+
+    /// Writes this label to safe ascii, escaping characters as necessary
+    fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
+        // We can't guarantee that the same input will always translate to the same output
+        fn escape_non_ascii<W: Write>(
+            byte: u8,
+            f: &mut W,
+            is_first: bool,
+        ) -> Result<(), fmt::Error> {
+            let to_triple_escape = |ch: u8| format!("\\{:03o}", ch);
+            let to_single_escape = |ch: char| format!("\\{}", ch);
+
+            match char::from(byte) {
+                c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
+                // it's not a control and is printable as well as inside the standard ascii range
+                c if byte > b'\x20' && byte < b'\x7f' => f.write_str(&to_single_escape(c))?,
+                _ => f.write_str(&to_triple_escape(byte))?,
+            }
+
+            Ok(())
+        }
+
+        // traditional ascii case...
+        let mut chars = self.as_bytes().iter();
+        if let Some(ch) = chars.next() {
+            escape_non_ascii(*ch, f, true)?;
+        }
+
+        for ch in chars {
+            escape_non_ascii(*ch, f, false)?;
+        }
+
+        Ok(())
+    }
+
+    fn write_utf8<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
+        if self.as_bytes().starts_with(IDNA_PREFIX) {
+            // this should never be outside the ascii codes...
+            let label = String::from_utf8_lossy(self.as_bytes());
+            let (label, e) = idna::Config::default()
+                .use_std3_ascii_rules(false)
+                .transitional_processing(false)
+                .verify_dns_length(false)
+                .to_unicode(&label);
+
+            if e.is_ok() {
+                return f.write_str(&label);
+            } else {
+                debug!(
+                    "xn-- prefixed string did not translate via IDNA properly: {:?}",
+                    e
+                )
+            }
+        }
+
+        // it wasn't known to be utf8
+        self.write_ascii(f)
+    }
+}
+
+impl DnsLabel for [u8] {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+
+    fn as_mut(&mut self) -> &mut [u8] {
+        self
+    }
+}
+
+impl DnsLabel for Vec<u8> {
+    fn as_bytes(&self) -> &[u8] {
+        self
+    }
+
+    fn as_mut(&mut self) -> &mut [u8] {
+        self
+    }
+}
+
 /// Labels are always stored as ASCII, unicode characters must be encoded with punycode
 #[derive(Clone, Eq)]
 pub struct Label(Rc<[u8]>);
