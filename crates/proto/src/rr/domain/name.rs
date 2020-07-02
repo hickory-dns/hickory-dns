@@ -251,6 +251,25 @@ impl Name {
         this
     }
 
+    /// Makes this name lowercased, in place
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::cmp::Ordering;
+    /// use std::str::FromStr;
+    ///
+    /// use trust_dns_proto::rr::domain::{Label, Name};
+    ///
+    /// let mut example_com = Name::from_ascii("Example.Com").unwrap();
+    /// assert_eq!(example_com.cmp_case(&Name::from_str("example.com").unwrap()), Ordering::Less);
+    /// example_com.make_lowercase();
+    /// assert!(example_com.eq_case(&Name::from_str("example.com").unwrap()));
+    /// ```
+    pub fn make_lowercase(&mut self) {
+        self.name.as_mut_slice().make_ascii_lowercase();
+    }
+
     /// Creates a new Name with all labels lowercased
     ///
     /// # Examples
@@ -267,11 +286,8 @@ impl Name {
     /// ```
     // FIXME: make this take mut...
     pub fn to_lowercase(&self) -> Self {
-        let mut name = Name::default();
-        for mut label in self.iter().map(ToOwned::to_owned) {
-            label.to_lowercase();
-            name.push_label(&label);
-        }
+        let mut name = self.clone();
+        name.make_lowercase();
 
         name
     }

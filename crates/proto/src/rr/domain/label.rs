@@ -31,6 +31,11 @@ pub trait DnsLabel {
     fn as_bytes(&self) -> &[u8];
     fn as_mut(&mut self) -> &mut [u8];
 
+    fn is_lowercase(&self) -> bool {
+        let bytes = self.as_bytes();
+        bytes.iter().all(|c| c.is_ascii_lowercase())
+    }
+
     fn to_lowercase(&mut self) {
         let bytes = self.as_mut();
         bytes.make_ascii_lowercase();
