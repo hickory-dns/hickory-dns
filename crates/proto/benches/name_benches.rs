@@ -100,60 +100,60 @@ fn name_cmp_long_case(b: &mut Bencher) {
 
 #[bench]
 fn name_to_lower_short(b: &mut Bencher) {
-    let name1 = Name::from_ascii("COM").unwrap();
+    let mut name1 = Name::from_ascii("COM").unwrap();
 
     b.iter(|| {
-        let lower = name1.to_lowercase();
-        assert_eq!(lower.num_labels(), 1);
+        name1.make_lowercase();
+        assert_eq!(name1.num_labels(), 1);
     });
 }
 
 #[bench]
 fn name_to_lower_medium(b: &mut Bencher) {
-    let name1 = Name::from_ascii("example.COM").unwrap();
+    let mut name1 = Name::from_ascii("example.COM").unwrap();
 
     b.iter(|| {
-        let lower = name1.to_lowercase();
-        assert_eq!(lower.num_labels(), 2);
+        name1.make_lowercase();
+        assert_eq!(name1.num_labels(), 2);
     });
 }
 
 #[bench]
 fn name_to_lower_long(b: &mut Bencher) {
-    let name1 = Name::from_ascii("www.EXAMPLE.com").unwrap();
+    let mut name1 = Name::from_ascii("www.EXAMPLE.com").unwrap();
 
     b.iter(|| {
-        let lower = name1.to_lowercase();
-        assert_eq!(lower.num_labels(), 3);
+        name1.make_lowercase();
+        assert_eq!(name1.num_labels(), 3);
     });
 }
 
 #[bench]
 fn name_no_lower_short(b: &mut Bencher) {
-    let name1 = Name::from_ascii("com").unwrap();
+    let mut name1 = Name::from_ascii("com").unwrap();
 
     b.iter(|| {
-        let lower = name1.to_lowercase();
-        assert_eq!(lower.num_labels(), 1);
+        let lower = name1.make_lowercase();
+        assert_eq!(name1.num_labels(), 1);
     });
 }
 
 #[bench]
 fn name_no_lower_medium(b: &mut Bencher) {
-    let name1 = Name::from_ascii("example.com").unwrap();
+    let mut name1 = Name::from_ascii("example.com").unwrap();
 
     b.iter(|| {
-        let lower = name1.to_lowercase();
-        assert_eq!(lower.num_labels(), 2);
+        let lower = name1.make_lowercase();
+        assert_eq!(name1.num_labels(), 2);
     });
 }
 
 #[bench]
 fn name_no_lower_long(b: &mut Bencher) {
-    let name1 = Name::from_ascii("www.example.com").unwrap();
+    let mut name1 = Name::from_ascii("www.example.com").unwrap();
 
     b.iter(|| {
-        let lower = name1.to_lowercase();
-        assert_eq!(lower.num_labels(), 3);
+        let lower = name1.make_lowercase();
+        assert_eq!(name1.num_labels(), 3);
     });
 }

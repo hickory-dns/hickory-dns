@@ -42,6 +42,15 @@ impl Name {
         Default::default()
     }
 
+    /// Same as default, but with capacity reserved of len
+    pub fn with_capacity(size: usize) -> Self {
+        Name {
+            is_fqdn: false,
+            name: Vec::with_capacity(size),
+            label_offsets: Default::default(),
+        }
+    }
+
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
         let mut this = Self::new();
@@ -149,7 +158,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::{DnsLabel, Name};
     ///
     /// // From strings, uses utf8 conversion
     /// let from_labels = Name::from_labels(vec!["www", "example", "com"]).unwrap();
@@ -284,7 +293,7 @@ impl Name {
     /// assert_eq!(example_com.cmp_case(&Name::from_str("example.com").unwrap()), Ordering::Less);
     /// assert!(example_com.to_lowercase().eq_case(&Name::from_str("example.com").unwrap()));
     /// ```
-    // FIXME: make this take mut...
+    #[deprecated = "use make_lowercase for zero copy method"]
     pub fn to_lowercase(&self) -> Self {
         let mut name = self.clone();
         name.make_lowercase();
@@ -329,8 +338,9 @@ impl Name {
     /// ```
     pub fn trim_to(&self, num_labels: usize) -> Name {
         let mut name = Name::default();
+        let skip_first = (self.num_labels() as usize).saturating_sub(num_labels);
 
-        for label in self.iter().rev().take(num_labels) {
+        for label in self.iter().skip(skip_first) {
             name.push_label(label);
         }
 
@@ -457,11 +467,11 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::{Name, DnsLabel};
     ///
     /// let name = Name::from_str("example.com.").unwrap();
     /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
-    /// assert_eq!(name[0].to_string(), "example");
+    /// assert_eq!(name[0].display().to_string(), "example");
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(local, origin)
@@ -900,12 +910,19 @@ impl Name {
     /// assert_eq!(name, Name::root());
     /// ```
     pub fn into_wildcard(self) -> Self {
-        let mut name = Name::default();
-        let wildcard = Label::wildcard();
+        use super::label;
 
-        name.push_label(wildcard.as_bytes());
-        for label in self.iter().skip(1) {
-            name.push_label(label);
+        let mut name = Name::with_capacity(self.name.len());
+        name.is_fqdn = self.is_fqdn;
+
+        // nothing to do for root
+        if !self.is_root() {
+            let wildcard = label::WILDCARD;
+
+            name.push_label(wildcard);
+            for label in self.into_iter().skip(1) {
+                name.push_label(label);
+            }
         }
 
         name
@@ -1089,13 +1106,20 @@ impl PartialEq<Name> for Name {
 
 impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        use std::borrow::Cow;
+
         self.is_fqdn.hash(state);
 
         // this needs to be CaseInsensitive like PartialEq
-        for l in self.iter().map(ToOwned::to_owned).map(|mut l| {
-            l.to_lowercase();
-            l
-        }) {
+        for l in self.iter() {
+            let l: Cow<[u8]> = if l.is_lowercase() {
+                Cow::Borrowed(l)
+            } else {
+                let mut l = l.to_owned();
+                l.make_lowercase();
+                Cow::Owned(l)
+            };
+
             l.hash(state);
         }
     }
@@ -1252,13 +1276,14 @@ impl fmt::Display for Name {
     }
 }
 
-// impl Index<usize> for Name {
-//     type Output = Label;
+impl Index<usize> for Name {
+    type Output = [u8];
 
-//     fn index(&self, _index: usize) -> &Label {
-//         &self.labels[_index]
-//     }
-// }
+    fn index(&self, index: usize) -> &[u8] {
+        let offset = self.label_offsets[index];
+        &self.name[offset.0..offset.1]
+    }
+}
 
 impl PartialOrd<Name> for Name {
     fn partial_cmp(&self, other: &Name) -> Option<Ordering> {

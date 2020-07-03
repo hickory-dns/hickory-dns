@@ -12,6 +12,6 @@ mod name;
 mod try_parse_ip;
 pub mod usage;
 
-pub use self::label::{IntoLabel, Label};
+pub use self::label::{DnsLabel, IntoLabel, Label};
 pub use self::name::{IntoName, LabelIter, Name};
 pub use self::try_parse_ip::TryParseIp;
