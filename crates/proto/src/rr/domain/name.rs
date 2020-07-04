@@ -23,8 +23,9 @@ use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::*;
-use crate::rr::domain::label::DnsLabel;
-use crate::rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
+use crate::rr::domain::label::{
+    CaseInsensitive, CaseSensitive, DnsLabel, IntoLabel, Label, LabelCmp, LabelRef,
+};
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
 use crate::serialize::binary::*;
 
@@ -117,11 +118,11 @@ impl Name {
         LabelIterMut::new(self)
     }
 
-    fn push_label(&mut self, label: &[u8]) {
+    fn push_label<L: DnsLabel>(&mut self, label: L) {
         if !label.is_empty() {
             self.name.extend_from_slice(b".");
             let start_idx = self.name.len();
-            self.name.extend_from_slice(label);
+            self.name.extend_from_slice(label.as_bytes());
             let end_idx = self.name.len();
 
             self.label_offsets.push((start_idx, end_idx));
@@ -141,7 +142,7 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
-        self.push_label(label.into_label()?.as_ref());
+        self.push_label(label.into_label()?);
         if self.label_offsets.len() > 255 {
             return Err("labels exceed maximum length of 255".into());
         };
@@ -166,7 +167,7 @@ impl Name {
     ///
     /// // Force a set of bytes into labels (this is none-standard and potentially dangerous)
     /// let from_labels = Name::from_labels(vec!["bad chars".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
-    /// assert_eq!(from_labels[0].as_bytes(), "bad chars".as_bytes());
+    /// assert_eq!(from_labels[0], *b"bad chars");
     ///
     /// let root = Name::from_labels(Vec::<&str>::new()).unwrap();
     /// assert!(root.is_root());
@@ -195,7 +196,7 @@ impl Name {
                 .into_iter()
                 .map(Result::unwrap)
                 .fold(Name::new(), |mut name, label| {
-                    name.push_label(label.as_ref());
+                    name.push_label(label);
                     name
                 });
         name.is_fqdn = true;
@@ -471,7 +472,7 @@ impl Name {
     ///
     /// let name = Name::from_str("example.com.").unwrap();
     /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
-    /// assert_eq!(name[0].display().to_string(), "example");
+    /// assert_eq!(name[0], *b"example");
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(local, origin)
@@ -573,7 +574,7 @@ impl Name {
             match state {
                 ParseState::Label => match ch {
                     '.' => {
-                        name.push_label(E::to_label(&label)?.as_bytes());
+                        name.push_label(E::to_label(&label)?);
                         label.clear();
                     }
                     '\\' => state = ParseState::Escape1,
@@ -622,7 +623,7 @@ impl Name {
         }
 
         if !label.is_empty() {
-            name.push_label(E::to_label(&label)?.as_bytes());
+            name.push_label(E::to_label(&label)?);
         }
 
         if local.ends_with('.') {
@@ -735,7 +736,7 @@ impl Name {
         let other_labels = other.iter().rev();
 
         for (l, r) in self_labels.zip(other_labels) {
-            match l.cmp_with_f::<F>(r) {
+            match l.cmp_with_f::<F>(&r) {
                 Ordering::Equal => continue,
                 not_eq => return not_eq,
             }
@@ -783,19 +784,19 @@ impl Name {
         let first = iter
             .next()
             .ok_or_else(|| ProtoError::from("not an arpa address"))?;
-        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first)?) {
+        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first.as_bytes())?) {
             return Err("not an arpa address".into());
         }
         let second = iter
             .next()
             .ok_or_else(|| ProtoError::from("invalid arpa address"))?;
         let mut prefix_len: u8 = 0;
-        match &std::str::from_utf8(second)?.to_ascii_lowercase()[..] {
+        match &std::str::from_utf8(second.as_bytes())?.to_ascii_lowercase()[..] {
             "in-addr" => {
                 let mut octets: [u8; 4] = [0; 4];
                 for octet in octets.iter_mut() {
                     match iter.next() {
-                        Some(label) => *octet = std::str::from_utf8(label)?.parse()?,
+                        Some(label) => *octet = std::str::from_utf8(label.as_bytes())?.parse()?,
                         None => break,
                     }
                     prefix_len += 8;
@@ -814,7 +815,8 @@ impl Name {
                         Some(label) => {
                             if label.len() == 1 {
                                 prefix_len += 4;
-                                let hex = u8::from_str_radix(std::str::from_utf8(label)?, 16)?;
+                                let hex =
+                                    u8::from_str_radix(std::str::from_utf8(label.as_bytes())?, 16)?;
                                 address |= u128::from(hex) << (128 - prefix_len);
                             } else {
                                 return Err("invalid label length for ip6.arpa".into());
@@ -837,12 +839,12 @@ impl Name {
     fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error> {
         let mut iter = self.iter();
         if let Some(label) = iter.next() {
-            E::write_label(f, label)?;
+            E::write_label(f, &label)?;
         }
 
         for label in iter {
             write!(f, ".")?;
-            E::write_label(f, label)?;
+            E::write_label(f, &label)?;
         }
 
         // if it was the root name
@@ -891,7 +893,7 @@ impl Name {
     /// assert!(!name.is_wildcard());
     /// ```
     pub fn is_wildcard(&self) -> bool {
-        self.iter().next().map_or(false, DnsLabel::is_wildcard)
+        self.iter().next().map_or(false, |l| l.is_wildcard())
     }
 
     /// Converts a name to a wildcard, by replacing the first label with `*`
@@ -910,14 +912,12 @@ impl Name {
     /// assert_eq!(name, Name::root());
     /// ```
     pub fn into_wildcard(self) -> Self {
-        use super::label;
-
         let mut name = Name::with_capacity(self.name.len());
         name.is_fqdn = self.is_fqdn;
 
         // nothing to do for root
         if !self.is_root() {
-            let wildcard = label::WILDCARD;
+            let wildcard = LabelRef::wildcard();
 
             name.push_label(wildcard);
             for label in self.into_iter().skip(1) {
@@ -931,7 +931,7 @@ impl Name {
 
 trait LabelEnc {
     fn to_label(name: &str) -> ProtoResult<Label>;
-    fn write_label<W: Write, L: DnsLabel + ?Sized>(f: &mut W, label: &L) -> Result<(), fmt::Error>;
+    fn write_label<W: Write, L: DnsLabel>(f: &mut W, label: &L) -> Result<(), fmt::Error>;
 }
 
 struct LabelEncAscii;
@@ -940,7 +940,7 @@ impl LabelEnc for LabelEncAscii {
         Label::from_ascii(name)
     }
 
-    fn write_label<W: Write, L: DnsLabel + ?Sized>(f: &mut W, label: &L) -> Result<(), fmt::Error> {
+    fn write_label<W: Write, L: DnsLabel>(f: &mut W, label: &L) -> Result<(), fmt::Error> {
         label.write_ascii(f)
     }
 }
@@ -951,7 +951,7 @@ impl LabelEnc for LabelEncUtf8 {
         Label::from_utf8(name)
     }
 
-    fn write_label<W: Write, L: DnsLabel + ?Sized>(f: &mut W, label: &L) -> Result<(), fmt::Error> {
+    fn write_label<W: Write, L: DnsLabel>(f: &mut W, label: &L) -> Result<(), fmt::Error> {
         label.write_utf8(f)
     }
 }
@@ -972,11 +972,11 @@ impl<'a> LabelIter<'a> {
 }
 
 impl<'a> Iterator for LabelIter<'a> {
-    type Item = &'a [u8];
+    type Item = LabelRef<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.offsets.next()?;
-        Some(&self.name.name[*start..*end])
+        Some(LabelRef::from_unchecked(&self.name.name[*start..*end]))
     }
 }
 
@@ -1005,12 +1005,12 @@ impl<'a> ExactSizeIterator for LabelIter<'a> {}
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let (start, end) = self.offsets.next_back()?;
-        Some(&self.name.name[*start..*end])
+        Some(LabelRef::from_unchecked(&self.name.name[*start..*end]))
     }
 }
 
 impl<'a> IntoIterator for &'a Name {
-    type Item = &'a [u8];
+    type Item = LabelRef<'a>;
     type IntoIter = LabelIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -1113,11 +1113,11 @@ impl Hash for Name {
         // this needs to be CaseInsensitive like PartialEq
         for l in self.iter() {
             let l: Cow<[u8]> = if l.is_lowercase() {
-                Cow::Borrowed(l)
+                Cow::Borrowed(l.as_bytes())
             } else {
-                let mut l = l.to_owned();
+                let mut l = l.to_label();
                 l.make_lowercase();
-                Cow::Owned(l)
+                Cow::Owned(l.as_bytes().to_vec())
             };
 
             l.hash(state);
@@ -1196,7 +1196,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
                     .verify_unwrap(|l| l.len() <= 63)
                     .map_err(|_| ProtoError::from("label exceeds maximum length of 63"))?;
 
-                labels.push_label(label.into_label()?.as_bytes());
+                labels.push_label(label.into_label()?);
 
                 // reset to collect more data
                 LabelParseState::LabelLengthOrPointer

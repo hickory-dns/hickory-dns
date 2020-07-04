@@ -13,7 +13,7 @@
 #[allow(unused)]
 #[allow(deprecated)]
 use std::ascii::AsciiExt;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow, ToOwned};
 use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
@@ -24,9 +24,10 @@ use log::debug;
 
 use crate::error::*;
 
-pub const WILDCARD: &[u8] = b"*";
-pub const IDNA_PREFIX: &[u8] = b"xn--";
+const WILDCARD: &[u8] = b"*";
+const IDNA_PREFIX: &[u8] = b"xn--";
 
+/// Labels are always stored as ASCII, unicode characters must be encoded with punycode
 pub trait DnsLabel {
     /// Zero cost conversion for the Label to bytes
     fn as_bytes(&self) -> &[u8];
@@ -37,16 +38,31 @@ pub trait DnsLabel {
         bytes.iter().all(|c| c.is_ascii_lowercase())
     }
 
-    /// Make this label (ascii chars only) lowercase, without allocating.
-    fn make_lowercase(&mut self);
+    /// Is this Label of 0 length
+    fn is_empty(&self) -> bool {
+        self.as_bytes().is_empty()
+    }
+
+    /// Length in bytes of this Label
+    fn len(&self) -> usize {
+        self.as_bytes().len()
+    }
 
     /// Returns true if this label is the wildcard, '*', label
     fn is_wildcard(&self) -> bool {
         self.as_bytes() == WILDCARD
     }
 
+    /// Performs the equivalence operation disregarding case
+    fn eq_ignore_ascii_case(&self, other: &dyn DnsLabel) -> bool {
+        self.as_bytes().eq_ignore_ascii_case(&other.as_bytes())
+    }
+
     /// compares with the other label, ignoring case
-    fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
+    fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering
+    where
+        Self: Sized,
+    {
         let s = self.as_bytes().iter();
         let o = other.as_bytes().iter();
 
@@ -60,8 +76,51 @@ pub trait DnsLabel {
         self.as_bytes().len().cmp(&other.as_bytes().len())
     }
 
+    /// Checks to see that these bytes are ascii only
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use trust_dns_proto::rr::domain::{DnsLabel, LabelRef};
+    ///
+    /// assert!(LabelRef::from_raw_bytes(b"www").unwrap().is_safe_ascii());
+    /// assert!(!LabelRef::from_raw_bytes(b"www.").unwrap().is_safe_ascii());
+    /// assert!(!LabelRef::from_raw_bytes("🦀".as_bytes()).unwrap().is_safe_ascii());
+    /// ```
+    fn is_safe_ascii(&self) -> bool {
+        fn inner_is_safe_ascii(byte: u8, is_first: bool) -> bool {
+            match char::from(byte) {
+                c if is_safe_ascii(c, is_first, true) => (),
+                // it's not a control and is printable as well as inside the standard ascii range
+                _c if byte > b'\x20' && byte < b'\x7f' => return false,
+                _ => return false,
+            }
+
+            true
+        }
+
+        // traditional ascii case...
+        let mut chars = self.as_bytes().iter();
+        if let Some(ch) = chars.next() {
+            if !inner_is_safe_ascii(*ch, true) {
+                return false;
+            }
+        }
+
+        for ch in chars {
+            if !inner_is_safe_ascii(*ch, false) {
+                return false;
+            }
+        }
+
+        true
+    }
+
     /// Writes this label to safe ascii, escaping characters as necessary
-    fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
+    fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error>
+    where
+        Self: Sized,
+    {
         // We can't guarantee that the same input will always translate to the same output
         fn escape_non_ascii<W: Write>(
             byte: u8,
@@ -94,12 +153,14 @@ pub trait DnsLabel {
         Ok(())
     }
 
-    /// Convert to a displayable type
-    fn display<'a>(&'a self) -> DnsLabelDisplay<'a> {
-        DnsLabelDisplay(self.as_bytes())
-    }
-
-    fn write_utf8<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
+    /// outputs characters in a safe string manner.
+    ///
+    /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
+    ///   escaping characters as necessary.
+    fn write_utf8<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error>
+    where
+        Self: Sized,
+    {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
             let label = String::from_utf8_lossy(self.as_bytes());
@@ -122,43 +183,137 @@ pub trait DnsLabel {
         // it wasn't known to be utf8
         self.write_ascii(f)
     }
+
+    /// Performs the conversion to utf8 from IDNA as necessary, see `fmt` for more details
+    fn to_utf8<'a>(&'a self) -> Cow<'a, str>
+    where
+        Self: Sized,
+    {
+        if !self.as_bytes().starts_with(IDNA_PREFIX) && self.is_safe_ascii() {
+            return String::from_utf8_lossy(self.as_bytes());
+        }
+
+        let mut utf8 = String::with_capacity(self.as_bytes().len());
+
+        self.write_utf8(&mut utf8)
+            .expect("should never fail to write a new string");
+        Cow::Owned(utf8)
+    }
+
+    /// Converts this label to safe ascii, escaping characters as necessary
+    ///
+    /// If this is an IDNA, punycode, label, then the xn-- prefix will be maintained as ascii
+    fn to_ascii<'a>(&'a self) -> Cow<'a, str>
+    where
+        Self: Sized,
+    {
+        if self.is_safe_ascii() {
+            return String::from_utf8_lossy(self.as_bytes());
+        }
+
+        let mut ascii = String::with_capacity(self.as_bytes().len());
+
+        self.write_ascii(&mut ascii)
+            .expect("should never fail to write a new string");
+        Cow::Owned(ascii)
+    }
 }
 
-impl DnsLabel for [u8] {
-    fn as_bytes(&self) -> &[u8] {
-        self
-    }
+/// A label to a referred set of bytes
+#[derive(Eq, PartialEq)]
+pub struct LabelRef<'a>(&'a [u8]);
 
-    fn make_lowercase(&mut self) {
-        self.make_ascii_lowercase();
-    }
-}
-
-impl DnsLabel for Vec<u8> {
-    fn as_bytes(&self) -> &[u8] {
-        self
-    }
-
-    fn make_lowercase(&mut self) {
-        self.make_ascii_lowercase();
+impl LabelRef<'static> {
+    /// Returns a wildcard label
+    pub fn wildcard() -> Self {
+        Self(WILDCARD)
     }
 }
 
-impl DnsLabel for str {
-    fn as_bytes(&self) -> &[u8] {
-        self.as_bytes()
+impl<'a> LabelRef<'a> {
+    /// Converts to an Owned Label
+    pub fn to_label(&self) -> Label {
+        Label(self.0.to_vec())
     }
 
-    fn make_lowercase(&mut self) {
-        self.make_ascii_lowercase();
+    pub(crate) fn from_unchecked(bytes: &'a [u8]) -> Self {
+        LabelRef(bytes)
+    }
+
+    /// These must only be ASCII, with unicode encoded to PunyCode, or other such transformation.
+    ///
+    /// This uses the bytes as raw ascii values, with nothing escaped on the wire.
+    /// Generally users should use `from_str` or `from_ascii`
+    pub fn from_raw_bytes(bytes: &'a [u8]) -> ProtoResult<Self> {
+        if bytes.len() > 63 {
+            return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
+        };
+        Ok(LabelRef(bytes))
+    }
+
+    /// Takes the ascii string and returns a new label.
+    ///
+    /// This will return an Error if the label is not an ascii string
+    pub fn from_ascii(s: &'a str) -> ProtoResult<Self> {
+        if s.as_bytes() == WILDCARD {
+            return Ok(LabelRef::wildcard());
+        }
+
+        if !s.is_empty()
+            && s.is_ascii()
+            && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
+            && s.chars().skip(1).all(|c| is_safe_ascii(c, false, false))
+        {
+            LabelRef::from_raw_bytes(s.as_bytes())
+        } else {
+            Err(format!("Malformed label: {}", s).into())
+        }
+    }
+}
+
+impl<'a> DnsLabel for LabelRef<'a> {
+    fn as_bytes(&self) -> &[u8] {
+        self.0
+    }
+}
+
+impl<'a> Display for LabelRef<'a> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        self.write_utf8(f)
+    }
+}
+
+#[allow(deprecated)]
+impl<'a> Debug for LabelRef<'a> {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        let label = String::from_utf8_lossy(self.borrow());
+        f.write_str(&label)
+    }
+}
+
+impl<'a> AsRef<[u8]> for LabelRef<'a> {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl<'a> Borrow<[u8]> for LabelRef<'a> {
+    fn borrow(&self) -> &[u8] {
+        &self.0
     }
 }
 
 /// Labels are always stored as ASCII, unicode characters must be encoded with punycode
 #[derive(Clone, Eq)]
-#[deprecated = "See direct impls on str, Vec<u8>, [u8]"]
-pub struct Label(Rc<[u8]>);
+pub struct Label(Vec<u8>);
 
+impl DnsLabel for Label {
+    fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+#[allow(deprecated)]
 impl Label {
     /// These must only be ASCII, with unicode encoded to PunyCode, or other such transformation.
     ///
@@ -168,13 +323,16 @@ impl Label {
         if bytes.len() > 63 {
             return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
         };
-        Ok(Label(Rc::from(bytes)))
+        Ok(Label(bytes.to_vec()))
     }
 
     /// Translates this string into IDNA safe name, encoding to punycode as necessary.
-    pub fn from_utf8(s: &str) -> ProtoResult<Self> {
+    pub fn from_utf8(s: &str) -> ProtoResult<Self>
+    where
+        Self: Sized,
+    {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label::wildcard());
+            return Ok(LabelRef::wildcard().to_label());
         }
 
         // special case for SRV type records
@@ -198,7 +356,7 @@ impl Label {
     /// This will return an Error if the label is not an ascii string
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label::wildcard());
+            return Ok(LabelRef::wildcard().to_label());
         }
 
         if !s.is_empty()
@@ -212,12 +370,12 @@ impl Label {
         }
     }
 
-    /// Returns a new Label of the Wildcard, i.e. "*"
-    pub fn wildcard() -> Self {
-        Label(Rc::from(WILDCARD.to_vec()))
+    /// Converts this label to lowercase, in place
+    pub fn make_lowercase(&mut self) {
+        self.0.make_ascii_lowercase();
     }
 
-    /// Converts this label to lowercase
+    /// Converts this label to ascii lowercase (i.e. non-ascii chars are left alone)
     pub fn to_lowercase(&self) -> Self {
         // TODO: replace case conversion when (ascii_ctype #39658) stabilizes
         if let Some((idx, _)) = self
@@ -228,15 +386,10 @@ impl Label {
         {
             let mut lower_label: Vec<u8> = self.0.to_vec();
             lower_label[idx..].make_ascii_lowercase();
-            Label(Rc::from(lower_label))
+            Label(lower_label)
         } else {
             self.clone()
         }
-    }
-
-    /// Returns true if this label is the wildcard, '*', label
-    pub fn is_wildcard(&self) -> bool {
-        self.as_bytes() == WILDCARD
     }
 
     /// Returns the lenght in bytes of this label
@@ -256,11 +409,6 @@ impl Label {
         &self.0
     }
 
-    /// Performs the equivalence operation disregarding case
-    pub fn eq_ignore_ascii_case(&self, other: &Self) -> bool {
-        self.0.eq_ignore_ascii_case(&other.0)
-    }
-
     /// compares with the other label, ignoring case
     pub fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
         let s = self.0.iter();
@@ -274,22 +422,6 @@ impl Label {
         }
 
         self.0.len().cmp(&other.0.len())
-    }
-
-    /// Performs the conversion to utf8 from IDNA as necessary, see `fmt` for more details
-    pub fn to_utf8(&self) -> String {
-        format!("{}", self.as_bytes().display())
-    }
-
-    /// Converts this label to safe ascii, escaping characters as necessary
-    ///
-    /// If this is an IDNA, punycode, label, then the xn-- prefix will be maintained as ascii
-    pub fn to_ascii(&self) -> String {
-        let mut ascii = String::with_capacity(self.as_bytes().len());
-
-        self.write_ascii(&mut ascii)
-            .expect("should never fail to write a new string");
-        ascii
     }
 
     /// Writes this label to safe ascii, escaping characters as necessary
@@ -327,12 +459,14 @@ impl Label {
     }
 }
 
+#[allow(deprecated)]
 impl AsRef<[u8]> for Label {
     fn as_ref(&self) -> &[u8] {
         &self.0
     }
 }
 
+#[allow(deprecated)]
 impl Borrow<[u8]> for Label {
     fn borrow(&self) -> &[u8] {
         &self.0
@@ -351,80 +485,14 @@ fn is_safe_ascii(c: char, is_first: bool, for_encoding: bool) -> bool {
     }
 }
 
+#[allow(deprecated)]
 impl Display for Label {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        self.as_bytes().display().fmt(f)
+        self.write_utf8(f)
     }
 }
 
-pub struct DnsLabelDisplay<'a>(&'a [u8]);
-
-impl<'a> DnsLabelDisplay<'a> {
-    /// Writes this label to safe ascii, escaping characters as necessary
-    pub fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
-        // We can't guarantee that the same input will always translate to the same output
-        fn escape_non_ascii<W: Write>(
-            byte: u8,
-            f: &mut W,
-            is_first: bool,
-        ) -> Result<(), fmt::Error> {
-            let to_triple_escape = |ch: u8| format!("\\{:03o}", ch);
-            let to_single_escape = |ch: char| format!("\\{}", ch);
-
-            match char::from(byte) {
-                c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
-                // it's not a control and is printable as well as inside the standard ascii range
-                c if byte > b'\x20' && byte < b'\x7f' => f.write_str(&to_single_escape(c))?,
-                _ => f.write_str(&to_triple_escape(byte))?,
-            }
-
-            Ok(())
-        }
-
-        // traditional ascii case...
-        let mut chars = self.0.iter();
-        if let Some(ch) = chars.next() {
-            escape_non_ascii(*ch, f, true)?;
-        }
-
-        for ch in chars {
-            escape_non_ascii(*ch, f, false)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl<'a> Display for DnsLabelDisplay<'a> {
-    /// outputs characters in a safe string manner.
-    ///
-    /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
-    ///   escaping characters as necessary.
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        if self.0.starts_with(IDNA_PREFIX) {
-            // this should never be outside the ascii codes...
-            let label = String::from_utf8_lossy(self.0);
-            let (label, e) = idna::Config::default()
-                .use_std3_ascii_rules(false)
-                .transitional_processing(false)
-                .verify_dns_length(false)
-                .to_unicode(&label);
-
-            if e.is_ok() {
-                return f.write_str(&label);
-            } else {
-                debug!(
-                    "xn-- prefixed string did not translate via IDNA properly: {:?}",
-                    e
-                )
-            }
-        }
-
-        // it wasn't known to be utf8
-        self.write_ascii(f)
-    }
-}
-
+#[allow(deprecated)]
 impl Debug for Label {
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         let label = String::from_utf8_lossy(self.borrow());
@@ -432,24 +500,28 @@ impl Debug for Label {
     }
 }
 
+#[allow(deprecated)]
 impl PartialEq<Label> for Label {
     fn eq(&self, other: &Self) -> bool {
         self.eq_ignore_ascii_case(other)
     }
 }
 
+#[allow(deprecated)]
 impl PartialOrd<Label> for Label {
     fn partial_cmp(&self, other: &Label) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+#[allow(deprecated)]
 impl Ord for Label {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_with_f::<CaseInsensitive>(other)
     }
 }
 
+#[allow(deprecated)]
 impl Hash for Label {
     fn hash<H>(&self, state: &mut H)
     where
