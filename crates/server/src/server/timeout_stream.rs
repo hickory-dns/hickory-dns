@@ -52,7 +52,7 @@ where
         // if the timer isn't set, set one now
         if self.timeout.is_none() {
             let timeout = Self::timeout(self.timeout_duration);
-            mem::replace(&mut self.timeout, timeout);
+            drop(mem::replace(&mut self.timeout, timeout));
         }
 
         match self.stream.poll_next_unpin(cx) {

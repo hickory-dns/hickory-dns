@@ -269,21 +269,27 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Stream for TcpStream<S> {
                 match current_state {
                     Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
                         if pos < length.len() {
-                            mem::replace(
+                            drop(mem::replace(
                                 send_state,
                                 Some(WriteTcpState::LenBytes { pos, length, bytes }),
-                            );
+                            ));
                         } else {
-                            mem::replace(send_state, Some(WriteTcpState::Bytes { pos: 0, bytes }));
+                            drop(mem::replace(
+                                send_state,
+                                Some(WriteTcpState::Bytes { pos: 0, bytes }),
+                            ));
                         }
                     }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
                         if pos < bytes.len() {
-                            mem::replace(send_state, Some(WriteTcpState::Bytes { pos, bytes }));
+                            drop(mem::replace(
+                                send_state,
+                                Some(WriteTcpState::Bytes { pos, bytes }),
+                            ));
                         } else {
                             // At this point we successfully delivered the entire message.
                             //  flush
-                            mem::replace(send_state, Some(WriteTcpState::Flushing));
+                            drop(mem::replace(send_state, Some(WriteTcpState::Flushing)));
                         }
                     }
                     Some(WriteTcpState::Flushing) => {
