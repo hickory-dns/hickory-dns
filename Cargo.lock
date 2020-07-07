@@ -765,9 +765,12 @@ dependencies = [
 
 [[package]]
 name = "nibble_vec"
-version = "0.0.4"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8d77f3db4bce033f4d04db08079b2ef1c3d02b44e86f25d08886fafa7756ffa"
+checksum = "77a5d83df9f36fe23f0c3648c6bbb8b0298bb5f1939c8f2704431371f4b84d43"
+dependencies = [
+ "smallvec",
+]
 
 [[package]]
 name = "num-integer"
@@ -949,9 +952,9 @@ dependencies = [
 
 [[package]]
 name = "radix_trie"
-version = "0.1.6"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d3681b28cd95acfb0560ea9441f82d6a4504fa3b15b97bd7b6e952131820e95"
+checksum = "56eba2a19109c6dfaaa74eff6e0ad7113ad038ebc6be05396862fa0e986b16a3"
 dependencies = [
  "endian-type",
  "nibble_vec",
