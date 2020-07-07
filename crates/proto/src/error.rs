@@ -404,7 +404,11 @@ impl Clone for ProtoErrorKind {
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
 
             // foreign
-            Io(ref e) => Io(io::Error::from(e.kind())),
+            Io(ref e) => Io(if let Some(raw) = e.raw_os_error() {
+                io::Error::from_raw_os_error(raw)
+            } else {
+                io::Error::from(e.kind())
+            }),
             Poisoned => Poisoned,
             Ring(ref _e) => Ring(Unspecified),
             SSL(ref e) => Msg(format!("there was an SSL error: {}", e)),
