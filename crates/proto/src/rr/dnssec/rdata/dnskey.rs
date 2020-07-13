@@ -20,8 +20,8 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, Digest, DigestType};
+use crate::rr::domain::{DnsName, Name};
 use crate::rr::record_data::RData;
-use crate::rr::Name;
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
 };
@@ -219,7 +219,7 @@ impl DNSKEY {
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
+    pub fn to_digest(&self, name: &dyn DnsName, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);

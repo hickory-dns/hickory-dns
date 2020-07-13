@@ -17,13 +17,14 @@
 //! Parse for Name text form
 
 use crate::error::*;
-use crate::rr::domain::Name;
+use crate::proto::rr::domain::{DnsName, Name};
 
 /// Parse the RData from a set of Tokens
 pub fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<Name> {
+    let origin = origin.map(|n| n as &dyn DnsName);
     let name: Name = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("name".to_string()).into())

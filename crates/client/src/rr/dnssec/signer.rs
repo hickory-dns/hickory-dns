@@ -518,6 +518,8 @@ impl Signer {
 impl MessageFinalizer for Signer {
     #[cfg(any(feature = "openssl", feature = "ring"))]
     fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+        use trust_dns_proto::rr::domain::DnsName;
+
         log::debug!("signing message: {:?}", message);
         let key_tag: u16 = self.calculate_key_tag()?;
 
@@ -582,10 +584,11 @@ mod tests {
     use openssl::rsa::Rsa;
 
     use crate::op::{Message, Query};
+    use crate::proto::rr::domain::{DnsName, Name};
     use crate::rr::dnssec::*;
     use crate::rr::rdata::key::KeyUsage;
     use crate::rr::rdata::{DNSSECRData, SIG};
-    use crate::rr::{DNSClass, Name, Record, RecordType};
+    use crate::rr::{DNSClass, Record, RecordType};
 
     pub use super::*;
 
@@ -778,6 +781,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     mod tests {
         use openssl::rsa::Rsa;
 
+        use crate::proto::rr::domain::DnsName;
         use crate::rr::dnssec::tbs::*;
         use crate::rr::dnssec::*;
         use crate::rr::rdata::{DNSSECRData, SIG};

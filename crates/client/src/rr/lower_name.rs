@@ -18,7 +18,7 @@ use crate::proto::error::*;
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::rr::{Label, Name};
+use crate::rr::domain::{DnsLabel, DnsName, Label, Name};
 use crate::serialize::binary::*;
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
@@ -167,7 +167,7 @@ impl Hash for LowerName {
         H: Hasher,
     {
         for label in &self.0 {
-            state.write(label);
+            state.write(label.as_bytes());
         }
     }
 }
@@ -192,10 +192,10 @@ impl fmt::Display for LowerName {
 }
 
 impl Index<usize> for LowerName {
-    type Output = Label;
+    type Output = [u8];
 
-    fn index(&self, _index: usize) -> &Label {
-        &(self.0[_index])
+    fn index(&self, index: usize) -> &Self::Output {
+        &(self.0[index])
     }
 }
 

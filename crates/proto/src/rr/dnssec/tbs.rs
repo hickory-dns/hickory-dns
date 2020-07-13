@@ -3,6 +3,7 @@
 use super::rdata::{sig, DNSSECRData, SIG};
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
+use crate::rr::domain::DnsName;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 use crate::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 

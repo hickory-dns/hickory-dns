@@ -7,8 +7,7 @@
 
 //! domain name, aka labels, implementation
 
-use std::borrow::Borrow;
-use std::char;
+use std::borrow::{Borrow, Cow};
 use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Write};
 use std::hash::{Hash, Hasher};
@@ -26,8 +25,437 @@ use crate::error::*;
 use crate::rr::domain::label::{
     CaseInsensitive, CaseSensitive, DnsLabel, IntoLabel, Label, LabelCmp, LabelRef,
 };
+use crate::rr::domain::parse::*;
 use crate::rr::domain::usage::LOCALHOST as LOCALHOST_usage;
+use crate::rr::domain::CowName;
 use crate::serialize::binary::*;
+
+/// An object safe trait for all domain Names
+pub trait DnsName {
+    /// An iterator over all the labels in the name
+    fn labels(&self) -> LabelIter;
+
+    /// Returns true if the name is a fully qualified domain name.
+    ///
+    /// If this is true, it has effects like only querying for this single name, as opposed to building
+    ///  up a search list in resolvers.
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::{DnsName, NameRef};
+    ///
+    /// let name = NameRef::from_ascii("www").unwrap();
+    /// assert!(!name.is_fqdn());
+    ///
+    /// let name = NameRef::from_ascii("www.example.com").unwrap();
+    /// assert!(!name.is_fqdn());
+    ///
+    /// let name = NameRef::from_ascii("www.example.com.").unwrap();
+    /// assert!(name.is_fqdn());
+    /// ```
+    fn is_fqdn(&self) -> bool;
+
+    /// Specify that this is a fully-qualified-domain-name
+    fn set_fqdn(&mut self, is_fqdn: bool);
+
+    /// returns the length in bytes of the labels. '.' counts as 1
+    ///
+    /// This can be used as an estimate, when serializing labels, they will often be compressed
+    /// and/or escaped causing the exact length to be different.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::{NameRef, DnsName};
+    ///
+    /// assert_eq!(NameRef::from_ascii("www.example.com.").unwrap().len(), 16);
+    /// assert_eq!(NameRef::from_ascii(".").unwrap().len(), 1);
+    /// assert_eq!(NameRef::root().len(), 1);
+    /// ```
+    fn len(&self) -> usize {
+        let len = self.labels().fold(
+            0,
+            |acc, label| acc + 1 /*for the label*/ + label.len(), /*length of the label*/
+        );
+
+        if len == 0 {
+            // for the root, base, name
+            1
+        } else {
+            len
+        }
+    }
+
+    /// Returns the number of labels in the name, discounting `*`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::{DnsName, Name};
+    ///
+    /// let root = Name::root();
+    /// assert_eq!(root.num_labels(), 0);
+    ///
+    /// let example_com = Name::from_str("example.com").unwrap();
+    /// assert_eq!(example_com.num_labels(), 2);
+    ///
+    /// let star_example_com = Name::from_str("*.example.com.").unwrap();
+    /// assert_eq!(star_example_com.num_labels(), 2);
+    /// ```
+    fn num_labels(&self) -> u8 {
+        // it is illegal to have more than 256 labels.
+        let num = self.labels().count() as u8;
+
+        self.labels()
+            .next()
+            .map(|l| if l.is_wildcard() { num - 1 } else { num })
+            .unwrap_or(num)
+    }
+
+    /// Returns true if there are no labels, i.e. it's empty.
+    ///
+    /// In DNS the root is represented by `.`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trust_dns_proto::rr::domain::Name;
+    ///
+    /// let root = Name::root();
+    /// assert_eq!(&root.to_string(), ".");
+    /// ```
+    fn is_root(&self) -> bool {
+        self.num_labels() == 0 && self.is_fqdn()
+    }
+
+    /// Return a Borrowed version of the DnsName
+    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b>;
+
+    /// Converts this to the Name (owned) variant
+    fn to_name(&self) -> Name {
+        let mut name = Name::with_capacity(self.len());
+        for l in self.labels() {
+            name.push_label(l.as_bytes());
+        }
+
+        name.is_fqdn = self.is_fqdn();
+        name
+    }
+
+    /// Emits the canonical version of the name to the encoder.
+    ///
+    /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
+    fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
+        let buf_len = encoder.len(); // lazily assert the size is less than 255...
+                                     // lookup the label in the BinEncoder
+                                     // if it exists, write the Pointer
+
+        let num_labels = self.num_labels() as usize;
+        let labels = self.labels();
+
+        // start index of each label
+        let mut labels_written: Vec<usize> = Vec::with_capacity(num_labels);
+
+        if canonical {
+            for label in labels {
+                encoder.emit_character_data(label)?;
+            }
+        } else {
+            // we're going to write out each label, tracking the indexes of the start to each label
+            //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
+            for label in labels {
+                if label.len() > 63 {
+                    return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
+                }
+
+                labels_written.push(encoder.offset());
+                encoder.emit_character_data(label)?;
+            }
+
+            // we've written all the labels to the buf, the current offset is the end
+            let last_index = encoder.offset();
+
+            // now search for other labels already stored matching from the beginning label, strip then to the end
+            //   if it's not found, then store this as a new label
+            for label_idx in &labels_written {
+                let label_ptr: Option<u16> = encoder.get_label_pointer(*label_idx, last_index);
+
+                // before we write the label, let's look for the current set of labels.
+                if let Some(loc) = label_ptr {
+                    // reset back to the beginning of this label, and then write the pointer...
+                    encoder.set_offset(*label_idx);
+                    encoder.trim();
+
+                    // write out the pointer marker
+                    //  or'd with the location which shouldn't be larger than this 2^14 or 16k
+                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
+
+                    // we found a pointer don't write more, break
+                    return Ok(());
+                } else {
+                    // no existing label exists, store this new one.
+                    encoder.store_label_pointer(*label_idx, last_index);
+                }
+            }
+        }
+
+        // if we're getting here, then we didn't write out a pointer and are ending the name
+        // the end of the list of names
+        encoder.emit(0)?;
+
+        // the entire name needs to be less than 256.
+        let length = encoder.len() - buf_len;
+        if length > 255 {
+            return Err(ProtoErrorKind::DomainNameTooLong(length).into());
+        }
+
+        Ok(())
+    }
+
+    fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error>
+    where
+        Self: Sized,
+    {
+        let mut iter = self.labels();
+        if let Some(label) = iter.next() {
+            E::write_label(f, &label)?;
+        }
+
+        for label in iter {
+            write!(f, ".")?;
+            E::write_label(f, &label)?;
+        }
+
+        // if it was the root name
+        if self.is_root() || self.is_fqdn() {
+            write!(f, ".")?;
+        }
+        Ok(())
+    }
+
+    /// Compares the Names, in a case sensitive manner
+    fn eq_case<D: DnsName>(&self, other: &D) -> bool
+    where
+        Self: Sized,
+    {
+        cmp_with_f::<CaseSensitive, _, _>(self, other) == Ordering::Equal
+    }
+}
+
+/// compares with the other label, ignoring case
+fn cmp_with_f<F: LabelCmp, D1: DnsName, D2: DnsName>(this: &D1, other: &D2) -> Ordering {
+    if this.num_labels() == 0 && other.num_labels() == 0 {
+        return Ordering::Equal;
+    }
+
+    // we reverse the iters so that we are comparing from the root/domain to the local...
+    let self_labels = this.labels().rev();
+    let other_labels = other.labels().rev();
+
+    for (l, r) in self_labels.zip(other_labels) {
+        match l.cmp_with_f::<F>(&r) {
+            Ordering::Equal => continue,
+            not_eq => return not_eq,
+        }
+    }
+
+    this.num_labels().cmp(&other.num_labels())
+}
+
+impl<N: DnsName + ?Sized> BinEncodable for N {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        let is_canonical_names = encoder.is_canonical_names();
+        self.emit_as_canonical(encoder, is_canonical_names)
+    }
+}
+
+impl<'a> ToOwned for (dyn DnsName + 'a) {
+    type Owned = Name;
+
+    fn to_owned(&self) -> Self::Owned {
+        self.to_name()
+    }
+}
+
+pub struct BorrowedName<'a> {
+    is_fqdn: bool,
+    name: &'a [u8],
+    label_offsets: &'a [(usize, usize)],
+}
+
+impl<'a> DnsName for BorrowedName<'a> {
+    fn labels(&self) -> LabelIter {
+        LabelIter::from_borrowed(self)
+    }
+
+    fn is_fqdn(&self) -> bool {
+        self.is_fqdn
+    }
+
+    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
+        BorrowedName {
+            is_fqdn: self.is_fqdn,
+            name: self.name,
+            label_offsets: self.label_offsets,
+        }
+    }
+
+    /// Specifies this name is a fully qualified domain name
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    fn set_fqdn(&mut self, val: bool) {
+        self.is_fqdn = val
+    }
+}
+
+impl<'a> fmt::Display for BorrowedName<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+    }
+}
+
+/// A Zero cost name referring to bytes owned by &str for example.
+pub struct NameRef<'a> {
+    is_fqdn: bool,
+    name: &'a [u8],
+    label_offsets: Vec<(usize, usize)>,
+}
+
+impl<'a> DnsName for NameRef<'a> {
+    fn labels(&self) -> LabelIter {
+        LabelIter::from_ref(self)
+    }
+
+    fn is_fqdn(&self) -> bool {
+        self.is_fqdn
+    }
+
+    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
+        BorrowedName {
+            is_fqdn: self.is_fqdn,
+            name: self.name,
+            label_offsets: &self.label_offsets,
+        }
+    }
+
+    /// Specifies this name is a fully qualified domain name
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    fn set_fqdn(&mut self, val: bool) {
+        self.is_fqdn = val
+    }
+}
+
+impl<'a> Borrow<dyn DnsName + 'a> for NameRef<'a> {
+    fn borrow(&self) -> &(dyn DnsName + 'a) {
+        // This is a simple coercion from the concrete type to a trait object.
+        self
+    }
+}
+
+impl NameRef<'static> {
+    /// Return the root label, i.e. `.`
+    pub fn root() -> Self {
+        NameRef {
+            is_fqdn: true,
+            name: b".",
+            label_offsets: Vec::with_capacity(0),
+        }
+    }
+
+    /// get the internal name
+    pub fn as_bytes(&self) -> &[u8] {
+        // this name may be longer than the ones captured (due to from_unparsed_slice)
+        let start = self.label_offsets.first().map_or(0, |(start, _)| *start);
+        let end = self.label_offsets.last().map_or(0, |(_, end)| *end);
+        &self.name[start..end]
+    }
+}
+
+impl<'a> NameRef<'a> {
+    /// Allocates a new slice, but no labels are defined
+    pub(super) fn from_unparsed_slice(slice: &'a [u8]) -> Self {
+        NameRef {
+            is_fqdn: false,
+            name: slice,
+            label_offsets: vec![],
+        }
+    }
+
+    /// Will convert the string to a name only allowing ascii as valid input
+    ///
+    /// This method will also preserve the case of the name where that's desirable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trust_dns_proto::rr::domain::{DnsName, NameRef};
+    ///
+    /// let ascii_name = NameRef::from_ascii("WWW.example.COM.").unwrap();
+    /// let lower_name = NameRef::from_ascii("www.example.com.").unwrap();
+    ///
+    /// assert!(!lower_name.eq_case(&ascii_name));
+    ///
+    /// // escaped values are illegal for NameRef (require allocation)
+    /// let name = NameRef::from_ascii("email\\.name.example.com.");
+    ///
+    /// assert!(name.is_err());
+    ///
+    /// // same here
+    /// let name = NameRef::from_ascii("bad\\056char.example.com.");
+    ///
+    /// assert!(name.is_err());
+    /// ```
+    pub fn from_ascii(name: &'a str) -> ProtoResult<Self> {
+        let cow = super::parse::from_encoded_str::<LabelEncAscii>(name, None)?;
+        cow.to_ref()
+            .ok_or_else(|| ProtoError::from("non-basic ascii string"))
+    }
+
+    /// Pushes the new label, returns error if the label is not contained in the same slice as internal
+    pub(super) fn push_label(
+        &mut self,
+        label: &[u8],
+        start_idx: usize,
+        end_idx: usize,
+    ) -> Result<(), ()> {
+        // this is only safe to push if and only if this label overlaps the same region as the inner label
+        //  it's either the very beginning, or 1 past the end of the last offset
+        let start = self.label_offsets.last().map_or(0, |(_, end)| *end + 1);
+        let end = start + label.len();
+
+        if end > self.name.len() {
+            return Err(());
+        }
+
+        let existing_label = self.name.get(start..end).ok_or(())?;
+        let overlapping_label = self.name.get(start_idx..end_idx).ok_or(())?;
+        if (start, end) == (start_idx, end_idx) && std::ptr::eq(existing_label, overlapping_label) {
+            self.label_offsets.push((start, end));
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+}
+
+impl<'a> fmt::Display for NameRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+    }
+}
+
+impl<'a> fmt::Debug for NameRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+    }
+}
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Clone, Default, Debug, Eq)]
@@ -35,6 +463,60 @@ pub struct Name {
     is_fqdn: bool,
     name: Vec<u8>,
     label_offsets: Vec<(usize, usize)>,
+}
+
+impl DnsName for Name {
+    fn labels(&self) -> LabelIter {
+        LabelIter::new(self)
+    }
+
+    /// Returns true if the name is a fully qualified domain name.
+    ///
+    /// If this is true, it has effects like only querying for this single name, as opposed to building
+    ///  up a search list in resolvers.
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::{DnsName, Name};
+    ///
+    /// let name = Name::from_str("www").unwrap();
+    /// assert!(!name.is_fqdn());
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// assert!(!name.is_fqdn());
+    ///
+    /// let name = Name::from_str("www.example.com.").unwrap();
+    /// assert!(name.is_fqdn());
+    /// ```
+    fn is_fqdn(&self) -> bool {
+        self.is_fqdn
+    }
+
+    /// Specifies this name is a fully qualified domain name
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    fn set_fqdn(&mut self, val: bool) {
+        self.is_fqdn = val
+    }
+
+    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
+        BorrowedName {
+            is_fqdn: self.is_fqdn,
+            name: &self.name,
+            label_offsets: &self.label_offsets,
+        }
+    }
+}
+
+impl<'a> Borrow<dyn DnsName + 'a> for Name {
+    fn borrow(&self) -> &(dyn DnsName + 'a) {
+        // This is a simple coercion from the concrete type to a trait object.
+        self
+    }
 }
 
 impl Name {
@@ -52,60 +534,16 @@ impl Name {
         }
     }
 
+    /// Return this Name as bytes
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.name
+    }
+
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
         let mut this = Self::new();
         this.is_fqdn = true;
         this
-    }
-
-    /// Returns true if there are no labels, i.e. it's empty.
-    ///
-    /// In DNS the root is represented by `.`
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// let root = Name::root();
-    /// assert_eq!(&root.to_string(), ".");
-    /// ```
-    pub fn is_root(&self) -> bool {
-        self.label_offsets.is_empty() && self.is_fqdn()
-    }
-
-    /// Returns true if the name is a fully qualified domain name.
-    ///
-    /// If this is true, it has effects like only querying for this single name, as opposed to building
-    ///  up a search list in resolvers.
-    ///
-    /// *warning: this interface is unstable and may change in the future*
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// let name = Name::from_str("www").unwrap();
-    /// assert!(!name.is_fqdn());
-    ///
-    /// let name = Name::from_str("www.example.com").unwrap();
-    /// assert!(!name.is_fqdn());
-    ///
-    /// let name = Name::from_str("www.example.com.").unwrap();
-    /// assert!(name.is_fqdn());
-    /// ```
-    pub fn is_fqdn(&self) -> bool {
-        self.is_fqdn
-    }
-
-    /// Specifies this name is a fully qualified domain name
-    ///
-    /// *warning: this interface is unstable and may change in the future*
-    pub fn set_fqdn(&mut self, val: bool) {
-        self.is_fqdn = val
     }
 
     /// Returns an iterator over the labels
@@ -118,11 +556,11 @@ impl Name {
         LabelIterMut::new(self)
     }
 
-    fn push_label<L: DnsLabel>(&mut self, label: L) {
+    pub(super) fn push_label(&mut self, label: &[u8]) {
         if !label.is_empty() {
             self.name.extend_from_slice(b".");
             let start_idx = self.name.len();
-            self.name.extend_from_slice(label.as_bytes());
+            self.name.extend_from_slice(label);
             let end_idx = self.name.len();
 
             self.label_offsets.push((start_idx, end_idx));
@@ -142,7 +580,7 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
-        self.push_label(label.into_label()?);
+        self.push_label(label.into_label()?.as_bytes());
         if self.label_offsets.len() > 255 {
             return Err("labels exceed maximum length of 255".into());
         };
@@ -159,7 +597,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::{DnsLabel, Name};
+    /// use trust_dns_proto::rr::domain::{DnsLabel, Name, DnsName};
     ///
     /// // From strings, uses utf8 conversion
     /// let from_labels = Name::from_labels(vec!["www", "example", "com"]).unwrap();
@@ -196,7 +634,7 @@ impl Name {
                 .into_iter()
                 .map(Result::unwrap)
                 .fold(Name::new(), |mut name, label| {
-                    name.push_label(label);
+                    name.push_label(label.as_bytes());
                     name
                 });
         name.is_fqdn = true;
@@ -212,7 +650,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::{DnsName, Name};
     ///
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
@@ -229,12 +667,12 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com.").unwrap());
     /// assert!(name.is_fqdn());
     /// ```
-    pub fn append_name(mut self, other: &Self) -> Self {
-        for label in other.iter() {
-            self.push_label(label);
+    pub fn append_name(mut self, other: &dyn DnsName) -> Self {
+        for label in other.labels() {
+            self.push_label(label.as_bytes());
         }
 
-        self.is_fqdn = other.is_fqdn;
+        self.is_fqdn = other.is_fqdn();
         self
     }
 
@@ -247,7 +685,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::{DnsName, Name};
     ///
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
@@ -255,10 +693,18 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// assert!(name.is_fqdn())
     /// ```
-    pub fn append_domain(self, domain: &Self) -> Self {
+    pub fn append_domain(self, domain: &dyn DnsName) -> Self {
         let mut this = self.append_name(domain);
         this.set_fqdn(true);
         this
+    }
+
+    pub fn append_domain2(&mut self, domain: &dyn DnsName) {
+        for label in domain.labels() {
+            self.push_label(label.as_bytes());
+        }
+
+        self.set_fqdn(true);
     }
 
     /// Makes this name lowercased, in place
@@ -342,7 +788,7 @@ impl Name {
         let skip_first = (self.num_labels() as usize).saturating_sub(num_labels);
 
         for label in self.iter().skip(skip_first) {
-            name.push_label(label);
+            name.push_label(label.as_bytes());
         }
 
         name.is_fqdn = self.is_fqdn;
@@ -401,34 +847,6 @@ impl Name {
         self_lower.zone_of_case(&name_lower)
     }
 
-    /// Returns the number of labels in the name, discounting `*`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// let root = Name::root();
-    /// assert_eq!(root.num_labels(), 0);
-    ///
-    /// let example_com = Name::from_str("example.com").unwrap();
-    /// assert_eq!(example_com.num_labels(), 2);
-    ///
-    /// let star_example_com = Name::from_str("*.example.com.").unwrap();
-    /// assert_eq!(star_example_com.num_labels(), 2);
-    /// ```
-    pub fn num_labels(&self) -> u8 {
-        // it is illegal to have more than 256 labels.
-
-        let num = self.label_offsets.len() as u8;
-
-        self.iter()
-            .next()
-            .map(|l| if l.is_wildcard() { num - 1 } else { num })
-            .unwrap_or(num)
-    }
-
     /// returns the length in bytes of the labels. '.' counts as 1
     ///
     /// This can be used as an estimate, when serializing labels, they will often be compressed
@@ -474,8 +892,8 @@ impl Name {
     /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
     /// assert_eq!(name[0], *b"example");
     /// ```
-    pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncUtf8>(local, origin)
+    pub fn parse<'a, 'b: 'a>(local: &'a str, origin: Option<&'b dyn DnsName>) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncUtf8>(local, origin).map(Into::into)
     }
 
     /// Will convert the string to a name only allowing ascii as valid input
@@ -505,8 +923,8 @@ impl Name {
     ///
     /// assert_eq!(bytes_name, name);
     /// ```
-    pub fn from_ascii<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
+    pub fn from_ascii<'a>(name: &'a str) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None).map(Into::into)
     }
 
     // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
@@ -526,11 +944,11 @@ impl Name {
     /// let utf8_name = Name::from_str("WWW.example.COM.").unwrap();
     /// let lower_name = Name::from_str("www.example.com.").unwrap();
     ///
-    /// assert!(!bytes_name.eq_case(&utf8_name));
-    /// assert!(lower_name.eq_case(&utf8_name));
+    /// assert!(bytes_name.eq_case(&utf8_name));
+    /// assert!(!lower_name.eq_case(&utf8_name));
     /// ```
-    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
+    pub fn from_utf8<'a>(name: &'a str) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None).map(Into::into)
     }
 
     /// First attempts to decode via `from_utf8`, if that fails IDNA checks, than falls back to
@@ -545,164 +963,23 @@ impl Name {
     /// // Ok, underscore in the beginning of a name
     /// assert!(Name::from_utf8("_allows.example.com.").is_ok());
     ///
-    /// // Error, underscore in the end
-    /// assert!(Name::from_utf8("dis_allowed.example.com.").is_err());
+    /// // Ok, underscore in the end
+    /// assert!(Name::from_utf8("dis_allowed.example.com.").is_ok());
     ///
     /// // Ok, relaxed mode
     /// assert!(Name::from_str_relaxed("allow_in_.example.com.").is_ok());
     /// ```
-    pub fn from_str_relaxed<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
-        let name = name.as_ref();
-        Self::from_utf8(name).or_else(|_| Self::from_ascii(name))
+    pub fn from_str_relaxed(name: &str) -> ProtoResult<Self> {
+        Self::from_utf8(name)
+            .or_else(|_| Self::from_ascii(name))
+            .map(Into::into)
     }
 
-    fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
-        let mut name = Name::new();
-        let mut label = String::new();
-
-        let mut state = ParseState::Label;
-
-        // short circuit root parse
-        if local == "." {
-            name.set_fqdn(true);
-            return Ok(name);
-        }
-
-        // TODO: it would be nice to relocate this to Label, but that is hard because the label boundary can only be detected after processing escapes...
-        // evaluate all characters
-        for ch in local.chars() {
-            match state {
-                ParseState::Label => match ch {
-                    '.' => {
-                        name.push_label(E::to_label(&label)?);
-                        label.clear();
-                    }
-                    '\\' => state = ParseState::Escape1,
-                    ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
-                    _ => return Err(format!("unrecognized char: {}", ch).into()),
-                },
-                ParseState::Escape1 => {
-                    if ch.is_numeric() {
-                        state =
-                            ParseState::Escape2(ch.to_digit(8).ok_or_else(|| {
-                                ProtoError::from(format!("illegal char: {}", ch))
-                            })?);
-                    } else {
-                        // it's a single escaped char
-                        label.push(ch);
-                        state = ParseState::Label;
-                    }
-                }
-                ParseState::Escape2(i) => {
-                    if ch.is_numeric() {
-                        state = ParseState::Escape3(
-                            i,
-                            ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?,
-                        );
-                    } else {
-                        return Err(ProtoError::from(format!("unrecognized char: {}", ch)));
-                    }
-                }
-                ParseState::Escape3(i, ii) => {
-                    if ch.is_numeric() {
-                        // octal conversion
-                        let val: u32 = (i * 8 * 8)
-                            + (ii * 8)
-                            + ch.to_digit(8)
-                                .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
-                        let new: char = char::from_u32(val)
-                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
-                        label.push(new);
-                        state = ParseState::Label;
-                    } else {
-                        return Err(format!("unrecognized char: {}", ch).into());
-                    }
-                }
-            }
-        }
-
-        if !label.is_empty() {
-            name.push_label(E::to_label(&label)?);
-        }
-
-        if local.ends_with('.') {
-            name.set_fqdn(true);
-        } else if let Some(other) = origin {
-            return Ok(name.append_domain(other));
-        }
-
-        Ok(name)
-    }
-
-    /// Emits the canonical version of the name to the encoder.
-    ///
-    /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
-    pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
-        let buf_len = encoder.len(); // lazily assert the size is less than 255...
-                                     // lookup the label in the BinEncoder
-                                     // if it exists, write the Pointer
-
-        let num_labels = self.num_labels() as usize;
-        let labels = self.iter();
-
-        // start index of each label
-        let mut labels_written: Vec<usize> = Vec::with_capacity(num_labels);
-
-        if canonical {
-            for label in labels {
-                encoder.emit_character_data(label)?;
-            }
-        } else {
-            // we're going to write out each label, tracking the indexes of the start to each label
-            //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
-            for label in labels {
-                if label.len() > 63 {
-                    return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
-                }
-
-                labels_written.push(encoder.offset());
-                encoder.emit_character_data(label)?;
-            }
-
-            // we've written all the labels to the buf, the current offset is the end
-            let last_index = encoder.offset();
-
-            // now search for other labels already stored matching from the beginning label, strip then to the end
-            //   if it's not found, then store this as a new label
-            for label_idx in &labels_written {
-                let label_ptr: Option<u16> = encoder.get_label_pointer(*label_idx, last_index);
-
-                // before we write the label, let's look for the current set of labels.
-                if let Some(loc) = label_ptr {
-                    // reset back to the beginning of this label, and then write the pointer...
-                    encoder.set_offset(*label_idx);
-                    encoder.trim();
-
-                    // write out the pointer marker
-                    //  or'd with the location which shouldn't be larger than this 2^14 or 16k
-                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
-
-                    // we found a pointer don't write more, break
-                    return Ok(());
-                } else {
-                    // no existing label exists, store this new one.
-                    encoder.store_label_pointer(*label_idx, last_index);
-                }
-            }
-        }
-
-        // if we're getting here, then we didn't write out a pointer and are ending the name
-        // the end of the list of names
-        encoder.emit(0)?;
-
-        // the entire name needs to be less than 256.
-        let length = encoder.len() - buf_len;
-        if length > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(length).into());
-        }
-
-        Ok(())
+    fn from_encoded_str<'a, 'b: 'a, E: super::parse::LabelEnc>(
+        local: &'a str,
+        origin: Option<&'b dyn DnsName>,
+    ) -> ProtoResult<Self> {
+        super::parse::from_encoded_str::<E>(local, origin).map(Into::into)
     }
 
     /// Writes the labels, as lower case, to the encoder
@@ -836,24 +1113,6 @@ impl Name {
         }
     }
 
-    fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error> {
-        let mut iter = self.iter();
-        if let Some(label) = iter.next() {
-            E::write_label(f, &label)?;
-        }
-
-        for label in iter {
-            write!(f, ".")?;
-            E::write_label(f, &label)?;
-        }
-
-        // if it was the root name
-        if self.is_root() || self.is_fqdn() {
-            write!(f, ".")?;
-        }
-        Ok(())
-    }
-
     /// Returns true if the `Name` is either localhost or in the localhost zone.
     ///
     /// # Example
@@ -919,9 +1178,9 @@ impl Name {
         if !self.is_root() {
             let wildcard = LabelRef::wildcard();
 
-            name.push_label(wildcard);
+            name.push_label(wildcard.as_bytes());
             for label in self.into_iter().skip(1) {
-                name.push_label(label);
+                name.push_label(label.as_bytes());
             }
         }
 
@@ -929,43 +1188,30 @@ impl Name {
     }
 }
 
-trait LabelEnc {
-    fn to_label(name: &str) -> ProtoResult<Label>;
-    fn write_label<W: Write, L: DnsLabel>(f: &mut W, label: &L) -> Result<(), fmt::Error>;
-}
-
-struct LabelEncAscii;
-impl LabelEnc for LabelEncAscii {
-    fn to_label(name: &str) -> ProtoResult<Label> {
-        Label::from_ascii(name)
-    }
-
-    fn write_label<W: Write, L: DnsLabel>(f: &mut W, label: &L) -> Result<(), fmt::Error> {
-        label.write_ascii(f)
-    }
-}
-
-struct LabelEncUtf8;
-impl LabelEnc for LabelEncUtf8 {
-    fn to_label(name: &str) -> ProtoResult<Label> {
-        Label::from_utf8(name)
-    }
-
-    fn write_label<W: Write, L: DnsLabel>(f: &mut W, label: &L) -> Result<(), fmt::Error> {
-        label.write_utf8(f)
-    }
-}
-
 /// An iterator over labels in a name
 pub struct LabelIter<'a> {
-    name: &'a Name,
+    name: &'a [u8],
     offsets: Iter<'a, (usize, usize)>,
 }
 
 impl<'a> LabelIter<'a> {
-    fn new(name: &'a Name) -> Self {
+    fn from_borrowed(name: &'a BorrowedName<'a>) -> LabelIter<'a> {
         Self {
-            name,
+            name: name.name,
+            offsets: name.label_offsets.iter(),
+        }
+    }
+
+    fn from_ref(name: &'a NameRef<'a>) -> LabelIter<'a> {
+        Self {
+            name: name.name,
+            offsets: name.label_offsets.iter(),
+        }
+    }
+
+    fn new(name: &'a Name) -> LabelIter<'a> {
+        Self {
+            name: &name.name,
             offsets: name.label_offsets.iter(),
         }
     }
@@ -976,7 +1222,7 @@ impl<'a> Iterator for LabelIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.offsets.next()?;
-        Some(LabelRef::from_unchecked(&self.name.name[*start..*end]))
+        Some(LabelRef::from_unchecked(&self.name[*start..*end]))
     }
 }
 
@@ -1005,7 +1251,7 @@ impl<'a> ExactSizeIterator for LabelIter<'a> {}
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let (start, end) = self.offsets.next_back()?;
-        Some(LabelRef::from_unchecked(&self.name.name[*start..*end]))
+        Some(LabelRef::from_unchecked(&self.name[*start..*end]))
     }
 }
 
@@ -1106,8 +1352,6 @@ impl PartialEq<Name> for Name {
 
 impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        use std::borrow::Cow;
-
         self.is_fqdn.hash(state);
 
         // this needs to be CaseInsensitive like PartialEq
@@ -1122,20 +1366,6 @@ impl Hash for Name {
 
             l.hash(state);
         }
-    }
-}
-
-enum ParseState {
-    Label,
-    Escape1,
-    Escape2(u32),
-    Escape3(u32, u32),
-}
-
-impl BinEncodable for Name {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-        self.emit_as_canonical(encoder, is_canonical_names)
     }
 }
 
@@ -1196,7 +1426,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
                     .verify_unwrap(|l| l.len() <= 63)
                     .map_err(|_| ProtoError::from("label exceeds maximum length of 63"))?;
 
-                labels.push_label(label.into_label()?);
+                labels.push_label(label.into_label()?.as_bytes());
 
                 // reset to collect more data
                 LabelParseState::LabelLengthOrPointer
@@ -1245,7 +1475,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
                 let pointed = read_inner(&mut pointer, Some(name_start))?;
 
                 for l in pointed.iter() {
-                    labels.push_label(l);
+                    labels.push_label(l.as_bytes());
                 }
 
                 // Pointers always finish the name, break like Root.
@@ -1345,7 +1575,7 @@ impl FromStr for Name {
 
     /// Uses the Name::from_utf8 conversion on this string, see [`from_ascii`] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Name::from_str_relaxed(s)
+        Name::from_str_relaxed(s).map(|n| n.into())
     }
 }
 
@@ -1358,14 +1588,14 @@ pub trait IntoName: Sized {
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_utf8(self).map(|n| n.into())
     }
 }
 
 impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
     fn into_name(self) -> ProtoResult<Name> {
-        Name::from_utf8(self)
+        Name::from_utf8(&self).map(|n| n.into())
     }
 }
 
@@ -1413,6 +1643,22 @@ mod tests {
     #[allow(unused)]
     use crate::serialize::binary::*;
 
+    #[test]
+    fn test_dns_name_is_object_safe() {
+        let name = NameRef {
+            is_fqdn: true,
+            name: b"www",
+            label_offsets: vec![(0, 3)],
+        };
+        let dyn_name = &name as &dyn DnsName;
+
+        assert_eq!(name.labels().next().unwrap().as_bytes(), b"www");
+        assert_eq!(dyn_name.labels().next().unwrap().as_bytes(), b"www");
+    }
+
+    #[test]
+    fn test_hash_mappable_name() {}
+
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
             (Name::new(), vec![0]),                           // base case, only the root
@@ -1426,6 +1672,23 @@ mod tests {
                 vec![1, b'a', 7, b'x', b'n', b'-', b'-', b'g', b'6', b'h', 0],
             ), // two labels utf8, 'a.♥'
         ]
+    }
+
+    #[test]
+    fn test_name_ref_push_label() {
+        use crate::rr::domain::NameRef;
+
+        let label = b"www.example.com.";
+        let mut name = NameRef::from_unparsed_slice(label);
+        assert!(name.labels().next().is_none());
+
+        name.push_label(&label[0..3], 0, 3).unwrap();
+        assert_eq!(
+            name.labels().next().expect("should be www").as_bytes(),
+            b"www"
+        );
+
+        assert!(name.push_label(b"www", 0, 3).is_err());
     }
 
     #[test]
@@ -1628,8 +1891,12 @@ mod tests {
         let comparisons: Vec<(Name, Name)> = vec![
             (root.clone().unwrap(), root.clone().unwrap()),
             (
-                Name::parse("example.", root.as_ref()).unwrap(),
-                Name::parse("example", root.as_ref()).unwrap(),
+                Name::parse("example.", root.as_ref().map(|r| r as &dyn DnsName))
+                    .unwrap()
+                    .to_name(),
+                Name::parse("example", root.as_ref().map(|r| r as &dyn DnsName))
+                    .unwrap()
+                    .to_name(),
             ),
         ];
 
@@ -1775,8 +2042,8 @@ mod tests {
         let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
         let lower_name = Name::from_utf8("www.example.com.").unwrap();
 
-        assert!(!bytes_name.eq_case(&utf8_name));
-        assert!(lower_name.eq_case(&utf8_name));
+        assert!(bytes_name.eq_case(&utf8_name));
+        assert!(!lower_name.eq_case(&utf8_name));
     }
 
     #[test]
@@ -1808,11 +2075,17 @@ mod tests {
         );
         assert_eq!(
             Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(),
-            "www.example.com."
+            "WWW.example.COM."
         );
         assert_eq!(
             Name::from_ascii("WWW.example.COM.").unwrap().to_utf8(),
             "WWW.example.COM."
+        );
+        assert_eq!(
+            Name::from_ascii("email\\.name.example.com.")
+                .unwrap()
+                .to_utf8(),
+            "email\\.name.example.com."
         );
     }
 
@@ -1826,7 +2099,7 @@ mod tests {
 
         let mut result = Ok(());
         for i in 0..10000 {
-            let name = Name::from_ascii(format!("name{}.example.com.", i)).unwrap();
+            let name = Name::from_ascii(&format!("name{}.example.com.", i)).unwrap();
             result = name.emit(&mut encoder);
             if let Err(..) = result {
                 break;

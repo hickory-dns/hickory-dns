@@ -13,11 +13,10 @@
 #[allow(unused)]
 #[allow(deprecated)]
 use std::ascii::AsciiExt;
-use std::borrow::{Borrow, Cow, ToOwned};
+use std::borrow::{Borrow, Cow};
 use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc as Rc;
 
 use idna;
 use log::debug;
@@ -220,7 +219,7 @@ pub trait DnsLabel {
 }
 
 /// A label to a referred set of bytes
-#[derive(Eq, PartialEq)]
+#[derive(Eq)]
 pub struct LabelRef<'a>(&'a [u8]);
 
 impl LabelRef<'static> {
@@ -269,6 +268,10 @@ impl<'a> LabelRef<'a> {
             Err(format!("Malformed label: {}", s).into())
         }
     }
+
+    pub fn into_bytes(self) -> &'a [u8] {
+        self.0
+    }
 }
 
 impl<'a> DnsLabel for LabelRef<'a> {
@@ -303,6 +306,13 @@ impl<'a> Borrow<[u8]> for LabelRef<'a> {
     }
 }
 
+#[allow(deprecated)]
+impl<'a, 'b> PartialEq<LabelRef<'b>> for LabelRef<'a> {
+    fn eq(&self, other: &LabelRef<'b>) -> bool {
+        self.eq_ignore_ascii_case(other)
+    }
+}
+
 /// Labels are always stored as ASCII, unicode characters must be encoded with punycode
 #[derive(Clone, Eq)]
 pub struct Label(Vec<u8>);
@@ -324,6 +334,16 @@ impl Label {
             return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
         };
         Ok(Label(bytes.to_vec()))
+    }
+
+    pub(super) fn parse_label_no_alloc(s: &str) -> ProtoResult<Cow<[u8]>> {
+        match LabelRef::from_ascii(s) {
+            // this returns the entire label, as it was validated as good
+            Ok(_label) => return Ok(Cow::Borrowed(s.as_bytes())),
+            Err(_) => (),
+        }
+
+        Ok(Cow::Owned(Label::from_utf8(s)?.to_vec()))
     }
 
     /// Translates this string into IDNA safe name, encoding to punycode as necessary.
@@ -354,6 +374,7 @@ impl Label {
     /// Takes the ascii string and returns a new label.
     ///
     /// This will return an Error if the label is not an ascii string
+    #[deprecated = "use LabelRef::from_ascii"]
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
             return Ok(LabelRef::wildcard().to_label());
@@ -407,6 +428,10 @@ impl Label {
     /// See [`Display`] for presentation version (unescaped from punycode, etc)
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    pub(super) fn to_vec(self) -> Vec<u8> {
+        self.0
     }
 
     /// compares with the other label, ignoring case

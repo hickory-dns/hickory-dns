@@ -239,8 +239,10 @@ impl Display for Query {
 
 #[test]
 fn test_read_and_emit() {
+    use crate::rr::domain::DnsName;
+
     let expect = Query {
-        name: Name::from_ascii("WWW.example.com").unwrap(),
+        name: Name::from_ascii("WWW.example.com").unwrap().to_name(),
         query_type: RecordType::AAAA,
         query_class: DNSClass::IN,
         ..Query::default()

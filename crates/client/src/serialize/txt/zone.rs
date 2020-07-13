@@ -17,7 +17,8 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use crate::error::*;
-use crate::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+use crate::proto::rr::domain::{DnsName, Name};
+use crate::rr::{DNSClass, LowerName, RData, Record, RecordSet, RecordType, RrKey};
 use crate::serialize::txt::parse_rdata::RDataParser;
 use crate::serialize::txt::zone_lex::{Lexer, Token};
 
@@ -166,7 +167,8 @@ impl Parser {
 
                         // if CharData, then Name then ttl_class_type
                         Token::CharData(data) => {
-                            current_name = Some(Name::parse(&data, origin.as_ref())?);
+                            let origin = origin.as_ref().map(|n| n as &dyn DnsName);
+                            current_name = Some(Name::parse(&data, origin)?);
                             State::TtlClassType
                         }
 

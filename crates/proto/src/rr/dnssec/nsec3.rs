@@ -19,7 +19,7 @@
 use super::{Digest, DigestType};
 use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use crate::rr::Name;
+use crate::rr::domain::{DnsName, Name};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
@@ -144,7 +144,7 @@ impl Nsec3HashAlgorithm {
     ///        substitution);
     /// ```
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
+    pub fn hash(self, salt: &[u8], name: &dyn DnsName, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method
             Nsec3HashAlgorithm::SHA1 => {

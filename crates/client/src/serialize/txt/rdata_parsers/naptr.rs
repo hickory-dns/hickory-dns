@@ -10,8 +10,8 @@
 use std::str::FromStr;
 
 use crate::error::*;
+use crate::proto::rr::domain::{DnsName, Name};
 use crate::rr::rdata::naptr::{verify_flags, NAPTR};
-use crate::rr::Name;
 
 /// Parse the RData from a set of Tokens
 ///
@@ -25,6 +25,8 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<NAPTR> {
+    let origin = origin.map(|n| n as &dyn DnsName);
+
     let order: u16 = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("order".to_string())))

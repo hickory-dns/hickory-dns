@@ -534,6 +534,8 @@ pub fn emit_pre_sig(
     key_tag: u16,
     signer_name: &Name,
 ) -> ProtoResult<()> {
+    use crate::rr::domain::DnsName;
+
     type_covered.emit(encoder)?;
     algorithm.emit(encoder)?;
     encoder.emit(num_labels)?;

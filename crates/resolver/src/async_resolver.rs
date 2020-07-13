@@ -14,7 +14,7 @@ use std::sync::Arc;
 use futures_util::{self, future, lock::Mutex};
 use proto::error::ProtoResult;
 use proto::op::Query;
-use proto::rr::domain::TryParseIp;
+use proto::rr::domain::{DnsName, TryParseIp};
 use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use proto::DnsHandle;

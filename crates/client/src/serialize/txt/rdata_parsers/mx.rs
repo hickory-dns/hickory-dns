@@ -17,7 +17,7 @@
 //! mail exchange, email, record
 
 use crate::error::*;
-use crate::rr::domain::Name;
+use crate::proto::rr::domain::{DnsName, Name};
 use crate::rr::rdata::MX;
 
 /// Parse the RData from a set of Tokens
@@ -32,7 +32,9 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
     let exchange: Name = tokens
         .next()
         .ok_or_else(|| ParseErrorKind::MissingToken("exchange".to_string()).into())
-        .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+        .and_then(|s| {
+            Name::parse(s, origin.map(|n| n as &dyn DnsName)).map_err(ParseError::from)
+        })?;
 
     Ok(MX::new(preference, exchange))
 }

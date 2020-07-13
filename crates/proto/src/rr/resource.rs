@@ -20,10 +20,10 @@ use std::cmp::Ordering;
 
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;
+use crate::rr::domain::{DnsName, Name};
 use crate::rr::rdata::NULL;
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;
-use crate::rr::Name;
 use crate::rr::RData;
 use crate::rr::RecordSet;
 use crate::rr::RecordType;
