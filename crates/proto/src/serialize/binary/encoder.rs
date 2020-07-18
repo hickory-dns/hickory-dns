@@ -48,7 +48,7 @@ mod private {
         /// and reserves the additional space in the buffer
         pub fn enforced_write<F>(&mut self, additional: usize, writer: F) -> ProtoResult<()>
         where
-            F: FnOnce(&mut Vec<u8>) -> (),
+            F: FnOnce(&mut Vec<u8>),
         {
             let expected_len = self.buffer.len() + additional;
 

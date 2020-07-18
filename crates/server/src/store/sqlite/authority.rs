@@ -440,7 +440,7 @@ impl SqliteAuthority {
     /// ```
     ///
     #[cfg(feature = "dnssec")]
-    #[allow(clippy::block_in_if_condition_stmt)]
+    #[allow(clippy::blocks_in_if_conditions)]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use futures::executor::block_on;
 

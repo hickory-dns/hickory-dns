@@ -7,7 +7,6 @@
 
 use std::fmt::{self, Display};
 use std::io;
-use std::mem;
 use std::net::SocketAddr;
 use std::ops::DerefMut;
 use std::pin::Pin;
@@ -510,7 +509,7 @@ where
                 }
             };
 
-            mem::replace(self.as_mut().deref_mut(), next);
+            *self.as_mut().deref_mut() = next;
         }
     }
 }
