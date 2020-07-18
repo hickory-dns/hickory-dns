@@ -1,9 +1,16 @@
 use super::*;
 
+/// A copy-on-write version of name.
+///
+/// Due to internal storage requirements for some Name variants this can not just be Cow<NameRef>.
 pub enum CowName<'a> {
+    /// A reference to the Trait Object variant
     Borrowed(&'a dyn DnsName),
+    /// BorrowedName is zero overhead abstraction over `NameRef` or `Name`
     BorrowedName(BorrowedName<'a>),
+    /// A reference to an unowned set of bytes, there is an allocation of label offsets
     NameRef(NameRef<'a>),
+    /// An owned version of a Vec of bytes
     Owned(Name),
 }
 
@@ -32,10 +39,12 @@ impl<'a> From<&'a dyn DnsName> for CowName<'a> {
 }
 
 impl<'a> CowName<'a> {
+    /// Is this one of the low cost borrowed variants
     pub fn is_borrowed(&self) -> bool {
         !self.is_owned()
     }
 
+    /// Is this the Owned `Name` variant
     pub fn is_owned(&self) -> bool {
         if let CowName::Owned(_) = self {
             true
@@ -44,7 +53,8 @@ impl<'a> CowName<'a> {
         }
     }
 
-    pub fn borrowed(&'a self) -> &'a (dyn DnsName + 'a) {
+    /// Get a Trait Object reference to the inner name
+    pub fn as_object(&'a self) -> &'a (dyn DnsName + 'a) {
         match self {
             CowName::Borrowed(name) => *name,
             CowName::BorrowedName(name) => name,
@@ -53,6 +63,7 @@ impl<'a> CowName<'a> {
         }
     }
 
+    /// Convert to the owned `Name` variant internally (if not already done)
     pub fn to_mut(&mut self) -> &mut Name {
         match self {
             CowName::Borrowed(name) => *self = CowName::Owned(name.to_owned()),

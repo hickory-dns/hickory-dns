@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 
 use test::Bencher;
 
+use trust_dns_proto::rr::domain::DnsName;
 use trust_dns_proto::rr::*;
 
 #[bench]
