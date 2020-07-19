@@ -278,9 +278,8 @@ impl<'a> Lexer<'a> {
         collect
             .as_mut()
             .ok_or_else(|| LexerErrorKind::IllegalState("collect is None").into())
-            .and_then(|s| {
+            .map(|s| {
                 s.push(ch);
-                Ok(())
             })
     }
 

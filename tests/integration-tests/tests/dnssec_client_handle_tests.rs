@@ -37,13 +37,12 @@ fn test_secure_query_example_nonet() {
 }
 
 #[test]
-#[ignore]
+#[ignore] // this getting finnicky responses with UDP
 fn test_secure_query_example_udp() {
     with_udp(test_secure_query_example);
 }
 
 #[test]
-#[ignore]
 fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example);
 }
