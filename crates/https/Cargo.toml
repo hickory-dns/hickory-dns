@@ -47,7 +47,7 @@ name = "trust_dns_https"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.49"
+backtrace = "0.3.50"
 bytes = "0.5"
 data-encoding = "2.2.0"
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
