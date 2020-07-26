@@ -47,6 +47,9 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> DnsSdHandle for AsyncResolve
         let ptr_future = async move {
             let options = DnsRequestOptions {
                 expects_multiple_responses: true,
+                // TODO: This should use the AsyncResolver's options.edns0
+                // setting, but options is private.
+                use_edns: false,
             };
 
             this.inner_lookup(name, RecordType::PTR, options).await

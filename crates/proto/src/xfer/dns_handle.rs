@@ -89,8 +89,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
             .set_recursion_desired(true);
 
         // Extended dns
-        {
-            // TODO: this should really be configurable...
+        if options.use_edns {
             let edns = message.edns_mut();
             edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);

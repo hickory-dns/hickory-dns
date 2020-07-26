@@ -89,8 +89,15 @@ macro_rules! lookup_fn {
                 }
             };
 
-            self.inner_lookup(name, $r, DnsRequestOptions::default())
-                .await
+            self.inner_lookup(
+                name,
+                $r,
+                DnsRequestOptions {
+                    use_edns: self.options.edns0,
+                    ..Default::default()
+                },
+            )
+            .await
         }
     };
     ($p:ident, $l:ty, $r:path, $t:ty) => {
