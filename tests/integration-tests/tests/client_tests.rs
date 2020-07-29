@@ -26,7 +26,6 @@ use trust_dns_client::error::ClientErrorKind;
 use trust_dns_client::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::Record;
-use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns_client::tcp::TcpClientConnection;
 use trust_dns_client::udp::UdpClientConnection;
 use trust_dns_integration::authority::create_example;
@@ -34,6 +33,7 @@ use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::op::*;
+use trust_dns_proto::rr::{DNSClass, DnsName, Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
 use trust_dns_server::authority::{Authority, Catalog};
 

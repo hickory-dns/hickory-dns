@@ -165,7 +165,6 @@ impl Stream for TestClientStream {
             Poll::Ready(None) => Poll::Ready(None),
             // TODO: should we also return None if there are no more messages to send?
             Poll::Pending => {
-                //dbg!("PENDING");
                 cx.waker().wake_by_ref();
                 Poll::Pending
             }

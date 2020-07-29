@@ -13,7 +13,7 @@ use std::ops::Deref;
 
 use lazy_static::lazy_static;
 
-use crate::rr::domain::Name;
+use crate::rr::domain::{DnsName, Name};
 
 lazy_static! {
     /// Default Name usage, everything is normal...
@@ -21,11 +21,12 @@ lazy_static! {
 }
 
 lazy_static! {
-    static ref ARPA: Name = Name::from_ascii("arpa.").unwrap();
+    // FIXME: use CowName here...
+    static ref ARPA: Name = Name::from_ascii("arpa.").unwrap().to_name();
     /// zone for ipv4 reverse addresses
-    pub static ref IN_ADDR_ARPA: Name = Name::from_ascii("in-addr").unwrap().append_domain(&*ARPA);
+    pub static ref IN_ADDR_ARPA: Name = Name::from_ascii("in-addr").unwrap().to_name().append_domain(&*ARPA);
     /// zone for ipv6 reverse addresses
-    pub static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&*ARPA);
+    pub static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().to_name().append_domain(&*ARPA);
 }
 
 lazy_static! {
@@ -41,13 +42,13 @@ lazy_static! {
     /// ```
 
     /// localhost. usage
-    pub static ref LOCALHOST: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap());
+    pub static ref LOCALHOST: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap().to_name());
 
     /// 127.in-addr.arpa. usage; 127/8 is reserved for loopback
-    pub static ref IN_ADDR_ARPA_127: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("127").unwrap().append_domain(&*IN_ADDR_ARPA));
+    pub static ref IN_ADDR_ARPA_127: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("127").unwrap().to_name().append_domain(&*IN_ADDR_ARPA));
 
     /// 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa. usage; 1/128 is the only address in ipv6 loopback
-    pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&*IP6_ARPA));
+    pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().to_name().append_domain(&*IP6_ARPA));
 }
 
 lazy_static! {
@@ -66,7 +67,7 @@ lazy_static! {
     /// ```
 
     /// localhost. usage
-    pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii("local.").unwrap());
+    pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii("local.").unwrap().to_name());
 
     // RFC 6762                      Multicast DNS                February 2013
 
@@ -84,14 +85,14 @@ lazy_static! {
     //  the mDNS IPv4 link-local multicast address 224.0.0.251.
 
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IN_ADDR_ARPA_169_254: ZoneUsage = ZoneUsage::local(Name::from_ascii("254.169").unwrap().append_domain(&*IN_ADDR_ARPA));
+    pub static ref IN_ADDR_ARPA_169_254: ZoneUsage = ZoneUsage::local(Name::from_ascii("254.169").unwrap().to_name().append_domain(&*IN_ADDR_ARPA));
 
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_8: ZoneUsage = ZoneUsage::local(Name::from_ascii("8.e.f").unwrap().append_domain(&*IP6_ARPA));
+    pub static ref IP6_ARPA_FE_8: ZoneUsage = ZoneUsage::local(Name::from_ascii("8.e.f").unwrap().to_name().append_domain(&*IP6_ARPA));
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_9: ZoneUsage = ZoneUsage::local(Name::from_ascii("9.e.f").unwrap().append_domain(&*IP6_ARPA));
+    pub static ref IP6_ARPA_FE_9: ZoneUsage = ZoneUsage::local(Name::from_ascii("9.e.f").unwrap().to_name().append_domain(&*IP6_ARPA));
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().append_domain(&*IP6_ARPA));
+    pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().to_name().append_domain(&*IP6_ARPA));
 }
 
 lazy_static! {
@@ -109,7 +110,7 @@ lazy_static! {
     /// ```
 
     /// invalid. name usage
-    pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap());
+    pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap().to_name());
 }
 
 /// Users:

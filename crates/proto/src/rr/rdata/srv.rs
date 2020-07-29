@@ -17,7 +17,7 @@
 //! service records for identify port mapping for specific services on a host
 
 use crate::error::*;
-use crate::rr::domain::Name;
+use crate::rr::domain::{DnsName, Name};
 use crate::serialize::binary::*;
 
 /// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)

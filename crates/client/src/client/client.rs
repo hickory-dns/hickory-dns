@@ -24,12 +24,12 @@ use crate::client::{AsyncClient, ClientConnection, ClientHandle};
 use crate::error::*;
 use crate::proto::{
     error::ProtoError,
+    rr::{DNSClass, DnsName, Name, Record, RecordSet, RecordType},
     xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
 };
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
-use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 #[allow(clippy::type_complexity)]
 pub type NewFutureObj<H> = Pin<
@@ -101,13 +101,13 @@ pub trait Client {
     /// * `query_type` - record type to lookup
     fn query(
         &self,
-        name: &Name,
+        name: &dyn DnsName,
         query_class: DNSClass,
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
         let (mut client, mut runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.query(name.clone(), query_class, query_type))
+        runtime.block_on(client.query(name.to_name(), query_class, query_type))
     }
 
     /// Sends a NOTIFY message to the remote system

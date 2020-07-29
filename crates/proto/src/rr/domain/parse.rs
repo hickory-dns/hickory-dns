@@ -67,7 +67,7 @@ impl<'a> LabelCollector<'a> {
                     .chars()
                     .take(self.len)
                     .collect::<String>();
-                self.cur_label = Cow::Owned(dbg!(owned));
+                self.cur_label = Cow::Owned(owned);
             }
         }
 
@@ -119,10 +119,6 @@ enum NameCollector<'a> {
 }
 
 impl<'a> NameCollector<'a> {
-    fn new(slice: &'a [u8]) -> Self {
-        NameCollector::Ref(NameRef::from_unparsed_slice(slice))
-    }
-
     fn is_ref(&self) -> bool {
         if let NameCollector::Ref(_) = self {
             true
@@ -272,7 +268,7 @@ pub(super) struct LabelEncAscii;
 impl LabelEnc for LabelEncAscii {
     fn to_label<'a>(name: &'a str) -> ProtoResult<Cow<'a, [u8]>> {
         LabelRef::from_ascii(name)
-            .map(|n| n.into_bytes())
+            .map(|n| n.as_bytes())
             .map(Cow::Borrowed)
     }
 

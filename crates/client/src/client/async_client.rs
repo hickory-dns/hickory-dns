@@ -11,6 +11,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use crate::proto::error::ProtoError;
+use crate::proto::rr::DnsName;
 use crate::proto::xfer::{
     DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
     DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,

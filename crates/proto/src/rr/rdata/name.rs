@@ -40,7 +40,7 @@
 //! ```
 
 use crate::error::*;
-use crate::rr::domain::Name;
+use crate::rr::domain::{DnsName, Name};
 use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
@@ -66,7 +66,8 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> ProtoResult<()> {
+#[inline]
+pub fn emit<N: DnsName>(encoder: &mut BinEncoder, name_data: &N) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     name_data.emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())

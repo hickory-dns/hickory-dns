@@ -33,6 +33,8 @@ dnssec_battery!(file);
 
 #[test]
 fn test_all_lines_are_loaded() {
+    use trust_dns_proto::rr::DnsName;
+
     let config = FileConfig {
         zone_file_path: "../../tests/test-data/named_test_configs/default/nonewline.zone"
             .to_string(),
@@ -48,7 +50,7 @@ fn test_all_lines_are_loaded() {
     .expect("failed to load");
     let rrkey = RrKey {
         record_type: RecordType::A,
-        name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap()),
+        name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap().to_name()),
     };
     assert!(authority.records().get(&rrkey).is_some())
 }

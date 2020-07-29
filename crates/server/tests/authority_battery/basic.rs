@@ -71,9 +71,9 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let mut lookup =
         block_on(authority.search(&query.into(), false, SupportedAlgorithms::new())).unwrap();
 
-    let additionals = dbg!(lookup
+    let additionals = lookup
         .take_additionals()
-        .expect("no additionals in response"));
+        .expect("no additionals in response");
 
     let ns = lookup
         .into_iter()
@@ -101,9 +101,9 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let mut lookup =
         block_on(authority.search(&query.into(), false, SupportedAlgorithms::new())).unwrap();
 
-    let additionals = dbg!(lookup
+    let additionals = lookup
         .take_additionals()
-        .expect("no additionals in response"));
+        .expect("no additionals in response");
 
     let mx = lookup
         .into_iter()
@@ -320,7 +320,7 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let (name, a) = lookup
         .into_iter()
         .next()
-        .map(|r| (r.name(), dbg!(r.rdata())))
+        .map(|r| (r.name(), r.rdata()))
         .expect("No A answer");
 
     let a = a.as_a().expect("Not an A record");
@@ -539,9 +539,9 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let mut lookup =
         block_on(authority.search(&query.into(), false, SupportedAlgorithms::new())).unwrap();
 
-    let additionals = dbg!(lookup
+    let additionals = lookup
         .take_additionals()
-        .expect("no additionals in response"));
+        .expect("no additionals in response");
 
     let srv = lookup
         .into_iter()

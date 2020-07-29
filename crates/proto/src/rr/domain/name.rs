@@ -15,7 +15,6 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
 use std::slice::Iter;
 use std::str::FromStr;
-use std::vec::IntoIter;
 
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde-config")]
@@ -77,6 +76,7 @@ pub trait DnsName {
     /// assert_eq!(NameRef::from_ascii(".").unwrap().len(), 1);
     /// assert_eq!(NameRef::root().len(), 1);
     /// ```
+    #[inline]
     fn len(&self) -> usize {
         let len = self.labels().fold(
             0,
@@ -89,6 +89,13 @@ pub trait DnsName {
         } else {
             len
         }
+    }
+
+    /// Returns whether the length of the labels, in bytes is 0. In practice, since '.' counts as
+    /// 1, this is never the case so the method returns false.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        false
     }
 
     /// Returns the number of labels in the name, discounting `*`.
@@ -108,14 +115,16 @@ pub trait DnsName {
     /// let star_example_com = Name::from_str("*.example.com.").unwrap();
     /// assert_eq!(star_example_com.num_labels(), 2);
     /// ```
+    #[inline]
     fn num_labels(&self) -> u8 {
         // it is illegal to have more than 256 labels.
         let num = self.labels().count() as u8;
 
-        self.labels()
-            .next()
-            .map(|l| if l.is_wildcard() { num - 1 } else { num })
-            .unwrap_or(num)
+        if self.is_wildcard() {
+            num - 1
+        } else {
+            num
+        }
     }
 
     /// Returns true if there are no labels, i.e. it's empty.
@@ -130,14 +139,16 @@ pub trait DnsName {
     /// let root = Name::root();
     /// assert_eq!(&root.to_string(), ".");
     /// ```
+    #[inline]
     fn is_root(&self) -> bool {
         self.num_labels() == 0 && self.is_fqdn()
     }
 
     /// Return a Borrowed version of the DnsName
-    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b>;
+    fn borrowed_name<'a>(&'a self) -> BorrowedName<'a>;
 
     /// Converts this to the Name (owned) variant
+    #[inline]
     fn to_name(&self) -> Name {
         let mut name = Name::with_capacity(self.len());
         for l in self.labels() {
@@ -151,6 +162,7 @@ pub trait DnsName {
     /// Emits the canonical version of the name to the encoder.
     ///
     /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
+    #[inline]
     fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
                                      // lookup the label in the BinEncoder
@@ -218,6 +230,8 @@ pub trait DnsName {
         Ok(())
     }
 
+    /// Encode the labels to `Write` using the `LabelEnc` for style.
+    #[inline]
     fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error>
     where
         Self: Sized,
@@ -239,24 +253,396 @@ pub trait DnsName {
         Ok(())
     }
 
+    /// Case sensitive comparison
+    #[inline]
+    fn cmp_case<D: DnsName + ?Sized>(&self, other: &D) -> Ordering
+    where
+        Self: Sized,
+    {
+        cmp_with_f::<CaseSensitive, _, _>(self, other)
+    }
+
     /// Compares the Names, in a case sensitive manner
-    fn eq_case<D: DnsName>(&self, other: &D) -> bool
+    #[inline]
+    fn eq_case<D: DnsName + ?Sized>(&self, other: &D) -> bool
     where
         Self: Sized,
     {
         cmp_with_f::<CaseSensitive, _, _>(self, other) == Ordering::Equal
     }
-}
 
-/// compares with the other label, ignoring case
-fn cmp_with_f<F: LabelCmp, D1: DnsName, D2: DnsName>(this: &D1, other: &D2) -> Ordering {
-    if this.num_labels() == 0 && other.num_labels() == 0 {
-        return Ordering::Equal;
+    /// Converts this name into an ascii safe string.
+    ///
+    /// If the name is an IDNA name, then the name labels will be returned with the `xn--` prefix.
+    ///  see `to_utf8` or the `Display` impl for methods which convert labels to utf8.
+    #[inline]
+    fn to_ascii(&self) -> String {
+        let mut s = String::with_capacity(self.len());
+        write_labels::<_, LabelEncAscii, _>(&mut s, self)
+            .expect("string conversion of name should not fail");
+        s
     }
 
+    /// Converts the Name labels to the utf8 String form.
+    ///
+    /// This converts the name to an unescaped format, that could be used with parse. If, the name is
+    ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
+    ///  qualified Name.
+    #[inline]
+    fn to_utf8(&self) -> String {
+        let mut s = String::with_capacity(self.len());
+        write_labels::<_, LabelEncUtf8, _>(&mut s, self)
+            .expect("string conversion of name should not fail");
+        s
+    }
+
+    /// Converts a *.arpa Name in a PTR record back into an IpNet if possible.
+    fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
+        if !self.is_fqdn() {
+            return Err("PQDN cannot be valid arpa name".into());
+        }
+        let mut iter = self.labels().rev();
+        let first = iter
+            .next()
+            .ok_or_else(|| ProtoError::from("not an arpa address"))?;
+        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first.as_bytes())?) {
+            return Err("not an arpa address".into());
+        }
+        let second = iter
+            .next()
+            .ok_or_else(|| ProtoError::from("invalid arpa address"))?;
+        let mut prefix_len: u8 = 0;
+        match &std::str::from_utf8(second.as_bytes())?.to_ascii_lowercase()[..] {
+            "in-addr" => {
+                let mut octets: [u8; 4] = [0; 4];
+                for octet in octets.iter_mut() {
+                    match iter.next() {
+                        Some(label) => *octet = std::str::from_utf8(label.as_bytes())?.parse()?,
+                        None => break,
+                    }
+                    prefix_len += 8;
+                }
+                if iter.next().is_some() {
+                    return Err("unrecognized in-addr.arpa.".into());
+                }
+                Ok(IpNet::V4(
+                    Ipv4Net::new(octets.into(), prefix_len).expect("Ipv4Net::new"),
+                ))
+            }
+            "ip6" => {
+                let mut address: u128 = 0;
+                while prefix_len < 128 {
+                    match iter.next() {
+                        Some(label) => {
+                            if label.len() == 1 {
+                                prefix_len += 4;
+                                let hex =
+                                    u8::from_str_radix(std::str::from_utf8(label.as_bytes())?, 16)?;
+                                address |= u128::from(hex) << (128 - prefix_len);
+                            } else {
+                                return Err("invalid label length for ip6.arpa".into());
+                            }
+                        }
+                        None => break,
+                    }
+                }
+                if iter.next().is_some() {
+                    return Err("unrecognized ip6.arpa.".into());
+                }
+                Ok(IpNet::V6(
+                    Ipv6Net::new(address.into(), prefix_len).expect("Ipv6Net::new"),
+                ))
+            }
+            _ => Err("unrecognized arpa address".into()),
+        }
+    }
+
+    /// Determines if this Name is lowercase, in DNS terms this is limited to ascii characters
+    #[inline]
+    fn is_lowercase(&self) -> bool {
+        self.labels().all(|l| l.is_lowercase())
+    }
+
+    /// Creates a new Name with all labels lowercased
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::cmp::Ordering;
+    /// use std::str::FromStr;
+    ///
+    /// use trust_dns_proto::rr::domain::{Label, Name, DnsName};
+    ///
+    /// let example_com = Name::from_ascii("Example.Com").unwrap();
+    /// assert_eq!(example_com.cmp_case(&Name::from_str("example.com").unwrap()), Ordering::Less);
+    /// assert!(example_com.to_lowercase().eq_case(&Name::from_str("example.com").unwrap()));
+    /// ```
+    #[inline]
+    fn to_lowercase<'a>(&'a self) -> CowName<'a> {
+        if self.is_lowercase() {
+            CowName::BorrowedName(self.borrowed_name())
+        } else {
+            let mut name = self.to_name();
+            name.make_lowercase();
+
+            CowName::Owned(name)
+        }
+    }
+
+    /// returns true if the name components of self are all present at the end of name
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::{DnsName, Name};
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// let zone = Name::from_str("example.com").unwrap();
+    /// let another = Name::from_str("example.net").unwrap();
+    /// assert!(zone.zone_of(&name));
+    /// assert!(!name.zone_of(&zone));
+    /// assert!(!another.zone_of(&name));
+    /// ```
+    #[inline]
+    fn zone_of(&self, name: &dyn DnsName) -> bool {
+        let self_lower = self.to_lowercase();
+        let name_lower = name.to_lowercase();
+
+        self_lower.zone_of_case(&name_lower)
+    }
+
+    /// same as `zone_of` allows for case sensitive call
+    #[inline]
+    fn zone_of_case(&self, name: &dyn DnsName) -> bool {
+        let self_len = self.num_labels();
+        let name_len = name.num_labels();
+        if self_len == 0 {
+            return true;
+        }
+        if name_len == 0 {
+            // self_len != 0
+            return false;
+        }
+        if self_len > name_len {
+            return false;
+        }
+
+        let self_iter = self.labels().rev();
+        let name_iter = name.labels().rev();
+
+        let zip_iter = self_iter.zip(name_iter);
+
+        for (self_label, name_label) in zip_iter {
+            if self_label != name_label {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Writes the labels, as lower case, to the encoder
+    ///
+    /// # Arguments
+    ///
+    /// * `encoder` - encoder for writing this name
+    /// * `lowercase` - if true the name will be lowercased, otherwise it will not be changed when writing
+    #[inline]
+    fn emit_with_lowercase(&self, encoder: &mut BinEncoder, lowercase: bool) -> ProtoResult<()> {
+        let is_canonical_names = encoder.is_canonical_names();
+        if lowercase {
+            self.to_lowercase()
+                .emit_as_canonical(encoder, is_canonical_names)
+        } else {
+            self.emit_as_canonical(encoder, is_canonical_names)
+        }
+    }
+
+    /// Returns true if the `Name` is either localhost or in the localhost zone.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::{DnsName, Name};
+    ///
+    /// let name = Name::from_str("localhost").unwrap();
+    /// assert!(name.is_localhost());
+    ///
+    /// let name = Name::from_str("localhost.").unwrap();
+    /// assert!(name.is_localhost());
+    ///
+    /// let name = Name::from_str("my.localhost.").unwrap();
+    /// assert!(name.is_localhost());
+    /// ```
+    #[inline]
+    fn is_localhost(&self) -> bool
+    where
+        Self: Sized,
+    {
+        LOCALHOST_usage.zone_of(self)
+    }
+
+    /// True if the first label of this name is the wildcard, i.e. '*'
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::{DnsName, Name};
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// assert!(!name.is_wildcard());
+    ///
+    /// let name = Name::from_str("*.example.com").unwrap();
+    /// assert!(name.is_wildcard());
+    ///
+    /// let name = Name::root();
+    /// assert!(!name.is_wildcard());
+    /// ```
+    #[inline]
+    fn is_wildcard(&self) -> bool {
+        self.labels().next().map_or(false, |l| l.is_wildcard())
+    }
+
+    /// Converts a name to a wildcard, by replacing the first label with `*`
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::{DnsName, Name, NameRef};
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// let name = name.into_wildcard();
+    /// assert_eq!(name, Name::from_str("*.example.com.").unwrap());
+    ///
+    /// // does nothing if the root
+    /// let name = NameRef::root();
+    /// let name = name.into_wildcard();
+    /// assert_eq!(name, Name::root());
+    /// ```
+    #[inline]
+    fn into_wildcard<'a>(&'a self) -> CowName<'a> {
+        if self.is_wildcard() {
+            return self.borrowed_name().into();
+        }
+
+        let mut name = Name::with_capacity(self.len());
+        name.is_fqdn = self.is_fqdn();
+
+        // nothing to do for root
+        if !self.is_root() {
+            let wildcard = LabelRef::wildcard();
+
+            name.push_label(wildcard.as_bytes());
+            for label in self.labels().skip(1) {
+                name.push_label(label.as_bytes());
+            }
+        }
+
+        name.into()
+    }
+}
+
+// /// Encode the labels to `Write` using the `LabelEnc` for style.
+// pub(crate) fn write_labels<W: Write, E: LabelEnc>(
+//     f: &mut W,
+//     labels: LabelIter,
+//     is_root: bool,
+//     is_fqdn: bool,
+// ) -> Result<(), fmt::Error> {
+//     let mut iter = labels;
+//     if let Some(label) = iter.next() {
+//         E::write_label(f, &label)?;
+//     }
+
+//     for label in iter {
+//         write!(f, ".")?;
+//         E::write_label(f, &label)?;
+//     }
+
+//     // if it was the root name
+//     if is_root || is_fqdn {
+//         write!(f, ".")?;
+//     }
+//     Ok(())
+// }
+
+pub(crate) fn write_labels<W: Write, E: LabelEnc, D: DnsName + ?Sized>(
+    f: &mut W,
+    name: &D,
+) -> Result<(), fmt::Error> {
+    let mut iter = name.labels();
+    if let Some(label) = iter.next() {
+        E::write_label(f, &label)?;
+    }
+
+    for label in iter {
+        write!(f, ".")?;
+        E::write_label(f, &label)?;
+    }
+
+    // if it was the root name
+    if name.is_root() || name.is_fqdn() {
+        write!(f, ".")?;
+    }
+    Ok(())
+}
+
+impl<'a> fmt::Display for &'a dyn DnsName {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write_labels::<fmt::Formatter, LabelEncUtf8, _>(f, *self)
+    }
+}
+
+/// Case (optionally) insensitive comparison, see [`Name::cmp_case`] for case sensitive comparisons
+///
+/// RFC 4034                DNSSEC Resource Records               March 2005
+///
+/// ```text
+/// 6.1.  Canonical DNS Name Order
+///
+///  For the purposes of DNS security, owner names are ordered by treating
+///  individual labels as unsigned left-justified octet strings.  The
+///  absence of a octet sorts before a zero value octet, and uppercase
+///  US-ASCII letters are treated as if they were lowercase US-ASCII
+///  letters.
+///
+///  To compute the canonical ordering of a set of DNS names, start by
+///  sorting the names according to their most significant (rightmost)
+///  labels.  For names in which the most significant label is identical,
+///  continue sorting according to their next most significant label, and
+///  so forth.
+///
+///  For example, the following names are sorted in canonical DNS name
+///  order.  The most significant label is "example".  At this level,
+///  "example" sorts first, followed by names ending in "a.example", then
+///  by names ending "z.example".  The names within each level are sorted
+///  in the same way.
+///
+///            example
+///            a.example
+///            yljkjljk.a.example
+///            Z.a.example
+///            zABC.a.EXAMPLE
+///            z.example
+///            \001.z.example
+///            *.z.example
+///            \200.z.example
+/// ```
+pub(crate) fn cmp_with_f<F: LabelCmp, D1: DnsName + ?Sized, D2: DnsName + ?Sized>(
+    this: &D1,
+    other: &D2,
+) -> Ordering {
     // we reverse the iters so that we are comparing from the root/domain to the local...
     let self_labels = this.labels().rev();
     let other_labels = other.labels().rev();
+
+    let self_len = self_labels.len();
+    let other_len = other_labels.len();
 
     for (l, r) in self_labels.zip(other_labels) {
         match l.cmp_with_f::<F>(&r) {
@@ -265,7 +651,8 @@ fn cmp_with_f<F: LabelCmp, D1: DnsName, D2: DnsName>(this: &D1, other: &D2) -> O
         }
     }
 
-    this.num_labels().cmp(&other.num_labels())
+    // not using "num_labels" here because that doesn't include wildcard in the count
+    self_len.cmp(&other_len)
 }
 
 impl<N: DnsName + ?Sized> BinEncodable for N {
@@ -283,6 +670,29 @@ impl<'a> ToOwned for (dyn DnsName + 'a) {
     }
 }
 
+impl<'a> Hash for (dyn DnsName + 'a) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.is_fqdn().hash(state);
+
+        // this needs to be CaseInsensitive like PartialEq
+        for l in self.labels() {
+            let l: Cow<[u8]> = if l.is_lowercase() {
+                Cow::Borrowed(l.as_bytes())
+            } else {
+                let mut l = l.to_label();
+                l.make_lowercase();
+                Cow::Owned(l.as_bytes().to_vec())
+            };
+
+            l.hash(state);
+        }
+    }
+}
+
+/// A reference to a different name type.
+///
+/// This is useful for comparing names in things like HashMaps
+#[derive(Clone, Eq)]
 pub struct BorrowedName<'a> {
     is_fqdn: bool,
     name: &'a [u8],
@@ -290,14 +700,17 @@ pub struct BorrowedName<'a> {
 }
 
 impl<'a> DnsName for BorrowedName<'a> {
+    #[inline]
     fn labels(&self) -> LabelIter {
         LabelIter::from_borrowed(self)
     }
 
+    #[inline]
     fn is_fqdn(&self) -> bool {
         self.is_fqdn
     }
 
+    #[inline]
     fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
         BorrowedName {
             is_fqdn: self.is_fqdn,
@@ -316,11 +729,68 @@ impl<'a> DnsName for BorrowedName<'a> {
 
 impl<'a> fmt::Display for BorrowedName<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+        write_labels::<fmt::Formatter, LabelEncUtf8, _>(f, self)
+    }
+}
+
+impl<'a, D: DnsName + ?Sized> PartialEq<D> for BorrowedName<'a> {
+    #[inline]
+    fn eq(&self, other: &D) -> bool {
+        cmp_with_f::<CaseInsensitive, _, _>(self, other) == Ordering::Equal
+    }
+}
+
+impl<'a, D: DnsName + ?Sized> PartialOrd<D> for BorrowedName<'a> {
+    #[inline]
+    fn partial_cmp(&self, other: &D) -> Option<Ordering> {
+        Some(cmp_with_f::<CaseInsensitive, _, _>(self, other))
+    }
+}
+
+impl<'a> Ord for BorrowedName<'a> {
+    /// Case insensitive comparison, see [`Name::cmp_case`] for case sensitive comparisons
+    ///
+    /// RFC 4034                DNSSEC Resource Records               March 2005
+    ///
+    /// ```text
+    /// 6.1.  Canonical DNS Name Order
+    ///
+    ///  For the purposes of DNS security, owner names are ordered by treating
+    ///  individual labels as unsigned left-justified octet strings.  The
+    ///  absence of a octet sorts before a zero value octet, and uppercase
+    ///  US-ASCII letters are treated as if they were lowercase US-ASCII
+    ///  letters.
+    ///
+    ///  To compute the canonical ordering of a set of DNS names, start by
+    ///  sorting the names according to their most significant (rightmost)
+    ///  labels.  For names in which the most significant label is identical,
+    ///  continue sorting according to their next most significant label, and
+    ///  so forth.
+    ///
+    ///  For example, the following names are sorted in canonical DNS name
+    ///  order.  The most significant label is "example".  At this level,
+    ///  "example" sorts first, followed by names ending in "a.example", then
+    ///  by names ending "z.example".  The names within each level are sorted
+    ///  in the same way.
+    ///
+    ///            example
+    ///            a.example
+    ///            yljkjljk.a.example
+    ///            Z.a.example
+    ///            zABC.a.EXAMPLE
+    ///            z.example
+    ///            \001.z.example
+    ///            *.z.example
+    ///            \200.z.example
+    /// ```
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        cmp_with_f::<CaseInsensitive, _, _>(self, other)
     }
 }
 
 /// A Zero cost name referring to bytes owned by &str for example.
+#[derive(Clone, Eq)]
 pub struct NameRef<'a> {
     is_fqdn: bool,
     name: &'a [u8],
@@ -328,14 +798,17 @@ pub struct NameRef<'a> {
 }
 
 impl<'a> DnsName for NameRef<'a> {
+    #[inline]
     fn labels(&self) -> LabelIter {
         LabelIter::from_ref(self)
     }
 
+    #[inline]
     fn is_fqdn(&self) -> bool {
         self.is_fqdn
     }
 
+    #[inline]
     fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
         BorrowedName {
             is_fqdn: self.is_fqdn,
@@ -445,20 +918,70 @@ impl<'a> NameRef<'a> {
     }
 }
 
-impl<'a> fmt::Display for NameRef<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+impl<'a, D: DnsName + ?Sized> PartialEq<D> for NameRef<'a> {
+    #[inline]
+    fn eq(&self, other: &D) -> bool {
+        cmp_with_f::<CaseInsensitive, _, _>(self, other) == Ordering::Equal
     }
 }
 
-impl<'a> fmt::Debug for NameRef<'a> {
+impl<'a, D: DnsName + ?Sized> PartialOrd<D> for NameRef<'a> {
+    #[inline]
+    fn partial_cmp(&self, other: &D) -> Option<Ordering> {
+        Some(cmp_with_f::<CaseInsensitive, _, _>(self, other))
+    }
+}
+
+impl<'a> Ord for NameRef<'a> {
+    /// Case insensitive comparison, see [`Name::cmp_case`] for case sensitive comparisons
+    ///
+    /// RFC 4034                DNSSEC Resource Records               March 2005
+    ///
+    /// ```text
+    /// 6.1.  Canonical DNS Name Order
+    ///
+    ///  For the purposes of DNS security, owner names are ordered by treating
+    ///  individual labels as unsigned left-justified octet strings.  The
+    ///  absence of a octet sorts before a zero value octet, and uppercase
+    ///  US-ASCII letters are treated as if they were lowercase US-ASCII
+    ///  letters.
+    ///
+    ///  To compute the canonical ordering of a set of DNS names, start by
+    ///  sorting the names according to their most significant (rightmost)
+    ///  labels.  For names in which the most significant label is identical,
+    ///  continue sorting according to their next most significant label, and
+    ///  so forth.
+    ///
+    ///  For example, the following names are sorted in canonical DNS name
+    ///  order.  The most significant label is "example".  At this level,
+    ///  "example" sorts first, followed by names ending in "a.example", then
+    ///  by names ending "z.example".  The names within each level are sorted
+    ///  in the same way.
+    ///
+    ///            example
+    ///            a.example
+    ///            yljkjljk.a.example
+    ///            Z.a.example
+    ///            zABC.a.EXAMPLE
+    ///            z.example
+    ///            \001.z.example
+    ///            *.z.example
+    ///            \200.z.example
+    /// ```
+    #[inline]
+    fn cmp(&self, other: &Self) -> Ordering {
+        cmp_with_f::<CaseInsensitive, _, _>(self, other)
+    }
+}
+
+impl<'a> fmt::Display for NameRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+        write_labels::<fmt::Formatter, LabelEncUtf8, _>(f, self)
     }
 }
 
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
-#[derive(Clone, Default, Debug, Eq)]
+#[derive(Clone, Default, Eq)]
 pub struct Name {
     is_fqdn: bool,
     name: Vec<u8>,
@@ -466,6 +989,7 @@ pub struct Name {
 }
 
 impl DnsName for Name {
+    #[inline]
     fn labels(&self) -> LabelIter {
         LabelIter::new(self)
     }
@@ -492,6 +1016,7 @@ impl DnsName for Name {
     /// let name = Name::from_str("www.example.com.").unwrap();
     /// assert!(name.is_fqdn());
     /// ```
+    #[inline]
     fn is_fqdn(&self) -> bool {
         self.is_fqdn
     }
@@ -503,6 +1028,7 @@ impl DnsName for Name {
         self.is_fqdn = val
     }
 
+    #[inline]
     fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
         BorrowedName {
             is_fqdn: self.is_fqdn,
@@ -549,11 +1075,6 @@ impl Name {
     /// Returns an iterator over the labels
     pub fn iter(&self) -> LabelIter {
         LabelIter::new(self)
-    }
-
-    /// Returns an iterator over the labels
-    pub fn iter_mut(&mut self) -> LabelIterMut {
-        LabelIterMut::new(self)
     }
 
     pub(super) fn push_label(&mut self, label: &[u8]) {
@@ -699,6 +1220,23 @@ impl Name {
         this
     }
 
+    /// Appends the `domain` to `self`, making the new `Name` an FQDN
+    ///
+    /// This is an alias for `append_name` with the added effect of marking the new `Name` as
+    /// a fully-qualified-domain-name.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::domain::{DnsName, Name};
+    ///
+    /// let mut name = Name::from_str("www").unwrap();
+    /// let domain = Name::from_str("example.com").unwrap();
+    /// name.append_domain2(&domain);
+    /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
+    /// assert!(name.is_fqdn())
+    /// ```
     pub fn append_domain2(&mut self, domain: &dyn DnsName) {
         for label in domain.labels() {
             self.push_label(label.as_bytes());
@@ -715,37 +1253,15 @@ impl Name {
     /// use std::cmp::Ordering;
     /// use std::str::FromStr;
     ///
-    /// use trust_dns_proto::rr::domain::{Label, Name};
+    /// use trust_dns_proto::rr::domain::{Label, Name, DnsName};
     ///
-    /// let mut example_com = Name::from_ascii("Example.Com").unwrap();
+    /// let mut example_com = Name::from_ascii("Example.Com").unwrap().to_name();
     /// assert_eq!(example_com.cmp_case(&Name::from_str("example.com").unwrap()), Ordering::Less);
     /// example_com.make_lowercase();
     /// assert!(example_com.eq_case(&Name::from_str("example.com").unwrap()));
     /// ```
     pub fn make_lowercase(&mut self) {
         self.name.as_mut_slice().make_ascii_lowercase();
-    }
-
-    /// Creates a new Name with all labels lowercased
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::cmp::Ordering;
-    /// use std::str::FromStr;
-    ///
-    /// use trust_dns_proto::rr::domain::{Label, Name};
-    ///
-    /// let example_com = Name::from_ascii("Example.Com").unwrap();
-    /// assert_eq!(example_com.cmp_case(&Name::from_str("example.com").unwrap()), Ordering::Less);
-    /// assert!(example_com.to_lowercase().eq_case(&Name::from_str("example.com").unwrap()));
-    /// ```
-    #[deprecated = "use make_lowercase for zero copy method"]
-    pub fn to_lowercase(&self) -> Self {
-        let mut name = self.clone();
-        name.make_lowercase();
-
-        name
     }
 
     /// Trims off the first part of the name, to help with searching for the domain piece
@@ -795,58 +1311,6 @@ impl Name {
         name
     }
 
-    /// same as `zone_of` allows for case sensitive call
-    pub fn zone_of_case(&self, name: &Self) -> bool {
-        let self_len = self.label_offsets.len();
-        let name_len = name.label_offsets.len();
-        if self_len == 0 {
-            return true;
-        }
-        if name_len == 0 {
-            // self_len != 0
-            return false;
-        }
-        if self_len > name_len {
-            return false;
-        }
-
-        let self_iter = self.iter().rev();
-        let name_iter = name.iter().rev();
-
-        let zip_iter = self_iter.zip(name_iter);
-
-        for (self_label, name_label) in zip_iter {
-            if self_label != name_label {
-                return false;
-            }
-        }
-
-        true
-    }
-
-    /// returns true if the name components of self are all present at the end of name
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// let name = Name::from_str("www.example.com").unwrap();
-    /// let name = Name::from_str("www.example.com").unwrap();
-    /// let zone = Name::from_str("example.com").unwrap();
-    /// let another = Name::from_str("example.net").unwrap();
-    /// assert!(zone.zone_of(&name));
-    /// assert!(!name.zone_of(&zone));
-    /// assert!(!another.zone_of(&name));
-    /// ```
-    pub fn zone_of(&self, name: &Self) -> bool {
-        let self_lower = self.to_lowercase();
-        let name_lower = name.to_lowercase();
-
-        self_lower.zone_of_case(&name_lower)
-    }
-
     /// returns the length in bytes of the labels. '.' counts as 1
     ///
     /// This can be used as an estimate, when serializing labels, they will often be compressed
@@ -874,12 +1338,6 @@ impl Name {
             .fold(dots, |acc, (start, end)| acc + (end - start))
     }
 
-    /// Returns whether the length of the labels, in bytes is 0. In practice, since '.' counts as
-    /// 1, this is never the case so the method returns false.
-    pub fn is_empty(&self) -> bool {
-        false
-    }
-
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
     ///
     /// # Examples
@@ -903,7 +1361,7 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns_proto::rr::Name;
+    /// use trust_dns_proto::rr::{DnsName, Name};
     ///
     /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
     /// let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
@@ -923,8 +1381,8 @@ impl Name {
     ///
     /// assert_eq!(bytes_name, name);
     /// ```
-    pub fn from_ascii<'a>(name: &'a str) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None).map(Into::into)
+    pub fn from_ascii<'a>(name: &'a str) -> ProtoResult<CowName<'a>> {
+        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
     }
 
     // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
@@ -936,7 +1394,7 @@ impl Name {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::Name;
+    /// use trust_dns_proto::rr::{DnsName, Name};
     ///
     /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
     ///
@@ -947,8 +1405,8 @@ impl Name {
     /// assert!(bytes_name.eq_case(&utf8_name));
     /// assert!(!lower_name.eq_case(&utf8_name));
     /// ```
-    pub fn from_utf8<'a>(name: &'a str) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None).map(Into::into)
+    pub fn from_utf8<'a>(name: &'a str) -> ProtoResult<CowName<'a>> {
+        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
     }
 
     /// First attempts to decode via `from_utf8`, if that fails IDNA checks, than falls back to
@@ -978,213 +1436,8 @@ impl Name {
     fn from_encoded_str<'a, 'b: 'a, E: super::parse::LabelEnc>(
         local: &'a str,
         origin: Option<&'b dyn DnsName>,
-    ) -> ProtoResult<Self> {
-        super::parse::from_encoded_str::<E>(local, origin).map(Into::into)
-    }
-
-    /// Writes the labels, as lower case, to the encoder
-    ///
-    /// # Arguments
-    ///
-    /// * `encoder` - encoder for writing this name
-    /// * `lowercase` - if true the name will be lowercased, otherwise it will not be changed when writing
-    pub fn emit_with_lowercase(
-        &self,
-        encoder: &mut BinEncoder,
-        lowercase: bool,
-    ) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-        if lowercase {
-            self.to_lowercase()
-                .emit_as_canonical(encoder, is_canonical_names)
-        } else {
-            self.emit_as_canonical(encoder, is_canonical_names)
-        }
-    }
-
-    /// compares with the other label, ignoring case
-    fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
-        if self.label_offsets.is_empty() && other.label_offsets.is_empty() {
-            return Ordering::Equal;
-        }
-
-        // we reverse the iters so that we are comparing from the root/domain to the local...
-        let self_labels = self.iter().rev();
-        let other_labels = other.iter().rev();
-
-        for (l, r) in self_labels.zip(other_labels) {
-            match l.cmp_with_f::<F>(&r) {
-                Ordering::Equal => continue,
-                not_eq => return not_eq,
-            }
-        }
-
-        self.label_offsets.len().cmp(&other.label_offsets.len())
-    }
-
-    /// Case sensitive comparison
-    pub fn cmp_case(&self, other: &Self) -> Ordering {
-        self.cmp_with_f::<CaseSensitive>(other)
-    }
-
-    /// Compares the Names, in a case sensitive manner
-    pub fn eq_case(&self, other: &Self) -> bool {
-        self.cmp_with_f::<CaseSensitive>(other) == Ordering::Equal
-    }
-
-    /// Converts this name into an ascii safe string.
-    ///
-    /// If the name is an IDNA name, then the name labels will be returned with the `xn--` prefix.
-    ///  see `to_utf8` or the `Display` impl for methods which convert labels to utf8.
-    pub fn to_ascii(&self) -> String {
-        let mut s = String::with_capacity(self.len());
-        self.write_labels::<String, LabelEncAscii>(&mut s)
-            .expect("string conversion of name should not fail");
-        s
-    }
-
-    /// Converts the Name labels to the utf8 String form.
-    ///
-    /// This converts the name to an unescaped format, that could be used with parse. If, the name is
-    ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
-    ///  qualified Name.
-    pub fn to_utf8(&self) -> String {
-        format!("{}", self)
-    }
-
-    /// Converts a *.arpa Name in a PTR record back into an IpNet if possible.
-    pub fn parse_arpa_name(&self) -> Result<IpNet, ProtoError> {
-        if !self.is_fqdn() {
-            return Err("PQDN cannot be valid arpa name".into());
-        }
-        let mut iter = self.iter().rev();
-        let first = iter
-            .next()
-            .ok_or_else(|| ProtoError::from("not an arpa address"))?;
-        if !"arpa".eq_ignore_ascii_case(std::str::from_utf8(first.as_bytes())?) {
-            return Err("not an arpa address".into());
-        }
-        let second = iter
-            .next()
-            .ok_or_else(|| ProtoError::from("invalid arpa address"))?;
-        let mut prefix_len: u8 = 0;
-        match &std::str::from_utf8(second.as_bytes())?.to_ascii_lowercase()[..] {
-            "in-addr" => {
-                let mut octets: [u8; 4] = [0; 4];
-                for octet in octets.iter_mut() {
-                    match iter.next() {
-                        Some(label) => *octet = std::str::from_utf8(label.as_bytes())?.parse()?,
-                        None => break,
-                    }
-                    prefix_len += 8;
-                }
-                if iter.next().is_some() {
-                    return Err("unrecognized in-addr.arpa.".into());
-                }
-                Ok(IpNet::V4(
-                    Ipv4Net::new(octets.into(), prefix_len).expect("Ipv4Net::new"),
-                ))
-            }
-            "ip6" => {
-                let mut address: u128 = 0;
-                while prefix_len < 128 {
-                    match iter.next() {
-                        Some(label) => {
-                            if label.len() == 1 {
-                                prefix_len += 4;
-                                let hex =
-                                    u8::from_str_radix(std::str::from_utf8(label.as_bytes())?, 16)?;
-                                address |= u128::from(hex) << (128 - prefix_len);
-                            } else {
-                                return Err("invalid label length for ip6.arpa".into());
-                            }
-                        }
-                        None => break,
-                    }
-                }
-                if iter.next().is_some() {
-                    return Err("unrecognized ip6.arpa.".into());
-                }
-                Ok(IpNet::V6(
-                    Ipv6Net::new(address.into(), prefix_len).expect("Ipv6Net::new"),
-                ))
-            }
-            _ => Err("unrecognized arpa address".into()),
-        }
-    }
-
-    /// Returns true if the `Name` is either localhost or in the localhost zone.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::Name;
-    ///
-    /// let name = Name::from_str("localhost").unwrap();
-    /// assert!(name.is_localhost());
-    ///
-    /// let name = Name::from_str("localhost.").unwrap();
-    /// assert!(name.is_localhost());
-    ///
-    /// let name = Name::from_str("my.localhost.").unwrap();
-    /// assert!(name.is_localhost());
-    /// ```
-    pub fn is_localhost(&self) -> bool {
-        LOCALHOST_usage.zone_of(self)
-    }
-
-    /// True if the first label of this name is the wildcard, i.e. '*'
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::Name;
-    ///
-    /// let name = Name::from_str("www.example.com").unwrap();
-    /// assert!(!name.is_wildcard());
-    ///
-    /// let name = Name::from_str("*.example.com").unwrap();
-    /// assert!(name.is_wildcard());
-    ///
-    /// let name = Name::root();
-    /// assert!(!name.is_wildcard());
-    /// ```
-    pub fn is_wildcard(&self) -> bool {
-        self.iter().next().map_or(false, |l| l.is_wildcard())
-    }
-
-    /// Converts a name to a wildcard, by replacing the first label with `*`
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::Name;
-    ///
-    /// let name = Name::from_str("www.example.com").unwrap().into_wildcard();
-    /// assert_eq!(name, Name::from_str("*.example.com.").unwrap());
-    ///
-    /// // does nothing if the root
-    /// let name = Name::root().into_wildcard();
-    /// assert_eq!(name, Name::root());
-    /// ```
-    pub fn into_wildcard(self) -> Self {
-        let mut name = Name::with_capacity(self.name.len());
-        name.is_fqdn = self.is_fqdn;
-
-        // nothing to do for root
-        if !self.is_root() {
-            let wildcard = LabelRef::wildcard();
-
-            name.push_label(wildcard.as_bytes());
-            for label in self.into_iter().skip(1) {
-                name.push_label(label.as_bytes());
-            }
-        }
-
-        name
+    ) -> ProtoResult<CowName<'a>> {
+        super::parse::from_encoded_str::<E>(local, origin)
     }
 }
 
@@ -1220,34 +1473,19 @@ impl<'a> LabelIter<'a> {
 impl<'a> Iterator for LabelIter<'a> {
     type Item = LabelRef<'a>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let (start, end) = self.offsets.next()?;
         Some(LabelRef::from_unchecked(&self.name[*start..*end]))
     }
 }
 
-/// An iterator over labels in a name
-pub struct LabelIterMut<'a> {
-    name: &'a mut [u8],
-    offsets: IntoIter<(usize, usize)>,
-}
-
-impl<'a> LabelIterMut<'a> {
-    fn new(name: &'a mut Name) -> Self {
-        Self {
-            name: &mut name.name,
-            offsets: name.label_offsets.clone().into_iter(),
-        }
-    }
-
-    fn next(&'a mut self) -> Option<&'a mut [u8]> {
-        let (start, end) = self.offsets.next()?;
-
-        Some(&mut self.name[start..end])
+impl<'a> ExactSizeIterator for LabelIter<'a> {
+    fn len(&self) -> usize {
+        self.offsets.len()
     }
 }
 
-impl<'a> ExactSizeIterator for LabelIter<'a> {}
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         let (start, end) = self.offsets.next_back()?;
@@ -1344,13 +1582,14 @@ impl From<Ipv6Addr> for Name {
     }
 }
 
-impl PartialEq<Name> for Name {
-    fn eq(&self, other: &Self) -> bool {
-        self.cmp_with_f::<CaseInsensitive>(other) == Ordering::Equal
+impl<D: DnsName + ?Sized> PartialEq<D> for Name {
+    fn eq(&self, other: &D) -> bool {
+        cmp_with_f::<CaseInsensitive, _, _>(self, other) == Ordering::Equal
     }
 }
 
 impl Hash for Name {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.is_fqdn.hash(state);
 
@@ -1374,6 +1613,7 @@ impl<'r> BinDecodable<'r> for Name {
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the `Vec` which it is reading...
+    #[inline]
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
         read_inner(decoder, None)
     }
@@ -1500,9 +1740,15 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
     Ok(name)
 }
 
+impl fmt::Debug for Name {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+        write_labels::<fmt::Formatter, LabelEncUtf8, _>(f, self)
     }
 }
 
@@ -1515,9 +1761,10 @@ impl Index<usize> for Name {
     }
 }
 
-impl PartialOrd<Name> for Name {
-    fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
-        Some(self.cmp(other))
+impl<D: DnsName + ?Sized> PartialOrd<D> for Name {
+    #[inline]
+    fn partial_cmp(&self, other: &D) -> Option<Ordering> {
+        Some(cmp_with_f::<CaseInsensitive, _, _>(self, other))
     }
 }
 
@@ -1557,8 +1804,9 @@ impl Ord for Name {
     ///            *.z.example
     ///            \200.z.example
     /// ```
+    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.cmp_with_f::<CaseInsensitive>(other)
+        cmp_with_f::<CaseInsensitive, _, _>(self, other)
     }
 }
 
@@ -1699,6 +1947,50 @@ mod tests {
         assert_eq!(Name::from_str("a.b").unwrap().num_labels(), 2);
         assert_eq!(Name::from_str("*.b.c").unwrap().num_labels(), 2);
         assert_eq!(Name::from_str("a.b.c").unwrap().num_labels(), 3);
+    }
+
+    #[test]
+    fn test_wildcard_equality() {
+        use std::cmp::PartialOrd;
+
+        assert!(Name::from_ascii("*.example.com.").unwrap().is_wildcard());
+        assert!(!Name::from_ascii("www.example.com.").unwrap().is_wildcard());
+        assert_eq!(
+            Name::from_ascii("*.example.com").unwrap(),
+            Name::from_ascii("*.example.com").unwrap()
+        );
+        assert_ne!(
+            Name::from_ascii("*.example.com").unwrap(),
+            Name::from_ascii("www.example.com").unwrap()
+        );
+        assert_ne!(
+            Name::from_ascii("*.example.com").unwrap(),
+            Name::from_ascii("example.com").unwrap()
+        );
+        assert_eq!(
+            Name::from_ascii("example.com")
+                .unwrap()
+                .partial_cmp(&Name::from_ascii("*.example.com").unwrap()),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            Name::from_ascii("*.example.com")
+                .unwrap()
+                .partial_cmp(&Name::from_ascii("www.example.com").unwrap()),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            Name::from_ascii("*.example.com")
+                .unwrap()
+                .partial_cmp(&Name::from_ascii("*.multi.example.com").unwrap()),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            Name::from_ascii("*.example.com")
+                .unwrap()
+                .partial_cmp(&Name::from_ascii("label.multi.example.com").unwrap()),
+            Some(Ordering::Less)
+        );
     }
 
     #[test]
@@ -1908,57 +2200,63 @@ mod tests {
 
     #[test]
     fn test_partial_cmp() {
-        let comparisons: Vec<(Name, Name)> = vec![
+        let comparisons: Vec<(CowName, CowName)> = vec![
             (
-                Name::from_str("example.").unwrap(),
-                Name::from_str("a.example.").unwrap(),
+                Name::from_str("example.").unwrap().into(),
+                Name::from_str("a.example.").unwrap().into(),
             ),
             (
-                Name::from_str("a.example.").unwrap(),
-                Name::from_str("yljkjljk.a.example.").unwrap(),
+                Name::from_str("a.example.").unwrap().into(),
+                Name::from_str("yljkjljk.a.example.").unwrap().into(),
             ),
             (
-                Name::from_str("yljkjljk.a.example.").unwrap(),
-                Name::from_ascii("Z.a.example.").unwrap(),
+                Name::from_str("yljkjljk.a.example.").unwrap().into(),
+                Name::from_ascii("Z.a.example.").unwrap().into(),
             ),
             (
-                Name::from_ascii("Z.a.example.").unwrap(),
-                Name::from_ascii("zABC.a.EXAMPLE").unwrap(),
+                Name::from_ascii("Z.a.example.").unwrap().into(),
+                Name::from_ascii("zABC.a.EXAMPLE").unwrap().into(),
             ),
             (
-                Name::from_ascii("zABC.a.EXAMPLE.").unwrap(),
-                Name::from_str("z.example.").unwrap(),
+                Name::from_ascii("zABC.a.EXAMPLE.").unwrap().into(),
+                Name::from_str("z.example.").unwrap().into(),
             ),
             (
-                Name::from_str("z.example.").unwrap(),
-                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"]).unwrap(),
+                Name::from_str("z.example.").unwrap().into(),
+                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"])
+                    .unwrap()
+                    .into(),
             ),
             (
-                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"]).unwrap(),
-                Name::from_str("*.z.example.").unwrap(),
+                Name::from_labels(vec![&[1u8] as &[u8], b"z", b"example"])
+                    .unwrap()
+                    .into(),
+                Name::from_str("*.z.example.").unwrap().into(),
             ),
             (
-                Name::from_str("*.z.example.").unwrap(),
-                Name::from_labels(vec![&[200u8] as &[u8], b"z", b"example"]).unwrap(),
+                Name::from_str("*.z.example.").unwrap().into(),
+                Name::from_labels(vec![&[200u8] as &[u8], b"z", b"example"])
+                    .unwrap()
+                    .into(),
             ),
         ];
 
         for (left, right) in comparisons {
             println!("left: {}, right: {}", left, right);
-            assert_eq!(left.cmp(&right), Ordering::Less);
+            assert!(left < right);
         }
     }
 
     #[test]
     fn test_cmp_ignore_case() {
-        let comparisons: Vec<(Name, Name)> = vec![
+        let comparisons: Vec<(CowName, CowName)> = vec![
             (
-                Name::from_ascii("ExAmPle.").unwrap(),
-                Name::from_ascii("example.").unwrap(),
+                Name::from_ascii("ExAmPle.").unwrap().into(),
+                Name::from_ascii("example.").unwrap().into(),
             ),
             (
-                Name::from_ascii("A.example.").unwrap(),
-                Name::from_ascii("a.example.").unwrap(),
+                Name::from_ascii("A.example.").unwrap().into(),
+                Name::from_ascii("a.example.").unwrap().into(),
             ),
         ];
 
@@ -2099,7 +2397,9 @@ mod tests {
 
         let mut result = Ok(());
         for i in 0..10000 {
-            let name = Name::from_ascii(&format!("name{}.example.com.", i)).unwrap();
+            let name = Name::from_ascii(&format!("name{}.example.com.", i))
+                .unwrap()
+                .to_name();
             result = name.emit(&mut encoder);
             if let Err(..) = result {
                 break;

@@ -18,7 +18,7 @@
 
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
-use crate::rr::{Name, RecordType};
+use crate::rr::{DnsName, Name, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
@@ -534,8 +534,6 @@ pub fn emit_pre_sig(
     key_tag: u16,
     signer_name: &Name,
 ) -> ProtoResult<()> {
-    use crate::rr::domain::DnsName;
-
     type_covered.emit(encoder)?;
     algorithm.emit(encoder)?;
     encoder.emit(num_labels)?;

@@ -237,6 +237,7 @@ impl InMemoryAuthority {
         self.inner_lookup(&wildcard, record_type, and_rrsigs, supported_algorithms)
             // we need to change the name to the query name in the result set since this was a wildcard
             .map(|rrset| {
+                debug!("mapping wildcard {} to query name {}", wildcard, name);
                 let mut new_answer =
                     RecordSet::new(name.borrow(), rrset.record_type(), rrset.ttl());
 
@@ -354,6 +355,7 @@ impl InMemoryAuthority {
     ///
     /// true if the value was inserted, false otherwise
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
+        debug!("upserting record: {:?}", record);
         assert_eq!(self.class, record.dns_class());
 
         #[cfg(feature = "dnssec")]

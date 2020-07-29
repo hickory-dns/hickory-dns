@@ -198,6 +198,7 @@ fn test_catalog_lookup() {
 #[test]
 #[allow(clippy::unreadable_literal)]
 fn test_catalog_nx_soa() {
+    env_logger::init();
     let example = create_example();
     let origin = example.origin().clone();
 
@@ -219,6 +220,7 @@ fn test_catalog_nx_soa() {
     block_on(catalog.lookup(question_req, None, response_handler.clone()));
     let result = block_on(response_handler.into_message());
 
+    assert_eq!(result.answer_count(), 0);
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
 

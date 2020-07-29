@@ -28,7 +28,7 @@ pub mod resource;
 mod rr_set;
 
 pub use self::dns_class::DNSClass;
-pub use self::domain::{IntoName, Name, TryParseIp};
+pub use self::domain::{BorrowedName, DnsName, IntoName, Name, NameRef, TryParseIp};
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;

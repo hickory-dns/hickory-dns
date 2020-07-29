@@ -18,17 +18,18 @@ use crate::proto::error::*;
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::rr::domain::{DnsLabel, DnsName, Label, Name};
+use crate::rr::domain::{DnsName, Name};
 use crate::serialize::binary::*;
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Default, Debug, Eq, Clone)]
-pub struct LowerName(Name);
+pub struct LowerName(Name); // TODO: maybe make this generic over DnsName?
 
 impl LowerName {
     /// Create a new domain::LowerName, i.e. label
-    pub fn new(name: &Name) -> Self {
-        LowerName(name.to_lowercase())
+    pub fn new<N: DnsName + ?Sized>(name: &N) -> Self {
+        // TODO: this could be better on ownership
+        LowerName(name.to_lowercase().to_name())
     }
 
     /// Returns true if there are no labels, i.e. it's empty.
@@ -157,7 +158,7 @@ impl LowerName {
     /// Replaces the first label with the wildcard character, "*"
     pub fn into_wildcard(self) -> Self {
         let name = self.0.into_wildcard();
-        LowerName(name)
+        LowerName(name.to_name())
     }
 }
 
@@ -282,8 +283,9 @@ impl<'r> BinDecodable<'r> for LowerName {
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the Vec which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<LowerName> {
-        let name = Name::read(decoder)?;
-        Ok(LowerName(name.to_lowercase()))
+        let mut name = Name::read(decoder)?;
+        name.make_lowercase();
+        Ok(LowerName(name))
     }
 }
 
@@ -313,5 +315,53 @@ impl<'de> Deserialize<'de> for LowerName {
     {
         let s = String::deserialize(deserializer)?;
         FromStr::from_str(&s).map_err(de::Error::custom)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_equality() {
+        assert_eq!(
+            LowerName::from(Name::from_str("www.example.com.").unwrap()),
+            LowerName::from(Name::from_str("www.example.com.").unwrap())
+        );
+        assert_ne!(
+            LowerName::from(Name::from_str("nx.example.com.").unwrap()),
+            LowerName::from(Name::from_str("www.example.com.").unwrap())
+        );
+    }
+
+    #[test]
+    fn test_wildcard_equality() {
+        assert!(!LowerName::from(Name::from_str("www.example.com.").unwrap()).is_wildcard());
+        assert!(LowerName::from(Name::from_str("*.example.com.").unwrap()).is_wildcard());
+        assert!(LowerName::from(
+            Name::from_str("www.example.com.")
+                .unwrap()
+                .into_wildcard()
+                .to_name()
+        )
+        .is_wildcard());
+        assert!(LowerName::from(Name::from_str("www.example.com.").unwrap())
+            .into_wildcard()
+            .is_wildcard());
+
+        assert_eq!(
+            LowerName::from(Name::from_str("*.example.com.").unwrap()),
+            LowerName::from(
+                Name::from_str("www.example.com.")
+                    .unwrap()
+                    .into_wildcard()
+                    .to_name()
+            )
+        );
+
+        assert_eq!(
+            LowerName::from(Name::from_str("*.example.com.").unwrap()),
+            LowerName::from(Name::from_str("www.example.com.").unwrap()).into_wildcard()
+        );
     }
 }

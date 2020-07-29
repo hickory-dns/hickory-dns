@@ -1,7 +1,7 @@
 //! Reserved Zone and related information
 
 pub use crate::proto::rr::domain::usage::*;
-use crate::proto::rr::domain::{Label, Name};
+use crate::proto::rr::domain::{BorrowedName, DnsName, Label, Name};
 use crate::proto::serialize::binary::BinEncodable;
 
 use lazy_static::lazy_static;
@@ -27,45 +27,45 @@ use radix_trie::{Trie, TrieKey};
 // ```
 lazy_static! {
     /// 10.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&*IN_ADDR_ARPA));
+    pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().to_name().append_domain(&*IN_ADDR_ARPA));
 
-    static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().append_domain(&*IN_ADDR_ARPA);
+    static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().to_name().append_domain(&*IN_ADDR_ARPA);
 
     /// 16.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 17.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_17: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("17").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_17: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("17").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 18.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_18: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("18").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_18: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("18").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 19.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_19: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("19").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_19: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("19").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 20.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 21.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 22.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 23.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 24.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 25.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_25: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("25").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_25: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("25").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 26.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 27.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 28.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 29.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 30.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_30: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("30").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_30: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("30").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
     /// 31.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_31: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("31").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_31: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("31").unwrap().to_name().append_domain(&*IN_ADDR_ARPA_172));
 
     /// 168.192.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&*IN_ADDR_ARPA));
+    pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().to_name().append_domain(&*IN_ADDR_ARPA));
 }
 
 // example., example.com., example.net., and example.org.
@@ -107,37 +107,37 @@ lazy_static! {
 // ```
 lazy_static! {
     /// test. usage
-    pub static ref TEST: ZoneUsage = ZoneUsage::test(Name::from_ascii("test.").unwrap());
+    pub static ref TEST: ZoneUsage = ZoneUsage::test(Name::from_ascii("test.").unwrap().to_name());
 }
+
+// #[derive(Clone, Eq, PartialEq)]
+// struct TrieName(Name);
+
+// impl From<Name> for TrieName {
+//     fn from(n: Name) -> Self {
+//         TrieName(n)
+//     }
+// }
+
+// impl TrieKey for TrieName {
+//     /// Returns this name in byte form, reversed for searching from zone to local label
+//     ///
+//     /// # Panics
+//     ///
+//     /// This will panic on bad names
+//     fn encode_bytes(&self) -> Vec<u8> {
+//         let mut bytes = self.0.to_bytes().expect("bad name for trie");
+//         bytes.reverse();
+//         bytes
+//     }
+// }
 
 #[derive(Clone, Eq, PartialEq)]
-struct TrieName(Name);
+struct TrieNameRef<'n>(BorrowedName<'n>);
 
-impl From<Name> for TrieName {
-    fn from(n: Name) -> Self {
-        TrieName(n)
-    }
-}
-
-impl TrieKey for TrieName {
-    /// Returns this name in byte form, reversed for searching from zone to local label
-    ///
-    /// # Panics
-    ///
-    /// This will panic on bad names
-    fn encode_bytes(&self) -> Vec<u8> {
-        let mut bytes = self.0.to_bytes().expect("bad name for trie");
-        bytes.reverse();
-        bytes
-    }
-}
-
-#[derive(Clone, Eq, PartialEq)]
-struct TrieNameRef<'n>(&'n Name);
-
-impl<'n> From<&'n Name> for TrieNameRef<'n> {
-    fn from(n: &'n Name) -> Self {
-        TrieNameRef(n)
+impl<'n, N: DnsName> From<&'n N> for TrieNameRef<'n> {
+    fn from(n: &'n N) -> Self {
+        TrieNameRef(n.borrowed_name())
     }
 }
 
@@ -155,91 +155,89 @@ impl<'n> TrieKey for TrieNameRef<'n> {
 }
 
 /// A Trie of all reserved Zones
-pub struct UsageTrie(Trie<TrieName, &'static ZoneUsage>);
+pub struct UsageTrie(Trie<TrieNameRef<'static>, &'static ZoneUsage>);
 
 impl UsageTrie {
     #[allow(clippy::cognitive_complexity)]
     fn default() -> Self {
-        let mut trie: Trie<TrieName, &'static ZoneUsage> = Trie::new();
+        let mut trie: Trie<TrieNameRef<'static>, &'static ZoneUsage> = Trie::new();
 
-        assert!(trie.insert(DEFAULT.clone().into(), &DEFAULT).is_none());
+        assert!(trie.insert(DEFAULT.name().into(), &DEFAULT).is_none());
 
         assert!(trie
-            .insert(IN_ADDR_ARPA_10.clone().into(), &IN_ADDR_ARPA_10)
+            .insert(IN_ADDR_ARPA_10.name().into(), &IN_ADDR_ARPA_10)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_16.clone().into(), &IN_ADDR_ARPA_172_16)
+            .insert(IN_ADDR_ARPA_172_16.name().into(), &IN_ADDR_ARPA_172_16)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_17.clone().into(), &IN_ADDR_ARPA_172_17)
+            .insert(IN_ADDR_ARPA_172_17.name().into(), &IN_ADDR_ARPA_172_17)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_18.clone().into(), &IN_ADDR_ARPA_172_18)
+            .insert(IN_ADDR_ARPA_172_18.name().into(), &IN_ADDR_ARPA_172_18)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_19.clone().into(), &IN_ADDR_ARPA_172_19)
+            .insert(IN_ADDR_ARPA_172_19.name().into(), &IN_ADDR_ARPA_172_19)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_20.clone().into(), &IN_ADDR_ARPA_172_20)
+            .insert(IN_ADDR_ARPA_172_20.name().into(), &IN_ADDR_ARPA_172_20)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_21.clone().into(), &IN_ADDR_ARPA_172_21)
+            .insert(IN_ADDR_ARPA_172_21.name().into(), &IN_ADDR_ARPA_172_21)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_22.clone().into(), &IN_ADDR_ARPA_172_22)
+            .insert(IN_ADDR_ARPA_172_22.name().into(), &IN_ADDR_ARPA_172_22)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_23.clone().into(), &IN_ADDR_ARPA_172_23)
+            .insert(IN_ADDR_ARPA_172_23.name().into(), &IN_ADDR_ARPA_172_23)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_24.clone().into(), &IN_ADDR_ARPA_172_24)
+            .insert(IN_ADDR_ARPA_172_24.name().into(), &IN_ADDR_ARPA_172_24)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_25.clone().into(), &IN_ADDR_ARPA_172_25)
+            .insert(IN_ADDR_ARPA_172_25.name().into(), &IN_ADDR_ARPA_172_25)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_26.clone().into(), &IN_ADDR_ARPA_172_26)
+            .insert(IN_ADDR_ARPA_172_26.name().into(), &IN_ADDR_ARPA_172_26)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_27.clone().into(), &IN_ADDR_ARPA_172_27)
+            .insert(IN_ADDR_ARPA_172_27.name().into(), &IN_ADDR_ARPA_172_27)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_28.clone().into(), &IN_ADDR_ARPA_172_28)
+            .insert(IN_ADDR_ARPA_172_28.name().into(), &IN_ADDR_ARPA_172_28)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_29.clone().into(), &IN_ADDR_ARPA_172_29)
+            .insert(IN_ADDR_ARPA_172_29.name().into(), &IN_ADDR_ARPA_172_29)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_30.clone().into(), &IN_ADDR_ARPA_172_30)
+            .insert(IN_ADDR_ARPA_172_30.name().into(), &IN_ADDR_ARPA_172_30)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_172_31.clone().into(), &IN_ADDR_ARPA_172_31)
+            .insert(IN_ADDR_ARPA_172_31.name().into(), &IN_ADDR_ARPA_172_31)
             .is_none());
         assert!(trie
-            .insert(IN_ADDR_ARPA_192_168.clone().into(), &IN_ADDR_ARPA_192_168)
-            .is_none());
-
-        assert!(trie.insert(TEST.clone().into(), &TEST).is_none());
-
-        assert!(trie.insert(LOCALHOST.clone().into(), &LOCALHOST).is_none());
-        assert!(trie
-            .insert(IN_ADDR_ARPA_127.clone().into(), &IN_ADDR_ARPA_127)
-            .is_none());
-        assert!(trie
-            .insert(IP6_ARPA_1.clone().into(), &IP6_ARPA_1)
+            .insert(IN_ADDR_ARPA_192_168.name().into(), &IN_ADDR_ARPA_192_168)
             .is_none());
 
-        assert!(trie.insert(INVALID.clone().into(), &INVALID).is_none());
+        assert!(trie.insert(TEST.name().into(), &TEST).is_none());
 
-        assert!(trie.insert(EXAMPLE.clone().into(), &EXAMPLE).is_none());
+        assert!(trie.insert(LOCALHOST.name().into(), &LOCALHOST).is_none());
         assert!(trie
-            .insert(EXAMPLE_COM.clone().into(), &EXAMPLE_COM)
+            .insert(IN_ADDR_ARPA_127.name().into(), &IN_ADDR_ARPA_127)
+            .is_none());
+        assert!(trie.insert(IP6_ARPA_1.name().into(), &IP6_ARPA_1).is_none());
+
+        assert!(trie.insert(INVALID.name().into(), &INVALID).is_none());
+
+        assert!(trie.insert(EXAMPLE.name().into(), &EXAMPLE).is_none());
+        assert!(trie
+            .insert(EXAMPLE_COM.name().into(), &EXAMPLE_COM)
             .is_none());
         assert!(trie
-            .insert(EXAMPLE_NET.clone().into(), &EXAMPLE_NET)
+            .insert(EXAMPLE_NET.name().into(), &EXAMPLE_NET)
             .is_none());
         assert!(trie
-            .insert(EXAMPLE_ORG.clone().into(), &EXAMPLE_ORG)
+            .insert(EXAMPLE_ORG.name().into(), &EXAMPLE_ORG)
             .is_none());
 
         UsageTrie(trie)
@@ -250,9 +248,9 @@ impl UsageTrie {
     /// # Returns
     ///
     /// Matches the closest zone encapsulating `name`, at a minimum the default root zone usage will be returned
-    pub fn get(&self, name: &Name) -> &'static ZoneUsage {
+    pub fn get<N: DnsName>(&self, name: &N) -> &'static ZoneUsage {
         self.0
-            .get_ancestor_value(&TrieName::from(name.clone()))
+            .get_ancestor_value(&TrieNameRef::from(name))
             .expect("DEFAULT root ZoneUsage should have been returned")
     }
 }

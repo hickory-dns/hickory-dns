@@ -19,7 +19,7 @@
 use super::{Digest, DigestType};
 use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use crate::rr::domain::{DnsName, Name};
+use crate::rr::domain::DnsName;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
@@ -185,6 +185,7 @@ impl From<Nsec3HashAlgorithm> for u8 {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 fn test_hash() {
+    use crate::rr::Name;
     use std::str::FromStr;
 
     let name = Name::from_str("www.example.com").unwrap();
@@ -289,6 +290,7 @@ fn test_known_hashes() {
 #[cfg(test)]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 fn hash_with_base32(name: &str) -> String {
+    use crate::rr::Name;
     use data_encoding::BASE32_DNSSEC;
 
     // NSEC3PARAM 1 0 12 aabbccdd

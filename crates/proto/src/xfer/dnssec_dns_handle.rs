@@ -23,7 +23,7 @@ use crate::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 use crate::rr::dnssec::Verifier;
 use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use crate::rr::rdata::opt::EdnsOption;
-use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::rr::{DNSClass, DnsName, Name, RData, Record, RecordType};
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 

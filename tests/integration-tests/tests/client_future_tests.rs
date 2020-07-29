@@ -37,6 +37,7 @@ use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::rr::DnsName;
 use trust_dns_proto::xfer::DnsResponse;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{
@@ -174,7 +175,7 @@ where
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     client
-        .query(name.clone(), DNSClass::IN, RecordType::A)
+        .query(name.to_name(), DNSClass::IN, RecordType::A)
         .map_ok(move |response| {
             println!("response records: {:?}", response);
             assert!(response

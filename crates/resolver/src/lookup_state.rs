@@ -22,7 +22,7 @@ use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
     LOCALHOST as LOCALHOST_usage,
 };
-use proto::rr::{DNSClass, Name, RData, Record, RecordType};
+use proto::rr::{DNSClass, DnsName, Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
 use crate::dns_lru;
@@ -33,7 +33,7 @@ use crate::lookup::Lookup;
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
 lazy_static! {
-    static ref LOCALHOST: RData = RData::PTR(Name::from_ascii("localhost.").unwrap());
+    static ref LOCALHOST: RData = RData::PTR(Name::from_ascii("localhost.").unwrap().to_name());
     static ref LOCALHOST_V4: RData = RData::A(Ipv4Addr::new(127, 0, 0, 1));
     static ref LOCALHOST_V6: RData = RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
 }

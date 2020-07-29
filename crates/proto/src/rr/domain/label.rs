@@ -32,12 +32,14 @@ pub trait DnsLabel {
     fn as_bytes(&self) -> &[u8];
 
     /// Check if this label is (ascii chars only) lowercase
+    #[inline]
     fn is_lowercase(&self) -> bool {
         let bytes = self.as_bytes();
         bytes.iter().all(|c| c.is_ascii_lowercase())
     }
 
     /// Is this Label of 0 length
+    #[inline]
     fn is_empty(&self) -> bool {
         self.as_bytes().is_empty()
     }
@@ -48,16 +50,19 @@ pub trait DnsLabel {
     }
 
     /// Returns true if this label is the wildcard, '*', label
+    #[inline]
     fn is_wildcard(&self) -> bool {
         self.as_bytes() == WILDCARD
     }
 
     /// Performs the equivalence operation disregarding case
+    #[inline]
     fn eq_ignore_ascii_case(&self, other: &dyn DnsLabel) -> bool {
         self.as_bytes().eq_ignore_ascii_case(&other.as_bytes())
     }
 
     /// compares with the other label, ignoring case
+    #[inline]
     fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering
     where
         Self: Sized,
@@ -86,6 +91,7 @@ pub trait DnsLabel {
     /// assert!(!LabelRef::from_raw_bytes(b"www.").unwrap().is_safe_ascii());
     /// assert!(!LabelRef::from_raw_bytes("🦀".as_bytes()).unwrap().is_safe_ascii());
     /// ```
+    #[inline]
     fn is_safe_ascii(&self) -> bool {
         fn inner_is_safe_ascii(byte: u8, is_first: bool) -> bool {
             match char::from(byte) {
@@ -116,6 +122,7 @@ pub trait DnsLabel {
     }
 
     /// Writes this label to safe ascii, escaping characters as necessary
+    #[inline]
     fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error>
     where
         Self: Sized,
@@ -156,6 +163,7 @@ pub trait DnsLabel {
     ///
     /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
     ///   escaping characters as necessary.
+    #[inline]
     fn write_utf8<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error>
     where
         Self: Sized,
@@ -184,6 +192,7 @@ pub trait DnsLabel {
     }
 
     /// Performs the conversion to utf8 from IDNA as necessary, see `fmt` for more details
+    #[inline]
     fn to_utf8<'a>(&'a self) -> Cow<'a, str>
     where
         Self: Sized,
@@ -202,6 +211,7 @@ pub trait DnsLabel {
     /// Converts this label to safe ascii, escaping characters as necessary
     ///
     /// If this is an IDNA, punycode, label, then the xn-- prefix will be maintained as ascii
+    #[inline]
     fn to_ascii<'a>(&'a self) -> Cow<'a, str>
     where
         Self: Sized,
@@ -224,6 +234,7 @@ pub struct LabelRef<'a>(&'a [u8]);
 
 impl LabelRef<'static> {
     /// Returns a wildcard label
+    #[inline]
     pub fn wildcard() -> Self {
         Self(WILDCARD)
     }
@@ -231,6 +242,7 @@ impl LabelRef<'static> {
 
 impl<'a> LabelRef<'a> {
     /// Converts to an Owned Label
+    #[inline]
     pub fn to_label(&self) -> Label {
         Label(self.0.to_vec())
     }
@@ -243,6 +255,7 @@ impl<'a> LabelRef<'a> {
     ///
     /// This uses the bytes as raw ascii values, with nothing escaped on the wire.
     /// Generally users should use `from_str` or `from_ascii`
+    #[inline]
     pub fn from_raw_bytes(bytes: &'a [u8]) -> ProtoResult<Self> {
         if bytes.len() > 63 {
             return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
@@ -253,6 +266,7 @@ impl<'a> LabelRef<'a> {
     /// Takes the ascii string and returns a new label.
     ///
     /// This will return an Error if the label is not an ascii string
+    #[inline]
     pub fn from_ascii(s: &'a str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
             return Ok(LabelRef::wildcard());
@@ -269,7 +283,9 @@ impl<'a> LabelRef<'a> {
         }
     }
 
-    pub fn into_bytes(self) -> &'a [u8] {
+    /// Expose the Label as the raw bytes
+    #[inline]
+    pub fn as_bytes(self) -> &'a [u8] {
         self.0
     }
 }
@@ -307,8 +323,8 @@ impl<'a> Borrow<[u8]> for LabelRef<'a> {
 }
 
 #[allow(deprecated)]
-impl<'a, 'b> PartialEq<LabelRef<'b>> for LabelRef<'a> {
-    fn eq(&self, other: &LabelRef<'b>) -> bool {
+impl<'a, L: DnsLabel> PartialEq<L> for LabelRef<'a> {
+    fn eq(&self, other: &L) -> bool {
         self.eq_ignore_ascii_case(other)
     }
 }
@@ -374,8 +390,7 @@ impl Label {
     /// Takes the ascii string and returns a new label.
     ///
     /// This will return an Error if the label is not an ascii string
-    #[deprecated = "use LabelRef::from_ascii"]
-    pub fn from_ascii(s: &str) -> ProtoResult<Self> {
+    pub fn from_ascii(s: &str) -> ProtoResult<Label> {
         if s.as_bytes() == WILDCARD {
             return Ok(LabelRef::wildcard().to_label());
         }
@@ -526,8 +541,8 @@ impl Debug for Label {
 }
 
 #[allow(deprecated)]
-impl PartialEq<Label> for Label {
-    fn eq(&self, other: &Self) -> bool {
+impl<L: DnsLabel> PartialEq<L> for Label {
+    fn eq(&self, other: &L) -> bool {
         self.eq_ignore_ascii_case(other)
     }
 }
@@ -634,24 +649,24 @@ mod tests {
     fn test_encoding() {
         assert_eq!(
             Label::from_utf8("abc").unwrap(),
-            Label::from_raw_bytes(b"abc").unwrap()
+            LabelRef::from_raw_bytes(b"abc").unwrap()
         );
         // case insensitive, this works...
         assert_eq!(
             Label::from_utf8("ABC").unwrap(),
-            Label::from_raw_bytes(b"ABC").unwrap()
+            LabelRef::from_raw_bytes(b"ABC").unwrap()
         );
         assert_eq!(
             Label::from_utf8("🦀").unwrap(),
-            Label::from_raw_bytes(b"xn--zs9h").unwrap()
+            LabelRef::from_raw_bytes(b"xn--zs9h").unwrap()
         );
         assert_eq!(
             Label::from_utf8("rust-🦀-icon").unwrap(),
-            Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap()
+            LabelRef::from_raw_bytes(b"xn--rust--icon-9447i").unwrap()
         );
         assert_eq!(
             Label::from_ascii("ben.fry").unwrap(),
-            Label::from_raw_bytes(b"ben.fry").unwrap()
+            LabelRef::from_raw_bytes(b"ben.fry").unwrap()
         );
         assert_eq!(Label::from_utf8("🦀").unwrap().to_utf8(), "🦀");
         assert_eq!(Label::from_utf8("🦀").unwrap().to_ascii(), "xn--zs9h");

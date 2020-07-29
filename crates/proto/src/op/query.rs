@@ -21,7 +21,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;
-use crate::rr::domain::Name;
+use crate::rr::domain::{DnsName, Name};
 use crate::rr::record_type::RecordType;
 use crate::serialize::binary::*;
 
@@ -60,6 +60,7 @@ const MDNS_UNICAST_RESPONSE: u16 = 1 << 15;
 /// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Query {
+    /// TODO: make this generic over CowName?
     name: Name,
     query_type: RecordType,
     query_class: DNSClass,
@@ -87,9 +88,9 @@ impl Query {
     }
 
     /// Create a new query from name and type, class defaults to IN
-    pub fn query(name: Name, query_type: RecordType) -> Self {
+    pub fn query<N: DnsName>(name: N, query_type: RecordType) -> Self {
         Query {
-            name,
+            name: name.to_name(),
             query_type,
             query_class: DNSClass::IN,
             #[cfg(feature = "mdns")]

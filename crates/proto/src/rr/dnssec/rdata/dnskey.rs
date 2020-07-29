@@ -20,7 +20,7 @@ use std::fmt::{self, Display, Formatter};
 
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, Digest, DigestType};
-use crate::rr::domain::{DnsName, Name};
+use crate::rr::domain::DnsName;
 use crate::rr::record_data::RData;
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
@@ -238,7 +238,7 @@ impl DNSKEY {
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
-    pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
+    pub fn to_digest(&self, _: &dyn DnsName, _: DigestType) -> ProtoResult<Digest> {
         Err("Ring or OpenSSL must be enabled for this feature".into())
     }
 
@@ -411,6 +411,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
+    use crate::rr::Name;
 
     #[test]
     #[cfg(any(feature = "openssl", feature = "ring"))]
