@@ -56,7 +56,7 @@ http = "0.2"
 log = "0.4"
 rustls = "0.17"
 thiserror = "1.0.20"
-tokio = { version = "0.2.16", features = ["tcp", "io-util", "rt-core"] }
+tokio = { version = "0.2.22", features = ["tcp", "io-util", "rt-core"] }
 tokio-rustls = "0.13"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.20.0", path = "../proto", features = ["tokio-runtime"], default-features = false }
