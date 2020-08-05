@@ -639,7 +639,7 @@ pub struct ResolverOpts {
     pub ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
     pub timeout: Duration,
-    /// Number of attempts before giving up. Defaults to 2
+    /// Number of retries after lookup failure before giving up. Defaults to 2
     pub attempts: usize,
     /// Rotate through the resource records in the response (if there is more than one for a given name)
     pub rotate: bool,
