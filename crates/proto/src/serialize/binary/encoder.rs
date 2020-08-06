@@ -89,8 +89,8 @@ mod private {
 pub struct BinEncoder<'a> {
     offset: usize,
     buffer: private::MaximalBuf<'a>,
-    /// start and end of label pointers, smallvec here?
-    name_pointers: Vec<(usize, usize)>,
+    /// start of label pointers with their labels in fully decompressed form for easy comparison, smallvec here?
+    name_pointers: Vec<(usize, Vec<u8>)>,
     mode: EncodeMode,
     canonical_names: bool,
 }
@@ -209,8 +209,7 @@ impl<'a> BinEncoder<'a> {
     pub fn trim(&mut self) {
         let offset = self.offset;
         self.buffer.truncate(offset);
-        self.name_pointers
-            .retain(|&(start, end)| start < offset && end <= offset);
+        self.name_pointers.retain(|&(start, _)| start < offset);
     }
 
     // /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
@@ -241,7 +240,8 @@ impl<'a> BinEncoder<'a> {
         assert!(end <= (u16::max_value() as usize));
         assert!(start <= end);
         if self.offset < 0x3FFF_usize {
-            self.name_pointers.push((start, end)); // the next char will be at the len() location
+            self.name_pointers
+                .push((start, self.slice_of(start, end).to_vec())); // the next char will be at the len() location
         }
     }
 
@@ -249,11 +249,10 @@ impl<'a> BinEncoder<'a> {
     pub fn get_label_pointer(&self, start: usize, end: usize) -> Option<u16> {
         let search = self.slice_of(start, end);
 
-        for &(match_start, match_end) in &self.name_pointers {
-            let matcher = self.slice_of(match_start as usize, match_end as usize);
-            if matcher == search {
-                assert!(match_start <= (u16::max_value() as usize));
-                return Some(match_start as u16);
+        for (match_start, matcher) in &self.name_pointers {
+            if matcher.as_slice() == search {
+                assert!(match_start <= &(u16::max_value() as usize));
+                return Some(*match_start as u16);
             }
         }
 
