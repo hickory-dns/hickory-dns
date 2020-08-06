@@ -246,12 +246,13 @@ where
                     }
                 })
                 // if UDP fails, try TCP but only if it has connections available
-                .or_else(move |e|
-                    if stream_conns2.is_empty() { 
-                        future::Either::Left(future::err(e)) 
+                .or_else(move |e| {
+                    if stream_conns2.is_empty() {
+                        future::Either::Left(future::err(e))
                     } else {
                         future::Either::Right(Self::try_send(opts, stream_conns2, tcp_message2))
-                    })
+                    }
+                }),
         )
     }
 }
