@@ -11,8 +11,8 @@ use trust_dns_proto::rr::*;
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {
-    let name1 = Name::from_ascii("com").unwrap();
-    let name2 = Name::from_ascii("COM").unwrap();
+    let name1 = Name::from_ascii("com").unwrap().to_name();
+    let name2 = Name::from_ascii("COM").unwrap().to_name();
 
     b.iter(|| {
         assert_eq!(name1.cmp(&name2), Ordering::Equal);
@@ -21,8 +21,8 @@ fn name_cmp_short(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_short_not_eq(b: &mut Bencher) {
-    let name1 = Name::from_ascii("com").unwrap();
-    let name2 = Name::from_ascii("COM").unwrap();
+    let name1 = Name::from_ascii("com").unwrap().to_name();
+    let name2 = Name::from_ascii("COM").unwrap().to_name();
 
     b.iter(|| {
         assert_ne!(name1.cmp_case(&name2), Ordering::Equal);
@@ -31,8 +31,8 @@ fn name_cmp_short_not_eq(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_short_case(b: &mut Bencher) {
-    let name1 = Name::from_ascii("com").unwrap();
-    let name2 = Name::from_ascii("com").unwrap();
+    let name1 = Name::from_ascii("com").unwrap().to_name();
+    let name2 = Name::from_ascii("com").unwrap().to_name();
 
     b.iter(|| {
         assert_eq!(name1.cmp_case(&name2), Ordering::Equal);
@@ -41,8 +41,8 @@ fn name_cmp_short_case(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_medium(b: &mut Bencher) {
-    let name1 = Name::from_ascii("www.example.com").unwrap();
-    let name2 = Name::from_ascii("www.EXAMPLE.com").unwrap();
+    let name1 = Name::from_ascii("www.example.com").unwrap().to_name();
+    let name2 = Name::from_ascii("www.EXAMPLE.com").unwrap().to_name();
 
     b.iter(|| {
         assert_eq!(name1.cmp(&name2), Ordering::Equal);
@@ -51,8 +51,8 @@ fn name_cmp_medium(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_medium_not_eq(b: &mut Bencher) {
-    let name1 = Name::from_ascii("www.example.com").unwrap();
-    let name2 = Name::from_ascii("www.EXAMPLE.com").unwrap();
+    let name1 = Name::from_ascii("www.example.com").unwrap().to_name();
+    let name2 = Name::from_ascii("www.EXAMPLE.com").unwrap().to_name();
 
     b.iter(|| {
         assert_ne!(name1.cmp_case(&name2), Ordering::Equal);
@@ -61,8 +61,8 @@ fn name_cmp_medium_not_eq(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_medium_case(b: &mut Bencher) {
-    let name1 = Name::from_ascii("www.example.com").unwrap();
-    let name2 = Name::from_ascii("www.example.com").unwrap();
+    let name1 = Name::from_ascii("www.example.com").unwrap().to_name();
+    let name2 = Name::from_ascii("www.example.com").unwrap().to_name();
 
     b.iter(|| {
         assert_eq!(name1.cmp_case(&name2), Ordering::Equal);
@@ -71,8 +71,12 @@ fn name_cmp_medium_case(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_long(b: &mut Bencher) {
-    let name1 = Name::from_ascii("a.crazy.really.long.example.com").unwrap();
-    let name2 = Name::from_ascii("a.crazy.really.long.EXAMPLE.com").unwrap();
+    let name1 = Name::from_ascii("a.crazy.really.long.example.com")
+        .unwrap()
+        .to_name();
+    let name2 = Name::from_ascii("a.crazy.really.long.EXAMPLE.com")
+        .unwrap()
+        .to_name();
 
     b.iter(|| {
         assert_eq!(name1.cmp(&name2), Ordering::Equal);
@@ -81,8 +85,12 @@ fn name_cmp_long(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_long_not_eq(b: &mut Bencher) {
-    let name1 = Name::from_ascii("a.crazy.really.long.example.com").unwrap();
-    let name2 = Name::from_ascii("a.crazy.really.long.EXAMPLE.com").unwrap();
+    let name1 = Name::from_ascii("a.crazy.really.long.example.com")
+        .unwrap()
+        .to_name();
+    let name2 = Name::from_ascii("a.crazy.really.long.EXAMPLE.com")
+        .unwrap()
+        .to_name();
 
     b.iter(|| {
         assert_ne!(name1.cmp_case(&name2), Ordering::Equal);
@@ -91,8 +99,12 @@ fn name_cmp_long_not_eq(b: &mut Bencher) {
 
 #[bench]
 fn name_cmp_long_case(b: &mut Bencher) {
-    let name1 = Name::from_ascii("a.crazy.really.long.example.com").unwrap();
-    let name2 = Name::from_ascii("a.crazy.really.long.example.com").unwrap();
+    let name1 = Name::from_ascii("a.crazy.really.long.example.com")
+        .unwrap()
+        .to_name();
+    let name2 = Name::from_ascii("a.crazy.really.long.example.com")
+        .unwrap()
+        .to_name();
 
     b.iter(|| {
         assert_eq!(name1.cmp_case(&name2), Ordering::Equal);

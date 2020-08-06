@@ -247,6 +247,7 @@ impl<'a> LabelRef<'a> {
         Label(self.0.to_vec())
     }
 
+    #[inline]
     pub(crate) fn from_unchecked(bytes: &'a [u8]) -> Self {
         LabelRef(bytes)
     }

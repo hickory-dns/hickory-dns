@@ -78,7 +78,7 @@ impl<'a> LabelCollector<'a> {
 
     fn complete_label<E: LabelEnc>(&mut self) -> Result<(), ProtoError> {
         if self.len > 0 {
-            match &mut self.cur_label {
+            match self.cur_label {
                 Cow::Borrowed(label) => {
                     let end_idx = self.start_idx + self.len;
 
@@ -86,14 +86,13 @@ impl<'a> LabelCollector<'a> {
                     let label = &label[self.start_idx..end_idx];
                     let label = E::to_label(label)?;
 
-                    self.name
-                        .push_label(&label.as_ref(), self.start_idx, end_idx);
+                    self.name.push_label(label);
                     self.is_borrowed();
                     self.start_idx = self.start_idx + self.len + 1;
                 }
-                Cow::Owned(label) => {
-                    let new_label = E::to_label(label)?;
-                    self.name.push_label(new_label.as_ref(), 0, 0);
+                Cow::Owned(ref mut label) => {
+                    let new_label = E::to_label(&label)?;
+                    self.name.push_owned(new_label.into_owned());
                     label.clear();
                 }
             }
@@ -145,20 +144,27 @@ impl<'a> NameCollector<'a> {
         }
     }
 
-    fn push_label(&mut self, label: &[u8], start_idx: usize, end_idx: usize) {
-        match self {
-            NameCollector::Ref(ref mut name) => match name.push_label(label, start_idx, end_idx) {
-                Ok(()) => return,
-                Err(()) => (),
-            },
-            _ => (),
+    fn push_label(&mut self, label: Cow<'a, [u8]>) {
+        if let Cow::Borrowed(label) = &label {
+            match self {
+                NameCollector::Ref(ref mut name) => {
+                    name.push_label(label);
+                    return;
+                }
+                // otherwise grab the owned data
+                _ => (),
+            }
         }
 
         // need the owned version to push non-slices
+        self.push_owned(label.into_owned());
+    }
+
+    fn push_owned(&mut self, label: Vec<u8>) {
         self.to_owned();
 
         match self {
-            NameCollector::Owned(ref mut name) => name.push_label(&label),
+            NameCollector::Owned(ref mut name) => name.push_label(label),
             _ => unreachable!("Ref should have been handled above"),
         }
     }

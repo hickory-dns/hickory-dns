@@ -150,7 +150,7 @@ pub trait DnsName {
     /// Converts this to the Name (owned) variant
     #[inline]
     fn to_name(&self) -> Name {
-        let mut name = Name::with_capacity(self.len());
+        let mut name = Name::default();
         for l in self.labels() {
             name.push_label(l.as_bytes());
         }
@@ -530,7 +530,8 @@ pub trait DnsName {
             return self.borrowed_name().into();
         }
 
-        let mut name = Name::with_capacity(self.len());
+        // let mut name = Name::with_capacity(self.len());
+        let mut name = Name::new();
         name.is_fqdn = self.is_fqdn();
 
         // nothing to do for root
@@ -695,8 +696,7 @@ impl<'a> Hash for (dyn DnsName + 'a) {
 #[derive(Clone, Eq)]
 pub struct BorrowedName<'a> {
     is_fqdn: bool,
-    name: &'a [u8],
-    label_offsets: &'a [(usize, usize)],
+    labels: &'a [&'a [u8]],
 }
 
 impl<'a> DnsName for BorrowedName<'a> {
@@ -714,8 +714,7 @@ impl<'a> DnsName for BorrowedName<'a> {
     fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
         BorrowedName {
             is_fqdn: self.is_fqdn,
-            name: self.name,
-            label_offsets: self.label_offsets,
+            labels: self.labels,
         }
     }
 
@@ -793,8 +792,7 @@ impl<'a> Ord for BorrowedName<'a> {
 #[derive(Clone, Eq)]
 pub struct NameRef<'a> {
     is_fqdn: bool,
-    name: &'a [u8],
-    label_offsets: Vec<(usize, usize)>,
+    labels: Vec<&'a [u8]>,
 }
 
 impl<'a> DnsName for NameRef<'a> {
@@ -812,8 +810,7 @@ impl<'a> DnsName for NameRef<'a> {
     fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
         BorrowedName {
             is_fqdn: self.is_fqdn,
-            name: self.name,
-            label_offsets: &self.label_offsets,
+            labels: &self.labels,
         }
     }
 
@@ -837,27 +834,25 @@ impl NameRef<'static> {
     pub fn root() -> Self {
         NameRef {
             is_fqdn: true,
-            name: b".",
-            label_offsets: Vec::with_capacity(0),
+            labels: vec![b"."],
         }
     }
 
-    /// get the internal name
-    pub fn as_bytes(&self) -> &[u8] {
-        // this name may be longer than the ones captured (due to from_unparsed_slice)
-        let start = self.label_offsets.first().map_or(0, |(start, _)| *start);
-        let end = self.label_offsets.last().map_or(0, |(_, end)| *end);
-        &self.name[start..end]
-    }
+    // /// get the internal name
+    // pub fn as_bytes(&self) -> &[u8] {
+    //     // this name may be longer than the ones captured (due to from_unparsed_slice)
+    //     let start = self.label_offsets.first().map_or(0, |(start, _)| *start);
+    //     let end = self.label_offsets.last().map_or(0, |(_, end)| *end);
+    //     &self.name[start..end]
+    // }
 }
 
 impl<'a> NameRef<'a> {
     /// Allocates a new slice, but no labels are defined
-    pub(super) fn from_unparsed_slice(slice: &'a [u8]) -> Self {
+    pub(super) fn from_unparsed_slice(_slice: &'a [u8]) -> Self {
         NameRef {
             is_fqdn: false,
-            name: slice,
-            label_offsets: vec![],
+            labels: vec![],
         }
     }
 
@@ -892,29 +887,9 @@ impl<'a> NameRef<'a> {
     }
 
     /// Pushes the new label, returns error if the label is not contained in the same slice as internal
-    pub(super) fn push_label(
-        &mut self,
-        label: &[u8],
-        start_idx: usize,
-        end_idx: usize,
-    ) -> Result<(), ()> {
-        // this is only safe to push if and only if this label overlaps the same region as the inner label
-        //  it's either the very beginning, or 1 past the end of the last offset
-        let start = self.label_offsets.last().map_or(0, |(_, end)| *end + 1);
-        let end = start + label.len();
-
-        if end > self.name.len() {
-            return Err(());
-        }
-
-        let existing_label = self.name.get(start..end).ok_or(())?;
-        let overlapping_label = self.name.get(start_idx..end_idx).ok_or(())?;
-        if (start, end) == (start_idx, end_idx) && std::ptr::eq(existing_label, overlapping_label) {
-            self.label_offsets.push((start, end));
-            Ok(())
-        } else {
-            Err(())
-        }
+    pub(super) fn push_label(&mut self, label: &'a [u8]) {
+        debug_assert!(!label.is_empty(), "label must not be empty");
+        self.labels.push(label);
     }
 }
 
@@ -984,8 +959,7 @@ impl<'a> fmt::Display for NameRef<'a> {
 #[derive(Clone, Default, Eq)]
 pub struct Name {
     is_fqdn: bool,
-    name: Vec<u8>,
-    label_offsets: Vec<(usize, usize)>,
+    labels: Vec<Box<[u8]>>,
 }
 
 impl DnsName for Name {
@@ -1029,11 +1003,11 @@ impl DnsName for Name {
     }
 
     #[inline]
+    #[allow(unsafe_code)]
     fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
         BorrowedName {
             is_fqdn: self.is_fqdn,
-            name: &self.name,
-            label_offsets: &self.label_offsets,
+            labels: unsafe { std::mem::transmute(self.labels.as_slice()) },
         }
     }
 }
@@ -1051,19 +1025,19 @@ impl Name {
         Default::default()
     }
 
-    /// Same as default, but with capacity reserved of len
-    pub fn with_capacity(size: usize) -> Self {
-        Name {
-            is_fqdn: false,
-            name: Vec::with_capacity(size),
-            label_offsets: Default::default(),
-        }
-    }
+    // /// Same as default, but with capacity reserved of len
+    // pub fn with_capacity(size: usize) -> Self {
+    //     Name {
+    //         is_fqdn: false,
+    //         name: Vec::with_capacity(size),
+    //         label_offsets: Default::default(),
+    //     }
+    // }
 
-    /// Return this Name as bytes
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.name
-    }
+    // /// Return this Name as bytes
+    // pub fn as_bytes(&self) -> &[u8] {
+    //     &self.name
+    // }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
@@ -1077,14 +1051,12 @@ impl Name {
         LabelIter::new(self)
     }
 
-    pub(super) fn push_label(&mut self, label: &[u8]) {
-        if !label.is_empty() {
-            self.name.extend_from_slice(b".");
-            let start_idx = self.name.len();
-            self.name.extend_from_slice(label);
-            let end_idx = self.name.len();
+    pub(super) fn push_label<I: Into<Box<[u8]>>>(&mut self, label: I) {
+        let label = label.into();
+        debug_assert!(!label.is_empty(), "label can not be empty");
 
-            self.label_offsets.push((start_idx, end_idx));
+        if !label.is_empty() {
+            self.labels.push(label);
         }
     }
 
@@ -1102,7 +1074,7 @@ impl Name {
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
         self.push_label(label.into_label()?.as_bytes());
-        if self.label_offsets.len() > 255 {
+        if self.labels.len() > 255 {
             return Err("labels exceed maximum length of 255".into());
         };
         Ok(self)
@@ -1261,7 +1233,9 @@ impl Name {
     /// assert!(example_com.eq_case(&Name::from_str("example.com").unwrap()));
     /// ```
     pub fn make_lowercase(&mut self) {
-        self.name.as_mut_slice().make_ascii_lowercase();
+        self.labels
+            .iter_mut()
+            .for_each(|label| label.make_ascii_lowercase());
     }
 
     /// Trims off the first part of the name, to help with searching for the domain piece
@@ -1278,7 +1252,7 @@ impl Name {
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
     pub fn base_name(&self) -> Self {
-        let length = self.label_offsets.len();
+        let length = self.labels.len();
         if length > 0 {
             return self.trim_to(length - 1);
         }
@@ -1327,15 +1301,15 @@ impl Name {
     /// assert_eq!(Name::root().len(), 1);
     /// ```
     pub fn len(&self) -> usize {
-        let dots = if !self.label_offsets.is_empty() {
-            self.label_offsets.len()
+        let dots = if !self.labels.is_empty() {
+            self.labels.len()
         } else {
             1
         };
 
-        self.label_offsets
+        self.labels
             .iter()
-            .fold(dots, |acc, (start, end)| acc + (end - start))
+            .fold(dots, |acc, label| acc + label.len())
     }
 
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
@@ -1443,29 +1417,36 @@ impl Name {
 
 /// An iterator over labels in a name
 pub struct LabelIter<'a> {
-    name: &'a [u8],
-    offsets: Iter<'a, (usize, usize)>,
+    labels: std::slice::Iter<'a, &'a [u8]>,
+    len: usize,
 }
 
 impl<'a> LabelIter<'a> {
+    #[inline]
     fn from_borrowed(name: &'a BorrowedName<'a>) -> LabelIter<'a> {
         Self {
-            name: name.name,
-            offsets: name.label_offsets.iter(),
+            labels: name.labels.iter(),
+            len: name.labels.len(),
         }
     }
 
+    #[inline]
     fn from_ref(name: &'a NameRef<'a>) -> LabelIter<'a> {
+        let BorrowedName { labels, .. } = name.borrowed_name();
+
         Self {
-            name: name.name,
-            offsets: name.label_offsets.iter(),
+            labels: labels.iter(),
+            len: labels.len(),
         }
     }
 
+    #[inline]
     fn new(name: &'a Name) -> LabelIter<'a> {
+        let BorrowedName { labels, .. } = name.borrowed_name();
+
         Self {
-            name: &name.name,
-            offsets: name.label_offsets.iter(),
+            labels: labels.iter(),
+            len: labels.len(),
         }
     }
 }
@@ -1475,21 +1456,19 @@ impl<'a> Iterator for LabelIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        let (start, end) = self.offsets.next()?;
-        Some(LabelRef::from_unchecked(&self.name[*start..*end]))
+        self.labels.next().map(|l| LabelRef::from_unchecked(l))
     }
 }
 
 impl<'a> ExactSizeIterator for LabelIter<'a> {
     fn len(&self) -> usize {
-        self.offsets.len()
+        self.len
     }
 }
 
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let (start, end) = self.offsets.next_back()?;
-        Some(LabelRef::from_unchecked(&self.name[*start..*end]))
+        self.labels.next_back().map(|l| LabelRef::from_unchecked(l))
     }
 }
 
@@ -1756,8 +1735,7 @@ impl Index<usize> for Name {
     type Output = [u8];
 
     fn index(&self, index: usize) -> &[u8] {
-        let offset = self.label_offsets[index];
-        &self.name[offset.0..offset.1]
+        &self.labels[index]
     }
 }
 
@@ -1895,8 +1873,7 @@ mod tests {
     fn test_dns_name_is_object_safe() {
         let name = NameRef {
             is_fqdn: true,
-            name: b"www",
-            label_offsets: vec![(0, 3)],
+            labels: vec![b"www"],
         };
         let dyn_name = &name as &dyn DnsName;
 
@@ -1930,13 +1907,11 @@ mod tests {
         let mut name = NameRef::from_unparsed_slice(label);
         assert!(name.labels().next().is_none());
 
-        name.push_label(&label[0..3], 0, 3).unwrap();
+        name.push_label(&label[0..3]);
         assert_eq!(
             name.labels().next().expect("should be www").as_bytes(),
             b"www"
         );
-
-        assert!(name.push_label(b"www", 0, 3).is_err());
     }
 
     #[test]
