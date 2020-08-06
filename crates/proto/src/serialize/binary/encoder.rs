@@ -209,8 +209,7 @@ impl<'a> BinEncoder<'a> {
     pub fn trim(&mut self) {
         let offset = self.offset;
         self.buffer.truncate(offset);
-        self.name_pointers
-            .retain(|&(start, _)| start < offset);
+        self.name_pointers.retain(|&(start, _)| start < offset);
     }
 
     // /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
