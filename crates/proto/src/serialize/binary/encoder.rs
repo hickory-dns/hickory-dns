@@ -241,7 +241,8 @@ impl<'a> BinEncoder<'a> {
         assert!(end <= (u16::max_value() as usize));
         assert!(start <= end);
         if self.offset < 0x3FFF_usize {
-            self.name_pointers.push((start, self.slice_of(start, end).to_vec())); // the next char will be at the len() location
+            self.name_pointers
+                .push((start, self.slice_of(start, end).to_vec())); // the next char will be at the len() location
         }
     }
 
