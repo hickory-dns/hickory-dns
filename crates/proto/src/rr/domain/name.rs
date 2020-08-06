@@ -1386,6 +1386,42 @@ mod tests {
     }
 
     #[test]
+    fn test_pointer_with_pointer_ending_labels() {
+        let mut bytes: Vec<u8> = Vec::with_capacity(512);
+
+        let first = Name::from_str("ra.rb.rc").unwrap();
+        let second = Name::from_str("ra.rc").unwrap();
+        let third = Name::from_str("ra.rc").unwrap();
+
+        {
+            let mut e = BinEncoder::new(&mut bytes);
+
+            first.emit(&mut e).unwrap();
+            assert_eq!(e.len(), 10);
+
+            second.emit(&mut e).unwrap();
+            // +5 with the first +3 being the text form of "ra" and +2 for the pointer to "rc".
+            assert_eq!(e.len(), 15);
+
+            // +2 with the pointer to "ra.rc" as previously seen.
+            third.emit(&mut e).unwrap();
+            assert_eq!(e.len(), 17);
+        }
+
+        // now read them back
+        let mut d = BinDecoder::new(&bytes);
+
+        let r_test = Name::read(&mut d).unwrap();
+        assert_eq!(first, r_test);
+
+        let r_test = Name::read(&mut d).unwrap();
+        assert_eq!(second, r_test);
+
+        let r_test = Name::read(&mut d).unwrap();
+        assert_eq!(third, r_test);
+    }
+
+    #[test]
     fn test_recursive_pointer() {
         // points to an invalid beginning label marker
         let bytes = vec![0xC0, 0x01];
