@@ -245,8 +245,13 @@ where
                         future::Either::Right(future::ok(response))
                     }
                 })
-                // if UDP fails, try TCP
-                .or_else(move |_| Self::try_send(opts, stream_conns2, tcp_message2)),
+                // if UDP fails, try TCP but only if it has connections available
+                .or_else(move |e|
+                    if stream_conns2.is_empty() { 
+                        future::Either::Left(future::err(e)) 
+                    } else {
+                        future::Either::Right(Self::try_send(opts, stream_conns2, tcp_message2))
+                    })
         )
     }
 }
