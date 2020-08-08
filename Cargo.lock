@@ -132,6 +132,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
 
 [[package]]
+name = "base64"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1060,7 +1066,20 @@ version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c0d4a31f5d68413404705d6982529b0e11a9aacd4839d1d6222ee3b8cb4015e1"
 dependencies = [
- "base64",
+ "base64 0.11.0",
+ "log",
+ "ring",
+ "sct",
+ "webpki",
+]
+
+[[package]]
+name = "rustls"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cac94b333ee2aac3284c5b8a1b7fb4dd11cba88c244e3fe33cdbd047af0eb693"
+dependencies = [
+ "base64 0.12.3",
  "log",
  "ring",
  "sct",
@@ -1309,7 +1328,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "15cb62a0d2770787abc96e99c1cd98fcf17f94959f3af63ca85bdfb203f051b4"
 dependencies = [
  "futures-core",
- "rustls",
+ "rustls 0.17.0",
  "tokio",
  "webpki",
 ]
@@ -1378,7 +1397,7 @@ dependencies = [
  "log",
  "native-tls",
  "regex",
- "rustls",
+ "rustls 0.18.0",
  "tokio",
  "trust-dns-client",
  "trust-dns-https",
@@ -1405,7 +1424,7 @@ dependencies = [
  "radix_trie",
  "rand",
  "ring",
- "rustls",
+ "rustls 0.18.0",
  "serde",
  "thiserror",
  "tokio",
@@ -1439,7 +1458,7 @@ dependencies = [
  "h2",
  "http",
  "log",
- "rustls",
+ "rustls 0.18.0",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -1462,7 +1481,7 @@ dependencies = [
  "openssl",
  "rand",
  "rusqlite",
- "rustls",
+ "rustls 0.18.0",
  "tokio",
  "trust-dns-client",
  "trust-dns-https",
@@ -1540,7 +1559,7 @@ dependencies = [
  "log",
  "lru-cache",
  "resolv-conf",
- "rustls",
+ "rustls 0.18.0",
  "serde",
  "smallvec",
  "thiserror",
@@ -1563,7 +1582,7 @@ dependencies = [
  "futures",
  "log",
  "openssl",
- "rustls",
+ "rustls 0.18.0",
  "tokio",
  "tokio-rustls",
  "trust-dns-proto",
@@ -1585,7 +1604,7 @@ dependencies = [
  "log",
  "openssl",
  "rusqlite",
- "rustls",
+ "rustls 0.18.0",
  "serde",
  "thiserror",
  "time",
@@ -1621,7 +1640,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3179a61e9eccceead5f1574fd173cf2e162ac42638b9bf214c6ad0baf7efa24a"
 dependencies = [
- "base64",
+ "base64 0.11.0",
  "bytes",
  "chrono",
  "http",
