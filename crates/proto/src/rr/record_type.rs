@@ -149,7 +149,7 @@ impl FromStr for RecordType {
     /// ```
     fn from_str(str: &str) -> ProtoResult<Self> {
         // TODO missing stuff?
-        match str {
+        match str.to_uppercase().as_str() {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
             "ANAME" => Ok(RecordType::ANAME),

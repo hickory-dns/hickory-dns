@@ -48,7 +48,7 @@ impl FromStr for DNSClass {
     /// assert_eq!(DNSClass::IN, var);
     /// ```
     fn from_str(str: &str) -> ProtoResult<Self> {
-        match str {
+        match str.to_uppercase().as_str() {
             "IN" => Ok(DNSClass::IN),
             "CH" => Ok(DNSClass::CH),
             "HS" => Ok(DNSClass::HS),
