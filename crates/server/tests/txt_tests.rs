@@ -59,6 +59,8 @@ certs        CAA 0 issuewild "example.net"
 _443._tcp.www.example.com. IN TLSA (
       0 0 1 d2abde240d7cd3ee6b4b28c54df034b9
             7983a1d16e8a410e4561cb106618e971)
+
+tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.net.      271851  900     1800    6048000 3600
 "###,
     );
 
@@ -96,6 +98,37 @@ _443._tcp.www.example.com. IN TLSA (
         assert_eq!(600, soa.retry());
         assert_eq!(3_600_000, soa.expire());
         assert_eq!(60, soa.minimum());
+    } else {
+        panic!("Not an SOA record!!!") // valid panic, test code
+    }
+
+    let lowercase_record = block_on(authority.lookup(
+        &Name::from_str("tech.").unwrap().into(),
+        RecordType::SOA,
+        false,
+        SupportedAlgorithms::new(),
+    ))
+    .unwrap()
+    .iter()
+    .next()
+    .cloned()
+    .unwrap();
+    assert_eq!(&Name::from_str("tech.").unwrap(), lowercase_record.name());
+    assert_eq!(DNSClass::IN, lowercase_record.dns_class());
+    if let RData::SOA(ref lower_soa) = *lowercase_record.rdata() {
+        assert_eq!(
+            &Name::from_str("ns0.centralnic.net").unwrap(),
+            lower_soa.mname()
+        );
+        assert_eq!(
+            &Name::from_str("hostmaster.centralnic.net").unwrap(),
+            lower_soa.rname()
+        );
+        assert_eq!(271851, lower_soa.serial());
+        assert_eq!(900, lower_soa.refresh());
+        assert_eq!(1800, lower_soa.retry());
+        assert_eq!(6_048_000, lower_soa.expire());
+        assert_eq!(3_600, lower_soa.minimum());
     } else {
         panic!("Not an SOA record!!!") // valid panic, test code
     }
