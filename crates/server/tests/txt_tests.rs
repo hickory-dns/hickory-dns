@@ -116,7 +116,10 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     assert_eq!(&Name::from_str("tech.").unwrap(), lowercase_record.name());
     assert_eq!(DNSClass::IN, lowercase_record.dns_class());
     if let RData::SOA(ref lower_soa) = *lowercase_record.rdata() {
-        assert_eq!(&Name::from_str("ns0.centralnic.net").unwrap(), lower_soa.mname());
+        assert_eq!(
+            &Name::from_str("ns0.centralnic.net").unwrap(),
+            lower_soa.mname()
+        );
         assert_eq!(
             &Name::from_str("hostmaster.centralnic.net").unwrap(),
             lower_soa.rname()
