@@ -149,7 +149,8 @@ impl FromStr for RecordType {
     /// ```
     fn from_str(str: &str) -> ProtoResult<Self> {
         // TODO missing stuff?
-        match str.to_uppercase().as_str() {
+        debug_assert!(str.chars().all(|x| char::is_digit(x, 36)));
+        match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
             "ANAME" => Ok(RecordType::ANAME),
@@ -436,7 +437,7 @@ mod tests {
         let mut rtypes = std::collections::HashSet::new();
         for name in record_names.iter().chain(dnssec_record_names) {
             let rtype: RecordType = name.parse().unwrap();
-            assert_eq!(rtype.to_string().as_str(), *name);
+            assert_eq!(rtype.to_string().to_ascii_uppercase().as_str(), *name);
             assert!(rtypes.insert(rtype));
         }
     }

@@ -207,7 +207,7 @@ impl Parser {
                         // if number, TTL
                         // Token::Number(ref num) => ttl = Some(*num),
                         // One of Class or Type (these cannot be overlapping!)
-                        Token::CharData(data) => {
+                        Token::CharData(mut data) => {
                             // if it's a number it's a ttl
                             let result: ParseResult<u32> = Self::parse_time(&data);
                             if result.is_ok() {
@@ -215,6 +215,7 @@ impl Parser {
                                 State::TtlClassType // hm, should this go to just ClassType?
                             } else {
                                 // if can parse DNSClass, then class
+                                data.make_ascii_uppercase();
                                 let result = DNSClass::from_str(&data);
                                 if result.is_ok() {
                                     class = result.ok();
