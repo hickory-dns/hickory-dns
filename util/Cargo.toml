@@ -49,7 +49,7 @@ path = "src/pem_to_public_dnskey.rs"
 
 [dependencies]
 clap = "2.33.1"
-data-encoding = "2.2.0"
+data-encoding = "2.3.0"
 trust-dns-client= { version = "0.20.0", features = ["dnssec-openssl"], path = "../crates/client" }
 trust-dns-proto = { version = "0.20.0", features = ["dnssec-openssl"], path = "../crates/proto" }
 trust-dns-resolver = { version = "0.20.0", features = ["dnssec-openssl"], path = "../crates/resolver" }
