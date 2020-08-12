@@ -289,6 +289,10 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 .messages_mut()
                 .flat_map(Message::take_additionals)
                 .collect();
+            let name_servers: Vec<Record> = response
+                .messages_mut()
+                .flat_map(Message::take_name_servers)
+                .collect();
 
             // set of names that still require resolution
             // TODO: this needs to be enhanced for SRV
@@ -299,6 +303,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 .into_iter()
                 // Chained records will generally exist in the additionals section
                 .chain(additionals.into_iter())
+                .chain(name_servers.into_iter())
                 .filter_map(|r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
