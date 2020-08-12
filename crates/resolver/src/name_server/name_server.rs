@@ -150,7 +150,11 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
                             debug!("{}", note);
                             return Err(ProtoError::from(note));
                         }
-                        ResponseCode::NoError if response.answers().is_empty() => {
+                        ResponseCode::NoError
+                            if response.answers().is_empty()
+                                && response.additionals().is_empty()
+                                && response.name_servers().is_empty() =>
+                        {
                             let note = "Nameserver responded with NoError";
                             debug!("{}", note);
                             return Err(ProtoError::from(note));
