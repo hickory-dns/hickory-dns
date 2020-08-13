@@ -430,6 +430,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
     lookup_fn!(ns_lookup, lookup::NsLookup, RecordType::NS);
     lookup_fn!(soa_lookup, lookup::SoaLookup, RecordType::SOA);
     lookup_fn!(srv_lookup, lookup::SrvLookup, RecordType::SRV);
+    lookup_fn!(tlsa_lookup, lookup::TlsaLookup, RecordType::TLSA);
     lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
 }
 

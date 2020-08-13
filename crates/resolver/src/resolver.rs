@@ -145,6 +145,7 @@ impl Resolver {
     lookup_fn!(ns_lookup, lookup::NsLookup);
     lookup_fn!(soa_lookup, lookup::SoaLookup);
     lookup_fn!(srv_lookup, lookup::SrvLookup);
+    lookup_fn!(tlsa_lookup, lookup::TlsaLookup);
     lookup_fn!(txt_lookup, lookup::TxtLookup);
 }
 
