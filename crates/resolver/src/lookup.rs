@@ -496,6 +496,13 @@ lookup_type!(
     rdata::MX
 );
 lookup_type!(
+    TlsaLookup,
+    TlsaLookupIter,
+    TlsaLookupIntoIter,
+    RData::TLSA,
+    rdata::TLSA
+);
+lookup_type!(
     TxtLookup,
     TxtLookupIter,
     TxtLookupIntoIter,
