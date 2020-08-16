@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-https"
-version = "0.20.0"
+version = "0.20.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -59,8 +59,8 @@ thiserror = "1.0.20"
 tokio = { version = "0.2.22", features = ["tcp", "io-util", "rt-core"] }
 tokio-rustls = "0.14"
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.20.0", path = "../proto", features = ["tokio-runtime"], default-features = false }
-trust-dns-rustls = { version = "0.20.0", path = "../rustls", default-features = false }
+trust-dns-proto = { version = "0.20.0-alpha.1", path = "../proto", features = ["tokio-runtime"], default-features = false }
+trust-dns-rustls = { version = "0.20.0-alpha.1", path = "../rustls", default-features = false }
 typed-headers = "0.2"
 webpki-roots = { version = "0.20" }
 webpki = "0.21"
