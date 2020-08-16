@@ -9,15 +9,34 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (server) Support for lowercase DNSClass and RecordType fields in zonefiles (@zhanif3) #1186
+- (resolver) Make EDNS optional for resolvers (@CtrlZvi) #1173
+- (all) Fully support *ring* for all DNSSEC operations. #1145
+- (all) No more `master` (branch, moved to `main`) slave, in honor of Juneteenth #1141
+- (all) Minimize `futures` dependencies (@JohnTitor) #1109
+- (proto) increases the UDP buffer size from 2048 to 4096 to allow larger payloads (@DevQps) #1096
+- (resolver) use IntoName trait on synchronous resolver interface (@krisztian-kovacs) #1095
 - (resolver) *BREAKING* removed async for `AsyncResolver::new` (@balboah) #1077 #1056
-- (server) *BREAKING* removed `Runtime` from `ServerFuture::register_socket` (@LucioFranco) #1088  
+- (server) *BREAKING* removed `Runtime` from `ServerFuture::register_socket` (@LucioFranco) #1088 #1087
 
 ### Fixed
 
+- (resolver) Fix Glue records resolving (@wavenator) #1188 
+- (resolver) Only fall back on TCP if cons are available (@lukaspustina) #1181
+- (proto) fix empty option at end of edns (@jonasbb) #1143, #744
+- (resolver) Return `REFUSED` instead of `NXDOMAIN` when server is not an authority (@AnIrishDuck) #1137
+- (resolver) forwarder: return NXDomain on `e.is_nx_domain()` (@balboah) #1123
 - (resolver) Regards NXDomain and NoError empty responses as errors (continues searching for records), #1086 #933
 
 ### Added
 
+- (resolver) Add support for tlsa RRs in trust_dns_resolver (@smutt) #1189
+- (resolver) Support pointer ending label compression (@jacoblin1994) #1182
+- (proto) Keep OS error information on `io::Error` (@brunowonka) #1163
+- (proto) Support mDNS cache-flush bit (@fluxxu) #1144
+- (proto) Allow creating TXT Rdata with binary data (@bltavares) #1125
+- (proto) Add mutable access to Message fields (@leshow) #1118
+- (proto) Add Name.parse_ptr_name, to IP address (@Mygod) #1107
 - (resolver) Allow HTTPS to be generic over Runtime (@balboah) #1077 #1074
 
 ## 0.19.5
