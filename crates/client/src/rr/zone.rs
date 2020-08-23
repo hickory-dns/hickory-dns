@@ -132,8 +132,8 @@ lazy_static! {
 //     }
 // }
 
-#[derive(Clone, Eq, PartialEq)]
-struct TrieNameRef<'n>(BorrowedName<'n>);
+#[derive(Eq, PartialEq)]
+struct TrieNameRef<'n>(&'n BorrowedName<'n>);
 
 impl<'n, N: DnsName> From<&'n N> for TrieNameRef<'n> {
     fn from(n: &'n N) -> Self {

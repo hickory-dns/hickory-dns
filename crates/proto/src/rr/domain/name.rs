@@ -13,7 +13,6 @@ use std::fmt::{self, Write};
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
-use std::slice::Iter;
 use std::str::FromStr;
 
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
@@ -56,10 +55,14 @@ pub trait DnsName {
     /// let name = NameRef::from_ascii("www.example.com.").unwrap();
     /// assert!(name.is_fqdn());
     /// ```
-    fn is_fqdn(&self) -> bool;
-
-    /// Specify that this is a fully-qualified-domain-name
-    fn set_fqdn(&mut self, is_fqdn: bool);
+    #[inline]
+    fn is_fqdn(&self) -> bool {
+        self.labels()
+            .into_iter_with_root()
+            .last()
+            .map(|l| l.is_empty() || l.is_root())
+            .unwrap_or(false)
+    }
 
     /// returns the length in bytes of the labels. '.' counts as 1
     ///
@@ -121,7 +124,7 @@ pub trait DnsName {
         let num = self.labels().count() as u8;
 
         if self.is_wildcard() {
-            num - 1
+            num.saturating_sub(1)
         } else {
             num
         }
@@ -145,17 +148,17 @@ pub trait DnsName {
     }
 
     /// Return a Borrowed version of the DnsName
-    fn borrowed_name<'a>(&'a self) -> BorrowedName<'a>;
+    fn borrowed_name<'a>(&'a self) -> &'a BorrowedName;
 
     /// Converts this to the Name (owned) variant
     #[inline]
     fn to_name(&self) -> Name {
         let mut name = Name::default();
-        for l in self.labels() {
+        for l in self.labels().into_iter_with_root() {
             name.push_label(l.as_bytes());
         }
 
-        name.is_fqdn = self.is_fqdn();
+        debug_assert_eq!(self.is_fqdn(), name.is_fqdn());
         name
     }
 
@@ -255,7 +258,7 @@ pub trait DnsName {
 
     /// Case sensitive comparison
     #[inline]
-    fn cmp_case<D: DnsName + ?Sized>(&self, other: &D) -> Ordering
+    fn cmp_case(&self, other: &impl DnsName) -> Ordering
     where
         Self: Sized,
     {
@@ -264,7 +267,7 @@ pub trait DnsName {
 
     /// Compares the Names, in a case sensitive manner
     #[inline]
-    fn eq_case<D: DnsName + ?Sized>(&self, other: &D) -> bool
+    fn eq_case(&self, other: &impl DnsName) -> bool
     where
         Self: Sized,
     {
@@ -406,7 +409,10 @@ pub trait DnsName {
     /// assert!(!another.zone_of(&name));
     /// ```
     #[inline]
-    fn zone_of(&self, name: &dyn DnsName) -> bool {
+    fn zone_of(&self, name: &impl DnsName) -> bool
+    where
+        Self: Sized,
+    {
         let self_lower = self.to_lowercase();
         let name_lower = name.to_lowercase();
 
@@ -415,7 +421,10 @@ pub trait DnsName {
 
     /// same as `zone_of` allows for case sensitive call
     #[inline]
-    fn zone_of_case(&self, name: &dyn DnsName) -> bool {
+    fn zone_of_case(&self, name: &impl DnsName) -> bool
+    where
+        Self: Sized,
+    {
         let self_len = self.num_labels();
         let name_len = name.num_labels();
         if self_len == 0 {
@@ -526,24 +535,21 @@ pub trait DnsName {
     /// ```
     #[inline]
     fn into_wildcard<'a>(&'a self) -> CowName<'a> {
-        if self.is_wildcard() {
+        // nothing to do if it already is the wildcard, or for root
+        if self.is_wildcard() || self.is_root() {
             return self.borrowed_name().into();
         }
 
         // let mut name = Name::with_capacity(self.len());
         let mut name = Name::new();
-        name.is_fqdn = self.is_fqdn();
+        let wildcard = LabelRef::wildcard();
 
-        // nothing to do for root
-        if !self.is_root() {
-            let wildcard = LabelRef::wildcard();
-
-            name.push_label(wildcard.as_bytes());
-            for label in self.labels().skip(1) {
-                name.push_label(label.as_bytes());
-            }
+        name.push_label(wildcard.as_bytes());
+        for label in self.labels().into_iter_with_root().skip(1) {
+            name.push_label(label.as_bytes());
         }
 
+        debug_assert_eq!(self.is_fqdn(), name.is_fqdn());
         name.into()
     }
 }
@@ -577,6 +583,7 @@ pub(crate) fn write_labels<W: Write, E: LabelEnc, D: DnsName + ?Sized>(
     name: &D,
 ) -> Result<(), fmt::Error> {
     let mut iter = name.labels();
+
     if let Some(label) = iter.next() {
         E::write_label(f, &label)?;
     }
@@ -663,7 +670,7 @@ impl<N: DnsName + ?Sized> BinEncodable for N {
     }
 }
 
-impl<'a> ToOwned for (dyn DnsName + 'a) {
+impl<'a> ToOwned for BorrowedName<'a> {
     type Owned = Name;
 
     fn to_owned(&self) -> Self::Owned {
@@ -671,7 +678,7 @@ impl<'a> ToOwned for (dyn DnsName + 'a) {
     }
 }
 
-impl<'a> Hash for (dyn DnsName + 'a) {
+impl<'a> Hash for BorrowedName<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.is_fqdn().hash(state);
 
@@ -693,36 +700,41 @@ impl<'a> Hash for (dyn DnsName + 'a) {
 /// A reference to a different name type.
 ///
 /// This is useful for comparing names in things like HashMaps
-#[derive(Clone, Eq)]
-pub struct BorrowedName<'a> {
-    is_fqdn: bool,
-    labels: &'a [&'a [u8]],
+#[derive(Eq)]
+#[repr(transparent)]
+pub struct BorrowedName<'a>
+where
+    Self: 'a,
+{
+    labels: [&'a [u8]],
 }
 
-impl<'a> DnsName for BorrowedName<'a> {
+impl<'a> BorrowedName<'a>
+where
+    Self: 'a,
+{
+    /// Not on safety here, this mimics the the Path::new function in terms of pointer and reference conversion.
+    ///
+    /// It relies on the fact that BorrowedName is `repr(transparent)` over an array of array of labels.
+    #[inline]
+    #[allow(unsafe_code)]
+    fn new(labels: &'a [&'a [u8]]) -> &'a BorrowedName<'a> {
+        unsafe { std::mem::transmute(labels) }
+    }
+}
+
+impl<'a> DnsName for BorrowedName<'a>
+where
+    Self: 'a,
+{
     #[inline]
     fn labels(&self) -> LabelIter {
         LabelIter::from_borrowed(self)
     }
 
     #[inline]
-    fn is_fqdn(&self) -> bool {
-        self.is_fqdn
-    }
-
-    #[inline]
-    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
-        BorrowedName {
-            is_fqdn: self.is_fqdn,
-            labels: self.labels,
-        }
-    }
-
-    /// Specifies this name is a fully qualified domain name
-    ///
-    /// *warning: this interface is unstable and may change in the future*
-    fn set_fqdn(&mut self, val: bool) {
-        self.is_fqdn = val
+    fn borrowed_name(&self) -> &BorrowedName {
+        self
     }
 }
 
@@ -789,9 +801,10 @@ impl<'a> Ord for BorrowedName<'a> {
 }
 
 /// A Zero cost name referring to bytes owned by &str for example.
+///
+/// Note on storage: for fully-qualified-domain-names, fqdn, the final label will be a `.` or an empty array of bytes.
 #[derive(Clone, Eq)]
 pub struct NameRef<'a> {
-    is_fqdn: bool,
     labels: Vec<&'a [u8]>,
 }
 
@@ -802,30 +815,16 @@ impl<'a> DnsName for NameRef<'a> {
     }
 
     #[inline]
-    fn is_fqdn(&self) -> bool {
-        self.is_fqdn
-    }
-
-    #[inline]
-    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
-        BorrowedName {
-            is_fqdn: self.is_fqdn,
-            labels: &self.labels,
-        }
-    }
-
-    /// Specifies this name is a fully qualified domain name
-    ///
-    /// *warning: this interface is unstable and may change in the future*
-    fn set_fqdn(&mut self, val: bool) {
-        self.is_fqdn = val
+    fn borrowed_name<'b>(&'b self) -> &'b BorrowedName<'b> {
+        BorrowedName::new(&self.labels)
     }
 }
 
-impl<'a> Borrow<dyn DnsName + 'a> for NameRef<'a> {
-    fn borrow(&self) -> &(dyn DnsName + 'a) {
+impl<'a> Borrow<BorrowedName<'a>> for NameRef<'a> {
+    #[allow(unsafe_code)]
+    fn borrow(&self) -> &BorrowedName<'a> {
         // This is a simple coercion from the concrete type to a trait object.
-        self
+        unsafe { std::mem::transmute(BorrowedName::new(&self.labels)) }
     }
 }
 
@@ -833,8 +832,7 @@ impl NameRef<'static> {
     /// Return the root label, i.e. `.`
     pub fn root() -> Self {
         NameRef {
-            is_fqdn: true,
-            labels: vec![b"."],
+            labels: vec![super::label::ROOT_LABEL],
         }
     }
 
@@ -850,10 +848,7 @@ impl NameRef<'static> {
 impl<'a> NameRef<'a> {
     /// Allocates a new slice, but no labels are defined
     pub(super) fn from_unparsed_slice(_slice: &'a [u8]) -> Self {
-        NameRef {
-            is_fqdn: false,
-            labels: vec![],
-        }
+        NameRef { labels: vec![] }
     }
 
     /// Will convert the string to a name only allowing ascii as valid input
@@ -881,7 +876,7 @@ impl<'a> NameRef<'a> {
     /// assert!(name.is_err());
     /// ```
     pub fn from_ascii(name: &'a str) -> ProtoResult<Self> {
-        let cow = super::parse::from_encoded_str::<LabelEncAscii>(name, None)?;
+        let cow = super::parse::from_encoded_str::<LabelEncAscii, Name>(name, None)?;
         cow.to_ref()
             .ok_or_else(|| ProtoError::from("non-basic ascii string"))
     }
@@ -890,6 +885,27 @@ impl<'a> NameRef<'a> {
     pub(super) fn push_label(&mut self, label: &'a [u8]) {
         debug_assert!(!label.is_empty(), "label must not be empty");
         self.labels.push(label);
+    }
+
+    /// Specifies this name is a fully qualified domain name
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    pub(super) fn set_fqdn(&mut self, val: bool) {
+        if val {
+            // set the domain name
+            if self
+                .labels
+                .last()
+                .map(|l| l.as_ref() != super::label::ROOT_LABEL)
+                .unwrap_or(true)
+            {
+                self.push_label(super::label::ROOT_LABEL);
+            }
+        } else {
+            if self.is_fqdn() {
+                self.labels.pop();
+            }
+        }
     }
 }
 
@@ -949,6 +965,12 @@ impl<'a> Ord for NameRef<'a> {
     }
 }
 
+impl<'a> fmt::Debug for NameRef<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write_labels::<fmt::Formatter, LabelEncUtf8, _>(f, self)
+    }
+}
+
 impl<'a> fmt::Display for NameRef<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write_labels::<fmt::Formatter, LabelEncUtf8, _>(f, self)
@@ -958,7 +980,6 @@ impl<'a> fmt::Display for NameRef<'a> {
 /// Them should be through references. As a workaround the Strings are all Rc as well as the array
 #[derive(Clone, Default, Eq)]
 pub struct Name {
-    is_fqdn: bool,
     labels: Vec<Box<[u8]>>,
 }
 
@@ -968,54 +989,23 @@ impl DnsName for Name {
         LabelIter::new(self)
     }
 
-    /// Returns true if the name is a fully qualified domain name.
-    ///
-    /// If this is true, it has effects like only querying for this single name, as opposed to building
-    ///  up a search list in resolvers.
-    ///
-    /// *warning: this interface is unstable and may change in the future*
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::{DnsName, Name};
-    ///
-    /// let name = Name::from_str("www").unwrap();
-    /// assert!(!name.is_fqdn());
-    ///
-    /// let name = Name::from_str("www.example.com").unwrap();
-    /// assert!(!name.is_fqdn());
-    ///
-    /// let name = Name::from_str("www.example.com.").unwrap();
-    /// assert!(name.is_fqdn());
-    /// ```
-    #[inline]
-    fn is_fqdn(&self) -> bool {
-        self.is_fqdn
-    }
-
-    /// Specifies this name is a fully qualified domain name
-    ///
-    /// *warning: this interface is unstable and may change in the future*
-    fn set_fqdn(&mut self, val: bool) {
-        self.is_fqdn = val
-    }
-
     #[inline]
     #[allow(unsafe_code)]
-    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
-        BorrowedName {
-            is_fqdn: self.is_fqdn,
-            labels: unsafe { std::mem::transmute(self.labels.as_slice()) },
-        }
+    fn borrowed_name(&self) -> &BorrowedName {
+        let labels = self.labels.as_slice();
+        let labels = unsafe { std::mem::transmute(labels) };
+
+        BorrowedName::new(labels)
     }
 }
 
-impl<'a> Borrow<dyn DnsName + 'a> for Name {
-    fn borrow(&self) -> &(dyn DnsName + 'a) {
-        // This is a simple coercion from the concrete type to a trait object.
-        self
+impl<'a> Borrow<BorrowedName<'a>> for Name {
+    #[allow(unsafe_code)]
+    fn borrow(&self) -> &BorrowedName<'a> {
+        let labels = self.labels.as_slice();
+        let labels = unsafe { std::mem::transmute(labels) };
+
+        BorrowedName::new(labels)
     }
 }
 
@@ -1023,6 +1013,22 @@ impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Specifies this name is a fully qualified domain name
+    ///
+    /// *warning: this interface is unstable and may change in the future*
+    pub(super) fn set_fqdn(&mut self, val: bool) {
+        if val {
+            // set the domain name
+            if !self.is_fqdn() {
+                self.push_label(super::label::ROOT_LABEL);
+            }
+        } else {
+            if self.is_fqdn() {
+                self.labels.pop();
+            }
+        }
     }
 
     // /// Same as default, but with capacity reserved of len
@@ -1042,7 +1048,7 @@ impl Name {
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
         let mut this = Self::new();
-        this.is_fqdn = true;
+        this.set_fqdn(true);
         this
     }
 
@@ -1130,7 +1136,7 @@ impl Name {
                     name.push_label(label.as_bytes());
                     name
                 });
-        name.is_fqdn = true;
+        name.set_fqdn(true);
 
         Ok(name)
     }
@@ -1160,12 +1166,12 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com.").unwrap());
     /// assert!(name.is_fqdn());
     /// ```
-    pub fn append_name(mut self, other: &dyn DnsName) -> Self {
-        for label in other.labels() {
+    pub fn append_name(mut self, other: &impl DnsName) -> Self {
+        for label in other.labels().into_iter_with_root() {
             self.push_label(label.as_bytes());
         }
 
-        self.is_fqdn = other.is_fqdn();
+        debug_assert_eq!(self.is_fqdn(), other.is_fqdn());
         self
     }
 
@@ -1186,9 +1192,9 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// assert!(name.is_fqdn())
     /// ```
-    pub fn append_domain(self, domain: &dyn DnsName) -> Self {
+    pub fn append_domain(self, domain: &impl DnsName) -> Self {
         let mut this = self.append_name(domain);
-        this.set_fqdn(true);
+        this.push_label(super::label::ROOT_LABEL);
         this
     }
 
@@ -1209,12 +1215,12 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// assert!(name.is_fqdn())
     /// ```
-    pub fn append_domain2(&mut self, domain: &dyn DnsName) {
+    pub fn append_domain2<D: DnsName + ?Sized>(&mut self, domain: &D) {
         for label in domain.labels() {
             self.push_label(label.as_bytes());
         }
 
-        self.set_fqdn(true);
+        self.push_label(super::label::ROOT_LABEL);
     }
 
     /// Makes this name lowercased, in place
@@ -1252,9 +1258,11 @@ impl Name {
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
     pub fn base_name(&self) -> Self {
+        let sub = if self.is_fqdn() { 2 } else { 1 };
+
         let length = self.labels.len();
-        if length > 0 {
-            return self.trim_to(length - 1);
+        if length >= sub {
+            return self.trim_to(length - sub);
         }
         self.clone()
     }
@@ -1277,11 +1285,11 @@ impl Name {
         let mut name = Name::default();
         let skip_first = (self.num_labels() as usize).saturating_sub(num_labels);
 
-        for label in self.iter().skip(skip_first) {
+        for label in self.iter().into_iter_with_root().skip(skip_first) {
             name.push_label(label.as_bytes());
         }
 
-        name.is_fqdn = self.is_fqdn;
+        debug_assert_eq!(self.is_fqdn(), name.is_fqdn());
         name
     }
 
@@ -1301,15 +1309,14 @@ impl Name {
     /// assert_eq!(Name::root().len(), 1);
     /// ```
     pub fn len(&self) -> usize {
-        let dots = if !self.labels.is_empty() {
-            self.labels.len()
-        } else {
-            1
+        let dots = self.labels().count();
+
+        // this would be root
+        if dots == 0 {
+            return 1;
         };
 
-        self.labels
-            .iter()
-            .fold(dots, |acc, label| acc + label.len())
+        self.labels().fold(dots, |acc, label| acc + label.len())
     }
 
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
@@ -1324,8 +1331,12 @@ impl Name {
     /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
     /// assert_eq!(name[0], *b"example");
     /// ```
-    pub fn parse<'a, 'b: 'a>(local: &'a str, origin: Option<&'b dyn DnsName>) -> ProtoResult<Self> {
-        Self::from_encoded_str::<LabelEncUtf8>(local, origin).map(Into::into)
+    pub fn parse<'a, 'b: 'a, D: DnsName + ?Sized>(
+        local: &'a str,
+        // TODO: change D to BorrowedName
+        origin: Option<&'b D>,
+    ) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncUtf8, D>(local, origin).map(Into::into)
     }
 
     /// Will convert the string to a name only allowing ascii as valid input
@@ -1356,7 +1367,7 @@ impl Name {
     /// assert_eq!(bytes_name, name);
     /// ```
     pub fn from_ascii<'a>(name: &'a str) -> ProtoResult<CowName<'a>> {
-        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
+        Self::from_encoded_str::<LabelEncAscii, Name>(name.as_ref(), None)
     }
 
     // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
@@ -1380,7 +1391,7 @@ impl Name {
     /// assert!(!lower_name.eq_case(&utf8_name));
     /// ```
     pub fn from_utf8<'a>(name: &'a str) -> ProtoResult<CowName<'a>> {
-        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
+        Self::from_encoded_str::<LabelEncUtf8, Name>(name.as_ref(), None)
     }
 
     /// First attempts to decode via `from_utf8`, if that fails IDNA checks, than falls back to
@@ -1407,11 +1418,11 @@ impl Name {
             .map(Into::into)
     }
 
-    fn from_encoded_str<'a, 'b: 'a, E: super::parse::LabelEnc>(
+    fn from_encoded_str<'a, 'b: 'a, E: super::parse::LabelEnc, D: DnsName + ?Sized>(
         local: &'a str,
-        origin: Option<&'b dyn DnsName>,
+        origin: Option<&'b D>,
     ) -> ProtoResult<CowName<'a>> {
-        super::parse::from_encoded_str::<E>(local, origin)
+        super::parse::from_encoded_str::<E, D>(local, origin)
     }
 }
 
@@ -1424,30 +1435,35 @@ pub struct LabelIter<'a> {
 impl<'a> LabelIter<'a> {
     #[inline]
     fn from_borrowed(name: &'a BorrowedName<'a>) -> LabelIter<'a> {
+        // Warning, do not call is_fqdn here, as that uses labels (which this function is called in)
+        let len = if name
+            .labels
+            .last()
+            .map_or(false, |l| *l == super::label::ROOT_LABEL)
+        {
+            name.labels.len().saturating_sub(1)
+        } else {
+            name.labels.len()
+        };
+
         Self {
             labels: name.labels.iter(),
-            len: name.labels.len(),
+            len,
         }
     }
 
     #[inline]
     fn from_ref(name: &'a NameRef<'a>) -> LabelIter<'a> {
-        let BorrowedName { labels, .. } = name.borrowed_name();
-
-        Self {
-            labels: labels.iter(),
-            len: labels.len(),
-        }
+        Self::from_borrowed(name.borrowed_name())
     }
 
     #[inline]
     fn new(name: &'a Name) -> LabelIter<'a> {
-        let BorrowedName { labels, .. } = name.borrowed_name();
+        Self::from_borrowed(name.borrowed_name())
+    }
 
-        Self {
-            labels: labels.iter(),
-            len: labels.len(),
-        }
+    fn into_iter_with_root(self) -> WithRootLabelIter<'a> {
+        WithRootLabelIter::from(self.labels)
     }
 }
 
@@ -1456,7 +1472,13 @@ impl<'a> Iterator for LabelIter<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.labels.next().map(|l| LabelRef::from_unchecked(l))
+        loop {
+            match self.labels.next().map(|l| LabelRef::from_unchecked(*l)) {
+                Some(l) if !l.is_root() => return Some(l),
+                None => return None,
+                _ => continue,
+            }
+        }
     }
 }
 
@@ -1468,7 +1490,36 @@ impl<'a> ExactSizeIterator for LabelIter<'a> {
 
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.labels.next_back().map(|l| LabelRef::from_unchecked(l))
+        loop {
+            match self
+                .labels
+                .next_back()
+                .map(|l| LabelRef::from_unchecked(*l))
+            {
+                Some(l) if !l.is_root() => return Some(l),
+                None => return None,
+                _ => continue,
+            }
+        }
+    }
+}
+
+struct WithRootLabelIter<'a> {
+    labels: std::slice::Iter<'a, &'a [u8]>,
+}
+
+impl<'a> WithRootLabelIter<'a> {
+    fn from(labels: std::slice::Iter<'a, &'a [u8]>) -> Self {
+        WithRootLabelIter { labels }
+    }
+}
+
+impl<'a> Iterator for WithRootLabelIter<'a> {
+    type Item = LabelRef<'a>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.labels.next().map(|l| LabelRef::from_unchecked(l))
     }
 }
 
@@ -1570,7 +1621,7 @@ impl<D: DnsName + ?Sized> PartialEq<D> for Name {
 impl Hash for Name {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.is_fqdn.hash(state);
+        self.is_fqdn().hash(state);
 
         // this needs to be CaseInsensitive like PartialEq
         for l in self.iter() {
@@ -1714,7 +1765,7 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
     }
 
     let mut name = labels;
-    name.is_fqdn = true;
+    name.set_fqdn(true);
 
     Ok(name)
 }
@@ -1872,8 +1923,7 @@ mod tests {
     #[test]
     fn test_dns_name_is_object_safe() {
         let name = NameRef {
-            is_fqdn: true,
-            labels: vec![b"www"],
+            labels: vec![b"www", b"."],
         };
         let dyn_name = &name as &dyn DnsName;
 
@@ -1883,6 +1933,26 @@ mod tests {
 
     #[test]
     fn test_hash_mappable_name() {}
+
+    #[test]
+    fn test_labels_iter() {
+        let name = Name::from_str("www.example.com.").unwrap();
+        let mut iter = name.labels();
+
+        assert_eq!(LabelRef::from_unchecked(b"www"), iter.next().unwrap());
+        assert_eq!(LabelRef::from_unchecked(b"example"), iter.next().unwrap());
+        assert_eq!(LabelRef::from_unchecked(b"com"), iter.next().unwrap());
+    }
+
+    #[test]
+    fn test_labels_rev_iter() {
+        let name = Name::from_str("www.example.com.").unwrap();
+        let mut iter = name.labels().rev();
+
+        assert_eq!(LabelRef::from_unchecked(b"com"), iter.next().unwrap());
+        assert_eq!(LabelRef::from_unchecked(b"example"), iter.next().unwrap());
+        assert_eq!(LabelRef::from_unchecked(b"www"), iter.next().unwrap());
+    }
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
@@ -2306,7 +2376,7 @@ mod tests {
         let lower_name = Name::from_ascii("www.example.com.").unwrap();
 
         assert!(bytes_name.eq_case(&ascii_name));
-        assert!(!lower_name.eq_case(&ascii_name));
+        assert!(!dbg!(lower_name).eq_case(&dbg!(ascii_name)));
     }
 
     #[test]

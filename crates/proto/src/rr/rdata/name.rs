@@ -78,6 +78,7 @@ pub fn test() {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     let rdata = Name::from_ascii("WWW.example.com.").unwrap();
+    assert!(rdata.is_fqdn());
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -88,5 +89,6 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder).expect("Decoding error");
+    assert!(read_rdata.is_fqdn());
     assert_eq!(rdata, read_rdata);
 }

@@ -12,7 +12,7 @@ pub enum CowName<'a> {
     /// A reference to the Trait Object variant
     //Borrowed(&'a dyn DnsName),
     /// BorrowedName is zero overhead abstraction over `NameRef` or `Name`
-    BorrowedName(BorrowedName<'a>),
+    BorrowedName(&'a BorrowedName<'a>),
     /// A reference to an unowned set of bytes, there is an allocation of label offsets
     NameRef(NameRef<'a>),
     /// An owned version of a Vec of bytes
@@ -40,8 +40,8 @@ impl<'a> From<NameRef<'a>> for CowName<'a> {
     }
 }
 
-impl<'a> From<BorrowedName<'a>> for CowName<'a> {
-    fn from(name: BorrowedName<'a>) -> Self {
+impl<'a> From<&'a BorrowedName<'a>> for CowName<'a> {
+    fn from(name: &'a BorrowedName<'a>) -> Self {
         CowName::BorrowedName(name)
     }
 }
@@ -64,16 +64,6 @@ impl<'a> CowName<'a> {
             true
         } else {
             false
-        }
-    }
-
-    /// Get a Trait Object reference to the inner name
-    pub fn as_object(&'a self) -> &'a (dyn DnsName + 'a) {
-        match self {
-            // CowName::Borrowed(name) => *name,
-            CowName::BorrowedName(name) => name,
-            CowName::NameRef(name) => name,
-            CowName::Owned(name) => name,
         }
     }
 
@@ -100,6 +90,17 @@ impl<'a> CowName<'a> {
             None
         }
     }
+
+    pub(super) fn set_fqdn(&mut self, is_fqdn: bool) {
+        match self {
+            CowName::BorrowedName(_) => {
+                self.to_mut();
+                self.set_fqdn(is_fqdn)
+            }
+            CowName::NameRef(name) => name.set_fqdn(is_fqdn),
+            CowName::Owned(name) => name.set_fqdn(is_fqdn),
+        }
+    }
 }
 
 impl<'a> DnsName for CowName<'a> {
@@ -123,17 +124,8 @@ impl<'a> DnsName for CowName<'a> {
         }
     }
 
-    fn set_fqdn(&mut self, is_fqdn: bool) {
-        match self {
-            // CowName::Borrowed(name) => assert!(name.is_fqdn() == is_fqdn, "hmm..."),
-            CowName::BorrowedName(name) => name.set_fqdn(is_fqdn),
-            CowName::NameRef(name) => name.set_fqdn(is_fqdn),
-            CowName::Owned(name) => name.set_fqdn(is_fqdn),
-        }
-    }
-
     #[inline]
-    fn borrowed_name<'b>(&'b self) -> BorrowedName<'b> {
+    fn borrowed_name<'b>(&'b self) -> &'b BorrowedName<'b> {
         match self {
             // CowName::Borrowed(name) => name.borrowed_name(),
             CowName::BorrowedName(name) => name.borrowed_name(),
@@ -160,7 +152,7 @@ impl<'a, D: DnsName + ?Sized> PartialEq<D> for CowName<'a> {
     fn eq(&self, other: &D) -> bool {
         match self {
             // CowName::Borrowed(name) => name.borrowed_name().eq(other),
-            CowName::BorrowedName(name) => name.eq(other),
+            CowName::BorrowedName(name) => (**name).eq(other),
             CowName::NameRef(name) => name.eq(other),
             CowName::Owned(name) => name.eq(other),
         }
@@ -172,7 +164,7 @@ impl<'a, D: DnsName + ?Sized> PartialOrd<D> for CowName<'a> {
     fn partial_cmp(&self, other: &D) -> Option<Ordering> {
         match self {
             // CowName::Borrowed(name) => name.borrowed_name().partial_cmp(other),
-            CowName::BorrowedName(name) => name.partial_cmp(other),
+            CowName::BorrowedName(name) => (**name).partial_cmp(other),
             CowName::NameRef(name) => name.partial_cmp(other),
             CowName::Owned(name) => name.partial_cmp(other),
         }

@@ -177,9 +177,9 @@ impl<'a> NameCollector<'a> {
     }
 }
 
-pub(super) fn from_encoded_str<'a, 'b: 'a, E: LabelEnc>(
+pub(super) fn from_encoded_str<'a, 'b: 'a, E: LabelEnc, D: DnsName + ?Sized + 'b>(
     local: &'a str,
-    origin: Option<&(dyn DnsName + 'b)>,
+    origin: Option<&'b D>,
 ) -> ProtoResult<CowName<'a>> {
     let mut name = LabelCollector::new(local);
     let mut state = ParseState::Label;
@@ -188,6 +188,7 @@ pub(super) fn from_encoded_str<'a, 'b: 'a, E: LabelEnc>(
     if local == "." {
         let mut name = name.into_cow();
         name.set_fqdn(true);
+        debug_assert!(name.is_fqdn());
         return Ok(name as _);
     }
 
@@ -300,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_no_alloc() {
-        let name = from_encoded_str::<LabelEncAscii>("www.example.com", None).unwrap();
+        let name = from_encoded_str::<LabelEncAscii, Name>("www.example.com", None).unwrap();
 
         assert!(!name.is_fqdn());
         assert!(name.is_borrowed());
@@ -310,14 +311,14 @@ mod tests {
         assert_eq!(labels.next().unwrap().as_bytes(), b"example");
         assert_eq!(labels.next().unwrap().as_bytes(), b"com");
 
-        let name = from_encoded_str::<LabelEncAscii>("www.example.com.", None).unwrap();
+        let name = from_encoded_str::<LabelEncAscii, Name>("www.example.com.", None).unwrap();
         assert!(name.is_fqdn());
         assert!(name.is_borrowed());
     }
 
     #[test]
     fn test_fail_alloc() {
-        let name = from_encoded_str::<LabelEncAscii>("www.🦀.com", None);
+        let name = from_encoded_str::<LabelEncAscii, Name>("www.🦀.com", None);
 
         assert!(name.is_err());
     }

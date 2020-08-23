@@ -23,6 +23,7 @@ use log::debug;
 
 use crate::error::*;
 
+pub(super) const ROOT_LABEL: &[u8] = b".";
 const WILDCARD: &[u8] = b"*";
 const IDNA_PREFIX: &[u8] = b"xn--";
 
@@ -30,6 +31,12 @@ const IDNA_PREFIX: &[u8] = b"xn--";
 pub trait DnsLabel {
     /// Zero cost conversion for the Label to bytes
     fn as_bytes(&self) -> &[u8];
+
+    /// Check if this label is (ascii chars only) lowercase
+    #[inline]
+    fn is_root(&self) -> bool {
+        self.as_bytes() == ROOT_LABEL || self.is_empty()
+    }
 
     /// Check if this label is (ascii chars only) lowercase
     #[inline]
@@ -230,6 +237,7 @@ pub trait DnsLabel {
 
 /// A label to a referred set of bytes
 #[derive(Eq)]
+#[repr(transparent)]
 pub struct LabelRef<'a>(&'a [u8]);
 
 impl LabelRef<'static> {

@@ -505,7 +505,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 
         if !name_str.is_empty() {
             let name_str = str::from_utf8(&name_str)?;
-            Some(Name::parse(name_str, None)?)
+            Some(Name::parse::<Name>(name_str, None)?)
         } else {
             None
         }
@@ -905,7 +905,7 @@ mod tests {
         assert_eq!(
             read_issuer(b"ca.example.net; account=230123").unwrap(),
             (
-                Some(Name::parse("ca.example.net", None).unwrap()),
+                Some(Name::parse("ca.example.net", None::<&Name>).unwrap()),
                 vec![KeyValue {
                     key: "account".to_string(),
                     value: "230123".to_string(),
@@ -915,12 +915,15 @@ mod tests {
 
         assert_eq!(
             read_issuer(b"ca.example.net").unwrap(),
-            (Some(Name::parse("ca.example.net", None,).unwrap(),), vec![],)
+            (
+                Some(Name::parse("ca.example.net", None::<&Name>).unwrap(),),
+                vec![],
+            )
         );
         assert_eq!(
             read_issuer(b"ca.example.net; policy=ev").unwrap(),
             (
-                Some(Name::parse("ca.example.net", None).unwrap(),),
+                Some(Name::parse("ca.example.net", None::<&Name>).unwrap(),),
                 vec![KeyValue {
                     key: "policy".to_string(),
                     value: "ev".to_string(),
@@ -930,7 +933,7 @@ mod tests {
         assert_eq!(
             read_issuer(b"ca.example.net; account=230123; policy=ev").unwrap(),
             (
-                Some(Name::parse("ca.example.net", None).unwrap(),),
+                Some(Name::parse("ca.example.net", None::<&Name>).unwrap(),),
                 vec![
                     KeyValue {
                         key: "account".to_string(),
@@ -946,7 +949,7 @@ mod tests {
         assert_eq!(
             read_issuer(b"example.net; account-uri=https://example.net/account/1234; validation-methods=dns-01").unwrap(),
             (
-                Some(Name::parse("example.net", None).unwrap(),),
+                Some(Name::parse("example.net", None::<&Name>).unwrap(),),
                 vec![
                     KeyValue {
                         key: "account-uri".to_string(),
@@ -993,12 +996,12 @@ mod tests {
         test_encode_decode(CAA::new_issue(true, None, vec![]));
         test_encode_decode(CAA::new_issue(
             true,
-            Some(Name::parse("example.com", None).unwrap()),
+            Some(Name::parse("example.com", None::<&Name>).unwrap()),
             vec![],
         ));
         test_encode_decode(CAA::new_issue(
             true,
-            Some(Name::parse("example.com", None).unwrap()),
+            Some(Name::parse("example.com", None::<&Name>).unwrap()),
             vec![KeyValue::new("key", "value")],
         ));
         // technically the this parser supports this case, though it's not clear it's something the spec allows for
@@ -1010,7 +1013,7 @@ mod tests {
         // test fqdn
         test_encode_decode(CAA::new_issue(
             true,
-            Some(Name::parse("example.com.", None).unwrap()),
+            Some(Name::parse("example.com.", None::<&Name>).unwrap()),
             vec![],
         ));
     }
@@ -1050,7 +1053,7 @@ mod tests {
         test_encode(
             CAA::new_issue(
                 true,
-                Some(Name::parse("example.com", None).unwrap()),
+                Some(Name::parse("example.com", None::<&Name>).unwrap()),
                 vec![],
             ),
             &encoded,
@@ -1066,7 +1069,7 @@ mod tests {
         test_encode(
             CAA::new_issue(
                 true,
-                Some(Name::parse("example.com.", None).unwrap()),
+                Some(Name::parse("example.com.", None::<&Name>).unwrap()),
                 vec![],
             ),
             &encoded,
