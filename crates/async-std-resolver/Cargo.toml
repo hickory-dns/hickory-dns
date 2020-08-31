@@ -65,7 +65,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-std = "1.0"
-async-trait = "0.1.36"
+async-trait = "0.1.40"
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 trust-dns-resolver = { version = "0.20.0-alpha.1", path = "../resolver", default-features = false }
 
