@@ -1468,7 +1468,7 @@ impl<'a> LabelIter<'a> {
 }
 
 impl<'a> Iterator for LabelIter<'a> {
-    type Item = LabelRef<'a>;
+    type Item = &'a LabelRef;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1491,11 +1491,7 @@ impl<'a> ExactSizeIterator for LabelIter<'a> {
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
         loop {
-            match self
-                .labels
-                .next_back()
-                .map(|l| LabelRef::from_unchecked(*l))
-            {
+            match self.labels.next_back().map(|l| LabelRef::from_unchecked(l)) {
                 Some(l) if !l.is_root() => return Some(l),
                 None => return None,
                 _ => continue,
@@ -1515,7 +1511,7 @@ impl<'a> WithRootLabelIter<'a> {
 }
 
 impl<'a> Iterator for WithRootLabelIter<'a> {
-    type Item = LabelRef<'a>;
+    type Item = &'a LabelRef;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1524,7 +1520,7 @@ impl<'a> Iterator for WithRootLabelIter<'a> {
 }
 
 impl<'a> IntoIterator for &'a Name {
-    type Item = LabelRef<'a>;
+    type Item = &'a LabelRef;
     type IntoIter = LabelIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
