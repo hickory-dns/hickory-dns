@@ -40,7 +40,9 @@ pub trait DnsSdHandle {
     fn service_info(&self, name: Name) -> ServiceInfoFuture;
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> DnsSdHandle for AsyncResolver<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> DnsSdHandle
+    for AsyncResolver<C, P>
+{
     fn list_services(&self, name: Name) -> ListServicesFuture {
         let this = self.clone();
 

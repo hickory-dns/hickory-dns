@@ -48,6 +48,8 @@ use proto::{
     udp::UdpSocket, xfer::DnsExchangeConnect, xfer::DnsMultiplexerConnect, Time,
 };
 
+use crate::error::ResolveError;
+
 #[cfg(feature = "dns-over-https")]
 use trust_dns_https::{self, HttpsClientConnect, HttpsClientResponse, HttpsClientStream};
 
@@ -59,10 +61,10 @@ use crate::config::{NameServerConfig, ResolverOpts};
 /// ConnectionProvider is responsible for spawning any background tasks as necessary.
 pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     /// The handle to the connect for sending DNS requests.
-    type Conn: DnsHandle + Clone + Send + Sync + 'static;
+    type Conn: DnsHandle<Error = ResolveError> + Clone + Send + Sync + 'static;
 
     /// Ths future is responsible for spawning any background tasks as necessary
-    type FutureConn: Future<Output = Result<Self::Conn, ProtoError>> + Send + 'static;
+    type FutureConn: Future<Output = Result<Self::Conn, ResolveError>> + Send + 'static;
 
     /// The returned handle should
     fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
@@ -88,7 +90,7 @@ pub trait RuntimeProvider: Clone + 'static {
 pub trait Spawn {
     fn spawn_bg<F>(&mut self, future: F)
     where
-        F: Future<Output = Result<(), ProtoError>> + Send + 'static;
+        F: Future<Output = Result<(), ResolveError>> + Send + 'static;
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
@@ -293,7 +295,7 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R>
 where
     <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
 {
-    type Output = Result<GenericConnection, ProtoError>;
+    type Output = Result<GenericConnection, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let (connection, bg) = match &mut self.connect {
@@ -343,6 +345,7 @@ pub struct GenericConnection(ConnectionConnected);
 
 impl DnsHandle for GenericConnection {
     type Response = ConnectionResponse;
+    type Error = ResolveError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         self.0.send(request)
@@ -364,6 +367,7 @@ enum ConnectionConnected {
 
 impl DnsHandle for ConnectionConnected {
     type Response = ConnectionResponse;
+    type Error = ResolveError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         let response = match self {
@@ -429,10 +433,10 @@ impl Future for ConnectionResponseInner {
 pub struct ConnectionResponse(ConnectionResponseInner);
 
 impl Future for ConnectionResponse {
-    type Output = Result<DnsResponse, proto::error::ProtoError>;
+    type Output = Result<DnsResponse, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
+        self.0.poll_unpin(cx).map_err(ResolveError::from)
     }
 }
 
@@ -446,10 +450,10 @@ impl<R: RuntimeProvider> Future for ConnectionBackground<R>
 where
     <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
 {
-    type Output = Result<(), ProtoError>;
+    type Output = Result<(), ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
+        self.0.poll_unpin(cx).map_err(ResolveError::from)
     }
 }
 
@@ -525,7 +529,7 @@ pub mod tokio_runtime {
     impl Spawn for tokio::runtime::Handle {
         fn spawn_bg<F>(&mut self, future: F)
         where
-            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
+            F: Future<Output = Result<(), ResolveError>> + Send + 'static,
         {
             let _join = self.spawn(future);
         }

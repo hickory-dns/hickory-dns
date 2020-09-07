@@ -61,10 +61,10 @@ use crate::Hosts;
 /// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
 /// background future will finish.
 #[derive(Clone)]
-pub struct AsyncResolver<C: DnsHandle, P: ConnectionProvider<Conn = C>> {
+pub struct AsyncResolver<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: CachingClient<LookupEither<C, P>>,
+    client_cache: CachingClient<LookupEither<C, P>, ResolveError>,
     hosts: Option<Arc<Hosts>>,
 }
 
@@ -181,7 +181,7 @@ impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvi
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
     /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
@@ -434,7 +434,9 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
     lookup_fn!(txt_lookup, lookup::TxtLookup, RecordType::TXT);
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> fmt::Debug for AsyncResolver<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> fmt::Debug
+    for AsyncResolver<C, P>
+{
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("AsyncResolver")
             .field("request_tx", &"...")
@@ -1143,8 +1145,8 @@ mod tests {
         >());
 
         assert!(is_send_t::<DnsRequest>());
-        assert!(is_send_t::<LookupIpFuture<TokioConnection>>());
-        assert!(is_send_t::<LookupFuture<TokioConnection>>());
+        assert!(is_send_t::<LookupIpFuture<TokioConnection, ResolveError>>());
+        assert!(is_send_t::<LookupFuture<TokioConnection, ResolveError>>());
     }
 
     #[test]

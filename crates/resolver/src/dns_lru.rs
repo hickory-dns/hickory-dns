@@ -10,7 +10,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use proto::op::Query;
+use proto::op::{Query, ResponseCode};
 use proto::rr::Record;
 
 use crate::config;
@@ -197,11 +197,26 @@ impl DnsLru {
         lookup
     }
 
-    pub(crate) fn nx_error(query: Query, valid_until: Option<Instant>) -> ResolveError {
-        ResolveErrorKind::NoRecordsFound { query, valid_until }.into()
+    pub(crate) fn nx_error(
+        query: Query,
+        valid_until: Option<Instant>,
+        response_code: ResponseCode,
+    ) -> ResolveError {
+        ResolveErrorKind::NoRecordsFound {
+            query,
+            valid_until,
+            response_code,
+        }
+        .into()
     }
 
-    pub(crate) fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> ResolveError {
+    pub(crate) fn negative(
+        &mut self,
+        query: Query,
+        ttl: u32,
+        now: Instant,
+        response_code: ResponseCode,
+    ) -> ResolveError {
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
 
@@ -220,7 +235,7 @@ impl DnsLru {
             },
         );
 
-        Self::nx_error(query, Some(valid_until))
+        Self::nx_error(query, Some(valid_until), response_code)
     }
 
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
@@ -330,7 +345,7 @@ mod tests {
         let mut lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 1 seconds.
-        let nx_error = lru.negative(name.clone(), 1, now);
+        let nx_error = lru.negative(name.clone(), 1, now, ResponseCode::NoError);
         match nx_error.kind() {
             &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
                 let valid_until = valid_until.expect("resolve error should have a deadline");
@@ -341,7 +356,7 @@ mod tests {
         }
 
         // neg response should have TTL of 3 seconds.
-        let nx_error = lru.negative(name, 3, now);
+        let nx_error = lru.negative(name, 3, now, ResponseCode::NoError);
         match nx_error.kind() {
             &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
                 let valid_until = valid_until.expect("ResolveError should have a deadline");
@@ -406,7 +421,7 @@ mod tests {
         let mut lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 62 seconds.
-        let nx_error = lru.negative(name.clone(), 62, now);
+        let nx_error = lru.negative(name.clone(), 62, now, ResponseCode::NoError);
         match nx_error.kind() {
             &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
                 let valid_until = valid_until.expect("resolve error should have a deadline");
@@ -417,7 +432,7 @@ mod tests {
         }
 
         // neg response should have TTL of 59 seconds.
-        let nx_error = lru.negative(name, 59, now);
+        let nx_error = lru.negative(name, 59, now, ResponseCode::NoError);
         match nx_error.kind() {
             &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
                 let valid_until = valid_until.expect("resolve error should have a deadline");

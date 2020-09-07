@@ -411,6 +411,11 @@ impl Message {
         &mut self.queries
     }
 
+    /// Removes all the answers from the Message
+    pub fn take_queries(&mut self) -> Vec<Query> {
+        mem::replace(&mut self.queries, vec![])
+    }
+
     /// ```text
     /// Answer          Carries RRs which directly answer the query.
     /// ```

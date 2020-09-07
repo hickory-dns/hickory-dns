@@ -7,6 +7,7 @@ use crate::proto::xfer::DnsRequest;
 use crate::proto::Executor;
 use crate::runtime::{AsyncStdConnection, AsyncStdRuntime};
 use crate::AsyncStdResolver;
+use crate::ResolveError;
 
 fn is_send_t<T: Send>() -> bool {
     true
@@ -27,8 +28,8 @@ fn test_send_sync() {
     assert!(is_sync_t::<AsyncStdResolver>());
 
     assert!(is_send_t::<DnsRequest>());
-    assert!(is_send_t::<LookupIpFuture<AsyncStdConnection>>());
-    assert!(is_send_t::<LookupFuture<AsyncStdConnection>>());
+    assert!(is_send_t::<LookupIpFuture<AsyncStdConnection, ResolveError>>());
+    assert!(is_send_t::<LookupFuture<AsyncStdConnection, ResolveError>>());
 }
 
 #[test]

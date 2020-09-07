@@ -8,6 +8,7 @@
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
 use std::cmp::min;
+use std::error::Error;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
 use std::slice::Iter;
@@ -183,14 +184,20 @@ impl Iterator for LookupIntoIter {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<C: DnsHandle + 'static, P: ConnectionProvider<Conn = C> + 'static> {
+pub enum LookupEither<
+    C: DnsHandle<Error = ResolveError> + 'static,
+    P: ConnectionProvider<Conn = C> + 'static,
+> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
     Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>> DnsHandle for LookupEither<C, P> {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+impl<C: DnsHandle<Error = ResolveError> + Sync, P: ConnectionProvider<Conn = C>> DnsHandle
+    for LookupEither<C, P>
+{
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+    type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -211,18 +218,23 @@ impl<C: DnsHandle + Sync, P: ConnectionProvider<Conn = C>> DnsHandle for LookupE
 
 /// The Future returned from [`AsyncResolver`] when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C>
+pub struct LookupFuture<C, E>
 where
-    C: DnsHandle + 'static,
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
 {
-    client_cache: CachingClient<C>,
+    client_cache: CachingClient<C, E>,
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
     query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
 }
 
-impl<C: DnsHandle + 'static> LookupFuture<C> {
+impl<C, E> LookupFuture<C, E>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     /// Perform a lookup from a name and type to a set of RDatas
     ///
     /// # Arguments
@@ -235,7 +247,7 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
         mut names: Vec<Name>,
         record_type: RecordType,
         options: DnsRequestOptions,
-        mut client_cache: CachingClient<C>,
+        mut client_cache: CachingClient<C, E>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
@@ -258,7 +270,11 @@ impl<C: DnsHandle + 'static> LookupFuture<C> {
     }
 }
 
-impl<C: DnsHandle + 'static> Future for LookupFuture<C> {
+impl<C, E> Future for LookupFuture<C, E>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     type Output = Result<Lookup, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -527,27 +543,28 @@ pub mod tests {
     use futures_executor::block_on;
     use futures_util::{future, future::Future};
 
-    use proto::error::{ProtoErrorKind, ProtoResult};
     use proto::op::Message;
     use proto::rr::{Name, RData, Record, RecordType};
     use proto::xfer::{DnsRequest, DnsRequestOptions};
 
     use super::*;
+    use crate::error::ResolveError;
 
     #[derive(Clone)]
     pub struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<ProtoResult<DnsResponse>>>>,
+        messages: Arc<Mutex<Vec<Result<DnsResponse, ResolveError>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+        type Error = ResolveError;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed()
         }
     }
 
-    pub fn v4_message() -> ProtoResult<DnsResponse> {
+    pub fn v4_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -557,15 +574,17 @@ pub mod tests {
         Ok(message.into())
     }
 
-    pub fn empty() -> ProtoResult<DnsResponse> {
+    pub fn empty() -> Result<DnsResponse, ResolveError> {
         Ok(Message::new().into())
     }
 
-    pub fn error() -> ProtoResult<DnsResponse> {
-        Err(ProtoErrorKind::from(std::io::Error::from(std::io::ErrorKind::Other)).into())
+    pub fn error() -> Result<DnsResponse, ResolveError> {
+        Err(ResolveError::from(ProtoError::from(std::io::Error::from(
+            std::io::ErrorKind::Other,
+        ))))
     }
 
-    pub fn mock(messages: Vec<ProtoResult<DnsResponse>>) -> MockDnsHandle {
+    pub fn mock(messages: Vec<Result<DnsResponse, ResolveError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
@@ -618,15 +637,16 @@ pub mod tests {
 
     #[test]
     fn test_empty_no_response() {
-        if let ResolveErrorKind::NoRecordsFound { query, valid_until } =
-            block_on(LookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![empty()]), false),
-            ))
-            .unwrap_err()
-            .kind()
+        if let ResolveErrorKind::NoRecordsFound {
+            query, valid_until, ..
+        } = block_on(LookupFuture::lookup(
+            vec![Name::root()],
+            RecordType::A,
+            DnsRequestOptions::default(),
+            CachingClient::new(0, mock(vec![empty()]), false),
+        ))
+        .unwrap_err()
+        .kind()
         {
             assert_eq!(*query, Query::query(Name::root(), RecordType::A));
             assert_eq!(*valid_until, None);

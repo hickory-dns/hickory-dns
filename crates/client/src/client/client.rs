@@ -65,7 +65,7 @@ pub trait Client {
     /// The result future that will resolve into a DnsResponse
     type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The AsyncClient type used
-    type Handle: DnsHandle<Response = Self::Response> + 'static + Send + Unpin;
+    type Handle: DnsHandle<Response = Self::Response, Error = ProtoError> + 'static + Send + Unpin;
 
     /// Return the inner Futures items
     ///

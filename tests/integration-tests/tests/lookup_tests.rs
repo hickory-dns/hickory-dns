@@ -16,6 +16,7 @@ use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::xfer::{DnsExchange, DnsMultiplexer};
 use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::LookupIpStrategy;
+use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::{Lookup, LookupFuture};
 use trust_dns_resolver::lookup_ip::LookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
@@ -181,7 +182,8 @@ fn test_mock_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
-    let client = MockClientHandle::mock(vec![message.map(Into::into)]);
+    let client: MockClientHandle<_, ResolveError> =
+        MockClientHandle::mock(vec![Ok(message.into())]);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -211,7 +213,8 @@ fn test_cname_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
-    let client = MockClientHandle::mock(vec![message.map(Into::into)]);
+    let client: MockClientHandle<_, ResolveError> =
+        MockClientHandle::mock(vec![Ok(message.into())]);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -246,7 +249,8 @@ fn test_cname_lookup_preserve() {
         vec![],
         vec![],
     );
-    let client = MockClientHandle::mock(vec![message.map(Into::into)]);
+    let client: MockClientHandle<_, ResolveError> =
+        MockClientHandle::mock(vec![Ok(message.into())]);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -283,7 +287,8 @@ fn test_chained_cname_lookup() {
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client = MockClientHandle::mock(vec![message2.map(Into::into), message1.map(Into::into)]);
+    let client: MockClientHandle<_, ResolveError> =
+        MockClientHandle::mock(vec![Ok(message2.into()), Ok(message1.into())]);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -323,7 +328,8 @@ fn test_chained_cname_lookup_preserve() {
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client = MockClientHandle::mock(vec![message2.map(Into::into), message1.map(Into::into)]);
+    let client: MockClientHandle<_, ResolveError> =
+        MockClientHandle::mock(vec![Ok(message2.into()), Ok(message1.into())]);
 
     let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -400,17 +406,17 @@ fn test_max_chained_lookup_depth() {
     let message10 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client = MockClientHandle::mock(vec![
-        message10.map(Into::into),
-        message9.map(Into::into),
-        message8.map(Into::into),
-        message7.map(Into::into),
-        message6.map(Into::into),
-        message5.map(Into::into),
-        message4.map(Into::into),
-        message3.map(Into::into),
-        message2.map(Into::into),
-        message1.map(Into::into),
+    let client: MockClientHandle<_, ResolveError> = MockClientHandle::mock(vec![
+        Ok(message10.into()),
+        Ok(message9.into()),
+        Ok(message8.into()),
+        Ok(message7.into()),
+        Ok(message6.into()),
+        Ok(message5.into()),
+        Ok(message4.into()),
+        Ok(message3.into()),
+        Ok(message2.into()),
+        Ok(message1.into()),
     ]);
 
     let client = CachingClient::new(0, client, false);

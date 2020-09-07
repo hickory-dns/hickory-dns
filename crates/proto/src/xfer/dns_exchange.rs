@@ -109,6 +109,7 @@ where
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Response = DnsExchangeSend<Resp>;
+    type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         DnsExchangeSend {

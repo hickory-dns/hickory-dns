@@ -12,7 +12,7 @@ use std::{fmt, io, sync, time::Instant};
 use thiserror::Error;
 
 use crate::proto::error::{ProtoError, ProtoErrorKind};
-use crate::proto::op::Query;
+use crate::proto::op::{Query, ResponseCode};
 use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
@@ -37,6 +37,9 @@ pub enum ResolveErrorKind {
         /// A deadline after which the `NXDOMAIN` response is no longer
         /// valid, and the nameserver should be queried again.
         valid_until: Option<Instant>,
+        /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
+        ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
+        response_code: ResponseCode,
     },
 
     // foreign
@@ -62,9 +65,11 @@ impl Clone for ResolveErrorKind {
             NoRecordsFound {
                 ref query,
                 valid_until,
+                response_code,
             } => NoRecordsFound {
                 query: query.clone(),
                 valid_until: *valid_until,
+                response_code: *response_code,
             },
 
             // foreign

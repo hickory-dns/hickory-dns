@@ -22,6 +22,7 @@ impl<C: ClientHandle + Unpin> MutMessageHandle<C> {
 
 impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
     type Response = <C as DnsHandle>::Response;
+    type Error = <C as DnsHandle>::Error;
 
     fn is_verifying_dnssec(&self) -> bool {
         true
