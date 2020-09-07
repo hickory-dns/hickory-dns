@@ -15,11 +15,11 @@ use smallvec::SmallVec;
 #[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
-use proto::error::ProtoError;
 use proto::op::ResponseCode;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use crate::config::{ResolverConfig, ResolverOpts};
+use crate::error::ResolveError;
 #[cfg(feature = "mdns")]
 use crate::name_server;
 use crate::name_server::{ConnectionProvider, NameServer};
@@ -32,7 +32,7 @@ use crate::name_server::{TokioConnection, TokioConnectionProvider};
 /// This is not expected to be used directly, see [`AsyncResolver`].
 #[derive(Clone)]
 pub struct NameServerPool<
-    C: DnsHandle + Send + Sync + 'static,
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static,
     P: ConnectionProvider<Conn = C> + Send + 'static,
 > {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
@@ -56,8 +56,10 @@ impl NameServerPool<TokioConnection, TokioConnectionProvider> {
     }
 }
 
-impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
-    NameServerPool<C, P>
+impl<C, P> NameServerPool<C, P>
+where
+    C: DnsHandle<Error = ResolveError> + Sync + 'static,
+    P: ConnectionProvider<Conn = C> + 'static,
 {
     pub(crate) fn from_config_with_provider(
         config: &ResolverConfig,
@@ -182,7 +184,7 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
         opts: ResolverOpts,
         conns: Arc<Vec<NameServer<C, P>>>,
         request: DnsRequest,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, ResolveError> {
         let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
 
         // select the highest priority connection
@@ -197,10 +199,11 @@ impl<C: DnsHandle + Sync + 'static, P: ConnectionProvider<Conn = C> + 'static>
 
 impl<C, P> DnsHandle for NameServerPool<C, P>
 where
-    C: DnsHandle + Sync + 'static,
+    C: DnsHandle<Error = ResolveError> + Sync + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+    type Error = ResolveError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let opts = self.options;
@@ -263,12 +266,12 @@ async fn parallel_conn_loop<C, P>(
     mut conns: Vec<NameServer<C, P>>,
     request: DnsRequest,
     opts: ResolverOpts,
-) -> Result<DnsResponse, ProtoError>
+) -> Result<DnsResponse, ResolveError>
 where
-    C: DnsHandle + 'static,
+    C: DnsHandle<Error = ResolveError> + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
 {
-    let mut err = ProtoError::from("No connections available");
+    let mut err = ResolveError::from("No connections available");
 
     loop {
         let request_cont = request.clone();
@@ -310,7 +313,7 @@ mod mdns {
     /// Returns true
     pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
     where
-        C: DnsHandle + 'static,
+        C: DnsHandle<Error = ResolveError> + 'static,
         P: ConnectionProvider<Conn = C> + 'static,
         P: ConnectionProvider,
     {
@@ -328,7 +331,7 @@ mod mdns {
 
 pub enum Local {
     #[allow(dead_code)]
-    ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
+    ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>),
     NotMdns(DnsRequest),
 }
 
@@ -346,7 +349,9 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>> {
+    fn take_future(
+        self,
+    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
@@ -367,7 +372,7 @@ impl Local {
 }
 
 impl Future for Local {
-    type Output = Result<DnsResponse, ProtoError>;
+    type Output = Result<DnsResponse, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         match *self {

@@ -232,6 +232,7 @@ where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
     type Response = OneshotDnsResponseReceiver<F>;
+    type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request: DnsRequest = request.into();

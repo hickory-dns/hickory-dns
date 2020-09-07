@@ -139,6 +139,7 @@ where
     Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
 {
     type Response = DnsExchangeSend<Resp>;
+    type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         self.exchange.send(request)
@@ -170,10 +171,10 @@ where
     }
 }
 
-impl<T> ClientHandle for T where T: DnsHandle {}
+impl<T> ClientHandle for T where T: DnsHandle<Error = ProtoError> {}
 
 /// A trait for implementing high level functions of DNS.
-pub trait ClientHandle: 'static + Clone + DnsHandle + Send {
+pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to

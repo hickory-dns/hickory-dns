@@ -74,6 +74,7 @@ where
     H: ClientHandle,
 {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+    type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
@@ -111,6 +112,7 @@ mod test {
 
     impl DnsHandle for TestClient {
         type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+        type Error = ProtoError;
 
         fn send<R: Into<DnsRequest> + Send + 'static>(&mut self, request: R) -> Self::Response {
             let i = Arc::clone(&self.i);

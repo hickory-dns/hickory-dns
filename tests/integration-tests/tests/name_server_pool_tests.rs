@@ -20,9 +20,10 @@ use futures::{future, Future};
 use trust_dns_client::op::Query;
 use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
-use trust_dns_proto::error::{ProtoError, ProtoResult};
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
 use trust_dns_resolver::config::*;
+use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
 
 #[derive(Clone)]
@@ -40,8 +41,8 @@ impl Default for MockConnProvider<DefaultOnSend> {
 
 #[allow(clippy::type_complexity)]
 impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
-    type Conn = MockClientHandle<O>;
-    type FutureConn = future::Ready<Result<Self::Conn, ProtoError>>;
+    type Conn = MockClientHandle<O, ResolveError>;
+    type FutureConn = future::Ready<Result<Self::Conn, ResolveError>>;
 
     fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::FutureConn {
         println!("MockClient::new_connection");
@@ -49,12 +50,13 @@ impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
     }
 }
 
-type MockedNameServer<O> = NameServer<MockClientHandle<O>, MockConnProvider<O>>;
-type MockedNameServerPool<O> = NameServerPool<MockClientHandle<O>, MockConnProvider<O>>;
+type MockedNameServer<O> = NameServer<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
+type MockedNameServerPool<O> =
+    NameServerPool<MockClientHandle<O, ResolveError>, MockConnProvider<O>>;
 
 #[cfg(test)]
 fn mock_nameserver(
-    messages: Vec<ProtoResult<DnsResponse>>,
+    messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
     mock_nameserver_on_send(messages, options, DefaultOnSend)
@@ -62,7 +64,7 @@ fn mock_nameserver(
 
 #[cfg(test)]
 fn mock_nameserver_on_send<O: OnSend + Unpin>(
-    messages: Vec<ProtoResult<DnsResponse>>,
+    messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
     on_send: O,
 ) -> MockedNameServer<O> {
@@ -130,8 +132,8 @@ fn test_datagram() {
 
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
-    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
+    let udp_nameserver = mock_nameserver(vec![Ok(udp_message.into())], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -141,7 +143,7 @@ fn test_datagram() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -159,12 +161,12 @@ fn test_datagram_stream_upgrade() {
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mut udp_message = message(query.clone(), vec![udp_record], vec![], vec![]);
-    udp_message.as_mut().unwrap().set_truncated(true);
+    udp_message.set_truncated(true);
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
+    let udp_nameserver = mock_nameserver(vec![Ok(udp_message.into())], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -174,7 +176,7 @@ fn test_datagram_stream_upgrade() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -189,12 +191,12 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
+    let udp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
+    let udp_nameserver = mock_nameserver(vec![udp_message], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -204,7 +206,7 @@ fn test_datagram_fails_to_stream() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -219,15 +221,15 @@ fn test_local_mdns() {
 
     let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
 
-    let tcp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
-    let udp_message: Result<DnsResponse, _> = Err(ProtoError::from("Forced Testing Error"));
+    let tcp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
+    let udp_message: Result<DnsResponse, _> = Err(ResolveError::from("Forced Testing Error"));
     let mdns_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
 
     let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], Default::default());
     let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], Default::default());
-    let mdns_nameserver = mock_nameserver(vec![mdns_message.map(Into::into)], Default::default());
+    let mdns_nameserver = mock_nameserver(vec![Ok(mdns_message.into())], Default::default());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -237,7 +239,7 @@ fn test_local_mdns() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -253,7 +255,7 @@ fn test_trust_nx_responses_fails_servfail() {
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
-    let mut servfail_message = message(query.clone(), vec![], vec![], vec![]).unwrap();
+    let mut servfail_message = message(query.clone(), vec![], vec![], vec![]);
     servfail_message.set_response_code(ResponseCode::ServFail);
     let servfail_message = Ok(servfail_message);
 
@@ -266,18 +268,20 @@ fn test_trust_nx_responses_fails_servfail() {
     // fail the first udp request
     let udp_nameserver = mock_nameserver(
         vec![
-            udp_message.map(Into::into),
+            Ok(udp_message.into()),
             servfail_message.clone().map(Into::into),
         ],
         options,
     );
-    let tcp_nameserver =
-        mock_nameserver(vec![Err(ProtoError::from("Forced Testing Error"))], options);
+    let tcp_nameserver = mock_nameserver(
+        vec![Err(ResolveError::from("Forced Testing Error"))],
+        options,
+    );
 
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query.clone(), vec![], vec![], vec![]).unwrap();
+    let request = message(query.clone(), vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -285,11 +289,11 @@ fn test_trust_nx_responses_fails_servfail() {
 
     // fail all udp succeed tcp
     let udp_nameserver = mock_nameserver(vec![servfail_message.map(Into::into)], options);
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], options);
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], options);
 
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -305,7 +309,7 @@ fn test_distrust_nx_responses() {
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
-    let mut servfail_message = message(query.clone(), vec![], vec![], vec![]).unwrap();
+    let mut servfail_message = message(query.clone(), vec![], vec![], vec![]);
     servfail_message.set_response_code(ResponseCode::ServFail);
     let servfail_message = Ok(servfail_message);
 
@@ -317,12 +321,12 @@ fn test_distrust_nx_responses() {
 
     // fail the first udp request
     let udp_nameserver = mock_nameserver(vec![servfail_message.map(Into::into)], options);
-    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], options);
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], options);
 
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     let response = block_on(future).unwrap();
@@ -345,10 +349,13 @@ impl OnSendBarrier {
 }
 
 impl OnSend for OnSendBarrier {
-    fn on_send(
+    fn on_send<E>(
         &mut self,
-        response: Result<DnsResponse, ProtoError>,
-    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>> {
+        response: Result<DnsResponse, E>,
+    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, E>> + Send>>
+    where
+        E: From<ProtoError> + Send + 'static,
+    {
         self.barrier.fetch_sub(1, Ordering::Relaxed);
 
         let barrier = self.barrier.clone();
@@ -358,10 +365,13 @@ impl OnSend for OnSendBarrier {
     }
 }
 
-async fn wait_for(
+async fn wait_for<E>(
     barrier: Arc<AtomicIsize>,
-    response: Result<DnsResponse, ProtoError>,
-) -> Result<DnsResponse, ProtoError> {
+    response: Result<DnsResponse, E>,
+) -> Result<DnsResponse, E>
+where
+    E: From<ProtoError> + Send + 'static,
+{
     future::poll_fn(move |_| {
         if barrier.load(Ordering::Relaxed) > 0 {
             Poll::Pending
@@ -392,7 +402,7 @@ fn test_concurrent_requests() {
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
     let udp1_nameserver =
-        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
+        mock_nameserver_on_send(vec![Ok(udp_message.into())], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -404,7 +414,7 @@ fn test_concurrent_requests() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     // there's no actual network traffic happening, 1 sec should be plenty
@@ -432,7 +442,7 @@ fn test_concurrent_requests_more_than_conns() {
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
     let udp1_nameserver =
-        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
+        mock_nameserver_on_send(vec![Ok(udp_message.into())], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -444,7 +454,7 @@ fn test_concurrent_requests_more_than_conns() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     // there's no actual network traffic happening, 1 sec should be plenty
@@ -472,7 +482,7 @@ fn test_concurrent_requests_1_conn() {
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
     let udp1_nameserver =
-        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
+        mock_nameserver_on_send(vec![Ok(udp_message.into())], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -484,7 +494,7 @@ fn test_concurrent_requests_1_conn() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     // there's no actual network traffic happening, 1 sec should be plenty
@@ -512,7 +522,7 @@ fn test_concurrent_requests_0_conn() {
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
 
     let udp1_nameserver =
-        mock_nameserver_on_send(vec![udp_message.map(Into::into)], options, on_send.clone());
+        mock_nameserver_on_send(vec![Ok(udp_message.into())], options, on_send.clone());
     let udp2_nameserver = udp1_nameserver.clone();
 
     let mut pool = mock_nameserver_pool_on_send(
@@ -524,7 +534,7 @@ fn test_concurrent_requests_0_conn() {
     );
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request);
 
     // there's no actual network traffic happening, 1 sec should be plenty

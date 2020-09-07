@@ -15,7 +15,7 @@ use futures_util::{future::Future, lock::Mutex};
 #[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
-use proto::error::{ProtoError, ProtoResult};
+use proto::error::ProtoError;
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
 use proto::op::ResponseCode;
@@ -24,13 +24,17 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
+use crate::error::{ResolveError, ResolveErrorKind};
 use crate::name_server::{ConnectionProvider, NameServerState, NameServerStats};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
-pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Send> {
+pub struct NameServer<
+    C: DnsHandle<Error = ResolveError> + Send,
+    P: ConnectionProvider<Conn = C> + Send,
+> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: Arc<Mutex<Option<C>>>,
@@ -39,7 +43,9 @@ pub struct NameServer<C: DnsHandle + Send, P: ConnectionProvider<Conn = C> + Sen
     conn_provider: P,
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Debug for NameServer<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
+    for NameServer<C, P>
+{
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
@@ -52,7 +58,7 @@ impl NameServer<TokioConnection, TokioConnectionProvider> {
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
     pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
@@ -99,7 +105,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
     /// This will return a mutable client to allows for sending messages.
     ///
     /// If the connection is in a failed state, then this will establish a new connection
-    async fn connected_mut_client(&mut self) -> ProtoResult<C> {
+    async fn connected_mut_client(&mut self) -> Result<C, ResolveError> {
         let mut client = self.client.lock().await;
 
         // if this is in a failure state
@@ -128,7 +134,7 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
     async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         mut self,
         request: R,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> Result<DnsResponse, ResolveError> {
         let mut client = self.connected_mut_client().await?;
         let response = client.send(request).await;
 
@@ -143,21 +149,40 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
                         ResponseCode::ServFail => {
                             let note = "Nameserver responded with SERVFAIL";
                             debug!("{}", note);
-                            return Err(ProtoError::from(note));
+                            let error_kind = ResolveErrorKind::Proto(ProtoError::from(note));
+                            return Err(ResolveError::from(error_kind));
                         }
                         ResponseCode::NXDomain => {
                             let note = "Nameserver responded with NXDomain";
                             debug!("{}", note);
-                            return Err(ProtoError::from(note));
+
+                            let mut response = response;
+                            let query =
+                                response.take_queries().drain(..).next().unwrap_or_default();
+                            let error_kind = ResolveErrorKind::NoRecordsFound {
+                                query,
+                                valid_until: None,
+                                response_code: ResponseCode::NXDomain,
+                            };
+                            return Err(ResolveError::from(error_kind));
                         }
                         ResponseCode::NoError
                             if response.answers().is_empty()
                                 && response.additionals().is_empty()
                                 && response.name_servers().is_empty() =>
                         {
-                            let note = "Nameserver responded with NoError";
+                            let note = "Nameserver responded with NoError and no records";
                             debug!("{}", note);
-                            return Err(ProtoError::from(note));
+
+                            let mut response = response;
+                            let query =
+                                response.take_queries().drain(..).next().unwrap_or_default();
+                            let error_kind = ResolveErrorKind::NoRecordsFound {
+                                query,
+                                valid_until: None,
+                                response_code: ResponseCode::NoError,
+                            };
+                            return Err(ResolveError::from(error_kind));
                         }
                         _ => (),
                     }
@@ -191,10 +216,11 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
 
 impl<C, P> DnsHandle for NameServer<C, P>
 where
-    C: DnsHandle,
+    C: DnsHandle<Error = ResolveError>,
     P: ConnectionProvider<Conn = C>,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+    type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.options.validate
@@ -208,7 +234,7 @@ where
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Ord for NameServer<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Ord for NameServer<C, P> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -231,26 +257,30 @@ impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Ord for NameServer<C, P> {
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> PartialOrd for NameServer<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> PartialOrd
+    for NameServer<C, P>
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> PartialEq for NameServer<C, P> {
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> PartialEq
+    for NameServer<C, P>
+{
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
     }
 }
 
-impl<C: DnsHandle, P: ConnectionProvider<Conn = C>> Eq for NameServer<C, P> {}
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Eq for NameServer<C, P> {}
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
 pub(crate) fn mdns_nameserver<C, P>(options: ResolverOpts, conn_provider: P) -> NameServer<C, P>
 where
-    C: DnsHandle,
+    C: DnsHandle<Error = ResolveError>,
     P: ConnectionProvider<Conn = C>,
 {
     let config = NameServerConfig {

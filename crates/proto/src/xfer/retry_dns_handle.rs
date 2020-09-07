@@ -12,7 +12,6 @@ use std::task::{Context, Poll};
 
 use futures_util::future::{Future, FutureExt};
 
-use crate::error::ProtoError;
 use crate::xfer::{DnsRequest, DnsResponse};
 use crate::DnsHandle;
 
@@ -21,12 +20,18 @@ use crate::DnsHandle;
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
-pub struct RetryDnsHandle<H: DnsHandle + Unpin + Send> {
+pub struct RetryDnsHandle<H>
+where
+    H: DnsHandle + Unpin + Send,
+{
     handle: H,
     attempts: usize,
 }
 
-impl<H: DnsHandle + Unpin> RetryDnsHandle<H> {
+impl<H> RetryDnsHandle<H>
+where
+    H: DnsHandle + Unpin + Send,
+{
     /// Creates a new Client handler for reattempting requests on failures.
     ///
     /// # Arguments
@@ -42,7 +47,8 @@ impl<H> DnsHandle for RetryDnsHandle<H>
 where
     H: DnsHandle + Send + Unpin + 'static,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, Self::Error>> + Send + Unpin>>;
+    type Error = <H as DnsHandle>::Error;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
@@ -61,7 +67,10 @@ where
 }
 
 /// A future for retrying (on failure, for the remaining number of times specified)
-struct RetrySendFuture<H: DnsHandle> {
+struct RetrySendFuture<H>
+where
+    H: DnsHandle,
+{
     request: DnsRequest,
     handle: H,
     future: <H as DnsHandle>::Response,
@@ -69,7 +78,7 @@ struct RetrySendFuture<H: DnsHandle> {
 }
 
 impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H> {
-    type Output = Result<DnsResponse, ProtoError>;
+    type Output = Result<DnsResponse, <H as DnsHandle>::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         // loop over the future, on errors, spawn a new future
@@ -115,6 +124,7 @@ mod test {
 
     impl DnsHandle for TestClient {
         type Response = Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>;
+        type Error = ProtoError;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let i = self.attempts.load(Ordering::SeqCst);

@@ -8,6 +8,7 @@
 //! Caching related functionality for the Resolver.
 
 use std::borrow::Cow;
+use std::error::Error;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -17,6 +18,7 @@ use std::time::Instant;
 use futures_util::future::Future;
 use futures_util::lock::Mutex;
 
+use proto::error::ProtoError;
 use proto::op::{Message, Query, ResponseCode};
 use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
@@ -59,14 +61,22 @@ impl Drop for DepthTracker {
 //       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
 #[doc(hidden)]
-pub struct CachingClient<C: DnsHandle> {
+pub struct CachingClient<C, E>
+where
+    C: DnsHandle<Error = E>,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     lru: Arc<Mutex<DnsLru>>,
     client: C,
     query_depth: Arc<AtomicU8>,
     preserve_intermediates: bool,
 }
 
-impl<C: DnsHandle + Send + 'static> CachingClient<C> {
+impl<C, E> CachingClient<C, E>
+where
+    C: DnsHandle<Error = E> + Send + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C, preserve_intermediates: bool) -> Self {
         Self::with_cache(
@@ -131,7 +141,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                     RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),
                     RecordType::AAAA => return Ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())),
                     RecordType::PTR => return Ok(Lookup::from_rdata(query, LOCALHOST.clone())),
-                    _ => return Err(DnsLru::nx_error(query, None)), // Are there any other types we can use?
+                    _ => return Err(DnsLru::nx_error(query, None, ResponseCode::NoError)), // Are there any other types we can use?
                 },
                 // when mdns is enabled we will follow a standard query path
                 #[cfg(feature = "mdns")]
@@ -140,7 +150,9 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
                 #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
-                ResolverUsage::NxDomain => return Err(DnsLru::nx_error(query, None)),
+                ResolverUsage::NxDomain => {
+                    return Err(DnsLru::nx_error(query, None, ResponseCode::NXDomain))
+                }
                 ResolverUsage::Normal => (),
             }
         }
@@ -153,11 +165,16 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
             return Ok(cached_lookup);
         };
 
-        let response_message = client.client.lookup(query.clone(), options.clone()).await?;
+        let response_message = client
+            .client
+            .lookup(query.clone(), options.clone())
+            .await
+            .map_err(E::into)?;
+        let response_code = response_message.response_code();
 
         // TODO: take all records and cache them?
         //  if it's DNSSec they must be signed, otherwise?
-        let records = match response_message.response_code() {
+        let records = match response_code {
             ResponseCode::NXDomain => Ok(Self::handle_nxdomain(
                 is_dnssec,
                 response_message,
@@ -180,7 +197,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
                 next: future,
                 min_ttl: ttl,
             } => Self::cname(query, future, &client.lru, ttl).await,
-            records => Self::cache(query, records, &client.lru).await,
+            records => Self::cache(query, records, &client.lru, response_code).await,
         }
     }
 
@@ -396,6 +413,7 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         query: Query,
         records: Records,
         cache: &Mutex<DnsLru>,
+        response_code: ResponseCode,
     ) -> Result<Lookup, ResolveError> {
         // The error state, this query is complete...
         let mut lru = cache.lock().await;
@@ -403,9 +421,11 @@ impl<C: DnsHandle + Send + 'static> CachingClient<C> {
         // this will put this object into an inconsistent state, but no one should call poll again...
         match records {
             Records::Exists(rdata) => Ok(lru.insert(query, rdata, Instant::now())),
-            Records::NoData { ttl: Some(ttl) } => Err(lru.negative(query, ttl, Instant::now())),
+            Records::NoData { ttl: Some(ttl) } => {
+                Err(lru.negative(query, ttl, Instant::now(), response_code))
+            }
             Records::NoData { ttl: None } | Records::CnameChain { .. } => {
-                Err(DnsLru::nx_error(query, None))
+                Err(DnsLru::nx_error(query, None, response_code))
             }
         }
     }
@@ -431,7 +451,6 @@ mod tests {
     use std::time::*;
 
     use futures_executor::block_on;
-    use proto::error::ProtoResult;
     use proto::op::{Message, Query};
     use proto::rr::rdata::SRV;
     use proto::rr::{Name, Record};
@@ -445,9 +464,14 @@ mod tests {
         let client = mock(vec![empty()]);
         let client = CachingClient::with_cache(cache, client, false);
 
-        if let ResolveErrorKind::NoRecordsFound { query, valid_until } = block_on(
-            CachingClient::inner_lookup(Query::new(), Default::default(), client, vec![]),
-        )
+        if let ResolveErrorKind::NoRecordsFound {
+            query, valid_until, ..
+        } = block_on(CachingClient::inner_lookup(
+            Query::new(),
+            Default::default(),
+            client,
+            vec![],
+        ))
         .unwrap_err()
         .kind()
         {
@@ -530,7 +554,7 @@ mod tests {
         );
     }
 
-    pub fn cname_message() -> ProtoResult<DnsResponse> {
+    pub fn cname_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
@@ -540,7 +564,7 @@ mod tests {
         Ok(message.into())
     }
 
-    pub fn srv_message() -> ProtoResult<DnsResponse> {
+    pub fn srv_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),

@@ -9,6 +9,7 @@
 //!
 //! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
+use std::error::Error;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -17,6 +18,7 @@ use std::time::Instant;
 
 use futures_util::{future, future::Either, future::Future, FutureExt};
 
+use proto::error::ProtoError;
 use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
@@ -112,11 +114,12 @@ impl Iterator for LookupIpIntoIter {
 /// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
-pub struct LookupIpFuture<C>
+pub struct LookupIpFuture<C, E>
 where
-    C: DnsHandle + 'static,
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
 {
-    client_cache: CachingClient<C>,
+    client_cache: CachingClient<C, E>,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     options: DnsRequestOptions,
@@ -125,7 +128,11 @@ where
     finally_ip_addr: Option<RData>,
 }
 
-impl<C: DnsHandle + Sync + 'static> Future for LookupIpFuture<C> {
+impl<C, E> Future for LookupIpFuture<C, E>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     type Output = Result<LookupIp, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -181,9 +188,10 @@ impl<C: DnsHandle + Sync + 'static> Future for LookupIpFuture<C> {
     }
 }
 
-impl<C> LookupIpFuture<C>
+impl<C, E> LookupIpFuture<C, E>
 where
-    C: DnsHandle + 'static,
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
 {
     /// Perform a lookup from a hostname to a set of IPs
     ///
@@ -195,7 +203,7 @@ where
     pub fn lookup(
         names: Vec<Name>,
         strategy: LookupIpStrategy,
-        client_cache: CachingClient<C>,
+        client_cache: CachingClient<C, E>,
         options: DnsRequestOptions,
         hosts: Option<Arc<Hosts>>,
         finally_ip_addr: Option<RData>,
@@ -217,13 +225,17 @@ where
 }
 
 /// returns a new future for lookup
-async fn strategic_lookup<C: DnsHandle + 'static>(
+async fn strategic_lookup<C, E>(
     name: Name,
     strategy: LookupIpStrategy,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts).await,
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts).await,
@@ -234,12 +246,16 @@ async fn strategic_lookup<C: DnsHandle + 'static>(
 }
 
 /// first lookups in hosts, then performs the query
-async fn hosts_lookup<C: DnsHandle + 'static>(
+async fn hosts_lookup<C, E>(
     query: Query,
-    mut client: CachingClient<C>,
+    mut client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     if let Some(hosts) = hosts {
         if let Some(lookup) = hosts.lookup_static_host(&query) {
             return Ok(lookup);
@@ -250,33 +266,45 @@ async fn hosts_lookup<C: DnsHandle + 'static>(
 }
 
 /// queries only for A records
-async fn ipv4_only<C: DnsHandle + 'static>(
+async fn ipv4_only<C, E>(
     name: Name,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     hosts_lookup(Query::query(name, RecordType::A), client, options, hosts).await
 }
 
 /// queries only for AAAA records
-async fn ipv6_only<C: DnsHandle + 'static>(
+async fn ipv6_only<C, E>(
     name: Name,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts).await
 }
 
 // TODO: this really needs to have a stream interface
 /// queries only for A and AAAA in parallel
-async fn ipv4_and_ipv6<C: DnsHandle + 'static>(
+async fn ipv4_and_ipv6<C, E>(
     name: Name,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     let sel_res = future::select(
         hosts_lookup(
             Query::query(name.clone(), RecordType::A),
@@ -320,12 +348,16 @@ async fn ipv4_and_ipv6<C: DnsHandle + 'static>(
 }
 
 /// queries only for AAAA and on no results queries for A
-async fn ipv6_then_ipv4<C: DnsHandle + 'static>(
+async fn ipv6_then_ipv4<C, E>(
     name: Name,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     rt_then_swap(
         name,
         client,
@@ -338,12 +370,16 @@ async fn ipv6_then_ipv4<C: DnsHandle + 'static>(
 }
 
 /// queries only for A and on no results queries for AAAA
-async fn ipv4_then_ipv6<C: DnsHandle + 'static>(
+async fn ipv4_then_ipv6<C, E>(
     name: Name,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     rt_then_swap(
         name,
         client,
@@ -356,14 +392,18 @@ async fn ipv4_then_ipv6<C: DnsHandle + 'static>(
 }
 
 /// queries only for first_type and on no results queries for second_type
-async fn rt_then_swap<C: DnsHandle + 'static>(
+async fn rt_then_swap<C, E>(
     name: Name,
-    client: CachingClient<C>,
+    client: CachingClient<C, E>,
     first_type: RecordType,
     second_type: RecordType,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Result<Lookup, ResolveError> {
+) -> Result<Lookup, ResolveError>
+where
+    C: DnsHandle<Error = E> + 'static,
+    E: Into<ResolveError> + From<ProtoError> + Error + Clone + Send + Unpin + 'static,
+{
     let or_client = client.clone();
     let res = hosts_lookup(
         Query::query(name.clone(), first_type),
@@ -408,21 +448,22 @@ pub mod tests {
     use futures_executor::block_on;
     use futures_util::{future, future::Future};
 
-    use proto::error::{ProtoError, ProtoResult};
     use proto::op::Message;
     use proto::rr::{Name, RData, Record};
     use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     use super::*;
+    use crate::error::ResolveError;
 
     #[derive(Clone)]
     pub struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<ProtoResult<DnsResponse>>>>,
+        messages: Arc<Mutex<Vec<Result<DnsResponse, ResolveError>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
         type Response =
-            Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin>>;
+            Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send + Unpin>>;
+        type Error = ResolveError;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::pin(future::ready(
@@ -431,7 +472,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> ProtoResult<DnsResponse> {
+    pub fn v4_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -441,7 +482,7 @@ pub mod tests {
         Ok(message.into())
     }
 
-    pub fn v6_message() -> ProtoResult<DnsResponse> {
+    pub fn v6_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
@@ -451,15 +492,15 @@ pub mod tests {
         Ok(message.into())
     }
 
-    pub fn empty() -> ProtoResult<DnsResponse> {
+    pub fn empty() -> Result<DnsResponse, ResolveError> {
         Ok(Message::new().into())
     }
 
-    pub fn error() -> ProtoResult<DnsResponse> {
-        Err(ProtoError::from("forced test failure"))
+    pub fn error() -> Result<DnsResponse, ResolveError> {
+        Err(ResolveError::from("forced test failure"))
     }
 
-    pub fn mock(messages: Vec<ProtoResult<DnsResponse>>) -> MockDnsHandle {
+    pub fn mock(messages: Vec<Result<DnsResponse, ResolveError>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
