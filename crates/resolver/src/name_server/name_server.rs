@@ -152,9 +152,13 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                             let error_kind = ResolveErrorKind::Proto(ProtoError::from(note));
                             return Err(ResolveError::from(error_kind));
                         }
-                        ResponseCode::NXDomain => {
+                        // Some NXDOMAIN responses contain CNAME referals, that will not be an error
+                        ResponseCode::NXDomain if !response.contains_answer() => {
                             let note = "Nameserver responded with NXDomain";
                             debug!("{}", note);
+
+                            // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                            // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 
                             let mut response = response;
                             let query =
@@ -166,13 +170,13 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                             };
                             return Err(ResolveError::from(error_kind));
                         }
-                        ResponseCode::NoError
-                            if response.answers().is_empty()
-                                && response.additionals().is_empty()
-                                && response.name_servers().is_empty() =>
-                        {
+                        // No answers are available, CNAME referals are not failures
+                        ResponseCode::NoError if !response.contains_answer() => {
                             let note = "Nameserver responded with NoError and no records";
                             debug!("{}", note);
+
+                            // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                            // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 
                             let mut response = response;
                             let query =

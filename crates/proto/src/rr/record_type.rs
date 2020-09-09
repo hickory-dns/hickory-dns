@@ -119,6 +119,18 @@ impl RecordType {
         self == RecordType::CNAME
     }
 
+    /// Returns true if this is an NS
+    #[inline]
+    pub fn is_ns(self) -> bool {
+        self == RecordType::NS
+    }
+
+    /// Returns true if this is an SOA
+    #[inline]
+    pub fn is_soa(self) -> bool {
+        self == RecordType::SOA
+    }
+
     /// Returns true if this is an SRV
     #[inline]
     pub fn is_srv(self) -> bool {

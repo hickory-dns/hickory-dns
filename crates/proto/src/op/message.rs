@@ -470,6 +470,14 @@ impl Message {
         mem::replace(&mut self.additionals, vec![])
     }
 
+    /// All sections chained
+    pub fn all_sections(&self) -> impl Iterator<Item = &Record> {
+        self.answers
+            .iter()
+            .chain(self.name_servers().iter())
+            .chain(self.additionals.iter())
+    }
+
     /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
     ///
     /// ```text
