@@ -28,6 +28,7 @@ TDNS_WORKSPACE_ROOT = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}"
 TDNS_WITH_KCOV_ARGS = "--lib --bins --tests --examples"
 
 CARGO_MAKE_CRATES_IO_TOKEN = { value = "--token=${CRATES_IO_TOKEN}", condition = { env_set = ["CRATES_IO_TOKEN"] } }
+#RUST_BACKTRACE=1
 
 ##
 ## Installation tasks

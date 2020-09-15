@@ -507,8 +507,6 @@ where
 enum Records {
     /// The records exists, a vec of rdata with ttl
     Exists(Vec<(Record, u32)>),
-    // /// Records do not exist, ttl for negative caching
-    // NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
     CnameChain {
         next: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
