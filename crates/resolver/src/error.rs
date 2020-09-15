@@ -7,12 +7,14 @@
 
 //! Error types for the crate
 
-use std::{fmt, io, sync, time::Instant};
+use std::{fmt, io, sync};
 
 use thiserror::Error;
 
 use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::op::{Query, ResponseCode};
+use crate::proto::rr::rdata::SOA;
+use crate::proto::xfer::DnsResponse;
 use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
@@ -32,11 +34,13 @@ pub enum ResolveErrorKind {
     /// No records were found for a query
     #[error("no record found for {query}")]
     NoRecordsFound {
-        /// The query for which no records were found.
+        /// The negative Response, TODO: remove this
         query: Query,
-        /// A deadline after which the `NXDOMAIN` response is no longer
-        /// valid, and the nameserver should be queried again.
-        valid_until: Option<Instant>,
+        /// If an SOA is present, then this is an authoritative response.
+        soa: Option<SOA>,
+        /// negative ttl, as determined from DnsResponse::negative_ttl
+        ///  this will only be present if the SOA was also present.
+        negative_ttl: Option<u32>,
         /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
         ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
         response_code: ResponseCode,
@@ -64,14 +68,15 @@ impl Clone for ResolveErrorKind {
             Msg(ref msg) => Msg(msg.clone()),
             NoRecordsFound {
                 ref query,
-                valid_until,
+                ref soa,
+                negative_ttl,
                 response_code,
             } => NoRecordsFound {
                 query: query.clone(),
-                valid_until: *valid_until,
+                soa: soa.clone(),
+                negative_ttl: *negative_ttl,
                 response_code: *response_code,
             },
-
             // foreign
             Io(io) => ResolveErrorKind::from(std::io::Error::from(io.kind())),
             Proto(proto) => ResolveErrorKind::from(proto.clone()),
@@ -83,14 +88,87 @@ impl Clone for ResolveErrorKind {
 /// The error type for errors that get returned in the crate
 #[derive(Debug, Clone, Error)]
 pub struct ResolveError {
-    kind: ResolveErrorKind,
+    pub(crate) kind: ResolveErrorKind,
     backtrack: Option<ExtBacktrace>,
 }
 
 impl ResolveError {
+    pub(crate) fn nx_error(
+        query: Query,
+        soa: Option<SOA>,
+        negative_ttl: Option<u32>,
+        response_code: ResponseCode,
+    ) -> ResolveError {
+        ResolveErrorKind::NoRecordsFound {
+            query,
+            soa,
+            negative_ttl,
+            response_code,
+        }
+        .into()
+    }
+
     /// Get the kind of the error
     pub fn kind(&self) -> &ResolveErrorKind {
         &self.kind
+    }
+
+    /// A conversion to determine if the response is an error
+    pub fn from_response(response: DnsResponse) -> Result<DnsResponse, Self> {
+        match response.response_code() {
+            ResponseCode::ServFail => {
+                let note = "Nameserver responded with SERVFAIL";
+                debug!("{}", note);
+                let error_kind = ResolveErrorKind::Proto(ProtoError::from(note));
+
+                Err(ResolveError::from(error_kind))
+            }
+            // Some NXDOMAIN responses contain CNAME referals, that will not be an error
+            ResponseCode::NXDomain if !response.contains_answer() => {
+                let note = "Nameserver responded with NXDomain";
+                debug!("{}", note);
+
+                // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
+
+                let mut response = response;
+                let soa = response.soa();
+                let negative_ttl = response.negative_ttl();
+
+                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let error_kind = ResolveErrorKind::NoRecordsFound {
+                    query,
+                    soa,
+                    negative_ttl,
+                    response_code: ResponseCode::NXDomain,
+                };
+
+                Err(ResolveError::from(error_kind))
+            }
+            // No answers are available, CNAME referals are not failures
+            ResponseCode::NoError if !response.contains_answer() => {
+                let note = "Nameserver responded with NoError and no records";
+                debug!("{}", note);
+
+                // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
+
+                let mut response = response;
+                let soa = response.soa();
+                let negative_ttl = response.negative_ttl();
+
+                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let error_kind = ResolveErrorKind::NoRecordsFound {
+                    query,
+                    soa,
+                    negative_ttl,
+                    response_code: ResponseCode::NoError,
+                };
+
+                Err(ResolveError::from(error_kind))
+            }
+            _ => Ok(response),
+        }
     }
 }
 

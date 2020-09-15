@@ -474,22 +474,30 @@ pub mod tests {
 
     pub fn v4_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
+        message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         )]);
-        Ok(message.into())
+
+        let resp: DnsResponse = message.into();
+        assert!(resp.contains_answer());
+        Ok(resp)
     }
 
     pub fn v6_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
+        message.add_query(Query::query(Name::root(), RecordType::AAAA));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
             RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
         )]);
-        Ok(message.into())
+
+        let resp: DnsResponse = message.into();
+        assert!(resp.contains_answer());
+        Ok(resp)
     }
 
     pub fn empty() -> Result<DnsResponse, ResolveError> {

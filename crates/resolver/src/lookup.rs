@@ -543,7 +543,7 @@ pub mod tests {
     use futures_executor::block_on;
     use futures_util::{future, future::Future};
 
-    use proto::op::Message;
+    use proto::op::{Message, Query};
     use proto::rr::{Name, RData, Record, RecordType};
     use proto::xfer::{DnsRequest, DnsRequestOptions};
 
@@ -566,12 +566,16 @@ pub mod tests {
 
     pub fn v4_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
+        message.add_query(Query::query(Name::root(), RecordType::A));
         message.insert_answers(vec![Record::from_rdata(
             Name::root(),
             86400,
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         )]);
-        Ok(message.into())
+
+        let resp: DnsResponse = message.into();
+        assert!(resp.contains_answer());
+        Ok(resp)
     }
 
     pub fn empty() -> Result<DnsResponse, ResolveError> {
@@ -638,7 +642,9 @@ pub mod tests {
     #[test]
     fn test_empty_no_response() {
         if let ResolveErrorKind::NoRecordsFound {
-            query, valid_until, ..
+            query,
+            negative_ttl,
+            ..
         } = block_on(LookupFuture::lookup(
             vec![Name::root()],
             RecordType::A,
@@ -649,7 +655,7 @@ pub mod tests {
         .kind()
         {
             assert_eq!(*query, Query::query(Name::root(), RecordType::A));
-            assert_eq!(*valid_until, None);
+            assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error recieved");
         }

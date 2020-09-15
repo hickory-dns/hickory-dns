@@ -24,6 +24,7 @@ use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
     LOCALHOST as LOCALHOST_usage,
 };
+use proto::rr::rdata::SOA;
 use proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
@@ -141,7 +142,14 @@ where
                     RecordType::A => return Ok(Lookup::from_rdata(query, LOCALHOST_V4.clone())),
                     RecordType::AAAA => return Ok(Lookup::from_rdata(query, LOCALHOST_V6.clone())),
                     RecordType::PTR => return Ok(Lookup::from_rdata(query, LOCALHOST.clone())),
-                    _ => return Err(DnsLru::nx_error(query, None, ResponseCode::NoError)), // Are there any other types we can use?
+                    _ => {
+                        return Err(ResolveError::nx_error(
+                            query,
+                            None,
+                            None,
+                            ResponseCode::NoError,
+                        ))
+                    } // Are there any other types we can use?
                 },
                 // when mdns is enabled we will follow a standard query path
                 #[cfg(feature = "mdns")]
@@ -151,7 +159,12 @@ where
                 #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
                 ResolverUsage::NxDomain => {
-                    return Err(DnsLru::nx_error(query, None, ResponseCode::NXDomain))
+                    return Err(ResolveError::nx_error(
+                        query,
+                        None,
+                        None,
+                        ResponseCode::NXDomain,
+                    ))
                 }
                 ResolverUsage::Normal => (),
             }
@@ -162,47 +175,88 @@ where
 
         // first transition any polling that is needed (mutable refs...)
         if let Some(cached_lookup) = Self::from_cache(&query, &client.lru).await {
-            return Ok(cached_lookup);
+            return cached_lookup;
         };
 
         let response_message = client
             .client
             .lookup(query.clone(), options.clone())
             .await
-            .map_err(E::into)?;
-        let response_code = response_message.response_code();
+            .map_err(E::into);
+
+        // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
+        //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
+        let response_message = if let Ok(response) = response_message {
+            ResolveError::from_response(response)
+        } else {
+            response_message
+        };
 
         // TODO: take all records and cache them?
         //  if it's DNSSec they must be signed, otherwise?
-        let records = match response_code {
-            ResponseCode::NXDomain => Ok(Self::handle_nxdomain(
-                is_dnssec,
-                response_message,
-                false, /* false b/c DNSSec should not cache NXDomain */
-            )),
-            ResponseCode::NoError => Self::handle_noerror(
-                &mut client,
-                options,
-                is_dnssec,
-                &query,
-                response_message,
-                preserved_records,
-            ),
-            r => Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into()),
-        }?;
+        let records: Result<Records, ResolveError> = match response_message {
+            // this is the only cacheable form
+            Err(ResolveError {
+                kind:
+                    ResolveErrorKind::NoRecordsFound {
+                        query,
+                        soa,
+                        negative_ttl,
+                        response_code,
+                    },
+                ..
+            }) => {
+                Err(Self::handle_nxdomain(
+                    is_dnssec,
+                    false, /*tbd*/
+                    query,
+                    soa,
+                    negative_ttl,
+                    response_code,
+                ))
+            }
+            Err(e) => return Err(e),
+            Ok(response_message) => {
+                let response_code = response_message.response_code();
+
+                // This match should be unnecessary, since ResponseCode is handled above
+                //   we're being extra pedantic by only caching the value is it's NoError
+                match response_code {
+                    ResponseCode::NoError => {
+                        let records = Self::handle_noerror(
+                            &mut client,
+                            options,
+                            is_dnssec,
+                            &query,
+                            response_message,
+                            preserved_records,
+                        )?;
+
+                        Ok(records)
+                    }
+                    _ => unreachable!(
+                        "non NoError responses should have been converted to an error above"
+                    ),
+                }
+            }
+        };
 
         // after the request, evaluate if we have additional queries to perform
         match records {
-            Records::CnameChain {
+            Ok(Records::CnameChain {
                 next: future,
                 min_ttl: ttl,
-            } => Self::cname(query, future, &client.lru, ttl).await,
-            records => Self::cache(query, records, &client.lru, response_code).await,
+            }) => Self::cname(query, future, &client.lru, ttl).await,
+            Ok(Records::Exists(rdata)) => Self::cache(query, Ok(rdata), &client.lru).await,
+            Err(e) => Self::cache(query, Err(e), &client.lru).await,
         }
     }
 
     /// Check if this query is already cached
-    async fn from_cache(query: &Query, cache: &Mutex<DnsLru>) -> Option<Lookup> {
+    async fn from_cache(
+        query: &Query,
+        cache: &Mutex<DnsLru>,
+    ) -> Option<Result<Lookup, ResolveError>> {
         let mut lru = cache.lock().await;
         lru.get(query, Instant::now())
     }
@@ -216,28 +270,40 @@ where
     /// This also handles empty responses in the same way. When performing DNSSec enabled queries, we should
     ///  never enter here, and should never cache unless verified requests.
     ///
+    /// TODO: should this should be expanded to do a forward lookup? Today, this will fail even if there are
+    ///   forwarding options.
+    ///
     /// # Arguments
     ///
     /// * `message` - message to extract SOA, etc, from for caching failed requests
     /// * `valid_nsec` - species that in DNSSec mode, this request is safe to cache
-    fn handle_nxdomain(is_dnssec: bool, mut message: DnsResponse, valid_nsec: bool) -> Records {
+    /// * `negative_ttl` - this should be the SOA minimum for negative ttl
+    fn handle_nxdomain(
+        is_dnssec: bool,
+        valid_nsec: bool,
+        query: Query,
+        soa: Option<SOA>,
+        negative_ttl: Option<u32>,
+        response_code: ResponseCode,
+    ) -> ResolveError {
         if valid_nsec || !is_dnssec {
-            //  if there were validated NSEC records
-            let soa = message
-                .take_name_servers()
-                .into_iter()
-                .find(|r| r.rr_type() == RecordType::SOA);
-
-            let ttl = if let Some(RData::SOA(soa)) = soa.map(Record::unwrap_rdata) {
-                Some(soa.minimum())
-            } else {
-                // TODO: figure out a looping lookup to get SOA
-                None
-            };
-
-            Records::NoData { ttl }
+            // only trust if there were validated NSEC records
+            ResolveErrorKind::NoRecordsFound {
+                query,
+                soa,
+                negative_ttl,
+                response_code,
+            }
+            .into()
         } else {
-            Records::NoData { ttl: None }
+            // not cacheable, no ttl...
+            ResolveErrorKind::NoRecordsFound {
+                query,
+                soa,
+                negative_ttl: None,
+                response_code,
+            }
+            .into()
         }
     }
 
@@ -252,6 +318,11 @@ where
     ) -> Result<Records, ResolveError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
+
+        // need to capture these before the subsequent and destructive record processing
+        let soa = response.soa();
+        let negative_ttl = response.negative_ttl();
+        let response_code = response.response_code();
 
         // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
         // FIXME: for SRV this evaluation is inadequate. CNAME is a single chain to a single record
@@ -391,7 +462,14 @@ where
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSec, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
-            Ok(Self::handle_nxdomain(is_dnssec, response, true))
+            Err(Self::handle_nxdomain(
+                is_dnssec,
+                true,
+                query.clone(),
+                soa,
+                negative_ttl,
+                response_code,
+            ))
         }
     }
 
@@ -406,27 +484,22 @@ where
         let lookup = future.await?;
         let mut cache = cache.lock().await;
 
+        // this duplicates the cache entry under the original query
         Ok(cache.duplicate(query, lookup, cname_ttl, Instant::now()))
     }
 
     async fn cache(
         query: Query,
-        records: Records,
+        records: Result<Vec<(Record, u32)>, ResolveError>,
         cache: &Mutex<DnsLru>,
-        response_code: ResponseCode,
     ) -> Result<Lookup, ResolveError> {
         // The error state, this query is complete...
         let mut lru = cache.lock().await;
 
         // this will put this object into an inconsistent state, but no one should call poll again...
         match records {
-            Records::Exists(rdata) => Ok(lru.insert(query, rdata, Instant::now())),
-            Records::NoData { ttl: Some(ttl) } => {
-                Err(lru.negative(query, ttl, Instant::now(), response_code))
-            }
-            Records::NoData { ttl: None } | Records::CnameChain { .. } => {
-                Err(DnsLru::nx_error(query, None, response_code))
-            }
+            Ok(rdata) => Ok(lru.insert(query, rdata, Instant::now())),
+            Err(err) => Err(lru.negative(query, err, Instant::now())),
         }
     }
 }
@@ -434,8 +507,8 @@ where
 enum Records {
     /// The records exists, a vec of rdata with ttl
     Exists(Vec<(Record, u32)>),
-    /// Records do not exist, ttl for negative caching
-    NoData { ttl: Option<u32> },
+    // /// Records do not exist, ttl for negative caching
+    // NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
     CnameChain {
         next: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
@@ -465,7 +538,9 @@ mod tests {
         let client = CachingClient::with_cache(cache, client, false);
 
         if let ResolveErrorKind::NoRecordsFound {
-            query, valid_until, ..
+            query,
+            negative_ttl,
+            ..
         } = block_on(CachingClient::inner_lookup(
             Query::new(),
             Default::default(),
@@ -476,7 +551,7 @@ mod tests {
         .kind()
         {
             assert_eq!(*query, Query::new());
-            assert_eq!(*valid_until, None);
+            assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error received")
         }
@@ -556,6 +631,10 @@ mod tests {
 
     pub fn cname_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
+        message.add_query(Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::A,
+        ));
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
             86400,
@@ -566,6 +645,10 @@ mod tests {
 
     pub fn srv_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
+        message.add_query(Query::query(
+            Name::from_str("_443._tcp.www.example.com.").unwrap(),
+            RecordType::SRV,
+        ));
         message.insert_answers(vec![Record::from_rdata(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),
             86400,
@@ -885,6 +968,10 @@ mod tests {
         let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         let mut message = srv_message().unwrap();
+        message.add_query(Query::query(
+            Name::from_ascii("www.example.local.").unwrap(),
+            RecordType::A,
+        ));
         message.add_answer(Record::from_rdata(
             Name::from_str("www.example.local.").unwrap(),
             86400,

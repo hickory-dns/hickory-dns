@@ -7,10 +7,11 @@
 
 //! An LRU cache designed for work with DNS lookups
 
+use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use proto::op::{Query, ResponseCode};
+use proto::op::Query;
 use proto::rr::Record;
 
 use crate::config;
@@ -25,7 +26,7 @@ pub const MAX_TTL: u32 = 86400_u32;
 #[derive(Debug)]
 struct LruValue {
     // In the None case, this represents an NXDomain
-    lookup: Option<Lookup>,
+    lookup: Result<Lookup, ResolveError>,
     valid_until: Instant,
 }
 
@@ -33,6 +34,11 @@ impl LruValue {
     /// Returns true if this set of ips is still valid
     fn is_current(&self, now: Instant) -> bool {
         now <= self.valid_until
+    }
+
+    /// Returns the ttl as a Duration of time remaining.
+    fn ttl(&self, now: Instant) -> Duration {
+        self.valid_until.saturating_duration_since(now)
     }
 }
 
@@ -167,7 +173,7 @@ impl DnsLru {
         self.cache.insert(
             query,
             LruValue {
-                lookup: Some(lookup.clone()),
+                lookup: Ok(lookup.clone()),
                 valid_until,
             },
         );
@@ -189,7 +195,7 @@ impl DnsLru {
         self.cache.insert(
             query,
             LruValue {
-                lookup: Some(lookup.clone()),
+                lookup: Ok(lookup.clone()),
                 valid_until,
             },
         );
@@ -197,54 +203,82 @@ impl DnsLru {
         lookup
     }
 
-    pub(crate) fn nx_error(
-        query: Query,
-        valid_until: Option<Instant>,
-        response_code: ResponseCode,
-    ) -> ResolveError {
-        ResolveErrorKind::NoRecordsFound {
-            query,
-            valid_until,
-            response_code,
+    /// This converts the ResolveError to set the inner negative_ttl value to be the
+    ///  current expiration ttl.
+    fn nx_error_with_ttl(error: &mut ResolveError, new_ttl: Duration) {
+        if let ResolveError {
+            kind:
+                ResolveErrorKind::NoRecordsFound {
+                    ref mut negative_ttl,
+                    ..
+                },
+            ..
+        } = error
+        {
+            *negative_ttl = Some(u32::try_from(new_ttl.as_secs()).unwrap_or(MAX_TTL));
         }
-        .into()
     }
 
     pub(crate) fn negative(
         &mut self,
         query: Query,
-        ttl: u32,
+        mut error: ResolveError,
         now: Instant,
-        response_code: ResponseCode,
     ) -> ResolveError {
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
+        if let ResolveError {
+            kind:
+                ResolveErrorKind::NoRecordsFound {
+                    negative_ttl: Some(ttl),
+                    ..
+                },
+            ..
+        } = error
+        {
+            let ttl_duration = Duration::from_secs(u64::from(ttl))
+                // Clamp the TTL so that it's between the cache's configured
+                // minimum and maximum TTLs for negative responses.
+                .max(self.negative_min_ttl)
+                .min(self.negative_max_ttl);
+            let valid_until = now + ttl_duration;
 
-        let ttl = Duration::from_secs(u64::from(ttl))
-            // Clamp the TTL so that it's between the cache's configured
-            // minimum and maximum TTLs for negative responses.
-            .max(self.negative_min_ttl)
-            .min(self.negative_max_ttl);
-        let valid_until = now + ttl;
+            {
+                let error = error.clone();
 
-        self.cache.insert(
-            query.clone(),
-            LruValue {
-                lookup: None,
-                valid_until,
-            },
-        );
+                self.cache.insert(
+                    query,
+                    LruValue {
+                        lookup: Err(error),
+                        valid_until,
+                    },
+                );
+            }
 
-        Self::nx_error(query, Some(valid_until), response_code)
+            Self::nx_error_with_ttl(&mut error, ttl_duration);
+
+            error
+        } else {
+            error
+        }
     }
 
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
-    pub(crate) fn get(&mut self, query: &Query, now: Instant) -> Option<Lookup> {
+    pub(crate) fn get(
+        &mut self,
+        query: &Query,
+        now: Instant,
+    ) -> Option<Result<Lookup, ResolveError>> {
         let mut out_of_date = false;
         let lookup = self.cache.get_mut(query).and_then(|value| {
             if value.is_current(now) {
                 out_of_date = false;
-                value.lookup.clone()
+                let mut result = value.lookup.clone();
+
+                if let Err(ref mut err) = result {
+                    Self::nx_error_with_ttl(err, value.ttl(now));
+                }
+                Some(result)
             } else {
                 out_of_date = true;
                 None
@@ -269,7 +303,7 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use proto::op::Query;
+    use proto::op::{Query, ResponseCode};
     use proto::rr::{Name, RData, RecordType};
 
     use super::*;
@@ -282,7 +316,7 @@ mod tests {
         let past_the_future = now + Duration::from_secs(6);
 
         let value = LruValue {
-            lookup: None,
+            lookup: Err(ResolveErrorKind::Message("test error").into()),
             valid_until: future,
         };
 
@@ -345,24 +379,36 @@ mod tests {
         let mut lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 1 seconds.
-        let nx_error = lru.negative(name.clone(), 1, now, ResponseCode::NoError);
+        let err = ResolveErrorKind::NoRecordsFound {
+            query: name.clone(),
+            soa: None,
+            negative_ttl: Some(1),
+            response_code: ResponseCode::NoError,
+        };
+        let nx_error = lru.negative(name.clone(), err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
-                let valid_until = valid_until.expect("resolve error should have a deadline");
+            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+                let valid_until = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 2 seconds.
-                assert_eq!(valid_until, now + Duration::from_secs(2));
+                assert_eq!(valid_until, 2);
             }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
 
         // neg response should have TTL of 3 seconds.
-        let nx_error = lru.negative(name, 3, now, ResponseCode::NoError);
+        let err = ResolveErrorKind::NoRecordsFound {
+            query: name.clone(),
+            soa: None,
+            negative_ttl: Some(3),
+            response_code: ResponseCode::NoError,
+        };
+        let nx_error = lru.negative(name, err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
-                let valid_until = valid_until.expect("ResolveError should have a deadline");
+            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+                let negative_ttl = negative_ttl.expect("ResolveError should have a deadline");
                 // the error's `valid_until` field should not have been limited, as it was
                 // over the min TTL.
-                assert_eq!(valid_until, now + Duration::from_secs(3));
+                assert_eq!(negative_ttl, 3);
             }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
@@ -421,24 +467,36 @@ mod tests {
         let mut lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 62 seconds.
-        let nx_error = lru.negative(name.clone(), 62, now, ResponseCode::NoError);
+        let err = ResolveErrorKind::NoRecordsFound {
+            query: name.clone(),
+            soa: None,
+            negative_ttl: Some(62),
+            response_code: ResponseCode::NoError,
+        };
+        let nx_error = lru.negative(name.clone(), err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
-                let valid_until = valid_until.expect("resolve error should have a deadline");
+            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+                let negative_ttl = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should have been limited to 60 seconds.
-                assert_eq!(valid_until, now + Duration::from_secs(60));
+                assert_eq!(negative_ttl, 60);
             }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
 
         // neg response should have TTL of 59 seconds.
-        let nx_error = lru.negative(name, 59, now, ResponseCode::NoError);
+        let err = ResolveErrorKind::NoRecordsFound {
+            query: name.clone(),
+            soa: None,
+            negative_ttl: Some(59),
+            response_code: ResponseCode::NoError,
+        };
+        let nx_error = lru.negative(name, err.into(), now);
         match nx_error.kind() {
-            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
-                let valid_until = valid_until.expect("resolve error should have a deadline");
+            &ResolveErrorKind::NoRecordsFound { negative_ttl, .. } => {
+                let negative_ttl = negative_ttl.expect("resolve error should have a deadline");
                 // the error's `valid_until` field should not have been limited, as it was
                 // under the max TTL.
-                assert_eq!(valid_until, now + Duration::from_secs(59));
+                assert_eq!(negative_ttl, 59);
             }
             other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
         }
@@ -460,7 +518,7 @@ mod tests {
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
 
-        let rc_ips = lru.get(&query, now).unwrap();
+        let rc_ips = lru.get(&query, now).unwrap().expect("records should exist");
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
     }
 
@@ -489,7 +547,10 @@ mod tests {
         lru.insert(query.clone(), ips_ttl, now);
 
         // still valid
-        let rc_ips = lru.get(&query, now + Duration::from_secs(1)).unwrap();
+        let rc_ips = lru
+            .get(&query, now + Duration::from_secs(1))
+            .unwrap()
+            .expect("records should exist");
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
 
         // 2 should be one too far
@@ -528,17 +589,26 @@ mod tests {
         lru.insert(query.clone(), ips_ttl, now);
 
         // still valid
-        let rc_ips = lru.get(&query, now + Duration::from_secs(1)).unwrap();
+        let rc_ips = lru
+            .get(&query, now + Duration::from_secs(1))
+            .unwrap()
+            .expect("records should exist");
         for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
             assert_eq!(rc_ip, ip, "after 1 second");
         }
 
-        let rc_ips = lru.get(&query, now + Duration::from_secs(2)).unwrap();
+        let rc_ips = lru
+            .get(&query, now + Duration::from_secs(2))
+            .unwrap()
+            .expect("records should exist");
         for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
             assert_eq!(rc_ip, ip, "after 2 seconds");
         }
 
-        let rc_ips = lru.get(&query, now + Duration::from_secs(3)).unwrap();
+        let rc_ips = lru
+            .get(&query, now + Duration::from_secs(3))
+            .unwrap()
+            .expect("records should exist");
         for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
             assert_eq!(rc_ip, ip, "after 3 seconds");
         }
@@ -579,12 +649,18 @@ mod tests {
         lru.insert(query.clone(), ips_ttl, now);
 
         // still valid
-        let rc_ips = lru.get(&query, now + Duration::from_secs(1)).unwrap();
+        let rc_ips = lru
+            .get(&query, now + Duration::from_secs(1))
+            .unwrap()
+            .expect("records should exist");
         for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
             assert_eq!(rc_ip, ip, "after 1 second");
         }
 
-        let rc_ips = lru.get(&query, now + Duration::from_secs(2)).unwrap();
+        let rc_ips = lru
+            .get(&query, now + Duration::from_secs(2))
+            .unwrap()
+            .expect("records should exist");
         for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
             assert_eq!(rc_ip, ip, "after 2 seconds");
         }
