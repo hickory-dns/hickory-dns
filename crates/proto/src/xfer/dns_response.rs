@@ -13,6 +13,7 @@ use std::slice::{Iter, IterMut};
 use smallvec::SmallVec;
 
 use crate::op::{Message, ResponseCode};
+use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
 
 // TODO: this needs to have the IP addr of the remote system...
@@ -43,6 +44,15 @@ impl DnsResponse {
     /// returns the number of messages in the response
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.
+    pub fn soa(&self) -> Option<SOA> {
+        self.name_servers()
+            .iter()
+            .filter_map(|record| record.rdata().as_soa())
+            .next()
+            .cloned()
     }
 
     /// Looks in the authority section for an SOA record from the response, and returns the negative_ttl, None if not available.
@@ -120,11 +130,14 @@ impl DnsResponse {
                         .filter(|r| r.record_type().is_soa())
                         .any(|r| r.name().zone_of(q.name()))
                 }
-                ty => {
-                    // for SOA name must be part of the SOA zone
-                    self.all_sections()
-                        .filter(|r| r.record_type() == ty || r.record_type().is_cname())
-                        .any(|r| r.name() == q.name())
+                q_type => {
+                    if !self.answers().is_empty() {
+                        true
+                    } else {
+                        self.all_sections()
+                            .filter(|r| r.record_type() == q_type)
+                            .any(|r| r.name() == q.name())
+                    }
                 }
             };
 
@@ -603,6 +616,22 @@ mod tests {
 
     fn another_query() -> Query {
         Query::query(another_example(), RecordType::A)
+    }
+
+    #[test]
+    fn test_contains_answer() {
+        let mut message = Message::default();
+        message.set_response_code(ResponseCode::NXDomain);
+        message.add_query(Query::query(Name::root(), RecordType::A));
+        message.add_answer(Record::from_rdata(
+            Name::root(),
+            88640,
+            RData::A([127, 0, 0, 2].into()),
+        ));
+
+        let response = DnsResponse::from(message);
+
+        assert!(response.contains_answer())
     }
 
     #[test]

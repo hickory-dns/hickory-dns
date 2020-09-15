@@ -15,16 +15,14 @@ use futures_util::{future::Future, lock::Mutex};
 #[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
-use proto::error::ProtoError;
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
-use proto::op::ResponseCode;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
-use crate::error::{ResolveError, ResolveErrorKind};
+use crate::error::ResolveError;
 use crate::name_server::{ConnectionProvider, NameServerState, NameServerStats};
 #[cfg(feature = "tokio-runtime")]
 use crate::name_server::{TokioConnection, TokioConnectionProvider};
@@ -144,53 +142,11 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                 //   see https://github.com/bluejekyll/trust-dns/issues/606
                 //   TODO: there are probably other return codes from the server we may want to
                 //    retry on. We may also want to evaluate NoError responses that lack records as errors as well
-                if self.options.distrust_nx_responses {
-                    match response.response_code() {
-                        ResponseCode::ServFail => {
-                            let note = "Nameserver responded with SERVFAIL";
-                            debug!("{}", note);
-                            let error_kind = ResolveErrorKind::Proto(ProtoError::from(note));
-                            return Err(ResolveError::from(error_kind));
-                        }
-                        // Some NXDOMAIN responses contain CNAME referals, that will not be an error
-                        ResponseCode::NXDomain if !response.contains_answer() => {
-                            let note = "Nameserver responded with NXDomain";
-                            debug!("{}", note);
-
-                            // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                            // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
-
-                            let mut response = response;
-                            let query =
-                                response.take_queries().drain(..).next().unwrap_or_default();
-                            let error_kind = ResolveErrorKind::NoRecordsFound {
-                                query,
-                                valid_until: None,
-                                response_code: ResponseCode::NXDomain,
-                            };
-                            return Err(ResolveError::from(error_kind));
-                        }
-                        // No answers are available, CNAME referals are not failures
-                        ResponseCode::NoError if !response.contains_answer() => {
-                            let note = "Nameserver responded with NoError and no records";
-                            debug!("{}", note);
-
-                            // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                            // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
-
-                            let mut response = response;
-                            let query =
-                                response.take_queries().drain(..).next().unwrap_or_default();
-                            let error_kind = ResolveErrorKind::NoRecordsFound {
-                                query,
-                                valid_until: None,
-                                response_code: ResponseCode::NoError,
-                            };
-                            return Err(ResolveError::from(error_kind));
-                        }
-                        _ => (),
-                    }
-                }
+                let response = if self.options.distrust_nx_responses {
+                    ResolveError::from_response(response)?
+                } else {
+                    response
+                };
 
                 // TODO: consider making message::take_edns...
                 let remote_edns = response.edns().cloned();
