@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) For all NxDomain and NoError/NoData responses, `ResolveErrorKind::NoRecordsFound` will be returned #1197
 - (server) Support for lowercase DNSClass and RecordType fields in zonefiles (@zhanif3) #1186
 - (resolver) Make EDNS optional for resolvers (@CtrlZvi) #1173
 - (all) Fully support *ring* for all DNSSEC operations. #1145
@@ -30,6 +31,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (proto) `xfer::dns_response::NegativeType` and `DnsResponse::negative_type` to classify negative response type #1197
+- (proto) `DnsResponse::contains_answer` to determine if a response message has data related to the query #1197
+- (proto) `RecordType::is_soa` and `RecordType::is_ns` to easily check for these types #1197
+- (proto) `Message::all_sections` to allow iteration over all `Records` in all sections in a Message #1197
+- (proto) `Message::take_queries` to remove from a Message without requiring clone #1197
+- (proto) `DnsHandle::Error` associated type to support generic errors across trust-dns libraries #1197
 - (resolver) Add support for tlsa RRs in trust_dns_resolver (@smutt) #1189
 - (resolver) Support pointer ending label compression (@jacoblin1994) #1182
 - (proto) Keep OS error information on `io::Error` (@brunowonka) #1163

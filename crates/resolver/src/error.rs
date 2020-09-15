@@ -34,7 +34,7 @@ pub enum ResolveErrorKind {
     /// No records were found for a query
     #[error("no record found for {query}")]
     NoRecordsFound {
-        /// The negative Response, TODO: remove this
+        /// The query for which no records were found.
         query: Query,
         /// If an SOA is present, then this is an authoritative response.
         soa: Option<SOA>,
