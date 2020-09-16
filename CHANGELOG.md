@@ -19,6 +19,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (resolver) use IntoName trait on synchronous resolver interface (@krisztian-kovacs) #1095
 - (resolver) *BREAKING* removed async for `AsyncResolver::new` (@balboah) #1077 #1056
 - (server) *BREAKING* removed `Runtime` from `ServerFuture::register_socket` (@LucioFranco) #1088 #1087
+- (proto) *Breaking* Adjust the return value from `ResponseCode::high` from u16 to u8 #1202
 
 ### Fixed
 
