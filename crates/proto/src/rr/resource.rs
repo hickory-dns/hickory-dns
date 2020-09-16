@@ -74,7 +74,7 @@ const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
-#[derive(Eq, Ord, Debug, Clone)]
+#[derive(Eq, Debug, Clone)]
 pub struct Record {
     name_labels: Name,
     rr_type: RecordType,
@@ -477,15 +477,14 @@ impl PartialEq for Record {
 /// returns the value of the compare if the items are greater or lesser, but continues on equal
 macro_rules! compare_or_equal {
     ($x:ident, $y:ident, $z:ident) => {
-        match $x.$z.partial_cmp(&$y.$z) {
-            o @ Some(Ordering::Less) | o @ Some(Ordering::Greater) => return o,
-            None => return None,
-            Some(Ordering::Equal) => (),
+        match $x.$z.cmp(&$y.$z) {
+            Ordering::Equal => (),
+            o => return o,
         }
     };
 }
 
-impl PartialOrd<Record> for Record {
+impl Ord for Record {
     /// Canonical ordering as defined by
     ///  [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
     ///
@@ -515,7 +514,7 @@ impl PartialOrd<Record> for Record {
     ///        originating authoritative zone or the Original TTL field of the
     ///        covering RRSIG RR.
     /// ```
-    fn partial_cmp(&self, other: &Record) -> Option<Ordering> {
+    fn cmp(&self, other: &Record) -> Ordering {
         // TODO: given that the ordering of Resource Records is dependent on it's binary form and this
         //  method will be used during insertion sort or similar, we should probably do this
         //  conversion once somehow and store it separately. Or should the internal storage of all
@@ -528,7 +527,13 @@ impl PartialOrd<Record> for Record {
         compare_or_equal!(self, other, rdata);
 
         // got here, means they are equal
-        Some(Ordering::Equal)
+        Ordering::Equal
+    }
+}
+
+impl PartialOrd<Record> for Record {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
