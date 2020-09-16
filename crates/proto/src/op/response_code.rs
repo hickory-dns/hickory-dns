@@ -136,9 +136,9 @@ impl ResponseCode {
         (u16::from(self) & 0x000F) as u8
     }
 
-    /// returns the high 12 bits for the edns portion of the response code
-    pub fn high(self) -> u16 {
-        (u16::from(self) & 0x0FF0) >> 4
+    /// returns the high 8 bits for the EDNS portion of the response code
+    pub fn high(self) -> u8 {
+        ((u16::from(self) & 0x0FF0) >> 4) as u8
     }
 
     /// Combines the EDNS high and low from the Header to produce the Extended ResponseCode
