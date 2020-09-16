@@ -13,17 +13,16 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::future::{self, Future, TryFutureExt};
+use log::{debug, error};
 
-use trust_dns_client::op::{LowerQuery, ResponseCode};
-use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns_client::rr::rdata::key::KEY;
+use crate::client::op::{LowerQuery, ResponseCode};
+use crate::client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::rdata::key::KEY;
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::rdata::DNSSECRData;
-use trust_dns_client::rr::rdata::DNSSECRecordType;
-use trust_dns_client::rr::rdata::SOA;
-use trust_dns_client::rr::{
-    DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey,
-};
+use crate::client::rr::rdata::DNSSECRData;
+use crate::client::rr::rdata::DNSSECRecordType;
+use crate::client::rr::rdata::SOA;
+use crate::client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use crate::authority::{
     AnyRecords, AuthLookup, Authority, LookupError, LookupRecords, LookupResult, MessageRequest,
@@ -447,7 +446,7 @@ impl InMemoryAuthority {
     /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self) {
-        use trust_dns_client::rr::rdata::NSEC;
+        use crate::client::rr::rdata::NSEC;
 
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
@@ -535,9 +534,9 @@ impl InMemoryAuthority {
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
+        use crate::client::rr::dnssec::tbs;
+        use crate::client::rr::rdata::SIG;
         use chrono::Utc;
-        use trust_dns_client::rr::dnssec::tbs;
-        use trust_dns_client::rr::rdata::SIG;
 
         let inception = Utc::now();
 
@@ -627,6 +626,8 @@ impl InMemoryAuthority {
     /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
     #[cfg(feature = "dnssec")]
     fn sign_zone(&mut self) -> DnsSecResult<()> {
+        use log::warn;
+
         debug!("signing zone: {}", self.origin);
 
         let minimum_ttl = self.minimum_ttl();
@@ -884,6 +885,8 @@ impl Authority for InMemoryAuthority {
                                 // if DNSSEC is enabled, and the request had the DO set, sign the recordset
                                 #[cfg(feature = "dnssec")]
                                 {
+                                    use log::warn;
+
                                     // ANAME's are constructed on demand, so need to be signed before return
                                     if is_secure {
                                         Self::sign_rrset(

@@ -7,6 +7,8 @@
 
 #![allow(deprecated)]
 
+use serde::Deserialize;
+
 /// The type of zone stored in a Catalog
 #[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {

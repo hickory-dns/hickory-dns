@@ -13,14 +13,15 @@ use std::path::Path;
 use openssl::{pkey::PKey, stack::Stack, x509::X509};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
+use serde::Deserialize;
 
-use trust_dns_client::error::ParseResult;
-use trust_dns_client::rr::dnssec::Algorithm;
+use crate::client::error::ParseResult;
+use crate::client::rr::dnssec::Algorithm;
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
-use trust_dns_client::rr::dnssec::{KeyFormat, KeyPair, Private, Signer};
+use crate::client::rr::dnssec::{KeyFormat, KeyPair, Private, Signer};
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::domain::IntoName;
-use trust_dns_client::rr::domain::Name;
+use crate::client::rr::domain::IntoName;
+use crate::client::rr::domain::Name;
 
 /// Key pair configuration for DNSSec keys for signing a zone
 #[derive(Deserialize, PartialEq, Debug)]
@@ -76,7 +77,7 @@ impl KeyConfig {
     /// Converts key into
     #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        use trust_dns_client::error::ParseErrorKind;
+        use crate::client::error::ParseErrorKind;
 
         let extension = self.key_path().extension().ok_or_else(|| {
             ParseErrorKind::Msg(format!(
@@ -250,6 +251,8 @@ impl TlsCertConfig {
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 #[cfg(feature = "dnssec")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
+    use log::info;
+
     use chrono::Duration;
     use std::fs::File;
     use std::io::Read;
@@ -297,7 +300,9 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
-    use crate::trust_dns_openssl::tls_server::{
+    use log::{info, warn};
+
+    use trust_dns_openssl::tls_server::{
         read_cert_pem, read_cert_pkcs12, read_key_from_der, read_key_from_pkcs8,
     };
 
@@ -353,6 +358,8 @@ pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
+    use log::{info, warn};
+
     use trust_dns_rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());

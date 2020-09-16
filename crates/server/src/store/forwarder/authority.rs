@@ -10,16 +10,17 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures::{future, Future, FutureExt};
+use log::info;
 use tokio::runtime::Handle;
 
-use trust_dns_client::op::LowerQuery;
-use trust_dns_client::op::ResponseCode;
-use trust_dns_client::rr::dnssec::SupportedAlgorithms;
-use trust_dns_client::rr::{LowerName, Name, Record, RecordType};
-use trust_dns_resolver::config::ResolverConfig;
-use trust_dns_resolver::error::ResolveError;
-use trust_dns_resolver::lookup::Lookup as ResolverLookup;
-use trust_dns_resolver::TokioAsyncResolver;
+use crate::client::op::LowerQuery;
+use crate::client::op::ResponseCode;
+use crate::client::rr::dnssec::SupportedAlgorithms;
+use crate::client::rr::{LowerName, Name, Record, RecordType};
+use crate::resolver::config::ResolverConfig;
+use crate::resolver::error::ResolveError;
+use crate::resolver::lookup::Lookup as ResolverLookup;
+use crate::resolver::TokioAsyncResolver;
 
 use crate::authority::{
     Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
