@@ -538,10 +538,7 @@ pub enum RrsetRecords<'r> {
 impl<'r> RrsetRecords<'r> {
     /// This is a best effort emptyness check
     pub fn is_empty(&self) -> bool {
-        match *self {
-            RrsetRecords::Empty => true,
-            _ => false,
-        }
+        matches!(*self, RrsetRecords::Empty)
     }
 }
 

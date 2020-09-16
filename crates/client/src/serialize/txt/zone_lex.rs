@@ -211,7 +211,7 @@ impl<'a> Lexer<'a> {
                                         ))
                                     })
                                     .and_then(|v| {
-                                        let char_data = char_data.take().ok_or_else(|| {
+                                        let char_data = char_data.take().ok_or({
                                             LexerErrorKind::IllegalState("char_data is None")
                                         })?;
 

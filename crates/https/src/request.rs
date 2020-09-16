@@ -116,7 +116,7 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
         return Err("unsupported content type".into());
     }
 
-    let accept = accept.ok_or_else(|| "Accept is unspecified")?;
+    let accept = accept.ok_or("Accept is unspecified")?;
 
     let any_application_and_dns = |q: &QualityItem<Mime>| -> bool {
         q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY

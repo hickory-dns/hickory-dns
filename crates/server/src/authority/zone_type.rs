@@ -31,9 +31,9 @@ pub enum ZoneType {
 impl ZoneType {
     /// Is this an authoritative Authority, i.e. it owns the records of the zone.
     pub fn is_authoritative(self) -> bool {
-        match self {
-            ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave
+        )
     }
 }

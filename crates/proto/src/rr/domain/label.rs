@@ -316,41 +316,41 @@ impl LabelCmp for CaseInsensitive {
 /// Conversion into a Label
 pub trait IntoLabel: Sized {
     /// Convert this into Label
-    fn into_label(self: Self) -> ProtoResult<Label>;
+    fn into_label(self) -> ProtoResult<Label>;
 }
 
 impl<'a> IntoLabel for &'a Label {
-    fn into_label(self: Self) -> ProtoResult<Label> {
+    fn into_label(self) -> ProtoResult<Label> {
         Ok(self.clone())
     }
 }
 
 impl IntoLabel for Label {
-    fn into_label(self: Self) -> ProtoResult<Label> {
+    fn into_label(self) -> ProtoResult<Label> {
         Ok(self)
     }
 }
 
 impl<'a> IntoLabel for &'a str {
-    fn into_label(self: Self) -> ProtoResult<Label> {
+    fn into_label(self) -> ProtoResult<Label> {
         Label::from_utf8(self)
     }
 }
 
 impl IntoLabel for String {
-    fn into_label(self: Self) -> ProtoResult<Label> {
+    fn into_label(self) -> ProtoResult<Label> {
         Label::from_utf8(&self)
     }
 }
 
 impl<'a> IntoLabel for &'a [u8] {
-    fn into_label(self: Self) -> ProtoResult<Label> {
+    fn into_label(self) -> ProtoResult<Label> {
         Label::from_raw_bytes(self)
     }
 }
 
 impl IntoLabel for Vec<u8> {
-    fn into_label(self: Self) -> ProtoResult<Label> {
+    fn into_label(self) -> ProtoResult<Label> {
         Label::from_raw_bytes(&self)
     }
 }
