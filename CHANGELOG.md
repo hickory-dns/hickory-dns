@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (all) minimum rustc version now `1.42`
 - (resolver) For all NxDomain and NoError/NoData responses, `ResolveErrorKind::NoRecordsFound` will be returned #1197
 - (server) Support for lowercase DNSClass and RecordType fields in zonefiles (@zhanif3) #1186
 - (resolver) Make EDNS optional for resolvers (@CtrlZvi) #1173
