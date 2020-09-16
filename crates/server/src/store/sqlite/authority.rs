@@ -13,14 +13,14 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::future::Future;
+use log::{error, info, warn};
 
-use trust_dns_client::op::LowerQuery;
-use trust_dns_client::op::ResponseCode;
-use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
-use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns_client::rr::{
-    DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey,
-};
+use crate::client::op::LowerQuery;
+use crate::client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::{LowerName, RrKey};
+use crate::proto::op::ResponseCode;
+use crate::proto::rr::dnssec::rdata::key::KEY;
+use crate::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 
 #[cfg(feature = "dnssec")]
 use crate::authority::UpdateRequest;
@@ -443,9 +443,10 @@ impl SqliteAuthority {
     #[allow(clippy::blocks_in_if_conditions)]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use futures::executor::block_on;
+        use log::debug;
 
-        use proto::rr::dnssec::Verifier;
-        use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use crate::client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use crate::proto::rr::dnssec::Verifier;
 
         // 3.3.3 - Pseudocode for Permission Checking
         //

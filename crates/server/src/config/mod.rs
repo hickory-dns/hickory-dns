@@ -17,10 +17,11 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use log;
+use serde::{self, Deserialize};
 use toml;
 
-use proto::error::ProtoResult;
-use trust_dns_client::rr::Name;
+use crate::client::rr::Name;
+use crate::proto::error::ProtoResult;
 
 use crate::authority::ZoneType;
 use crate::error::{ConfigError, ConfigResult};

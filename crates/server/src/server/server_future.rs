@@ -13,26 +13,25 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures::{future, Future, FutureExt, StreamExt};
-
+use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::net;
 use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
-use proto::error::ProtoError;
-use proto::iocompat::AsyncIo02As03;
-use proto::op::Edns;
-use proto::serialize::binary::{BinDecodable, BinDecoder};
-use proto::tcp::TcpStream;
-use proto::udp::UdpStream;
-use proto::xfer::SerialMessage;
-use proto::BufStreamHandle;
+use crate::authority::MessageRequest;
+use crate::proto::error::ProtoError;
+use crate::proto::iocompat::AsyncIo02As03;
+use crate::proto::op::Edns;
+use crate::proto::serialize::binary::{BinDecodable, BinDecoder};
+use crate::proto::tcp::TcpStream;
+use crate::proto::udp::UdpStream;
+use crate::proto::xfer::SerialMessage;
+use crate::proto::BufStreamHandle;
+use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use trust_dns_openssl::tls_server::*;
-
-use crate::authority::MessageRequest;
-use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
 
 // TODO, would be nice to have a Slab for buffers here...
 

@@ -7,11 +7,12 @@
 
 use std::io;
 
+use enum_as_inner::EnumAsInner;
 use thiserror::Error;
 
-use trust_dns_client::op::ResponseCode;
+use crate::client::op::ResponseCode;
 #[cfg(feature = "trust-dns-resolver")]
-use trust_dns_resolver::error::ResolveError;
+use crate::resolver::error::ResolveError;
 
 // TODO: should this implement Failure?
 /// A query could not be fulfilled

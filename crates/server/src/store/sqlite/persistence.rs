@@ -11,13 +11,14 @@ use std::iter::Iterator;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use rusqlite::{self, types::ToSql, Connection};
-use time;
-
-use trust_dns_client::rr::Record;
-use trust_dns_client::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use chrono;
+use log::error;
+use rusqlite::types::ToSql;
+use rusqlite::{self, Connection};
 
 use crate::error::{PersistenceErrorKind, PersistenceResult};
+use crate::proto::rr::Record;
+use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 /// The current Journal version of the application
 pub const CURRENT_VERSION: i64 = 1;
@@ -86,7 +87,7 @@ impl Journal {
             record.emit(&mut encoder)?;
         }
 
-        let timestamp = time::get_time();
+        let timestamp = chrono::Utc::now();
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
         let soa_serial: i64 = i64::from(soa_serial);
 

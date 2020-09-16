@@ -5,6 +5,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures::{FutureExt, Stream, StreamExt};
+use log::{debug, warn};
 use tokio::time::Delay;
 
 /// This wraps the underlying Stream in a timeout.

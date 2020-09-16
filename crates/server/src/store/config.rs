@@ -7,6 +7,8 @@
 
 //! Configuration for the stores
 
+use serde::Deserialize;
+
 use crate::store::file::FileConfig;
 #[cfg(feature = "trust-dns-resolver")]
 use crate::store::forwarder::ForwardConfig;

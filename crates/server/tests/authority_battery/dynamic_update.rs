@@ -10,7 +10,7 @@ use trust_dns_client::op::update_message;
 use trust_dns_client::op::{Message, Query, ResponseCode};
 use trust_dns_client::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 use trust_dns_client::rr::dnssec::{Algorithm, Signer, SupportedAlgorithms, Verifier};
-use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable};
+use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable, BinSerializable};
 use trust_dns_server::authority::{
     AuthLookup, Authority, LookupError, MessageRequest, UpdateResult,
 };

@@ -5,7 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use trust_dns_resolver::config::{NameServerConfigGroup, ResolverOpts};
+use serde::Deserialize;
+
+use crate::resolver::config::{NameServerConfigGroup, ResolverOpts};
 
 /// Configuration for file based zones
 #[derive(Deserialize, PartialEq, Debug)]

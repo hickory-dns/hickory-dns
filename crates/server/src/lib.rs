@@ -33,43 +33,10 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
-extern crate bytes;
-extern crate chrono;
-#[macro_use]
-extern crate enum_as_inner;
-extern crate env_logger;
-extern crate futures;
-#[macro_use]
-extern crate log;
-#[cfg(feature = "sqlite")]
-extern crate rusqlite;
-#[macro_use]
-extern crate serde;
-#[cfg(feature = "dns-over-https")]
-extern crate h2;
-#[cfg(feature = "dns-over-https")]
-extern crate http;
-#[cfg(feature = "dns-over-openssl")]
-extern crate openssl;
-#[cfg(feature = "dns-over-rustls")]
-extern crate rustls;
-extern crate time;
-extern crate tokio;
-#[cfg(feature = "dns-over-openssl")]
-extern crate tokio_openssl;
-#[cfg(feature = "dns-over-rustls")]
-extern crate tokio_rustls;
-extern crate toml;
-extern crate trust_dns_client;
-#[cfg(feature = "dns-over-https")]
-extern crate trust_dns_https;
-#[cfg(feature = "dns-over-openssl")]
-extern crate trust_dns_openssl;
-pub extern crate trust_dns_proto as proto;
+pub use trust_dns_client as client;
+pub use trust_dns_proto as proto;
 #[cfg(feature = "trust-dns-resolver")]
-extern crate trust_dns_resolver;
-#[cfg(feature = "dns-over-rustls")]
-extern crate trust_dns_rustls;
+pub use trust_dns_resolver as resolver;
 
 pub mod authority;
 pub mod config;

@@ -5,14 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use proto::error::*;
-use proto::op::message::EmitAndCount;
-use proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
-use trust_dns_client::rr::Record;
-use trust_dns_client::serialize::binary::BinEncoder;
-
 use crate::authority::message_request::QueriesEmitAndCount;
 use crate::authority::Queries;
+use crate::proto::error::*;
+use crate::proto::op::message::EmitAndCount;
+use crate::proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
+use crate::proto::rr::Record;
+use crate::proto::serialize::binary::BinEncoder;
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
@@ -211,9 +210,9 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use proto::op::{Header, Message};
-    use proto::rr::{DNSClass, Name, RData, Record};
-    use proto::serialize::binary::BinEncoder;
+    use crate::proto::op::{Header, Message};
+    use crate::proto::rr::{DNSClass, Name, RData, Record};
+    use crate::proto::serialize::binary::BinEncoder;
 
     use super::*;
 

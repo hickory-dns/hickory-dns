@@ -8,11 +8,12 @@
 use std::io;
 use std::net::SocketAddr;
 
-use proto::xfer::SerialMessage;
-use trust_dns_client::serialize::binary::BinEncoder;
-use trust_dns_proto::BufStreamHandle;
+use log::info;
 
 use crate::authority::MessageResponse;
+use crate::client::serialize::binary::BinEncoder;
+use crate::proto::xfer::SerialMessage;
+use crate::proto::BufStreamHandle;
 
 /// A handler for send a response to a client
 pub trait ResponseHandler: Clone + Send + Unpin + 'static {

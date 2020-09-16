@@ -9,9 +9,8 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use trust_dns_client::rr::LowerName;
-
 use crate::authority::LookupObject;
+use crate::client::rr::LowerName;
 use crate::proto::rr::dnssec::SupportedAlgorithms;
 use crate::proto::rr::{Record, RecordSet, RecordType, RrsetRecords};
 

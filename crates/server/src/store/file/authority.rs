@@ -15,17 +15,16 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
 use futures::future::Future;
-
-use trust_dns_client::op::LowerQuery;
-use trust_dns_client::proto::rr::dnssec::rdata::key::KEY;
-use trust_dns_client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
-use trust_dns_client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
+use log::{debug, info};
 
 use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::client::op::LowerQuery;
+use crate::client::proto::rr::dnssec::rdata::key::KEY;
+use crate::client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
+use crate::client::serialize::txt::{Lexer, Parser, Token};
 use crate::store::file::FileConfig;
 use crate::store::in_memory::InMemoryAuthority;
-
-use trust_dns_client::serialize::txt::{Lexer, Parser, Token};
 
 /// FileAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -242,7 +241,7 @@ impl Authority for FileAuthority {
 
     /// Perform a dynamic update of a zone
     fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
-        use proto::op::ResponseCode;
+        use crate::proto::op::ResponseCode;
         Err(ResponseCode::NotImp)
     }
 
@@ -359,8 +358,8 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
+    use crate::client::rr::RData;
     use futures::executor::block_on;
-    use trust_dns_client::rr::RData;
 
     use super::*;
     use crate::authority::ZoneType;

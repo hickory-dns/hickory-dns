@@ -6,10 +6,10 @@ use futures::executor::block_on;
 use futures::Future;
 
 use trust_dns_client::op::Query;
-use trust_dns_client::proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
-use trust_dns_client::proto::xfer;
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns_client::rr::{DNSClass, Name, Record, RecordType};
+use trust_dns_proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
+use trust_dns_proto::xfer;
 use trust_dns_server::authority::{AuthLookup, Authority};
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {

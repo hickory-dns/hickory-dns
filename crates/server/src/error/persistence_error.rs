@@ -7,7 +7,7 @@
 
 use std::fmt;
 
-use proto::error::*;
+use crate::proto::error::*;
 use thiserror::Error;
 
 use crate::proto::{trace, ExtBacktrace};

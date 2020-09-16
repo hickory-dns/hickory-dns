@@ -11,11 +11,12 @@ use std::sync::{Arc, Mutex};
 
 use bytes::{Bytes, BytesMut};
 use h2::server;
-use proto::serialize::binary::BinDecodable;
+use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
 use trust_dns_https::https_server;
 
 use crate::authority::{MessageRequest, MessageResponse};
+use crate::proto::serialize::binary::BinDecodable;
 use crate::server::request_handler::RequestHandler;
 use crate::server::response_handler::ResponseHandler;
 use crate::server::server_future;
@@ -91,7 +92,7 @@ struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
 impl ResponseHandler for HttpsResponseHandle {
     fn send_response(&self, response: MessageResponse) -> io::Result<()> {
-        use proto::serialize::binary::BinEncoder;
+        use crate::proto::serialize::binary::BinEncoder;
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;
 

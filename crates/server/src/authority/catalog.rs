@@ -24,12 +24,7 @@ use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
 use futures::{ready, Future, FutureExt, TryFutureExt};
-use log::warn;
-
-use trust_dns_client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
-use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms};
-use trust_dns_client::rr::rdata::opt::{EdnsCode, EdnsOption};
-use trust_dns_client::rr::{LowerName, RecordType};
+use log::{debug, error, info, trace, warn};
 
 use crate::authority::{
     AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
@@ -37,6 +32,10 @@ use crate::authority::{
 use crate::authority::{
     AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupError, LookupObject,
 };
+use crate::client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
+use crate::client::rr::dnssec::{Algorithm, SupportedAlgorithms};
+use crate::client::rr::rdata::opt::{EdnsCode, EdnsOption};
+use crate::client::rr::{LowerName, RecordType};
 use crate::server::{Request, RequestHandler, ResponseHandler};
 
 /// Set of authorities, zones, available to this server.
