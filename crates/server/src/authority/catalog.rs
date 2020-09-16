@@ -111,6 +111,7 @@ impl RequestHandler for Catalog {
                     req_edns.version()
                 );
                 response_header.set_response_code(ResponseCode::BADVERS);
+                resp_edns.set_rcode_high(ResponseCode::BADVERS.high());
                 response.edns(resp_edns);
 
                 // TODO: should ResponseHandle consume self?
