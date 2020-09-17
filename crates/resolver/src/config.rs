@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Configuration for a resolver
-#[cfg(feature = "dns-over-rustls")]
 use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::ops::{Deref, DerefMut};
@@ -251,6 +250,23 @@ pub enum Protocol {
     Mdns,
 }
 
+impl fmt::Display for Protocol {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let protocol = match self {
+            Protocol::Udp => "udp",
+            Protocol::Tcp => "tcp",
+            #[cfg(feature = "dns-over-tls")]
+            Protocol::Tls => "tls",
+            #[cfg(feature = "dns-over-https")]
+            Protocol::Https => "https",
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => "mdns",
+        };
+
+        write!(f, "{}", protocol)
+    }
+}
+
 impl Protocol {
     /// Returns true if this is a datagram oriented protocol, e.g. UDP
     pub fn is_datagram(self) -> bool {
@@ -323,6 +339,18 @@ pub struct NameServerConfig {
     #[cfg_attr(feature = "serde-config", serde(skip))]
     /// optional configuration for the tls client
     pub tls_config: Option<TlsClientConfig>,
+}
+
+impl fmt::Display for NameServerConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:", self.protocol)?;
+
+        if let Some(ref tls_dns_name) = self.tls_dns_name {
+            write!(f, "{}@", tls_dns_name)?;
+        }
+
+        write!(f, "{}", self.socket_addr)
+    }
 }
 
 /// A set of name_servers to associate with a [`ResolverConfig`].
