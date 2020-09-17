@@ -47,8 +47,13 @@ path = "src/get_root_ksks.rs"
 name = "pem-to-public-dnskey"
 path = "src/pem_to_public_dnskey.rs"
 
+[[bin]]
+name = "resolve"
+path = "src/resolve.rs"
+
 [dependencies]
 clap = "2.33.1"
+console = "0.12.0"
 data-encoding = "2.2.0"
 trust-dns-client= { version = "0.20.0-alpha.2", features = ["dnssec-openssl"], path = "../crates/client" }
 trust-dns-proto = { version = "0.20.0-alpha.2", features = ["dnssec-openssl"], path = "../crates/proto" }
@@ -56,3 +61,5 @@ trust-dns-resolver = { version = "0.20.0-alpha.2", features = ["dnssec-openssl"]
 env_logger = "0.7"
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"] }
+structopt = "0.3"
+tokio = { version = "0.2.22", features = ["rt-threaded", "macros"] }
