@@ -7,6 +7,7 @@
 
 //! Error types for the crate
 
+use std::cmp::Ordering;
 use std::{fmt, io, sync};
 
 use thiserror::Error;
@@ -119,7 +120,16 @@ impl ResolveError {
             ResponseCode::ServFail => {
                 let note = "Nameserver responded with SERVFAIL";
                 debug!("{}", note);
-                let error_kind = ResolveErrorKind::Proto(ProtoError::from(note));
+
+                let mut response = response;
+                let soa = response.soa();
+                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let error_kind = ResolveErrorKind::NoRecordsFound {
+                    query,
+                    soa,
+                    negative_ttl: None,
+                    response_code: ResponseCode::ServFail,
+                };
 
                 Err(ResolveError::from(error_kind))
             }
@@ -169,6 +179,46 @@ impl ResolveError {
             }
             _ => Ok(response),
         }
+    }
+
+    /// Compare two errors to see if one contains a server response.
+    pub(crate) fn cmp_specificity(&self, other: &Self) -> Ordering {
+        let kind = self.kind();
+        let other = other.kind();
+
+        match (kind, other) {
+            (ResolveErrorKind::NoRecordsFound { .. }, ResolveErrorKind::NoRecordsFound { .. }) => {
+                return Ordering::Equal
+            }
+            (ResolveErrorKind::NoRecordsFound { .. }, _) => return Ordering::Greater,
+            (_, ResolveErrorKind::NoRecordsFound { .. }) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            (ResolveErrorKind::Io { .. }, ResolveErrorKind::Io { .. }) => return Ordering::Equal,
+            (ResolveErrorKind::Io { .. }, _) => return Ordering::Greater,
+            (_, ResolveErrorKind::Io { .. }) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            (ResolveErrorKind::Proto { .. }, ResolveErrorKind::Proto { .. }) => {
+                return Ordering::Equal
+            }
+            (ResolveErrorKind::Proto { .. }, _) => return Ordering::Greater,
+            (_, ResolveErrorKind::Proto { .. }) => return Ordering::Less,
+            _ => (),
+        }
+
+        match (kind, other) {
+            (ResolveErrorKind::Timeout, ResolveErrorKind::Timeout) => return Ordering::Equal,
+            (ResolveErrorKind::Timeout, _) => return Ordering::Greater,
+            (_, ResolveErrorKind::Timeout) => return Ordering::Less,
+            _ => (),
+        }
+
+        Ordering::Equal
     }
 }
 

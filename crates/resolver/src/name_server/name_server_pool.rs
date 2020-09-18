@@ -5,17 +5,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::cmp::Ordering;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::{future, future::Future, TryFutureExt};
+use futures_util::{future, future::Future};
 use smallvec::SmallVec;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
-use proto::op::ResponseCode;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use crate::config::{ResolverConfig, ResolverOpts};
@@ -209,11 +209,9 @@ where
         let opts = self.options;
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
-        let stream_conns1 = Arc::clone(&self.stream_conns);
-        let stream_conns2 = Arc::clone(&self.stream_conns);
+        let stream_conns = Arc::clone(&self.stream_conns);
         // TODO: remove this clone, return the Message in the error?
-        let tcp_message1 = request.clone();
-        let tcp_message2 = request.clone();
+        let tcp_message = request.clone();
 
         // if it's a .local. query, then we *only* query mDNS, these should never be sent on to upstream resolvers
         #[cfg(feature = "mdns")]
@@ -233,30 +231,48 @@ where
         // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
 
-        debug!("sending request: {:?}", request.queries());
-        // First try the UDP connections
-        Box::pin(
-            Self::try_send(opts, datagram_conns, request)
-                .and_then(move |response| {
-                    // handling promotion from datagram to stream base on truncation in message
-                    if ResponseCode::NoError == response.response_code() && response.truncated() {
-                        // TCP connections should not truncate
-                        future::Either::Left(Self::try_send(opts, stream_conns1, tcp_message1))
-                    } else {
-                        debug!("mDNS responsed for query: {:?}", response.response_code());
-                        // Return the result from the UDP connection
-                        future::Either::Right(future::ok(response))
-                    }
-                })
-                // if UDP fails, try TCP but only if it has connections available
-                .or_else(move |e| {
-                    if stream_conns2.is_empty() {
-                        future::Either::Left(future::err(e))
-                    } else {
-                        future::Either::Right(Self::try_send(opts, stream_conns2, tcp_message2))
-                    }
-                }),
-        )
+        Box::pin(async move {
+            debug!("sending request: {:?}", request.queries());
+
+            // First try the UDP connections
+            let udp_res = Self::try_send(opts, datagram_conns, request).await;
+
+            let udp_res = match udp_res {
+                // handling promotion from datagram to stream base on truncation in message
+                Ok(response) if !response.truncated() => {
+                    return Ok(response);
+                }
+                Ok(response) => {
+                    debug!("truncated response received, continuing to TCP");
+                    Ok(response)
+                }
+                Err(e) => Err(e),
+            };
+
+            // no TCP connections available
+            if stream_conns.is_empty() {
+                return udp_res;
+            }
+
+            // UDP failed trying TCP connections
+            let tcp_res = Self::try_send(opts, stream_conns, tcp_message).await;
+
+            let tcp_err = match tcp_res {
+                res @ Ok(..) => return res,
+                Err(e) => e,
+            };
+
+            // Even if the UDP result was truncated, return that
+            let udp_err = match udp_res {
+                Ok(response) => return Ok(response),
+                Err(e) => e,
+            };
+
+            match udp_err.cmp_specificity(&tcp_err) {
+                Ordering::Greater => Err(udp_err),
+                _ => Err(tcp_err),
+            }
+        })
     }
 }
 
@@ -296,7 +312,10 @@ where
             Ok((sent, _)) => return Ok(sent),
             // consider a debug msg here
             Err(e) => {
-                err = e;
+                match err.cmp_specificity(&e) {
+                    Ordering::Greater => err = err,
+                    _ => err = e,
+                }
                 continue;
             }
         };
