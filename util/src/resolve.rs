@@ -39,16 +39,52 @@ struct Opts {
     #[structopt(long)]
     ipv4: bool,
 
-    /// Use ipv6 addresses only, default is both
+    /// Use ipv6 addresses only, default is both ipv4 and ipv6
     #[structopt(long)]
     ipv6: bool,
+
+    /// Enable debug and all logging
+    #[structopt(long)]
+    debug: bool,
+
+    /// Enable info + warning + error logging
+    #[structopt(long)]
+    info: bool,
+
+    /// Enable warning + error logging
+    #[structopt(long)]
+    warn: bool,
+
+    /// Enable error logging
+    #[structopt(long)]
+    error: bool,
 }
 
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::from_args();
-
     let term = Term::stdout();
+
+    let log_level = if opts.debug {
+        log::LevelFilter::Debug
+    } else if opts.info {
+        log::LevelFilter::Info
+    } else if opts.warn {
+        log::LevelFilter::Warn
+    } else if opts.error {
+        log::LevelFilter::Error
+    } else {
+        log::LevelFilter::Off
+    };
+
+    // enable logging early
+    env_logger::builder()
+        .filter_module("trust_dns_resolver", log_level)
+        .filter_module("trust_dns_proto", log_level)
+        .filter_module("trust_dns_proto", log_level)
+        .write_style(env_logger::WriteStyle::Auto)
+        .format_indent(Some(4))
+        .init();
 
     let name = &opts.domainname;
     let ty = opts.ty;
