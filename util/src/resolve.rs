@@ -70,13 +70,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ipv4 = opts.ipv4 || !opts.ipv6;
     let ipv6 = opts.ipv6 || !opts.ipv4;
 
-    if ipv4 {
-        name_servers.retain(|ns| ns.socket_addr.is_ipv4());
-    }
-
-    if ipv6 {
-        name_servers.retain(|ns| ns.socket_addr.is_ipv6());
-    }
+    name_servers
+        .retain(|ns| (ipv4 && ns.socket_addr.is_ipv4()) || (ipv6 && ns.socket_addr.is_ipv6()));
 
     let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
