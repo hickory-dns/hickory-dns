@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (proto) `data-encoding` is now a required dependency #1208
 - (all) minimum rustc version now `1.42`
 - (resolver) For all NxDomain and NoError/NoData responses, `ResolveErrorKind::NoRecordsFound` will be returned #1197
 - (server) Support for lowercase DNSClass and RecordType fields in zonefiles (@zhanif3) #1186
