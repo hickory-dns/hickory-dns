@@ -266,6 +266,29 @@ $ ./target/release/named -c ./tests/test-data/named_test_configs/example.toml -z
 $ dig @127.0.0.1 -p 24141 www.example.com
 ```
 
+## Using the trust-dns-resolver CLI
+
+Available in `0.20`
+
+```shell
+$ cargo install --bin resolve trust-dns-util
+```
+
+Or from source, in the trust-dns directory
+
+```shell
+$ cargo install --bin resolve --path util
+```
+
+example: 
+
+```shell
+$ resolve www.example.com.
+Querying for www.example.com. A from udp:8.8.8.8:53, tcp:8.8.8.8:53, udp:8.8.4.4:53, tcp:8.8.4.4:53, udp:[2001:4860:4860::8888]:53, tcp:[2001:4860:4860::8888]:53, udp:[2001:4860:4860::8844]:53, tcp:[2001:4860:4860::8844]:53
+Success for query name: www.example.com. type: A class: IN
+        www.example.com. 21063 IN A 93.184.216.34
+```
+
 ## Using as a dependency and custom features
 
 The Client has a few features which can be disabled for different reasons when embedding in other software.

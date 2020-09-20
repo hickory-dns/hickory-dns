@@ -33,6 +33,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (util) Add resolve.rs as CLI for trust-dns-resolver #1208
+- (proto) Added proper zone display to all RData as an impl of Display #1208
 - (proto) `xfer::dns_response::NegativeType` and `DnsResponse::negative_type` to classify negative response type #1197
 - (proto) `DnsResponse::contains_answer` to determine if a response message has data related to the query #1197
 - (proto) `RecordType::is_soa` and `RecordType::is_ns` to easily check for these types #1197
