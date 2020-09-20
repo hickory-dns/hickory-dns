@@ -7,24 +7,10 @@
 // copied, modified, or distributed except according to those terms.
 
 //! tlsa records for storing TLS authentication records
-use data_encoding::{Encoding, Specification};
-use lazy_static::lazy_static;
 
 use crate::error::*;
 use crate::rr::rdata::tlsa::CertUsage;
-use crate::rr::rdata::TLSA;
-
-// TODO: dedup with sshfp
-lazy_static! {
-    static ref HEX: Encoding = {
-        let mut spec = Specification::new();
-        spec.symbols.push_str("0123456789abcdef");
-        spec.ignore.push_str(" \t\r\n");
-        spec.translate.from.push_str("ABCDEF");
-        spec.translate.to.push_str("abcdef");
-        spec.encoding().expect("error in tlsa HEX encoding")
-    };
-}
+use crate::rr::rdata::{sshfp, TLSA};
 
 fn to_u8(data: &str) -> ParseResult<u8> {
     u8::from_str_radix(data, 10).map_err(ParseError::from)
@@ -77,7 +63,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
         cert_data.push_str(data);
         cert_data
     });
-    let cert_data = HEX.decode(cert_data.as_bytes())?;
+    let cert_data = sshfp::HEX.decode(cert_data.as_bytes())?;
 
     if !cert_data.is_empty() {
         Ok(TLSA::new(usage, selector, matching, cert_data))

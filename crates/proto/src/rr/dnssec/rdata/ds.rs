@@ -186,12 +186,6 @@ impl DS {
     }
 }
 
-impl Display for DS {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        write!(f, "DS(tag:{} alg:{})", self.key_tag, self.algorithm)
-    }
-}
-
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DS> {
     let start_idx = decoder.index();
@@ -221,6 +215,62 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> ProtoResult<()> {
     encoder.emit_vec(rdata.digest())?;
 
     Ok(())
+}
+
+/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.3)
+///
+/// ```text
+/// 5.3.  The DS RR Presentation Format
+///
+///    The presentation format of the RDATA portion is as follows:
+///
+///    The Key Tag field MUST be represented as an unsigned decimal integer.
+///
+///    The Algorithm field MUST be represented either as an unsigned decimal
+///    integer or as an algorithm mnemonic specified in Appendix A.1.
+///
+///    The Digest Type field MUST be represented as an unsigned decimal
+///    integer.
+///
+///    The Digest MUST be represented as a sequence of case-insensitive
+///    hexadecimal digits.  Whitespace is allowed within the hexadecimal
+///    text.
+///
+/// 5.4.  DS RR Example
+///
+///    The following example shows a DNSKEY RR and its corresponding DS RR.
+///
+///    dskey.example.com. 86400 IN DNSKEY 256 3 5 ( AQOeiiR0GOMYkDshWoSKz9Xz
+///                                              fwJr1AYtsmx3TGkJaNXVbfi/
+///                                              2pHm822aJ5iI9BMzNXxeYCmZ
+///                                              DRD99WYwYqUSdjMmmAphXdvx
+///                                              egXd/M5+X7OrzKBaMbCVdFLU
+///                                              Uh6DhweJBjEVv5f2wwjM9Xzc
+///                                              nOf+EPbtG9DMBmADjFDc2w/r
+///                                              ljwvFw==
+///                                              ) ;  key id = 60485
+///
+///    dskey.example.com. 86400 IN DS 60485 5 1 ( 2BB183AF5F22588179A53B0A
+///                                               98631FAD1A292118 )
+///
+///    The first four text fields specify the name, TTL, Class, and RR type
+///    (DS).  Value 60485 is the key tag for the corresponding
+///    "dskey.example.com." DNSKEY RR, and value 5 denotes the algorithm
+///    used by this "dskey.example.com." DNSKEY RR.  The value 1 is the
+///    algorithm used to construct the digest, and the rest of the RDATA
+///    text is the digest in hexadecimal.
+/// ```
+impl Display for DS {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{tag} {alg} {ty} {digest}",
+            tag = self.key_tag,
+            alg = self.algorithm,
+            ty = u8::from(self.digest_type),
+            digest = data_encoding::HEXUPPER_PERMISSIVE.encode(&self.digest)
+        )
+    }
 }
 
 #[cfg(test)]

@@ -16,7 +16,7 @@
 
 //! public key record data for signing zone records
 
-use std::fmt::{self, Display, Formatter};
+use std::fmt;
 
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, Digest, DigestType};
@@ -191,6 +191,22 @@ impl DNSKEY {
         &self.public_key
     }
 
+    /// Output the encoded form of the flags
+    pub fn flags(&self) -> u16 {
+        let mut flags: u16 = 0;
+        if self.zone_key() {
+            flags |= 0b0000_0001_0000_0000
+        }
+        if self.secure_entry_point() {
+            flags |= 0b0000_0000_0000_0001
+        }
+        if self.revoke() {
+            flags |= 0b0000_0000_1000_0000
+        }
+
+        flags
+    }
+
     /// Creates a message digest for this DNSKEY record.
     ///
     /// ```text
@@ -244,7 +260,7 @@ impl DNSKEY {
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
-    /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// RFC 2535                DNS Security Extensions               March 1999
@@ -324,20 +340,6 @@ impl From<DNSKEY> for RData {
     }
 }
 
-impl Display for DNSKEY {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-        // this should never really fail
-        let tag = self.calculate_key_tag().unwrap_or(0);
-        let len: usize = self.public_key.iter().map(|_: &u8| 8).sum();
-
-        write!(
-            f,
-            "DNSKEY(alg:{} tag:{} len:{} zk:{} scp:{})",
-            self.algorithm, tag, len, self.zone_key, self.secure_entry_point
-        )
-    }
-}
-
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DNSKEY> {
     let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
@@ -388,22 +390,65 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
-    let mut flags: u16 = 0;
-    if rdata.zone_key() {
-        flags |= 0b0000_0001_0000_0000
-    }
-    if rdata.secure_entry_point() {
-        flags |= 0b0000_0000_0000_0001
-    }
-    if rdata.revoke() {
-        flags |= 0b0000_0000_1000_0000
-    }
-    encoder.emit_u16(flags)?;
+    encoder.emit_u16(rdata.flags())?;
     encoder.emit(3)?; // always 3 for now
     rdata.algorithm().emit(encoder)?;
     encoder.emit_vec(rdata.public_key())?;
 
     Ok(())
+}
+
+/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.2)
+///
+/// ```text
+/// 2.2.  The DNSKEY RR Presentation Format
+///
+///    The presentation format of the RDATA portion is as follows:
+///
+///    The Flag field MUST be represented as an unsigned decimal integer.
+///    Given the currently defined flags, the possible values are: 0, 256,
+///    and 257.
+///
+///    The Protocol Field MUST be represented as an unsigned decimal integer
+///    with a value of 3.
+///
+///    The Algorithm field MUST be represented either as an unsigned decimal
+///    integer or as an algorithm mnemonic as specified in Appendix A.1.
+///
+///    The Public Key field MUST be represented as a Base64 encoding of the
+///    Public Key.  Whitespace is allowed within the Base64 text.  For a
+///    definition of Base64 encoding, see [RFC3548].
+///
+/// 2.3.  DNSKEY RR Example
+///
+///    The following DNSKEY RR stores a DNS zone key for example.com.
+///
+///    example.com. 86400 IN DNSKEY 256 3 5 ( AQPSKmynfzW4kyBv015MUG2DeIQ3
+///                                           Cbl+BBZH4b/0PY1kxkmvHjcZc8no
+///                                           kfzj31GajIQKY+5CptLr3buXA10h
+///                                           WqTkF7H6RfoRqXQeogmMHfpftf6z
+///                                           Mv1LyBUgia7za6ZEzOJBOztyvhjL
+///                                           742iU/TpPSEDhm2SNKLijfUppn1U
+///                                           aNvv4w==  )
+///
+///    The first four text fields specify the owner name, TTL, Class, and RR
+///    type (DNSKEY).  Value 256 indicates that the Zone Key bit (bit 7) in
+///    the Flags field has value 1.  Value 3 is the fixed Protocol value.
+///    Value 5 indicates the public key algorithm.  Appendix A.1 identifies
+///    algorithm type 5 as RSA/SHA1 and indicates that the format of the
+///    RSA/SHA1 public key field is defined in [RFC3110].  The remaining
+///    text is a Base64 encoding of the public key.
+/// ```
+impl fmt::Display for DNSKEY {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{flags} 3 {alg} {key}",
+            flags = self.flags(),
+            alg = self.algorithm,
+            key = data_encoding::BASE64.encode(&self.public_key)
+        )
+    }
 }
 
 #[cfg(test)]

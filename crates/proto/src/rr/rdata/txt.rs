@@ -15,7 +15,7 @@
  */
 
 //! text records for storing arbitrary data
-
+use std::fmt;
 use std::slice::Iter;
 
 use crate::error::*;
@@ -117,6 +117,16 @@ pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> ProtoResult<()> {
     }
 
     Ok(())
+}
+
+impl fmt::Display for TXT {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        for txt in self.txt_data.iter() {
+            f.write_str(&String::from_utf8_lossy(txt))?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

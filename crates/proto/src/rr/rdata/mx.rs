@@ -16,6 +16,8 @@
 
 //! mail exchange, email, record
 
+use std::fmt;
+
 use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
@@ -113,6 +115,47 @@ pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
     mx.exchange()
         .emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
+}
+
+/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+
+/// ```text
+///   MX (Mail Exchanger)  (See RFC-974 for more details.)
+///
+///           <name>   [<ttl>] [<class>]   MX   <preference>   <host>
+///
+///   MX records specify where mail for a domain name should be delivered.
+///   There may be multiple MX records for a particular name.  The
+///   preference value specifies the order a mailer should try multiple MX
+///   records when delivering mail.  Zero is the highest preference.
+///   Multiple records for the same name may have the same preference.
+///
+///   A host BAR.FOO.COM may want its mail to be delivered to the host
+///   PO.FOO.COM and would then use the MX record:
+///
+///           BAR.FOO.COM.    MX      10      PO.FOO.COM.
+///
+///   A host BAZ.FOO.COM may want its mail to be delivered to one of three
+///   different machines, in the following order:
+///
+///           BAZ.FOO.COM.    MX      10      PO1.FOO.COM.
+///                           MX      20      PO2.FOO.COM.
+///                           MX      30      PO3.FOO.COM.
+///
+///   An entire domain of hosts not connected to the Internet may want
+///   their mail to go through a mail gateway that knows how to deliver
+///   mail to them.  If they would like mail addressed to any host in the
+///   domain FOO.COM to go through the mail gateway they might use:
+///
+///           FOO.COM.        MX       10     RELAY.CS.NET.
+///           *.FOO.COM.      MX       20     RELAY.CS.NET.
+///
+///   Note that you can specify a wildcard in the MX record to match on
+///   anything in FOO.COM, but that it won't match a plain FOO.COM.
+impl fmt::Display for MX {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{pref} {ex}", pref = self.preference, ex = self.exchange)
+    }
 }
 
 #[cfg(test)]

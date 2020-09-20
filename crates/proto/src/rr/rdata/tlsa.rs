@@ -6,6 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 //! TLSA records for storing TLS certificate validation information
+use std::fmt;
+
+use super::sshfp;
 
 use crate::error::*;
 use crate::serialize::binary::*;
@@ -368,6 +371,67 @@ pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) -> ProtoResult<()> {
     encoder.emit_u8(tlsa.matching.into())?;
     encoder.emit_vec(&tlsa.cert_data)?;
     Ok(())
+}
+
+/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
+///
+/// ```text
+/// 2.2.  TLSA RR Presentation Format
+///
+///   The presentation format of the RDATA portion (as defined in
+///   [RFC1035]) is as follows:
+///
+///   o  The certificate usage field MUST be represented as an 8-bit
+///      unsigned integer.
+///
+///   o  The selector field MUST be represented as an 8-bit unsigned
+///      integer.
+///
+///   o  The matching type field MUST be represented as an 8-bit unsigned
+///      integer.
+///
+///   o  The certificate association data field MUST be represented as a
+///      string of hexadecimal characters.  Whitespace is allowed within
+///      the string of hexadecimal characters, as described in [RFC1035].
+///
+/// 2.3.  TLSA RR Examples
+///
+///    In the following examples, the domain name is formed using the rules
+///    in Section 3.
+///
+///    An example of a hashed (SHA-256) association of a PKIX CA
+///    certificate:
+///
+///    _443._tcp.www.example.com. IN TLSA (
+///       0 0 1 d2abde240d7cd3ee6b4b28c54df034b9
+///             7983a1d16e8a410e4561cb106618e971 )
+///
+///    An example of a hashed (SHA-512) subject public key association of a
+///    PKIX end entity certificate:
+///
+///    _443._tcp.www.example.com. IN TLSA (
+///       1 1 2 92003ba34942dc74152e2f2c408d29ec
+///             a5a520e7f2e06bb944f4dca346baf63c
+///             1b177615d466f6c4b71c216a50292bd5
+///             8c9ebdd2f74e38fe51ffd48c43326cbc )
+///
+///    An example of a full certificate association of a PKIX end entity
+///    certificate:
+///
+///    _443._tcp.www.example.com. IN TLSA (
+///       3 0 0 30820307308201efa003020102020... )
+/// ```
+impl fmt::Display for TLSA {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{usage} {selector} {matching} {cert}",
+            usage = u8::from(self.cert_usage),
+            selector = u8::from(self.selector),
+            matching = u8::from(self.matching),
+            cert = sshfp::HEX.encode(&self.cert_data),
+        )
+    }
 }
 
 #[cfg(test)]

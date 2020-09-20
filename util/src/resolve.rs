@@ -7,7 +7,7 @@
 
 use std::net::SocketAddr;
 
-use console::Term;
+use console::style;
 use structopt::StructOpt;
 
 use trust_dns_resolver::config::{
@@ -25,6 +25,14 @@ struct Opts {
     /// Type of query to issue, e.g. A, AAAA, NS, etc.
     #[structopt(short = "t", long = "type", default_value = "A")]
     ty: RecordType,
+
+    /// Happy eye balls lookup, ipv4 and ipv6
+    #[structopt(short = "e", long = "happy", conflicts_with("ty"))]
+    happy: bool,
+
+    /// Use system configuration, e.g. /etc/resolv.conf, instead of defaults
+    #[structopt(short = "s", long = "system")]
+    system: bool,
 
     /// Use google resolvers, default
     #[structopt(long)]
@@ -78,7 +86,6 @@ struct Opts {
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::from_args();
-    let term = Term::stdout();
 
     // enable logging early
     let log_level = if opts.debug {
@@ -102,8 +109,14 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .format_indent(Some(4))
         .init();
 
-    let name = &opts.domainname;
-    let ty = opts.ty;
+    // read system configuration
+    let (sys_config, sys_options): (Option<ResolverConfig>, Option<ResolverOpts>) = if opts.system {
+        let (config, options) = trust_dns_resolver::system_conf::read_system_conf()?;
+
+        (Some(config), Some(options))
+    } else {
+        (None, None)
+    };
 
     // Configure all the name servers
     let mut name_servers = NameServerConfigGroup::new();
@@ -131,7 +144,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if opts.quad9 {
         name_servers.merge(NameServerConfigGroup::quad9());
     }
-    if name_servers.is_empty() {
+    if name_servers.is_empty() && sys_config.is_none() {
         name_servers.merge(NameServerConfigGroup::google());
     }
 
@@ -147,7 +160,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (udp && ns.protocol == Protocol::Udp) || (tcp && ns.protocol == Protocol::Tcp)
     });
 
-    let config = ResolverConfig::from_parts(None, vec![], name_servers);
+    let mut config = sys_config.unwrap_or_else(ResolverConfig::new);
+
+    for ns in name_servers.iter() {
+        config.add_name_server(ns.clone());
+    }
 
     let name_servers = config.name_servers().iter().map(|n| format!("{}", n)).fold(
         String::new(),
@@ -161,21 +178,52 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     );
 
-    term.write_line(&format!(
-        "Querying for {} {} from {}",
-        name, ty, name_servers
-    ))?;
+    // query parameters
+    let name = &opts.domainname;
+    let ty = opts.ty;
 
-    let resolver = TokioAsyncResolver::tokio(config, ResolverOpts::default())?;
+    // configure the resolver options
+    let mut options = sys_options.unwrap_or_default();
+    if opts.happy {
+        options.ip_strategy = trust_dns_resolver::config::LookupIpStrategy::Ipv4AndIpv6;
+    }
 
-    let lookup = resolver
-        .lookup(name.to_string(), ty, Default::default())
-        .await?;
+    let resolver = TokioAsyncResolver::tokio(config, options)?;
 
-    term.write_line(&format!("{:?} success, records:", lookup.query()))?;
+    // execute query
+    println!(
+        "Querying for {name} {ty} from {ns}",
+        name = style(name).yellow(),
+        ty = style(ty).yellow(),
+        ns = style(name_servers).blue()
+    );
 
-    for record in lookup.record_iter() {
-        term.write_line(&format!("{:?}", record))?;
+    let lookup = if opts.happy {
+        let lookup = resolver.lookup_ip(name.to_string()).await?;
+
+        lookup.into()
+    } else {
+        resolver
+            .lookup(name.to_string(), ty, Default::default())
+            .await?
+    };
+
+    // report response, TODO: better display of errors
+    println!(
+        "{} for query {}",
+        style("Success").green(),
+        style(lookup.query()).blue()
+    );
+
+    for r in lookup.record_iter() {
+        println!(
+            "\t{name} {ttl} {class} {ty} {rdata}",
+            name = style(r.name()).blue(),
+            ttl = style(r.ttl()).blue(),
+            class = style(r.dns_class()).blue(),
+            ty = style(r.record_type()).blue(),
+            rdata = style(r.rdata()).yellow()
+        );
     }
 
     Ok(())

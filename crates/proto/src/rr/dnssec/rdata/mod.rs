@@ -16,6 +16,8 @@
 
 //! All record data structures and related serialization methods
 
+use std::fmt;
+
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
@@ -563,6 +565,25 @@ impl DNSSECRData {
             DNSSECRData::NSEC3PARAM(..) => DNSSECRecordType::NSEC3PARAM,
             DNSSECRData::SIG(..) => DNSSECRecordType::SIG,
             DNSSECRData::Unknown { code, .. } => DNSSECRecordType::Unknown(code),
+        }
+    }
+}
+
+impl fmt::Display for DNSSECRData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        fn w<D: fmt::Display>(f: &mut fmt::Formatter, d: D) -> Result<(), fmt::Error> {
+            write!(f, "{rdata}", rdata = d)
+        };
+
+        match self {
+            DNSSECRData::DS(ds) => w(f, ds),
+            DNSSECRData::KEY(key) => w(f, key),
+            DNSSECRData::DNSKEY(key) => w(f, key),
+            DNSSECRData::NSEC(nsec) => w(f, nsec),
+            DNSSECRData::NSEC3(nsec3) => w(f, nsec3),
+            DNSSECRData::NSEC3PARAM(nsec3param) => w(f, nsec3param),
+            DNSSECRData::SIG(sig) => w(f, sig),
+            DNSSECRData::Unknown { rdata, .. } => w(f, rdata),
         }
     }
 }

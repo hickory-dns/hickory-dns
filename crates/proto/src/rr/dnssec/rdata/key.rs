@@ -15,6 +15,7 @@
  */
 
 //! public key record data for signing zone records
+use std::fmt;
 
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
@@ -722,6 +723,16 @@ impl KEY {
         &self.public_key
     }
 
+    /// Output the encoded form of the flags
+    pub fn flags(&self) -> u16 {
+        let mut flags: u16 = 0;
+        flags |= u16::from(self.key_trust);
+        flags |= u16::from(self.key_usage);
+        flags |= u16::from(self.signatory);
+
+        flags
+    }
+
     // /// Creates a message digest for this KEY record.
     // ///
     // /// ```text
@@ -820,17 +831,89 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> ProtoResult<()> {
-    let mut flags: u16 = 0;
-    flags |= u16::from(rdata.key_trust);
-    flags |= u16::from(rdata.key_usage);
-    flags |= u16::from(rdata.signatory);
-
-    encoder.emit_u16(flags)?;
+    encoder.emit_u16(rdata.flags())?;
     encoder.emit(u8::from(rdata.protocol))?;
     rdata.algorithm().emit(encoder)?;
     encoder.emit_vec(rdata.public_key())?;
 
     Ok(())
+}
+
+/// Note that KEY is a deprecated type in DNS
+///
+/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.1), Domain Name System Security Extensions, March 1999
+///
+/// ```text
+/// 7.1 Presentation of KEY RRs
+///
+///    KEY RRs may appear as single logical lines in a zone data master file
+///    [RFC 1033].
+///
+///    The flag field is represented as an unsigned integer or a sequence of
+///    mnemonics as follows separated by instances of the verticle bar ("|")
+///    character:
+///
+///      BIT  Mnemonic  Explanation
+///     0-1           key type
+///         NOCONF    =1 confidentiality use prohibited
+///         NOAUTH    =2 authentication use prohibited
+///         NOKEY     =3 no key present
+///     2   FLAG2     - reserved
+///     3   EXTEND    flags extension
+///     4   FLAG4     - reserved
+///     5   FLAG5     - reserved
+///     6-7           name type
+///         USER      =0 (default, may be omitted)
+///         ZONE      =1
+///         HOST      =2 (host or other end entity)
+///         NTYP3     - reserved
+///     8   FLAG8     - reserved
+///     9   FLAG9     - reserved
+///    10   FLAG10    - reserved
+///    11   FLAG11    - reserved
+///    12-15          signatory field, values 0 to 15
+///             can be represented by SIG0, SIG1, ... SIG15
+///
+///    No flag mnemonic need be present if the bit or field it represents is
+///    zero.
+///
+///    The protocol octet can be represented as either an unsigned integer
+///    or symbolicly.  The following initial symbols are defined:
+///
+///         000    NONE
+///         001    TLS
+///         002    EMAIL
+///         003    DNSSEC
+///         004    IPSEC
+///         255    ALL
+///
+///    Note that if the type flags field has the NOKEY value, nothing
+///    appears after the algorithm octet.
+///
+///    The remaining public key portion is represented in base 64 (see
+///    Appendix A) and may be divided up into any number of white space
+///    separated substrings, down to single base 64 digits, which are
+///    concatenated to obtain the full signature.  These substrings can span
+///    lines using the standard parenthesis.
+///
+///    Note that the public key may have internal sub-fields but these do
+///    not appear in the master file representation.  For example, with
+///    algorithm 1 there is a public exponent size, then a public exponent,
+///    and then a modulus.  With algorithm 254, there will be an OID size,
+///    an OID, and algorithm dependent information. But in both cases only a
+///    single logical base 64 string will appear in the master file.
+/// ```
+impl fmt::Display for KEY {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{flags} {proto} {alg} {key}",
+            flags = self.flags(),
+            proto = u8::from(self.protocol),
+            alg = self.algorithm,
+            key = data_encoding::BASE64.encode(&self.public_key)
+        )
+    }
 }
 
 #[cfg(test)]

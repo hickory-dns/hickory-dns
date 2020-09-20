@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! OPENPGPKEY records for OpenPGP public keys
+use std::fmt;
 
 use crate::error::*;
 use crate::serialize::binary::*;
@@ -51,6 +52,24 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 /// Write the RData using the given encoder
 pub fn emit(encoder: &mut BinEncoder, openpgpkey: &OPENPGPKEY) -> ProtoResult<()> {
     encoder.emit_vec(openpgpkey.public_key())
+}
+
+/// Parse the RData from a set of tokens.
+///
+/// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.3)
+///
+/// ```text
+/// 2.3.  The OPENPGPKEY RDATA Presentation Format
+///
+///    The RDATA Presentation Format, as visible in Zone Files [RFC1035],
+///    consists of a single OpenPGP Transferable Public Key as defined in
+///    Section 11.1 of [RFC4880] encoded in base64 as defined in Section 4
+///    of [RFC4648].
+/// ```
+impl fmt::Display for OPENPGPKEY {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_str(&data_encoding::BASE64.encode(&self.public_key))
+    }
 }
 
 // TODO test
