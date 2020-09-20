@@ -15,6 +15,7 @@
  */
 
 //! negative cache proof for non-existence
+use std::fmt;
 
 use super::nsec3;
 use crate::error::*;
@@ -22,7 +23,7 @@ use crate::rr::dnssec::rdata::DNSSECRecordType;
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::*;
 
-/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4)
+/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4), DNSSEC Resource Records, March 2005
 ///
 /// ```text
 /// 4.1.  NSEC RDATA Wire Format
@@ -88,7 +89,7 @@ impl NSEC {
         Self::new(next_domain_name, type_bit_maps)
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4.1.1)
+    /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4.1.1), DNSSEC Resource Records, March 2005
     ///
     /// ```text
     /// 4.1.1.  The Next Domain Name Field
@@ -159,6 +160,51 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
         rdata.next_domain_name().emit(encoder)?;
         nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())
     })
+}
+
+/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4.2), DNSSEC Resource Records, March 2005
+///
+/// ```text
+/// 4.2.  The NSEC RR Presentation Format
+///
+///    The presentation format of the RDATA portion is as follows:
+///
+///    The Next Domain Name field is represented as a domain name.
+///
+///    The Type Bit Maps field is represented as a sequence of RR type
+///    mnemonics.  When the mnemonic is not known, the TYPE representation
+///    described in [RFC3597], Section 5, MUST be used.
+///
+/// 4.3.  NSEC RR Example
+///
+///    The following NSEC RR identifies the RRsets associated with
+///    alfa.example.com. and identifies the next authoritative name after
+///    alfa.example.com.
+///
+///    alfa.example.com. 86400 IN NSEC host.example.com. (
+///                                    A MX RRSIG NSEC TYPE1234 )
+///
+///    The first four text fields specify the name, TTL, Class, and RR type
+///    (NSEC).  The entry host.example.com. is the next authoritative name
+///    after alfa.example.com. in canonical order.  The A, MX, RRSIG, NSEC,
+///    and TYPE1234 mnemonics indicate that there are A, MX, RRSIG, NSEC,
+///    and TYPE1234 RRsets associated with the name alfa.example.com.
+///
+///    Assuming that the validator can authenticate this NSEC record, it
+///    could be used to prove that beta.example.com does not exist, or to
+///    prove that there is no AAAA record associated with alfa.example.com.
+///    Authenticated denial of existence is discussed in [RFC4035].
+/// ```
+impl fmt::Display for NSEC {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{}", self.next_domain_name)?;
+
+        for ty in &self.type_bit_maps {
+            write!(f, " {}", ty)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

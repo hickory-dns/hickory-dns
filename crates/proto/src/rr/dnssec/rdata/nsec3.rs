@@ -15,15 +15,15 @@
  */
 
 //! hashed negative cache proof for non-existence
-
 use std::collections::BTreeMap;
+use std::fmt;
 
 use crate::error::*;
 use crate::rr::dnssec::Nsec3HashAlgorithm;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
 
-/// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3)
+/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3), NSEC3, March 2008
 ///
 /// ```text
 /// 3.  The NSEC3 Resource Record
@@ -138,7 +138,7 @@ impl NSEC3 {
         }
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.1)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.1), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.1.  Hash Algorithm
@@ -153,7 +153,7 @@ impl NSEC3 {
         self.hash_algorithm
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.2)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.2), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.2.  Flags
@@ -178,7 +178,7 @@ impl NSEC3 {
         self.opt_out
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.3)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.3), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.3.  Iterations
@@ -194,7 +194,7 @@ impl NSEC3 {
         self.iterations
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.5)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.5), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.5.  Salt
@@ -207,7 +207,7 @@ impl NSEC3 {
         &self.salt
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.7)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.7), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.7.  Next Hashed Owner Name
@@ -226,7 +226,7 @@ impl NSEC3 {
         &self.next_hashed_owner_name
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.8)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.8), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.8.  Type Bit Maps
@@ -236,6 +236,15 @@ impl NSEC3 {
     /// ```
     pub fn type_bit_maps(&self) -> &[RecordType] {
         &self.type_bit_maps
+    }
+
+    /// Flags for encoding
+    pub fn flags(&self) -> u8 {
+        let mut flags: u8 = 0;
+        if self.opt_out {
+            flags |= 0b0000_0001
+        };
+        flags
     }
 }
 
@@ -430,11 +439,7 @@ enum BitMapReadState {
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
     encoder.emit(rdata.hash_algorithm().into())?;
-    let mut flags: u8 = 0;
-    if rdata.opt_out() {
-        flags |= 0b0000_0001
-    };
-    encoder.emit(flags)?;
+    encoder.emit(rdata.flags())?;
     encoder.emit_u16(rdata.iterations())?;
     encoder.emit(rdata.salt().len() as u8)?;
     encoder.emit_vec(rdata.salt())?;
@@ -489,6 +494,65 @@ pub(crate) fn encode_bit_maps(
     }
 
     Ok(())
+}
+
+/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.3), NSEC3, March 2008
+///
+/// ```text
+/// 3.3.  Presentation Format
+///
+///    The presentation format of the RDATA portion is as follows:
+///
+///    o  The Hash Algorithm field is represented as an unsigned decimal
+///       integer.  The value has a maximum of 255.
+///
+///    o  The Flags field is represented as an unsigned decimal integer.
+///       The value has a maximum of 255.
+///
+///    o  The Iterations field is represented as an unsigned decimal
+///       integer.  The value is between 0 and 65535, inclusive.
+///
+///    o  The Salt Length field is not represented.
+///
+///    o  The Salt field is represented as a sequence of case-insensitive
+///       hexadecimal digits.  Whitespace is not allowed within the
+///       sequence.  The Salt field is represented as "-" (without the
+///       quotes) when the Salt Length field has a value of 0.
+///
+///    o  The Hash Length field is not represented.
+///
+///    o  The Next Hashed Owner Name field is represented as an unpadded
+///       sequence of case-insensitive base32 digits, without whitespace.
+///
+///    o  The Type Bit Maps field is represented as a sequence of RR type
+///       mnemonics.  When the mnemonic is not known, the TYPE
+///       representation as described in Section 5 of [RFC3597] MUST be
+///       used.
+/// ```
+impl fmt::Display for NSEC3 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let salt = if self.salt.is_empty() {
+            "-".to_string()
+        } else {
+            data_encoding::HEXUPPER_PERMISSIVE.encode(&self.salt)
+        };
+
+        write!(
+            f,
+            "{alg} {flags} {iterations} {salt} {owner}",
+            alg = u8::from(self.hash_algorithm),
+            flags = self.flags(),
+            iterations = self.iterations,
+            salt = salt,
+            owner = data_encoding::BASE32_NOPAD.encode(&self.next_hashed_owner_name)
+        )?;
+
+        for ty in &self.type_bit_maps {
+            write!(f, " {}", ty)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

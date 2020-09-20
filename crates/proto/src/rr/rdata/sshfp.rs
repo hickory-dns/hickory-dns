@@ -6,9 +6,25 @@
 // copied, modified, or distributed except according to those terms.
 
 //! SSHFP records for SSH public key fingerprints
+use std::fmt;
+
+use data_encoding::{Encoding, Specification};
+use lazy_static::lazy_static;
 
 use crate::error::*;
 use crate::serialize::binary::*;
+
+lazy_static! {
+    /// HEX formatting specific to TLSA and SSHFP encodings
+    pub static ref HEX: Encoding = {
+        let mut spec = Specification::new();
+        spec.symbols.push_str("0123456789abcdef");
+        spec.ignore.push_str(" \t\r\n");
+        spec.translate.from.push_str("ABCDEF");
+        spec.translate.to.push_str("abcdef");
+        spec.encoding().expect("error in sshfp HEX encoding")
+    };
+}
 
 /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
 ///
@@ -220,6 +236,31 @@ pub fn emit(encoder: &mut BinEncoder, sshfp: &SSHFP) -> ProtoResult<()> {
     encoder.emit_u8(sshfp.algorithm().into())?;
     encoder.emit_u8(sshfp.fingerprint_type().into())?;
     encoder.emit_vec(sshfp.fingerprint())
+}
+
+/// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.2)
+///
+/// ```text
+/// 3.2.  Presentation Format of the SSHFP RR
+///
+///    The RDATA of the presentation format of the SSHFP resource record
+///    consists of two numbers (algorithm and fingerprint type) followed by
+///    the fingerprint itself, presented in hex, e.g.:
+///
+///        host.example.  SSHFP 2 1 123456789abcdef67890123456789abcdef67890
+///
+///    The use of mnemonics instead of numbers is not allowed.
+/// ```
+impl fmt::Display for SSHFP {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{algorithm} {ty} {fingerprint}",
+            algorithm = u8::from(self.algorithm),
+            ty = u8::from(self.fingerprint_type),
+            fingerprint = HEX.encode(&self.fingerprint),
+        )
+    }
 }
 
 #[cfg(test)]

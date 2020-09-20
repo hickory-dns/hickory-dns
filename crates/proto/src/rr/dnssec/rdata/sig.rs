@@ -15,13 +15,14 @@
  */
 
 //! signature record for signing queries, updates, and responses
+use std::fmt;
 
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::*;
 
-/// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
+/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4), Domain Name System Security Extensions, March 1999
 ///
 /// NOTE: RFC 2535 was obsoleted with 4034+, with the exception of the
 ///  usage for UPDATE, which is what this implementation is for.
@@ -260,7 +261,7 @@ impl SIG {
         }
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.1)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.1), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.1 Type Covered Field
@@ -271,7 +272,7 @@ impl SIG {
         self.type_covered
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.2)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.2), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.2 Algorithm Number Field
@@ -282,7 +283,7 @@ impl SIG {
         self.algorithm
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.3)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.3), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.3 Labels Field
@@ -318,7 +319,7 @@ impl SIG {
         self.num_labels
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.4)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.4), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.4 Original TTL Field
@@ -339,7 +340,7 @@ impl SIG {
         self.original_ttl
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.5)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.5), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.5 Signature Expiration and Inception Fields
@@ -377,7 +378,7 @@ impl SIG {
         self.sig_inception
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.6)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.6), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.6 Key Tag Field
@@ -397,7 +398,7 @@ impl SIG {
         self.key_tag
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.7)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.7), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.7 Signer's Name Field
@@ -415,7 +416,7 @@ impl SIG {
         &self.signer_name
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.8)
+    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.8), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.8 Signature Field
@@ -543,6 +544,66 @@ pub fn emit_pre_sig(
     encoder.emit_u16(key_tag)?;
     signer_name.emit_as_canonical(encoder, true)?;
     Ok(())
+}
+
+/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.2), Domain Name System Security Extensions, March 1999
+///
+/// ```text
+/// 7.2 Presentation of SIG RRs
+///
+///    A data SIG RR may be represented as a single logical line in a zone
+///    data file [RFC 1033] but there are some special considerations as
+///    described below.  (It does not make sense to include a transaction or
+///    request authenticating SIG RR in a file as they are a transient
+///    authentication that covers data including an ephemeral transaction
+///    number and so must be calculated in real time.)
+///
+///    There is no particular problem with the signer, covered type, and
+///    times.  The time fields appears in the form YYYYMMDDHHMMSS where YYYY
+///    is the year, the first MM is the month number (01-12), DD is the day
+///    of the month (01-31), HH is the hour in 24 hours notation (00-23),
+///    the second MM is the minute (00-59), and SS is the second (00-59).
+///
+///    The original TTL field appears as an unsigned integer.
+///
+///    If the original TTL, which applies to the type signed, is the same as
+///    the TTL of the SIG RR itself, it may be omitted.  The date field
+///    which follows it is larger than the maximum possible TTL so there is
+///    no ambiguity.
+///
+///    The "labels" field appears as an unsigned integer.
+///
+///    The key tag appears as an unsigned number.
+///
+///    However, the signature itself can be very long.  It is the last data
+///    field and is represented in base 64 (see Appendix A) and may be
+///    divided up into any number of white space separated substrings, down
+///    to single base 64 digits, which are concatenated to obtain the full
+///    signature.  These substrings can be split between lines using the
+///    standard parenthesis.
+///
+///   foo.nil.    SIG NXT 1 2 ( ;type-cov=NXT, alg=1, labels=2
+///     19970102030405 ;signature expiration
+///     19961211100908 ;signature inception
+///     2143           ;key identifier
+///     foo.nil.       ;signer
+///     AIYADP8d3zYNyQwW2EM4wXVFdslEJcUx/fxkfBeH1El4ixPFhpfHFElxbvKoWmvjDTCm
+///     fiYy2X+8XpFjwICHc398kzWsTMKlxovpz2FnCTM= ;signature (640 bits)
+/// ```
+impl fmt::Display for SIG {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(f, "{ty_covered} {alg} {num_labels} {original_ttl} {expire} {inception} {tag} {signer} {sig}",
+            ty_covered = self.type_covered,
+            alg = self.algorithm,
+            num_labels = self.num_labels,
+            original_ttl = self.original_ttl,
+            expire = self.sig_expiration,
+            inception = self.sig_inception,
+            tag = self.key_tag,
+            signer = self.signer_name,
+            sig = data_encoding::BASE64.encode(&self.sig)
+        )
+    }
 }
 
 #[cfg(test)]

@@ -6,22 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 //! SSHFP records for SSH public key fingerprints
-use data_encoding::{Encoding, Specification};
-use lazy_static::lazy_static;
 
 use crate::error::*;
-use crate::rr::rdata::SSHFP;
-
-lazy_static! {
-    static ref HEX: Encoding = {
-        let mut spec = Specification::new();
-        spec.symbols.push_str("0123456789abcdef");
-        spec.ignore.push_str(" \t\r\n");
-        spec.translate.from.push_str("ABCDEF");
-        spec.translate.to.push_str("abcdef");
-        spec.encoding().expect("error in sshfp HEX encoding")
-    };
-}
+use crate::rr::rdata::{sshfp, SSHFP};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -54,7 +41,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<SSHF
             parse_u8("fingerprint type")?.into(),
         )
     };
-    let fingerprint = HEX.decode(
+    let fingerprint = sshfp::HEX.decode(
         tokens
             .next()
             .filter(|fp| !fp.is_empty())

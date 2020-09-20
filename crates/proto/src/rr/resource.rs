@@ -17,6 +17,7 @@
 //! resource record implementation
 
 use std::cmp::Ordering;
+use std::fmt;
 
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;
@@ -393,6 +394,62 @@ impl<'r> BinDecodable<'r> for Record {
             #[cfg(feature = "mdns")]
             mdns_cache_flush,
         })
+    }
+}
+
+/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+///
+/// ```text
+///   RESOURCE RECORDS
+///
+///   Records in the zone data files are called resource records (RRs).
+///   They are specified in RFC-883 and RFC-973.  An RR has a standard
+///   format as shown:
+///
+///           <name>   [<ttl>]   [<class>]   <type>   <data>
+///
+///   The record is divided into fields which are separated by white space.
+///
+///      <name>
+///
+///         The name field defines what domain name applies to the given
+///         RR.  In some cases the name field can be left blank and it will
+///         default to the name field of the previous RR.
+///
+///      <ttl>
+///
+///         TTL stands for Time To Live.  It specifies how long a domain
+///         resolver should cache the RR before it throws it out and asks a
+///         domain server again.  See the section on TTL's.  If you leave
+///         the TTL field blank it will default to the minimum time
+///         specified in the SOA record (described later).
+///
+///      <class>
+///
+///         The class field specifies the protocol group.  If left blank it
+///         will default to the last class specified.
+///
+///      <type>
+///
+///         The type field specifies what type of data is in the RR.  See
+///         the section on types.
+///
+///      <data>
+///
+///         The data field is defined differently for each type and class
+///         of data.  Popular RR data formats are described later.
+/// ```
+impl fmt::Display for Record {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{name} {ttl} {class} {ty} {rdata}",
+            name = self.name_labels,
+            ttl = self.ttl,
+            class = self.dns_class,
+            ty = self.rr_type,
+            rdata = self.rdata
+        )
     }
 }
 

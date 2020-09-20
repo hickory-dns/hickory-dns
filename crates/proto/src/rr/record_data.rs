@@ -19,6 +19,7 @@
 use std::cmp::Ordering;
 #[cfg(test)]
 use std::convert::From;
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use enum_as_inner::EnumAsInner;
@@ -862,6 +863,41 @@ impl RData {
             RData::A(a) => Some(IpAddr::from(a)),
             RData::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
             _ => None,
+        }
+    }
+}
+
+impl fmt::Display for RData {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        fn w<D: fmt::Display>(f: &mut fmt::Formatter, d: D) -> Result<(), fmt::Error> {
+            write!(f, "{rdata}", rdata = d)
+        };
+
+        match *self {
+            RData::A(address) => w(f, address),
+            RData::AAAA(ref address) => w(f, address),
+            RData::ANAME(ref name) => w(f, name),
+            RData::CAA(ref caa) => w(f, caa),
+            // to_lowercase for rfc4034 and rfc6840
+            RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
+            RData::ZERO => Ok(()),
+            // to_lowercase for rfc4034 and rfc6840
+            RData::MX(ref mx) => w(f, mx),
+            RData::NAPTR(ref naptr) => w(f, naptr),
+            RData::NULL(ref null) => w(f, null),
+            RData::OPENPGPKEY(ref openpgpkey) => w(f, openpgpkey),
+            // Opt has no display representation
+            RData::OPT(_) => Err(fmt::Error),
+            // to_lowercase for rfc4034 and rfc6840
+            RData::SOA(ref soa) => w(f, soa),
+            // to_lowercase for rfc4034 and rfc6840
+            RData::SRV(ref srv) => w(f, srv),
+            RData::SSHFP(ref sshfp) => w(f, sshfp),
+            RData::TLSA(ref tlsa) => w(f, tlsa),
+            RData::TXT(ref txt) => w(f, txt),
+            #[cfg(feature = "dnssec")]
+            RData::DNSSEC(ref rdata) => w(f, rdata),
+            RData::Unknown { ref rdata, .. } => w(f, rdata),
         }
     }
 }

@@ -15,6 +15,7 @@
  */
 
 //! service records for identify port mapping for specific services on a host
+use std::fmt;
 
 use crate::error::*;
 use crate::rr::domain::Name;
@@ -230,6 +231,30 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
     srv.target()
         .emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
+}
+
+/// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
+///
+/// ```text
+/// The format of the SRV RR
+///
+///   Here is the format of the SRV RR, whose DNS type code is 33:
+///
+///   _Service._Proto.Name TTL Class SRV Priority Weight Port Target
+///
+///   (There is an example near the end of this document.)
+/// ```
+impl fmt::Display for SRV {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{priority} {weight} {port} {target}",
+            priority = self.priority,
+            weight = self.weight,
+            port = self.port,
+            target = self.target,
+        )
+    }
 }
 
 #[cfg(test)]

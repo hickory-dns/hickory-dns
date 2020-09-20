@@ -16,6 +16,8 @@
 
 //! start of authority record defining ownership and defaults for the zone
 
+use std::fmt;
+
 use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
@@ -251,6 +253,75 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
     encoder.emit_i32(soa.expire)?;
     encoder.emit_u32(soa.minimum)?;
     Ok(())
+}
+
+/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+///
+/// ```text
+/// SOA  (Start Of Authority)
+///
+/// <name>  [<ttl>]  [<class>]  SOA  <origin>  <person>  (
+///    <serial>
+///    <refresh>
+///    <retry>
+///    <expire>
+///    <minimum> )
+///
+/// The Start Of Authority record designates the start of a zone.  The
+/// zone ends at the next SOA record.
+///
+/// <name> is the name of the zone.
+///
+/// <origin> is the name of the host on which the master zone file
+/// resides.
+///
+/// <person> is a mailbox for the person responsible for the zone.  It is
+/// formatted like a mailing address but the at-sign that normally
+/// separates the user from the host name is replaced with a dot.
+///
+/// <serial> is the version number of the zone file.  It should be
+/// incremented anytime a change is made to data in the zone.
+///
+/// <refresh> is how long, in seconds, a secondary name server is to
+/// check with the primary name server to see if an update is needed.  A
+/// good value here would be one hour (3600).
+///
+/// <retry> is how long, in seconds, a secondary name server is to retry
+/// after a failure to check for a refresh.  A good value here would be
+/// 10 minutes (600).
+///
+/// <expire> is the upper limit, in seconds, that a secondary name server
+/// is to use the data before it expires for lack of getting a refresh.
+/// You want this to be rather large, and a nice value is 3600000, about
+/// 42 days.
+///
+/// <minimum> is the minimum number of seconds to be used for TTL values
+/// in RRs.  A minimum of at least a day is a good value here (86400).
+///
+/// There should only be one SOA record per zone.  A sample SOA record
+/// would look something like:
+///
+/// @   IN   SOA   SRI-NIC.ARPA.   HOSTMASTER.SRI-NIC.ARPA. (
+///     45         ;serial
+///     3600       ;refresh
+///     600        ;retry
+///     3600000    ;expire
+///     86400 )    ;minimum
+/// ```
+impl fmt::Display for SOA {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{mname} {rname} {serial} {refresh} {retry} {expire} {min}",
+            mname = self.mname,
+            rname = self.rname,
+            serial = self.serial,
+            refresh = self.refresh,
+            retry = self.retry,
+            expire = self.expire,
+            min = self.minimum
+        )
+    }
 }
 
 #[cfg(test)]

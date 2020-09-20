@@ -15,6 +15,7 @@
  */
 
 //! null record type, generally not used except as an internal tool for representing null data
+use std::fmt;
 
 use crate::error::*;
 use crate::serialize::binary::*;
@@ -80,6 +81,16 @@ pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> ProtoResult<()> {
     }
 
     Ok(())
+}
+
+impl fmt::Display for NULL {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        if let Some(thing) = &self.anything {
+            f.write_str(&data_encoding::BASE64.encode(thing))?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

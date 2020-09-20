@@ -66,6 +66,12 @@ impl From<Lookup> for LookupIp {
     }
 }
 
+impl From<LookupIp> for Lookup {
+    fn from(lookup: LookupIp) -> Self {
+        lookup.0
+    }
+}
+
 /// Borrowed view of set of IPs returned from a LookupIp
 pub struct LookupIpIter<'i>(pub(crate) LookupIter<'i>);
 

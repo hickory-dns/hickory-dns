@@ -16,11 +16,13 @@
 
 //! parameters used for the nsec3 hash method
 
+use std::fmt;
+
 use crate::error::*;
 use crate::rr::dnssec::Nsec3HashAlgorithm;
 use crate::serialize::binary::*;
 
-/// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4)
+/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4), NSEC3, March 2008
 ///
 /// ```text
 /// 4.  The NSEC3PARAM Resource Record
@@ -100,7 +102,7 @@ impl NSEC3PARAM {
         }
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.1)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.1), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.1.  Hash Algorithm
@@ -115,7 +117,7 @@ impl NSEC3PARAM {
         self.hash_algorithm
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.2)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.2), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.2.  Flag Fields
@@ -131,7 +133,7 @@ impl NSEC3PARAM {
         self.opt_out
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.3)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.3), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.3.  Iterations
@@ -146,7 +148,7 @@ impl NSEC3PARAM {
         self.iterations
     }
 
-    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.5)
+    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.5), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.5.  Salt
@@ -155,6 +157,15 @@ impl NSEC3PARAM {
     /// ```
     pub fn salt(&self) -> &[u8] {
         &self.salt
+    }
+
+    /// flags for encoding
+    pub fn flags(&self) -> u8 {
+        let mut flags: u8 = 0;
+        if self.opt_out {
+            flags |= 0b0000_0001
+        };
+        flags
     }
 }
 
@@ -182,16 +193,54 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
     encoder.emit(rdata.hash_algorithm().into())?;
-    let mut flags: u8 = 0;
-    if rdata.opt_out() {
-        flags |= 0b0000_0001
-    };
-    encoder.emit(flags)?;
+    encoder.emit(rdata.flags())?;
     encoder.emit_u16(rdata.iterations())?;
     encoder.emit(rdata.salt().len() as u8)?;
     encoder.emit_vec(rdata.salt())?;
 
     Ok(())
+}
+
+/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4), NSEC3, March 2008
+///
+/// ```text
+/// 4.3.  Presentation Format
+///
+///    The presentation format of the RDATA portion is as follows:
+///
+///    o  The Hash Algorithm field is represented as an unsigned decimal
+///       integer.  The value has a maximum of 255.
+///
+///    o  The Flags field is represented as an unsigned decimal integer.
+///       The value has a maximum value of 255.
+///
+///    o  The Iterations field is represented as an unsigned decimal
+///       integer.  The value is between 0 and 65535, inclusive.
+///
+///    o  The Salt Length field is not represented.
+///
+///    o  The Salt field is represented as a sequence of case-insensitive
+///       hexadecimal digits.  Whitespace is not allowed within the
+///       sequence.  This field is represented as "-" (without the quotes)
+///       when the Salt Length field is zero.
+/// ```
+impl fmt::Display for NSEC3PARAM {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let salt = if self.salt.is_empty() {
+            "-".to_string()
+        } else {
+            data_encoding::HEXUPPER_PERMISSIVE.encode(&self.salt)
+        };
+
+        write!(
+            f,
+            "{alg} {flags} {iterations} {salt}",
+            alg = u8::from(self.hash_algorithm),
+            flags = self.flags(),
+            iterations = self.iterations,
+            salt = salt
+        )
+    }
 }
 
 #[cfg(test)]

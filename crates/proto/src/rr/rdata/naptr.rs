@@ -7,6 +7,8 @@
 
 //! Dynamic Delegation Discovery System
 
+use std::fmt;
+
 use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
@@ -228,6 +230,39 @@ pub fn emit(encoder: &mut BinEncoder, naptr: &NAPTR) -> ProtoResult<()> {
 
     encoder.with_canonical_names(|encoder| naptr.replacement.emit(encoder))?;
     Ok(())
+}
+
+/// [RFC 2915](https://tools.ietf.org/html/rfc2915), NAPTR DNS RR, September 2000
+///
+/// ```text
+/// Master File Format
+///
+///   The master file format follows the standard rules in RFC-1035 [1].
+///   Order and preference, being 16-bit unsigned integers, shall be an
+///   integer between 0 and 65535.  The Flags and Services and Regexp
+///   fields are all quoted <character-string>s.  Since the Regexp field
+///   can contain numerous backslashes and thus should be treated with
+///   care.  See Section 10 for how to correctly enter and escape the
+///   regular expression.
+///
+/// ;;      order pref flags service           regexp replacement
+/// IN NAPTR 100  50  "a"    "z3950+N2L+N2C"     ""   cidserver.example.com.
+/// IN NAPTR 100  50  "a"    "rcds+N2C"          ""   cidserver.example.com.
+/// IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.
+/// ```
+impl fmt::Display for NAPTR {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{order} {pref} \"{flags}\" \"{service}\" \"{regexp}\" {replace}",
+            order = self.order,
+            pref = self.preference,
+            flags = &String::from_utf8_lossy(&self.flags),
+            service = &String::from_utf8_lossy(&self.services),
+            regexp = &String::from_utf8_lossy(&self.regexp),
+            replace = self.replacement
+        )
+    }
 }
 
 #[cfg(test)]

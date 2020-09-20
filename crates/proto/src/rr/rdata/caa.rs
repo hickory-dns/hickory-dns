@@ -20,6 +20,7 @@
 //! record and rules for processing CAA records by certificate issuers.
 //! ```
 
+use std::fmt;
 use std::str;
 
 use crate::error::*;
@@ -844,6 +845,67 @@ pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
     emit_value(encoder, &caa.value)?;
 
     Ok(())
+}
+
+impl fmt::Display for Property {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let s = match self {
+            Property::Issue => "issue",
+            Property::IssueWild => "issuewild",
+            Property::Iodef => "iodef",
+            Property::Unknown(s) => s,
+        };
+
+        f.write_str(s)
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_str("\"")?;
+
+        match self {
+            Value::Issuer(_, values) => {
+                if let Some(value) = values.first() {
+                    write!(f, "{}", value)?;
+                }
+
+                for value in &values[1..] {
+                    write!(f, "; {}", value)?;
+                }
+            }
+            Value::Url(url) => write!(f, "{}", url)?,
+            Value::Unknown(v) => write!(f, "{:?}", v)?,
+        }
+
+        f.write_str("\"")
+    }
+}
+
+impl fmt::Display for KeyValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        f.write_str(&self.key)?;
+        if !self.value.is_empty() {
+            write!(f, "={}", self.value)?;
+        }
+
+        Ok(())
+    }
+}
+
+// FIXME: this needs to be verified to be correct, add tests...
+impl fmt::Display for CAA {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let critical = if self.issuer_critical { "1" } else { "0" };
+
+        write!(
+            f,
+            "{critical} {tag} {value}",
+            critical = critical,
+            tag = self.tag,
+            value = self.value
+        )
+    }
 }
 
 #[cfg(test)]
