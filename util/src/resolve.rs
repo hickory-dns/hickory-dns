@@ -17,7 +17,15 @@ use trust_dns_resolver::proto::rr::RecordType;
 use trust_dns_resolver::TokioAsyncResolver;
 
 /// A CLI interface for the trust-dns-resolver.
+///
+/// This utility directly uses the trust-dns-resolver to perform a lookup to a
+/// set of nameservers. Many of the features can be directly tested via the
+/// FLAGS and OPTIONS. By default (like trust-dns-resolver) the configured
+/// nameservers are the Google provided ones. The system configured ones can be
+/// used with the `--system` FLAG. Other nameservers, as many as desired, can
+/// be configured directly with the `--nameserver` OPTION.
 #[derive(Debug, StructOpt)]
+#[structopt(name = "resolve")]
 struct Opts {
     /// Name to attempt to resolve, if followed by a '.' then it's a fully-qualified-domain-name.
     domainname: String,
