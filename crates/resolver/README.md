@@ -79,6 +79,23 @@ Currently the root key is hardcoded into the system. This gives validation of
 
 Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-rustls` must be enabled.
 
+## Testing the resolver via CLI with resolve
+
+Useful for testing trust-dns-resolver and it's features via an independent CLI.
+
+```shell
+$ cargo install --bin resolve trust-dns-util
+```
+
+### example
+
+```shell
+$ resolve www.example.com.
+Querying for www.example.com. A from udp:8.8.8.8:53, tcp:8.8.8.8:53, udp:8.8.4.4:53, tcp:8.8.4.4:53, udp:[2001:4860:4860::8888]:53, tcp:[2001:4860:4860::8888]:53, udp:[2001:4860:4860::8844]:53, tcp:[2001:4860:4860::8844]:53
+Success for query name: www.example.com. type: A class: IN
+        www.example.com. 21063 IN A 93.184.216.34
+```
+
 ## Minimum Rust Version
 
 The current minimum rustc version for this project is `1.42`
