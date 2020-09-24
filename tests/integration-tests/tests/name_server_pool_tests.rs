@@ -59,7 +59,16 @@ fn mock_nameserver(
     messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
-    mock_nameserver_on_send(messages, options, DefaultOnSend)
+    mock_nameserver_on_send_nx(messages, options, DefaultOnSend, false)
+}
+
+#[cfg(test)]
+fn mock_nameserver_trust_nx(
+    messages: Vec<Result<DnsResponse, ResolveError>>,
+    options: ResolverOpts,
+    trust_nx_responses: bool,
+) -> MockedNameServer<DefaultOnSend> {
+    mock_nameserver_on_send_nx(messages, options, DefaultOnSend, trust_nx_responses)
 }
 
 #[cfg(test)]
@@ -67,6 +76,16 @@ fn mock_nameserver_on_send<O: OnSend + Unpin>(
     messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
     on_send: O,
+) -> MockedNameServer<O> {
+    mock_nameserver_on_send_nx(messages, options, on_send, false)
+}
+
+#[cfg(test)]
+fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
+    messages: Vec<Result<DnsResponse, ResolveError>>,
+    options: ResolverOpts,
+    on_send: O,
+    trust_nx_responses: bool,
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
@@ -78,6 +97,7 @@ fn mock_nameserver_on_send<O: OnSend + Unpin>(
             socket_addr: SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0),
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            trust_nx_responses,
             #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
             tls_config: None,
         },
@@ -250,8 +270,7 @@ fn test_local_mdns() {
 fn test_trust_nx_responses_fails_servfail() {
     use trust_dns_proto::op::ResponseCode;
 
-    let mut options = ResolverOpts::default();
-    options.distrust_nx_responses = false;
+    let options = ResolverOpts::default();
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
@@ -266,16 +285,18 @@ fn test_trust_nx_responses_fails_servfail() {
     let udp_message = success_msg;
 
     // fail the first udp request
-    let udp_nameserver = mock_nameserver(
+    let udp_nameserver = mock_nameserver_trust_nx(
         vec![
             Ok(udp_message.into()),
             servfail_message.clone().map(Into::into),
         ],
         options,
+        false,
     );
-    let tcp_nameserver = mock_nameserver(
+    let tcp_nameserver = mock_nameserver_trust_nx(
         vec![Err(ResolveError::from("Forced Testing Error"))],
         options,
+        false,
     );
 
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
@@ -304,8 +325,7 @@ fn test_trust_nx_responses_fails_servfail() {
 fn test_distrust_nx_responses() {
     use trust_dns_proto::op::ResponseCode;
 
-    let mut options = ResolverOpts::default();
-    options.distrust_nx_responses = true;
+    let options = ResolverOpts::default();
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
@@ -320,8 +340,9 @@ fn test_distrust_nx_responses() {
     //let udp_message = success_msg;
 
     // fail the first udp request
-    let udp_nameserver = mock_nameserver(vec![servfail_message.map(Into::into)], options);
-    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], options);
+    let udp_nameserver =
+        mock_nameserver_trust_nx(vec![servfail_message.map(Into::into)], options, true);
+    let tcp_nameserver = mock_nameserver_trust_nx(vec![Ok(tcp_message.into())], options, true);
 
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 

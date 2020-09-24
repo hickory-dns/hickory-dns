@@ -64,6 +64,7 @@ fn into_resolver_config(
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            trust_nx_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
         });
@@ -71,6 +72,7 @@ fn into_resolver_config(
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Tcp,
             tls_dns_name: None,
+            trust_nx_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
         });
@@ -119,6 +121,7 @@ mod tests {
                 socket_addr: addr,
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
+                trust_nx_responses: false,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
             },
@@ -126,6 +129,7 @@ mod tests {
                 socket_addr: addr,
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
+                trust_nx_responses: false,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
             },

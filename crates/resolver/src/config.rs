@@ -335,6 +335,10 @@ pub struct NameServerConfig {
     pub protocol: Protocol,
     /// SPKI name, only relevant for TLS connections
     pub tls_dns_name: Option<String>,
+    /// Default is to distrust negative responses from upstream nameservers
+    ///
+    /// Currently only SERVFAIL responses are continued on, this may be expanded to include NXDOMAIN or NoError/Empty responses
+    pub trust_nx_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(feature = "serde-config", serde(skip))]
     /// optional configuration for the tls client
@@ -404,7 +408,7 @@ impl NameServerConfigGroup {
     /// Configure a NameServer address and port
     ///
     /// This will create UDP and TCP connections, using the same port.
-    pub fn from_ips_clear(ips: &[IpAddr], port: u16) -> Self {
+    pub fn from_ips_clear(ips: &[IpAddr], port: u16, trust_nx_responses: bool) -> Self {
         let mut name_servers = Self::with_capacity(ips.len());
 
         for ip in ips {
@@ -412,6 +416,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
+                trust_nx_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
             };
@@ -419,6 +424,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
+                trust_nx_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
             };
@@ -436,6 +442,7 @@ impl NameServerConfigGroup {
         port: u16,
         tls_dns_name: String,
         protocol: Protocol,
+        trust_nx_responses: bool,
     ) -> Self {
         assert!(protocol.is_encrypted());
 
@@ -446,6 +453,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol,
                 tls_dns_name: Some(tls_dns_name.clone()),
+                trust_nx_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
             };
@@ -460,16 +468,26 @@ impl NameServerConfigGroup {
     ///
     /// This will create a TLS connections.
     #[cfg(feature = "dns-over-tls")]
-    pub fn from_ips_tls(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
-        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Tls)
+    pub fn from_ips_tls(
+        ips: &[IpAddr],
+        port: u16,
+        tls_dns_name: String,
+        trust_nx_responses: bool,
+    ) -> Self {
+        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Tls, trust_nx_responses)
     }
 
     /// Configure a NameServer address and port for DNS-over-HTTPS
     ///
     /// This will create a HTTPS connections.
     #[cfg(feature = "dns-over-https")]
-    pub fn from_ips_https(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
-        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Https)
+    pub fn from_ips_https(
+        ips: &[IpAddr],
+        port: u16,
+        tls_dns_name: String,
+        trust_nx_responses: bool,
+    ) -> Self {
+        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Https, trust_nx_responses)
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
@@ -484,6 +502,7 @@ impl NameServerConfigGroup {
                 IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
             ],
             53,
+            true,
         )
     }
 
@@ -499,6 +518,7 @@ impl NameServerConfigGroup {
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
             ],
             53,
+            true,
         )
     }
 
@@ -516,6 +536,7 @@ impl NameServerConfigGroup {
             ],
             853,
             "cloudflare-dns.com".to_string(),
+            true,
         )
     }
 
@@ -533,6 +554,7 @@ impl NameServerConfigGroup {
             ],
             443,
             "cloudflare-dns.com".to_string(),
+            true,
         )
     }
 
@@ -546,6 +568,7 @@ impl NameServerConfigGroup {
                 IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
             ],
             53,
+            true,
         )
     }
 
@@ -561,6 +584,7 @@ impl NameServerConfigGroup {
             ],
             853,
             "dns.quad9.net".to_string(),
+            true,
         )
     }
 
@@ -708,10 +732,6 @@ pub struct ResolverOpts {
     ///
     /// [`MAX_TTL`]: ../dns_lru/const.MAX_TTL.html
     pub negative_max_ttl: Option<Duration>,
-    /// Default is to distrust negative responses from upstream nameservers
-    ///
-    /// Currently only SERVFAIL responses are continued on, this may be expanded to include NXDOMAIN or NoError/Empty responses
-    pub distrust_nx_responses: bool,
     /// Number of concurrent requests per query
     ///
     /// Where more than one nameserver is configured, this configures the resolver to send queries
@@ -741,7 +761,6 @@ impl Default for ResolverOpts {
             negative_min_ttl: None,
             positive_max_ttl: None,
             negative_max_ttl: None,
-            distrust_nx_responses: true,
             num_concurrent_reqs: 2,
             preserve_intermediates: false,
         }
