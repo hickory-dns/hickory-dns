@@ -712,9 +712,10 @@ pub struct ResolverOpts {
     ///
     /// Currently only SERVFAIL responses are continued on, this may be expanded to include NXDOMAIN or NoError/Empty responses
     pub distrust_nx_responses: bool,
-    /// Concurrent requests where more than one Nameserver is registered, the default is 2
+    /// Number of concurrent requests per query
     ///
-    /// 0 or 1 will configure this to execute all requests serially
+    /// Where more than one nameserver is configured, this configures the resolver to send queries
+    /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
     pub num_concurrent_reqs: usize,
     /// Preserve all intermediate records in the lookup response, suchas CNAME records
     pub preserve_intermediates: bool,
