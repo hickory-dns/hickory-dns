@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) *BREAKING* Move `ResolverOpts::distrust_nx_responses` to `NameServerConfig::trust_nx_responses` (@djc) #1212
 - (proto) `data-encoding` is now a required dependency #1208
 - (all) minimum rustc version now `1.42`
 - (resolver) For all NxDomain and NoError/NoData responses, `ResolveErrorKind::NoRecordsFound` will be returned #1197
@@ -25,7 +26,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
-- (resolver) Fix Glue records resolving (@wavenator) #1188 
+- (resolver) Fix Glue records resolving (@wavenator) #1188
 - (resolver) Only fall back on TCP if cons are available (@lukaspustina) #1181
 - (proto) fix empty option at end of edns (@jonasbb) #1143, #744
 - (resolver) Return `REFUSED` instead of `NXDOMAIN` when server is not an authority (@AnIrishDuck) #1137
@@ -343,7 +344,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Changed
 
 - Large celanup of signing and verification paths in DNSSec (@briansmith)
-- *breaking* changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>` 
+- *breaking* changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>`
 
 ## 0.11.2 (Client/Server)
 

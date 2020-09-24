@@ -134,12 +134,14 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             socket_addr: *socket_addr,
             protocol: Protocol::Tcp,
             tls_dns_name: None,
+            trust_nx_responses: false,
         });
 
         name_servers.push(NameServerConfig {
             socket_addr: *socket_addr,
             protocol: Protocol::Udp,
             tls_dns_name: None,
+            trust_nx_responses: false,
         });
     }
 
