@@ -335,9 +335,10 @@ pub struct NameServerConfig {
     pub protocol: Protocol,
     /// SPKI name, only relevant for TLS connections
     pub tls_dns_name: Option<String>,
-    /// Default is to distrust negative responses from upstream nameservers
+    /// Default to not trust negative responses from upstream nameservers
     ///
-    /// Currently only SERVFAIL responses are continued on, this may be expanded to include NXDOMAIN or NoError/Empty responses
+    /// When a SERVFAIL, NXDOMAIN and NoError/Empty response is received, the query will be
+    /// retried against other configured name servers.
     pub trust_nx_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(feature = "serde-config", serde(skip))]
