@@ -495,32 +495,14 @@ impl NameServerConfigGroup {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     pub fn google() -> Self {
-        Self::from_ips_clear(
-            &[
-                IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
-                IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
-            ],
-            53,
-            true,
-        )
+        Self::from_ips_clear(GOOGLE_IPS, 53, true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
     /// Please see: https://www.cloudflare.com/dns/
     pub fn cloudflare() -> Self {
-        Self::from_ips_clear(
-            &[
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-            ],
-            53,
-            true,
-        )
+        Self::from_ips_clear(CLOUDFLARE_IPS, 53, true)
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
@@ -528,17 +510,7 @@ impl NameServerConfigGroup {
     /// Please see: https://www.cloudflare.com/dns/
     #[cfg(feature = "dns-over-tls")]
     pub fn cloudflare_tls() -> Self {
-        Self::from_ips_tls(
-            &[
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-            ],
-            853,
-            "cloudflare-dns.com".to_string(),
-            true,
-        )
+        Self::from_ips_tls(CLOUDFLARE_IPS, 853, "cloudflare-dns.com".to_string(), true)
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
@@ -546,31 +518,14 @@ impl NameServerConfigGroup {
     /// Please see: https://www.cloudflare.com/dns/
     #[cfg(feature = "dns-over-https")]
     pub fn cloudflare_https() -> Self {
-        Self::from_ips_https(
-            &[
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-            ],
-            443,
-            "cloudflare-dns.com".to_string(),
-            true,
-        )
+        Self::from_ips_https(CLOUDFLARE_IPS, 443, "cloudflare-dns.com".to_string(), true)
     }
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
     /// Please see: https://www.quad9.net/faq/
     pub fn quad9() -> Self {
-        Self::from_ips_clear(
-            &[
-                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
-                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
-            ],
-            53,
-            true,
-        )
+        Self::from_ips_clear(QUAD9_IPS, 53, true)
     }
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
@@ -578,15 +533,7 @@ impl NameServerConfigGroup {
     /// Please see: https://www.quad9.net/faq/
     #[cfg(feature = "dns-over-tls")]
     pub fn quad9_tls() -> Self {
-        Self::from_ips_tls(
-            &[
-                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
-                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
-            ],
-            853,
-            "dns.quad9.net".to_string(),
-            true,
-        )
+        Self::from_ips_tls(QUAD9_IPS, 853, "dns.quad9.net".to_string(), true)
     }
 
     /// Merges this set of [`NameServerConfig`]s with the other
@@ -767,3 +714,25 @@ impl Default for ResolverOpts {
         }
     }
 }
+
+/// IP addresses for Google Public DNS
+pub const GOOGLE_IPS: &[IpAddr] = &[
+    IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+    IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
+    IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
+    IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
+];
+
+/// IP addresses for Cloudflare's 1.1.1.1 DNS service
+pub const CLOUDFLARE_IPS: &[IpAddr] = &[
+    IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+    IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
+    IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+    IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+];
+
+/// IP address for the Quad9 DNS service
+pub const QUAD9_IPS: &[IpAddr] = &[
+    IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+    IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+];
