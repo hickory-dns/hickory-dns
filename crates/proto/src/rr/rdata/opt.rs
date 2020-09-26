@@ -299,7 +299,7 @@ pub enum EdnsCode {
     /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
     Zero,
 
-    /// [LLQ On-hold](http://files.dns-sd.org/draft-sekar-dns-llq.txt)
+    /// [RFC 8764l, Apple's Long-Lived Queries, Optional](https://tools.ietf.org/html/rfc8764)
     LLQ,
 
     /// [UL On-hold](http://files.dns-sd.org/draft-sekar-dns-ul.txt)
@@ -317,22 +317,22 @@ pub enum EdnsCode {
     /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
     N3U,
 
-    /// [edns-client-subnet, Optional](https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02)
+    /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
     Subnet,
 
     /// [RFC 7314, EDNS EXPIRE, Optional](https://tools.ietf.org/html/rfc7314)
     Expire,
 
-    /// [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07)
+    /// [RFC 7873, DNS Cookies](https://tools.ietf.org/html/rfc7873)
     Cookie,
 
-    /// [draft-ietf-dnsop-edns-tcp-keepalive, Optional](https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04)
+    /// [RFC 7828, edns-tcp-keepalive](https://tools.ietf.org/html/rfc7828)
     Keepalive,
 
-    /// [draft-mayrhofer-edns0-padding, Optional](https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01)
+    /// [RFC 7830, The EDNS(0) Padding](https://tools.ietf.org/html/rfc7830)
     Padding,
 
-    /// [draft-ietf-dnsop-edns-chain-query](https://tools.ietf.org/html/draft-ietf-dnsop-edns-chain-query-07)
+    /// [RFC 7901, CHAIN Query Requests in DNS, Optional](https://tools.ietf.org/html/rfc7901)
     Chain,
 
     /// Unknown, used to deal with unknown or unsupported codes
