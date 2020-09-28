@@ -116,14 +116,14 @@ where
         mut client: Self,
         preserved_records: Vec<(Record, u32)>,
     ) -> Result<Lookup, ResolveError> {
-        // see https://tools.ietf.ofc6761
+        // see https://tools.ietf.org/html/rfc6761
         //
         // ```text
-        // Name resolution APIs and librariesognize localhost
-        // names as special analways return the IP loopback address
+        // Name resolution APIs and libraries SHOULD recognize localhost
+        // names as special and SHOULD always return the IP loopback address
         // for address queries and negative responses for all other query
-        // types.  Name resolution APIs SHOULD NOT s for
-        // localhost names to their cocachir(s).
+        // types.  Name resolution APIs SHOULD NOT send queries for
+        // localhost names to their configured caching DNS server(s).
         // ```
         // special use rules only apply to the IN Class
         if query.query_class() == DNSClass::IN {
