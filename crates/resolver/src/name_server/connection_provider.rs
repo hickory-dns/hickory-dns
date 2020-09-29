@@ -41,7 +41,7 @@ use proto::xfer::{
     DnsExchange, DnsExchangeSend, DnsHandle, DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
 };
 
-use proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use proto::xfer::DnsMultiplexer;
 
 use proto::{
     tcp::Connect, tcp::TcpClientConnect, tcp::TcpClientStream, udp::UdpClientConnect,
@@ -90,7 +90,7 @@ pub trait RuntimeProvider: Clone + 'static {
 pub trait Spawn {
     fn spawn_bg<F>(&mut self, future: F)
     where
-        F: Future<Output = Result<(), ResolveError>> + Send + 'static;
+        F: Future<Output = Result<(), ProtoError>> + Send + 'static;
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
@@ -298,44 +298,36 @@ where
     type Output = Result<GenericConnection, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let (connection, bg) = match &mut self.connect {
+        Poll::Ready(Ok(match &mut self.connect {
             ConnectionConnect::Udp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = GenericConnection(ConnectionConnected::Udp(conn));
-                let bg = ConnectionBackground::<R>(ConnectionBackgroundInner::Udp(bg));
-                (conn, bg)
+                self.spawner.spawn_bg(bg);
+                GenericConnection(ConnectionConnected::Udp(conn))
             }
             ConnectionConnect::Tcp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = GenericConnection(ConnectionConnected::Tcp(conn));
-                let bg = ConnectionBackground::<R>(ConnectionBackgroundInner::Tcp(bg));
-                (conn, bg)
+                self.spawner.spawn_bg(bg);
+                GenericConnection(ConnectionConnected::Tcp(conn))
             }
             #[cfg(feature = "dns-over-tls")]
             ConnectionConnect::Tls(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = GenericConnection(ConnectionConnected::Tls(conn));
-                let bg = ConnectionBackground::<R>(ConnectionBackgroundInner::Tls(bg));
-                (conn, bg)
+                self.spawner.spawn_bg(bg);
+                GenericConnection(ConnectionConnected::Tls(conn))
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnect::Https(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = GenericConnection(ConnectionConnected::Https(conn));
-                let bg = ConnectionBackground::<R>(ConnectionBackgroundInner::Https(bg));
-                (conn, bg)
+                self.spawner.spawn_bg(bg);
+                GenericConnection(ConnectionConnected::Https(conn))
             }
             #[cfg(feature = "mdns")]
             ConnectionConnect::Mdns(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
-                let conn = GenericConnection(ConnectionConnected::Mdns(conn));
-                let bg = ConnectionBackground::<R>(ConnectionBackgroundInner::Mdns(bg));
-                (conn, bg)
+                self.spawner.spawn_bg(bg);
+                GenericConnection(ConnectionConnected::Mdns(conn))
             }
-        };
-        self.spawner.spawn_bg(Box::pin(bg));
-        //spawn_bg(&self.spawner, bg);
-        Poll::Ready(Ok(connection))
+        }))
     }
 }
 
@@ -440,87 +432,6 @@ impl Future for ConnectionResponse {
     }
 }
 
-/// A background task for driving the DNS protocol of the connection
-#[must_use = "futures do nothing unless polled"]
-pub struct ConnectionBackground<R: RuntimeProvider>(ConnectionBackgroundInner<R>)
-where
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin;
-
-impl<R: RuntimeProvider> Future for ConnectionBackground<R>
-where
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-{
-    type Output = Result<(), ResolveError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx).map_err(ResolveError::from)
-    }
-}
-
-#[allow(clippy::large_enum_variant)]
-#[allow(clippy::type_complexity)]
-#[must_use = "futures do nothing unless polled"]
-pub(crate) enum ConnectionBackgroundInner<R: RuntimeProvider>
-where
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-{
-    Udp(DnsExchangeBackground<UdpClientStream<R::Udp>, UdpResponse, R::Timer>),
-    Tcp(
-        DnsExchangeBackground<
-            DnsMultiplexer<
-                TcpClientStream<<<R as RuntimeProvider>::Tcp as Connect>::Transport>,
-                NoopMessageFinalizer,
-            >,
-            DnsMultiplexerSerialResponse,
-            R::Timer,
-        >,
-    ),
-    #[cfg(feature = "dns-over-tls")]
-    Tls(
-        DnsExchangeBackground<
-            DnsMultiplexer<
-                TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
-                NoopMessageFinalizer,
-            >,
-            DnsMultiplexerSerialResponse,
-            TokioTime,
-        >,
-    ),
-    #[cfg(feature = "dns-over-https")]
-    Https(DnsExchangeBackground<HttpsClientStream, HttpsClientResponse, TokioTime>),
-    #[cfg(feature = "mdns")]
-    Mdns(
-        DnsExchangeBackground<
-            DnsMultiplexer<MdnsClientStream, NoopMessageFinalizer>,
-            DnsMultiplexerSerialResponse,
-            TokioTime,
-        >,
-    ),
-}
-
-impl<R: RuntimeProvider> Future for ConnectionBackgroundInner<R>
-where
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-{
-    type Output = Result<(), ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        use self::ConnectionBackgroundInner::*;
-
-        trace!("polling response inner");
-        match *self {
-            Udp(ref mut bg) => bg.poll_unpin(cx),
-            Tcp(ref mut bg) => bg.poll_unpin(cx),
-            #[cfg(feature = "dns-over-tls")]
-            Tls(ref mut bg) => bg.poll_unpin(cx),
-            #[cfg(feature = "dns-over-https")]
-            Https(ref mut bg) => bg.poll_unpin(cx),
-            #[cfg(feature = "mdns")]
-            Mdns(ref mut bg) => bg.poll_unpin(cx),
-        }
-    }
-}
-
 #[cfg(feature = "tokio-runtime")]
 pub mod tokio_runtime {
     use super::*;
@@ -529,7 +440,7 @@ pub mod tokio_runtime {
     impl Spawn for tokio::runtime::Handle {
         fn spawn_bg<F>(&mut self, future: F)
         where
-            F: Future<Output = Result<(), ResolveError>> + Send + 'static,
+            F: Future<Output = Result<(), ProtoError>> + Send + 'static,
         {
             let _join = self.spawn(future);
         }
