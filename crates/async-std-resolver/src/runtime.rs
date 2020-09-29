@@ -7,9 +7,9 @@
 
 use std::future::Future;
 
+use trust_dns_resolver::proto::error::ProtoError;
 use trust_dns_resolver::proto::Executor;
 
-use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::name_server::{
     GenericConnection, GenericConnectionProvider, RuntimeProvider, Spawn,
 };
@@ -62,7 +62,7 @@ pub struct AsyncStdRuntimeHandle;
 impl Spawn for AsyncStdRuntimeHandle {
     fn spawn_bg<F>(&mut self, future: F)
     where
-        F: Future<Output = Result<(), ResolveError>> + Send + 'static,
+        F: Future<Output = Result<(), ProtoError>> + Send + 'static,
     {
         let _join = async_std::task::spawn(future);
     }
