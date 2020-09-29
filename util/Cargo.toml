@@ -35,6 +35,9 @@ license = "MIT/Apache-2.0"
 codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "github" }
 maintenance = { status = "actively-developed" }
 
+[features]
+dns-over-rustls = ["trust-dns-resolver/dns-over-rustls"]
+
 [[bin]]
 name = "dnskey-to-pem"
 path = "src/bind_dnskey_to_pem.rs"
