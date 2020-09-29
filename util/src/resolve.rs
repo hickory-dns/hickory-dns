@@ -135,6 +135,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             protocol: Protocol::Tcp,
             tls_dns_name: None,
             trust_nx_responses: false,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         });
 
         name_servers.push(NameServerConfig {
@@ -142,6 +144,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             protocol: Protocol::Udp,
             tls_dns_name: None,
             trust_nx_responses: false,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
         });
     }
 
