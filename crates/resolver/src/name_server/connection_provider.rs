@@ -282,30 +282,30 @@ where
             ConnectionConnect::Udp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(ConnectionConnected::Udp(conn))
+                GenericConnection(conn)
             }
             ConnectionConnect::Tcp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(ConnectionConnected::Tcp(conn))
+                GenericConnection(conn)
             }
             #[cfg(feature = "dns-over-tls")]
             ConnectionConnect::Tls(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(ConnectionConnected::Tls(conn))
+                GenericConnection(conn)
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnect::Https(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(ConnectionConnected::Https(conn))
+                GenericConnection(conn)
             }
             #[cfg(feature = "mdns")]
             ConnectionConnect::Mdns(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
-                GenericConnection(ConnectionConnected::Mdns(conn))
+                GenericConnection(conn)
             }
         }))
     }
@@ -313,96 +313,20 @@ where
 
 /// A connected DNS handle
 #[derive(Clone)]
-pub struct GenericConnection(ConnectionConnected);
+pub struct GenericConnection(DnsExchange);
 
 impl DnsHandle for GenericConnection {
     type Response = ConnectionResponse;
     type Error = ResolveError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        self.0.send(request)
-    }
-}
-
-/// A representation of an established connection
-#[derive(Clone)]
-enum ConnectionConnected {
-    Udp(DnsExchange),
-    Tcp(DnsExchange),
-    #[cfg(feature = "dns-over-tls")]
-    Tls(DnsExchange),
-    #[cfg(feature = "dns-over-https")]
-    Https(DnsExchange),
-    #[cfg(feature = "mdns")]
-    Mdns(DnsExchange),
-}
-
-impl DnsHandle for ConnectionConnected {
-    type Response = ConnectionResponse;
-    type Error = ResolveError;
-
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        let response = match self {
-            ConnectionConnected::Udp(ref mut conn) => {
-                ConnectionResponseInner::Udp(conn.send(request).into())
-            }
-            ConnectionConnected::Tcp(ref mut conn) => {
-                ConnectionResponseInner::Tcp(conn.send(request).into())
-            }
-            #[cfg(feature = "dns-over-tls")]
-            ConnectionConnected::Tls(ref mut conn) => {
-                ConnectionResponseInner::Tls(conn.send(request).into())
-            }
-            #[cfg(feature = "dns-over-https")]
-            ConnectionConnected::Https(ref mut https) => {
-                ConnectionResponseInner::Https(https.send(request).into())
-            }
-            #[cfg(feature = "mdns")]
-            ConnectionConnected::Mdns(ref mut mdns) => {
-                ConnectionResponseInner::Mdns(mdns.send(request).into())
-            }
-        };
-
-        ConnectionResponse(response)
-    }
-}
-
-/// A wrapper type to switch over a connection that still needs to be made, or is already established
-#[must_use = "futures do nothing unless polled"]
-enum ConnectionResponseInner {
-    Udp(DnsExchangeSend),
-    Tcp(DnsExchangeSend),
-    #[cfg(feature = "dns-over-tls")]
-    Tls(DnsExchangeSend),
-    #[cfg(feature = "dns-over-https")]
-    Https(DnsExchangeSend),
-    #[cfg(feature = "mdns")]
-    Mdns(DnsExchangeSend),
-}
-
-impl Future for ConnectionResponseInner {
-    type Output = Result<DnsResponse, proto::error::ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        use self::ConnectionResponseInner::*;
-
-        trace!("polling response inner");
-        match *self {
-            Udp(ref mut resp) => resp.poll_unpin(cx),
-            Tcp(ref mut resp) => resp.poll_unpin(cx),
-            #[cfg(feature = "dns-over-tls")]
-            Tls(ref mut tls) => tls.poll_unpin(cx),
-            #[cfg(feature = "dns-over-https")]
-            Https(ref mut https) => https.poll_unpin(cx),
-            #[cfg(feature = "mdns")]
-            Mdns(ref mut mdns) => mdns.poll_unpin(cx),
-        }
+        ConnectionResponse(self.0.send(request))
     }
 }
 
 /// A future response from a DNS request.
 #[must_use = "futures do nothing unless polled"]
-pub struct ConnectionResponse(ConnectionResponseInner);
+pub struct ConnectionResponse(DnsExchangeSend);
 
 impl Future for ConnectionResponse {
     type Output = Result<DnsResponse, ResolveError>;
