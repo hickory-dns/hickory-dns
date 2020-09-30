@@ -7,7 +7,6 @@
 
 use std::borrow::Borrow;
 use std::fmt::{self, Display};
-use std::io;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -121,16 +120,9 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         //   does not need to be globally unique
         message.set_id(random_query_id());
 
-        let now = match SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| ProtoError::from("Current time is before the Unix epoch."))
-        {
+        let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(now) => now.as_secs(),
-            Err(err) => {
-                let err: ProtoError = err;
-
-                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err)).into();
-            }
+            Err(_) => return ProtoError::from("Current time is before the Unix epoch.").into(),
         };
 
         // TODO: truncates u64 to u32, error on overflow?
@@ -141,7 +133,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             if let Some(ref signer) = self.signer {
                 if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(e)).into();
+                    return e.into();
                 }
             }
         }
@@ -149,18 +141,22 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
-                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err)).into();
+                return err.into();
             }
         };
 
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
-        UdpResponse::new::<S, TE>(message, message_id, self.timeout).into()
+        TE::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
+            self.timeout,
+            Box::pin(send_serial_message::<S>(message, message_id)),
+        )
+        .into()
     }
 
     fn error_response<TE: Time>(err: ProtoError) -> DnsResponseFuture {
-        UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err)).into()
+        err.into()
     }
 
     fn shutdown(&mut self) {
@@ -183,58 +179,6 @@ impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
         } else {
             Poll::Ready(Some(Ok(())))
         }
-    }
-}
-
-/// A future that resolves to
-#[allow(clippy::type_complexity)]
-pub struct UdpResponse(
-    pub(crate) 
-        Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send>>,
-);
-
-impl UdpResponse {
-    /// creates a new future for the request
-    ///
-    /// # Arguments
-    ///
-    /// * `request` - Serialized message being sent
-    /// * `message_id` - Id of the message that was encoded in the serial message
-    fn new<S: UdpSocket + Send + Unpin + 'static, T: Time>(
-        request: SerialMessage,
-        message_id: u16,
-        timeout: Duration,
-    ) -> Self {
-        UdpResponse(T::timeout::<
-            Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
-        >(
-            timeout,
-            Box::pin(SingleUseUdpSocket::send_serial_message::<S>(
-                request, message_id,
-            )),
-        ))
-    }
-
-    /// ad already completed future
-    fn complete<F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static, T: Time>(
-        f: F,
-    ) -> Self {
-        // TODO: this constructure isn't really necessary
-        UdpResponse(T::timeout::<
-            Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
-        >(Duration::from_secs(5), Box::pin(f)))
-    }
-}
-
-impl Future for UdpResponse {
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0
-            .as_mut()
-            .poll(cx)
-            .map_err(ProtoError::from)
-            .map(|r| r.and_then(|r| r))
     }
 }
 
@@ -268,83 +212,74 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     }
 }
 
-struct SingleUseUdpSocket;
+async fn send_serial_message<S: UdpSocket + Send>(
+    msg: SerialMessage,
+    msg_id: u16,
+) -> Result<DnsResponse, ProtoError> {
+    let name_server = msg.addr();
+    let mut socket: S = NextRandomUdpSocket::new(&name_server).await?;
+    let bytes = msg.bytes();
+    let addr = &msg.addr();
+    let len_sent: usize = socket.send_to(bytes, addr).await?;
 
-impl SingleUseUdpSocket {
-    async fn send_serial_message<S: UdpSocket + Send>(
-        msg: SerialMessage,
-        msg_id: u16,
-    ) -> Result<DnsResponse, ProtoError> {
-        let name_server = msg.addr();
-        let mut socket: S = NextRandomUdpSocket::new(&name_server).await?;
-        let bytes = msg.bytes();
-        let addr = &msg.addr();
-        let len_sent: usize = socket.send_to(bytes, addr).await?;
+    if bytes.len() != len_sent {
+        return Err(ProtoError::from(format!(
+            "Not all bytes of message sent, {} of {}",
+            len_sent,
+            bytes.len()
+        )));
+    }
 
-        if bytes.len() != len_sent {
-            return Err(ProtoError::from(format!(
-                "Not all bytes of message sent, {} of {}",
-                len_sent,
-                bytes.len()
-            )));
+    // TODO: limit the max number of attempted messages? this relies on a timeout to die...
+    loop {
+        // TODO: consider making this heap based? need to verify it matches EDNS settings
+        let mut recv_buf = [0u8; 2048];
+
+        let (len, src) = socket.recv_from(&mut recv_buf).await?;
+        let response = SerialMessage::new(recv_buf.iter().take(len).cloned().collect(), src);
+
+        // compare expected src to received packet
+        let request_target = msg.addr();
+
+        if response.addr() != request_target {
+            warn!(
+                "ignoring response from {} because it does not match name_server: {}.",
+                response.addr(),
+                request_target,
+            );
+
+            // await an answer from the correct NameServer
+            continue;
         }
 
-        // TODO: limit the max number of attempted messages? this relies on a timeout to die...
-        loop {
-            // TODO: consider making this heap based? need to verify it matches EDNS settings
-            let mut recv_buf = [0u8; 2048];
+        // TODO: match query strings from request and response?
 
-            let (len, src) = socket.recv_from(&mut recv_buf).await?;
-            let response = SerialMessage::new(recv_buf.iter().take(len).cloned().collect(), src);
-
-            // compare expected src to received packet
-            let request_target = msg.addr();
-
-            if response.addr() != request_target {
-                warn!(
-                    "ignoring response from {} because it does not match name_server: {}.",
-                    response.addr(),
-                    request_target,
-                );
-
-                // await an answer from the correct NameServer
-                continue;
-            }
-
-            // TODO: match query strings from request and response?
-
-            match response.to_message() {
-                Ok(message) => {
-                    if msg_id == message.id() {
-                        debug!("received message id: {}", message.id());
-                        return Ok(DnsResponse::from(message));
-                    } else {
-                        // on wrong id, attempted poison?
-                        warn!(
-                            "expected message id: {} got: {}, dropped",
-                            msg_id,
-                            message.id()
-                        );
-
-                        continue;
-                    }
-                }
-                Err(e) => {
-                    // on errors deserializing, continue
+        match response.to_message() {
+            Ok(message) => {
+                if msg_id == message.id() {
+                    debug!("received message id: {}", message.id());
+                    return Ok(DnsResponse::from(message));
+                } else {
+                    // on wrong id, attempted poison?
                     warn!(
-                        "dropped malformed message waiting for id: {} err: {}",
-                        msg_id, e
+                        "expected message id: {} got: {}, dropped",
+                        msg_id,
+                        message.id()
                     );
 
                     continue;
                 }
             }
-        }
-    }
+            Err(e) => {
+                // on errors deserializing, continue
+                warn!(
+                    "dropped malformed message waiting for id: {} err: {}",
+                    msg_id, e
+                );
 
-    // TODO: this is unnecessary
-    async fn errored(err: ProtoError) -> Result<DnsResponse, ProtoError> {
-        futures_util::future::err(err).await
+                continue;
+            }
+        }
     }
 }
 
