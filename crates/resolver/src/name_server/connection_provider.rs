@@ -36,9 +36,8 @@ use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
 use proto::op::NoopMessageFinalizer;
 
 use proto::udp::UdpClientStream;
-use proto::udp::UdpResponse;
 use proto::xfer::{
-    DnsExchange, DnsExchangeSend, DnsHandle, DnsMultiplexerSerialResponse, DnsRequest, DnsResponse,
+    DnsExchange, DnsExchangeSend, DnsHandle, DnsRequest, DnsResponse, DnsResponseFuture,
 };
 
 use proto::xfer::DnsMultiplexer;
@@ -51,7 +50,7 @@ use proto::{
 use crate::error::ResolveError;
 
 #[cfg(feature = "dns-over-https")]
-use trust_dns_https::{self, HttpsClientConnect, HttpsClientResponse, HttpsClientStream};
+use trust_dns_https::{self, HttpsClientConnect, HttpsClientStream};
 
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
@@ -215,7 +214,7 @@ where
         DnsExchangeConnect<
             UdpClientConnect<R::Udp>,
             UdpClientStream<R::Udp>,
-            UdpResponse,
+            DnsResponseFuture,
             R::Timer,
         >,
     ),
@@ -230,7 +229,7 @@ where
                 TcpClientStream<<<R as RuntimeProvider>::Tcp as Connect>::Transport>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexerSerialResponse,
+            DnsResponseFuture,
             R::Timer,
         >,
     ),
@@ -256,7 +255,7 @@ where
                 TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexerSerialResponse,
+            DnsResponseFuture,
             TokioTime,
         >,
     ),
@@ -265,7 +264,7 @@ where
         DnsExchangeConnect<
             HttpsClientConnect<R::Tcp>,
             HttpsClientStream,
-            HttpsClientResponse,
+            DnsResponseFuture,
             TokioTime,
         >,
     ),
@@ -274,7 +273,7 @@ where
         DnsExchangeConnect<
             DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, NoopMessageFinalizer>,
             DnsMultiplexer<MdnsClientStream, NoopMessageFinalizer>,
-            DnsMultiplexerSerialResponse,
+            DnsResponseFuture,
             TokioTime,
         >,
     ),
@@ -347,14 +346,14 @@ impl DnsHandle for GenericConnection {
 /// A representation of an established connection
 #[derive(Clone)]
 enum ConnectionConnected {
-    Udp(DnsExchange<UdpResponse>),
-    Tcp(DnsExchange<DnsMultiplexerSerialResponse>),
+    Udp(DnsExchange<DnsResponseFuture>),
+    Tcp(DnsExchange<DnsResponseFuture>),
     #[cfg(feature = "dns-over-tls")]
-    Tls(DnsExchange<DnsMultiplexerSerialResponse>),
+    Tls(DnsExchange<DnsResponseFuture>),
     #[cfg(feature = "dns-over-https")]
-    Https(DnsExchange<HttpsClientResponse>),
+    Https(DnsExchange<DnsResponseFuture>),
     #[cfg(feature = "mdns")]
-    Mdns(DnsExchange<DnsMultiplexerSerialResponse>),
+    Mdns(DnsExchange<DnsResponseFuture>),
 }
 
 impl DnsHandle for ConnectionConnected {
@@ -364,22 +363,22 @@ impl DnsHandle for ConnectionConnected {
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         let response = match self {
             ConnectionConnected::Udp(ref mut conn) => {
-                ConnectionResponseInner::Udp(conn.send(request))
+                ConnectionResponseInner::Udp(conn.send(request).into())
             }
             ConnectionConnected::Tcp(ref mut conn) => {
-                ConnectionResponseInner::Tcp(conn.send(request))
+                ConnectionResponseInner::Tcp(conn.send(request).into())
             }
             #[cfg(feature = "dns-over-tls")]
             ConnectionConnected::Tls(ref mut conn) => {
-                ConnectionResponseInner::Tls(conn.send(request))
+                ConnectionResponseInner::Tls(conn.send(request).into())
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnected::Https(ref mut https) => {
-                ConnectionResponseInner::Https(https.send(request))
+                ConnectionResponseInner::Https(https.send(request).into())
             }
             #[cfg(feature = "mdns")]
             ConnectionConnected::Mdns(ref mut mdns) => {
-                ConnectionResponseInner::Mdns(mdns.send(request))
+                ConnectionResponseInner::Mdns(mdns.send(request).into())
             }
         };
 
@@ -390,14 +389,14 @@ impl DnsHandle for ConnectionConnected {
 /// A wrapper type to switch over a connection that still needs to be made, or is already established
 #[must_use = "futures do nothing unless polled"]
 enum ConnectionResponseInner {
-    Udp(DnsExchangeSend<UdpResponse>),
-    Tcp(DnsExchangeSend<DnsMultiplexerSerialResponse>),
+    Udp(DnsExchangeSend<DnsResponseFuture>),
+    Tcp(DnsExchangeSend<DnsResponseFuture>),
     #[cfg(feature = "dns-over-tls")]
-    Tls(DnsExchangeSend<DnsMultiplexerSerialResponse>),
+    Tls(DnsExchangeSend<DnsResponseFuture>),
     #[cfg(feature = "dns-over-https")]
-    Https(DnsExchangeSend<HttpsClientResponse>),
+    Https(DnsExchangeSend<DnsResponseFuture>),
     #[cfg(feature = "mdns")]
-    Mdns(DnsExchangeSend<DnsMultiplexerSerialResponse>),
+    Mdns(DnsExchangeSend<DnsResponseFuture>),
 }
 
 impl Future for ConnectionResponseInner {

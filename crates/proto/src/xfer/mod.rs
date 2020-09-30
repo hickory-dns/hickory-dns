@@ -37,7 +37,7 @@ pub use self::dns_multiplexer::{
     DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse,
 };
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
-pub use self::dns_response::DnsResponse;
+pub use self::dns_response::{DnsResponse, DnsResponseFuture};
 #[cfg(feature = "dnssec")]
 pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;

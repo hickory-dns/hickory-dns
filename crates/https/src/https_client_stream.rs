@@ -30,7 +30,9 @@ use webpki::DNSNameRef;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::iocompat::AsyncIo03As02;
 use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
+use trust_dns_proto::xfer::{
+    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage,
+};
 use trust_dns_proto::Time;
 
 const ALPN_H2: &[u8] = b"h2";
@@ -178,7 +180,7 @@ impl HttpsClientStream {
 }
 
 impl DnsRequestSender for HttpsClientStream {
-    type DnsResponseFuture = HttpsClientResponse;
+    type DnsResponseFuture = DnsResponseFuture;
 
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
@@ -241,20 +243,21 @@ impl DnsRequestSender for HttpsClientStream {
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return HttpsClientResponse(Box::pin(future::err(err))),
+            Err(err) => return Box::pin(future::err(err)).into(),
         };
         let message = SerialMessage::new(bytes, self.name_server);
 
-        HttpsClientResponse(Box::pin(Self::inner_send(
+        Box::pin(Self::inner_send(
             self.h2.clone(),
             message,
             Arc::clone(&self.name_server_name),
             self.name_server,
-        )))
+        ))
+        .into()
     }
 
     fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture {
-        HttpsClientResponse(Box::pin(future::err(error)))
+        Box::pin(future::err(error)).into()
     }
 
     fn shutdown(&mut self) {
