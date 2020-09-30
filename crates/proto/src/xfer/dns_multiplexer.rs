@@ -29,7 +29,7 @@ use crate::error::*;
 use crate::op::{Message, MessageFinalizer, OpCode};
 use crate::xfer::{
     ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
-    SerialMessage,
+    DnsResponseFuture, SerialMessage,
 };
 use crate::DnsStreamHandle;
 use crate::Time;
@@ -307,7 +307,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type DnsResponseFuture = DnsMultiplexerSerialResponse;
+    type DnsResponseFuture = DnsResponseFuture;
 
     fn send_message<TE: Time>(
         &mut self,
@@ -478,7 +478,7 @@ where
 
 /// A future that resolves into a DnsResponse
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexerSerialResponse(DnsMultiplexerSerialResponseInner);
+pub struct DnsMultiplexerSerialResponse(pub(crate) DnsMultiplexerSerialResponseInner);
 
 impl DnsMultiplexerSerialResponse {
     /// Returns a new future with the oneshot completion
@@ -501,7 +501,7 @@ impl From<DnsMultiplexerSerialResponseInner> for DnsMultiplexerSerialResponse {
     }
 }
 
-enum DnsMultiplexerSerialResponseInner {
+pub(crate) enum DnsMultiplexerSerialResponseInner {
     Completion(oneshot::Receiver<ProtoResult<DnsResponse>>),
     Err(Option<ProtoError>),
 }

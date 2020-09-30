@@ -13,8 +13,8 @@ use std::time::Duration;
 use crate::proto::error::ProtoError;
 use crate::proto::xfer::{
     DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
-    DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsMultiplexerSerialResponse, DnsRequest,
-    DnsRequestOptions, DnsRequestSender, DnsResponse, DnsStreamHandle,
+    DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest, DnsRequestOptions,
+    DnsRequestSender, DnsResponse, DnsResponseFuture, DnsStreamHandle,
 };
 use crate::proto::TokioTime;
 use futures::{ready, Future, FutureExt};
@@ -46,7 +46,7 @@ where
     exchange: DnsExchange<R>,
 }
 
-impl AsyncClient<DnsMultiplexerSerialResponse> {
+impl AsyncClient<DnsResponseFuture> {
     /// Spawns a new AsyncClient Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -63,7 +63,7 @@ impl AsyncClient<DnsMultiplexerSerialResponse> {
     ) -> AsyncClientConnect<
         DnsMultiplexerConnect<F, S, Signer>,
         DnsMultiplexer<S, Signer>,
-        DnsMultiplexerSerialResponse,
+        DnsResponseFuture,
     >
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
@@ -90,14 +90,14 @@ impl AsyncClient<DnsMultiplexerSerialResponse> {
     ) -> AsyncClientConnect<
         DnsMultiplexerConnect<F, S, Signer>,
         DnsMultiplexer<S, Signer>,
-        DnsMultiplexerSerialResponse,
+        DnsResponseFuture,
     >
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
         S: DnsClientStream + Unpin + 'static,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        Self::connect(mp)
+        Self::connect(mp).into()
     }
 }
 

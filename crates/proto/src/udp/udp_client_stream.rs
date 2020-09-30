@@ -22,7 +22,7 @@ use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{MessageFinalizer, OpCode};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage};
 use crate::Time;
 
 /// A UDP client stream of DNS binary packets
@@ -108,7 +108,7 @@ fn random_query_id() -> u16 {
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
-    type DnsResponseFuture = UdpResponse;
+    type DnsResponseFuture = DnsResponseFuture;
 
     fn send_message<TE: Time>(
         &mut self,
@@ -131,7 +131,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             Err(err) => {
                 let err: ProtoError = err;
 
-                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err));
+                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err)).into();
             }
         };
 
@@ -143,7 +143,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
             if let Some(ref signer) = self.signer {
                 if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(e));
+                    return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(e)).into();
                 }
             }
         }
@@ -151,18 +151,18 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
             Err(err) => {
-                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err));
+                return UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err)).into();
             }
         };
 
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
-        UdpResponse::new::<S, TE>(message, message_id, self.timeout)
+        UdpResponse::new::<S, TE>(message, message_id, self.timeout).into()
     }
 
     fn error_response<TE: Time>(err: ProtoError) -> Self::DnsResponseFuture {
-        UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err))
+        UdpResponse::complete::<_, TE>(SingleUseUdpSocket::errored(err)).into()
     }
 
     fn shutdown(&mut self) {
@@ -191,7 +191,8 @@ impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
 /// A future that resolves to
 #[allow(clippy::type_complexity)]
 pub struct UdpResponse(
-    Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send>>,
+    pub(crate) 
+        Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send>>,
 );
 
 impl UdpResponse {
