@@ -321,22 +321,16 @@ where
         let query_id: u16 = match self.next_random_query_id(cx) {
             Poll::Ready(id) => id,
             Poll::Pending => {
-                return DnsMultiplexerSerialResponseInner::Err(Some(ProtoError::from(
-                    "id space exhausted, consider filing an issue",
-                )))
-                .into()
+                return ProtoError::from("id space exhausted, consider filing an issue").into()
             }
         };
 
         let (mut request, request_options) = request.unwrap();
         request.set_id(query_id);
 
-        let now = match SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| ProtoErrorKind::Message("Current time is before the Unix epoch.").into())
-        {
+        let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
             Ok(now) => now.as_secs(),
-            Err(err) => return DnsMultiplexerSerialResponseInner::Err(Some(err)).into(),
+            Err(_) => return ProtoError::from("Current time is before the Unix epoch.").into(),
         };
 
         // TODO: truncates u64 to u32, error on overflow?
@@ -347,7 +341,7 @@ where
             if let Some(ref signer) = self.signer {
                 if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
-                    return DnsMultiplexerSerialResponseInner::Err(Some(e)).into();
+                    return e.into();
                 }
             }
         }
@@ -372,7 +366,7 @@ where
                     Ok(()) => self
                         .active_requests
                         .insert(active_request.request_id(), active_request),
-                    Err(err) => return DnsMultiplexerSerialResponseInner::Err(Some(err)).into(),
+                    Err(err) => return err.into(),
                 };
             }
             Err(e) => {
@@ -382,15 +376,15 @@ where
                     e
                 );
                 // complete with the error, don't add to the map of active requests
-                return DnsMultiplexerSerialResponseInner::Err(Some(e)).into();
+                return e.into();
             }
         }
 
-        DnsMultiplexerSerialResponseInner::Completion(receiver).into()
+        receiver.into()
     }
 
     fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture {
-        DnsMultiplexerSerialResponseInner::Err(Some(error)).into()
+        error.into()
     }
 
     fn shutdown(&mut self) {
@@ -471,55 +465,5 @@ where
 
         // Finally, return not ready to keep the 'driver task' alive.
         Poll::Pending
-    }
-}
-
-/// A future that resolves into a DnsResponse
-#[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexerSerialResponse(pub(crate) DnsMultiplexerSerialResponseInner);
-
-impl DnsMultiplexerSerialResponse {
-    /// Returns a new future with the oneshot completion
-    pub fn completion(complete: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsMultiplexerSerialResponseInner::Completion(complete).into()
-    }
-}
-
-impl Future for DnsMultiplexerSerialResponse {
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx)
-    }
-}
-
-impl From<DnsMultiplexerSerialResponseInner> for DnsMultiplexerSerialResponse {
-    fn from(inner: DnsMultiplexerSerialResponseInner) -> Self {
-        DnsMultiplexerSerialResponse(inner)
-    }
-}
-
-pub(crate) enum DnsMultiplexerSerialResponseInner {
-    Completion(oneshot::Receiver<ProtoResult<DnsResponse>>),
-    Err(Option<ProtoError>),
-}
-
-impl Future for DnsMultiplexerSerialResponseInner {
-    type Output = Result<DnsResponse, ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match *self {
-            // The inner type of the completion might have been an error
-            //   we need to unwrap that, and translate to be the Future's error
-            DnsMultiplexerSerialResponseInner::Completion(ref mut complete) => {
-                complete.poll_unpin(cx).map(|r| {
-                    r.map_err(|_| ProtoError::from("the completion was canceled"))
-                        .and_then(|r| r)
-                })
-            }
-            DnsMultiplexerSerialResponseInner::Err(ref mut err) => {
-                Poll::Ready(Err(err.take().expect("cannot poll after complete")))
-            }
-        }
     }
 }
