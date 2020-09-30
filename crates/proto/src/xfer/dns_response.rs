@@ -22,7 +22,6 @@ use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, ResponseCode};
 use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
-use crate::udp::UdpResponse;
 use crate::xfer::dns_multiplexer::{
     DnsMultiplexerSerialResponse, DnsMultiplexerSerialResponseInner,
 };
@@ -36,7 +35,7 @@ impl Future for DnsResponseFuture {
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         use DnsResponseFutureInner::*;
         Poll::Ready(match &mut self.0 {
-            Udp(fut) => match ready!(fut.as_mut().poll(cx)) {
+            Timeout(fut) => match ready!(fut.as_mut().poll(cx)) {
                 Ok(x) => x,
                 Err(e) => Err(e.into()),
             },
@@ -44,15 +43,15 @@ impl Future for DnsResponseFuture {
                 Ok(x) => x,
                 Err(_) => Err(ProtoError::from("the completion was canceled")),
             },
-            MultiplexedErr(err) => Err(err.take().expect("cannot poll after complete")),
+            Error(err) => Err(err.take().expect("cannot poll after complete")),
             Boxed(fut) => ready!(fut.as_mut().poll(cx)),
         })
     }
 }
 
-impl From<UdpResponse> for DnsResponseFuture {
-    fn from(rsp: UdpResponse) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Udp(rsp.0))
+impl From<TimeoutFuture> for DnsResponseFuture {
+    fn from(f: TimeoutFuture) -> Self {
+        DnsResponseFuture(DnsResponseFutureInner::Timeout(f))
     }
 }
 
@@ -67,8 +66,14 @@ impl From<DnsMultiplexerSerialResponseInner> for DnsResponseFuture {
         use DnsMultiplexerSerialResponseInner::*;
         DnsResponseFuture(match rsp {
             Completion(inner) => DnsResponseFutureInner::MultiplexedCompletion(inner),
-            Err(inner) => DnsResponseFutureInner::MultiplexedErr(inner),
+            Err(inner) => DnsResponseFutureInner::Error(inner),
         })
+    }
+}
+
+impl From<ProtoError> for DnsResponseFuture {
+    fn from(e: ProtoError) -> Self {
+        DnsResponseFuture(DnsResponseFutureInner::Error(Some(e)))
     }
 }
 
@@ -84,11 +89,15 @@ where
 }
 
 enum DnsResponseFutureInner {
-    Udp(Pin<Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send>>),
+    Timeout(TimeoutFuture),
     MultiplexedCompletion(oneshot::Receiver<ProtoResult<DnsResponse>>),
-    MultiplexedErr(Option<ProtoError>),
+    Error(Option<ProtoError>),
     Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
+
+type TimeoutFuture = Pin<
+    Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send + 'static>,
+>;
 
 // TODO: this needs to have the IP addr of the remote system...
 // TODO: see https://github.com/bluejekyll/trust-dns/issues/383 for removing vec of messages and instead returning a Stream
