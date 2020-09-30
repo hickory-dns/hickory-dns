@@ -355,9 +355,12 @@ where
                         Poll::Ready(opt) => opt,
                         Poll::Pending => return Poll::Pending,
                     } {
-                        let response = S::error_response::<TE>(error.clone());
                         // ignoring errors... best effort send...
-                        outbound_message.unwrap().1.send_response(response).ok();
+                        outbound_message
+                            .unwrap()
+                            .1
+                            .send_response(error.clone().into())
+                            .ok();
                     }
 
                     return Poll::Ready(Err(error.clone()));

@@ -383,10 +383,6 @@ where
         receiver.into()
     }
 
-    fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture {
-        error.into()
-    }
-
     fn shutdown(&mut self) {
         self.is_shutdown = true;
     }

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::{Bytes, BytesMut};
-use futures::{future, ready, Future, FutureExt, Stream, TryFutureExt};
+use futures::{ready, Future, FutureExt, Stream, TryFutureExt};
 use h2;
 use h2::client::{Connection, SendRequest};
 use http::{self, header};
@@ -241,7 +241,7 @@ impl DnsRequestSender for HttpsClientStream {
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return Box::pin(future::err(err)).into(),
+            Err(err) => return err.into(),
         };
         let message = SerialMessage::new(bytes, self.name_server);
 
@@ -252,10 +252,6 @@ impl DnsRequestSender for HttpsClientStream {
             self.name_server,
         ))
         .into()
-    }
-
-    fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture {
-        Box::pin(future::err(error)).into()
     }
 
     fn shutdown(&mut self) {
@@ -536,6 +532,7 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 
+    use futures::future;
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
     use tokio::runtime::Runtime;
     use webpki_roots;
