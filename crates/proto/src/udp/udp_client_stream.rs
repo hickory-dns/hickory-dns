@@ -155,10 +155,6 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         .into()
     }
 
-    fn error_response<TE: Time>(err: ProtoError) -> DnsResponseFuture {
-        err.into()
-    }
-
     fn shutdown(&mut self) {
         self.is_shutdown = true;
     }

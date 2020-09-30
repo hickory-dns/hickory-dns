@@ -146,9 +146,6 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
         cx: &mut Context,
     ) -> DnsResponseFuture;
 
-    /// Constructs an error response
-    fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture;
-
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
     /// After this is called, the next time `poll` is called on the stream it would be correct to return `Poll::Ready(Ok(()))`. This is not required though, if there are say outstanding requests that are not yet complete, then it would be correct to first wait for those results.
