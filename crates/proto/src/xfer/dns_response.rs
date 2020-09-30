@@ -22,9 +22,6 @@ use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, ResponseCode};
 use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
-use crate::xfer::dns_multiplexer::{
-    DnsMultiplexerSerialResponse, DnsMultiplexerSerialResponseInner,
-};
 
 /// A future returning a DNS response
 pub struct DnsResponseFuture(DnsResponseFutureInner);
@@ -39,7 +36,7 @@ impl Future for DnsResponseFuture {
                 Ok(x) => x,
                 Err(e) => Err(e.into()),
             },
-            MultiplexedCompletion(ref mut fut) => match ready!(Pin::new(fut).poll(cx)) {
+            Receiver(ref mut fut) => match ready!(Pin::new(fut).poll(cx)) {
                 Ok(x) => x,
                 Err(_) => Err(ProtoError::from("the completion was canceled")),
             },
@@ -55,19 +52,9 @@ impl From<TimeoutFuture> for DnsResponseFuture {
     }
 }
 
-impl From<DnsMultiplexerSerialResponse> for DnsResponseFuture {
-    fn from(rsp: DnsMultiplexerSerialResponse) -> Self {
-        rsp.0.into()
-    }
-}
-
-impl From<DnsMultiplexerSerialResponseInner> for DnsResponseFuture {
-    fn from(rsp: DnsMultiplexerSerialResponseInner) -> Self {
-        use DnsMultiplexerSerialResponseInner::*;
-        DnsResponseFuture(match rsp {
-            Completion(inner) => DnsResponseFutureInner::MultiplexedCompletion(inner),
-            Err(inner) => DnsResponseFutureInner::Error(inner),
-        })
+impl From<oneshot::Receiver<ProtoResult<DnsResponse>>> for DnsResponseFuture {
+    fn from(receiver: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
+        DnsResponseFuture(DnsResponseFutureInner::Receiver(receiver))
     }
 }
 
@@ -90,7 +77,7 @@ where
 
 enum DnsResponseFutureInner {
     Timeout(TimeoutFuture),
-    MultiplexedCompletion(oneshot::Receiver<ProtoResult<DnsResponse>>),
+    Receiver(oneshot::Receiver<ProtoResult<DnsResponse>>),
     Error(Option<ProtoError>),
     Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
