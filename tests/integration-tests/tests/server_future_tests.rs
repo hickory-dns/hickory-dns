@@ -220,8 +220,7 @@ fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> T
 
 fn client_thread_www<C: ClientConnection>(conn: C)
 where
-    C::Sender: DnsRequestSender<DnsResponseFuture = C::Response>,
-    C::Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send,
+    C::Sender: DnsRequestSender,
     C::SenderFuture: Future<Output = Result<C::Sender, ProtoError>> + 'static + Send,
 {
     let name = Name::from_str("www.example.com").unwrap();

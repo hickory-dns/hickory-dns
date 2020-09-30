@@ -29,17 +29,11 @@ use crate::Time;
 ///
 /// The underlying `DnsRequestSender` is expected to multiplex any I/O connections. DnsExchange assumes that the underlying stream is responsible for this.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchange<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    sender: BufDnsRequestStreamHandle<R>,
+pub struct DnsExchange {
+    sender: BufDnsRequestStreamHandle,
 }
 
-impl<R> DnsExchange<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+impl DnsExchange {
     /// Initializes a TcpStream with an existing tcp::TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
@@ -47,12 +41,12 @@ where
     /// # Arguments
     ///
     /// * `stream` - the established IO stream for communication
-    pub fn from_stream<S, TE>(stream: S) -> (Self, DnsExchangeBackground<S, R, TE>)
+    pub fn from_stream<S, TE>(stream: S) -> (Self, DnsExchangeBackground<S, TE>)
     where
-        S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
+        S: DnsRequestSender + 'static + Send + Unpin,
     {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = DnsRequestStreamHandle::<R>::new(message_sender);
+        let message_sender = DnsRequestStreamHandle::new(message_sender);
 
         Self::from_stream_with_receiver(stream, outbound_messages, message_sender)
     }
@@ -60,11 +54,11 @@ where
     /// Wraps a stream where a sender and receiver have already been established
     pub fn from_stream_with_receiver<S, TE>(
         stream: S,
-        receiver: UnboundedReceiver<OneshotDnsRequest<R>>,
-        sender: DnsRequestStreamHandle<R>,
-    ) -> (Self, DnsExchangeBackground<S, R, TE>)
+        receiver: UnboundedReceiver<OneshotDnsRequest>,
+        sender: DnsRequestStreamHandle,
+    ) -> (Self, DnsExchangeBackground<S, TE>)
     where
-        S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
+        S: DnsRequestSender + 'static + Send + Unpin,
     {
         let background = DnsExchangeBackground {
             io_stream: stream,
@@ -80,23 +74,20 @@ where
     /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
     /// The connect_future should be lazy.
-    pub fn connect<F, S, TE>(connect_future: F) -> DnsExchangeConnect<F, S, R, TE>
+    pub fn connect<F, S, TE>(connect_future: F) -> DnsExchangeConnect<F, S, TE>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-        S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
+        S: DnsRequestSender + 'static + Send + Unpin,
         TE: Time + Unpin,
     {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = DnsRequestStreamHandle::<R>::new(message_sender);
+        let message_sender = DnsRequestStreamHandle::new(message_sender);
 
         DnsExchangeConnect::connect(connect_future, outbound_messages, message_sender)
     }
 }
 
-impl<R> Clone for DnsExchange<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+impl Clone for DnsExchange {
     fn clone(&self) -> Self {
         Self {
             sender: self.sender.clone(),
@@ -104,11 +95,8 @@ where
     }
 }
 
-impl<Resp> DnsHandle for DnsExchange<Resp>
-where
-    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    type Response = DnsExchangeSend<Resp>;
+impl DnsHandle for DnsExchange {
+    type Response = DnsExchangeSend;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
@@ -121,18 +109,12 @@ where
 
 /// A Future that will resolve to a Response after sending the request
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeSend<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    result: OneshotDnsResponseReceiver<R>,
-    _sender: BufDnsRequestStreamHandle<R>,
+pub struct DnsExchangeSend {
+    result: OneshotDnsResponseReceiver,
+    _sender: BufDnsRequestStreamHandle,
 }
 
-impl<R> Future for DnsExchangeSend<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+impl Future for DnsExchangeSend {
     type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -145,35 +127,27 @@ where
 ///
 /// It must be spawned before any DNS messages are sent.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeBackground<S, R, TE>
+pub struct DnsExchangeBackground<S, TE>
 where
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send + Unpin,
 {
     io_stream: S,
-    outbound_messages: Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>,
+    outbound_messages: Peekable<UnboundedReceiver<OneshotDnsRequest>>,
     marker: PhantomData<TE>,
 }
 
-impl<S, R, TE> DnsExchangeBackground<S, R, TE>
+impl<S, TE> DnsExchangeBackground<S, TE>
 where
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send + Unpin,
 {
-    fn pollable_split(
-        &mut self,
-    ) -> (
-        &mut S,
-        &mut Peekable<UnboundedReceiver<OneshotDnsRequest<R>>>,
-    ) {
+    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<UnboundedReceiver<OneshotDnsRequest>>) {
         (&mut self.io_stream, &mut self.outbound_messages)
     }
 }
 
-impl<S, R, TE> Future for DnsExchangeBackground<S, R, TE>
+impl<S, TE> Future for DnsExchangeBackground<S, TE>
 where
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send + Unpin,
     TE: Time + Unpin,
 {
     type Output = Result<(), ProtoError>;
@@ -256,24 +230,22 @@ where
 /// The future will return a tuple of the DnsExchange (for sending messages) and a background
 ///  for running the background tasks. The background is optional as only one thread should run
 ///  the background. If returned, it must be spawned before any dns requests will function.
-pub struct DnsExchangeConnect<F, S, R, TE>(DnsExchangeConnectInner<F, S, R, TE>)
+pub struct DnsExchangeConnect<F, S, TE>(DnsExchangeConnectInner<F, S, TE>)
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static,
     TE: Time + Unpin;
 
-impl<F, S, R, TE> DnsExchangeConnect<F, S, R, TE>
+impl<F, S, TE> DnsExchangeConnect<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static,
     TE: Time + Unpin,
 {
     fn connect(
         connect_future: F,
-        outbound_messages: UnboundedReceiver<OneshotDnsRequest<R>>,
-        sender: DnsRequestStreamHandle<R>,
+        outbound_messages: UnboundedReceiver<OneshotDnsRequest>,
+        sender: DnsRequestStreamHandle,
     ) -> Self {
         DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
             connect_future,
@@ -284,51 +256,48 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-impl<F, S, R, TE> Future for DnsExchangeConnect<F, S, R, TE>
+impl<F, S, TE> Future for DnsExchangeConnect<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send + Unpin,
     TE: Time + Unpin,
 {
-    type Output = Result<(DnsExchange<R>, DnsExchangeBackground<S, R, TE>), ProtoError>;
+    type Output = Result<(DnsExchange, DnsExchangeBackground<S, TE>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
     }
 }
 
-enum DnsExchangeConnectInner<F, S, R, TE>
+enum DnsExchangeConnectInner<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send,
     TE: Time + Unpin,
 {
     Connecting {
         connect_future: F,
-        outbound_messages: Option<UnboundedReceiver<OneshotDnsRequest<R>>>,
-        sender: Option<DnsRequestStreamHandle<R>>,
+        outbound_messages: Option<UnboundedReceiver<OneshotDnsRequest>>,
+        sender: Option<DnsRequestStreamHandle>,
     },
     Connected {
-        exchange: DnsExchange<R>,
-        background: Option<DnsExchangeBackground<S, R, TE>>,
+        exchange: DnsExchange,
+        background: Option<DnsExchangeBackground<S, TE>>,
     },
     FailAll {
         error: ProtoError,
-        outbound_messages: UnboundedReceiver<OneshotDnsRequest<R>>,
+        outbound_messages: UnboundedReceiver<OneshotDnsRequest>,
     },
 }
 
 #[allow(clippy::type_complexity)]
-impl<F, S, R, TE> Future for DnsExchangeConnectInner<F, S, R, TE>
+impl<F, S, TE> Future for DnsExchangeConnectInner<F, S, TE>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send + Unpin,
     TE: Time + Unpin,
 {
-    type Output = Result<(DnsExchange<R>, DnsExchangeBackground<S, R, TE>), ProtoError>;
+    type Output = Result<(DnsExchange, DnsExchangeBackground<S, TE>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {

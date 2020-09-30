@@ -21,9 +21,7 @@ use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::proto::tcp::TcpClientStream;
-use trust_dns_client::proto::xfer::{
-    DnsExchangeBackground, DnsMultiplexer, DnsMultiplexerSerialResponse,
-};
+use trust_dns_client::proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use trust_dns_client::proto::DnssecDnsHandle;
 use trust_dns_client::rr::dnssec::*;
 use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
@@ -65,10 +63,9 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
 async fn standard_tcp_conn(
     port: u16,
 ) -> (
-    AsyncClient<DnsMultiplexerSerialResponse>,
+    AsyncClient,
     DnsExchangeBackground<
         DnsMultiplexer<TcpClientStream<AsyncIo02As03<TokioTcpStream>>, Signer>,
-        DnsMultiplexerSerialResponse,
         TokioTime,
     >,
 ) {

@@ -34,7 +34,7 @@ use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::op::*;
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use trust_dns_server::authority::{Authority, Catalog};
 
 pub struct TestClientConnection {
@@ -52,7 +52,6 @@ impl TestClientConnection {
 #[allow(clippy::type_complexity)]
 impl ClientConnection for TestClientConnection {
     type Sender = DnsMultiplexer<TestClientStream, Signer>;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<TestClientStream, ProtoError>> + Send>>,
         TestClientStream,

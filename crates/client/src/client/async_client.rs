@@ -14,7 +14,7 @@ use crate::proto::error::ProtoError;
 use crate::proto::xfer::{
     DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
     DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest, DnsRequestOptions,
-    DnsRequestSender, DnsResponse, DnsResponseFuture, DnsStreamHandle,
+    DnsRequestSender, DnsResponse, DnsStreamHandle,
 };
 use crate::proto::TokioTime;
 use futures::{ready, Future, FutureExt};
@@ -33,20 +33,17 @@ pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
-pub type ClientFuture<R> = AsyncClient<R>;
+pub type ClientFuture = AsyncClient;
 
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
-pub struct AsyncClient<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    exchange: DnsExchange<R>,
+pub struct AsyncClient {
+    exchange: DnsExchange,
 }
 
-impl AsyncClient<DnsResponseFuture> {
+impl AsyncClient {
     /// Spawns a new AsyncClient Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -60,11 +57,7 @@ impl AsyncClient<DnsResponseFuture> {
         stream: F,
         stream_handle: Box<dyn DnsStreamHandle>,
         signer: Option<Arc<Signer>>,
-    ) -> AsyncClientConnect<
-        DnsMultiplexerConnect<F, S, Signer>,
-        DnsMultiplexer<S, Signer>,
-        DnsResponseFuture,
-    >
+    ) -> AsyncClientConnect<DnsMultiplexerConnect<F, S, Signer>, DnsMultiplexer<S, Signer>>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
         S: DnsClientStream + Unpin + 'static,
@@ -87,24 +80,17 @@ impl AsyncClient<DnsResponseFuture> {
         stream_handle: Box<dyn DnsStreamHandle>,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
-    ) -> AsyncClientConnect<
-        DnsMultiplexerConnect<F, S, Signer>,
-        DnsMultiplexer<S, Signer>,
-        DnsResponseFuture,
-    >
+    ) -> AsyncClientConnect<DnsMultiplexerConnect<F, S, Signer>, DnsMultiplexer<S, Signer>>
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
         S: DnsClientStream + Unpin + 'static,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        Self::connect(mp).into()
+        Self::connect(mp)
     }
 }
 
-impl<R> AsyncClient<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+impl AsyncClient {
     /// Returns a future, which itself wraps a future which is awaiting connection.
     ///
     /// The connect_future should be lazy.
@@ -114,19 +100,16 @@ where
     /// This returns a tuple of Self a handle to send dns messages and an optional background.
     ///  The background task must be run on an executor before handle is used, if it is Some.
     ///  If it is None, then another thread has already run the background.
-    pub fn connect<F, S>(connect_future: F) -> AsyncClientConnect<F, S, R>
+    pub fn connect<F, S>(connect_future: F) -> AsyncClientConnect<F, S>
     where
-        S: DnsRequestSender<DnsResponseFuture = R>,
+        S: DnsRequestSender,
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     {
         AsyncClientConnect(DnsExchange::connect(connect_future))
     }
 }
 
-impl<R> Clone for AsyncClient<R>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+impl Clone for AsyncClient {
     fn clone(&self) -> Self {
         AsyncClient {
             exchange: self.exchange.clone(),
@@ -134,11 +117,8 @@ where
     }
 }
 
-impl<Resp> DnsHandle for AsyncClient<Resp>
-where
-    Resp: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
-    type Response = DnsExchangeSend<Resp>;
+impl DnsHandle for AsyncClient {
+    type Response = DnsExchangeSend;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
@@ -148,20 +128,18 @@ where
 
 /// A future that resolves to an AsyncClient
 #[must_use = "futures do nothing unless polled"]
-pub struct AsyncClientConnect<F, S, R>(DnsExchangeConnect<F, S, R, TokioTime>)
+pub struct AsyncClientConnect<F, S>(DnsExchangeConnect<F, S, TokioTime>)
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    S: DnsRequestSender + 'static;
 
 #[allow(clippy::type_complexity)]
-impl<F, S, R> Future for AsyncClientConnect<F, S, R>
+impl<F, S> Future for AsyncClientConnect<F, S>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender<DnsResponseFuture = R> + 'static + Send + Unpin,
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
+    S: DnsRequestSender + 'static + Send + Unpin,
 {
-    type Output = Result<(AsyncClient<R>, DnsExchangeBackground<S, R, TokioTime>), ProtoError>;
+    type Output = Result<(AsyncClient, DnsExchangeBackground<S, TokioTime>), ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));

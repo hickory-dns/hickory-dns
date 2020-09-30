@@ -17,7 +17,7 @@ use crate::client::ClientConnection;
 use crate::error::*;
 use crate::proto::iocompat::AsyncIo02As03;
 use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
-use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
 
@@ -63,7 +63,6 @@ impl TcpClientConnection {
 
 impl ClientConnection for TcpClientConnection {
     type Sender = DnsMultiplexer<TcpClientStream<AsyncIo02As03<TcpStream>>, Signer>;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
         TcpClientConnect<AsyncIo02As03<TcpStream>>,
         TcpClientStream<AsyncIo02As03<TcpStream>>,

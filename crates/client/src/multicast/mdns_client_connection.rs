@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use crate::proto::{
     multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6},
-    xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender},
+    xfer::{DnsMultiplexer, DnsMultiplexerConnect},
 };
 
 use crate::client::ClientConnection;
@@ -53,7 +53,6 @@ impl MdnsClientConnection {
 
 impl ClientConnection for MdnsClientConnection {
     type Sender = DnsMultiplexer<MdnsClientStream, Signer>;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<MdnsClientConnect, MdnsClientStream, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {

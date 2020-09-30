@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_channel::mpsc::{TrySendError, UnboundedSender};
-use futures_channel::oneshot::{self, Receiver, Sender};
+use futures_channel::oneshot;
 use futures_util::future::Future;
 use futures_util::ready;
 use futures_util::stream::Stream;
@@ -111,39 +111,23 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 
 // TODO: expose the Sink trait for this?
 /// A sender to which serialized DNS Messages can be sent
-pub struct DnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    sender: UnboundedSender<OneshotDnsRequest<F>>,
+#[derive(Clone)]
+pub struct DnsRequestStreamHandle {
+    sender: UnboundedSender<OneshotDnsRequest>,
 }
 
-impl<F> DnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
+impl DnsRequestStreamHandle {
     /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: UnboundedSender<OneshotDnsRequest<F>>) -> Self {
+    pub fn new(sender: UnboundedSender<OneshotDnsRequest>) -> Self {
         DnsRequestStreamHandle { sender }
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
     pub fn unbounded_send(
         &self,
-        msg: OneshotDnsRequest<F>,
-    ) -> Result<(), TrySendError<OneshotDnsRequest<F>>> {
+        msg: OneshotDnsRequest,
+    ) -> Result<(), TrySendError<OneshotDnsRequest>> {
         self.sender.unbounded_send(msg)
-    }
-}
-
-impl<F> Clone for DnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    fn clone(&self) -> Self {
-        DnsRequestStreamHandle {
-            sender: self.sender.clone(),
-        }
     }
 }
 
@@ -153,12 +137,6 @@ where
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
 pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static {
-    /// A future that resolves to a response serial message
-    type DnsResponseFuture: Future<Output = Result<DnsResponse, ProtoError>>
-        + 'static
-        + Send
-        + Unpin;
-
     /// Send a message, and return a future of the response
     ///
     /// # Return
@@ -168,10 +146,10 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
         &mut self,
         message: DnsRequest,
         cx: &mut Context,
-    ) -> Self::DnsResponseFuture;
+    ) -> DnsResponseFuture;
 
     /// Constructs an error response
-    fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture;
+    fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
@@ -183,31 +161,15 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
 }
 
 /// Used for associating a name_server to a DnsRequestStreamHandle
-pub struct BufDnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    sender: DnsRequestStreamHandle<F>,
+#[derive(Clone)]
+pub struct BufDnsRequestStreamHandle {
+    sender: DnsRequestStreamHandle,
 }
 
-impl<F> BufDnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
+impl BufDnsRequestStreamHandle {
     /// Construct a new BufDnsRequestStreamHandle
-    pub fn new(sender: DnsRequestStreamHandle<F>) -> Self {
+    pub fn new(sender: DnsRequestStreamHandle) -> Self {
         BufDnsRequestStreamHandle { sender }
-    }
-}
-
-impl<F> Clone for BufDnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    fn clone(&self) -> Self {
-        BufDnsRequestStreamHandle {
-            sender: self.sender.clone(),
-        }
     }
 }
 
@@ -227,11 +189,8 @@ macro_rules! try_oneshot {
     };
 }
 
-impl<F> DnsHandle for BufDnsRequestStreamHandle<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
-{
-    type Response = OneshotDnsResponseReceiver<F>;
+impl DnsHandle for BufDnsRequestStreamHandle {
+    type Response = OneshotDnsResponseReceiver;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
@@ -250,19 +209,15 @@ where
 
 // TODO: this future should return the origin message in the response on errors
 /// A OneshotDnsRequest creates a channel for a response to message
-pub struct OneshotDnsRequest<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
+pub struct OneshotDnsRequest {
     dns_request: DnsRequest,
-    sender_for_response: Sender<F>,
+    sender_for_response: oneshot::Sender<DnsResponseFuture>,
 }
 
-impl<F> OneshotDnsRequest<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    fn oneshot(dns_request: DnsRequest) -> (OneshotDnsRequest<F>, oneshot::Receiver<F>) {
+impl OneshotDnsRequest {
+    fn oneshot(
+        dns_request: DnsRequest,
+    ) -> (OneshotDnsRequest, oneshot::Receiver<DnsResponseFuture>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
         (
@@ -274,7 +229,7 @@ where
         )
     }
 
-    fn unwrap(self) -> (DnsRequest, OneshotDnsResponse<F>) {
+    fn unwrap(self) -> (DnsRequest, OneshotDnsResponse) {
         (
             self.dns_request,
             OneshotDnsResponse(self.sender_for_response),
@@ -282,37 +237,26 @@ where
     }
 }
 
-struct OneshotDnsResponse<F>(oneshot::Sender<F>)
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send;
+struct OneshotDnsResponse(oneshot::Sender<DnsResponseFuture>);
 
-impl<F> OneshotDnsResponse<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send,
-{
-    fn send_response(self, serial_response: F) -> Result<(), F> {
+impl OneshotDnsResponse {
+    fn send_response(self, serial_response: DnsResponseFuture) -> Result<(), DnsResponseFuture> {
         self.0.send(serial_response)
     }
 }
 
 /// A Future that wraps a oneshot::Receiver and resolves to the final value
-pub enum OneshotDnsResponseReceiver<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
-{
+pub enum OneshotDnsResponseReceiver {
     /// The receiver
-    Receiver(Receiver<F>),
+    Receiver(oneshot::Receiver<DnsResponseFuture>),
     /// The future once received
-    Received(F),
+    Received(DnsResponseFuture),
     /// Error during the send operation
     Err(Option<ProtoError>),
 }
 
-impl<F> Future for OneshotDnsResponseReceiver<F>
-where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin,
-{
-    type Output = <F as Future>::Output;
+impl Future for OneshotDnsResponseReceiver {
+    type Output = Result<DnsResponse, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         loop {

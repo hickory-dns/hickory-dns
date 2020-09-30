@@ -22,8 +22,7 @@ use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{DNSClass, RData, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 
-use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream, UdpResponse};
-use trust_dns_proto::xfer::DnsMultiplexerSerialResponse;
+use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
 use trust_dns_proto::DnssecDnsHandle;
 use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 use trust_dns_server::authority::{Authority, Catalog};
@@ -196,7 +195,7 @@ where
 
 fn with_nonet<F>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient<DnsMultiplexerSerialResponse>>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -254,7 +253,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient<UdpResponse>>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -290,7 +289,7 @@ where
 
 fn with_tcp<F>(test: F)
 where
-    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient<DnsMultiplexerSerialResponse>>>, Runtime),
+    F: Fn(DnssecDnsHandle<MemoizeClientHandle<AsyncClient>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

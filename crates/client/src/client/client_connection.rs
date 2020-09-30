@@ -17,19 +17,14 @@ use std::sync::Arc;
 
 use futures::Future;
 
-use trust_dns_proto::{
-    error::ProtoError,
-    xfer::{DnsRequestSender, DnsResponse},
-};
+use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
 
 use crate::rr::dnssec::Signer;
 
 /// Trait for client connections
 pub trait ClientConnection: 'static + Sized + Send + Sync + Unpin {
     /// The associated DNS RequestSender type.
-    type Sender: DnsRequestSender<DnsResponseFuture = Self::Response>;
-    /// Response type of the RequestSender
-    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    type Sender: DnsRequestSender;
     /// A future that resolves to the RequestSender
     type SenderFuture: Future<Output = Result<Self::Sender, ProtoError>> + 'static + Send + Unpin;
 

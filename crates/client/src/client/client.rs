@@ -432,8 +432,8 @@ impl<CC: ClientConnection> SyncClient<CC> {
 }
 
 impl<CC: ClientConnection> Client for SyncClient<CC> {
-    type Response = DnsExchangeSend<CC::Response>;
-    type Handle = AsyncClient<CC::Response>;
+    type Response = DnsExchangeSend;
+    type Handle = AsyncClient;
 
     fn new_future(&self) -> NewFutureObj<Self::Handle> {
         let stream = self.conn.new_stream(self.signer.clone());
@@ -478,7 +478,7 @@ impl<CC: ClientConnection> SyncDnssecClient<CC> {
 impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
     type Response =
         Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
-    type Handle = AsyncDnssecClient<CC::Response>;
+    type Handle = AsyncDnssecClient;
 
     #[allow(clippy::type_complexity)]
     fn new_future(&self) -> NewFutureObj<Self::Handle> {

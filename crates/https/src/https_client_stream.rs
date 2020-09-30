@@ -180,8 +180,6 @@ impl HttpsClientStream {
 }
 
 impl DnsRequestSender for HttpsClientStream {
-    type DnsResponseFuture = DnsResponseFuture;
-
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
     /// If the request fails, this will return the error, and it should be assumed that the Stream portion of
@@ -233,7 +231,7 @@ impl DnsRequestSender for HttpsClientStream {
         &mut self,
         mut message: DnsRequest,
         _cx: &mut Context,
-    ) -> Self::DnsResponseFuture {
+    ) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -256,7 +254,7 @@ impl DnsRequestSender for HttpsClientStream {
         .into()
     }
 
-    fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture {
+    fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture {
         Box::pin(future::err(error)).into()
     }
 
