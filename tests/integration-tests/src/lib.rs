@@ -32,7 +32,7 @@ use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_client::serialize::binary::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender, SerialMessage,
+    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage,
 };
 use trust_dns_proto::StreamHandle;
 
@@ -256,7 +256,6 @@ impl NeverReturnsClientConnection {
 #[allow(clippy::type_complexity)]
 impl ClientConnection for NeverReturnsClientConnection {
     type Sender = DnsMultiplexer<NeverReturnsClientStream, Signer>;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<NeverReturnsClientStream, ProtoError>> + Send>>,
         NeverReturnsClientStream,

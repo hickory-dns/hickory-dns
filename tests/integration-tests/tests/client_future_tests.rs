@@ -36,12 +36,8 @@ use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::DnsResponse;
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::xfer::{
-    DnsExchangeBackground, DnsMultiplexer, DnsMultiplexerSerialResponse, DnsStreamHandle,
-};
+use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, DnsStreamHandle};
 use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -167,10 +163,7 @@ fn test_query_https() {
 }
 
 #[cfg(test)]
-fn test_query<R>(client: &mut AsyncClient<R>) -> impl Future<Output = ()>
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
     client
@@ -231,10 +224,9 @@ fn test_notify() {
 #[allow(clippy::type_complexity)]
 async fn create_sig0_ready_client() -> (
     (
-        AsyncClient<DnsMultiplexerSerialResponse>,
+        AsyncClient,
         DnsExchangeBackground<
             DnsMultiplexer<TestClientStream, Signer, Box<dyn DnsStreamHandle>>,
-            DnsMultiplexerSerialResponse,
             TokioTime,
         >,
     ),
@@ -877,10 +869,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query<R>(mut client: AsyncClient<R>, mut io_loop: Runtime)
-where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin,
-{
+fn test_timeout_query(mut client: AsyncClient, mut io_loop: Runtime) {
     let name = Name::from_str("www.example.com").unwrap();
 
     let err = io_loop

@@ -14,7 +14,6 @@ use std::sync::Arc;
 use rustls::{Certificate, ClientConfig};
 use trust_dns_https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::xfer::DnsRequestSender;
 
 use crate::client::ClientConnection;
 use crate::rr::dnssec::Signer;
@@ -50,7 +49,6 @@ where
     T: Connect + 'static + Unpin + Sync + Send,
 {
     type Sender = HttpsClientStream;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = HttpsClientConnect<T>;
 
     fn new_stream(

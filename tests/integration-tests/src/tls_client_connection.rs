@@ -17,7 +17,7 @@ use futures::Future;
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect, DnsRequestSender};
+use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
 use rustls::ClientConfig;
 use trust_dns_rustls::{tls_client_connect, TlsClientStream};
@@ -49,7 +49,6 @@ impl TlsClientConnection {
 #[allow(clippy::type_complexity)]
 impl ClientConnection for TlsClientConnection {
     type Sender = DnsMultiplexer<TlsClientStream, Signer>;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = DnsMultiplexerConnect<
         Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
         TlsClientStream,

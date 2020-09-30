@@ -307,13 +307,11 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type DnsResponseFuture = DnsResponseFuture;
-
     fn send_message<TE: Time>(
         &mut self,
         request: DnsRequest,
         cx: &mut Context,
-    ) -> Self::DnsResponseFuture {
+    ) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -391,7 +389,7 @@ where
         DnsMultiplexerSerialResponseInner::Completion(receiver).into()
     }
 
-    fn error_response<TE: Time>(error: ProtoError) -> Self::DnsResponseFuture {
+    fn error_response<TE: Time>(error: ProtoError) -> DnsResponseFuture {
         DnsMultiplexerSerialResponseInner::Err(Some(error)).into()
     }
 

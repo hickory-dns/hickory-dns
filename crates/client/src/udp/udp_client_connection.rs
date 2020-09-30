@@ -12,7 +12,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::proto::udp::{UdpClientConnect, UdpClientStream};
-use crate::proto::xfer::DnsRequestSender;
 
 use crate::client::ClientConnection;
 use crate::error::*;
@@ -50,7 +49,6 @@ impl UdpClientConnection {
 
 impl ClientConnection for UdpClientConnection {
     type Sender = UdpClientStream<UdpSocket, Signer>;
-    type Response = <Self::Sender as DnsRequestSender>::DnsResponseFuture;
     type SenderFuture = UdpClientConnect<UdpSocket, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
