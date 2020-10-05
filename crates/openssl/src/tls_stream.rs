@@ -9,7 +9,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::channel::mpsc;
 use futures::{future, Future, TryFutureExt};
 use openssl::pkcs12::ParsedPkcs12;
 use openssl::pkey::{PKeyRef, Private};
@@ -119,11 +118,8 @@ pub fn tls_stream_from_existing_tls_stream(
     stream: AsyncIo02As03<TokioTlsStream<TokioTcpStream>>,
     peer_addr: SocketAddr,
 ) -> (TlsStream, BufStreamHandle) {
-    let (message_sender, outbound_messages) = mpsc::unbounded();
-    let message_sender = BufStreamHandle::new(message_sender);
-
+    let (message_sender, outbound_messages) = BufStreamHandle::create();
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
-
     (stream, message_sender)
 }
 
@@ -211,9 +207,7 @@ impl TlsStreamBuilder {
         Pin<Box<dyn Future<Output = Result<TlsStream, io::Error>> + Send>>,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
-
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
         let tls_config = match new(self.ca_chain, self.identity) {
             Ok(c) => c,
             Err(e) => {

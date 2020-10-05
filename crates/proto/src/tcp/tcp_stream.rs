@@ -15,14 +15,13 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures_channel::mpsc;
 use futures_io::{AsyncRead, AsyncWrite};
-use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
 use log::debug;
 
 use crate::error::*;
-use crate::xfer::{BufStreamHandle, SerialMessage};
+use crate::xfer::{BufStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
 
 /// Trait for TCP connection
@@ -82,7 +81,7 @@ pub enum ReadTcpState {
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpStream<S> {
     socket: S,
-    outbound_messages: Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
+    outbound_messages: StreamReceiver,
     send_state: Option<WriteTcpState>,
     read_state: ReadTcpState,
     peer_addr: SocketAddr,
@@ -98,7 +97,7 @@ impl<S> TcpStream<S> {
         &mut self,
     ) -> (
         &mut S,
-        &mut Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
+        &mut StreamReceiver,
         &mut Option<WriteTcpState>,
         &mut ReadTcpState,
     ) {
@@ -147,8 +146,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         impl Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream_fut = Self::connect::<TE>(name_server, timeout, outbound_messages);
@@ -159,7 +157,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     async fn connect<TE: Time>(
         name_server: SocketAddr,
         timeout: Duration,
-        outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
+        outbound_messages: StreamReceiver,
     ) -> Result<TcpStream<S::Transport>, io::Error> {
         let tcp = S::connect(name_server);
         TE::timeout(timeout, tcp)
@@ -171,7 +169,7 @@ impl<S: Connect + 'static> TcpStream<S> {
                             debug!("TCP connection established to: {}", name_server);
                             TcpStream {
                                 socket: tcp_stream,
-                                outbound_messages: outbound_messages.fuse().peekable(),
+                                outbound_messages,
                                 send_state: None,
                                 read_state: ReadTcpState::LenBytes {
                                     pos: 0,
@@ -196,23 +194,20 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     /// * `stream` - the established IO stream for communication
     /// * `peer_addr` - sources address of the stream
     pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
-
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
-
         (stream, message_sender)
     }
 
     /// Wraps a stream where a sender and receiver have already been established
     pub fn from_stream_with_receiver(
-        stream: S,
+        socket: S,
         peer_addr: SocketAddr,
-        receiver: mpsc::UnboundedReceiver<SerialMessage>,
+        outbound_messages: StreamReceiver,
     ) -> Self {
         TcpStream {
-            socket: stream,
-            outbound_messages: receiver.fuse().peekable(),
+            socket,
+            outbound_messages,
             send_state: None,
             read_state: ReadTcpState::LenBytes {
                 pos: 0,

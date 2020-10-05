@@ -12,14 +12,13 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use futures_channel::mpsc;
-use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
+use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, FutureExt, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 
-use crate::xfer::{BufStreamHandle, SerialMessage};
+use crate::xfer::{BufStreamHandle, SerialMessage, StreamReceiver};
 
 /// Trait for UdpSocket
 #[async_trait]
@@ -40,7 +39,7 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream<S: Send> {
     socket: S,
-    outbound_messages: Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
+    outbound_messages: StreamReceiver,
 }
 
 impl<S: UdpSocket + Send + 'static> UdpStream<S> {
@@ -64,8 +63,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -75,7 +73,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         //  sending and receiving udp packets.
         let stream = Box::new(next_socket.map_ok(move |socket| UdpStream {
             socket,
-            outbound_messages: outbound_messages.fuse().peekable(),
+            outbound_messages,
         }));
 
         (stream, message_sender)
@@ -95,37 +93,27 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn with_bound(socket: S) -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
-
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
         let stream = UdpStream {
             socket,
-            outbound_messages: outbound_messages.fuse().peekable(),
+            outbound_messages,
         };
 
         (stream, message_sender)
     }
 
     #[allow(unused)]
-    pub(crate) fn from_parts(
-        socket: S,
-        outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
-    ) -> Self {
+    pub(crate) fn from_parts(socket: S, outbound_messages: StreamReceiver) -> Self {
         UdpStream {
             socket,
-            outbound_messages: outbound_messages.fuse().peekable(),
+            outbound_messages,
         }
     }
 }
 
 impl<S: Send> UdpStream<S> {
     #[allow(clippy::type_complexity)]
-    fn pollable_split(
-        &mut self,
-    ) -> (
-        &mut S,
-        &mut Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
-    ) {
+    fn pollable_split(&mut self) -> (&mut S, &mut StreamReceiver) {
         (&mut self.socket, &mut self.outbound_messages)
     }
 }
