@@ -88,7 +88,7 @@ fn mdns_responsder(
                         // we're just going to bounce this message back
 
                         mdns_handle
-                            .unbounded_send(SerialMessage::new(
+                            .send(SerialMessage::new(
                                 message.to_vec().expect("message encode failed"),
                                 src,
                             ))

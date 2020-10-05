@@ -70,11 +70,8 @@ impl BufStreamHandle {
         (BufStreamHandle { sender }, receiver.fuse().peekable())
     }
 
-    /// see [`futures::sync::mpsc::UnboundedSender`]
-    pub fn unbounded_send(
-        &self,
-        msg: SerialMessage,
-    ) -> Result<(), mpsc::TrySendError<SerialMessage>> {
+    /// Send SerialMessage over the channel
+    pub fn send(&self, msg: SerialMessage) -> Result<(), mpsc::TrySendError<SerialMessage>> {
         self.sender.unbounded_send(msg)
     }
 }

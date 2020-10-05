@@ -92,7 +92,7 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
     for _ in 0..send_recv_times {
         // test once
         sender
-            .unbounded_send(SerialMessage::new(test_bytes.to_vec(), server_addr))
+            .send(SerialMessage::new(test_bytes.to_vec(), server_addr))
             .unwrap();
         let (buffer_and_addr, stream_tmp) = exec.block_on(stream.into_future());
         stream = stream_tmp;
