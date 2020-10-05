@@ -34,7 +34,7 @@ impl SerialMessage {
     }
 
     /// Unwrap the Bytes and address
-    pub fn unwrap(self) -> (Vec<u8>, SocketAddr) {
+    pub fn into_parts(self) -> (Vec<u8>, SocketAddr) {
         (self.message, self.addr)
     }
 

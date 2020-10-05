@@ -325,7 +325,7 @@ where
             }
         };
 
-        let (mut request, request_options) = request.unwrap();
+        let (mut request, request_options) = request.into_parts();
         request.set_id(query_id);
 
         let now = match SystemTime::now().duration_since(UNIX_EPOCH) {

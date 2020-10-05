@@ -171,7 +171,7 @@ impl Iterator for LookupIntoIter {
     fn next(&mut self) -> Option<Self::Item> {
         match self.records {
             // a zero overhead unwrap
-            Ok(ref mut iter) => iter.next().map(Record::unwrap_rdata),
+            Ok(ref mut iter) => iter.next().map(Record::into_data),
             Err(ref records) => {
                 let rdata = records.get(self.index).map(Record::rdata);
                 self.index += 1;

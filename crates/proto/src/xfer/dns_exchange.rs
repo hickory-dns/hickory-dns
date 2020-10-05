@@ -192,7 +192,7 @@ where
                 // already handled above, here to make sure the poll() pops the next message
                 Poll::Ready(Some(dns_request)) => {
                     // if there is no peer, this connection should die...
-                    let (dns_request, serial_response): (DnsRequest, _) = dns_request.unwrap();
+                    let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
 
                     match serial_response
                         .send_response(io_stream.send_message::<TE>(dns_request, cx))
@@ -357,7 +357,7 @@ where
                     } {
                         // ignoring errors... best effort send...
                         outbound_message
-                            .unwrap()
+                            .into_parts()
                             .1
                             .send_response(error.clone().into())
                             .ok();

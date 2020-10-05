@@ -297,7 +297,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> Stream for TcpStream<S> {
                     // already handled above, here to make sure the poll() pops the next message
                     Poll::Ready(Some(message)) => {
                         // if there is no peer, this connection should die...
-                        let (buffer, dst) = message.unwrap();
+                        let (buffer, dst) = message.into_parts();
 
                         // This is an error if the destination is not our peer (this is TCP after all)
                         //  This will kill the connection...
