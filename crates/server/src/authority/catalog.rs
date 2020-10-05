@@ -47,7 +47,7 @@ pub struct Catalog {
 fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse,
-    response_handle: R,
+    mut response_handle: R,
 ) -> io::Result<()> {
     if let Some(mut resp_edns) = response_edns {
         // set edns DAU and DHU
@@ -82,7 +82,7 @@ impl RequestHandler for Catalog {
     fn handle_request<R: ResponseHandler>(
         &self,
         request: Request,
-        response_handle: R,
+        mut response_handle: R,
     ) -> Self::ResponseFuture {
         let request_message = request.message;
         trace!("request: {:?}", request_message);

@@ -60,24 +60,26 @@ pub trait DnsClientStream:
 /// A sender to which serialized DNS Messages can be sent
 #[derive(Clone)]
 pub struct BufStreamHandle {
-    sender: mpsc::UnboundedSender<SerialMessage>,
+    sender: mpsc::Sender<SerialMessage>,
 }
 
 impl BufStreamHandle {
     /// Constructs a new BufStreamHandle with associated StreamReceiver
     pub fn create() -> (Self, StreamReceiver) {
-        let (sender, receiver) = mpsc::unbounded();
+        let (sender, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         (BufStreamHandle { sender }, receiver.fuse().peekable())
     }
 
     /// Send SerialMessage over the channel
-    pub fn send(&self, msg: SerialMessage) -> Result<(), mpsc::TrySendError<SerialMessage>> {
-        self.sender.unbounded_send(msg)
+    pub fn send(&mut self, msg: SerialMessage) -> Result<(), mpsc::TrySendError<SerialMessage>> {
+        self.sender.try_send(msg)
     }
 }
 
 /// Receiver handle for peekable fused SerialMessage channel
-pub type StreamReceiver = Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>;
+pub type StreamReceiver = Peekable<Fuse<mpsc::Receiver<SerialMessage>>>;
+
+const CHANNEL_BUFFER_SIZE: usize = 32;
 
 /// A buffering stream bound to a `SocketAddr`
 pub struct BufDnsStreamHandle {
@@ -105,8 +107,7 @@ impl DnsStreamHandle for BufDnsStreamHandle {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
         sender
-            .sender
-            .unbounded_send(SerialMessage::new(buffer.into_parts().0, name_server))
+            .send(SerialMessage::new(buffer.into_parts().0, name_server))
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }

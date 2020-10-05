@@ -56,7 +56,7 @@ fn mdns_responsder(
             let mut timeout = tokio::time::delay_for(Duration::from_millis(100));
 
             // TODO: ipv6 if is hardcoded, need a different strategy
-            let (mdns_stream, mdns_handle) = MdnsStream::new(
+            let (mdns_stream, mut mdns_handle) = MdnsStream::new(
                 mdns_addr,
                 MdnsQueryType::OneShotJoin,
                 Some(1),
