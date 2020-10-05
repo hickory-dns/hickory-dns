@@ -530,7 +530,7 @@ pub mod tests {
 
                             // bounce them right back...
                             server_sender
-                                .unbounded_send(SerialMessage::new(test_bytes.to_vec(), addr))
+                                .send(SerialMessage::new(test_bytes.to_vec(), addr))
                                 .expect("could not send to client");
                         }
                         Either::Right(((), buffer_and_addr_stream_tmp)) => {
@@ -564,7 +564,7 @@ pub mod tests {
         for _ in 0..send_recv_times {
             // test once
             sender
-                .unbounded_send(SerialMessage::new(test_bytes.to_vec(), mdns_addr))
+                .send(SerialMessage::new(test_bytes.to_vec(), mdns_addr))
                 .unwrap();
 
             println!("client sending data!");
@@ -699,7 +699,7 @@ pub mod tests {
         for _ in 0..send_recv_times {
             // test once
             sender
-                .unbounded_send(SerialMessage::new(test_bytes.to_vec(), mdns_addr))
+                .send(SerialMessage::new(test_bytes.to_vec(), mdns_addr))
                 .unwrap();
 
             println!("client sending data!");

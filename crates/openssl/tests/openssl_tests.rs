@@ -219,7 +219,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     for _ in 0..send_recv_times {
         // test once
         sender
-            .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
+            .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop.block_on(stream.into_future());
         stream = stream_tmp;

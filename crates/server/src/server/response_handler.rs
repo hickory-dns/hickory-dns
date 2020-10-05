@@ -65,7 +65,7 @@ impl ResponseHandler for ResponseHandle {
         })?;
 
         self.stream_handle
-            .unbounded_send(SerialMessage::new(buffer, self.dst))
+            .send(SerialMessage::new(buffer, self.dst))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
     }
 }

@@ -105,7 +105,7 @@ pub fn tcp_stream_test<S: Connect + 'static, E: Executor, TE: Time>(
     for _ in 0..SEND_RECV_TIMES {
         // test once
         sender
-            .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
+            .send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
 
         let (buffer, stream_tmp) = exec.block_on(stream.into_future());
