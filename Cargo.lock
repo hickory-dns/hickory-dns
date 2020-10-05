@@ -60,7 +60,7 @@ version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d373d78ded7d0b3fa8039375718cde0aace493f2e34fb60f51cbf567562ca801"
 dependencies = [
- "async-task 4.0.1",
+ "async-task",
  "concurrent-queue",
  "fastrand",
  "futures-lite",
@@ -70,9 +70,9 @@ dependencies = [
 
 [[package]]
 name = "async-global-executor"
-version = "1.1.1"
+version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffd4f132a18f3fe7329c7b907047684f1b06174a900c559b661b2da8bb9cad5f"
+checksum = "fefeb39da249f4c33af940b779a56723ce45809ef5c54dad84bb538d4ffb6d9e"
 dependencies = [
  "async-executor",
  "async-io",
@@ -110,15 +110,14 @@ dependencies = [
 
 [[package]]
 name = "async-std"
-version = "1.6.4"
+version = "1.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c92085acfce8b32e5b261d0b59b8f3309aee69fea421ea3f271f8b93225754f"
+checksum = "a9fa76751505e8df1c7a77762f60486f60c71bbd9b8557f4da6ad47d083732ed"
 dependencies = [
  "async-attributes",
  "async-global-executor",
  "async-io",
  "async-mutex",
- "async-task 3.0.0",
  "blocking",
  "crossbeam-utils",
  "futures-channel",
@@ -146,12 +145,6 @@ dependencies = [
  "futures",
  "trust-dns-resolver",
 ]
-
-[[package]]
-name = "async-task"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17772156ef2829aadc587461c7753af20b7e8db1529bc66855add962a3b35d3"
 
 [[package]]
 name = "async-task"
