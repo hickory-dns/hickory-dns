@@ -12,7 +12,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use futures_channel::mpsc::{unbounded, UnboundedReceiver};
+use futures_channel::mpsc;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
 use futures_util::{future::Future, ready, FutureExt, TryFutureExt};
 use log::debug;
@@ -40,7 +40,7 @@ where
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream<S: Send> {
     socket: S,
-    outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+    outbound_messages: Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
 }
 
 impl<S: UdpSocket + Send + 'static> UdpStream<S> {
@@ -64,7 +64,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
         // TODO: allow the bind address to be specified...
@@ -95,7 +95,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn with_bound(socket: S) -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = UdpStream {
@@ -109,7 +109,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     #[allow(unused)]
     pub(crate) fn from_parts(
         socket: S,
-        outbound_messages: UnboundedReceiver<SerialMessage>,
+        outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
             socket,
@@ -124,7 +124,7 @@ impl<S: Send> UdpStream<S> {
         &mut self,
     ) -> (
         &mut S,
-        &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+        &mut Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
     ) {
         (&mut self.socket, &mut self.outbound_messages)
     }

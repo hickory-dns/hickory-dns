@@ -11,7 +11,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::channel::mpsc;
 use futures::{Future, TryFutureExt};
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
@@ -51,7 +51,7 @@ pub fn tls_from_stream(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
 ) -> (TlsStream, BufStreamHandle) {
-    let (message_sender, outbound_messages) = unbounded();
+    let (message_sender, outbound_messages) = mpsc::unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
     let stream =
@@ -124,7 +124,7 @@ impl TlsStreamBuilder {
         Pin<Box<dyn Future<Output = Result<TlsStream, io::Error>> + Send>>,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = self.inner_build(name_server, dns_name, outbound_messages);
@@ -135,7 +135,7 @@ impl TlsStreamBuilder {
         self,
         name_server: SocketAddr,
         dns_name: String,
-        outbound_messages: UnboundedReceiver<SerialMessage>,
+        outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
     ) -> Result<TlsStream, io::Error> {
         use crate::tls_stream;
 

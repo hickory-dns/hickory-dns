@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::channel::mpsc;
 use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
 use tokio::time::{Delay, Duration, Instant};
@@ -46,7 +46,7 @@ pub mod tls_client_connection;
 #[allow(unused)]
 pub struct TestClientStream {
     catalog: Arc<Mutex<Catalog>>,
-    outbound_messages: UnboundedReceiver<Vec<u8>>,
+    outbound_messages: mpsc::UnboundedReceiver<Vec<u8>>,
 }
 
 #[allow(unused)]
@@ -58,7 +58,7 @@ impl TestClientStream {
         Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
         StreamHandle,
     ) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
         let stream = Box::pin(future::ok(TestClientStream {
@@ -184,7 +184,7 @@ impl fmt::Debug for TestClientStream {
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {
     timeout: Delay,
-    outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
+    outbound_messages: Fuse<mpsc::UnboundedReceiver<Vec<u8>>>,
 }
 
 #[allow(dead_code)]
@@ -194,7 +194,7 @@ impl NeverReturnsClientStream {
         Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
         StreamHandle,
     ) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
         let stream = Box::pin(future::lazy(|_| {

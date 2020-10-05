@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_channel::mpsc::{unbounded, UnboundedReceiver};
+use futures_channel::mpsc;
 use futures_util::future::{Future, FutureExt};
 use futures_util::stream::{Peekable, Stream, StreamExt};
 use log::{debug, warn};
@@ -45,7 +45,7 @@ impl DnsExchange {
     where
         S: DnsRequestSender + 'static + Send + Unpin,
     {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = DnsRequestStreamHandle::new(message_sender);
 
         Self::from_stream_with_receiver(stream, outbound_messages, message_sender)
@@ -54,7 +54,7 @@ impl DnsExchange {
     /// Wraps a stream where a sender and receiver have already been established
     pub fn from_stream_with_receiver<S, TE>(
         stream: S,
-        receiver: UnboundedReceiver<OneshotDnsRequest>,
+        receiver: mpsc::UnboundedReceiver<OneshotDnsRequest>,
         sender: DnsRequestStreamHandle,
     ) -> (Self, DnsExchangeBackground<S, TE>)
     where
@@ -80,7 +80,7 @@ impl DnsExchange {
         S: DnsRequestSender + 'static + Send + Unpin,
         TE: Time + Unpin,
     {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = DnsRequestStreamHandle::new(message_sender);
 
         DnsExchangeConnect::connect(connect_future, outbound_messages, message_sender)
@@ -132,7 +132,7 @@ where
     S: DnsRequestSender + 'static + Send + Unpin,
 {
     io_stream: S,
-    outbound_messages: Peekable<UnboundedReceiver<OneshotDnsRequest>>,
+    outbound_messages: Peekable<mpsc::UnboundedReceiver<OneshotDnsRequest>>,
     marker: PhantomData<TE>,
 }
 
@@ -140,7 +140,12 @@ impl<S, TE> DnsExchangeBackground<S, TE>
 where
     S: DnsRequestSender + 'static + Send + Unpin,
 {
-    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<UnboundedReceiver<OneshotDnsRequest>>) {
+    fn pollable_split(
+        &mut self,
+    ) -> (
+        &mut S,
+        &mut Peekable<mpsc::UnboundedReceiver<OneshotDnsRequest>>,
+    ) {
         (&mut self.io_stream, &mut self.outbound_messages)
     }
 }
@@ -244,7 +249,7 @@ where
 {
     fn connect(
         connect_future: F,
-        outbound_messages: UnboundedReceiver<OneshotDnsRequest>,
+        outbound_messages: mpsc::UnboundedReceiver<OneshotDnsRequest>,
         sender: DnsRequestStreamHandle,
     ) -> Self {
         DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
@@ -277,7 +282,7 @@ where
 {
     Connecting {
         connect_future: F,
-        outbound_messages: Option<UnboundedReceiver<OneshotDnsRequest>>,
+        outbound_messages: Option<mpsc::UnboundedReceiver<OneshotDnsRequest>>,
         sender: Option<DnsRequestStreamHandle>,
     },
     Connected {
@@ -286,7 +291,7 @@ where
     },
     FailAll {
         error: ProtoError,
-        outbound_messages: UnboundedReceiver<OneshotDnsRequest>,
+        outbound_messages: mpsc::UnboundedReceiver<OneshotDnsRequest>,
     },
 }
 
