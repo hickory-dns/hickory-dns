@@ -490,7 +490,7 @@ pub mod tests {
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-                let (server_stream_future, server_sender) = MdnsStream::new(
+                let (server_stream_future, mut server_sender) = MdnsStream::new(
                     mdns_addr,
                     MdnsQueryType::OneShotJoin,
                     Some(1),
@@ -553,7 +553,7 @@ pub mod tests {
         let mut io_loop = runtime::Runtime::new().unwrap();
 
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-        let (stream, sender) =
+        let (stream, mut sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
         let mut timeout = future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))
@@ -689,7 +689,7 @@ pub mod tests {
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = runtime::Runtime::new().unwrap();
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
-        let (stream, sender) =
+        let (stream, mut sender) =
             MdnsStream::new(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5));
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
         let mut timeout = future::lazy(|_| tokio::time::delay_for(Duration::from_millis(100)))

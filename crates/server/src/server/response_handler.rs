@@ -23,7 +23,7 @@ pub trait ResponseHandler: Clone + Send + Unpin + 'static {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send_response(&self, response: MessageResponse) -> io::Result<()>;
+    fn send_response(&mut self, response: MessageResponse) -> io::Result<()>;
 }
 
 /// A handler for wrapping a BufStreamHandle, which will properly serialize the message and add the
@@ -45,7 +45,7 @@ impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send_response(&self, response: MessageResponse) -> io::Result<()> {
+    fn send_response(&mut self, response: MessageResponse) -> io::Result<()> {
         info!(
             "response: {} response_code: {}",
             response.header().id(),

@@ -91,7 +91,7 @@ async fn handle_request<T>(
 struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
 impl ResponseHandler for HttpsResponseHandle {
-    fn send_response(&self, response: MessageResponse) -> io::Result<()> {
+    fn send_response(&mut self, response: MessageResponse) -> io::Result<()> {
         use crate::proto::serialize::binary::BinEncoder;
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;

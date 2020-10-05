@@ -87,7 +87,7 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
             &client_addr.to_socket_addrs().unwrap().next().unwrap(),
         ))
         .expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::<S>::with_bound(socket);
+    let (mut stream, mut sender) = UdpStream::<S>::with_bound(socket);
 
     for _ in 0..send_recv_times {
         // test once
