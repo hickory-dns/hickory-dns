@@ -215,19 +215,20 @@ where
     }
 
     /// creates random query_id, validates against all active queries
-    fn next_random_query_id(&self, cx: &mut Context) -> Poll<u16> {
+    fn next_random_query_id(&self) -> Result<u16, ProtoError> {
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
             let id: u16 = Standard.sample(&mut rand); // the range is [0 ... u16::max]
 
             if !self.active_requests.contains_key(&id) {
-                return Poll::Ready(id);
+                return Ok(id);
             }
         }
 
-        cx.waker().wake_by_ref();
-        Poll::Pending
+        Err(ProtoError::from(
+            "id space exhausted, consider filing an issue",
+        ))
     }
 
     /// Closes all outstanding completes with a closed stream error
@@ -310,19 +311,15 @@ where
     fn send_message<TE: Time>(
         &mut self,
         request: DnsRequest,
-        cx: &mut Context,
+        _: &mut Context,
     ) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
 
-        // TODO: handle the pending case with future::poll_fn
-        // get next query_id
-        let query_id: u16 = match self.next_random_query_id(cx) {
-            Poll::Ready(id) => id,
-            Poll::Pending => {
-                return ProtoError::from("id space exhausted, consider filing an issue").into()
-            }
+        let query_id = match self.next_random_query_id() {
+            Ok(id) => id,
+            Err(e) => return e.into(),
         };
 
         let (mut request, request_options) = request.into_parts();
