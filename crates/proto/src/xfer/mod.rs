@@ -13,7 +13,7 @@ use futures_channel::mpsc;
 use futures_channel::oneshot;
 use futures_util::future::Future;
 use futures_util::ready;
-use futures_util::stream::Stream;
+use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
 use log::{debug, warn};
 
 use crate::error::*;
@@ -64,9 +64,10 @@ pub struct BufStreamHandle {
 }
 
 impl BufStreamHandle {
-    /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: mpsc::UnboundedSender<SerialMessage>) -> Self {
-        BufStreamHandle { sender }
+    /// Constructs a new BufStreamHandle with associated StreamReceiver
+    pub fn create() -> (Self, StreamReceiver) {
+        let (sender, receiver) = mpsc::unbounded();
+        (BufStreamHandle { sender }, receiver.fuse().peekable())
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
@@ -77,6 +78,9 @@ impl BufStreamHandle {
         self.sender.unbounded_send(msg)
     }
 }
+
+/// Receiver handle for peekable fused SerialMessage channel
+pub type StreamReceiver = Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>;
 
 /// A buffering stream bound to a `SocketAddr`
 pub struct BufDnsStreamHandle {

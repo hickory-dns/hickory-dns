@@ -11,7 +11,6 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::channel::mpsc;
 use futures::{Future, TryFutureExt};
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
@@ -20,7 +19,7 @@ use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::xfer::{BufStreamHandle, SerialMessage};
+use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream = TcpStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>;
@@ -51,8 +50,7 @@ pub fn tls_from_stream(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
 ) -> (TlsStream, BufStreamHandle) {
-    let (message_sender, outbound_messages) = mpsc::unbounded();
-    let message_sender = BufStreamHandle::new(message_sender);
+    let (message_sender, outbound_messages) = BufStreamHandle::create();
 
     let stream =
         TcpStream::from_stream_with_receiver(AsyncIo02As03(stream), peer_addr, outbound_messages);
@@ -124,8 +122,7 @@ impl TlsStreamBuilder {
         Pin<Box<dyn Future<Output = Result<TlsStream, io::Error>> + Send>>,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
 
         let stream = self.inner_build(name_server, dns_name, outbound_messages);
         (Box::pin(stream), message_sender)
@@ -135,7 +132,7 @@ impl TlsStreamBuilder {
         self,
         name_server: SocketAddr,
         dns_name: String,
-        outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
+        outbound_messages: StreamReceiver,
     ) -> Result<TlsStream, io::Error> {
         use crate::tls_stream;
 

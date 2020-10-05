@@ -12,7 +12,6 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_channel::mpsc;
 use futures_util::lock::Mutex;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
@@ -111,9 +110,7 @@ impl MdnsStream {
         Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = BufStreamHandle::new(message_sender);
-
+        let (message_sender, outbound_messages) = BufStreamHandle::create();
         let multicast_socket = match Self::join_multicast(&multicast_addr, mdns_query_type) {
             Ok(socket) => socket,
             Err(err) => return (Box::new(future::err(err)), message_sender),
