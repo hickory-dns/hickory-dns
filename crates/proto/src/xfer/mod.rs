@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_channel::mpsc::{TrySendError, UnboundedSender};
+use futures_channel::mpsc;
 use futures_channel::oneshot;
 use futures_util::future::Future;
 use futures_util::ready;
@@ -60,17 +60,20 @@ pub trait DnsClientStream:
 /// A sender to which serialized DNS Messages can be sent
 #[derive(Clone)]
 pub struct BufStreamHandle {
-    sender: UnboundedSender<SerialMessage>,
+    sender: mpsc::UnboundedSender<SerialMessage>,
 }
 
 impl BufStreamHandle {
     /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: UnboundedSender<SerialMessage>) -> Self {
+    pub fn new(sender: mpsc::UnboundedSender<SerialMessage>) -> Self {
         BufStreamHandle { sender }
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
-    pub fn unbounded_send(&self, msg: SerialMessage) -> Result<(), TrySendError<SerialMessage>> {
+    pub fn unbounded_send(
+        &self,
+        msg: SerialMessage,
+    ) -> Result<(), mpsc::TrySendError<SerialMessage>> {
         self.sender.unbounded_send(msg)
     }
 }
@@ -111,12 +114,12 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 /// A sender to which serialized DNS Messages can be sent
 #[derive(Clone)]
 pub struct DnsRequestStreamHandle {
-    sender: UnboundedSender<OneshotDnsRequest>,
+    sender: mpsc::UnboundedSender<OneshotDnsRequest>,
 }
 
 impl DnsRequestStreamHandle {
     /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: UnboundedSender<OneshotDnsRequest>) -> Self {
+    pub fn new(sender: mpsc::UnboundedSender<OneshotDnsRequest>) -> Self {
         DnsRequestStreamHandle { sender }
     }
 
@@ -124,7 +127,7 @@ impl DnsRequestStreamHandle {
     pub fn unbounded_send(
         &self,
         msg: OneshotDnsRequest,
-    ) -> Result<(), TrySendError<OneshotDnsRequest>> {
+    ) -> Result<(), mpsc::TrySendError<OneshotDnsRequest>> {
         self.sender.unbounded_send(msg)
     }
 }

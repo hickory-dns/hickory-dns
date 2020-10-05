@@ -8,7 +8,7 @@
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 use std::error::Error;
 
-use futures_channel::mpsc::UnboundedSender;
+use futures_channel::mpsc;
 use futures_util::future::Future;
 use log::debug;
 use rand;
@@ -22,12 +22,12 @@ const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 hea
 
 /// The StreamHandle is the general interface for communicating with the DnsMultiplexer
 pub struct StreamHandle {
-    sender: UnboundedSender<Vec<u8>>,
+    sender: mpsc::UnboundedSender<Vec<u8>>,
 }
 
 impl StreamHandle {
     /// Constructs a new StreamHandle for wrapping the sender
-    pub fn new(sender: UnboundedSender<Vec<u8>>) -> Self {
+    pub fn new(sender: mpsc::UnboundedSender<Vec<u8>>) -> Self {
         StreamHandle { sender }
     }
 }
@@ -40,7 +40,7 @@ pub trait DnsStreamHandle: 'static + Send {
 
 impl DnsStreamHandle for StreamHandle {
     fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
-        UnboundedSender::unbounded_send(&self.sender, buffer.into_parts().0)
+        mpsc::UnboundedSender::unbounded_send(&self.sender, buffer.into_parts().0)
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }

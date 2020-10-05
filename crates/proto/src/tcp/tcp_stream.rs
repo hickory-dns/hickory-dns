@@ -15,7 +15,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use futures_channel::mpsc::{unbounded, UnboundedReceiver};
+use futures_channel::mpsc;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
 use futures_util::{self, future::Future, ready, FutureExt};
@@ -82,7 +82,7 @@ pub enum ReadTcpState {
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpStream<S> {
     socket: S,
-    outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+    outbound_messages: Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
     send_state: Option<WriteTcpState>,
     read_state: ReadTcpState,
     peer_addr: SocketAddr,
@@ -98,7 +98,7 @@ impl<S> TcpStream<S> {
         &mut self,
     ) -> (
         &mut S,
-        &mut Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
+        &mut Peekable<Fuse<mpsc::UnboundedReceiver<SerialMessage>>>,
         &mut Option<WriteTcpState>,
         &mut ReadTcpState,
     ) {
@@ -147,7 +147,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         impl Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send,
         BufStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
@@ -159,7 +159,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     async fn connect<TE: Time>(
         name_server: SocketAddr,
         timeout: Duration,
-        outbound_messages: UnboundedReceiver<SerialMessage>,
+        outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
     ) -> Result<TcpStream<S::Transport>, io::Error> {
         let tcp = S::connect(name_server);
         TE::timeout(timeout, tcp)
@@ -196,7 +196,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     /// * `stream` - the established IO stream for communication
     /// * `peer_addr` - sources address of the stream
     pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = unbounded();
+        let (message_sender, outbound_messages) = mpsc::unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
@@ -208,7 +208,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     pub fn from_stream_with_receiver(
         stream: S,
         peer_addr: SocketAddr,
-        receiver: UnboundedReceiver<SerialMessage>,
+        receiver: mpsc::UnboundedReceiver<SerialMessage>,
     ) -> Self {
         TcpStream {
             socket: stream,

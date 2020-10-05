@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::channel::mpsc::{unbounded, UnboundedReceiver};
+use futures::channel::mpsc;
 use futures::{Future, TryFutureExt};
 use rustls::ClientConfig;
 use tokio;
@@ -40,7 +40,7 @@ pub fn tls_from_stream<S: futures::io::AsyncRead + futures::io::AsyncWrite>(
     stream: S,
     peer_addr: SocketAddr,
 ) -> (TlsStream<S>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = unbounded();
+    let (message_sender, outbound_messages) = mpsc::unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
@@ -87,7 +87,7 @@ pub fn tls_connect(
     >,
     BufStreamHandle,
 ) {
-    let (message_sender, outbound_messages) = unbounded();
+    let (message_sender, outbound_messages) = mpsc::unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
     let early_data_enabled = client_config.enable_early_data;
@@ -109,7 +109,7 @@ async fn connect_tls(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
     dns_name: String,
-    outbound_messages: UnboundedReceiver<SerialMessage>,
+    outbound_messages: mpsc::UnboundedReceiver<SerialMessage>,
 ) -> io::Result<TcpStream<AsyncIo02As03<TokioTlsClientStream>>> {
     let tcp = TokioTcpStream::connect(&name_server).await?;
 
