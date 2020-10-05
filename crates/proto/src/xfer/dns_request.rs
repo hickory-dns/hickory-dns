@@ -46,7 +46,7 @@ impl DnsRequest {
     }
 
     /// Unwraps the raw message
-    pub fn unwrap(self) -> (Message, DnsRequestOptions) {
+    pub fn into_parts(self) -> (Message, DnsRequestOptions) {
         (self.message, self.options)
     }
 }

@@ -78,7 +78,7 @@ fn mdns_responsder(
                         let (data, src) = data_src
                             .expect("no buffer received")
                             .expect("error receiving buffer")
-                            .unwrap();
+                            .into_parts();
 
                         stream = stream_tmp.into_future();
                         timeout = timeout_tmp;

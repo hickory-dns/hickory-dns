@@ -40,7 +40,7 @@ pub trait DnsStreamHandle: 'static + Send {
 
 impl DnsStreamHandle for StreamHandle {
     fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
-        UnboundedSender::unbounded_send(&self.sender, buffer.unwrap().0)
+        UnboundedSender::unbounded_send(&self.sender, buffer.into_parts().0)
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }

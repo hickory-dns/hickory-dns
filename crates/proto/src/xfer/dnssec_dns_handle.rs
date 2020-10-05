@@ -676,7 +676,7 @@ where
                 // this filter is technically unnecessary, can probably remove it...
                 .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
                 .map(|rrsig| {
-                    if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.unwrap_rdata() {
+                    if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.into_data() {
                         // setting up the context explicitly.
                         sig
                     } else {
@@ -723,7 +723,7 @@ where
         // this filter is technically unnecessary, can probably remove it...
         .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
         .map(|rrsig|
-            if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.unwrap_rdata() {
+            if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.into_data() {
                 // setting up the context explicitly.
                 sig
             } else {

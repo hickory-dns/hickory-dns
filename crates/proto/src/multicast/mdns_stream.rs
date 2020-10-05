@@ -526,7 +526,7 @@ pub mod tests {
                             let (buffer, addr) = buffer_and_addr
                                 .expect("no msg received")
                                 .expect("error receiving msg")
-                                .unwrap();
+                                .into_parts();
 
                             assert_eq!(&buffer, test_bytes);
                             //println!("server got data! {}", addr);
@@ -582,7 +582,7 @@ pub mod tests {
                     let (buffer, _addr) = buffer_and_addr
                         .expect("no msg received")
                         .expect("error receiving msg")
-                        .unwrap();
+                        .into_parts();
                     println!("client got data!");
 
                     assert_eq!(&buffer, test_bytes);

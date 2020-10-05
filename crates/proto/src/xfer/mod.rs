@@ -102,7 +102,7 @@ impl DnsStreamHandle for BufDnsStreamHandle {
         let sender: &mut _ = &mut self.sender;
         sender
             .sender
-            .unbounded_send(SerialMessage::new(buffer.unwrap().0, name_server))
+            .unbounded_send(SerialMessage::new(buffer.into_parts().0, name_server))
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }
@@ -224,7 +224,7 @@ impl OneshotDnsRequest {
         )
     }
 
-    fn unwrap(self) -> (DnsRequest, OneshotDnsResponse) {
+    fn into_parts(self) -> (DnsRequest, OneshotDnsResponse) {
         (
             self.dns_request,
             OneshotDnsResponse(self.sender_for_response),

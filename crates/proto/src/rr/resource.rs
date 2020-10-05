@@ -261,7 +261,7 @@ impl Record {
     }
 
     /// Returns the RData consuming the Record
-    pub fn unwrap_rdata(self) -> RData {
+    pub fn into_data(self) -> RData {
         self.rdata
     }
 }

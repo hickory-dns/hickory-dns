@@ -413,7 +413,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
             self.client_cache.clone(),
             DnsRequestOptions::default(),
             hosts,
-            finally_ip_addr.map(Record::unwrap_rdata),
+            finally_ip_addr.map(Record::into_data),
         )
         .await
     }
