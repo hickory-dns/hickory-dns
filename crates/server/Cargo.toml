@@ -70,6 +70,7 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
+async-trait = "0.1.41"
 backtrace = "0.3.50"
 bytes = "0.5"
 chrono = "0.4"

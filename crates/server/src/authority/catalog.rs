@@ -23,6 +23,7 @@ use std::pin::Pin;
 use std::sync::{Arc, Mutex, RwLock};
 use std::task::{Context, Poll};
 
+use async_trait::async_trait;
 use futures::{ready, Future, FutureExt, TryFutureExt};
 use log::{debug, error, info, trace, warn};
 
@@ -70,20 +71,15 @@ fn send_response<R: ResponseHandler>(
     response_handle.send_response(response)
 }
 
+#[async_trait]
 impl RequestHandler for Arc<Mutex<Catalog>> {
-    type ResponseFuture = HandleRequest;
-
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - sink for the response message to be sent
-    fn handle_request<R: ResponseHandler>(
-        &self,
-        request: Request,
-        response_handle: R,
-    ) -> Self::ResponseFuture {
+    async fn handle_request<R: ResponseHandler>(&self, request: Request, response_handle: R) {
         let request_message = request.message;
         trace!("request: {:?}", request_message);
 
@@ -114,9 +110,10 @@ impl RequestHandler for Arc<Mutex<Catalog>> {
                 response.edns(resp_edns);
 
                 // TODO: should ResponseHandle consume self?
-                let result =
-                    response_handle.send_response(response.build_no_records(response_header));
-                return HandleRequest::result(result);
+                log_error(
+                    response_handle.send_response(response.build_no_records(response_header)),
+                );
+                return;
             }
 
             response_edns = Some(resp_edns);
@@ -131,24 +128,24 @@ impl RequestHandler for Arc<Mutex<Catalog>> {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
                     let locked = self.lock().expect("lock poisoned");
-                    locked.lookup(request_message, response_edns, response_handle)
+                    locked
+                        .lookup(request_message, response_edns, response_handle)
+                        .await;
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
                     // TODO: this should be a future
                     let locked = self.lock().expect("lock poisoned");
-                    let result = locked.update(&request_message, response_edns, response_handle);
-                    HandleRequest::result(result)
+                    log_error(locked.update(&request_message, response_edns, response_handle));
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    let result = response_handle.send_response(response.error_msg(
+                    log_error(response_handle.send_response(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
                         ResponseCode::NotImp,
-                    ));
-                    HandleRequest::result(result)
+                    )));
                 }
             },
             MessageType::Response => {
@@ -158,48 +155,19 @@ impl RequestHandler for Arc<Mutex<Catalog>> {
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
 
-                let result = response_handle.send_response(response.error_msg(
+                log_error(response_handle.send_response(response.error_msg(
                     request_message.id(),
                     request_message.op_code(),
                     ResponseCode::FormErr,
-                ));
-                HandleRequest::result(result)
+                )));
             }
         }
     }
 }
 
-/// Future response to handle a request
-#[must_use = "futures do nothing unless polled"]
-pub enum HandleRequest {
-    LookupFuture(Pin<Box<dyn Future<Output = ()> + Send>>),
-    Result(io::Result<()>),
-}
-
-impl HandleRequest {
-    fn lookup<R: ResponseHandler + Unpin>(lookup_future: LookupFuture<R>) -> Self {
-        let lookup = Box::pin(lookup_future) as Pin<Box<dyn Future<Output = ()> + Send>>;
-        HandleRequest::LookupFuture(lookup)
-    }
-
-    fn result(result: io::Result<()>) -> Self {
-        HandleRequest::Result(result)
-    }
-}
-
-impl Future for HandleRequest {
-    // TODO: return ()
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match *self {
-            HandleRequest::LookupFuture(ref mut lookup) => lookup.as_mut().poll(cx),
-            HandleRequest::Result(Ok(_)) => Poll::Ready(()),
-            HandleRequest::Result(Err(ref res)) => {
-                error!("update failed: {}", res);
-                Poll::Ready(())
-            }
-        }
+fn log_error(result: io::Result<()>) {
+    if let Err(e) = result {
+        error!("update failed: {}", e);
     }
 }
 
@@ -402,12 +370,12 @@ impl Catalog {
     ///
     /// * `request` - the query message.
     /// * `response_handle` - sink for the response message to be sent
-    pub fn lookup<R: ResponseHandler>(
+    pub async fn lookup<R: ResponseHandler>(
         &self,
         request: MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> HandleRequest {
+    ) {
         let request = Arc::new(request);
         let response_edns = response_edns.map(Arc::new);
 
@@ -428,21 +396,23 @@ impl Catalog {
 
         if queries_and_authorities.is_empty() {
             let response = MessageResponseBuilder::new(Some(request.raw_queries()));
-            return HandleRequest::Result(send_response(
+            log_error(send_response(
                 response_edns
                     .as_ref()
                     .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
                 response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),
                 response_handle.clone(),
             ));
+            return;
         }
 
-        HandleRequest::lookup(LookupFuture::new(
+        lookup(
             request,
             response_edns,
             response_handle,
             queries_and_authorities,
-        ))
+        )
+        .await
     }
 
     /// Recursively searches the catalog for a matching authority
@@ -459,138 +429,93 @@ impl Catalog {
     }
 }
 
-/// A Future that runs the lookups and responds to the requests
 #[allow(clippy::type_complexity)]
-#[must_use = "futures do nothing unless polled"]
-pub struct LookupFuture<R: ResponseHandler + Unpin> {
+async fn lookup<R: ResponseHandler>(
     request: Arc<MessageRequest>,
     response_edns: Option<Arc<Edns>>,
     response_handle: R,
-    queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
-    lookup: Option<AuthorityLookup<R>>,
-}
+    mut queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
+) {
+    while let Some((query_idx, ref_authority)) = queries_and_authorities.pop() {
+        let query = if let Some(query) = request.queries().get(query_idx) {
+            query
+        } else {
+            // bad state, could just panic
+            error!("query_idx out of bounds? {}", query_idx);
+            continue;
+        };
 
-impl<R: ResponseHandler + Unpin> LookupFuture<R> {
-    #[allow(clippy::type_complexity)]
-    fn new(
-        request: Arc<MessageRequest>,
-        response_edns: Option<Arc<Edns>>,
-        response_handle: R,
-        queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
-    ) -> Self {
-        LookupFuture {
-            request,
-            response_edns,
-            response_handle,
-            queries_and_authorities,
-            lookup: None,
-        }
-    }
-}
+        let authority = &ref_authority.read().unwrap(); // poison errors should panic
+        info!(
+            "request: {} found authority: {}",
+            request.id(),
+            authority.origin()
+        );
 
-impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
-    type Output = ();
+        let mut response_header = Header::new();
+        response_header.set_id(request.id());
+        response_header.set_op_code(OpCode::Query);
+        response_header.set_message_type(MessageType::Response);
+        response_header.set_authoritative(authority.zone_type().is_authoritative());
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        loop {
-            // See if the lookup had anything
-            match self.lookup.as_mut().map(|f| f.poll_unpin(cx)) {
-                Some(Poll::Pending) => return Poll::Pending,
-                Some(Poll::Ready(())) => (),
-                None => (),
-            }
+        let (is_dnssec, supported_algorithms) =
+            request
+                .edns()
+                .map_or((false, SupportedAlgorithms::new()), |edns| {
+                    let supported_algorithms =
+                        if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
+                            algs
+                        } else {
+                            debug!("no DAU in request, used default SupportAlgorithms");
+                            Default::default()
+                        };
 
-            // lookup is complete, make sure it is None at this point
-            self.lookup = None;
+                    (edns.dnssec_ok(), supported_algorithms)
+                });
 
-            // get next query
-            let (query_idx, ref_authority) = if let Some(q_a) = self.queries_and_authorities.pop() {
-                q_a
-            } else {
-                // all lookups are complete, finish request
-                return Poll::Ready(());
-            };
-
-            let query = if let Some(query) = self.request.queries().get(query_idx) {
-                query
-            } else {
-                // bad state, could just panic
-                error!("query_idx out of bounds? {}", query_idx);
-                continue;
-            };
-
-            let authority = &ref_authority.read().unwrap(); // poison errors should panic
+        // log algorithms being requested
+        if is_dnssec {
             info!(
-                "request: {} found authority: {}",
-                self.request.id(),
-                authority.origin()
+                "request: {} supported_algs: {}",
+                request.id(),
+                supported_algorithms
             );
+        }
 
-            let mut response_header = Header::new();
-            response_header.set_id(self.request.id());
-            response_header.set_op_code(OpCode::Query);
-            response_header.set_message_type(MessageType::Response);
-            response_header.set_authoritative(authority.zone_type().is_authoritative());
+        debug!("performing {} on {}", query, authority.origin());
+        let lookup_future = authority.search(query, is_dnssec, supported_algorithms);
 
-            let (is_dnssec, supported_algorithms) =
-                self.request
-                    .edns()
-                    .map_or((false, SupportedAlgorithms::new()), |edns| {
-                        let supported_algorithms =
-                            if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
-                                algs
-                            } else {
-                                debug!("no DAU in request, used default SupportAlgorithms");
-                                Default::default()
-                            };
+        let request_params = RequestParams {
+            is_dnssec,
+            supported_algorithms,
+            query: query.clone(),
+            request: Arc::clone(&request),
+        };
+        let response_params = ResponseParams {
+            response_edns: response_edns.clone(),
+            response_header,
+            response_handle: response_handle.clone(),
+        };
 
-                        (edns.dnssec_ok(), supported_algorithms)
-                    });
-
-            // log algorithms being requested
-            if is_dnssec {
-                info!(
-                    "request: {} supported_algs: {}",
-                    self.request.id(),
-                    supported_algorithms
-                );
+        #[allow(deprecated)]
+        match authority.zone_type() {
+            ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
+                AuthorityLookup::authority(
+                    request.id(),
+                    response_params,
+                    request_params,
+                    lookup_future,
+                    Arc::clone(&ref_authority),
+                ).await
             }
-
-            debug!("performing {} on {}", query, authority.origin());
-            let lookup_future = authority.search(query, is_dnssec, supported_algorithms);
-
-            let request_params = RequestParams {
-                is_dnssec,
-                supported_algorithms,
-                query: query.clone(),
-                request: Arc::clone(&self.request),
-            };
-            let response_params = ResponseParams {
-                response_edns: self.response_edns.clone(),
-                response_header,
-                response_handle: self.response_handle.clone(),
-            };
-
-            #[allow(deprecated)]
-            match authority.zone_type() {
-                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
-                    self.lookup = Some(AuthorityLookup::authority(
-                        self.request.id(),
-                        response_params,
-                        request_params,
-                        lookup_future,
-                        Arc::clone(&ref_authority),
-                    ));
-                }
-                ZoneType::Forward | ZoneType::Hint => {
-                    self.lookup = Some(AuthorityLookup::resolve(
-                        self.request.id(),
-                        response_params,
-                        request_params,
-                        lookup_future,
-                        Arc::clone(&ref_authority),
-                    ));
-                }
+            ZoneType::Forward | ZoneType::Hint => {
+                AuthorityLookup::resolve(
+                    request.id(),
+                    response_params,
+                    request_params,
+                    lookup_future,
+                    Arc::clone(&ref_authority),
+                ).await
             }
         }
     }

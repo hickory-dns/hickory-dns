@@ -9,7 +9,7 @@
 
 use std::net::SocketAddr;
 
-use futures::Future;
+use async_trait::async_trait;
 
 use crate::authority::MessageRequest;
 use crate::server::ResponseHandler;
@@ -23,19 +23,17 @@ pub struct Request {
 }
 
 /// Trait for handling incoming requests, and providing a message response.
+#[async_trait]
 pub trait RequestHandler: Clone + Send + Sync + Unpin + 'static {
-    /// A future for execution of the request
-    type ResponseFuture: Future<Output = ()> + Send + Unpin + 'static;
-
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - handle to which a return message should be sent
-    fn handle_request<R: ResponseHandler>(
+    async fn handle_request<R: ResponseHandler>(
         &self,
         request: Request,
         response_handle: R,
-    ) -> Self::ResponseFuture;
+    );
 }
