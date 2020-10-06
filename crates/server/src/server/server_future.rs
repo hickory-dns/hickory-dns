@@ -7,13 +7,11 @@
 use std;
 use std::io;
 use std::net::SocketAddr;
-use std::pin::Pin;
 #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
 use std::sync::Arc;
-use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{future, Future, FutureExt, StreamExt};
+use futures::{future, StreamExt};
 use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
@@ -567,11 +565,11 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 }
 
-pub(crate) fn handle_raw_request<T: RequestHandler>(
+pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     request_handler: T,
     response_handler: BufStreamHandle,
-) -> HandleRawRequest<T::ResponseFuture> {
+) {
     let src_addr = message.addr();
     let response_handler = ResponseHandle::new(message.addr(), response_handler);
 
@@ -582,20 +580,20 @@ pub(crate) fn handle_raw_request<T: RequestHandler>(
     let mut decoder = BinDecoder::new(message.bytes());
     match MessageRequest::read(&mut decoder) {
         Ok(message) => {
-            let handle_request =
-                self::handle_request(message, src_addr, request_handler, response_handler);
-            HandleRawRequest::HandleRequest(handle_request)
+            self::handle_request(message, src_addr, request_handler, response_handler).await;
         }
-        Err(e) => HandleRawRequest::Result(e.into()),
+        Err(e) => {
+            warn!("failed to handle message: {}", e);
+        }
     }
 }
 
-pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
+pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message: MessageRequest,
     src_addr: SocketAddr,
     request_handler: T,
     response_handler: R,
-) -> T::ResponseFuture {
+) {
     let request = Request {
         message,
         src: src_addr,
@@ -615,25 +613,7 @@ pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
             .unwrap_or_else(|| "empty_queries".to_string()),
     );
 
-    request_handler.handle_request(request, response_handler)
-}
-
-#[must_use = "futures do nothing unless polled"]
-pub(crate) enum HandleRawRequest<F: Future<Output = ()>> {
-    HandleRequest(F),
-    Result(io::Error),
-}
-
-impl<F: Future<Output = ()> + Unpin> Future for HandleRawRequest<F> {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match *self {
-            HandleRawRequest::HandleRequest(ref mut f) => f.poll_unpin(cx),
-            HandleRawRequest::Result(ref res) => {
-                warn!("failed to handle message: {}", res);
-                Poll::Ready(())
-            }
-        }
-    }
+    request_handler
+        .handle_request(request, response_handler)
+        .await
 }
