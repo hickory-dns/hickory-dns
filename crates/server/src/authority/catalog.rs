@@ -130,8 +130,7 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
-                    let lookup = self.lookup(request_message, response_edns, response_handle);
-                    HandleRequest::lookup(lookup)
+                    self.lookup(request_message, response_edns, response_handle)
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
@@ -406,7 +405,7 @@ impl Catalog {
         request: MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> LookupFuture<R> {
+    ) -> HandleRequest {
         let request = Arc::new(request);
         let response_edns = response_edns.map(Arc::new);
 
@@ -425,27 +424,23 @@ impl Catalog {
             })
             .collect::<Vec<_>>();
 
-        let found_authority = !queries_and_authorities.is_empty();
-
-        if !found_authority {
+        if queries_and_authorities.is_empty() {
             let response = MessageResponseBuilder::new(Some(request.raw_queries()));
-            send_response(
+            return HandleRequest::Result(send_response(
                 response_edns
                     .as_ref()
                     .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
                 response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),
                 response_handle.clone(),
-            )
-            .map_err(|e| error!("failed to send response: {}", e))
-            .ok();
+            ));
         }
 
-        LookupFuture::new(
+        HandleRequest::lookup(LookupFuture::new(
             request,
             response_edns,
             response_handle,
             queries_and_authorities,
-        )
+        ))
     }
 
     /// Recursively searches the catalog for a matching authority
