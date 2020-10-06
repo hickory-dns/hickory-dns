@@ -21,12 +21,8 @@ use crate::server::request_handler::RequestHandler;
 use crate::server::response_handler::ResponseHandler;
 use crate::server::server_future;
 
-pub async fn h2_handler<T, I>(
-    handler: Arc<Mutex<T>>,
-    io: I,
-    src_addr: SocketAddr,
-    dns_hostname: Arc<String>,
-) where
+pub async fn h2_handler<T, I>(handler: T, io: I, src_addr: SocketAddr, dns_hostname: Arc<String>)
+where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,
 {
@@ -69,7 +65,7 @@ pub async fn h2_handler<T, I>(
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
-    handler: Arc<Mutex<T>>,
+    handler: T,
     responder: HttpsResponseHandle,
 ) where
     T: RequestHandler,

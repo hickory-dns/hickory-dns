@@ -153,8 +153,6 @@ impl Stream for TestClientStream {
                 let response_handler = TestResponseHandler::new();
                 block_on(
                     self.catalog
-                        .lock()
-                        .unwrap()
                         .handle_request(request, response_handler.clone()),
                 );
 

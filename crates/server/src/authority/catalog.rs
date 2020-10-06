@@ -20,7 +20,7 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::io;
 use std::pin::Pin;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use std::task::{Context, Poll};
 
 use futures::{ready, Future, FutureExt, TryFutureExt};
@@ -70,7 +70,7 @@ fn send_response<R: ResponseHandler>(
     response_handle.send_response(response)
 }
 
-impl RequestHandler for Catalog {
+impl RequestHandler for Arc<Mutex<Catalog>> {
     type ResponseFuture = HandleRequest;
 
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
@@ -130,12 +130,14 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
-                    self.lookup(request_message, response_edns, response_handle)
+                    let locked = self.lock().expect("lock poisoned");
+                    locked.lookup(request_message, response_edns, response_handle)
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
                     // TODO: this should be a future
-                    let result = self.update(&request_message, response_edns, response_handle);
+                    let locked = self.lock().expect("lock poisoned");
+                    let result = locked.update(&request_message, response_edns, response_handle);
                     HandleRequest::result(result)
                 }
                 c => {

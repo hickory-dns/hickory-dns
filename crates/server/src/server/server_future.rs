@@ -8,7 +8,8 @@ use std;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::sync::{Arc, Mutex};
+#[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
+use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -37,7 +38,7 @@ use trust_dns_openssl::tls_server::*;
 
 /// A Futures based implementation of a DNS server
 pub struct ServerFuture<T: RequestHandler> {
-    handler: Arc<Mutex<T>>,
+    handler: T,
     joins: Vec<JoinHandle<Result<(), ProtoError>>>,
 }
 
@@ -45,7 +46,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> ServerFuture<T> {
         ServerFuture {
-            handler: Arc::new(Mutex::new(handler)),
+            handler,
             joins: vec![],
         }
     }
@@ -568,7 +569,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
 pub(crate) fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
-    request_handler: Arc<Mutex<T>>,
+    request_handler: T,
     response_handler: BufStreamHandle,
 ) -> HandleRawRequest<T::ResponseFuture> {
     let src_addr = message.addr();
@@ -592,7 +593,7 @@ pub(crate) fn handle_raw_request<T: RequestHandler>(
 pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message: MessageRequest,
     src_addr: SocketAddr,
-    request_handler: Arc<Mutex<T>>,
+    request_handler: T,
     response_handler: R,
 ) -> T::ResponseFuture {
     let request = Request {
@@ -614,10 +615,7 @@ pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
             .unwrap_or_else(|| "empty_queries".to_string()),
     );
 
-    request_handler
-        .lock()
-        .expect("poisoned lock")
-        .handle_request(request, response_handler)
+    request_handler.handle_request(request, response_handler)
 }
 
 #[must_use = "futures do nothing unless polled"]

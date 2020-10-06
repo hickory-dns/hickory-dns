@@ -43,6 +43,7 @@ extern crate trust_dns_server;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use clap::{Arg, ArgMatches};
 use tokio::net::TcpListener;
@@ -405,7 +406,7 @@ fn main() {
 
     // now, run the server, based on the config
     #[cfg_attr(not(feature = "dns-over-tls"), allow(unused_mut))]
-    let mut server = ServerFuture::new(catalog);
+    let mut server = ServerFuture::new(Arc::new(Mutex::new(catalog)));
 
     let handle = runtime.handle().clone();
 
@@ -506,7 +507,7 @@ fn main() {
 #[cfg(feature = "dns-over-tls")]
 fn config_tls(
     args: &Args,
-    server: &mut ServerFuture<Catalog>,
+    server: &mut ServerFuture<Arc<Mutex<Catalog>>>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
@@ -562,7 +563,7 @@ fn config_tls(
 #[cfg(feature = "dns-over-https")]
 fn config_https(
     args: &Args,
-    server: &mut ServerFuture<Catalog>,
+    server: &mut ServerFuture<Arc<Mutex<Catalog>>>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,

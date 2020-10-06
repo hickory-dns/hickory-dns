@@ -23,7 +23,7 @@ pub struct Request {
 }
 
 /// Trait for handling incoming requests, and providing a message response.
-pub trait RequestHandler: Send + Unpin + 'static {
+pub trait RequestHandler: Clone + Send + Sync + Unpin + 'static {
     /// A future for execution of the request
     type ResponseFuture: Future<Output = ()> + Send + Unpin + 'static;
 

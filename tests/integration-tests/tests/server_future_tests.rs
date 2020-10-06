@@ -12,7 +12,7 @@ extern crate trust_dns_server;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -279,7 +279,7 @@ fn server_thread_udp(
 ) {
     let catalog = new_catalog();
 
-    let mut server = ServerFuture::new(catalog);
+    let mut server = ServerFuture::new(Arc::new(Mutex::new(catalog)));
 
     io_loop
         .handle()
@@ -300,7 +300,7 @@ fn server_thread_tcp(
     server_continue: Arc<AtomicBool>,
 ) {
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog);
+    let mut server = ServerFuture::new(Arc::new(Mutex::new(catalog)));
 
     io_loop.handle().enter(|| {
         server
@@ -326,7 +326,7 @@ fn server_thread_tls(
     use openssl::pkcs12::Pkcs12;
 
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog);
+    let mut server = ServerFuture::new(Arc::new(Mutex::new(catalog)));
     let pkcs12 = Pkcs12::from_der(&pkcs12_der)
         .expect("bad pkcs12 der")
         .parse("mypass")
