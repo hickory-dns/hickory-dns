@@ -232,15 +232,13 @@ where
     }
 
     /// Closes all outstanding completes with a closed stream error
-    fn stream_closed_close_all(&mut self) {
+    fn stream_closed_close_all(&mut self, error: ProtoError) {
         if !self.active_requests.is_empty() {
             warn!(
                 "stream closed before response received: {}",
                 self.stream.name_server_addr()
             );
         }
-
-        let error = ProtoError::from("stream closed before response received");
 
         for (_, active_request) in self.active_requests.drain() {
             if active_request.responses.is_empty() {
@@ -441,7 +439,9 @@ where
                 }
                 Poll::Ready(None) => {
                     debug!("io_stream closed by other side: {}", self.stream);
-                    self.stream_closed_close_all();
+                    self.stream_closed_close_all(ProtoError::from(
+                        "stream closed before response received",
+                    ));
                     return Poll::Ready(None);
                 }
                 Poll::Pending => break,
