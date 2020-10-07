@@ -112,28 +112,6 @@ impl DnsStreamHandle for BufDnsStreamHandle {
     }
 }
 
-// TODO: expose the Sink trait for this?
-/// A sender to which serialized DNS Messages can be sent
-#[derive(Clone)]
-pub struct DnsRequestStreamHandle {
-    sender: mpsc::UnboundedSender<OneshotDnsRequest>,
-}
-
-impl DnsRequestStreamHandle {
-    /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: mpsc::UnboundedSender<OneshotDnsRequest>) -> Self {
-        DnsRequestStreamHandle { sender }
-    }
-
-    /// see [`futures::sync::mpsc::UnboundedSender`]
-    pub fn unbounded_send(
-        &self,
-        msg: OneshotDnsRequest,
-    ) -> Result<(), mpsc::TrySendError<OneshotDnsRequest>> {
-        self.sender.unbounded_send(msg)
-    }
-}
-
 /// Types that implement this are capable of sending a serialized DNS message on a stream
 ///
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
@@ -163,14 +141,7 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
 /// Used for associating a name_server to a DnsRequestStreamHandle
 #[derive(Clone)]
 pub struct BufDnsRequestStreamHandle {
-    sender: DnsRequestStreamHandle,
-}
-
-impl BufDnsRequestStreamHandle {
-    /// Construct a new BufDnsRequestStreamHandle
-    pub fn new(sender: DnsRequestStreamHandle) -> Self {
-        BufDnsRequestStreamHandle { sender }
-    }
+    sender: mpsc::UnboundedSender<OneshotDnsRequest>,
 }
 
 macro_rules! try_oneshot {
