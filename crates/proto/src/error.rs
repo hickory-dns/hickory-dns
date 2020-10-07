@@ -56,6 +56,14 @@ pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 pub enum ProtoErrorKind {
+    /// The underlying resource is too busy
+    ///
+    /// This is a signal that an internal resource is too busy. The intended action should be tried
+    /// again, ideally after waiting for a little while for the situation to improve. Alternatively,
+    /// the action could be tried on another resource (for example, in a name server pool).
+    #[error("resource too busy")]
+    Busy,
+
     /// An error caused by a canceled future
     #[error("future was canceled: {0:?}")]
     Canceled(futures_channel::oneshot::Canceled),
@@ -222,6 +230,11 @@ impl ProtoError {
     pub fn kind(&self) -> &ProtoErrorKind {
         &self.kind
     }
+
+    /// If this is a ProtoErrorKind::Busy
+    pub fn is_busy(&self) -> bool {
+        matches!(self.kind, ProtoErrorKind::Busy)
+    }
 }
 
 impl fmt::Display for ProtoError {
@@ -371,6 +384,7 @@ impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
         use self::ProtoErrorKind::*;
         match *self {
+            Busy => Busy,
             Canceled(ref c) => Canceled(*c),
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
             LabelOverlapsWithOther { label, other } => LabelOverlapsWithOther { label, other },

@@ -29,7 +29,7 @@ use crate::error::*;
 use crate::op::{Message, MessageFinalizer, OpCode};
 use crate::xfer::{
     ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
-    DnsResponseFuture, SerialMessage,
+    DnsResponseFuture, SerialMessage, CHANNEL_BUFFER_SIZE,
 };
 use crate::DnsStreamHandle;
 use crate::Time;
@@ -312,6 +312,10 @@ where
     ) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
+        }
+
+        if self.active_requests.len() > CHANNEL_BUFFER_SIZE {
+            return ProtoError::from(ProtoErrorKind::Busy).into();
         }
 
         let query_id = match self.next_random_query_id() {
