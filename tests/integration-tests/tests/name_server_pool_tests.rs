@@ -22,6 +22,7 @@ use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse};
+use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
@@ -43,6 +44,7 @@ impl Default for MockConnProvider<DefaultOnSend> {
 impl<O: OnSend + Unpin> ConnectionProvider for MockConnProvider<O> {
     type Conn = MockClientHandle<O, ResolveError>;
     type FutureConn = future::Ready<Result<Self::Conn, ResolveError>>;
+    type Time = TokioTime;
 
     fn new_connection(&self, _: &NameServerConfig, _: &ResolverOpts) -> Self::FutureConn {
         println!("MockClient::new_connection");
