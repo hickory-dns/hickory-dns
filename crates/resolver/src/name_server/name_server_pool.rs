@@ -10,7 +10,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures_util::{future, future::Future};
+use futures_util::{future, future::Future, future::FutureExt};
 use smallvec::SmallVec;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
@@ -19,7 +19,7 @@ use tokio::runtime::Handle;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use crate::config::{ResolverConfig, ResolverOpts};
-use crate::error::ResolveError;
+use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
 use crate::name_server::{ConnectionProvider, NameServer};
@@ -303,21 +303,24 @@ where
         let requests = if par_conns.is_empty() {
             return Err(err);
         } else {
-            par_conns
-                .into_iter()
-                .map(move |mut conn| conn.send(request_cont.clone()))
+            par_conns.into_iter().map(move |mut conn| {
+                conn.send(request_cont.clone())
+                    .map(|result| result.map_err(|e| (conn, e)))
+            })
         };
 
         match future::select_ok(requests).await {
             Ok((sent, _)) => return Ok(sent),
             // consider a debug msg here
-            Err(e) => {
-                match err.cmp_specificity(&e) {
-                    Ordering::Greater => err = err,
-                    _ => err = e,
+            Err((conn, e)) => match e.kind() {
+                ResolveErrorKind::NoRecordsFound { .. } if conn.trust_nx_responses() => {
+                    return Err(e);
                 }
-                continue;
-            }
+                _ if err.cmp_specificity(&e) != Ordering::Greater => {
+                    err = e;
+                }
+                _ => {}
+            },
         };
     }
 }

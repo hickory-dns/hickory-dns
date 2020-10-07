@@ -172,6 +172,10 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
             }
         }
     }
+
+    pub fn trust_nx_responses(&self) -> bool {
+        self.config.trust_nx_responses
+    }
 }
 
 impl<C, P> DnsHandle for NameServer<C, P>
