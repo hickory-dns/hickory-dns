@@ -148,6 +148,7 @@ where
                             None,
                             None,
                             ResponseCode::NoError,
+                            false,
                         ))
                     } // Are there any other types we can use?
                 },
@@ -164,6 +165,7 @@ where
                         None,
                         None,
                         ResponseCode::NXDomain,
+                        false,
                     ))
                 }
                 ResolverUsage::Normal => (),
@@ -187,7 +189,7 @@ where
         // TODO: technically this might be duplicating work, as name_server already performs this evaluation.
         //  we may want to create a new type, if evaluated... but this is most generic to support any impl in LookupState...
         let response_message = if let Ok(response) = response_message {
-            ResolveError::from_response(response)
+            ResolveError::from_response(response, false)
         } else {
             response_message
         };
@@ -203,6 +205,7 @@ where
                         soa,
                         negative_ttl,
                         response_code,
+                        trusted,
                     },
                 ..
             }) => {
@@ -213,6 +216,7 @@ where
                     soa,
                     negative_ttl,
                     response_code,
+                    trusted,
                 ))
             }
             Err(e) => return Err(e),
@@ -285,6 +289,7 @@ where
         soa: Option<SOA>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
+        trusted: bool,
     ) -> ResolveError {
         if valid_nsec || !is_dnssec {
             // only trust if there were validated NSEC records
@@ -293,6 +298,7 @@ where
                 soa,
                 negative_ttl,
                 response_code,
+                trusted: true,
             }
             .into()
         } else {
@@ -302,6 +308,7 @@ where
                 soa,
                 negative_ttl: None,
                 response_code,
+                trusted,
             }
             .into()
         }
@@ -469,6 +476,7 @@ where
                 soa,
                 negative_ttl,
                 response_code,
+                false,
             ))
         }
     }
