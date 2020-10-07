@@ -12,6 +12,7 @@ use std::task::{Context, Poll};
 
 use futures_util::future::{Future, FutureExt};
 
+use crate::error::{ProtoError, ProtoErrorKind};
 use crate::xfer::{DnsRequest, DnsResponse};
 use crate::DnsHandle;
 
@@ -23,6 +24,7 @@ use crate::DnsHandle;
 pub struct RetryDnsHandle<H>
 where
     H: DnsHandle + Unpin + Send,
+    H::Error: RetryableError,
 {
     handle: H,
     attempts: usize,
@@ -31,6 +33,7 @@ where
 impl<H> RetryDnsHandle<H>
 where
     H: DnsHandle + Unpin + Send,
+    H::Error: RetryableError,
 {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
@@ -46,6 +49,7 @@ where
 impl<H> DnsHandle for RetryDnsHandle<H>
 where
     H: DnsHandle + Send + Unpin + 'static,
+    H::Error: RetryableError,
 {
     type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, Self::Error>> + Send + Unpin>>;
     type Error = <H as DnsHandle>::Error;
@@ -77,7 +81,10 @@ where
     remaining_attempts: usize,
 }
 
-impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H> {
+impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H>
+where
+    <H as DnsHandle>::Error: RetryableError,
+{
     type Output = Result<DnsResponse, <H as DnsHandle>::Error>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
@@ -86,11 +93,14 @@ impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H> {
         loop {
             match self.future.poll_unpin(cx) {
                 Poll::Ready(Err(e)) => {
-                    if self.remaining_attempts == 0 {
+                    if self.remaining_attempts == 0 || !e.should_retry() {
                         return Poll::Ready(Err(e));
                     }
 
-                    self.remaining_attempts -= 1;
+                    if e.attempted() {
+                        self.remaining_attempts -= 1;
+                    }
+
                     // TODO: if the "sent" Message is part of the error result,
                     //  then we can just reuse it... and no clone necessary
                     let request = self.request.clone();
@@ -99,6 +109,24 @@ impl<H: DnsHandle + Unpin> Future for RetrySendFuture<H> {
                 poll => return poll,
             }
         }
+    }
+}
+
+/// What errors should be retried
+pub trait RetryableError {
+    /// Whether the query should be retried after this error
+    fn should_retry(&self) -> bool;
+    /// Whether this error should count as an attempt
+    fn attempted(&self) -> bool;
+}
+
+impl RetryableError for ProtoError {
+    fn should_retry(&self) -> bool {
+        true
+    }
+
+    fn attempted(&self) -> bool {
+        !matches!(self.kind(), ProtoErrorKind::Busy)
     }
 }
 
