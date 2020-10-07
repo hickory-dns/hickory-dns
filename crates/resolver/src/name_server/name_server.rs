@@ -143,7 +143,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                 //   TODO: there are probably other return codes from the server we may want to
                 //    retry on. We may also want to evaluate NoError responses that lack records as errors as well
                 let response = if self.config.trust_nx_responses {
-                    ResolveError::from_response(response)?
+                    ResolveError::from_response(response, self.config.trust_nx_responses)?
                 } else {
                     response
                 };

@@ -45,6 +45,8 @@ pub enum ResolveErrorKind {
         /// ResponseCode, if `NXDOMAIN`, the domain does not exist (and no other types).
         ///   If `NoError`, then the domain exists but there exist either other types at the same label, or subzones of that label.
         response_code: ResponseCode,
+        /// If we trust `NXDOMAIN` errors from this server
+        trusted: bool,
     },
 
     // foreign
@@ -72,11 +74,13 @@ impl Clone for ResolveErrorKind {
                 ref soa,
                 negative_ttl,
                 response_code,
+                trusted,
             } => NoRecordsFound {
                 query: query.clone(),
                 soa: soa.clone(),
                 negative_ttl: *negative_ttl,
                 response_code: *response_code,
+                trusted: *trusted,
             },
             // foreign
             Io(io) => ResolveErrorKind::from(std::io::Error::from(io.kind())),
@@ -99,12 +103,14 @@ impl ResolveError {
         soa: Option<SOA>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
+        trusted: bool,
     ) -> ResolveError {
         ResolveErrorKind::NoRecordsFound {
             query,
             soa,
             negative_ttl,
             response_code,
+            trusted,
         }
         .into()
     }
@@ -115,7 +121,7 @@ impl ResolveError {
     }
 
     /// A conversion to determine if the response is an error
-    pub fn from_response(response: DnsResponse) -> Result<DnsResponse, Self> {
+    pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
         match response.response_code() {
             ResponseCode::ServFail => {
                 let note = "Nameserver responded with SERVFAIL";
@@ -129,6 +135,7 @@ impl ResolveError {
                     soa,
                     negative_ttl: None,
                     response_code: ResponseCode::ServFail,
+                    trusted: false,
                 };
 
                 Err(ResolveError::from(error_kind))
@@ -151,6 +158,7 @@ impl ResolveError {
                     soa,
                     negative_ttl,
                     response_code: ResponseCode::NXDomain,
+                    trusted: trust_nx,
                 };
 
                 Err(ResolveError::from(error_kind))
@@ -173,6 +181,7 @@ impl ResolveError {
                     soa,
                     negative_ttl,
                     response_code: ResponseCode::NoError,
+                    trusted: false,
                 };
 
                 Err(ResolveError::from(error_kind))

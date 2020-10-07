@@ -339,7 +339,7 @@ where
             };
 
             match e.kind() {
-                ResolveErrorKind::NoRecordsFound { .. } if conn.trust_nx_responses() => {
+                ResolveErrorKind::NoRecordsFound { trusted, .. } if *trusted => {
                     return Err(e);
                 }
                 ResolveErrorKind::Proto(e) if e.is_busy() => {
