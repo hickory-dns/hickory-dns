@@ -141,7 +141,7 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
 /// Used for associating a name_server to a DnsRequestStreamHandle
 #[derive(Clone)]
 pub struct BufDnsRequestStreamHandle {
-    sender: mpsc::UnboundedSender<OneshotDnsRequest>,
+    sender: mpsc::Sender<OneshotDnsRequest>,
 }
 
 macro_rules! try_oneshot {
@@ -169,7 +169,7 @@ impl DnsHandle for BufDnsRequestStreamHandle {
         debug!("enqueueing message: {:?}", request.queries());
 
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
-        try_oneshot!(self.sender.unbounded_send(request).map_err(|_| {
+        try_oneshot!(self.sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
             ProtoError::from("could not send request")
         }));
