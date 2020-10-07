@@ -234,10 +234,9 @@ where
     /// Closes all outstanding completes with a closed stream error
     fn stream_closed_close_all(&mut self, error: ProtoError) {
         if !self.active_requests.is_empty() {
-            warn!(
-                "stream closed before response received: {}",
-                self.stream.name_server_addr()
-            );
+            warn!("stream {} error: {}", self.stream, error);
+        } else {
+            debug!("stream {} error: {}", self.stream, error);
         }
 
         for (_, active_request) in self.active_requests.drain() {
@@ -408,8 +407,8 @@ where
         // TODO: make the QoS configurable
         let mut messages_received = 0;
         for i in 0..QOS_MAX_RECEIVE_MSGS {
-            match self.stream.poll_next_unpin(cx)? {
-                Poll::Ready(Some(buffer)) => {
+            match self.stream.poll_next_unpin(cx) {
+                Poll::Ready(Some(Ok(buffer))) => {
                     messages_received = i;
 
                     //   deserialize or log decode_error
@@ -437,11 +436,15 @@ where
                         Err(e) => debug!("error decoding message: {}", e),
                     }
                 }
-                Poll::Ready(None) => {
-                    debug!("io_stream closed by other side: {}", self.stream);
-                    self.stream_closed_close_all(ProtoError::from(
-                        "stream closed before response received",
-                    ));
+                Poll::Ready(err) => {
+                    let err = match err {
+                        Some(Err(e)) => e,
+                        None => ProtoError::from("stream closed"),
+                        _ => unreachable!(),
+                    };
+
+                    self.stream_closed_close_all(err);
+                    self.is_shutdown = true;
                     return Poll::Ready(None);
                 }
                 Poll::Pending => break,
