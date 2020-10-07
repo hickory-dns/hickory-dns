@@ -9,14 +9,17 @@ use std::cmp::Ordering;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
-use futures_util::{future, future::Future, future::FutureExt};
+use futures_util::stream::{FuturesUnordered, StreamExt};
+use futures_util::{future::Future, future::FutureExt};
 use smallvec::SmallVec;
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 use tokio::runtime::Handle;
 
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use proto::Time;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::error::{ResolveError, ResolveErrorKind};
@@ -288,6 +291,18 @@ where
     P: ConnectionProvider<Conn = C> + 'static,
 {
     let mut err = ResolveError::from("No connections available");
+    // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
+    // we will first try the other name servers (as for other error types). However, if the other
+    // servers are also busy, we're going to wait for a little while and then retry each server that
+    // returned Busy in the previous round. If the server is still Busy, this continues, while
+    // the backoff increases exponentially (by a factor of 2), until it hits 300ms, in which case we
+    // give up. The request might still be retried by the caller (likely the DnsRetryHandle).
+    //
+    // TODO: more principled handling of timeouts. Currently, timeouts appear to be handled mostly
+    // close to the connection, which means the top level resolution might take substantially longer
+    // to fire than the timeout configured in `ResolverOpts`.
+    let mut backoff = Duration::from_millis(20);
+    let mut busy = SmallVec::<[NameServer<C, P>; 2]>::new();
 
     loop {
         let request_cont = request.clone();
@@ -299,29 +314,43 @@ where
             par_conns.push(conn);
         }
 
-        // construct the requests to send
-        let requests = if par_conns.is_empty() {
+        if par_conns.is_empty() {
+            if !busy.is_empty() && backoff < Duration::from_millis(300) {
+                P::Time::delay_for(backoff).await;
+                conns.extend(busy.drain(..));
+                backoff *= 2;
+                continue;
+            }
             return Err(err);
-        } else {
-            par_conns.into_iter().map(move |mut conn| {
+        }
+
+        let mut requests = par_conns
+            .into_iter()
+            .map(move |mut conn| {
                 conn.send(request_cont.clone())
                     .map(|result| result.map_err(|e| (conn, e)))
             })
-        };
+            .collect::<FuturesUnordered<_>>();
 
-        match future::select_ok(requests).await {
-            Ok((sent, _)) => return Ok(sent),
-            // consider a debug msg here
-            Err((conn, e)) => match e.kind() {
+        while let Some(result) = requests.next().await {
+            let (conn, e) = match result {
+                Ok(sent) => return Ok(sent),
+                Err((conn, e)) => (conn, e),
+            };
+
+            match e.kind() {
                 ResolveErrorKind::NoRecordsFound { .. } if conn.trust_nx_responses() => {
                     return Err(e);
+                }
+                ResolveErrorKind::Proto(e) if e.is_busy() => {
+                    busy.push(conn);
                 }
                 _ if err.cmp_specificity(&e) != Ordering::Greater => {
                     err = e;
                 }
                 _ => {}
-            },
-        };
+            }
+        }
     }
 }
 

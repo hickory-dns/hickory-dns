@@ -63,6 +63,9 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
     /// Ths future is responsible for spawning any background tasks as necessary
     type FutureConn: Future<Output = Result<Self::Conn, ResolveError>> + Send + 'static;
 
+    /// The type used to set up timeout futures
+    type Time: Time;
+
     /// The returned handle should
     fn new_connection(&self, config: &NameServerConfig, options: &ResolverOpts)
         -> Self::FutureConn;
@@ -108,6 +111,7 @@ where
 {
     type Conn = GenericConnection;
     type FutureConn = ConnectionFuture<R>;
+    type Time = R::Timer;
 
     /// Constructs an initial constructor for the ConnectionHandle to be used to establish a
     ///   future connection.
