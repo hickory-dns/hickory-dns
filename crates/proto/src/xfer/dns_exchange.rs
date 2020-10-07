@@ -20,8 +20,7 @@ use crate::error::*;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::OneshotDnsResponseReceiver;
 use crate::xfer::{
-    BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsRequestStreamHandle, DnsResponse,
-    OneshotDnsRequest,
+    BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest,
 };
 use crate::Time;
 
@@ -45,8 +44,8 @@ impl DnsExchange {
     where
         S: DnsRequestSender + 'static + Send + Unpin,
     {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = DnsRequestStreamHandle::new(message_sender);
+        let (sender, outbound_messages) = mpsc::unbounded();
+        let message_sender = BufDnsRequestStreamHandle { sender };
 
         Self::from_stream_with_receiver(stream, outbound_messages, message_sender)
     }
@@ -55,7 +54,7 @@ impl DnsExchange {
     pub fn from_stream_with_receiver<S, TE>(
         stream: S,
         receiver: mpsc::UnboundedReceiver<OneshotDnsRequest>,
-        sender: DnsRequestStreamHandle,
+        sender: BufDnsRequestStreamHandle,
     ) -> (Self, DnsExchangeBackground<S, TE>)
     where
         S: DnsRequestSender + 'static + Send + Unpin,
@@ -65,8 +64,6 @@ impl DnsExchange {
             outbound_messages: receiver.peekable(),
             marker: PhantomData,
         };
-
-        let sender = BufDnsRequestStreamHandle::new(sender);
 
         (Self { sender }, background)
     }
@@ -80,8 +77,8 @@ impl DnsExchange {
         S: DnsRequestSender + 'static + Send + Unpin,
         TE: Time + Unpin,
     {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = DnsRequestStreamHandle::new(message_sender);
+        let (sender, outbound_messages) = mpsc::unbounded();
+        let message_sender = BufDnsRequestStreamHandle { sender };
 
         DnsExchangeConnect::connect(connect_future, outbound_messages, message_sender)
     }
@@ -250,7 +247,7 @@ where
     fn connect(
         connect_future: F,
         outbound_messages: mpsc::UnboundedReceiver<OneshotDnsRequest>,
-        sender: DnsRequestStreamHandle,
+        sender: BufDnsRequestStreamHandle,
     ) -> Self {
         DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
             connect_future,
@@ -283,7 +280,7 @@ where
     Connecting {
         connect_future: F,
         outbound_messages: Option<mpsc::UnboundedReceiver<OneshotDnsRequest>>,
-        sender: Option<DnsRequestStreamHandle>,
+        sender: Option<BufDnsRequestStreamHandle>,
     },
     Connected {
         exchange: DnsExchange,
