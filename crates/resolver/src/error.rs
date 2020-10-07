@@ -15,6 +15,7 @@ use thiserror::Error;
 use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::op::{Query, ResponseCode};
 use crate::proto::rr::rdata::SOA;
+use crate::proto::xfer::retry_dns_handle::RetryableError;
 use crate::proto::xfer::DnsResponse;
 use crate::proto::{trace, ExtBacktrace};
 
@@ -228,6 +229,19 @@ impl ResolveError {
         }
 
         Ordering::Equal
+    }
+}
+
+impl RetryableError for ResolveError {
+    fn should_retry(&self) -> bool {
+        !matches!(self.kind(), ResolveErrorKind::NoRecordsFound { trusted, .. } if *trusted)
+    }
+
+    fn attempted(&self) -> bool {
+        match self.kind() {
+            ResolveErrorKind::Proto(e) => !matches!(e.kind(), ProtoErrorKind::Busy),
+            _ => true,
+        }
     }
 }
 
