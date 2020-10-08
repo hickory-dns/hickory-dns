@@ -41,26 +41,17 @@ impl LookupError {
 
     /// True if other records exist at the same name, but not the searched for RecordType
     pub fn is_name_exists(&self) -> bool {
-        match *self {
-            LookupError::NameExists => true,
-            _ => false,
-        }
+        matches!(*self, LookupError::NameExists)
     }
 
     /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
-        match *self {
-            LookupError::ResponseCode(ResponseCode::NXDomain) => true,
-            _ => false,
-        }
+        matches!(*self, LookupError::ResponseCode(ResponseCode::NXDomain))
     }
 
     /// This is a non-existent domain name
     pub fn is_refused(&self) -> bool {
-        match *self {
-            LookupError::ResponseCode(ResponseCode::Refused) => true,
-            _ => false,
-        }
+        matches!(*self, LookupError::ResponseCode(ResponseCode::Refused))
     }
 }
 

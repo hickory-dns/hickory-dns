@@ -601,13 +601,13 @@ pub enum NegativeType {
 impl NegativeType {
     /// The response contains an SOA record
     pub fn is_authoritative(&self) -> bool {
-        match self {
+        matches!(
+            self,
             NegativeType::NameErrorType1
-            | NegativeType::NameErrorType2
-            | NegativeType::NoDataType1
-            | NegativeType::NoDataType2 => true,
-            _ => false,
-        }
+                | NegativeType::NameErrorType2
+                | NegativeType::NoDataType1
+                | NegativeType::NoDataType2
+        )
     }
 }
 

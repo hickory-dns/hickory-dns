@@ -252,38 +252,22 @@ impl Property {
 
     /// true if the property is `issue`
     pub fn is_issue(&self) -> bool {
-        if let Property::Issue = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Property::Issue)
     }
 
     /// true if the property is `issueworld`
     pub fn is_issuewild(&self) -> bool {
-        if let Property::IssueWild = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Property::IssueWild)
     }
 
     /// true if the property is `iodef`
     pub fn is_iodef(&self) -> bool {
-        if let Property::Iodef = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Property::Iodef)
     }
 
     /// true if the property is not known to Trust-DNS
     pub fn is_unknown(&self) -> bool {
-        if let Property::Unknown(_) = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Property::Unknown(_))
     }
 }
 
@@ -323,29 +307,17 @@ pub enum Value {
 impl Value {
     /// true if this is an `Issuer`
     pub fn is_issuer(&self) -> bool {
-        if let Value::Issuer(..) = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Value::Issuer(..))
     }
 
     /// true if this is a `Url`
     pub fn is_url(&self) -> bool {
-        if let Value::Url(..) = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Value::Url(..))
     }
 
     /// true if this is an `Unknown`
     pub fn is_unknown(&self) -> bool {
-        if let Value::Unknown(..) = *self {
-            true
-        } else {
-            false
-        }
+        matches!(*self, Value::Unknown(..))
     }
 }
 
@@ -789,10 +761,7 @@ fn read_tag(decoder: &mut BinDecoder, len: Restrict<u8>) -> ProtoResult<String> 
         let ch = decoder
             .pop()?
             .map(char::from)
-            .verify_unwrap(|ch| match ch {
-                'a'..='z' | 'A'..='Z' | '0'..='9' => true,
-                _ => false,
-            })
+            .verify_unwrap(|ch| matches!(ch, 'a'..='z' | 'A'..='Z' | '0'..='9'))
             .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
 
         tag.push(ch);

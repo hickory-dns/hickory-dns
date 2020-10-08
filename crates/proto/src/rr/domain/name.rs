@@ -1450,6 +1450,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::same_item_push)]
     fn test_bin_overlap_enforced() {
         let mut bytes = Vec::with_capacity(512);
         let n = 31;

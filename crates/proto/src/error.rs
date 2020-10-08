@@ -30,10 +30,7 @@ lazy_static! {
     pub static ref ENABLE_BACKTRACE: bool = {
         use std::env;
         let bt = env::var("RUST_BACKTRACE");
-        match bt.as_ref().map(|s| s as &str) {
-            Ok("full") | Ok("1") => true,
-            _ => false,
-        }
+        matches!(bt.as_ref().map(|s| s as &str), Ok("full") | Ok("1"))
     };
 }
 

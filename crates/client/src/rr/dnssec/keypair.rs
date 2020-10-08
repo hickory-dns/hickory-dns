@@ -407,10 +407,9 @@ impl<K: HasPrivate> KeyPair<K> {
                                 }
                                 part = &part[1..];
                             }
-                            for _ in 0..(part_len - part.len()) {
-                                // Pad with zeros. All numbers are big-endian here.
-                                ret.push(0x00);
-                            }
+
+                            // Pad with zeros. All numbers are big-endian here.
+                            ret.resize(part_len - part.len(), 0x00);
                             ret.extend(part);
                             Ok(())
                         };
