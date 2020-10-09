@@ -539,7 +539,7 @@ mod tests {
 
     use tokio::net::TcpStream as TokioTcpStream;
     use trust_dns_proto::iocompat::AsyncIo02As03;
-    use trust_dns_proto::op::{Message, Query};
+    use trust_dns_proto::op::{Message, Query, ResponseCode};
     use trust_dns_proto::rr::{Name, RData, RecordType};
     use trust_dns_proto::TokioTime;
 
@@ -599,22 +599,28 @@ mod tests {
         request.add_query(query);
         let request = DnsRequest::new(request, Default::default());
 
-        let sending = runtime.block_on(future::lazy(|cx| {
-            https.send_message::<TokioTime>(request, cx)
-        }));
-        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+        for _ in 0..3 {
+            let sending = runtime.block_on(future::lazy(|cx| {
+                https.send_message::<TokioTime>(request.clone(), cx)
+            }));
 
-        let record = &response.answers()[0];
-        let addr = if let RData::AAAA(addr) = record.rdata() {
-            addr
-        } else {
-            panic!("invalid response, expected A record");
-        };
+            let response = runtime.block_on(sending).expect("send_message failed");
+            if response.response_code() == ResponseCode::ServFail {
+                continue;
+            }
 
-        assert_eq!(
-            addr,
-            &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
-        );
+            let record = &response.answers()[0];
+            let addr = if let RData::AAAA(addr) = record.rdata() {
+                addr
+            } else {
+                panic!("invalid response, expected A record");
+            };
+
+            assert_eq!(
+                addr,
+                &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
+            );
+        }
     }
 
     #[test]
