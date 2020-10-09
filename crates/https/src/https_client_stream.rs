@@ -533,7 +533,7 @@ mod tests {
     use std::str::FromStr;
 
     use futures::future;
-    use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+    use rustls::{ClientConfig, KeyLogFile, ProtocolVersion, RootCertStore};
     use tokio::runtime::Runtime;
     use webpki_roots;
 
@@ -565,6 +565,7 @@ mod tests {
         client_config.root_store = root_store;
         client_config.versions = versions;
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
+        client_config.key_log = Arc::new(KeyLogFile::new());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
         let connect =
