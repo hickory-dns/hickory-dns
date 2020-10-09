@@ -66,8 +66,7 @@ pub(crate) async fn message_from_post<R>(
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
-    #[allow(clippy::min_max)]
-    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).min(512).max(4096));
+    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).max(512).min(4096));
 
     loop {
         match request_stream.next().await {

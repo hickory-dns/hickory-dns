@@ -409,7 +409,7 @@ impl<K: HasPrivate> KeyPair<K> {
                             }
 
                             // Pad with zeros. All numbers are big-endian here.
-                            ret.resize(part_len - part.len(), 0x00);
+                            ret.extend((0..(part_len - part.len())).into_iter().map(|_| 0x00));
                             ret.extend(part);
                             Ok(())
                         };
