@@ -346,6 +346,8 @@ impl<K: HasPrivate> KeyPair<K> {
     /// The signature, ready to be stored in an `RData::RRSIG`.
     #[allow(unused)]
     pub fn sign(&self, algorithm: Algorithm, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+        use std::iter;
+
         match *self {
             #[cfg(feature = "openssl")]
             KeyPair::RSA(ref pkey) | KeyPair::EC(ref pkey) => {
@@ -409,7 +411,7 @@ impl<K: HasPrivate> KeyPair<K> {
                             }
 
                             // Pad with zeros. All numbers are big-endian here.
-                            ret.extend((0..(part_len - part.len())).into_iter().map(|_| 0x00));
+                            ret.extend(iter::repeat(0x00).take(part_len - part.len()));
                             ret.extend(part);
                             Ok(())
                         };

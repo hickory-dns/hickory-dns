@@ -1299,6 +1299,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use std::cmp::Ordering;
+    use std::iter;
     use std::str::FromStr;
 
     use super::*;
@@ -1451,10 +1452,10 @@ mod tests {
 
     #[test]
     fn test_bin_overlap_enforced() {
-        let mut bytes = Vec::with_capacity(512);
-        let n = 31;
+        let mut bytes: Vec<u8> = Vec::with_capacity(512);
+        let n: u8 = 31;
         for _ in 0..=5 {
-            bytes.extend((0..=n).into_iter().map(|_| n));
+            bytes.extend(iter::repeat(n).take(n as usize));
         }
         bytes.push(n + 1);
         for b in 0..n {
