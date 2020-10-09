@@ -407,7 +407,7 @@ where
 }
 
 #[test]
-fn test_concurrent_requests() {
+fn test_concurrent_requests_2_conns() {
     let mut options = ResolverOpts::default();
     // there are only 2 conns, so this matches that count
     options.num_concurrent_reqs = 2;
@@ -424,7 +424,7 @@ fn test_concurrent_requests() {
 
     let udp1_nameserver =
         mock_nameserver_on_send(vec![Ok(udp_message.into())], options, on_send.clone());
-    let udp2_nameserver = udp1_nameserver.clone();
+    let udp2_nameserver = mock_nameserver_on_send(vec![], options, on_send.clone());
 
     let mut pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
@@ -464,7 +464,7 @@ fn test_concurrent_requests_more_than_conns() {
 
     let udp1_nameserver =
         mock_nameserver_on_send(vec![Ok(udp_message.into())], options, on_send.clone());
-    let udp2_nameserver = udp1_nameserver.clone();
+    let udp2_nameserver = mock_nameserver_on_send(vec![], options, on_send.clone());
 
     let mut pool = mock_nameserver_pool_on_send(
         vec![udp2_nameserver, udp1_nameserver],
