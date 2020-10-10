@@ -140,10 +140,7 @@ impl RecordType {
     /// Returns true if this is an A or an AAAA record
     #[inline]
     pub fn is_ip_addr(self) -> bool {
-        match self {
-            RecordType::A | RecordType::AAAA => true,
-            _ => false,
-        }
+        matches!(self, RecordType::A | RecordType::AAAA)
     }
 }
 
