@@ -42,7 +42,7 @@ impl OPENPGPKEY {
 }
 
 /// Read the RData from the given decoder.
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<OPENPGPKEY> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<OPENPGPKEY> {
     let rdata_length = rdata_length.map(usize::from).unverified();
     let public_key =
         decoder.read_vec(rdata_length)?.unverified(/*we do not enforce a specific format*/);
@@ -50,7 +50,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 /// Write the RData using the given encoder
-pub fn emit(encoder: &mut BinEncoder, openpgpkey: &OPENPGPKEY) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, openpgpkey: &OPENPGPKEY) -> ProtoResult<()> {
     encoder.emit_vec(openpgpkey.public_key())
 }
 
@@ -67,7 +67,7 @@ pub fn emit(encoder: &mut BinEncoder, openpgpkey: &OPENPGPKEY) -> ProtoResult<()
 ///    of [RFC4648].
 /// ```
 impl fmt::Display for OPENPGPKEY {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(&data_encoding::BASE64.encode(&self.public_key))
     }
 }

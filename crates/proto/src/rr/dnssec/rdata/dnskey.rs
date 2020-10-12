@@ -238,7 +238,7 @@ impl DNSKEY {
     pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
-            let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+            let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
             encoder.set_canonical_names(true);
             if let Err(e) = name
                 .emit(&mut encoder)
@@ -341,7 +341,7 @@ impl From<DNSKEY> for RData {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<DNSKEY> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<DNSKEY> {
     let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
     //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
@@ -389,7 +389,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &DNSKEY) -> ProtoResult<()> {
     encoder.emit_u16(rdata.flags())?;
     encoder.emit(3)?; // always 3 for now
     rdata.algorithm().emit(encoder)?;
@@ -440,7 +440,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
 ///    text is a Base64 encoding of the public key.
 /// ```
 impl fmt::Display for DNSKEY {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "{flags} 3 {alg} {key}",
@@ -469,13 +469,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
         let read_rdata = read_rdata.expect("error decoding");
 

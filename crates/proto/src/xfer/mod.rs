@@ -126,7 +126,7 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
     fn send_message<TE: Time>(
         &mut self,
         message: DnsRequest,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
     ) -> DnsResponseFuture;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
@@ -229,7 +229,7 @@ pub enum OneshotDnsResponseReceiver {
 impl Future for OneshotDnsResponseReceiver {
     type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             *self = match *self.as_mut() {
                 OneshotDnsResponseReceiver::Receiver(ref mut receiver) => {

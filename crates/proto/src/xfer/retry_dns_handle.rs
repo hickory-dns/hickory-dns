@@ -87,7 +87,7 @@ where
 {
     type Output = Result<DnsResponse, <H as DnsHandle>::Error>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // loop over the future, on errors, spawn a new future
         //  on ready and not ready return.
         loop {

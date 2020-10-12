@@ -602,7 +602,7 @@ impl RData {
     fn to_bytes(&self) -> Vec<u8> {
         let mut buf: Vec<u8> = Vec::new();
         {
-            let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+            let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
             self.emit(&mut encoder).unwrap_or_else(|_| {
                 warn!("could not encode RDATA: {:?}", self);
             });
@@ -612,7 +612,7 @@ impl RData {
 
     /// Read the RData from the given Decoder
     pub fn read(
-        decoder: &mut BinDecoder,
+        decoder: &mut BinDecoder<'_>,
         record_type: RecordType,
         rdata_length: Restrict<u16>,
     ) -> ProtoResult<Self> {
@@ -786,7 +786,7 @@ impl RData {
     ///   DNAME, and A6.
     ///   ...
     /// ```
-    pub fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    pub fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
             RData::A(address) => rdata::a::emit(encoder, address),
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
@@ -868,8 +868,8 @@ impl RData {
 }
 
 impl fmt::Display for RData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        fn w<D: fmt::Display>(f: &mut fmt::Formatter, d: D) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fn w<D: fmt::Display>(f: &mut fmt::Formatter<'_>, d: D) -> Result<(), fmt::Error> {
             write!(f, "{rdata}", rdata = d)
         };
 

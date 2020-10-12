@@ -150,7 +150,7 @@ impl Nsec3HashAlgorithm {
             Nsec3HashAlgorithm::SHA1 => {
                 let mut buf: Vec<u8> = Vec::new();
                 {
-                    let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+                    let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
                     encoder.set_canonical_names(true);
                     name.emit(&mut encoder).expect("could not encode Name");
                 }

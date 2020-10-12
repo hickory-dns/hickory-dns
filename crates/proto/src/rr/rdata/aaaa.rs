@@ -39,7 +39,7 @@ use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
 #[allow(clippy::many_single_char_names)]
-pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv6Addr> {
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv6Addr> {
     let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let c: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
@@ -53,7 +53,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv6Addr> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, address: &Ipv6Addr) -> ProtoResult<()> {
     let segments = address.segments();
 
     encoder.emit_u16(segments[0])?;

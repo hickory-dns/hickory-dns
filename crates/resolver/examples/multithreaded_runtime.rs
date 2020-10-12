@@ -3,12 +3,6 @@
 //! This example shows how to create a resolver that uses the tokio multithreaded runtime. This is how
 //! you might integrate the resolver into a more complex application.
 
-extern crate env_logger;
-extern crate futures_util;
-#[cfg(feature = "tokio-runtime")]
-extern crate tokio;
-extern crate trust_dns_resolver;
-
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     use tokio::runtime::Runtime;

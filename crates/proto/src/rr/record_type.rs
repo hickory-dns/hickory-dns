@@ -235,13 +235,13 @@ impl From<u16> for RecordType {
 }
 
 impl BinEncodable for RecordType {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16((*self).into())
     }
 }
 
 impl<'r> BinDecodable<'r> for RecordType {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         decoder
             .read_u16()
             .map(
@@ -352,7 +352,7 @@ impl Ord for RecordType {
 }
 
 impl Display for RecordType {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(Into::<&str>::into(*self))
     }
 }

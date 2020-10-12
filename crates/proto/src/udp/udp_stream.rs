@@ -121,7 +121,7 @@ impl<S: Send> UdpStream<S> {
 impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
     type Item = Result<SerialMessage, io::Error>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let (socket, outbound_messages) = self.pollable_split();
         let mut socket = Pin::new(socket);
         let mut outbound_messages = Pin::new(outbound_messages);
@@ -187,7 +187,7 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
     /// polls until there is an available next random UDP port.
     ///
     /// if there is no port available after 10 attempts, returns NotReady
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let rand_port_range = Uniform::new_inclusive(1025_u16, u16::max_value());
         let mut rand = rand::thread_rng();
 

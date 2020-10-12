@@ -238,7 +238,7 @@ impl ProtoError {
 }
 
 impl fmt::Display for ProtoError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(ref backtrace) = self.backtrack {
             fmt::Display::fmt(&self.kind, f)?;
             fmt::Debug::fmt(backtrace, f)
@@ -346,7 +346,7 @@ pub mod not_ring {
     pub struct Unspecified;
 
     impl std::fmt::Display for Unspecified {
-        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
             Ok(())
         }
     }

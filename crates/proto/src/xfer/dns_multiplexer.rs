@@ -67,7 +67,7 @@ impl ActiveRequest {
     }
 
     /// polls the timeout and converts the error
-    fn poll_timeout(&mut self, cx: &mut Context) -> Poll<()> {
+    fn poll_timeout(&mut self, cx: &mut Context<'_>) -> Poll<()> {
         self.timeout.poll_unpin(cx)
     }
 
@@ -183,7 +183,7 @@ where
 
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
-    fn drop_cancelled(&mut self, cx: &mut Context) {
+    fn drop_cancelled(&mut self, cx: &mut Context<'_>) {
         let mut canceled = HashMap::<u16, ProtoError>::new();
         for (&id, ref mut active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
@@ -273,7 +273,7 @@ where
 {
     type Output = Result<DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let stream: S = ready!(self.stream.poll_unpin(cx))?;
 
         Poll::Ready(Ok(DnsMultiplexer {
@@ -295,7 +295,7 @@ where
     S: DnsClientStream + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "{}", self.stream)
     }
 }
@@ -308,7 +308,7 @@ where
     fn send_message<TE: Time>(
         &mut self,
         request: DnsRequest,
-        _: &mut Context,
+        _: &mut Context<'_>,
     ) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -397,7 +397,7 @@ where
 {
     type Item = Result<(), ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // Always drop the cancelled queries first
         self.drop_cancelled(cx);
 

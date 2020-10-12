@@ -343,7 +343,7 @@ impl TLSA {
 ///    /                                                               /
 ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
     let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
     let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
     let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
@@ -365,7 +365,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, tlsa: &TLSA) -> ProtoResult<()> {
     encoder.emit_u8(tlsa.cert_usage.into())?;
     encoder.emit_u8(tlsa.selector.into())?;
     encoder.emit_u8(tlsa.matching.into())?;
@@ -422,7 +422,7 @@ pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) -> ProtoResult<()> {
 ///       3 0 0 30820307308201efa003020102020... )
 /// ```
 impl fmt::Display for TLSA {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "{usage} {selector} {matching} {cert}",
@@ -493,13 +493,13 @@ mod tests {
 
     fn test_encode_decode(rdata: TLSA) {
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         emit(&mut encoder, &rdata).expect("failed to emit tlsa");
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata =
             read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
         assert_eq!(rdata, read_rdata);

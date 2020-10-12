@@ -219,7 +219,7 @@ impl From<FingerprintType> for u8 {
 }
 
 /// Read the RData from the given decoder.
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<SSHFP> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<SSHFP> {
     let algorithm = decoder.read_u8()?.unverified().into();
     let fingerprint_type = decoder.read_u8()?.unverified().into();
     let fingerprint_len = rdata_length
@@ -232,7 +232,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 /// Write the RData using the given encoder.
-pub fn emit(encoder: &mut BinEncoder, sshfp: &SSHFP) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, sshfp: &SSHFP) -> ProtoResult<()> {
     encoder.emit_u8(sshfp.algorithm().into())?;
     encoder.emit_u8(sshfp.fingerprint_type().into())?;
     encoder.emit_vec(sshfp.fingerprint())
@@ -252,7 +252,7 @@ pub fn emit(encoder: &mut BinEncoder, sshfp: &SSHFP) -> ProtoResult<()> {
 ///    The use of mnemonics instead of numbers is not allowed.
 /// ```
 impl fmt::Display for SSHFP {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "{algorithm} {ty} {fingerprint}",

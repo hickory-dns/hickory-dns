@@ -576,7 +576,7 @@ impl Message {
     }
 
     /// Attempts to read the specified number of `Query`s
-    pub fn read_queries(decoder: &mut BinDecoder, count: usize) -> ProtoResult<Vec<Query>> {
+    pub fn read_queries(decoder: &mut BinDecoder<'_>, count: usize) -> ProtoResult<Vec<Query>> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(Query::read(decoder)?);
@@ -591,7 +591,7 @@ impl Message {
     /// This returns a tuple of first standard Records, then a possibly associated Edns, and then finally any optionally associated SIG0 records.
     #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
     pub fn read_records(
-        decoder: &mut BinDecoder,
+        decoder: &mut BinDecoder<'_>,
         count: usize,
         is_additional: bool,
     ) -> ProtoResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
@@ -742,11 +742,11 @@ pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bo
 /// A trait that defines types which can be emitted as a set, with the associated count returned.
 pub trait EmitAndCount {
     /// Emit self to the encoder and return the count of items
-    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
+    fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize>;
 }
 
 impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
-    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+    fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
         encoder.emit_all(self)
     }
 }
@@ -761,7 +761,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     additionals: &mut D,
     edns: Option<&Edns>,
     sig0: &[Record],
-    encoder: &mut BinEncoder,
+    encoder: &mut BinEncoder<'_>,
 ) -> ProtoResult<()>
 where
     Q: EmitAndCount,
@@ -808,7 +808,7 @@ where
 }
 
 impl BinEncodable for Message {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         emit_message_parts(
             &self.header,
             &mut self.queries.iter(),

@@ -475,7 +475,7 @@ pub struct Place<T: EncodedSize> {
 }
 
 impl<T: EncodedSize> Place<T> {
-    pub fn replace(self, encoder: &mut BinEncoder, data: T) -> ProtoResult<()> {
+    pub fn replace(self, encoder: &mut BinEncoder<'_>, data: T) -> ProtoResult<()> {
         encoder.emit_at(self, data)
     }
 
@@ -490,7 +490,7 @@ pub struct Rollback {
 }
 
 impl Rollback {
-    pub fn rollback(self, encoder: &mut BinEncoder) {
+    pub fn rollback(self, encoder: &mut BinEncoder<'_>) {
         encoder.set_offset(self.rollback_index)
     }
 }

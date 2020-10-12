@@ -104,7 +104,7 @@ impl SupportedAlgorithms {
     }
 
     /// Return an Iterator over the supported set.
-    pub fn iter(&self) -> SupportedAlgorithmsIter {
+    pub fn iter(&self) -> SupportedAlgorithmsIter<'_> {
         SupportedAlgorithmsIter::new(self)
     }
 
@@ -127,7 +127,7 @@ impl Default for SupportedAlgorithms {
 }
 
 impl Display for SupportedAlgorithms {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         for a in self.iter() {
             a.fmt(f)?;
             f.write_str(", ")?;
@@ -205,7 +205,7 @@ impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
 }
 
 impl BinEncodable for SupportedAlgorithms {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         for a in self.iter() {
             encoder.emit_u8(a.into())?;
         }

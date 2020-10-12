@@ -8,9 +8,6 @@
 
 #![allow(dead_code)]
 
-extern crate data_encoding;
-extern crate rand;
-
 use std::env;
 use std::fs;
 use std::fs::DirBuilder;

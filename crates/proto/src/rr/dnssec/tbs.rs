@@ -30,7 +30,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
     let mut buf2: Vec<u8> = Vec::with_capacity(512);
 
     {
-        let mut encoder: BinEncoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
+        let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
         assert!(sig::emit_pre_sig(
             &mut encoder,
             pre_sig0.type_covered(),
@@ -46,7 +46,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
         // need a separate encoder here, as the encoding references absolute positions
         // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
         // are wrong and the signature won't match.
-        let mut encoder2: BinEncoder = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
+        let mut encoder2: BinEncoder<'_> = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
         message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
     }
 
@@ -113,7 +113,7 @@ pub fn rrset_tbs(
     let mut buf: Vec<u8> = Vec::new();
 
     {
-        let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
         encoder.set_canonical_names(true);
 
         //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where

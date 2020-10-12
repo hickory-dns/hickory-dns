@@ -178,7 +178,7 @@ impl<'a> From<&'a Edns> for Record {
 }
 
 impl BinEncodable for Edns {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit(0)?; // Name::root
         RecordType::OPT.emit(encoder)?; //self.rr_type.emit(encoder)?;
         DNSClass::for_opt(self.max_payload()).emit(encoder)?; // self.dns_class.emit(encoder)?;

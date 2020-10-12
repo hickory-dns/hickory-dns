@@ -7,8 +7,6 @@
 
 #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-extern crate openssl;
-
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -20,10 +18,10 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
-use self::openssl::pkcs12::*;
-use self::openssl::ssl::*;
-use self::openssl::x509::store::X509StoreBuilder;
-use self::openssl::x509::*;
+use openssl::pkcs12::*;
+use openssl::ssl::*;
+use openssl::x509::store::X509StoreBuilder;
+use openssl::x509::*;
 
 use futures_util::stream::StreamExt;
 use rustls::Certificate;

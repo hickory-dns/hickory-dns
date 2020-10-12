@@ -362,7 +362,7 @@ impl<'k> Rsa<'k> {
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey<Public>> {
+fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<PKey<Public>> {
     // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
     let e = BigNum::from_slice(parsed.e())?;
     let n = BigNum::from_slice(parsed.n())?;

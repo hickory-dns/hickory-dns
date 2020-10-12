@@ -228,7 +228,7 @@ impl Display for Label {
     ///
     /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
     ///   escaping characters as necessary.
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
             let label = String::from_utf8_lossy(self.borrow());
@@ -254,7 +254,7 @@ impl Display for Label {
 }
 
 impl Debug for Label {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         let label = String::from_utf8_lossy(self.borrow());
         f.write_str(&label)
     }

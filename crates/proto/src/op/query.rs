@@ -162,7 +162,7 @@ impl Query {
 }
 
 impl BinEncodable for Query {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         self.name.emit(encoder)?;
         self.query_type.emit(encoder)?;
 
@@ -216,7 +216,7 @@ impl<'r> BinDecodable<'r> for Query {
 }
 
 impl Display for Query {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         #[cfg(not(feature = "mdns"))]
         {
             write!(

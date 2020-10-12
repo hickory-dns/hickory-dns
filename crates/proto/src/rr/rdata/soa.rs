@@ -212,7 +212,7 @@ impl SOA {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SOA> {
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<SOA> {
     Ok(SOA {
         mname: Name::read(decoder)?,
         rname: Name::read(decoder)?,
@@ -242,7 +242,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SOA> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, soa: &SOA) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
     soa.mname.emit_with_lowercase(encoder, is_canonical_names)?;
@@ -309,7 +309,7 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
 ///     86400 )    ;minimum
 /// ```
 impl fmt::Display for SOA {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "{mname} {rname} {serial} {refresh} {retry} {expire} {min}",
@@ -345,13 +345,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }

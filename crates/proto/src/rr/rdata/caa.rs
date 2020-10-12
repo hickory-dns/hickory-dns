@@ -323,7 +323,7 @@ impl Value {
 
 fn read_value(
     tag: &Property,
-    decoder: &mut BinDecoder,
+    decoder: &mut BinDecoder<'_>,
     value_len: Restrict<u16>,
 ) -> ProtoResult<Value> {
     let value_len = value_len.map(|u| u as usize).unverified(/*used purely as length safely*/);
@@ -344,7 +344,7 @@ fn read_value(
     }
 }
 
-fn emit_value(encoder: &mut BinEncoder, value: &Value) -> ProtoResult<()> {
+fn emit_value(encoder: &mut BinEncoder<'_>, value: &Value) -> ProtoResult<()> {
     match *value {
         Value::Issuer(ref name, ref key_values) => {
             // output the name
@@ -727,7 +727,7 @@ impl KeyValue {
 ///      The length of the value field is specified implicitly as the
 ///      remaining length of the enclosing Resource Record data field.
 /// ```
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
     // the spec declares that other flags should be ignored for future compatibility...
     let issuer_critical: bool =
         decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
@@ -750,7 +750,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 // TODO: change this to return &str
-fn read_tag(decoder: &mut BinDecoder, len: Restrict<u8>) -> ProtoResult<String> {
+fn read_tag(decoder: &mut BinDecoder<'_>, len: Restrict<u8>) -> ProtoResult<String> {
     let len = len
         .map(|len| len as usize)
         .verify_unwrap(|len| *len > 0 && *len <= 15)
@@ -796,7 +796,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, caa: &CAA) -> ProtoResult<()> {
     let mut flags = 0_u8;
 
     if caa.issuer_critical {
@@ -817,7 +817,7 @@ pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
 }
 
 impl fmt::Display for Property {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let s = match self {
             Property::Issue => "issue",
             Property::IssueWild => "issuewild",
@@ -830,7 +830,7 @@ impl fmt::Display for Property {
 }
 
 impl fmt::Display for Value {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str("\"")?;
 
         match self {
@@ -852,7 +852,7 @@ impl fmt::Display for Value {
 }
 
 impl fmt::Display for KeyValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(&self.key)?;
         if !self.value.is_empty() {
             write!(f, "={}", self.value)?;
@@ -864,7 +864,7 @@ impl fmt::Display for KeyValue {
 
 // FIXME: this needs to be verified to be correct, add tests...
 impl fmt::Display for CAA {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let critical = if self.issuer_critical { "1" } else { "0" };
 
         write!(
@@ -1007,13 +1007,13 @@ mod tests {
 
     fn test_encode_decode(rdata: CAA) {
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         emit(&mut encoder, &rdata).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata =
             read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
@@ -1066,7 +1066,7 @@ mod tests {
 
     fn test_encode(rdata: CAA, encoded: &[u8]) {
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         emit(&mut encoder, &rdata).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
         assert_eq!(&bytes as &[u8], encoded);
