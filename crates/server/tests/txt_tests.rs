@@ -1,7 +1,3 @@
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 

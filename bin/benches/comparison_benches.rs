@@ -1,12 +1,6 @@
 #![feature(test)]
 
-extern crate futures;
 extern crate test;
-extern crate tokio;
-
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
 
 use std::env;
 use std::fs::{DirBuilder, File};

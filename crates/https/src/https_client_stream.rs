@@ -529,9 +529,6 @@ impl Future for HttpsClientResponse {
 
 #[cfg(test)]
 mod tests {
-    extern crate env_logger;
-    extern crate tokio;
-
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 

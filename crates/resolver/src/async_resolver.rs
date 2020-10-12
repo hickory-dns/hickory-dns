@@ -1111,12 +1111,9 @@ pub mod testing {
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
-    extern crate env_logger;
-    extern crate tokio;
-
     use proto::xfer::DnsRequest;
+    use tokio::runtime::Runtime;
 
-    use self::tokio::runtime::Runtime;
     use crate::config::{ResolverConfig, ResolverOpts};
     use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioRuntime};
 

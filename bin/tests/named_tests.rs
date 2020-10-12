@@ -5,17 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-extern crate chrono;
-extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-
-#[cfg(feature = "dns-over-openssl")]
-extern crate trust_dns_openssl;
 
 mod server_harness;
 

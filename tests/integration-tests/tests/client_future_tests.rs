@@ -1,20 +1,3 @@
-extern crate chrono;
-extern crate env_logger;
-extern crate futures;
-extern crate log;
-extern crate openssl;
-#[cfg(feature = "dns-over-https-rustls")]
-extern crate rustls;
-extern crate tokio;
-extern crate trust_dns_client;
-#[cfg(feature = "dns-over-https")]
-extern crate trust_dns_https;
-extern crate trust_dns_integration;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-#[cfg(feature = "dns-over-https-rustls")]
-extern crate webpki_roots;
-
 use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -141,7 +124,7 @@ fn test_query_https() {
 
     // using the mozilla default root store
     let mut root_store = RootCertStore::empty();
-    root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
+    root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
     let versions = vec![ProtocolVersion::TLSv1_2];
 
     let mut client_config = ClientConfig::new();

@@ -11,13 +11,14 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use lru_cache::LruCache;
+
 use proto::op::Query;
 use proto::rr::Record;
 
 use crate::config;
 use crate::error::*;
 use crate::lookup::Lookup;
-use crate::lru_cache::LruCache;
 
 /// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181, 2147483647
 ///   Setting this to a value of 1 day, in seconds

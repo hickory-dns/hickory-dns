@@ -1,8 +1,5 @@
 #![cfg(feature = "sqlite")]
 
-extern crate trust_dns_client;
-extern crate trust_dns_server;
-
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;

@@ -1,16 +1,7 @@
 #![cfg(feature = "mdns")]
 
-extern crate chrono;
-extern crate futures;
 #[macro_use]
 extern crate lazy_static;
-extern crate log;
-extern crate openssl;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_integration;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};

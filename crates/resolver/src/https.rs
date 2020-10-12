@@ -1,6 +1,3 @@
-extern crate rustls;
-extern crate webpki_roots;
-
 use std::net::SocketAddr;
 
 use crate::name_server::RuntimeProvider;
@@ -32,7 +29,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    extern crate env_logger;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     use tokio::runtime::Runtime;

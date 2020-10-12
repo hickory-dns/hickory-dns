@@ -8,15 +8,12 @@
 #![cfg(feature = "dns-over-rustls")]
 #![allow(dead_code)]
 
-extern crate rustls;
-extern crate webpki_roots;
-
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures_util::future::Future;
+use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 
 use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;
@@ -30,7 +27,7 @@ lazy_static! {
     // using the mozilla default root store
     pub(crate) static ref CLIENT_CONFIG: Arc<ClientConfig> = {
         let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
+        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
         let versions = vec![ProtocolVersion::TLSv1_2];
 
         let mut client_config = ClientConfig::new();

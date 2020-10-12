@@ -24,18 +24,11 @@
 //! trust-dns-resolver = "*"
 //! ```
 //!
-//! ## Extern the crate for usage in the library
-//!
-//! ```rust
-//! extern crate trust_dns_resolver;
-//! ```
-//!
 //! ## Using the Synchronous Resolver
 //!
 //! This uses the default configuration, which sets the [Google Public DNS](https://developers.google.com/speed/public-dns/) as the upstream resolvers. Please see their [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS.
 //!
 //! ```rust
-//! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
@@ -68,7 +61,6 @@
 //! On Unix systems, the `/etc/resolv.conf` can be used for configuration. Not all options specified in the host systems `resolv.conf` are applicable or compatible with this software. In addition there may be additional options supported which the host system does not. Example:
 //!
 //! ```rust,no_run
-//! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
@@ -88,9 +80,6 @@
 //! For more advanced asynchronous usage, the `AsyncResolver`] is integrated with Tokio. In fact, the [`AsyncResolver`] is used by the synchronous Resolver for all lookups.
 //!
 //! ```rust
-//! # extern crate futures_util;
-//! # extern crate tokio;
-//! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
@@ -159,7 +148,6 @@
 //! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as well):
 //!
 //! ```rust,no_run
-//! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! # #[cfg(feature = "tokio-runtime")]
 //! # {
@@ -195,31 +183,14 @@
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
 extern crate cfg_if;
-extern crate futures_util;
-#[cfg(target_os = "windows")]
-extern crate ipconfig;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
-extern crate lru_cache;
-#[cfg(feature = "unix-config")]
-extern crate resolv_conf;
 #[cfg(feature = "serde-config")]
 #[macro_use]
 extern crate serde;
-extern crate smallvec;
-#[cfg(feature = "tokio-runtime")]
-extern crate tokio;
-#[cfg(feature = "dns-over-https")]
-extern crate trust_dns_https;
-#[cfg(feature = "dns-over-native-tls")]
-extern crate trust_dns_native_tls;
-#[cfg(feature = "dns-over-openssl")]
-extern crate trust_dns_openssl;
 pub extern crate trust_dns_proto as proto;
-#[cfg(feature = "dns-over-rustls")]
-extern crate trust_dns_rustls;
 
 mod async_resolver;
 pub mod config;

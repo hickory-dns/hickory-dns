@@ -25,21 +25,10 @@
 #![warn(missing_docs, clippy::dbg_macro, clippy::unimplemented)]
 #![recursion_limit = "128"]
 
-extern crate chrono;
 #[macro_use]
 extern crate clap;
-extern crate futures;
 #[macro_use]
 extern crate log;
-#[cfg(feature = "dns-over-rustls")]
-extern crate rustls;
-extern crate tokio;
-extern crate trust_dns_client;
-#[cfg(feature = "dns-over-openssl")]
-extern crate trust_dns_openssl;
-#[cfg(feature = "dns-over-rustls")]
-extern crate trust_dns_rustls;
-extern crate trust_dns_server;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};

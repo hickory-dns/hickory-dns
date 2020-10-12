@@ -1,12 +1,8 @@
 #![cfg(feature = "dnssec")]
 #![cfg(not(windows))]
 
-extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
 
 mod server_harness;
 

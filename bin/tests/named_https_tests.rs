@@ -8,17 +8,8 @@
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-https")]
 
-extern crate chrono;
-extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate native_tls;
-extern crate rustls;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_https;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
 
 mod server_harness;
 
@@ -39,7 +30,6 @@ use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_https_toml_startup() {
-    // extern crate env_logger;
     // env_logger::try_init().ok();
 
     const ALPN_H2: &[u8] = b"h2";

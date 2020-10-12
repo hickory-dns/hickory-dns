@@ -1,6 +1,3 @@
-extern crate trust_dns_client;
-extern crate trust_dns_server;
-
 use std::str::FromStr;
 
 use trust_dns_client::rr::{LowerName, RecordType};

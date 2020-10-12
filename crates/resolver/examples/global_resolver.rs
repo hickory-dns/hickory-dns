@@ -2,10 +2,6 @@
 
 #[macro_use]
 extern crate lazy_static;
-extern crate futures_util;
-#[cfg(feature = "tokio-runtime")]
-extern crate tokio;
-extern crate trust_dns_resolver;
 
 use std::fmt::Display;
 #[cfg(feature = "tokio-runtime")]

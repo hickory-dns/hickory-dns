@@ -1,10 +1,3 @@
-extern crate futures;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_integration;
-extern crate trust_dns_proto;
-extern crate trust_dns_resolver;
-
 use std::net::*;
 use std::pin::Pin;
 use std::str::FromStr;

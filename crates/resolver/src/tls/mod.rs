@@ -28,7 +28,6 @@ cfg_if! {
 #[cfg(any(feature = "dns-over-native-tls", feature = "dns-over-rustls"))]
 #[cfg(test)]
 mod tests {
-    extern crate env_logger;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     use tokio::runtime::Runtime;

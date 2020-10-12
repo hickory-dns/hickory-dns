@@ -1,7 +1,3 @@
-extern crate tokio;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
