@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::{self, Display};
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::ops::DerefMut;
@@ -14,7 +15,9 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use bytes::{Bytes, BytesMut};
-use futures::{ready, Future, FutureExt, Stream, TryFutureExt};
+use futures_util::future::{FutureExt, TryFutureExt};
+use futures_util::ready;
+use futures_util::stream::Stream;
 use h2;
 use h2::client::{Connection, SendRequest};
 use http::{self, header};

@@ -12,7 +12,6 @@
     clippy::single_component_path_imports
 )]
 
-use std;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -24,7 +23,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
-use futures::StreamExt;
+use futures_util::stream::StreamExt;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
 use tokio::runtime::Runtime;

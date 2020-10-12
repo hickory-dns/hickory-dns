@@ -9,7 +9,6 @@
 
 extern crate openssl;
 
-use std;
 use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -26,7 +25,7 @@ use self::openssl::ssl::*;
 use self::openssl::x509::store::X509StoreBuilder;
 use self::openssl::x509::*;
 
-use futures::StreamExt;
+use futures_util::stream::StreamExt;
 use rustls::Certificate;
 use rustls::ClientConfig;
 use tokio::runtime::Runtime;

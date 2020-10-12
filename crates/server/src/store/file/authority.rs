@@ -9,12 +9,12 @@
 
 use std::collections::BTreeMap;
 use std::fs::File;
+use std::future::Future;
 use std::io::{BufRead, BufReader};
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 
-use futures::future::Future;
 use log::{debug, info};
 
 use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
@@ -359,7 +359,7 @@ mod tests {
     use std::str::FromStr;
 
     use crate::client::rr::RData;
-    use futures::executor::block_on;
+    use futures_executor::block_on;
 
     use super::*;
     use crate::authority::ZoneType;

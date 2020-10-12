@@ -7,10 +7,11 @@
 
 //! All authority related types
 
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{future, Future, TryFutureExt};
+use futures_util::{future, TryFutureExt};
 
 use crate::client::op::LowerQuery;
 use crate::client::proto::rr::dnssec::rdata::key::KEY;

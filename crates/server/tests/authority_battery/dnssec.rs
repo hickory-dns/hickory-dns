@@ -1,9 +1,9 @@
 #![cfg(feature = "dnssec")]
 
+use std::future::Future;
 use std::str::FromStr;
 
-use futures::executor::block_on;
-use futures::Future;
+use futures_executor::block_on;
 
 use trust_dns_client::op::Query;
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};

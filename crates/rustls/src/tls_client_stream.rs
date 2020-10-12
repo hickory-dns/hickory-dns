@@ -7,11 +7,12 @@
 
 //! DNS over TLS client implementation for Rustls
 
+use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::{Future, TryFutureExt};
+use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 use tokio::net::TcpStream as TokioTcpStream;
 

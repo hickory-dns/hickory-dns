@@ -5,11 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::collections::HashMap;
+use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::lock::Mutex;
-use futures::Future;
+use futures_util::lock::Mutex;
 use trust_dns_proto::{
     error::ProtoError,
     xfer::{DnsHandle, DnsRequest, DnsResponse},

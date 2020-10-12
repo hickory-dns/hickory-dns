@@ -47,7 +47,8 @@ name = "trust_dns_native_tls"
 path = "src/lib.rs"
 
 [dependencies]
-futures = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 native-tls = "0.2"
 tokio = "0.2.22"
 tokio-tls = "0.3.1"

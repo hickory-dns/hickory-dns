@@ -23,7 +23,6 @@
 
 //! TLS protocol related components for DNS over TLS
 
-extern crate futures;
 extern crate openssl;
 extern crate tokio;
 extern crate tokio_openssl;

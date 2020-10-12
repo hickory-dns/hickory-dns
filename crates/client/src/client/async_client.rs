@@ -5,11 +5,18 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use futures_util::{ready, FutureExt};
+use log::debug;
+use rand;
+
+use crate::error::*;
+use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::proto::error::ProtoError;
 use crate::proto::xfer::{
     DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
@@ -17,12 +24,6 @@ use crate::proto::xfer::{
     DnsRequestSender, DnsResponse, DnsStreamHandle,
 };
 use crate::proto::TokioTime;
-use futures::{ready, Future, FutureExt};
-use log::debug;
-use rand;
-
-use crate::error::*;
-use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::rr::dnssec::Signer;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 

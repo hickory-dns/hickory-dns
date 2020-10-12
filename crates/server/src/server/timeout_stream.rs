@@ -4,7 +4,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures::{FutureExt, Stream, StreamExt};
+use futures_util::stream::{Stream, StreamExt};
+use futures_util::FutureExt;
 use log::{debug, warn};
 use tokio::time::Delay;
 

@@ -9,10 +9,11 @@
 
 use std::borrow::Borrow;
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::future::{self, Future, TryFutureExt};
+use futures_util::future::{self, TryFutureExt};
 use log::{debug, error};
 
 use crate::client::op::{LowerQuery, ResponseCode};

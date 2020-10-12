@@ -1,4 +1,3 @@
-extern crate futures;
 extern crate trust_dns_client;
 extern crate trust_dns_server;
 

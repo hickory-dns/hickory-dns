@@ -7,12 +7,12 @@
 
 //! All authority related types
 
+use std::future::Future;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::future::Future;
 use log::{error, info, warn};
 
 use crate::client::op::LowerQuery;
@@ -255,7 +255,7 @@ impl SqliteAuthority {
     ///   zone     rrset    rr       RRset exists (value dependent)
     /// ```
     pub fn verify_prerequisites(&self, pre_requisites: &[Record]) -> UpdateResult<()> {
-        use futures::executor::block_on;
+        use futures_executor::block_on;
 
         //   3.2.5 - Pseudocode for Prerequisite Section Processing
         //
@@ -442,7 +442,7 @@ impl SqliteAuthority {
     #[cfg(feature = "dnssec")]
     #[allow(clippy::blocks_in_if_conditions)]
     pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
-        use futures::executor::block_on;
+        use futures_executor::block_on;
         use log::debug;
 
         use crate::client::rr::rdata::{DNSSECRData, DNSSECRecordType};

@@ -1,4 +1,3 @@
-extern crate futures;
 extern crate tokio;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -8,8 +7,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-#[allow(deprecated)]
-use futures::stream::{iter, Stream, StreamExt, TryStreamExt};
+use futures_util::stream::{iter, Stream, StreamExt, TryStreamExt};
 use tokio::runtime::Runtime;
 
 use trust_dns_server::server::TimeoutStream;

@@ -13,9 +13,8 @@
 // limitations under the License.
 
 //! Trait for client connections
+use std::future::Future;
 use std::sync::Arc;
-
-use futures::Future;
 
 use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
 

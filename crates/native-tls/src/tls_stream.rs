@@ -7,11 +7,12 @@
 
 //! Base TlsStream
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::{Future, TryFutureExt};
+use futures_util::TryFutureExt;
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
 use tokio::net::TcpStream as TokioTcpStream;

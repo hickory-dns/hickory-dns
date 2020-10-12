@@ -24,7 +24,6 @@
 
 //! TLS protocol related components for DNS over TLS
 
-extern crate futures;
 extern crate rustls;
 extern crate tokio;
 extern crate tokio_rustls;
