@@ -249,7 +249,7 @@ impl NSEC3 {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<NSEC3> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
     let hash_algorithm =
@@ -318,7 +318,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 ///
 /// The Array of covered types
 pub(crate) fn decode_type_bit_maps(
-    decoder: &mut BinDecoder,
+    decoder: &mut BinDecoder<'_>,
     bit_map_len: Restrict<usize>,
 ) -> ProtoResult<Vec<RecordType>> {
     // 3.2.1.  Type Bit Maps Encoding
@@ -437,7 +437,7 @@ enum BitMapReadState {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC3) -> ProtoResult<()> {
     encoder.emit(rdata.hash_algorithm().into())?;
     encoder.emit(rdata.flags())?;
     encoder.emit_u16(rdata.iterations())?;
@@ -457,7 +457,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
 /// * `encoder` - the encoder to write to
 /// * `type_bit_maps` - types to encode into the bitmap
 pub(crate) fn encode_bit_maps(
-    encoder: &mut BinEncoder,
+    encoder: &mut BinEncoder<'_>,
     type_bit_maps: &[RecordType],
 ) -> ProtoResult<()> {
     let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
@@ -530,7 +530,7 @@ pub(crate) fn encode_bit_maps(
 ///       used.
 /// ```
 impl fmt::Display for NSEC3 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let salt = if self.salt.is_empty() {
             "-".to_string()
         } else {
@@ -580,13 +580,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
@@ -626,13 +626,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata_wo, read_rdata);

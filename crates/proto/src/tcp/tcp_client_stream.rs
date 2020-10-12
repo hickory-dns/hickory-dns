@@ -88,7 +88,7 @@ impl<S: AsyncRead + AsyncWrite + Send> TcpClientStream<S> {
 }
 
 impl<S: AsyncRead + AsyncWrite + Send> Display for TcpClientStream<S> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "TCP({})", self.tcp_stream.peer_addr())
     }
 }
@@ -102,7 +102,7 @@ impl<S: AsyncRead + AsyncWrite + Send + Unpin> DnsClientStream for TcpClientStre
 impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
     type Item = Result<SerialMessage, ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let message = try_ready_stream!(self.tcp_stream.poll_next_unpin(cx));
 
         // this is busted if the tcp connection doesn't have a peer
@@ -125,7 +125,7 @@ pub struct TcpClientConnect<S>(
 impl<S> Future for TcpClientConnect<S> {
     type Output = Result<TcpClientStream<S>, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx)
     }
 }

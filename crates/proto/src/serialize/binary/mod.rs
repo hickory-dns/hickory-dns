@@ -33,7 +33,7 @@ use crate::error::*;
 /// A type which can be encoded into a DNS binary format
 pub trait BinEncodable {
     /// Write the type to the stream
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()>;
 
     /// Returns the object in binary form
     fn to_bytes(&self) -> ProtoResult<Vec<u8>> {
@@ -60,43 +60,43 @@ pub trait BinDecodable<'r>: Sized {
 }
 
 impl BinEncodable for u16 {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16(*self)
     }
 }
 
 impl<'r> BinDecodable<'r> for u16 {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         decoder.read_u16().map(Restrict::unverified)
     }
 }
 
 impl BinEncodable for i32 {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_i32(*self)
     }
 }
 
 impl<'r> BinDecodable<'r> for i32 {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<i32> {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<i32> {
         decoder.read_i32().map(Restrict::unverified)
     }
 }
 
 impl BinEncodable for u32 {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u32(*self)
     }
 }
 
 impl<'r> BinDecodable<'r> for u32 {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         decoder.read_u32().map(Restrict::unverified)
     }
 }
 
 impl BinEncodable for Vec<u8> {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_vec(self)
     }
 }

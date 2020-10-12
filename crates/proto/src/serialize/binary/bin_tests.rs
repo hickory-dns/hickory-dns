@@ -121,7 +121,7 @@ fn emit_u32() {
 pub fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
 where
     E: PartialEq<E> + Debug,
-    F: Fn(BinDecoder) -> ProtoResult<E>,
+    F: Fn(BinDecoder<'_>) -> ProtoResult<E>,
 {
     for (test_pass, (expect, binary)) in data_set.into_iter().enumerate() {
         println!("test {}: {:?}", test_pass, binary);
@@ -133,7 +133,7 @@ where
 
 pub fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
 where
-    F: Fn(&mut BinEncoder, S) -> ProtoResult<()>,
+    F: Fn(&mut BinEncoder<'_>, S) -> ProtoResult<()>,
     S: Debug,
 {
     for (test_pass, (data, expect)) in data_set.into_iter().enumerate() {

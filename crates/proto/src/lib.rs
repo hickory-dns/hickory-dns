@@ -89,7 +89,7 @@ pub mod iocompat {
     impl<R: AsyncRead02 + Unpin> AsyncRead for AsyncIo02As03<R> {
         fn poll_read(
             mut self: Pin<&mut Self>,
-            cx: &mut Context,
+            cx: &mut Context<'_>,
             buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
             Pin::new(&mut self.0).poll_read(cx, buf)

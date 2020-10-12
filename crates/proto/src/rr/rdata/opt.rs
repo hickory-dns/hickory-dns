@@ -198,7 +198,7 @@ impl OPT {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<OPT> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<OPT> {
     let mut state: OptReadState = OptReadState::ReadCode;
     let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
     let start_idx = decoder.index();
@@ -271,7 +271,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, opt: &OPT) -> ProtoResult<()> {
     for (edns_code, edns_option) in opt.options().iter() {
         encoder.emit_u16(u16::from(*edns_code))?;
         encoder.emit_u16(edns_option.len())?;
@@ -432,7 +432,7 @@ impl EdnsOption {
 }
 
 impl BinEncodable for EdnsOption {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
             #[cfg(feature = "dnssec")]
             EdnsOption::DAU(ref algorithms)
@@ -499,13 +499,13 @@ mod tests {
         rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
@@ -519,7 +519,7 @@ pub fn test_read_empty_option_at_end_of_opt() {
         0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00,
     ];
 
-    let mut decoder: BinDecoder = BinDecoder::new(&*bytes);
+    let mut decoder: BinDecoder<'_> = BinDecoder::new(&*bytes);
     let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),

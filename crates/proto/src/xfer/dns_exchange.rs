@@ -115,7 +115,7 @@ pub struct DnsExchangeSend {
 impl Future for DnsExchangeSend {
     type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // as long as there is no result, poll the exchange
         self.result.poll_unpin(cx)
     }
@@ -151,7 +151,7 @@ where
     type Output = Result<(), ProtoError>;
 
     #[allow(clippy::unused_unit)]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let (io_stream, outbound_messages) = self.pollable_split();
         let mut io_stream = Pin::new(io_stream);
         let mut outbound_messages = Pin::new(outbound_messages);
@@ -262,7 +262,7 @@ where
 {
     type Output = Result<(DnsExchange, DnsExchangeBackground<S, TE>), ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
     }
 }
@@ -297,7 +297,7 @@ where
 {
     type Output = Result<(DnsExchange, DnsExchangeBackground<S, TE>), ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let next;
             match *self {

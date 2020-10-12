@@ -175,7 +175,7 @@ impl ResponseCode {
 }
 
 impl Display for ResponseCode {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(self.to_str())
     }
 }

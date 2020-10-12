@@ -29,7 +29,7 @@ pub struct DnsResponseFuture(DnsResponseFutureInner);
 impl Future for DnsResponseFuture {
     type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         use DnsResponseFutureInner::*;
         Poll::Ready(match &mut self.0 {
             Timeout(fut) => match ready!(fut.as_mut().poll(cx)) {
@@ -97,12 +97,12 @@ pub struct DnsResponse(SmallVec<[Message; 1]>);
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
     /// Get all the messages in the Response
-    pub fn messages(&self) -> Iter<Message> {
+    pub fn messages(&self) -> Iter<'_, Message> {
         self.0.as_slice().iter()
     }
 
     /// Get all the messages in the Response
-    pub fn messages_mut(&mut self) -> IterMut<Message> {
+    pub fn messages_mut(&mut self) -> IterMut<'_, Message> {
         self.0.as_mut_slice().iter_mut()
     }
 

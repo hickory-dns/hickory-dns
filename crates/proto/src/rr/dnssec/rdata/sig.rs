@@ -451,7 +451,7 @@ impl SIG {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResult<SIG> {
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<SIG> {
     let start_idx = decoder.index();
 
     // TODO should we verify here? or elsewhere...
@@ -506,7 +506,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: Restrict<u16>) -> ProtoResul
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, sig: &SIG) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
     sig.type_covered().emit(encoder)?;
@@ -525,7 +525,7 @@ pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
 /// specifically for outputting the RData for an RRSIG, with signer_name in canonical form
 #[allow(clippy::too_many_arguments)]
 pub fn emit_pre_sig(
-    encoder: &mut BinEncoder,
+    encoder: &mut BinEncoder<'_>,
     type_covered: RecordType,
     algorithm: Algorithm,
     num_labels: u8,
@@ -591,7 +591,7 @@ pub fn emit_pre_sig(
 ///     fiYy2X+8XpFjwICHc398kzWsTMKlxovpz2FnCTM= ;signature (640 bits)
 /// ```
 impl fmt::Display for SIG {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{ty_covered} {alg} {num_labels} {original_ttl} {expire} {inception} {tag} {signer} {sig}",
             ty_covered = self.type_covered,
             alg = self.algorithm,
@@ -632,13 +632,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);

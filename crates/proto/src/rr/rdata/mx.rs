@@ -86,7 +86,7 @@ impl MX {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<MX> {
     Ok(MX::new(
         decoder.read_u16()?.unverified(/*any u16 is valid*/),
         Name::read(decoder)?,
@@ -109,7 +109,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, mx: &MX) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     encoder.emit_u16(mx.preference())?;
     mx.exchange()
@@ -153,7 +153,7 @@ pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
 ///   Note that you can specify a wildcard in the MX record to match on
 ///   anything in FOO.COM, but that it won't match a plain FOO.COM.
 impl fmt::Display for MX {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{pref} {ex}", pref = self.preference, ex = self.exchange)
     }
 }
@@ -171,13 +171,13 @@ mod tests {
         let rdata = MX::new(16, Name::from_str("mail.example.com").unwrap());
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }

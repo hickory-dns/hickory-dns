@@ -24,11 +24,6 @@
 
 //! TLS protocol related components for DNS over TLS
 
-extern crate rustls;
-extern crate tokio;
-extern crate tokio_rustls;
-extern crate trust_dns_proto;
-extern crate webpki;
 #[macro_use]
 extern crate log;
 

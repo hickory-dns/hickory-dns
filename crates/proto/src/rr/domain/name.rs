@@ -95,7 +95,7 @@ impl Name {
     }
 
     /// Returns an iterator over the labels
-    pub fn iter(&self) -> LabelIter {
+    pub fn iter(&self) -> LabelIter<'_> {
         LabelIter(self.labels.iter())
     }
 
@@ -584,7 +584,11 @@ impl Name {
     /// Emits the canonical version of the name to the encoder.
     ///
     /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
-    pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
+    pub fn emit_as_canonical(
+        &self,
+        encoder: &mut BinEncoder<'_>,
+        canonical: bool,
+    ) -> ProtoResult<()> {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
                                      // lookup the label in the BinEncoder
                                      // if it exists, write the Pointer
@@ -657,7 +661,7 @@ impl Name {
     /// * `lowercase` - if true the name will be lowercased, otherwise it will not be changed when writing
     pub fn emit_with_lowercase(
         &self,
-        encoder: &mut BinEncoder,
+        encoder: &mut BinEncoder<'_>,
         lowercase: bool,
     ) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
@@ -1023,7 +1027,7 @@ enum ParseState {
 }
 
 impl BinEncodable for Name {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
         self.emit_as_canonical(encoder, is_canonical_names)
     }
@@ -1167,8 +1171,8 @@ fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> Proto
 }
 
 impl fmt::Display for Name {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.write_labels::<fmt::Formatter<'_>, LabelEncUtf8>(f)
     }
 }
 

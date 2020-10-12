@@ -46,7 +46,7 @@ use crate::error::*;
 use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv4Addr> {
     Ok(Ipv4Addr::new(
         decoder.pop()?.unverified(/*valid as any u8*/),
         decoder.pop()?.unverified(/*valid as any u8*/),
@@ -56,7 +56,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, address: Ipv4Addr) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, address: Ipv4Addr) -> ProtoResult<()> {
     let segments = address.octets();
 
     encoder.emit(segments[0])?;

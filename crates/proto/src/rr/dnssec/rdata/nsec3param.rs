@@ -170,7 +170,7 @@ impl NSEC3PARAM {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<NSEC3PARAM> {
     let hash_algorithm =
         Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
     let flags: u8 = decoder
@@ -191,7 +191,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC3PARAM) -> ProtoResult<()> {
     encoder.emit(rdata.hash_algorithm().into())?;
     encoder.emit(rdata.flags())?;
     encoder.emit_u16(rdata.iterations())?;
@@ -225,7 +225,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
 ///       when the Salt Length field is zero.
 /// ```
 impl fmt::Display for NSEC3PARAM {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let salt = if self.salt.is_empty() {
             "-".to_string()
         } else {
@@ -254,13 +254,13 @@ mod tests {
         let rdata = NSEC3PARAM::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1, 2, 3, 4, 5]);
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }

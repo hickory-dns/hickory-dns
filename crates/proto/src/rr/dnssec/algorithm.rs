@@ -160,7 +160,7 @@ impl Algorithm {
 }
 
 impl BinEncodable for Algorithm {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit(u8::from(*self))
     }
 }
@@ -196,7 +196,7 @@ impl From<Algorithm> for u8 {
 }
 
 impl Display for Algorithm {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(self.as_str())
     }
 }

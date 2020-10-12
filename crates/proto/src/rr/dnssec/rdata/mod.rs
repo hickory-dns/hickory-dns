@@ -482,7 +482,7 @@ pub enum DNSSECRData {
 
 impl DNSSECRData {
     pub(crate) fn read(
-        decoder: &mut BinDecoder,
+        decoder: &mut BinDecoder<'_>,
         record_type: DNSSECRecordType,
         rdata_length: Restrict<u16>,
     ) -> ProtoResult<Self> {
@@ -526,7 +526,7 @@ impl DNSSECRData {
         }
     }
 
-    pub(crate) fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    pub(crate) fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
             DNSSECRData::DS(ref ds) => {
                 encoder.with_canonical_names(|encoder| ds::emit(encoder, ds))
@@ -570,8 +570,8 @@ impl DNSSECRData {
 }
 
 impl fmt::Display for DNSSECRData {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        fn w<D: fmt::Display>(f: &mut fmt::Formatter, d: D) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fn w<D: fmt::Display>(f: &mut fmt::Formatter<'_>, d: D) -> Result<(), fmt::Error> {
             write!(f, "{rdata}", rdata = d)
         };
 

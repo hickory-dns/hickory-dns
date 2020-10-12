@@ -76,7 +76,7 @@ impl<T> Restrict<T> {
 }
 
 /// Verified data that can be operated on
-pub struct Verified<'a, T: 'a>(VerifiedInner<'a, T>);
+pub struct Verified<'a, T>(VerifiedInner<'a, T>);
 
 impl<'a, T> Verified<'a, T> {
     /// Perform some operation on the data, and return a result.
@@ -99,7 +99,7 @@ impl<'a, T> Verified<'a, T> {
 }
 
 /// Verified data that can be operated on
-enum VerifiedInner<'a, T: 'a> {
+enum VerifiedInner<'a, T> {
     Valid(&'a T),
     Invalid(&'a T),
 }

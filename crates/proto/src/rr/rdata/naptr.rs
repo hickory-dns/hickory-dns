@@ -203,7 +203,7 @@ pub fn verify_flags(flags: &[u8]) -> bool {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NAPTR> {
+pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<NAPTR> {
     Ok(NAPTR::new(
         decoder.read_u16()?.unverified(/*any u16 is valid*/),
         decoder.read_u16()?.unverified(/*any u16 is valid*/),
@@ -221,7 +221,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NAPTR> {
 }
 
 /// Declares the method for emitting this type
-pub fn emit(encoder: &mut BinEncoder, naptr: &NAPTR) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder<'_>, naptr: &NAPTR) -> ProtoResult<()> {
     naptr.order.emit(encoder)?;
     naptr.preference.emit(encoder)?;
     encoder.emit_character_data(&naptr.flags)?;
@@ -251,7 +251,7 @@ pub fn emit(encoder: &mut BinEncoder, naptr: &NAPTR) -> ProtoResult<()> {
 /// IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.
 /// ```
 impl fmt::Display for NAPTR {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "{order} {pref} \"{flags}\" \"{service}\" \"{regexp}\" {replace}",
@@ -284,13 +284,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
@@ -309,13 +309,13 @@ mod tests {
         );
 
         let mut bytes = Vec::new();
-        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         assert!(emit(&mut encoder, &rdata).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
-        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata = read(&mut decoder);
         assert!(
             read_rdata.is_err(),

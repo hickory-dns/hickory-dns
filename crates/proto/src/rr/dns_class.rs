@@ -89,13 +89,13 @@ impl DNSClass {
 }
 
 impl BinEncodable for DNSClass {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_u16((*self).into())
     }
 }
 
 impl<'r> BinDecodable<'r> for DNSClass {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         Self::from_u16(
             decoder.read_u16()?.unverified(/*DNSClass is verified as safe in processing this*/),
         )
@@ -160,7 +160,7 @@ impl Ord for DNSClass {
 }
 
 impl Display for DNSClass {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(Into::<&str>::into(*self))
     }
 }

@@ -274,7 +274,7 @@ impl IntoRecordSet for Record {
 }
 
 impl BinEncodable for Record {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         self.name_labels.emit(encoder)?;
         self.rr_type.emit(encoder)?;
 
@@ -440,7 +440,7 @@ impl<'r> BinDecodable<'r> for Record {
 ///         of data.  Popular RR data formats are described later.
 /// ```
 impl fmt::Display for Record {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "{name} {ttl} {class} {ty} {rdata}",

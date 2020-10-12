@@ -23,11 +23,6 @@
 
 //! TLS protocol related components for DNS over TLS
 
-extern crate openssl;
-extern crate tokio;
-extern crate tokio_openssl;
-extern crate trust_dns_proto;
-
 mod tls_client_stream;
 pub mod tls_server;
 mod tls_stream;

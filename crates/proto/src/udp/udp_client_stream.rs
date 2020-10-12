@@ -91,7 +91,7 @@ impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
 }
 
 impl<S: Send, MF: MessageFinalizer> Display for UdpClientStream<S, MF> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "UDP({})", self.name_server)
     }
 }
@@ -110,7 +110,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     fn send_message<TE: Time>(
         &mut self,
         mut message: DnsRequest,
-        _cx: &mut Context,
+        _cx: &mut Context<'_>,
     ) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
@@ -168,7 +168,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
     type Item = Result<(), ProtoError>;
 
-    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // Technically the Stream doesn't actually do anything.
         if self.is_shutdown {
             Poll::Ready(None)
@@ -193,7 +193,7 @@ where
 impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     type Output = Result<UdpClientStream<S, MF>, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         // TODO: this doesn't need to be a future?
         Poll::Ready(Ok(UdpClientStream::<S, MF> {
             name_server: self
