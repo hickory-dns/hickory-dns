@@ -22,7 +22,6 @@
     clippy::unimplemented
 )]
 
-extern crate futures;
 extern crate native_tls;
 extern crate tokio;
 extern crate tokio_tls;

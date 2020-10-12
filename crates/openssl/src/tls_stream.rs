@@ -5,11 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::{future, Future, TryFutureExt};
+use futures_util::{future, TryFutureExt};
 use openssl::pkcs12::ParsedPkcs12;
 use openssl::pkey::{PKeyRef, Private};
 use openssl::ssl::{ConnectConfiguration, SslConnector, SslContextBuilder, SslMethod, SslOptions};

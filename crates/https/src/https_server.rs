@@ -12,7 +12,7 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
-use futures::{Stream, StreamExt};
+use futures_util::stream::{Stream, StreamExt};
 use h2;
 use http::{Method, Request};
 use log::debug;

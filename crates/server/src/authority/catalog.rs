@@ -18,12 +18,13 @@
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
-use futures::{ready, Future, FutureExt, TryFutureExt};
+use futures_util::{ready, FutureExt, TryFutureExt};
 use log::{debug, error, info, trace, warn};
 
 use crate::authority::{

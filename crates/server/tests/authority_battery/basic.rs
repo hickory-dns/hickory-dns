@@ -1,10 +1,10 @@
 #![allow(clippy::dbg_macro)]
 
+use std::future::Future;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-use futures::executor::block_on;
-use futures::future::Future;
+use futures_executor::block_on;
 
 use trust_dns_client::op::{Message, Query, ResponseCode};
 use trust_dns_client::rr::dnssec::SupportedAlgorithms;

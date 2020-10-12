@@ -5,11 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 
-use futures::{Future, TryFutureExt};
+use futures_util::TryFutureExt;
 #[cfg(feature = "mtls")]
 use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;

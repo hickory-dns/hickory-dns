@@ -1,4 +1,3 @@
-extern crate futures;
 extern crate trust_dns_client;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
@@ -6,7 +5,7 @@ extern crate trust_dns_server;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-use futures::executor::block_on;
+use futures_executor::block_on;
 
 use trust_dns_client::proto::rr::rdata::tlsa::*;
 use trust_dns_client::rr::dnssec::*;

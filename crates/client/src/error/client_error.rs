@@ -9,7 +9,7 @@
 
 use std::{fmt, io};
 
-use futures::channel::mpsc;
+use futures_channel::mpsc;
 use thiserror::Error;
 use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 

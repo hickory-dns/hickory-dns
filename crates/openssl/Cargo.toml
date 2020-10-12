@@ -47,7 +47,8 @@ name = "trust_dns_openssl"
 path = "src/lib.rs"
 
 [dependencies]
-futures = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 openssl = { version = "0.10", features = ["v102", "v110"] }
 tokio-openssl = "0.4.0"
 tokio = "0.2.22"

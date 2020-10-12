@@ -7,12 +7,13 @@
 
 //! DNS over TLS I/O stream implementation for Rustls
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::{Future, TryFutureExt};
+use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
@@ -35,7 +36,7 @@ pub type TlsStream<S> = TcpStream<S>;
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: futures::io::AsyncRead + futures::io::AsyncWrite>(
+pub fn tls_from_stream<S: futures_io::AsyncRead + futures_io::AsyncWrite>(
     stream: S,
     peer_addr: SocketAddr,
 ) -> (TlsStream<S>, BufStreamHandle) {

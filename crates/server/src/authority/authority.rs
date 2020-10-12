@@ -6,9 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! All authority related types
+use std::future::Future;
 use std::pin::Pin;
-
-use futures::Future;
 
 use crate::client::op::LowerQuery;
 use crate::client::proto::rr::dnssec::rdata::key::KEY;

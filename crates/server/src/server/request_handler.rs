@@ -7,9 +7,8 @@
 
 //! Request Handler for incoming requests
 
+use std::future::Future;
 use std::net::SocketAddr;
-
-use futures::Future;
 
 use crate::authority::MessageRequest;
 use crate::server::ResponseHandler;

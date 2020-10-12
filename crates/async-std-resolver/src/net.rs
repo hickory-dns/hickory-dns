@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 
 use async_trait::async_trait;
-use futures::io::{AsyncRead, AsyncWrite};
+use futures_io::{AsyncRead, AsyncWrite};
 use trust_dns_resolver::proto::tcp::Connect;
 use trust_dns_resolver::proto::udp::UdpSocket;
 

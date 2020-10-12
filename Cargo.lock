@@ -143,7 +143,7 @@ version = "0.20.0-alpha.2"
 dependencies = [
  "async-std",
  "async-trait",
- "futures",
+ "futures-io",
  "trust-dns-resolver",
 ]
 
@@ -1629,6 +1629,8 @@ dependencies = [
  "chrono",
  "data-encoding",
  "futures",
+ "futures-channel",
+ "futures-util",
  "lazy_static",
  "log",
  "openssl",
@@ -1666,6 +1668,7 @@ dependencies = [
  "data-encoding",
  "env_logger",
  "futures",
+ "futures-util",
  "h2",
  "http",
  "log",
@@ -1708,7 +1711,8 @@ dependencies = [
 name = "trust-dns-native-tls"
 version = "0.20.0-alpha.2"
 dependencies = [
- "futures",
+ "futures-channel",
+ "futures-util",
  "native-tls",
  "tokio",
  "tokio-tls",
@@ -1719,7 +1723,8 @@ dependencies = [
 name = "trust-dns-openssl"
 version = "0.20.0-alpha.2"
 dependencies = [
- "futures",
+ "futures-channel",
+ "futures-util",
  "openssl",
  "tokio",
  "tokio-openssl",
@@ -1790,7 +1795,9 @@ dependencies = [
 name = "trust-dns-rustls"
 version = "0.20.0-alpha.2"
 dependencies = [
- "futures",
+ "futures-channel",
+ "futures-io",
+ "futures-util",
  "log",
  "openssl",
  "rustls",
@@ -1809,7 +1816,8 @@ dependencies = [
  "chrono",
  "enum-as-inner",
  "env_logger",
- "futures",
+ "futures-executor",
+ "futures-util",
  "h2",
  "http",
  "log",

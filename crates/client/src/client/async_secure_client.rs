@@ -6,10 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 #![cfg(feature = "dnssec")]
 
+use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::{ready, Future, FutureExt};
+use futures_util::{ready, FutureExt};
 
 use crate::client::{AsyncClient, AsyncClientConnect};
 use crate::proto::error::ProtoError;

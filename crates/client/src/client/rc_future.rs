@@ -5,12 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use futures::lock::Mutex;
-use futures::{future::Fuse, ready, Future, FutureExt};
+use futures_util::lock::Mutex;
+use futures_util::{future::Fuse, ready, FutureExt};
 
 #[allow(clippy::type_complexity)]
 #[must_use = "futures do nothing unless polled"]

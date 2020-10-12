@@ -5,7 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-extern crate futures;
 extern crate openssl;
 extern crate tokio;
 extern crate tokio_openssl;
@@ -21,7 +20,7 @@ use std::sync::atomic;
 use std::sync::Arc;
 use std::{thread, time};
 
-use futures::StreamExt;
+use futures_util::stream::StreamExt;
 use openssl::pkey::*;
 use openssl::ssl::*;
 use openssl::x509::store::X509StoreBuilder;
