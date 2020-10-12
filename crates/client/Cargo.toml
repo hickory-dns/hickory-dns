@@ -77,7 +77,7 @@ rand = "0.7"
 ring = { version = "0.16", optional = true, features = ["std"]}
 rustls = { version = "0.18", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "1.0.20"
+thiserror = "1.0.21"
 tokio = { version = "0.2.22", features = ["rt-core"] }
 trust-dns-https = { version = "0.20.0-alpha.2", path = "../https", optional = true }
 trust-dns-proto = { version = "0.20.0-alpha.2", path = "../proto", features = ["dnssec"]}
