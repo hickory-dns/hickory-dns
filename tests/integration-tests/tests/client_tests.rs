@@ -1,13 +1,3 @@
-extern crate chrono;
-extern crate env_logger;
-extern crate futures;
-extern crate openssl;
-extern crate trust_dns_client;
-extern crate trust_dns_integration;
-extern crate trust_dns_proto;
-extern crate trust_dns_rustls;
-extern crate trust_dns_server;
-
 use std::net::*;
 use std::pin::Pin;
 #[cfg(feature = "dnssec")]
@@ -162,7 +152,6 @@ fn test_secure_query_example<CC>(client: SyncDnssecClient<CC>)
 where
     CC: ClientConnection,
 {
-    // extern crate env_logger;
     // env_logger::try_init().ok();
 
     let name = Name::from_str("www.example.com").unwrap();

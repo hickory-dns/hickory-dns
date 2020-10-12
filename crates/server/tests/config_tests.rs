@@ -13,11 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-extern crate log;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-
 use std::env;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};

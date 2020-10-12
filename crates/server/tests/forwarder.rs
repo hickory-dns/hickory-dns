@@ -1,9 +1,6 @@
 #![recursion_limit = "128"]
 #![cfg(feature = "trust-dns-resolver")]
 
-extern crate trust_dns_client;
-extern crate trust_dns_server;
-
 use std::net::Ipv4Addr;
 use std::str::FromStr;
 

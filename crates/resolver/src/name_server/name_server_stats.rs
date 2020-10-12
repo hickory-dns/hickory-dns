@@ -106,8 +106,6 @@ impl PartialOrd for NameServerStats {
 
 #[cfg(test)]
 mod tests {
-    extern crate env_logger;
-
     use super::*;
 
     fn is_send_sync<S: Sync + Send>() -> bool {

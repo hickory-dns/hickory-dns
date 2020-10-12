@@ -1,16 +1,6 @@
 #![allow(dead_code)]
 #![allow(clippy::dbg_macro)]
 
-extern crate chrono;
-extern crate futures;
-extern crate openssl;
-extern crate rustls;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_rustls;
-extern crate trust_dns_server;
-
 use std::fmt;
 use std::io;
 use std::mem;

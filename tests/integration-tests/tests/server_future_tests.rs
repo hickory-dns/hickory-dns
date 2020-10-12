@@ -1,14 +1,3 @@
-extern crate futures;
-extern crate openssl;
-extern crate rustls;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_integration;
-extern crate trust_dns_openssl;
-extern crate trust_dns_proto;
-extern crate trust_dns_rustls;
-extern crate trust_dns_server;
-
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};

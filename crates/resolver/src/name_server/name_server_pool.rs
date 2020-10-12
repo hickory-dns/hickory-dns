@@ -433,8 +433,6 @@ impl Future for Local {
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
-    extern crate env_logger;
-
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 

@@ -22,11 +22,6 @@
     clippy::unimplemented
 )]
 
-extern crate native_tls;
-extern crate tokio;
-extern crate tokio_tls;
-extern crate trust_dns_proto;
-
 pub mod tls_client_stream;
 pub mod tls_stream;
 

@@ -5,13 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-extern crate chrono;
-extern crate env_logger;
-extern crate futures;
-extern crate openssl;
-extern crate trust_dns_client;
-extern crate trust_dns_compatibility;
-
 use std::env;
 use std::fs::File;
 use std::io::Read;

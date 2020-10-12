@@ -5,12 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-extern crate openssl;
-extern crate tokio;
-extern crate tokio_openssl;
-extern crate trust_dns_openssl;
-extern crate trust_dns_proto;
-
 use std::io::{Read, Write};
 #[cfg(not(target_os = "linux"))]
 use std::net::Ipv6Addr;

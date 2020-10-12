@@ -11,16 +11,8 @@
 // TODO: enable this test for rustls as well using below config
 // #![cfg(feature = "dns-over-tls")]
 
-extern crate chrono;
-extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate native_tls;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_native_tls;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
 
 mod server_harness;
 

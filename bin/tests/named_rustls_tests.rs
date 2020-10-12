@@ -8,16 +8,8 @@
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-rustls")]
 
-extern crate chrono;
-extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate rustls;
-extern crate tokio;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_rustls;
-extern crate trust_dns_server;
 
 mod server_harness;
 

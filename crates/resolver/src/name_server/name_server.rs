@@ -265,8 +265,6 @@ where
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
-    extern crate env_logger;
-
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     use std::time::Duration;
 

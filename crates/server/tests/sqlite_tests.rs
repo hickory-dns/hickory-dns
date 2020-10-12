@@ -1,10 +1,5 @@
 #![cfg(feature = "sqlite")]
 
-extern crate rusqlite;
-extern crate trust_dns_client;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-
 use std::net::*;
 use std::str::FromStr;
 
