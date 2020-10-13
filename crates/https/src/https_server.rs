@@ -9,14 +9,15 @@
 
 use std::borrow::Borrow;
 use std::fmt::Debug;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
 use futures_util::stream::{Stream, StreamExt};
 use h2;
+use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
 use log::debug;
-use typed_headers::{ContentLength, HeaderMapExt};
 
 use crate::HttpsError;
 
@@ -40,16 +41,12 @@ where
     }
 
     // attempt to get the content length
-    let content_length: Option<ContentLength> = match request.headers().typed_get() {
-        Ok(l) => l,
-        Err(err) => return Err(err.into()),
-    };
-
-    let content_length: Option<usize> = content_length.map(|c| {
-        let length = *c as usize;
+    let mut content_length = None;
+    if let Some(length) = request.headers().get(CONTENT_LENGTH) {
+        let length = usize::from_str(length.to_str()?)?;
         debug!("got message length: {}", length);
-        length
-    });
+        content_length = Some(length);
+    }
 
     match *request.method() {
         Method::GET => Err(format!("GET unimplemented: {}", request.method()).into()),

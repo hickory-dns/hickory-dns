@@ -9,11 +9,9 @@
 
 use std::str::FromStr;
 
-use http::{header, uri, Method, Request, Uri, Version};
+use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
+use http::{header, uri, Request, Uri, Version};
 use log::debug;
-use typed_headers::{
-    mime::Mime, Accept, ContentLength, ContentType, HeaderMapExt, Quality, QualityItem,
-};
 
 use trust_dns_proto::error::ProtoError;
 
@@ -53,25 +51,16 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     let url =
         Uri::from_parts(parts).map_err(|e| ProtoError::from(format!("uri parse error: {}", e)))?;
 
-    let accepts_dns = Mime::from_str(crate::MIME_APPLICATION_DNS).unwrap();
-    let content_type = ContentType(accepts_dns.clone());
-    let accept = Accept(vec![QualityItem::new(accepts_dns, Quality::from_u16(1000))]);
-
     // TODO: add user agent to TypedHeaders
-    let mut request = Request::post(url)
+    let request = Request::builder()
+        .method("POST")
+        .uri(url)
         .version(Version::HTTP_2)
+        .header(CONTENT_TYPE, crate::MIME_APPLICATION_DNS)
+        .header(ACCEPT, crate::MIME_APPLICATION_DNS)
+        .header(CONTENT_LENGTH, message_len)
         .body(())
         .map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))?;
-
-    request.headers_mut().typed_insert(&content_type);
-    request.headers_mut().typed_insert(&accept);
-
-    // future proof for when GET is supported
-    if Method::POST == request.method() {
-        request
-            .headers_mut()
-            .typed_insert(&ContentLength(message_len as u64));
-    }
 
     Ok(request)
 }
@@ -105,27 +94,38 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
         return Err("no authority in HTTPS request".into());
     }
 
-    let content_type: Option<ContentType> = request.headers().typed_get()?;
-    let accept: Option<Accept> = request.headers().typed_get()?;
-
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    if !content_type
-        .map(|c| (c.type_() == crate::MIME_APPLICATION && c.subtype() == crate::MIME_DNS_BINARY))
-        .unwrap_or(true)
-    {
-        return Err("unsupported content type".into());
-    }
-
-    let accept = accept.ok_or_else(|| "Accept is unspecified")?;
-
-    let any_application_and_dns = |q: &QualityItem<Mime>| -> bool {
-        q.item.type_() == crate::MIME_APPLICATION && q.item.subtype() == crate::MIME_DNS_BINARY
+    match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
+        Some(Ok(ctype)) if ctype == crate::MIME_APPLICATION_DNS => {}
+        _ => return Err("unsupported content type".into()),
     };
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
-    if !accept.iter().any(any_application_and_dns) {
-        return Err("does not accept content type".into());
-    }
+    match request.headers().get(ACCEPT).map(|v| v.to_str()) {
+        Some(Ok(ctype)) => {
+            let mut found = false;
+            for mime_and_quality in ctype.split(',') {
+                let mut parts = mime_and_quality.splitn(2, ';');
+                match parts.next() {
+                    Some(mime) if mime.trim() == crate::MIME_APPLICATION_DNS => {
+                        found = true;
+                        break;
+                    }
+                    Some(mime) if mime.trim() == "application/*" => {
+                        found = true;
+                        break;
+                    }
+                    _ => continue,
+                }
+            }
+
+            if !found {
+                return Err("does not accept content type".into());
+            }
+        }
+        Some(Err(e)) => return Err(e.into()),
+        None => return Err("Accept is unspecified".into()),
+    };
 
     if request.version() != Version::HTTP_2 {
         return Err("only HTTP/2 supported".into());

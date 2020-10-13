@@ -7,10 +7,8 @@
 
 //! HTTP request creation and validation
 
-use std::str::FromStr;
-
+use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use http::{Response, StatusCode, Version};
-use typed_headers::{mime::Mime, ContentLength, ContentType, HeaderMapExt};
 
 use trust_dns_proto::error::ProtoError;
 
@@ -42,19 +40,11 @@ use crate::HttpsResult;
 /// code 406, [RFC7231] Section 6.5.6), and so on.
 /// ```
 pub fn new(message_len: usize) -> HttpsResult<Response<()>> {
-    let response = Response::builder();
-    let response = response.status(StatusCode::OK).version(Version::HTTP_2);
-    let mut response = response
+    Response::builder()
+        .status(StatusCode::OK)
+        .version(Version::HTTP_2)
+        .header(CONTENT_TYPE, crate::MIME_APPLICATION_DNS)
+        .header(CONTENT_LENGTH, message_len)
         .body(())
-        .map_err(|e| ProtoError::from(format!("invalid response: {}", e)))?;
-
-    let accepts_dns = Mime::from_str(crate::MIME_APPLICATION_DNS).unwrap();
-    let content_type = ContentType(accepts_dns);
-
-    response.headers_mut().typed_insert(&content_type);
-    response
-        .headers_mut()
-        .typed_insert(&ContentLength(message_len as u64));
-
-    Ok(response)
+        .map_err(|e| ProtoError::from(format!("invalid response: {}", e)).into())
 }

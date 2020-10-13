@@ -11,6 +11,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::ops::DerefMut;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
@@ -20,14 +21,13 @@ use futures_util::ready;
 use futures_util::stream::Stream;
 use h2;
 use h2::client::{Connection, SendRequest};
-use http::{self, header};
+use http::header::{self, CONTENT_LENGTH};
 use log::{debug, warn};
 use rustls::ClientConfig;
 use tokio;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
 };
-use typed_headers::{ContentLength, HeaderMapExt};
 use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;
@@ -102,11 +102,15 @@ impl HttpsClientStream {
         debug!("got response: {:#?}", response_stream);
 
         // get the length of packet
-        let content_length: Option<usize> = response_stream
+        let content_length = response_stream
             .headers()
-            .typed_get()
+            .get(CONTENT_LENGTH)
+            .map(|v| v.to_str())
+            .transpose()
             .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?
-            .map(|c: ContentLength| *c as usize);
+            .map(|v| usize::from_str(v))
+            .transpose()
+            .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?;
 
         // TODO: what is a good max here?
         // max(512) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
