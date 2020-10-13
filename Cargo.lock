@@ -1613,7 +1613,7 @@ dependencies = [
 name = "trust-dns-client"
 version = "0.20.0-alpha.2"
 dependencies = [
- "backtrace",
+ "cfg-if 1.0.0",
  "chrono",
  "data-encoding",
  "futures",
@@ -1651,8 +1651,8 @@ dependencies = [
 name = "trust-dns-https"
 version = "0.20.0-alpha.2"
 dependencies = [
- "backtrace",
  "bytes",
+ "cfg-if 1.0.0",
  "data-encoding",
  "env_logger",
  "futures",
@@ -1724,6 +1724,7 @@ version = "0.20.0-alpha.2"
 dependencies = [
  "async-trait",
  "backtrace",
+ "cfg-if 1.0.0",
  "data-encoding",
  "enum-as-inner",
  "env_logger",
@@ -1752,7 +1753,6 @@ dependencies = [
 name = "trust-dns-resolver"
 version = "0.20.0-alpha.2"
 dependencies = [
- "backtrace",
  "cfg-if 1.0.0",
  "env_logger",
  "futures-executor",
@@ -1798,8 +1798,8 @@ dependencies = [
 name = "trust-dns-server"
 version = "0.20.0-alpha.2"
 dependencies = [
- "backtrace",
  "bytes",
+ "cfg-if 1.0.0",
  "chrono",
  "enum-as-inner",
  "env_logger",
