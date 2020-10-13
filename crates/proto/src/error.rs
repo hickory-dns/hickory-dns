@@ -15,7 +15,9 @@ use std::{fmt, io, sync};
 use self::not_openssl::SslErrorStack;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
+#[cfg(feature = "backtrace")]
 pub use backtrace::Backtrace as ExtBacktrace;
+#[cfg(feature = "backtrace")]
 use lazy_static::lazy_static;
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
@@ -25,6 +27,7 @@ use thiserror::Error;
 
 use crate::rr::{Name, RecordType};
 
+#[cfg(feature = "backtrace")]
 lazy_static! {
     /// Boolean for checking if backtrace is enabled at runtime
     pub static ref ENABLE_BACKTRACE: bool = {
@@ -37,6 +40,7 @@ lazy_static! {
 /// Generate a backtrace
 ///
 /// If RUST_BACKTRACE is 1 or full then this will return Some(Backtrace), otherwise, NONE.
+#[cfg(feature = "backtrace")]
 #[macro_export]
 macro_rules! trace {
     () => {{
@@ -222,6 +226,7 @@ pub enum ProtoErrorKind {
 #[derive(Error, Clone, Debug)]
 pub struct ProtoError {
     kind: ProtoErrorKind,
+    #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
 
@@ -239,11 +244,17 @@ impl ProtoError {
 
 impl fmt::Display for ProtoError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(ref backtrace) = self.backtrack {
-            fmt::Display::fmt(&self.kind, f)?;
-            fmt::Debug::fmt(backtrace, f)
-        } else {
-            fmt::Display::fmt(&self.kind, f)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "backtrace")] {
+                if let Some(ref backtrace) = self.backtrack {
+                    fmt::Display::fmt(&self.kind, f)?;
+                    fmt::Debug::fmt(backtrace, f)
+                } else {
+                    fmt::Display::fmt(&self.kind, f)
+                }
+            } else {
+                fmt::Display::fmt(&self.kind, f)
+            }
         }
     }
 }
@@ -252,6 +263,7 @@ impl From<ProtoErrorKind> for ProtoError {
     fn from(kind: ProtoErrorKind) -> ProtoError {
         ProtoError {
             kind,
+            #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
     }

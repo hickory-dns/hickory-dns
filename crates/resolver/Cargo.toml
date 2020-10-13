@@ -37,6 +37,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = ["system-config", "tokio-runtime"]
+backtrace = ["trust-dns-proto/backtrace"]
 dns-over-native-tls = ["dns-over-tls", "tokio-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tokio-openssl"]
@@ -65,7 +66,6 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.50"
 cfg-if = "1.0.0"
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 lazy_static = "1.0"

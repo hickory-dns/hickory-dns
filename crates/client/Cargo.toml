@@ -41,6 +41,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
+backtrace = ["trust-dns-proto/backtrace"]
 # TODO: the rustls and openssl crates are not deps... should we change that to make them easier to use?
 #  or change this to also be external?
 dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
@@ -65,7 +66,7 @@ name = "trust_dns_client"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.50"
+cfg-if = "1"
 chrono = "0.4"
 data-encoding = "2.2.0"
 futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }

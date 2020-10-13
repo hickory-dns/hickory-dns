@@ -36,7 +36,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
-
+backtrace = ["trust-dns-proto/backtrace"]
 dns-over-https-rustls = []
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
@@ -47,7 +47,7 @@ name = "trust_dns_https"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.50"
+cfg-if = "1"
 bytes = "0.5"
 data-encoding = "2.2.0"
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
