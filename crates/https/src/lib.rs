@@ -14,8 +14,6 @@
 )]
 #![allow(clippy::single_component_path_imports)]
 
-const MIME_APPLICATION: &str = "application";
-const MIME_DNS_BINARY: &str = "dns-message";
 const MIME_APPLICATION_DNS: &str = "application/dns-message";
 const DNS_QUERY_PATH: &str = "/dns-query";
 

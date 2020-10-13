@@ -5,12 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::num::ParseIntError;
 use std::{fmt, io};
 
 use h2;
+use http::header::ToStrError;
 use thiserror::Error;
 use trust_dns_proto::error::ProtoError;
-use typed_headers;
 
 use crate::proto::{trace, ExtBacktrace};
 
@@ -19,6 +20,10 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
 pub enum ErrorKind {
+    /// Unable to decode header value to string
+    #[error("header decode error: {0}")]
+    Decode(#[from] ToStrError),
+
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
     Message(&'static str),
@@ -27,11 +32,12 @@ pub enum ErrorKind {
     #[error("{0}")]
     Msg(String),
 
+    /// Unable to parse header value as number
+    #[error("unable to parse number: {0}")]
+    ParseInt(#[from] ParseIntError),
+
     #[error("proto error: {0}")]
     ProtoError(#[from] ProtoError),
-
-    #[error("bad header: {0}")]
-    TypedHeaders(#[from] typed_headers::Error),
 
     #[error("h2: {0}")]
     H2(#[from] h2::Error),
@@ -83,15 +89,21 @@ impl From<String> for Error {
     }
 }
 
-impl From<ProtoError> for Error {
-    fn from(msg: ProtoError) -> Self {
-        ErrorKind::ProtoError(msg).into()
+impl From<ParseIntError> for Error {
+    fn from(err: ParseIntError) -> Self {
+        ErrorKind::from(err).into()
     }
 }
 
-impl From<typed_headers::Error> for Error {
-    fn from(msg: typed_headers::Error) -> Self {
-        ErrorKind::TypedHeaders(msg).into()
+impl From<ToStrError> for Error {
+    fn from(err: ToStrError) -> Self {
+        ErrorKind::from(err).into()
+    }
+}
+
+impl From<ProtoError> for Error {
+    fn from(msg: ProtoError) -> Self {
+        ErrorKind::ProtoError(msg).into()
     }
 }
 
