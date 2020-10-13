@@ -9,6 +9,7 @@ use std::{fmt, io};
 
 use thiserror::Error;
 
+#[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
@@ -31,6 +32,7 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct Error {
     kind: ErrorKind,
+    #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
 
@@ -43,11 +45,17 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(ref backtrace) = self.backtrack {
-            fmt::Display::fmt(&self.kind, f)?;
-            fmt::Debug::fmt(backtrace, f)
-        } else {
-            fmt::Display::fmt(&self.kind, f)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "with-backtrace")] {
+                if let Some(ref backtrace) = self.backtrack {
+                    fmt::Display::fmt(&self.kind, f)?;
+                    fmt::Debug::fmt(backtrace, f)
+                } else {
+                    fmt::Display::fmt(&self.kind, f)
+                }
+            } else {
+                fmt::Display::fmt(&self.kind, f)
+            }
         }
     }
 }
@@ -56,6 +64,7 @@ impl From<ErrorKind> for Error {
     fn from(kind: ErrorKind) -> Error {
         Error {
             kind,
+            #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
     }

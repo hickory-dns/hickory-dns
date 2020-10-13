@@ -42,6 +42,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 maintenance = { status = "actively-developed" }
 
 [features]
+backtrace = ["trust-dns-proto/backtrace"]
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
@@ -70,8 +71,8 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "0.3.44"
 bytes = "0.5"
+cfg-if = "1"
 chrono = "0.4"
 enum-as-inner = "0.3"
 env_logger = "0.7"
