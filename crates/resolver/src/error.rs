@@ -13,6 +13,7 @@ use thiserror::Error;
 
 use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::op::Query;
+#[cfg(feature = "with-backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
@@ -79,6 +80,7 @@ impl Clone for ResolveErrorKind {
 #[derive(Debug, Clone, Error)]
 pub struct ResolveError {
     kind: ResolveErrorKind,
+    #[cfg(feature = "with-backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
 
@@ -91,11 +93,17 @@ impl ResolveError {
 
 impl fmt::Display for ResolveError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let Some(ref backtrace) = self.backtrack {
-            fmt::Display::fmt(&self.kind, f)?;
-            fmt::Debug::fmt(backtrace, f)
-        } else {
-            fmt::Display::fmt(&self.kind, f)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "with-backtrace")] {
+                if let Some(ref backtrace) = self.backtrack {
+                    fmt::Display::fmt(&self.kind, f)?;
+                    fmt::Debug::fmt(backtrace, f)
+                } else {
+                    fmt::Display::fmt(&self.kind, f)
+                }
+            } else {
+                fmt::Display::fmt(&self.kind, f)
+            }
         }
     }
 }
@@ -104,6 +112,7 @@ impl From<ResolveErrorKind> for ResolveError {
     fn from(kind: ResolveErrorKind) -> ResolveError {
         ResolveError {
             kind,
+            #[cfg(feature = "with-backtrace")]
             backtrack: trace!(),
         }
     }
