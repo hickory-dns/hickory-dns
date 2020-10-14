@@ -83,7 +83,7 @@ pub trait RuntimeProvider: Clone + 'static {
     type Udp: UdpSocket + Send;
 
     /// TcpStream
-    type Tcp: Connect + Send + Unpin;
+    type Tcp: Connect;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -107,7 +107,6 @@ impl<R> ConnectionProvider for GenericConnectionProvider<R>
 where
     R: RuntimeProvider,
     <R as RuntimeProvider>::Tcp: Connect,
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
 {
     type Conn = GenericConnection;
     type FutureConn = ConnectionFuture<R>;
@@ -208,22 +207,16 @@ where
 
 /// The variants of all supported connections for the Resolver
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
-pub(crate) enum ConnectionConnect<R: RuntimeProvider>
-where
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-{
+pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     Udp(DnsExchangeConnect<UdpClientConnect<R::Udp>, UdpClientStream<R::Udp>, R::Timer>),
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
-                TcpClientConnect<<<R as RuntimeProvider>::Tcp as Connect>::Transport>,
-                TcpClientStream<<<R as RuntimeProvider>::Tcp as Connect>::Transport>,
+                TcpClientConnect<<R as RuntimeProvider>::Tcp>,
+                TcpClientStream<<R as RuntimeProvider>::Tcp>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexer<
-                TcpClientStream<<<R as RuntimeProvider>::Tcp as Connect>::Transport>,
-                NoopMessageFinalizer,
-            >,
+            DnsMultiplexer<TcpClientStream<<R as RuntimeProvider>::Tcp>, NoopMessageFinalizer>,
             R::Timer,
         >,
     ),
@@ -266,19 +259,12 @@ where
 
 /// Resolves to a new Connection
 #[must_use = "futures do nothing unless polled"]
-pub struct ConnectionFuture<R: RuntimeProvider>
-where
-    <R as RuntimeProvider>::Tcp: Connect,
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-{
+pub struct ConnectionFuture<R: RuntimeProvider> {
     connect: ConnectionConnect<R>,
     spawner: R::Handle,
 }
 
-impl<R: RuntimeProvider> Future for ConnectionFuture<R>
-where
-    <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-{
+impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
     type Output = Result<GenericConnection, ResolveError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {

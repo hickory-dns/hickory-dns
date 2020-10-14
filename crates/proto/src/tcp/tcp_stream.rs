@@ -28,13 +28,10 @@ use crate::Time;
 #[async_trait]
 pub trait Connect
 where
-    Self: Sized,
+    Self: AsyncRead + AsyncWrite + Unpin + Send + Sized,
 {
-    /// TcpSteam
-    type Transport: AsyncRead + AsyncWrite + Send + Unpin;
-
     /// connect to tcp
-    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport>;
+    async fn connect(addr: SocketAddr) -> io::Result<Self>;
 }
 
 /// Current state while writing to the remote of the TCP connection
@@ -122,7 +119,7 @@ impl<S: Connect + 'static> TcpStream<S> {
     pub fn new<E, TE>(
         name_server: SocketAddr,
     ) -> (
-        impl Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send,
+        impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
         BufStreamHandle,
     )
     where
@@ -143,7 +140,7 @@ impl<S: Connect + 'static> TcpStream<S> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        impl Future<Output = Result<TcpStream<S::Transport>, io::Error>> + Send,
+        impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufStreamHandle::create();
@@ -158,28 +155,26 @@ impl<S: Connect + 'static> TcpStream<S> {
         name_server: SocketAddr,
         timeout: Duration,
         outbound_messages: StreamReceiver,
-    ) -> Result<TcpStream<S::Transport>, io::Error> {
+    ) -> Result<TcpStream<S>, io::Error> {
         let tcp = S::connect(name_server);
         TE::timeout(timeout, tcp)
-            .map(
-                move |tcp_stream: Result<Result<S::Transport, io::Error>, _>| {
-                    tcp_stream
-                        .and_then(|tcp_stream| tcp_stream)
-                        .map(|tcp_stream| {
-                            debug!("TCP connection established to: {}", name_server);
-                            TcpStream {
-                                socket: tcp_stream,
-                                outbound_messages,
-                                send_state: None,
-                                read_state: ReadTcpState::LenBytes {
-                                    pos: 0,
-                                    bytes: [0u8; 2],
-                                },
-                                peer_addr: name_server,
-                            }
-                        })
-                },
-            )
+            .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
+                tcp_stream
+                    .and_then(|tcp_stream| tcp_stream)
+                    .map(|tcp_stream| {
+                        debug!("TCP connection established to: {}", name_server);
+                        TcpStream {
+                            socket: tcp_stream,
+                            outbound_messages,
+                            send_state: None,
+                            read_state: ReadTcpState::LenBytes {
+                                pos: 0,
+                                bytes: [0u8; 2],
+                            },
+                            peer_addr: name_server,
+                        }
+                    })
+            })
             .await
     }
 }
