@@ -8,7 +8,7 @@
 //! An LRU cache designed for work with DNS lookups
 
 use std::convert::TryFrom;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use lru_cache::LruCache;
@@ -43,9 +43,9 @@ impl LruValue {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct DnsLru {
-    cache: LruCache<Query, LruValue>,
+    cache: Arc<Mutex<LruCache<Query, LruValue>>>,
     /// A minimum TTL value for positive responses.
     ///
     /// Positive responses with TTLs under `positive_max_ttl` will use
@@ -134,7 +134,7 @@ impl DnsLru {
             positive_max_ttl,
             negative_max_ttl,
         } = ttl_cfg;
-        let cache = LruCache::new(capacity);
+        let cache = Arc::new(Mutex::new(LruCache::new(capacity)));
         Self {
             cache,
             positive_min_ttl: positive_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
@@ -147,7 +147,7 @@ impl DnsLru {
     }
 
     pub(crate) fn insert(
-        &mut self,
+        &self,
         query: Query,
         records_and_ttl: Vec<(Record, u32)>,
         now: Instant,
@@ -171,7 +171,7 @@ impl DnsLru {
 
         // insert into the LRU
         let lookup = Lookup::new_with_deadline(query.clone(), Arc::new(records), valid_until);
-        self.cache.insert(
+        self.cache.lock().unwrap().insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -183,17 +183,11 @@ impl DnsLru {
     }
 
     /// Generally for inserting a set of records that have already been cached, but with a different Query.
-    pub(crate) fn duplicate(
-        &mut self,
-        query: Query,
-        lookup: Lookup,
-        ttl: u32,
-        now: Instant,
-    ) -> Lookup {
+    pub(crate) fn duplicate(&self, query: Query, lookup: Lookup, ttl: u32, now: Instant) -> Lookup {
         let ttl = Duration::from_secs(u64::from(ttl));
         let valid_until = now + ttl;
 
-        self.cache.insert(
+        self.cache.lock().unwrap().insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -221,7 +215,7 @@ impl DnsLru {
     }
 
     pub(crate) fn negative(
-        &mut self,
+        &self,
         query: Query,
         mut error: ResolveError,
         now: Instant,
@@ -247,7 +241,7 @@ impl DnsLru {
             {
                 let error = error.clone();
 
-                self.cache.insert(
+                self.cache.lock().unwrap().insert(
                     query,
                     LruValue {
                         lookup: Err(error),
@@ -265,13 +259,10 @@ impl DnsLru {
     }
 
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
-    pub(crate) fn get(
-        &mut self,
-        query: &Query,
-        now: Instant,
-    ) -> Option<Result<Lookup, ResolveError>> {
+    pub(crate) fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ResolveError>> {
         let mut out_of_date = false;
-        let lookup = self.cache.get_mut(query).and_then(|value| {
+        let mut cache = self.cache.lock().unwrap();
+        let lookup = cache.get_mut(query).and_then(|value| {
             if value.is_current(now) {
                 out_of_date = false;
                 let mut result = value.lookup.clone();
@@ -290,7 +281,7 @@ impl DnsLru {
         // this assumes time is always moving forward, this would only not be true in contrived situations where now
         //  is not current time, like tests...
         if out_of_date {
-            self.cache.remove(query);
+            cache.remove(query);
         }
 
         lookup
@@ -345,7 +336,7 @@ mod tests {
             positive_min_ttl: Some(Duration::from_secs(2)),
             ..Default::default()
         };
-        let mut lru = DnsLru::new(1, ttls);
+        let lru = DnsLru::new(1, ttls);
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -377,7 +368,7 @@ mod tests {
             negative_min_ttl: Some(Duration::from_secs(2)),
             ..Default::default()
         };
-        let mut lru = DnsLru::new(1, ttls);
+        let lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 1 seconds.
         let err = ResolveErrorKind::NoRecordsFound {
@@ -435,7 +426,7 @@ mod tests {
             positive_max_ttl: Some(Duration::from_secs(60)),
             ..Default::default()
         };
-        let mut lru = DnsLru::new(1, ttls);
+        let lru = DnsLru::new(1, ttls);
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -467,7 +458,7 @@ mod tests {
             negative_max_ttl: Some(Duration::from_secs(60)),
             ..Default::default()
         };
-        let mut lru = DnsLru::new(1, ttls);
+        let lru = DnsLru::new(1, ttls);
 
         // neg response should have TTL of 62 seconds.
         let err = ResolveErrorKind::NoRecordsFound {
@@ -518,7 +509,7 @@ mod tests {
             1,
         )];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
-        let mut lru = DnsLru::new(1, TtlConfig::default());
+        let lru = DnsLru::new(1, TtlConfig::default());
 
         let rc_ips = lru.insert(query.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -547,7 +538,7 @@ mod tests {
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             RData::A(Ipv4Addr::new(127, 0, 0, 2)),
         ];
-        let mut lru = DnsLru::new(1, TtlConfig::default());
+        let lru = DnsLru::new(1, TtlConfig::default());
 
         lru.insert(query.clone(), ips_ttl, now);
 
@@ -590,7 +581,7 @@ mod tests {
             positive_min_ttl: Some(Duration::from_secs(3)),
             ..Default::default()
         };
-        let mut lru = DnsLru::new(1, ttls);
+        let lru = DnsLru::new(1, ttls);
         lru.insert(query.clone(), ips_ttl, now);
 
         // still valid
@@ -650,7 +641,7 @@ mod tests {
             positive_max_ttl: Some(Duration::from_secs(2)),
             ..Default::default()
         };
-        let mut lru = DnsLru::new(1, ttls);
+        let lru = DnsLru::new(1, ttls);
         lru.insert(query.clone(), ips_ttl, now);
 
         // still valid

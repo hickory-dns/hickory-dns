@@ -9,7 +9,7 @@
 use std::fmt;
 use std::future::Future;
 use std::net::IpAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use futures_util::{self, future};
 use proto::error::ProtoResult;
@@ -200,9 +200,6 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
         options: ResolverOpts,
         conn_provider: P,
     ) -> Result<Self, ResolveError> {
-        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
-        let lru = Arc::new(Mutex::new(lru));
-
         let pool = NameServerPool::from_config_with_provider(&config, &options, conn_provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
@@ -230,6 +227,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
         };
 
         trace!("handle passed back");
+        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         Ok(AsyncResolver {
             config,
             options,
