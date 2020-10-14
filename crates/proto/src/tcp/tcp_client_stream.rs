@@ -97,6 +97,8 @@ impl<S: DnsTcpStream> Display for TcpClientStream<S> {
 }
 
 impl<S: DnsTcpStream> DnsClientStream for TcpClientStream<S> {
+    type Time = S::Time;
+
     fn name_server_addr(&self) -> SocketAddr {
         self.tcp_stream.peer_addr()
     }

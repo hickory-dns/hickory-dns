@@ -52,6 +52,9 @@ fn ignore_send<M, E: Debug>(result: Result<M, E>) {
 pub trait DnsClientStream:
     Stream<Item = Result<SerialMessage, ProtoError>> + Display + Send
 {
+    /// Time implementation for this impl
+    type Time: Time;
+
     /// The remote name server address
     fn name_server_addr(&self) -> SocketAddr;
 }

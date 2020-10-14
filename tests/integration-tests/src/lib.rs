@@ -24,7 +24,7 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
     DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage,
 };
-use trust_dns_proto::StreamHandle;
+use trust_dns_proto::{StreamHandle, TokioTime};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
@@ -117,6 +117,8 @@ impl fmt::Display for TestClientStream {
 }
 
 impl DnsClientStream for TestClientStream {
+    type Time = TokioTime;
+
     fn name_server_addr(&self) -> SocketAddr {
         SocketAddr::from(([127, 0, 0, 1], 1234))
     }
@@ -205,6 +207,8 @@ impl fmt::Display for NeverReturnsClientStream {
 }
 
 impl DnsClientStream for NeverReturnsClientStream {
+    type Time = TokioTime;
+
     fn name_server_addr(&self) -> SocketAddr {
         SocketAddr::from(([0, 0, 0, 0], 53))
     }

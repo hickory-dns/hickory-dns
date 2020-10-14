@@ -17,7 +17,7 @@ use crate::error::ProtoError;
 use crate::multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
 use crate::multicast::{MdnsQueryType, MdnsStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
-use crate::{BufDnsStreamHandle, DnsStreamHandle};
+use crate::{BufDnsStreamHandle, DnsStreamHandle, TokioTime};
 
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
@@ -83,6 +83,8 @@ impl Display for MdnsClientStream {
 }
 
 impl DnsClientStream for MdnsClientStream {
+    type Time = TokioTime;
+
     fn name_server_addr(&self) -> SocketAddr {
         self.mdns_stream.multicast_addr()
     }
