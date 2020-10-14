@@ -9,9 +9,9 @@
 use std::fmt;
 use std::future::Future;
 use std::net::IpAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use futures_util::{self, future, lock::Mutex};
+use futures_util::{self, future};
 use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::TryParseIp;

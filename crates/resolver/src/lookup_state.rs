@@ -12,11 +12,10 @@ use std::error::Error;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use futures_util::future::Future;
-use futures_util::lock::Mutex;
 
 use proto::error::ProtoError;
 use proto::op::{Message, Query, ResponseCode};
@@ -176,7 +175,7 @@ where
         let is_dnssec = client.client.is_verifying_dnssec();
 
         // first transition any polling that is needed (mutable refs...)
-        if let Some(cached_lookup) = Self::from_cache(&query, &client.lru).await {
+        if let Some(cached_lookup) = client.from_cache(&query) {
             return cached_lookup;
         };
 
@@ -250,19 +249,15 @@ where
             Ok(Records::CnameChain {
                 next: future,
                 min_ttl: ttl,
-            }) => Self::cname(query, future, &client.lru, ttl).await,
-            Ok(Records::Exists(rdata)) => Self::cache(query, Ok(rdata), &client.lru).await,
-            Err(e) => Self::cache(query, Err(e), &client.lru).await,
+            }) => client.cname(future.await?, query, ttl),
+            Ok(Records::Exists(rdata)) => client.cache(query, Ok(rdata)),
+            Err(e) => client.cache(query, Err(e)),
         }
     }
 
     /// Check if this query is already cached
-    async fn from_cache(
-        query: &Query,
-        cache: &Mutex<DnsLru>,
-    ) -> Option<Result<Lookup, ResolveError>> {
-        let mut lru = cache.lock().await;
-        lru.get(query, Instant::now())
+    fn from_cache(&self, query: &Query) -> Option<Result<Lookup, ResolveError>> {
+        self.lru.lock().unwrap().get(query, Instant::now()) // if poisoned, not much we can do
     }
 
     /// See https://tools.ietf.org/html/rfc2308
@@ -481,28 +476,19 @@ where
         }
     }
 
-    async fn cname(
-        query: Query,
-        future: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>>,
-        cache: &Mutex<DnsLru>,
-        cname_ttl: u32,
-    ) -> Result<Lookup, ResolveError> {
-        // The error state, this query is complete...
-
-        let lookup = future.await?;
-        let mut cache = cache.lock().await;
-
-        // this duplicates the cache entry under the original query
+    fn cname(&self, lookup: Lookup, query: Query, cname_ttl: u32) -> Result<Lookup, ResolveError> {
+        let mut cache = self.lru.lock().unwrap(); // if poisoned, not much we can do
+                                                  // this duplicates the cache entry under the original query
         Ok(cache.duplicate(query, lookup, cname_ttl, Instant::now()))
     }
 
-    async fn cache(
+    fn cache(
+        &self,
         query: Query,
         records: Result<Vec<(Record, u32)>, ResolveError>,
-        cache: &Mutex<DnsLru>,
     ) -> Result<Lookup, ResolveError> {
         // The error state, this query is complete...
-        let mut lru = cache.lock().await;
+        let mut lru = self.lru.lock().unwrap(); // if poisoned, not much we can do
 
         // this will put this object into an inconsistent state, but no one should call poll again...
         match records {
