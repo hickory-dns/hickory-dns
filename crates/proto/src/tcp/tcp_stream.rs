@@ -25,14 +25,14 @@ use crate::xfer::{BufStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
 
 /// Trait for TCP connection
-#[async_trait]
-pub trait Connect
-where
-    Self: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static,
-{
+pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static {
     /// Timer type to use with this TCP stream type
     type Time: Time;
+}
 
+/// Trait for TCP connection
+#[async_trait]
+pub trait Connect: DnsTcpStream {
     /// connect to tcp
     async fn connect(addr: SocketAddr) -> io::Result<Self>;
 }
