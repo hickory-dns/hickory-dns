@@ -107,7 +107,7 @@ fn random_query_id() -> u16 {
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
-    fn send_message<TE: Time>(
+    fn send_message(
         &mut self,
         mut message: DnsRequest,
         _cx: &mut Context<'_>,
@@ -148,7 +148,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
 
-        TE::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
+        S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(send_serial_message::<S>(message, message_id)),
         )

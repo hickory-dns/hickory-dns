@@ -126,11 +126,7 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message<TE: Time>(
-        &mut self,
-        message: DnsRequest,
-        cx: &mut Context<'_>,
-    ) -> DnsResponseFuture;
+    fn send_message(&mut self, message: DnsRequest, cx: &mut Context<'_>) -> DnsResponseFuture;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
