@@ -19,6 +19,7 @@ use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 
 use crate::xfer::{BufStreamHandle, SerialMessage, StreamReceiver};
+use crate::Time;
 
 /// Trait for UdpSocket
 #[async_trait]
@@ -26,6 +27,9 @@ pub trait UdpSocket
 where
     Self: Sized + Unpin,
 {
+    /// Time implementation used for this type
+    type Time: Time;
+
     /// UdpSocket
     async fn bind(addr: &SocketAddr) -> io::Result<Self>;
     /// Receive data from the socket and returns the number of bytes read and the address from
@@ -222,6 +226,8 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl UdpSocket for tokio::net::UdpSocket {
+    type Time = crate::TokioTime;
+
     async fn bind(addr: &SocketAddr) -> io::Result<Self> {
         tokio::net::UdpSocket::bind(addr).await
     }
