@@ -380,13 +380,13 @@ where
         tls: Option<TlsConfig>,
     },
     TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<S::Transport>> + Send>>,
+        connect: Pin<Box<dyn Future<Output = io::Result<S>> + Send>>,
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
         // FIXME: also abstract away Tokio TLS in RuntimeProvider.
-        tls: TokioTlsConnect<AsyncIo03As02<S::Transport>>,
+        tls: TokioTlsConnect<AsyncIo03As02<S>>,
         name_server_name: Arc<String>,
         name_server: SocketAddr,
     },
@@ -397,10 +397,7 @@ where
                         Output = Result<
                             (
                                 SendRequest<Bytes>,
-                                Connection<
-                                    TokioTlsClientStream<AsyncIo03As02<S::Transport>>,
-                                    Bytes,
-                                >,
+                                Connection<TokioTlsClientStream<AsyncIo03As02<S>>, Bytes>,
                             ),
                             h2::Error,
                         >,

@@ -37,9 +37,7 @@ pub struct AsyncStdTcpStream(async_std::net::TcpStream);
 
 #[async_trait]
 impl Connect for AsyncStdTcpStream {
-    type Transport = AsyncStdTcpStream;
-
-    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
+    async fn connect(addr: SocketAddr) -> io::Result<Self> {
         let stream = async_std::net::TcpStream::connect(addr).await?;
         stream.set_nodelay(true)?;
         Ok(AsyncStdTcpStream(stream))

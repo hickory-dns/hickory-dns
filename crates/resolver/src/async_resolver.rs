@@ -424,21 +424,19 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> fmt::D
 #[cfg(any(test, feature = "testing"))]
 #[allow(dead_code)]
 pub mod testing {
-    use std::{marker::Unpin, net::*, str::FromStr};
+    use std::{net::*, str::FromStr};
 
     use crate::config::{LookupIpStrategy, NameServerConfig, ResolverConfig, ResolverOpts};
     use crate::name_server::{GenericConnection, GenericConnectionProvider, RuntimeProvider};
     use crate::AsyncResolver;
-    use proto::{rr::Name, tcp::Connect, Executor};
+    use proto::{rr::Name, Executor};
 
     /// Test IP lookup from URLs.
     pub fn lookup_test<E: Executor, R: RuntimeProvider>(
         config: ResolverConfig,
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             config,
             ResolverOpts::default(),
@@ -466,10 +464,7 @@ pub mod testing {
     }
 
     /// Test IP lookup from IP literals.
-    pub fn ip_lookup_test<E: Executor, R: RuntimeProvider>(mut exec: E, handle: R::Handle)
-    where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    pub fn ip_lookup_test<E: Executor, R: RuntimeProvider>(mut exec: E, handle: R::Handle) {
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
@@ -501,9 +496,7 @@ pub mod testing {
     /// Test IP lookup from IP literals across threads.
     pub fn ip_lookup_across_threads_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         // Test ensuring that running the background task on a separate
         // executor in a separate thread from the futures returned by the
         // AsyncResolver works correctly.
@@ -559,9 +552,7 @@ pub mod testing {
     pub fn sec_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         //env_logger::try_init().ok();
 
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
@@ -600,9 +591,7 @@ pub mod testing {
     pub fn sec_lookup_fails_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         use crate::error::*;
         use proto::rr::RecordType;
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
@@ -645,9 +634,7 @@ pub mod testing {
     pub fn system_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let resolver =
             AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::from_system_conf(
                 handle,
@@ -678,9 +665,7 @@ pub mod testing {
     pub fn hosts_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let resolver =
             AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::from_system_conf(
                 handle,
@@ -705,9 +690,7 @@ pub mod testing {
     pub fn fqdn_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),
@@ -744,9 +727,7 @@ pub mod testing {
     pub fn ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),
@@ -786,9 +767,7 @@ pub mod testing {
     pub fn large_ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             Name::from_str("bad.example.com.").unwrap(),
@@ -828,9 +807,7 @@ pub mod testing {
     pub fn domain_search_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         //env_logger::try_init().ok();
 
         // domain is good now, should be combined with the name to form www.example.com
@@ -871,9 +848,7 @@ pub mod testing {
     pub fn search_list_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let domain = Name::from_str("incorrect.example.com.").unwrap();
         let search = vec![
             // let's skip one search domain to test the loop...
@@ -913,9 +888,7 @@ pub mod testing {
     pub fn idna_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
@@ -936,9 +909,7 @@ pub mod testing {
     pub fn localhost_ipv4_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -964,9 +935,7 @@ pub mod testing {
     pub fn localhost_ipv6_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let resolver = AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -992,9 +961,7 @@ pub mod testing {
     pub fn search_ipv4_large_ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
@@ -1024,9 +991,7 @@ pub mod testing {
     pub fn search_ipv6_large_ndots_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
@@ -1056,9 +1021,7 @@ pub mod testing {
     pub fn search_ipv6_name_parse_fails_test<E: Executor + Send + 'static, R: RuntimeProvider>(
         mut exec: E,
         handle: R::Handle,
-    ) where
-        <<R as RuntimeProvider>::Tcp as Connect>::Transport: Unpin,
-    {
+    ) {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 

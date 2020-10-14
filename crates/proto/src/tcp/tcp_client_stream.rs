@@ -35,7 +35,7 @@ pub struct TcpClientStream<S> {
     tcp_stream: TcpStream<S>,
 }
 
-impl<S: Connect + 'static + Send> TcpClientStream<S> {
+impl<S: Connect + 'static> TcpClientStream<S> {
     /// Constructs a new TcpStream for a client to the specified SocketAddr.
     ///
     /// Defaults to a 5 second timeout
@@ -47,7 +47,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
     pub fn new<TE: 'static + Time>(
         name_server: SocketAddr,
     ) -> (
-        TcpClientConnect<S::Transport>,
+        TcpClientConnect<S>,
         Box<dyn DnsStreamHandle + 'static + Send>,
     ) {
         Self::with_timeout::<TE>(name_server, Duration::from_secs(5))
@@ -63,7 +63,7 @@ impl<S: Connect + 'static + Send> TcpClientStream<S> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        TcpClientConnect<S::Transport>,
+        TcpClientConnect<S>,
         Box<dyn DnsStreamHandle + 'static + Send>,
     ) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout::<TE>(name_server, timeout);
@@ -136,9 +136,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl Connect for AsyncIo02As03<TokioTcpStream> {
-    type Transport = AsyncIo02As03<TokioTcpStream>;
-
-    async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
+    async fn connect(addr: SocketAddr) -> io::Result<Self> {
         super::tokio::connect(&addr).await.map(AsyncIo02As03)
     }
 }

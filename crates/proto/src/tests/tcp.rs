@@ -2,7 +2,6 @@ use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{atomic::AtomicBool, Arc};
 
-use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::StreamExt;
 
 use crate::error::ProtoError;
@@ -87,9 +86,7 @@ fn tcp_server_setup(
 pub fn tcp_stream_test<S: Connect + 'static, E: Executor, TE: Time>(
     server_addr: IpAddr,
     mut exec: E,
-) where
-    <S as Connect>::Transport: AsyncRead + AsyncWrite + Unpin,
-{
+) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_stream:server", server_addr);
 
@@ -121,12 +118,10 @@ pub fn tcp_stream_test<S: Connect + 'static, E: Executor, TE: Time>(
 }
 
 /// Test tcp_client_stream.
-pub fn tcp_client_stream_test<S: Connect + Send + 'static, E: Executor, TE: Time + 'static>(
+pub fn tcp_client_stream_test<S: Connect + 'static, E: Executor, TE: Time + 'static>(
     server_addr: IpAddr,
     mut exec: E,
-) where
-    <S as Connect>::Transport: AsyncRead + AsyncWrite + Unpin,
-{
+) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_client_stream:server", server_addr);
 
