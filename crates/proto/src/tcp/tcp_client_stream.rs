@@ -22,7 +22,7 @@ use log::warn;
 use crate::error::ProtoError;
 #[cfg(feature = "tokio-runtime")]
 use crate::iocompat::AsyncIo02As03;
-use crate::tcp::{Connect, TcpStream};
+use crate::tcp::{Connect, DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
 #[cfg(feature = "tokio-runtime")]
 use crate::TokioTime;
@@ -135,10 +135,13 @@ impl<S> Future for TcpClientConnect<S> {
 use tokio::net::TcpStream as TokioTcpStream;
 
 #[cfg(feature = "tokio-runtime")]
+impl DnsTcpStream for AsyncIo02As03<TokioTcpStream> {
+    type Time = TokioTime;
+}
+
+#[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl Connect for AsyncIo02As03<TokioTcpStream> {
-    type Time = TokioTime;
-
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
         super::tokio::connect(&addr).await.map(AsyncIo02As03)
     }
