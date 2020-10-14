@@ -20,6 +20,8 @@ pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
 
 #[async_trait]
 impl UdpSocket for AsyncStdUdpSocket {
+    type Time = AsyncStdTime;
+
     async fn bind(addr: &SocketAddr) -> io::Result<Self> {
         async_std::net::UdpSocket::bind(addr)
             .await
