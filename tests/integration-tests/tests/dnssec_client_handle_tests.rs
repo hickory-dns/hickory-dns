@@ -15,9 +15,9 @@ use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{DNSClass, RData, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 
+use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
 use trust_dns_proto::DnssecDnsHandle;
-use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_secure_example;
@@ -303,7 +303,7 @@ where
 
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
