@@ -305,7 +305,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    fn send_message(&mut self, request: DnsRequest, _: &mut Context<'_>) -> DnsResponseFuture {
+    fn send_message(&mut self, request: DnsRequest) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }

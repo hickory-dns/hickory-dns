@@ -233,7 +233,7 @@ impl DnsRequestSender for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message(&mut self, mut message: DnsRequest, _cx: &mut Context) -> DnsResponseFuture {
+    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -528,7 +528,6 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 
-    use futures::future;
     use rustls::{ClientConfig, KeyLogFile, ProtocolVersion, RootCertStore};
     use tokio::runtime::Runtime;
     use webpki_roots;
@@ -570,8 +569,9 @@ mod tests {
         let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
-        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
-        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+        let response = runtime
+            .block_on(https.send_message(request))
+            .expect("send_message failed");
 
         let record = &response.answers()[0];
         let addr = if let RData::A(addr) = record.rdata() {
@@ -593,10 +593,9 @@ mod tests {
         let request = DnsRequest::new(request, Default::default());
 
         for _ in 0..3 {
-            let sending =
-                runtime.block_on(future::lazy(|cx| https.send_message(request.clone(), cx)));
-
-            let response = runtime.block_on(sending).expect("send_message failed");
+            let response = runtime
+                .block_on(https.send_message(request.clone()))
+                .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
             }
@@ -645,8 +644,9 @@ mod tests {
         let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
-        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
-        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+        let response = runtime
+            .block_on(https.send_message(request))
+            .expect("send_message failed");
 
         let record = &response.answers()[0];
         let addr = if let RData::A(addr) = record.rdata() {
@@ -667,8 +667,9 @@ mod tests {
         request.add_query(query);
         let request = DnsRequest::new(request, Default::default());
 
-        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
-        let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
+        let response = runtime
+            .block_on(https.send_message(request))
+            .expect("send_message failed");
 
         let record = &response.answers()[0];
         let addr = if let RData::AAAA(addr) = record.rdata() {
