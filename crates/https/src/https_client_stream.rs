@@ -319,7 +319,7 @@ impl HttpsClientStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build<S: Connect + 'static>(
+    pub fn build<S: Connect>(
         self,
         name_server: SocketAddr,
         dns_name: String,
@@ -351,11 +351,11 @@ impl Default for HttpsClientStreamBuilder {
 /// A future that resolves to an HttpsClientStream
 pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
 where
-    S: Connect + 'static;
+    S: Connect;
 
 impl<S> Future for HttpsClientConnect<S>
 where
-    S: Connect + 'static,
+    S: Connect,
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
@@ -373,7 +373,7 @@ struct TlsConfig {
 #[allow(clippy::type_complexity)]
 enum HttpsClientConnectState<S>
 where
-    S: Connect + 'static,
+    S: Connect,
 {
     ConnectTcp {
         name_server: SocketAddr,
@@ -413,7 +413,7 @@ where
 
 impl<S> Future for HttpsClientConnectState<S>
 where
-    S: Connect + 'static,
+    S: Connect,
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 

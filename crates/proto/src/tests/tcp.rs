@@ -83,10 +83,7 @@ fn tcp_server_setup(
 }
 
 /// Test tcp_stream.
-pub fn tcp_stream_test<S: Connect + 'static, E: Executor, TE: Time>(
-    server_addr: IpAddr,
-    mut exec: E,
-) {
+pub fn tcp_stream_test<S: Connect, E: Executor, TE: Time>(server_addr: IpAddr, mut exec: E) {
     let (succeeded, server_handle, server_addr) =
         tcp_server_setup("test_tcp_stream:server", server_addr);
 
@@ -118,7 +115,7 @@ pub fn tcp_stream_test<S: Connect + 'static, E: Executor, TE: Time>(
 }
 
 /// Test tcp_client_stream.
-pub fn tcp_client_stream_test<S: Connect + 'static, E: Executor, TE: Time + 'static>(
+pub fn tcp_client_stream_test<S: Connect, E: Executor, TE: Time + 'static>(
     server_addr: IpAddr,
     mut exec: E,
 ) {
