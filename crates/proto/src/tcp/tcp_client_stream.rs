@@ -15,7 +15,6 @@ use std::time::Duration;
 
 #[cfg(feature = "tokio-runtime")]
 use async_trait::async_trait;
-use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::{future::Future, stream::Stream, StreamExt, TryFutureExt};
 use log::warn;
 
@@ -32,7 +31,10 @@ use crate::{BufDnsStreamHandle, DnsStreamHandle};
 ///
 /// Use with `trust_dns_client::client::DnsMultiplexer` impls
 #[must_use = "futures do nothing unless polled"]
-pub struct TcpClientStream<S> {
+pub struct TcpClientStream<S>
+where
+    S: DnsTcpStream,
+{
     tcp_stream: TcpStream<S>,
 }
 
@@ -81,26 +83,26 @@ impl<S: Connect> TcpClientStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Send> TcpClientStream<S> {
+impl<S: DnsTcpStream> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
         TcpClientStream { tcp_stream }
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Send> Display for TcpClientStream<S> {
+impl<S: DnsTcpStream> Display for TcpClientStream<S> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "TCP({})", self.tcp_stream.peer_addr())
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Send + Unpin> DnsClientStream for TcpClientStream<S> {
+impl<S: DnsTcpStream> DnsClientStream for TcpClientStream<S> {
     fn name_server_addr(&self) -> SocketAddr {
         self.tcp_stream.peer_addr()
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
+impl<S: DnsTcpStream> Stream for TcpClientStream<S> {
     type Item = Result<SerialMessage, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -119,11 +121,11 @@ impl<S: AsyncRead + AsyncWrite + Send + Unpin> Stream for TcpClientStream<S> {
 
 // TODO: create unboxed future for the TCP Stream
 /// A future that resolves to an TcpClientStream
-pub struct TcpClientConnect<S>(
+pub struct TcpClientConnect<S: DnsTcpStream>(
     Pin<Box<dyn Future<Output = Result<TcpClientStream<S>, ProtoError>> + Send + 'static>>,
 );
 
-impl<S> Future for TcpClientConnect<S> {
+impl<S: DnsTcpStream> Future for TcpClientConnect<S> {
     type Output = Result<TcpClientStream<S>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -135,7 +137,10 @@ impl<S> Future for TcpClientConnect<S> {
 use tokio::net::TcpStream as TokioTcpStream;
 
 #[cfg(feature = "tokio-runtime")]
-impl DnsTcpStream for AsyncIo02As03<TokioTcpStream> {
+impl<T> DnsTcpStream for AsyncIo02As03<T>
+where
+    T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + Sync + Sized + 'static,
+{
     type Time = TokioTime;
 }
 

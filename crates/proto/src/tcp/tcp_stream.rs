@@ -79,7 +79,7 @@ pub enum ReadTcpState {
 
 /// A Stream used for sending data to and from a remote DNS endpoint (client or server).
 #[must_use = "futures do nothing unless polled"]
-pub struct TcpStream<S> {
+pub struct TcpStream<S: DnsTcpStream> {
     socket: S,
     outbound_messages: StreamReceiver,
     send_state: Option<WriteTcpState>,
@@ -87,7 +87,7 @@ pub struct TcpStream<S> {
     peer_addr: SocketAddr,
 }
 
-impl<S> TcpStream<S> {
+impl<S: DnsTcpStream> TcpStream<S> {
     /// Returns the address of the peer connection.
     pub fn peer_addr(&self) -> SocketAddr {
         self.peer_addr
@@ -181,7 +181,7 @@ impl<S: Connect> TcpStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
+impl<S: DnsTcpStream> TcpStream<S> {
     /// Initializes a TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
@@ -215,7 +215,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     }
 }
 
-impl<S: AsyncRead + AsyncWrite + Unpin> Stream for TcpStream<S> {
+impl<S: DnsTcpStream> Stream for TcpStream<S> {
     type Item = io::Result<SerialMessage>;
 
     #[allow(clippy::cognitive_complexity)]

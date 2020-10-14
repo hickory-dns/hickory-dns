@@ -21,7 +21,7 @@ use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
 use trust_dns_proto::iocompat::AsyncIo02As03;
-use trust_dns_proto::tcp::{self, TcpStream};
+use trust_dns_proto::tcp::{self, DnsTcpStream, TcpStream};
 use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
@@ -36,7 +36,7 @@ pub type TlsStream<S> = TcpStream<S>;
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: futures_io::AsyncRead + futures_io::AsyncWrite>(
+pub fn tls_from_stream<S: DnsTcpStream>(
     stream: S,
     peer_addr: SocketAddr,
 ) -> (TlsStream<S>, BufStreamHandle) {
