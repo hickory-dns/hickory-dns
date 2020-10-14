@@ -92,7 +92,7 @@ pub fn tcp_stream_test<S: Connect, E: Executor, TE: Time>(server_addr: IpAddr, m
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpStream::<S>::new::<ProtoError, TE>(server_addr);
+    let (stream, mut sender) = TcpStream::<S>::new::<ProtoError>(server_addr);
 
     let mut stream = exec.block_on(stream).expect("run failed to get stream");
 
@@ -127,7 +127,7 @@ pub fn tcp_client_stream_test<S: Connect, E: Executor, TE: Time + 'static>(
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let (stream, mut sender) = TcpClientStream::<S>::new::<TE>(server_addr);
+    let (stream, mut sender) = TcpClientStream::<S>::new(server_addr);
 
     let mut stream = exec.block_on(stream).expect("run failed to get stream");
 

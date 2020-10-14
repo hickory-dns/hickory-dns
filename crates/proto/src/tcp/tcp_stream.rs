@@ -30,6 +30,9 @@ pub trait Connect
 where
     Self: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static,
 {
+    /// Timer type to use with this TCP stream type
+    type Time: Time;
+
     /// connect to tcp
     async fn connect(addr: SocketAddr) -> io::Result<Self>;
 }
@@ -116,7 +119,7 @@ impl<S: Connect> TcpStream<S> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     #[allow(clippy::new_ret_no_self, clippy::type_complexity)]
-    pub fn new<E, TE>(
+    pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
         impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
@@ -124,9 +127,8 @@ impl<S: Connect> TcpStream<S> {
     )
     where
         E: FromProtoError,
-        TE: Time,
     {
-        Self::with_timeout::<TE>(name_server, Duration::from_secs(5))
+        Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
     /// Creates a new future of the eventually establish a IO stream connection or fail trying
@@ -136,7 +138,7 @@ impl<S: Connect> TcpStream<S> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
     #[allow(clippy::type_complexity)]
-    pub fn with_timeout<TE: Time>(
+    pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
@@ -146,18 +148,18 @@ impl<S: Connect> TcpStream<S> {
         let (message_sender, outbound_messages) = BufStreamHandle::create();
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream_fut = Self::connect::<TE>(name_server, timeout, outbound_messages);
+        let stream_fut = Self::connect(name_server, timeout, outbound_messages);
 
         (stream_fut, message_sender)
     }
 
-    async fn connect<TE: Time>(
+    async fn connect(
         name_server: SocketAddr,
         timeout: Duration,
         outbound_messages: StreamReceiver,
     ) -> Result<TcpStream<S>, io::Error> {
         let tcp = S::connect(name_server);
-        TE::timeout(timeout, tcp)
+        S::Time::timeout(timeout, tcp)
             .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
                 tcp_stream
                     .and_then(|tcp_stream| tcp_stream)

@@ -131,7 +131,7 @@ where
                 let timeout = options.timeout;
 
                 let (stream, handle) =
-                    TcpClientStream::<R::Tcp>::with_timeout::<R::Timer>(socket_addr, timeout);
+                    TcpClientStream::<R::Tcp>::with_timeout(socket_addr, timeout);
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,

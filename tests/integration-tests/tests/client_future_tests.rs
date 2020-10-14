@@ -82,7 +82,7 @@ fn test_query_udp_ipv6() {
 fn test_query_tcp_ipv4() {
     let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -101,7 +101,7 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -928,9 +928,10 @@ fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::with_timeout::<
-        TokioTime,
-    >(addr, std::time::Duration::from_millis(1));
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::with_timeout(
+        addr,
+        std::time::Duration::from_millis(1),
+    );
     let client = AsyncClient::with_timeout(
         Box::new(stream),
         sender,

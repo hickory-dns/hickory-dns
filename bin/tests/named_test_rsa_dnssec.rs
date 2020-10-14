@@ -70,7 +70,7 @@ async fn standard_tcp_conn(
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new::<TokioTime>(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
     AsyncClient::new(stream, sender, None)
         .await
         .expect("new AsyncClient failed")

@@ -18,7 +18,6 @@ use crate::error::*;
 use crate::proto::iocompat::AsyncIo02As03;
 use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
-use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
 
 /// Tcp client connection
@@ -70,9 +69,10 @@ impl ClientConnection for TcpClientConnection {
     >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (tcp_client_stream, handle) = TcpClientStream::<AsyncIo02As03<TcpStream>>::with_timeout::<
-            TokioTime,
-        >(self.name_server, self.timeout);
+        let (tcp_client_stream, handle) = TcpClientStream::<AsyncIo02As03<TcpStream>>::with_timeout(
+            self.name_server,
+            self.timeout,
+        );
         DnsMultiplexer::new(tcp_client_stream, handle, signer)
     }
 }
