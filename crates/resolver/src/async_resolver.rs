@@ -203,28 +203,6 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
         let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         let lru = Arc::new(Mutex::new(lru));
 
-        Self::with_cache_with_provider(config, options, lru, conn_provider)
-    }
-
-    /// Construct a new `AsyncResolver` with the associated Client and configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `config` - configuration, name_servers, etc. for the Resolver
-    /// * `options` - basic lookup options for the resolver
-    /// * `lru` - the cache to be used with the resolver
-    ///
-    /// # Returns
-    ///
-    /// A new `AsyncResolver` that should be used for resolutions, or an error.
-    pub(crate) fn with_cache_with_provider(
-        config: ResolverConfig,
-        options: ResolverOpts,
-        lru: Arc<Mutex<DnsLru>>,
-        conn_provider: P,
-    ) -> Result<Self, ResolveError> {
-        debug!("trust-dns resolver running");
-
         let pool = NameServerPool::from_config_with_provider(&config, &options, conn_provider);
         let either;
         let client = RetryDnsHandle::new(pool, options.attempts);
