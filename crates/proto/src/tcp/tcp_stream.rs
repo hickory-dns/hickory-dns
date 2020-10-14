@@ -87,29 +87,6 @@ pub struct TcpStream<S: DnsTcpStream> {
     peer_addr: SocketAddr,
 }
 
-impl<S: DnsTcpStream> TcpStream<S> {
-    /// Returns the address of the peer connection.
-    pub fn peer_addr(&self) -> SocketAddr {
-        self.peer_addr
-    }
-
-    fn pollable_split(
-        &mut self,
-    ) -> (
-        &mut S,
-        &mut StreamReceiver,
-        &mut Option<WriteTcpState>,
-        &mut ReadTcpState,
-    ) {
-        (
-            &mut self.socket,
-            &mut self.outbound_messages,
-            &mut self.send_state,
-            &mut self.read_state,
-        )
-    }
-}
-
 impl<S: Connect> TcpStream<S> {
     /// Creates a new future of the eventually establish a IO stream connection or fail trying.
     ///
@@ -182,6 +159,27 @@ impl<S: Connect> TcpStream<S> {
 }
 
 impl<S: DnsTcpStream> TcpStream<S> {
+    /// Returns the address of the peer connection.
+    pub fn peer_addr(&self) -> SocketAddr {
+        self.peer_addr
+    }
+
+    fn pollable_split(
+        &mut self,
+    ) -> (
+        &mut S,
+        &mut StreamReceiver,
+        &mut Option<WriteTcpState>,
+        &mut ReadTcpState,
+    ) {
+        (
+            &mut self.socket,
+            &mut self.outbound_messages,
+            &mut self.send_state,
+            &mut self.read_state,
+        )
+    }
+
     /// Initializes a TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
