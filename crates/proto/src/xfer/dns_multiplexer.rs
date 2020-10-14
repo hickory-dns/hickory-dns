@@ -305,11 +305,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    fn send_message<TE: Time>(
-        &mut self,
-        request: DnsRequest,
-        _: &mut Context<'_>,
-    ) -> DnsResponseFuture {
+    fn send_message(&mut self, request: DnsRequest, _: &mut Context<'_>) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -345,7 +341,7 @@ where
         }
 
         // store a Timeout for this message before sending
-        let timeout = TE::delay_for(self.timeout_duration);
+        let timeout = S::Time::delay_for(self.timeout_duration);
 
         let (complete, receiver) = oneshot::channel();
 

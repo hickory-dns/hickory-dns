@@ -36,7 +36,6 @@ use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{
     DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage,
 };
-use trust_dns_proto::Time;
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -234,11 +233,7 @@ impl DnsRequestSender for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message<TE: Time>(
-        &mut self,
-        mut message: DnsRequest,
-        _cx: &mut Context,
-    ) -> DnsResponseFuture {
+    fn send_message(&mut self, mut message: DnsRequest, _cx: &mut Context) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -542,7 +537,6 @@ mod tests {
     use trust_dns_proto::iocompat::AsyncIo02As03;
     use trust_dns_proto::op::{Message, Query, ResponseCode};
     use trust_dns_proto::rr::{Name, RData, RecordType};
-    use trust_dns_proto::TokioTime;
 
     use super::*;
 
@@ -576,9 +570,7 @@ mod tests {
         let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
-        let sending = runtime.block_on(future::lazy(|cx| {
-            https.send_message::<TokioTime>(request, cx)
-        }));
+        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -601,9 +593,8 @@ mod tests {
         let request = DnsRequest::new(request, Default::default());
 
         for _ in 0..3 {
-            let sending = runtime.block_on(future::lazy(|cx| {
-                https.send_message::<TokioTime>(request.clone(), cx)
-            }));
+            let sending =
+                runtime.block_on(future::lazy(|cx| https.send_message(request.clone(), cx)));
 
             let response = runtime.block_on(sending).expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
@@ -654,9 +645,7 @@ mod tests {
         let mut runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
-        let sending = runtime.block_on(future::lazy(|cx| {
-            https.send_message::<TokioTime>(request, cx)
-        }));
+        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -678,9 +667,7 @@ mod tests {
         request.add_query(query);
         let request = DnsRequest::new(request, Default::default());
 
-        let sending = runtime.block_on(future::lazy(|cx| {
-            https.send_message::<TokioTime>(request, cx)
-        }));
+        let sending = runtime.block_on(future::lazy(|cx| https.send_message(request, cx)));
         let response: DnsResponse = runtime.block_on(sending).expect("send_message failed");
 
         let record = &response.answers()[0];
