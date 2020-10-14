@@ -46,7 +46,7 @@ impl<T> HttpsClientConnection<T> {
 
 impl<T> ClientConnection for HttpsClientConnection<T>
 where
-    T: Connect + Sync + 'static,
+    T: Connect,
 {
     type Sender = HttpsClientStream;
     type SenderFuture = HttpsClientConnect<T>;

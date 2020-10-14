@@ -35,7 +35,7 @@ pub struct TcpClientStream<S> {
     tcp_stream: TcpStream<S>,
 }
 
-impl<S: Connect + 'static> TcpClientStream<S> {
+impl<S: Connect> TcpClientStream<S> {
     /// Constructs a new TcpStream for a client to the specified SocketAddr.
     ///
     /// Defaults to a 5 second timeout

@@ -28,7 +28,7 @@ use crate::Time;
 #[async_trait]
 pub trait Connect
 where
-    Self: AsyncRead + AsyncWrite + Unpin + Send + Sized,
+    Self: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + 'static,
 {
     /// connect to tcp
     async fn connect(addr: SocketAddr) -> io::Result<Self>;
@@ -107,7 +107,7 @@ impl<S> TcpStream<S> {
     }
 }
 
-impl<S: Connect + 'static> TcpStream<S> {
+impl<S: Connect> TcpStream<S> {
     /// Creates a new future of the eventually establish a IO stream connection or fail trying.
     ///
     /// Defaults to a 5 second timeout
