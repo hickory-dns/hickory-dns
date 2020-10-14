@@ -107,11 +107,7 @@ fn random_query_id() -> u16 {
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
-    fn send_message(
-        &mut self,
-        mut message: DnsRequest,
-        _cx: &mut Context<'_>,
-    ) -> DnsResponseFuture {
+    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseFuture {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }

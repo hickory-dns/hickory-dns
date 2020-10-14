@@ -192,7 +192,7 @@ where
                     // if there is no peer, this connection should die...
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
 
-                    match serial_response.send_response(io_stream.send_message(dns_request, cx)) {
+                    match serial_response.send_response(io_stream.send_message(dns_request)) {
                         Ok(()) => (),
                         Err(_) => {
                             warn!("failed to associate send_message response to the sender");

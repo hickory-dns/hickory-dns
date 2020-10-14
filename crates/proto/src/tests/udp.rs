@@ -117,7 +117,6 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
     use crate::rr::rdata::NULL;
     use crate::rr::{Name, RData, Record, RecordType};
     use crate::xfer::{DnsRequest, DnsRequestSender};
-    use futures_util::future;
     use std::str::FromStr;
     use std::time::Duration;
 
@@ -206,9 +205,8 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
 
     for i in 0..send_recv_times {
         // test once
-        let response_future = exec.block_on(future::lazy(|cx| {
-            stream.send_message(DnsRequest::new(query.clone(), Default::default()), cx)
-        }));
+        let response_future =
+            stream.send_message(DnsRequest::new(query.clone(), Default::default()));
         println!("client sending request {}", i);
         let response = match exec.block_on(response_future) {
             Ok(response) => response,
