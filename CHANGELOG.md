@@ -9,6 +9,11 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (all) *BREAKING* The `UdpSocket` trait has grown an associated `Time` type.
+- (all) *BREAKING* The `Connect` trait has lost its
+`Transport` associated type, instead relying on the `Self` type.
+- (all) *BREAKING* Introduced a new `DnsTcpStream` trait, which is now a
+bound for implementing the `Connect` trait.
 - (resolver) *BREAKING* Move `CachingClient` from `lookup_state` to `caching_client` module
 - (resolver) *BREAKING* Move `ResolverOpts::distrust_nx_responses` to `NameServerConfig::trust_nx_responses` (@djc) #1212
 - (proto) `data-encoding` is now a required dependency #1208
