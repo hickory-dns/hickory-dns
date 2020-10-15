@@ -29,6 +29,8 @@ pub mod tokio {
     use tokio::net::TcpStream as TokioTcpStream;
 
     pub async fn connect(addr: &SocketAddr) -> Result<TokioTcpStream, io::Error> {
-        TokioTcpStream::connect(addr).await
+        let stream = TokioTcpStream::connect(addr).await?;
+        stream.set_nodelay(true)?;
+        Ok(stream)
     }
 }

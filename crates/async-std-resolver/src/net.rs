@@ -40,9 +40,9 @@ impl Connect for AsyncStdTcpStream {
     type Transport = AsyncStdTcpStream;
 
     async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
-        async_std::net::TcpStream::connect(addr)
-            .await
-            .map(AsyncStdTcpStream)
+        let stream = async_std::net::TcpStream::connect(addr).await?;
+        stream.set_nodelay(true)?;
+        Ok(AsyncStdTcpStream(stream))
     }
 }
 
