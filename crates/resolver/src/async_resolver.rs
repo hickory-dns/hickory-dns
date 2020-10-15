@@ -19,12 +19,12 @@ use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
 use proto::DnsHandle;
 
+use crate::caching_client::CachingClient;
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::dns_lru::{self, DnsLru};
 use crate::error::*;
 use crate::lookup::{self, Lookup, LookupEither, LookupFuture};
 use crate::lookup_ip::{LookupIp, LookupIpFuture};
-use crate::lookup_state::CachingClient;
 use crate::name_server::{
     ConnectionProvider, GenericConnection, GenericConnectionProvider, NameServerPool,
     RuntimeProvider,

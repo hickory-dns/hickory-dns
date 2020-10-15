@@ -193,6 +193,7 @@ extern crate serde;
 pub extern crate trust_dns_proto as proto;
 
 mod async_resolver;
+pub mod caching_client;
 pub mod config;
 mod dns_lru;
 pub mod dns_sd;
@@ -202,7 +203,6 @@ mod hosts;
 mod https;
 pub mod lookup;
 pub mod lookup_ip;
-pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server;
 #[cfg(feature = "tokio-runtime")]
