@@ -19,7 +19,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use trust_dns_proto::iocompat::AsyncIo02As03;
-use trust_dns_proto::tcp::TcpStream;
+use trust_dns_proto::tcp::{self, TcpStream};
 use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
@@ -140,7 +140,7 @@ impl TlsStreamBuilder {
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;
 
-        let tcp_stream: Result<TokioTcpStream, _> = TokioTcpStream::connect(&name_server).await;
+        let tcp_stream = tcp::tokio::connect(&name_server).await;
 
         // TODO: for some reason the above wouldn't accept a ?
         let tcp_stream = match tcp_stream {

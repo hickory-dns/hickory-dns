@@ -139,7 +139,7 @@ impl Connect for AsyncIo02As03<TokioTcpStream> {
     type Transport = AsyncIo02As03<TokioTcpStream>;
 
     async fn connect(addr: SocketAddr) -> io::Result<Self::Transport> {
-        TokioTcpStream::connect(&addr).await.map(AsyncIo02As03)
+        super::tokio::connect(&addr).await.map(AsyncIo02As03)
     }
 }
 

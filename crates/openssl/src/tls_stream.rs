@@ -21,7 +21,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use trust_dns_proto::iocompat::AsyncIo02As03;
-use trust_dns_proto::tcp::TcpStream;
+use trust_dns_proto::tcp::{self, TcpStream};
 use trust_dns_proto::xfer::BufStreamHandle;
 
 pub trait TlsIdentityExt {
@@ -129,7 +129,7 @@ async fn connect_tls(
     dns_name: String,
     name_server: SocketAddr,
 ) -> Result<TokioTlsStream<TokioTcpStream>, io::Error> {
-    let tcp = TokioTcpStream::connect(&name_server).await.map_err(|e| {
+    let tcp = tcp::tokio::connect(&name_server).await.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
