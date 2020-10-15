@@ -23,12 +23,12 @@ use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
 
+use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
 use crate::dns_lru::MAX_TTL;
 use crate::error::*;
 use crate::hosts::Hosts;
 use crate::lookup::{Lookup, LookupIntoIter, LookupIter};
-use crate::lookup_state::CachingClient;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///

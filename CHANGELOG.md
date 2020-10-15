@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) *BREAKING* Move `CachingClient` from `lookup_state` to `caching_client` module
 - (resolver) *BREAKING* Move `ResolverOpts::distrust_nx_responses` to `NameServerConfig::trust_nx_responses` (@djc) #1212
 - (proto) `data-encoding` is now a required dependency #1208
 - (all) minimum rustc version now `1.42`
