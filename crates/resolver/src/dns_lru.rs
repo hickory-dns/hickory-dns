@@ -8,10 +8,11 @@
 //! An LRU cache designed for work with DNS lookups
 
 use std::convert::TryFrom;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use lru_cache::LruCache;
+use parking_lot::Mutex;
 
 use proto::op::Query;
 use proto::rr::Record;
@@ -171,7 +172,7 @@ impl DnsLru {
 
         // insert into the LRU
         let lookup = Lookup::new_with_deadline(query.clone(), Arc::new(records), valid_until);
-        self.cache.lock().unwrap().insert(
+        self.cache.lock().insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -187,7 +188,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(u64::from(ttl));
         let valid_until = now + ttl;
 
-        self.cache.lock().unwrap().insert(
+        self.cache.lock().insert(
             query,
             LruValue {
                 lookup: Ok(lookup.clone()),
@@ -241,7 +242,7 @@ impl DnsLru {
             {
                 let error = error.clone();
 
-                self.cache.lock().unwrap().insert(
+                self.cache.lock().insert(
                     query,
                     LruValue {
                         lookup: Err(error),
@@ -261,7 +262,7 @@ impl DnsLru {
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
     pub(crate) fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ResolveError>> {
         let mut out_of_date = false;
-        let mut cache = self.cache.lock().unwrap();
+        let mut cache = self.cache.lock();
         let lookup = cache.get_mut(query).and_then(|value| {
             if value.is_current(now) {
                 out_of_date = false;
