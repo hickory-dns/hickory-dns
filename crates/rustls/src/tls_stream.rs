@@ -21,7 +21,7 @@ use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
 use trust_dns_proto::iocompat::AsyncIo02As03;
-use trust_dns_proto::tcp::TcpStream;
+use trust_dns_proto::tcp::{self, TcpStream};
 use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
@@ -106,7 +106,7 @@ async fn connect_tls(
     dns_name: String,
     outbound_messages: StreamReceiver,
 ) -> io::Result<TcpStream<AsyncIo02As03<TokioTlsClientStream>>> {
-    let tcp = TokioTcpStream::connect(&name_server).await?;
+    let tcp = tcp::tokio::connect(&name_server).await?;
 
     let dns_name = DNSNameRef::try_from_ascii_str(&dns_name)
         .map(DNSName::from)
