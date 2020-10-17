@@ -38,7 +38,7 @@ maintenance = { status = "actively-developed" }
 [features]
 default = ["system-config", "tokio-runtime"]
 backtrace = ["trust-dns-proto/backtrace"]
-dns-over-native-tls = ["dns-over-tls", "tokio-tls", "trust-dns-native-tls"]
+dns-over-native-tls = ["dns-over-tls", "tokio-native-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tokio-openssl"]
 dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "trust-dns-rustls", "webpki-roots"]
@@ -78,7 +78,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.2"
 thiserror = "1.0.20"
 tokio = { version = "0.2.22", optional = true }
-tokio-tls = { version = "0.3.1", optional = true }
+tokio-native-tls = { version = "0.1", optional = true }
 tokio-openssl = { version = "0.4.0", optional = true }
 tokio-rustls = { version = "0.14", optional = true }
 trust-dns-https = { version = "0.20.0-alpha.2", path = "../https", optional = true }

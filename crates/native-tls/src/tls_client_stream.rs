@@ -16,7 +16,7 @@ use native_tls::Certificate;
 #[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
 use tokio::net::TcpStream as TokioTcpStream;
-use tokio_tls::TlsStream as TokioTlsStream;
+use tokio_native_tls::TlsStream as TokioTlsStream;
 
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::iocompat::AsyncIo02As03;
