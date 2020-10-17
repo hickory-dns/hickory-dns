@@ -16,7 +16,7 @@ use futures_util::TryFutureExt;
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
 use tokio::net::TcpStream as TokioTcpStream;
-use tokio_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
+use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use trust_dns_proto::iocompat::AsyncIo02As03;
 use trust_dns_proto::tcp::{self, TcpStream};

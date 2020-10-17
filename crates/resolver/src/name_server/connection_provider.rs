@@ -13,6 +13,8 @@ use futures_util::future::{Future, FutureExt};
 use futures_util::ready;
 #[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
+#[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
+use tokio_native_tls::TlsStream as TokioTlsStream;
 #[cfg(all(
     feature = "dns-over-openssl",
     not(feature = "dns-over-rustls"),
@@ -21,8 +23,6 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::SslStream as TokioTlsStream;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
-#[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
-use tokio_tls::TlsStream as TokioTlsStream;
 
 use proto;
 use proto::error::ProtoError;
