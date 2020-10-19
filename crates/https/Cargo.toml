@@ -65,5 +65,5 @@ webpki-roots = { version = "0.20" }
 webpki = "0.21"
 
 [dev-dependencies]
-env_logger = "0.7"
+env_logger = "0.8"
 futures = { version = "0.3.5", default-features = false, features = ["std", "executor"] }
