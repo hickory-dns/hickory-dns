@@ -616,7 +616,7 @@ dependencies = [
  "http",
  "indexmap",
  "slab",
- "tokio",
+ "tokio 0.2.22",
  "tokio-util",
  "tracing",
 ]
@@ -1559,6 +1559,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7137dbb0abee577362ccdc7df21605cfcbb949243aeab47dac9ea6ef7d830e21"
+dependencies = [
+ "bytes",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "tokio-macros"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1571,12 +1581,12 @@ dependencies = [
 
 [[package]]
 name = "tokio-native-tls"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd608593a919a8e05a7d1fc6df885e40f6a88d3a70a3a7eff23ff27964eda069"
+checksum = "501c8252b73bd01379aaae1521523c2629ff1bc6ea46c29e0baff515cee60f1b"
 dependencies = [
  "native-tls",
- "tokio",
+ "tokio 0.3.0",
 ]
 
 [[package]]
@@ -1586,7 +1596,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c4b08c5f4208e699ede3df2520aca2e82401b2de33f45e96696a074480be594"
 dependencies = [
  "openssl",
- "tokio",
+ "tokio 0.2.22",
 ]
 
 [[package]]
@@ -1597,7 +1607,7 @@ checksum = "e12831b255bcfa39dc0436b01e19fea231a37db570686c06ee72c423479f889a"
 dependencies = [
  "futures-core",
  "rustls",
- "tokio",
+ "tokio 0.2.22",
  "webpki",
 ]
 
@@ -1612,7 +1622,7 @@ dependencies = [
  "futures-sink",
  "log",
  "pin-project-lite",
- "tokio",
+ "tokio 0.2.22",
 ]
 
 [[package]]
@@ -1656,7 +1666,7 @@ dependencies = [
  "native-tls",
  "regex",
  "rustls",
- "tokio",
+ "tokio 0.2.22",
  "trust-dns-client",
  "trust-dns-https",
  "trust-dns-native-tls",
@@ -1687,7 +1697,7 @@ dependencies = [
  "rustls",
  "serde",
  "thiserror",
- "tokio",
+ "tokio 0.2.22",
  "trust-dns-https",
  "trust-dns-proto",
  "webpki",
@@ -1721,7 +1731,7 @@ dependencies = [
  "log",
  "rustls",
  "thiserror",
- "tokio",
+ "tokio 0.2.22",
  "tokio-rustls",
  "trust-dns-proto",
  "trust-dns-rustls",
@@ -1742,7 +1752,7 @@ dependencies = [
  "rand",
  "rusqlite",
  "rustls",
- "tokio",
+ "tokio 0.2.22",
  "trust-dns-client",
  "trust-dns-https",
  "trust-dns-openssl",
@@ -1760,7 +1770,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "native-tls",
- "tokio",
+ "tokio 0.2.22",
  "tokio-native-tls",
  "trust-dns-proto",
 ]
@@ -1772,7 +1782,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "openssl",
- "tokio",
+ "tokio 0.2.22",
  "tokio-openssl",
  "trust-dns-proto",
 ]
@@ -1803,7 +1813,7 @@ dependencies = [
  "smallvec",
  "socket2",
  "thiserror",
- "tokio",
+ "tokio 0.2.22",
  "url",
  "wasm-bindgen",
 ]
@@ -1826,7 +1836,7 @@ dependencies = [
  "serde",
  "smallvec",
  "thiserror",
- "tokio",
+ "tokio 0.2.22",
  "tokio-native-tls",
  "tokio-openssl",
  "tokio-rustls",
@@ -1848,7 +1858,7 @@ dependencies = [
  "log",
  "openssl",
  "rustls",
- "tokio",
+ "tokio 0.2.22",
  "tokio-rustls",
  "trust-dns-proto",
  "webpki",
@@ -1873,7 +1883,7 @@ dependencies = [
  "rustls",
  "serde",
  "thiserror",
- "tokio",
+ "tokio 0.2.22",
  "tokio-openssl",
  "tokio-rustls",
  "toml",
@@ -1896,7 +1906,7 @@ dependencies = [
  "log",
  "openssl",
  "structopt",
- "tokio",
+ "tokio 0.2.22",
  "trust-dns-client",
  "trust-dns-proto",
  "trust-dns-resolver",

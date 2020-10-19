@@ -51,7 +51,7 @@ futures-channel = { version = "0.3.5", default-features = false, features = ["st
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 native-tls = "0.2"
 tokio = "0.2.22"
-tokio-native-tls = "0.1"
+tokio-native-tls = "0.2"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.20.0-alpha.2", path = "../proto", features = ["tokio-runtime"], default-features = false }
 
