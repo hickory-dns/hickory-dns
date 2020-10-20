@@ -266,7 +266,7 @@ impl Display for DS {
             f,
             "{tag} {alg} {ty} {digest}",
             tag = self.key_tag,
-            alg = self.algorithm,
+            alg = u8::from(self.algorithm),
             ty = u8::from(self.digest_type),
             digest = data_encoding::HEXUPPER_PERMISSIVE.encode(&self.digest)
         )

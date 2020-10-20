@@ -445,7 +445,7 @@ impl fmt::Display for DNSKEY {
             f,
             "{flags} 3 {alg} {key}",
             flags = self.flags(),
-            alg = self.algorithm,
+            alg = u8::from(self.algorithm),
             key = data_encoding::BASE64.encode(&self.public_key)
         )
     }
