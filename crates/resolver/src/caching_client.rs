@@ -216,27 +216,17 @@ where
             }
             Err(e) => return Err(e),
             Ok(response_message) => {
-                let response_code = response_message.response_code();
+                // allow the handle_noerror function to deal with any error codes
+                let records = Self::handle_noerror(
+                    &mut client,
+                    options,
+                    is_dnssec,
+                    &query,
+                    response_message,
+                    preserved_records,
+                )?;
 
-                // This match should be unnecessary, since ResponseCode is handled above
-                //   we're being extra pedantic by only caching the value is it's NoError
-                match response_code {
-                    ResponseCode::NoError => {
-                        let records = Self::handle_noerror(
-                            &mut client,
-                            options,
-                            is_dnssec,
-                            &query,
-                            response_message,
-                            preserved_records,
-                        )?;
-
-                        Ok(records)
-                    }
-                    _ => unreachable!(
-                        "non NoError responses should have been converted to an error above"
-                    ),
-                }
+                Ok(records)
             }
         };
 
