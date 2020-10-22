@@ -59,7 +59,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
     }
@@ -437,7 +437,7 @@ a       A       127.0.0.1
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -465,7 +465,7 @@ b       A       127.0.0.2
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -492,7 +492,7 @@ a       A       127.0.0.1
 "###,
     );
 
-    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()));
+    let records = Parser::new().parse(lexer, Some(Name::from_str("isi.edu").unwrap()), None);
 
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
@@ -501,4 +501,25 @@ a       A       127.0.0.1
     let (origin, records) = records.unwrap();
 
     assert!(InMemoryAuthority::new(origin, records, ZoneType::Primary, false).is_ok());
+}
+
+#[test]
+fn test_named_root() {
+    let lexer = Lexer::new(
+        r###"
+.                        3600000      NS    A.ROOT-SERVERS.NET.
+"###,
+    );
+
+    let records = Parser::new().parse(lexer, Some(Name::root()), Some(DNSClass::IN));
+
+    if records.is_err() {
+        panic!("failed to parse: {:?}", records.err())
+    }
+
+    let (_, records) = records.unwrap();
+    let key = RrKey::new(LowerName::from(Name::root()), RecordType::NS);
+
+    assert!(records.contains_key(&key));
+    assert_eq!(records[&key].dns_class(), DNSClass::IN)
 }

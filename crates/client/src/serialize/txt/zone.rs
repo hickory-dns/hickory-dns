@@ -139,15 +139,16 @@ impl Parser {
         &mut self,
         lexer: Lexer,
         origin: Option<Name>,
+        class: Option<DNSClass>,
     ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
         let mut lexer = lexer;
         let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
         let mut origin: Option<Name> = origin;
+        let mut class: Option<DNSClass> = class;
         let mut current_name: Option<Name> = None;
         let mut rtype: Option<RecordType> = None;
         let mut ttl: Option<u32> = None;
-        let mut class: Option<DNSClass> = None;
         let mut state = State::StartLine;
 
         while let Some(t) = lexer.next_token()? {
