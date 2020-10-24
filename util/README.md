@@ -23,7 +23,7 @@ Success for query name: www.example.com. type: A class: IN
 
 ```shell
 $ resolve -h
-resolve 0.20.0-alpha.2
+resolve 0.20.0-alpha.3
 A CLI interface for the trust-dns-resolver.
 
 This utility directly uses the trust-dns-resolver to perform a lookup to a set of nameservers. Many of the features can
