@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (proto) Set TCP_NODELAY when building a TCP connection (@djc) #1249
 - (all) *BREAKING* The `UdpSocket` trait has grown an associated `Time` type.
 - (all) *BREAKING* The `Connect` trait has lost its
 `Transport` associated type, instead relying on the `Self` type.
@@ -32,6 +33,7 @@ bound for implementing the `Connect` trait.
 
 ### Fixed
 
+- (client) Support reading the root hints file (@mattias-p) #1261
 - (resolver) Fix Glue records resolving (@wavenator) #1188
 - (resolver) Only fall back on TCP if cons are available (@lukaspustina) #1181
 - (proto) fix empty option at end of edns (@jonasbb) #1143, #744
@@ -41,7 +43,7 @@ bound for implementing the `Connect` trait.
 
 ### Added
 
-- (util) Add resolve.rs as CLI for trust-dns-resolver #1208
+- (util) *new* Add resolve.rs as CLI for trust-dns-resolver #1208
 - (proto) Added proper zone display to all RData as an impl of Display #1208
 - (proto) `xfer::dns_response::NegativeType` and `DnsResponse::negative_type` to classify negative response type #1197
 - (proto) `DnsResponse::contains_answer` to determine if a response message has data related to the query #1197
