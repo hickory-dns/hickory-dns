@@ -71,7 +71,7 @@ name = "named"
 path = "src/named.rs"
 
 [dependencies]
-chrono = "0.4"
+chrono = "0.4.1"
 clap = "2.33"
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 log = "0.4"
