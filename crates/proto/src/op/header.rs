@@ -285,6 +285,9 @@ impl Header {
     }
 
     /// The low response code (original response codes before EDNS extensions)
+    ///
+    /// Warning: This method can only used for basic ResponseCodes.
+    /// Some ResponseCode require the use of the EDNS record to represent the high bits.
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.response_code = response_code;
         self
