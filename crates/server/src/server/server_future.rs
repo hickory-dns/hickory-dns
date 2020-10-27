@@ -94,8 +94,9 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket) {
-        self.register_socket(net::UdpSocket::from_std(socket).expect("bad handle?"))
+    pub fn register_socket_std(&mut self, socket: std::net::UdpSocket) -> io::Result<()> {
+        self.register_socket(net::UdpSocket::from_std(socket)?);
+        Ok(())
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -110,11 +111,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    pub fn register_listener(
-        &mut self,
-        listener: net::TcpListener,
-        timeout: Duration,
-    ) -> io::Result<()> {
+    pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
         debug!("register tcp: {:?}", listener);
 
         let spawner = Handle::current();
@@ -178,7 +175,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         });
 
         self.joins.push(join);
-        Ok(())
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -198,7 +194,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         listener: std::net::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
-        self.register_listener(net::TcpListener::from_std(listener)?, timeout)
+        self.register_listener(net::TcpListener::from_std(listener)?, timeout);
+        Ok(())
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an

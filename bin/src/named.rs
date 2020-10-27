@@ -429,11 +429,7 @@ fn main() {
                 .expect("could not lookup local address")
         );
 
-        handle.enter(|| {
-            server
-                .register_listener(tcp_listener, tcp_request_timeout)
-                .expect("could not register TCP listener")
-        });
+        handle.enter(|| server.register_listener(tcp_listener, tcp_request_timeout));
     }
 
     let tls_cert_config = config.get_tls_cert();
