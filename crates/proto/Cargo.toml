@@ -59,7 +59,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1.36"
-backtrace = { version = "0.3.50", optional = true }
+backtrace = { version = "0.3.54", optional = true }
 cfg-if = "1"
 data-encoding = "2.2.0"
 enum-as-inner = "0.3"
