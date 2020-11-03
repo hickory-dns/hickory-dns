@@ -28,7 +28,9 @@ use crate::rr::dnssec::Signer;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
-pub const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
+// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
+// https://dnsflagday.net/2020/
+pub const MAX_PAYLOAD_LEN: u16 = 1232;
 
 /// A DNS Client implemented over futures-rs.
 ///

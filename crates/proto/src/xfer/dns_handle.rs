@@ -18,7 +18,9 @@ use crate::op::{Message, MessageType, OpCode, Query};
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 
 // TODO: this should be configurable
-const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
+// > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
+// https://dnsflagday.net/2020/
+const MAX_PAYLOAD_LEN: u16 = 1232;
 
 /// The StreamHandle is the general interface for communicating with the DnsMultiplexer
 pub struct StreamHandle {
