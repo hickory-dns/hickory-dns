@@ -70,10 +70,40 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 /// # Arguments
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
+/// * `bind_addr` - IP and port to connect from
 /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
 #[allow(clippy::type_complexity)]
 pub fn tls_connect<S: Connect>(
     name_server: SocketAddr,
+    dns_name: String,
+    client_config: Arc<ClientConfig>,
+) -> (
+    Pin<
+        Box<
+            dyn Future<
+                    Output = Result<
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
+                        io::Error,
+                    >,
+                > + Send,
+        >,
+    >,
+    BufDnsStreamHandle,
+) {
+    tls_connect_with_bind_addr(name_server, None, dns_name, client_config)
+}
+
+/// Creates a new TlsStream to the specified name_server connecting from a specific address.
+///
+/// # Arguments
+///
+/// * `name_server` - IP and Port for the remote DNS resolver
+/// * `bind_addr` - IP and port to connect from
+/// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+#[allow(clippy::type_complexity)]
+pub fn tls_connect_with_bind_addr<S: Connect>(
+    name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
@@ -98,6 +128,7 @@ pub fn tls_connect<S: Connect>(
     let stream = Box::pin(connect_tls(
         tls_connector,
         name_server,
+        bind_addr,
         dns_name,
         outbound_messages,
     ));
@@ -108,10 +139,11 @@ pub fn tls_connect<S: Connect>(
 async fn connect_tls<S: Connect>(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
     outbound_messages: StreamReceiver,
 ) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
-    let tcp = S::connect(name_server).await?;
+    let tcp = S::connect_with_bind(name_server, bind_addr).await?;
 
     let dns_name = match dns_name.as_str().try_into() {
         Ok(name) => name,

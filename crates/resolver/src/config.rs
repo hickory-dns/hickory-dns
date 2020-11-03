@@ -402,6 +402,8 @@ pub struct NameServerConfig {
     #[cfg_attr(feature = "serde-config", serde(skip))]
     /// optional configuration for the tls client
     pub tls_config: Option<TlsClientConfig>,
+    /// The client address (IP and port) to use for connecting to the server.
+    pub bind_addr: Option<SocketAddr>,
 }
 
 impl fmt::Display for NameServerConfig {
@@ -478,6 +480,7 @@ impl NameServerConfigGroup {
                 trust_nx_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
+                bind_addr: None,
             };
             let tcp = NameServerConfig {
                 socket_addr: SocketAddr::new(*ip, port),
@@ -486,6 +489,7 @@ impl NameServerConfigGroup {
                 trust_nx_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
+                bind_addr: None,
             };
 
             name_servers.push(udp);
@@ -515,6 +519,7 @@ impl NameServerConfigGroup {
                 trust_nx_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
+                bind_addr: None,
             };
 
             name_servers.push(config);
@@ -647,6 +652,14 @@ impl NameServerConfigGroup {
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn with_client_config(self, client_config: Arc<ClientConfig>) -> Self {
         Self(self.0, Some(TlsClientConfig(client_config)))
+    }
+
+    /// Sets the client address (IP and port) to connect from on all name servers.
+    pub fn with_bind_addr(mut self, bind_addr: Option<SocketAddr>) -> Self {
+        for server in &mut self.0 {
+            server.bind_addr = bind_addr;
+        }
+        self
     }
 }
 

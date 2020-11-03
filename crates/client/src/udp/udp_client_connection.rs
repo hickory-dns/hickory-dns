@@ -25,6 +25,7 @@ use tokio::net::UdpSocket;
 #[derive(Clone, Copy)]
 pub struct UdpClientConnection {
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     timeout: Duration,
 }
 
@@ -40,8 +41,24 @@ impl UdpClientConnection {
 
     /// Allows a custom timeout
     pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> ClientResult<Self> {
+        Self::with_bind_addr_and_timeout(name_server, None, timeout)
+    }
+
+    /// Creates a new client connection. With a default timeout of 5 seconds
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - address of the name server to use for queries
+    /// * `bind_addr` - IP address and port to connect from
+    /// * `timeout` - connection timeout
+    pub fn with_bind_addr_and_timeout(
+        name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
+        timeout: Duration,
+    ) -> ClientResult<Self> {
         Ok(UdpClientConnection {
             name_server,
+            bind_addr,
             timeout,
         })
     }
@@ -52,6 +69,11 @@ impl ClientConnection for UdpClientConnection {
     type SenderFuture = UdpClientConnect<UdpSocket, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        UdpClientStream::with_timeout_and_signer(self.name_server, self.timeout, signer)
+        UdpClientStream::with_timeout_and_signer_and_bind_addr(
+            self.name_server,
+            self.timeout,
+            signer,
+            self.bind_addr,
+        )
     }
 }

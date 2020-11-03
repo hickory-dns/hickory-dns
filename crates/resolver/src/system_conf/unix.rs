@@ -67,6 +67,7 @@ fn into_resolver_config(
             trust_nx_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
+            bind_addr: None,
         });
         nameservers.push(NameServerConfig {
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
@@ -75,6 +76,7 @@ fn into_resolver_config(
             trust_nx_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
+            bind_addr: None,
         });
     }
     if nameservers.is_empty() {
@@ -126,6 +128,7 @@ mod tests {
                 trust_nx_responses: false,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
+                bind_addr: None,
             },
             NameServerConfig {
                 socket_addr: addr,
@@ -134,6 +137,7 @@ mod tests {
                 trust_nx_responses: false,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
+                bind_addr: None,
             },
         ]
     }

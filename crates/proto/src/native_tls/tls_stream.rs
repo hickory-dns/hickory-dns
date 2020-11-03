@@ -67,6 +67,7 @@ pub fn tls_from_stream<S: Connect>(
 pub struct TlsStreamBuilder<S> {
     ca_chain: Vec<Certificate>,
     identity: Option<Identity>,
+    bind_addr: Option<SocketAddr>,
     marker: PhantomData<S>,
 }
 
@@ -76,6 +77,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
+            bind_addr: None,
             marker: PhantomData,
         }
     }
@@ -91,6 +93,11 @@ impl<S: Connect> TlsStreamBuilder<S> {
     #[cfg(feature = "mtls")]
     pub fn identity(&mut self, identity: Identity) {
         self.identity = Some(identity);
+    }
+
+    /// Sets the address to connect from.
+    pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
+        self.bind_addr = Some(bind_addr);
     }
 
     /// Creates a new TlsStream to the specified name_server
@@ -145,7 +152,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;
 
-        let tcp_stream = S::connect(name_server).await;
+        let tcp_stream = S::connect_with_bind(name_server, self.bind_addr).await;
 
         // TODO: for some reason the above wouldn't accept a ?
         let tcp_stream = match tcp_stream {

@@ -95,6 +95,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
             trust_nx_responses,
             #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
             tls_config: None,
+            bind_addr: None,
         },
         options,
         client,

@@ -22,11 +22,15 @@ use crate::name_server::RuntimeProvider;
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream<R: RuntimeProvider>(
     socket_addr: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
-    let tls_builder = TlsClientStreamBuilder::new();
+    let mut tls_builder = TlsClientStreamBuilder::new();
+    if let Some(bind_addr) = bind_addr {
+        tls_builder.bind_addr(bind_addr);
+    }
     tls_builder.build(socket_addr, dns_name)
 }

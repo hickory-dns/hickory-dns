@@ -60,11 +60,17 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
         self.0.identity(pkcs12);
     }
 
+    /// Sets the address to connect from.
+    pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
+        self.0.bind_addr(bind_addr);
+    }
+
     /// Creates a new TlsStream to the specified name_server
     ///
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `bind_addr` - IP and port to connect from
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     #[allow(clippy::type_complexity)]
     pub fn build(

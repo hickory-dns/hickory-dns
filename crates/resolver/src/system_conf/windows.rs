@@ -35,6 +35,7 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
             trust_nx_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
+            bind_addr: None,
         });
         name_servers.push(NameServerConfig {
             socket_addr,
@@ -43,6 +44,7 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
             trust_nx_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
+            bind_addr: None,
         });
     }
     Ok(name_servers)

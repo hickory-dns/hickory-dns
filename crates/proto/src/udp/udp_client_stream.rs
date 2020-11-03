@@ -35,6 +35,7 @@ where
     MF: MessageFinalizer,
 {
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     timeout: Duration,
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
@@ -65,7 +66,22 @@ impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> UdpClientConnect<S, NoopMessageFinalizer> {
-        Self::with_timeout_and_signer(name_server, timeout, None)
+        Self::with_bind_addr_and_timeout(name_server, None, timeout)
+    }
+
+    /// Constructs a new UdpStream for a client to the specified SocketAddr.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `bind_addr` - the IP and port to connect from
+    /// * `timeout` - connection timeout
+    pub fn with_bind_addr_and_timeout(
+        name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
+        timeout: Duration,
+    ) -> UdpClientConnect<S, NoopMessageFinalizer> {
+        Self::with_timeout_and_signer_and_bind_addr(name_server, timeout, None, bind_addr)
     }
 }
 
@@ -82,7 +98,30 @@ impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
         signer: Option<Arc<MF>>,
     ) -> UdpClientConnect<S, MF> {
         UdpClientConnect {
-            name_server: Some(name_server),
+            name_server,
+            bind_addr: None,
+            timeout,
+            signer,
+            marker: PhantomData::<S>,
+        }
+    }
+
+    /// Constructs a new TcpStream for a client to the specified SocketAddr.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `timeout` - connection timeout
+    /// * `bind_addr` - the IP address and port to connect from
+    pub fn with_timeout_and_signer_and_bind_addr(
+        name_server: SocketAddr,
+        timeout: Duration,
+        signer: Option<Arc<MF>>,
+        bind_addr: Option<SocketAddr>,
+    ) -> UdpClientConnect<S, MF> {
+        UdpClientConnect {
+            name_server,
+            bind_addr,
             timeout,
             signer,
             marker: PhantomData::<S>,
@@ -146,10 +185,13 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 
         let message_id = message.id();
         let message = SerialMessage::new(bytes, self.name_server);
+        let bind_addr = self.bind_addr;
 
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
-            Box::pin(send_serial_message::<S>(message, message_id, verifier)),
+            Box::pin(send_serial_message::<S>(
+                message, message_id, verifier, bind_addr,
+            )),
         )
         .into()
     }
@@ -183,7 +225,8 @@ where
     S: Send,
     MF: MessageFinalizer,
 {
-    name_server: Option<SocketAddr>,
+    name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     timeout: Duration,
     signer: Option<Arc<MF>>,
     marker: PhantomData<S>,
@@ -195,10 +238,8 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
         // TODO: this doesn't need to be a future?
         Poll::Ready(Ok(UdpClientStream::<S, MF> {
-            name_server: self
-                .name_server
-                .take()
-                .expect("UdpClientConnect invalid state: name_server"),
+            name_server: self.name_server,
+            bind_addr: self.bind_addr,
             is_shutdown: false,
             timeout: self.timeout,
             signer: self.signer.take(),
@@ -211,9 +252,10 @@ async fn send_serial_message<S: UdpSocket + Send>(
     msg: SerialMessage,
     msg_id: u16,
     verifier: Option<MessageVerifier>,
+    bind_addr: Option<SocketAddr>,
 ) -> Result<DnsResponse, ProtoError> {
     let name_server = msg.addr();
-    let socket: S = NextRandomUdpSocket::new(&name_server).await?;
+    let socket: S = NextRandomUdpSocket::new(&name_server, &bind_addr).await?;
     let bytes = msg.bytes();
     let addr = msg.addr();
     let len_sent: usize = socket.send_to(bytes, addr).await?;

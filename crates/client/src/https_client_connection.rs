@@ -23,6 +23,7 @@ use crate::client::{ClientConnection, Signer};
 #[derive(Clone)]
 pub struct HttpsClientConnection<T> {
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Arc<ClientConfig>,
     marker: PhantomData<T>,
@@ -45,8 +46,30 @@ impl<T> HttpsClientConnection<T> {
         dns_name: String,
         client_config: Arc<ClientConfig>,
     ) -> Self {
+        Self::new_with_bind_addr(name_server, None, dns_name, client_config)
+    }
+
+    /// Creates a new client connection with a specified source address.
+    ///
+    /// *Note* this has side affects of starting the listening event_loop. Expect this to change in
+    /// the future.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `bind_addr` - IP and port to connect from
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `client_config` - The TLS config    
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new_with_bind_addr(
+        name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
+        dns_name: String,
+        client_config: Arc<ClientConfig>,
+    ) -> Self {
         Self {
             name_server,
+            bind_addr,
             dns_name,
             client_config,
             marker: PhantomData,
@@ -67,8 +90,11 @@ where
         _signer: Option<Arc<Signer>>,
     ) -> Self::SenderFuture {
         // TODO: maybe signer needs to be applied in https...
-        let https_builder =
+        let mut https_builder =
             HttpsClientStreamBuilder::with_client_config(Arc::clone(&self.client_config));
+        if let Some(bind_addr) = self.bind_addr {
+            https_builder.bind_addr(bind_addr);
+        }
         https_builder.build(self.name_server, self.dns_name.clone())
     }
 }

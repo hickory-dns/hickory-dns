@@ -10,8 +10,10 @@ use crate::{Executor, Time};
 
 /// Test next random udpsocket.
 pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut exec: E) {
-    let (stream, _) =
-        UdpStream::<S>::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
+    let (stream, _) = UdpStream::<S>::new(
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52),
+        None,
+    );
     drop(
         exec.block_on(stream)
             .expect("failed to get next socket address"),

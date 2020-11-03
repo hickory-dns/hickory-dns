@@ -8,9 +8,10 @@
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
+use std::marker::PhantomData;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::{marker::PhantomData, net::SocketAddr};
 
 use futures::Future;
 use rustls::ClientConfig;
@@ -18,7 +19,7 @@ use rustls::ClientConfig;
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::client::Signer;
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::rustls::{tls_client_connect, TlsClientStream};
+use trust_dns_proto::rustls::{tls_client_connect_with_bind_addr, TlsClientStream};
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
@@ -27,6 +28,7 @@ use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 /// Use with `trust_dns_client::client::Client` impls
 pub struct TlsClientConnection<T> {
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Arc<ClientConfig>,
     marker: PhantomData<T>,
@@ -35,11 +37,13 @@ pub struct TlsClientConnection<T> {
 impl<T> TlsClientConnection<T> {
     pub fn new(
         name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
         dns_name: String,
         client_config: Arc<ClientConfig>,
     ) -> Self {
         TlsClientConnection {
             name_server,
+            bind_addr,
             dns_name,
             client_config,
             marker: PhantomData,
@@ -57,8 +61,9 @@ impl<T: Connect> ClientConnection for TlsClientConnection<T> {
     >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (tls_client_stream, handle) = tls_client_connect(
+        let (tls_client_stream, handle) = tls_client_connect_with_bind_addr(
             self.name_server,
+            self.bind_addr,
             self.dns_name.clone(),
             self.client_config.clone(),
         );
