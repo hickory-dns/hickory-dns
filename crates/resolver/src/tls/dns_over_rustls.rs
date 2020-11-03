@@ -16,7 +16,7 @@ use futures_util::future::Future;
 use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
 
 use proto::error::ProtoError;
-use proto::rustls::{tls_client_connect, TlsClientStream};
+use proto::rustls::{tls_client_connect_with_bind_addr, TlsClientStream};
 use proto::BufDnsStreamHandle;
 
 use crate::config::TlsClientConfig;
@@ -53,6 +53,7 @@ lazy_static! {
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_tls_stream<R: RuntimeProvider>(
     socket_addr: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> (
@@ -63,6 +64,7 @@ pub(crate) fn new_tls_stream<R: RuntimeProvider>(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
-    let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config);
+    let (stream, handle) =
+        tls_client_connect_with_bind_addr(socket_addr, bind_addr, dns_name, client_config);
     (Box::pin(stream), handle)
 }

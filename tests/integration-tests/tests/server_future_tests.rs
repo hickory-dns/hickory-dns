@@ -284,7 +284,7 @@ fn lazy_tls_client(
         .with_root_certificates(root_store)
         .with_no_client_auth();
 
-    TlsClientConnection::new(ipaddr, dns_name, Arc::new(config))
+    TlsClientConnection::new(ipaddr, None, dns_name, Arc::new(config))
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)

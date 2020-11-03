@@ -26,10 +26,28 @@ pub use self::tcp_stream::{Connect, DnsTcpStream, TcpStream};
 pub mod tokio {
     use std::io;
     use std::net::SocketAddr;
+    use tokio::net::TcpSocket as TokioTcpSocket;
     use tokio::net::TcpStream as TokioTcpStream;
 
     pub async fn connect(addr: &SocketAddr) -> Result<TokioTcpStream, io::Error> {
-        let stream = TokioTcpStream::connect(addr).await?;
+        connect_with_bind(addr, &None).await
+    }
+
+    pub async fn connect_with_bind(
+        addr: &SocketAddr,
+        bind_addr: &Option<SocketAddr>,
+    ) -> Result<TokioTcpStream, io::Error> {
+        let stream = match bind_addr {
+            Some(bind_addr) => {
+                let socket = match bind_addr {
+                    SocketAddr::V4(_) => TokioTcpSocket::new_v4()?,
+                    SocketAddr::V6(_) => TokioTcpSocket::new_v6()?,
+                };
+                socket.bind(*bind_addr)?;
+                socket.connect(*addr).await?
+            }
+            None => TokioTcpStream::connect(addr).await?,
+        };
         stream.set_nodelay(true)?;
         Ok(stream)
     }

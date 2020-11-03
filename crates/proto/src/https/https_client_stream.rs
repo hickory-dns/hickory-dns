@@ -282,12 +282,21 @@ impl Stream for HttpsClientStream {
 #[derive(Clone)]
 pub struct HttpsClientStreamBuilder {
     client_config: Arc<ClientConfig>,
+    bind_addr: Option<SocketAddr>,
 }
 
 impl HttpsClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
-        HttpsClientStreamBuilder { client_config }
+        HttpsClientStreamBuilder {
+            client_config,
+            bind_addr: None,
+        }
+    }
+
+    /// Sets the address to connect from.
+    pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
+        self.bind_addr = Some(bind_addr);
     }
 
     /// Creates a new HttpsStream to the specified name_server
@@ -314,6 +323,7 @@ impl HttpsClientStreamBuilder {
 
         HttpsClientConnect::<S>(HttpsClientConnectState::ConnectTcp {
             name_server,
+            bind_addr: self.bind_addr,
             tls: Some(tls),
         })
     }
@@ -348,6 +358,7 @@ where
 {
     ConnectTcp {
         name_server: SocketAddr,
+        bind_addr: Option<SocketAddr>,
         tls: Option<TlsConfig>,
     },
     TcpConnecting {
@@ -393,10 +404,11 @@ where
             let next = match *self {
                 HttpsClientConnectState::ConnectTcp {
                     name_server,
+                    bind_addr,
                     ref mut tls,
                 } => {
                     debug!("tcp connecting to: {}", name_server);
-                    let connect = S::connect(name_server);
+                    let connect = S::connect_with_bind(name_server, bind_addr);
                     HttpsClientConnectState::TcpConnecting {
                         connect,
                         name_server,

@@ -12,6 +12,7 @@ use crate::config::TlsClientConfig;
 #[allow(clippy::type_complexity)]
 pub(crate) fn new_https_stream<R>(
     socket_addr: SocketAddr,
+    bind_addr: Option<SocketAddr>,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>
@@ -23,7 +24,10 @@ where
         |TlsClientConfig(client_config)| client_config,
     );
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    let mut https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+    if let Some(bind_addr) = bind_addr {
+        https_builder.bind_addr(bind_addr);
+    }
     DnsExchange::connect(https_builder.build::<R::Tcp>(socket_addr, dns_name))
 }
 

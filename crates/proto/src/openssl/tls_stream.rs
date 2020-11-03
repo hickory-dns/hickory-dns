@@ -129,13 +129,16 @@ async fn connect_tls<S: Connect>(
     tls_config: ConnectConfiguration,
     dns_name: String,
     name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
 ) -> Result<TokioTlsStream<AsyncIoStdAsTokio<S>>, io::Error> {
-    let tcp = S::connect(name_server).await.map_err(|e| {
-        io::Error::new(
-            io::ErrorKind::ConnectionRefused,
-            format!("tls error: {}", e),
-        )
-    })?;
+    let tcp = S::connect_with_bind(name_server, bind_addr)
+        .await
+        .map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("tls error: {}", e),
+            )
+        })?;
     let mut stream = tls_config
         .into_ssl(&dns_name)
         .and_then(|ssl| TokioTlsStream::new(ssl, AsyncIoStdAsTokio(tcp)))
@@ -154,6 +157,7 @@ async fn connect_tls<S: Connect>(
 pub struct TlsStreamBuilder<S> {
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12>,
+    bind_addr: Option<SocketAddr>,
     marker: PhantomData<S>,
 }
 
@@ -163,6 +167,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
+            bind_addr: None,
             marker: PhantomData,
         }
     }
@@ -178,6 +183,11 @@ impl<S: Connect> TlsStreamBuilder<S> {
     #[cfg(feature = "mtls")]
     pub fn identity(&mut self, pkcs12: ParsedPkcs12) {
         self.identity = Some(pkcs12);
+    }
+
+    /// Sets the address to connect from.
+    pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
+        self.bind_addr = Some(bind_addr);
     }
 
     /// Creates a new TlsStream to the specified name_server
@@ -248,7 +258,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream = Box::pin(
-            connect_tls(tls_config, dns_name, name_server).map_ok(move |s| {
+            connect_tls(tls_config, dns_name, name_server, self.bind_addr).map_ok(move |s| {
                 TcpStream::from_stream_with_receiver(
                     AsyncIoTokioAsStd(s),
                     name_server,

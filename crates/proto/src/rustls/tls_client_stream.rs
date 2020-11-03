@@ -18,7 +18,7 @@ use rustls::ClientConfig;
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
-use crate::rustls::tls_stream::tls_connect;
+use crate::rustls::tls_stream::tls_connect_with_bind_addr;
 use crate::tcp::{Connect, TcpClientStream};
 use crate::xfer::BufDnsStreamHandle;
 
@@ -31,6 +31,7 @@ pub type TlsClientStream<S> =
 /// # Arguments
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
+/// * `bind_addr` - IP and port to connect from
 /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
 #[allow(clippy::type_complexity)]
 pub fn tls_client_connect<S: Connect>(
@@ -41,7 +42,28 @@ pub fn tls_client_connect<S: Connect>(
     Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send + Unpin>>,
     BufDnsStreamHandle,
 ) {
-    let (stream_future, sender) = tls_connect(name_server, dns_name, client_config);
+    tls_client_connect_with_bind_addr(name_server, None, dns_name, client_config)
+}
+
+/// Creates a new TlsStream to the specified name_server connecting from a specific address.
+///
+/// # Arguments
+///
+/// * `name_server` - IP and Port for the remote DNS resolver
+/// * `bind_addr` - IP and port to connect from
+/// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+#[allow(clippy::type_complexity)]
+pub fn tls_client_connect_with_bind_addr<S: Connect>(
+    name_server: SocketAddr,
+    bind_addr: Option<SocketAddr>,
+    dns_name: String,
+    client_config: Arc<ClientConfig>,
+) -> (
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send + Unpin>>,
+    BufDnsStreamHandle,
+) {
+    let (stream_future, sender) =
+        tls_connect_with_bind_addr(name_server, bind_addr, dns_name, client_config);
 
     let new_future = Box::pin(
         stream_future

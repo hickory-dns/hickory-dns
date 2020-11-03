@@ -52,6 +52,11 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
         self.0.identity(pkcs12);
     }
 
+    /// Sets the address to connect from.
+    pub fn bind_addr(&mut self, bind_addr: SocketAddr) {
+        self.0.bind_addr(bind_addr);
+    }
+
     /// Creates a new TlsStream to the specified name_server
     ///
     /// # Arguments

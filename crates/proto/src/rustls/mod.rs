@@ -11,8 +11,10 @@ pub mod tls_client_stream;
 pub mod tls_server;
 pub mod tls_stream;
 
-pub use self::tls_client_stream::{tls_client_connect, TlsClientStream};
-pub use self::tls_stream::{tls_connect, tls_from_stream, TlsStream};
+pub use self::tls_client_stream::{
+    tls_client_connect, tls_client_connect_with_bind_addr, TlsClientStream,
+};
+pub use self::tls_stream::{tls_connect, tls_connect_with_bind_addr, tls_from_stream, TlsStream};
 
 #[cfg(test)]
 pub(crate) mod tests;
