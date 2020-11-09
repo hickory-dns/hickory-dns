@@ -17,10 +17,7 @@ pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut e
 }
 
 /// Test udp_stream.
-pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
-    server_addr: IpAddr,
-    mut exec: E,
-) {
+pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr) {
     use crate::xfer::SerialMessage;
     use std::net::ToSocketAddrs;
 
@@ -37,7 +34,8 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
                 }
             }
 
-            panic!("timeout");
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .unwrap();
 
@@ -49,9 +47,10 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
         .set_write_timeout(Some(std::time::Duration::from_secs(5)))
         .unwrap(); // should receive something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
+    println!("server listening on: {}", server_addr);
 
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
-    let send_recv_times = 4;
+    let send_recv_times = 4u32;
 
     // an in and out server
     let server_handle = std::thread::Builder::new()
@@ -59,12 +58,14 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
         .spawn(move || {
             let mut buffer = [0_u8; 512];
 
-            for _ in 0..send_recv_times {
+            for _i in 0..send_recv_times {
                 // wait for some bytes...
+                //println!("receiving message: {}", _i);
                 let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
 
                 assert_eq!(&buffer[0..len], test_bytes);
 
+                //println!("sending message len back: {}", len);
                 // bounce them right back...
                 assert_eq!(
                     server.send_to(&buffer[0..len], addr).expect("send failed"),
@@ -82,23 +83,23 @@ pub fn udp_stream_test<S: UdpSocket + Send + 'static, E: Executor>(
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
-    let socket = exec
-        .block_on(S::bind(
-            &client_addr.to_socket_addrs().unwrap().next().unwrap(),
-        ))
+    println!("binding client socket");
+    let socket = S::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap())
+        .await
         .expect("could not create socket"); // some random address...
+    println!("bound client socket");
+
     let (mut stream, mut sender) = UdpStream::<S>::with_bound(socket);
 
-    for _ in 0..send_recv_times {
+    for _i in 0..send_recv_times {
         // test once
         sender
             .send(SerialMessage::new(test_bytes.to_vec(), server_addr))
             .unwrap();
-        let (buffer_and_addr, stream_tmp) = exec.block_on(stream.into_future());
-        stream = stream_tmp;
-        let message = buffer_and_addr
-            .expect("no buffer received")
-            .expect("error receiving buffer");
+        //println!("blocking on client stream: {}", _i);
+        let buffer_and_addr = stream.next().await;
+        //println!("got message");
+        let message = buffer_and_addr.expect("no message").expect("io error");
         assert_eq!(message.bytes(), test_bytes);
         assert_eq!(message.addr(), server_addr);
     }
@@ -136,7 +137,8 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
                 }
             }
 
-            panic!("timeout");
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .unwrap();
 

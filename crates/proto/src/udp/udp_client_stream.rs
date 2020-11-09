@@ -209,7 +209,7 @@ async fn send_serial_message<S: UdpSocket + Send>(
     msg_id: u16,
 ) -> Result<DnsResponse, ProtoError> {
     let name_server = msg.addr();
-    let mut socket: S = NextRandomUdpSocket::new(&name_server).await?;
+    let socket: S = NextRandomUdpSocket::new(&name_server).await?;
     let bytes = msg.bytes();
     let addr = &msg.addr();
     let len_sent: usize = socket.send_to(bytes, addr).await?;

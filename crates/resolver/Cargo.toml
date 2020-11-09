@@ -59,7 +59,7 @@ system-config = ["ipconfig", "resolv-conf"]
 mdns = ["trust-dns-proto/mdns"]
 
 testing = []
-tokio-runtime = ["tokio/rt-core", "trust-dns-proto/tokio-runtime"]
+tokio-runtime = ["tokio/rt", "trust-dns-proto/tokio-runtime"]
 
 [lib]
 name = "trust_dns_resolver"
@@ -77,7 +77,7 @@ rustls = {version  = "0.18", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.2"
 thiserror = "1.0.20"
-tokio = { version = "0.2.22", optional = true }
+tokio = { version = "0.3.0", optional = true }
 tokio-native-tls = { version = "0.1", optional = true }
 tokio-openssl = { version = "0.4.0", optional = true }
 tokio-rustls = { version = "0.14", optional = true }
