@@ -81,23 +81,26 @@ pub mod iocompat {
     use std::task::{Context, Poll};
 
     use futures_io::{AsyncRead, AsyncWrite};
-    use tokio::io::{AsyncRead as AsyncRead02, AsyncWrite as AsyncWrite02};
+    use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
     pub struct AsyncIo02As03<T>(pub T);
 
     impl<T> Unpin for AsyncIo02As03<T> {}
-    impl<R: AsyncRead02 + Unpin> AsyncRead for AsyncIo02As03<R> {
+    impl<R: TokioAsyncRead + Unpin> AsyncRead for AsyncIo02As03<R> {
         fn poll_read(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
             buf: &mut [u8],
         ) -> Poll<io::Result<usize>> {
-            Pin::new(&mut self.0).poll_read(cx, buf)
+            let mut buf = ReadBuf::new(buf);
+            let polled = Pin::new(&mut self.0).poll_read(cx, &mut buf);
+
+            polled.map_ok(|_| buf.filled().len())
         }
     }
 
-    impl<W: AsyncWrite02 + Unpin> AsyncWrite for AsyncIo02As03<W> {
+    impl<W: TokioAsyncWrite + Unpin> AsyncWrite for AsyncIo02As03<W> {
         fn poll_write(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -116,17 +119,20 @@ pub mod iocompat {
     /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
     pub struct AsyncIo03As02<T>(pub T);
 
-    impl<R: AsyncRead + Unpin> AsyncRead02 for AsyncIo03As02<R> {
+    impl<R: AsyncRead + Unpin> TokioAsyncRead for AsyncIo03As02<R> {
         fn poll_read(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
-            buf: &mut [u8],
-        ) -> Poll<io::Result<usize>> {
-            Pin::new(&mut self.get_mut().0).poll_read(cx, buf)
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            let buf = buf.initialized_mut();
+            Pin::new(&mut self.get_mut().0)
+                .poll_read(cx, buf)
+                .map_ok(|_| ())
         }
     }
 
-    impl<W: AsyncWrite + Unpin> AsyncWrite02 for AsyncIo03As02<W> {
+    impl<W: AsyncWrite + Unpin> TokioAsyncWrite for AsyncIo03As02<W> {
         fn poll_write(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -165,7 +171,7 @@ impl Executor for Runtime {
     }
 
     fn block_on<F: Future>(&mut self, future: F) -> F::Output {
-        self.block_on(future)
+        Runtime::block_on(self, future)
     }
 }
 
@@ -192,7 +198,7 @@ pub struct TokioTime;
 #[async_trait]
 impl Time for TokioTime {
     async fn delay_for(duration: Duration) {
-        tokio::time::delay_for(duration).await
+        tokio::time::sleep(duration).await
     }
 
     async fn timeout<F: 'static + Future + Send>(

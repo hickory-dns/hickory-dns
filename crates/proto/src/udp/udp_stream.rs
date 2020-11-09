@@ -13,7 +13,7 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use futures_util::stream::Stream;
-use futures_util::{future::Future, ready, FutureExt, TryFutureExt};
+use futures_util::{future::poll_fn, future::Future, ready, FutureExt, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
@@ -25,7 +25,7 @@ use crate::Time;
 #[async_trait]
 pub trait UdpSocket
 where
-    Self: Sized + Unpin,
+    Self: Send + Sync + Sized + Unpin,
 {
     /// Time implementation used for this type
     type Time: Time;
@@ -34,9 +34,9 @@ where
     async fn bind(addr: &SocketAddr) -> io::Result<Self>;
     /// Receive data from the socket and returns the number of bytes read and the address from
     /// where the data came on success.
-    async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
     /// Send data to the given address.
-    async fn send_to(&mut self, buf: &[u8], target: &SocketAddr) -> io::Result<usize>;
+    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize>;
 }
 
 /// A UDP stream of DNS binary packets
@@ -127,7 +127,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let (socket, outbound_messages) = self.pollable_split();
-        let mut socket = Pin::new(socket);
+        let socket = Pin::new(socket);
         let mut outbound_messages = Pin::new(outbound_messages);
 
         // this will not accept incoming data while there is data to send
@@ -153,10 +153,8 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
         let mut buf = [0u8; 4096];
         let (len, src) = ready!(socket.recv_from(&mut buf).poll_unpin(cx))?;
 
-        Poll::Ready(Some(Ok(SerialMessage::new(
-            buf.iter().take(len).cloned().collect(),
-            src,
-        ))))
+        let serial_message = SerialMessage::new(buf.iter().take(len).cloned().collect(), src);
+        Poll::Ready(Some(Ok(serial_message)))
     }
 }
 
@@ -232,12 +230,20 @@ impl UdpSocket for tokio::net::UdpSocket {
         tokio::net::UdpSocket::bind(addr).await
     }
 
-    async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.recv_from(buf).await
+    // TODO: add poll_recv_from and poll_send_to to be more efficient in allocations...
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        poll_fn(|cx| {
+            let mut buf = tokio::io::ReadBuf::new(buf);
+            let addr = ready!(tokio::net::UdpSocket::poll_recv_from(self, cx, &mut buf))?;
+            let len = buf.filled().len();
+
+            Poll::Ready(Ok((len, addr)))
+        })
+        .await
     }
 
-    async fn send_to(&mut self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
-        self.send_to(buf, target).await
+    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
+        poll_fn(|cx| tokio::net::UdpSocket::poll_send_to(self, cx, buf, target)).await
     }
 }
 
@@ -260,10 +266,9 @@ mod tests {
     fn test_udp_stream_ipv4() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_stream_test::<TokioUdpSocket, Runtime>(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            io_loop,
-        );
+        io_loop.block_on(udp_stream_test::<TokioUdpSocket>(IpAddr::V4(
+            Ipv4Addr::new(127, 0, 0, 1),
+        )));
     }
 
     #[test]
@@ -271,9 +276,8 @@ mod tests {
     fn test_udp_stream_ipv6() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_stream_test::<TokioUdpSocket, Runtime>(
-            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            io_loop,
-        );
+        io_loop.block_on(udp_stream_test::<TokioUdpSocket>(IpAddr::V6(
+            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
+        )));
     }
 }

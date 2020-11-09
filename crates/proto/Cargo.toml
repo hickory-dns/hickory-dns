@@ -40,7 +40,7 @@ dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
 dnssec = []
 testing = []
-tokio-runtime = ["tokio/rt-core", "tokio/udp", "tokio/tcp", "tokio/time"]
+tokio-runtime = ["tokio/net", "tokio/rt", "tokio/time", "tokio/rt-multi-thread"]
 default = ["tokio-runtime"]
 
 serde-config = ["serde"]
@@ -78,11 +78,11 @@ serde = { version = "1.0", optional = true }
 smallvec = "1.2"
 socket2 = { version = "0.3.12", optional = true }
 thiserror = "1.0.20"
-tokio = { version = "0.2.22", optional = true }
+tokio = { version = "0.3.0", optional = true }
 url = "2.1.0"
 wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bindgen" }
 
 [dev-dependencies]
 env_logger = "0.8"
 futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
-tokio = { version = "0.2.22", features = ["rt-core", "time"] }
+tokio = { version = "0.3.0", features = ["rt", "time"] }

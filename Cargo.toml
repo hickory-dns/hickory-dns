@@ -12,3 +12,7 @@ members = ["crates/proto",
            "util",
            "tests/compatibility-tests",
            "tests/integration-tests"]
+
+# [patch.crates-io]
+# tokio = { path = "../tokio/tokio" }
+# mio = { git = "https://github.com/tokio-rs/mio.git" }
