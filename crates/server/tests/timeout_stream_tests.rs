@@ -13,7 +13,7 @@ fn test_no_timeout() {
     #[allow(deprecated)]
     let sequence =
         iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(|e| io::Error::new(io::ErrorKind::Other, e));
-    let mut core = Runtime::new().expect("could not get core");
+    let core = Runtime::new().expect("could not get core");
 
     let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360));
 
@@ -43,7 +43,7 @@ impl Stream for NeverStream {
 
 #[test]
 fn test_timeout() {
-    let mut core = Runtime::new().expect("could not get core");
+    let core = Runtime::new().expect("could not get core");
     let timeout_stream = TimeoutStream::new(NeverStream {}, Duration::from_millis(1));
 
     assert!(core

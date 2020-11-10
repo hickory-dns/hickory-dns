@@ -7,14 +7,15 @@ use std::str::FromStr;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::rr::{Name, RecordType};
+use trust_dns_resolver::TokioHandle;
 use trust_dns_server::authority::{Authority, LookupObject};
 use trust_dns_server::store::forwarder::ForwardAuthority;
 
 #[ignore]
 #[test]
 fn test_lookup() {
-    let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let forwarder = ForwardAuthority::new(runtime.handle().clone());
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let forwarder = ForwardAuthority::new(TokioHandle);
     let forwarder = runtime
         .block_on(forwarder)
         .expect("failed to create forwarder");

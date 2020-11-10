@@ -7,7 +7,7 @@ use std::time::Duration;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::FutureExt;
 use log::{debug, warn};
-use tokio::time::Delay;
+use tokio::time::Sleep;
 
 /// This wraps the underlying Stream in a timeout.
 ///
@@ -15,7 +15,7 @@ use tokio::time::Delay;
 pub struct TimeoutStream<S> {
     stream: S,
     timeout_duration: Duration,
-    timeout: Option<Delay>,
+    timeout: Option<Sleep>,
 }
 
 impl<S> TimeoutStream<S> {
@@ -34,9 +34,9 @@ impl<S> TimeoutStream<S> {
         }
     }
 
-    fn timeout(timeout_duration: Duration) -> Option<Delay> {
+    fn timeout(timeout_duration: Duration) -> Option<Sleep> {
         if timeout_duration > Duration::from_millis(0) {
-            Some(tokio::time::delay_for(timeout_duration))
+            Some(tokio::time::sleep(timeout_duration))
         } else {
             None
         }

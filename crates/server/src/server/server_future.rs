@@ -17,12 +17,11 @@ use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::net;
-use tokio::runtime::Handle;
 use tokio::task::JoinHandle;
 
 use crate::authority::MessageRequest;
 use crate::proto::error::ProtoError;
-use crate::proto::iocompat::AsyncIo02As03;
+use crate::proto::iocompat::AsyncIoTokioAsStd;
 use crate::proto::op::Edns;
 use crate::proto::serialize::binary::{BinDecodable, BinDecoder};
 use crate::proto::tcp::TcpStream;
@@ -54,17 +53,13 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
         debug!("registering udp: {:?}", socket);
 
-        let spawner = Handle::current();
-
         // create the new UdpStream
         let (mut buf_stream, stream_handle) = UdpStream::with_bound(socket);
         //let request_stream = RequestStream::new(buf_stream, stream_handle);
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
-        let join_handle = spawner.spawn({
-            let spawner = spawner.clone();
-
+        let join_handle = tokio::spawn({
             async move {
                 while let Some(message) = buf_stream.next().await {
                     let message = match message {
@@ -80,7 +75,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let handler = handler.clone();
                     let stream_handle = stream_handle.clone();
 
-                    spawner.spawn(async move {
+                    tokio::spawn(async move {
                         self::handle_raw_request(message, handler, stream_handle).await;
                     });
                 }
@@ -114,18 +109,14 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn register_listener(&mut self, listener: net::TcpListener, timeout: Duration) {
         debug!("register tcp: {:?}", listener);
 
-        let spawner = Handle::current();
         let handler = self.handler.clone();
 
         // for each incoming request...
-        let join = spawner.spawn({
-            let spawner = spawner.clone();
-
+        let join = tokio::spawn({
             async move {
                 let mut listener = listener;
-                let mut incoming = listener.incoming();
 
-                while let Some(tcp_stream) = incoming.next().await {
+                while let Some(tcp_stream) = listener.next().await {
                     let tcp_stream = match tcp_stream {
                         Ok(t) => t,
                         Err(e) => {
@@ -137,12 +128,12 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let handler = handler.clone();
 
                     // and spawn to the io_loop
-                    spawner.spawn(async move {
+                    tokio::spawn(async move {
                         let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("accepted request from: {}", src_addr);
                         // take the created stream...
                         let (buf_stream, stream_handle) =
-                            TcpStream::from_stream(AsyncIo02As03(tcp_stream), src_addr);
+                            TcpStream::from_stream(AsyncIoTokioAsStd(tcp_stream), src_addr);
                         let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
                         //let request_stream = RequestStream::new(timeout_stream, stream_handle);
 
@@ -265,7 +256,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         };
                         debug!("accepted TLS request from: {}", src_addr);
                         let (buf_stream, stream_handle) =
-                            TlsStream::from_stream(AsyncIo02As03(tls_stream), src_addr);
+                            TlsStream::from_stream(AsyncIoTokioAsStd(tls_stream), src_addr);
                         let mut timeout_stream = TimeoutStream::new(buf_stream, timeout);
                         while let Some(message) = timeout_stream.next().await {
                             let message = match message {
@@ -350,7 +341,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         use tokio_rustls::TlsAcceptor;
         use trust_dns_rustls::{tls_from_stream, tls_server};
 
-        let spawner = Handle::current();
         let handler = self.handler.clone();
 
         debug!("registered tcp: {:?}", listener);
@@ -365,14 +355,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        let join = spawner.spawn({
-            let spawner = spawner.clone();
-
+        let join = tokio::spawn({
             async move {
                 let mut listener = listener;
-                let mut incoming = listener.incoming();
 
-                while let Some(tcp_stream) = incoming.next().await {
+                while let Some(tcp_stream) = listener.next().await {
                     let tcp_stream = match tcp_stream {
                         Ok(t) => t,
                         Err(e) => {
@@ -385,7 +372,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let tls_acceptor = tls_acceptor.clone();
 
                     // kick out to a different task immediately, let them do the TLS handshake
-                    spawner.spawn(async move {
+                    tokio::spawn(async move {
                         let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting TLS request from: {}", src_addr);
 
@@ -393,7 +380,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         let tls_stream = tls_acceptor.accept(tcp_stream).await;
 
                         let tls_stream = match tls_stream {
-                            Ok(tls_stream) => AsyncIo02As03(tls_stream),
+                            Ok(tls_stream) => AsyncIoTokioAsStd(tls_stream),
                             Err(e) => {
                                 debug!("tls handshake src: {} error: {}", src_addr, e);
                                 return;
@@ -488,7 +475,6 @@ impl<T: RequestHandler> ServerFuture<T> {
         use crate::server::https_handler::h2_handler;
         use trust_dns_rustls::tls_server;
 
-        let spawner = Handle::current();
         let dns_hostname: Arc<str> = Arc::from(dns_hostname);
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
@@ -504,16 +490,13 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        let join = spawner.spawn({
-            let spawner = spawner.clone();
-
+        let join = tokio::spawn({
             async move {
                 let mut listener = listener;
-                let mut incoming = listener.incoming();
 
                 let dns_hostname = dns_hostname;
 
-                while let Some(tcp_stream) = incoming.next().await {
+                while let Some(tcp_stream) = listener.next().await {
                     let tcp_stream = match tcp_stream {
                         Ok(t) => t,
                         Err(e) => {
@@ -526,7 +509,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let tls_acceptor = tls_acceptor.clone();
                     let dns_hostname = dns_hostname.clone();
 
-                    spawner.spawn(async move {
+                    tokio::spawn(async move {
                         let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting HTTPS request from: {}", src_addr);
 
