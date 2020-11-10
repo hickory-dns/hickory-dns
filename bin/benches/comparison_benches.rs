@@ -26,7 +26,7 @@ use trust_dns_client::rr::*;
 use trust_dns_client::tcp::*;
 use trust_dns_client::udp::*;
 use trust_dns_proto::error::*;
-use trust_dns_proto::iocompat::AsyncIo02As03;
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::xfer::*;
 
 fn find_test_port() -> u16 {
@@ -50,7 +50,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
     let mut started = false;
 
     for _ in 0..20 {
-        let mut io_loop = Runtime::new().unwrap();
+        let io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = ("127.0.0.1", server_port)
             .to_socket_addrs()
             .unwrap()
@@ -118,7 +118,7 @@ where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender,
 {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
     io_loop.spawn(bg);
@@ -183,7 +183,7 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
     bench(b, mp);
 
@@ -258,7 +258,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
     bench(b, mp);
 

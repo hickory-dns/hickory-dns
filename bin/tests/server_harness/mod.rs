@@ -91,7 +91,9 @@ where
             }
 
             kill_named();
-            panic!("timeout");
+
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .expect("could not start thread killer");
 
