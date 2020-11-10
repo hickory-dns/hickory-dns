@@ -74,11 +74,10 @@ pub trait Client {
 
     /// This will create a new AsyncClient and spawn it into a new Runtime
     fn spawn_client(&self) -> ClientResult<(Self::Handle, Runtime)> {
-        let mut builder = runtime::Builder::new();
-        builder.basic_scheduler();
+        let mut builder = runtime::Builder::new_current_thread();
         builder.enable_all();
 
-        let mut reactor = builder.build()?;
+        let reactor = builder.build()?;
         let client = self.new_future();
 
         let (client, bg) = reactor.block_on(client)?;
@@ -105,7 +104,7 @@ pub trait Client {
         query_class: DNSClass,
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.query(name.clone(), query_class, query_type))
     }
@@ -128,7 +127,7 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.notify(name, query_class, query_type, rrset))
     }
@@ -170,7 +169,7 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.create(rrset, zone_origin))
     }
@@ -213,7 +212,7 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.append(rrset, zone_origin, must_exist))
     }
@@ -269,7 +268,7 @@ pub trait Client {
         CR: Into<RecordSet>,
         NR: Into<RecordSet>,
     {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.compare_and_swap(current, new, zone_origin))
     }
@@ -313,7 +312,7 @@ pub trait Client {
     where
         R: Into<RecordSet>,
     {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.delete_by_rdata(record, zone_origin))
     }
@@ -354,7 +353,7 @@ pub trait Client {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.delete_rrset(record, zone_origin))
     }
@@ -389,7 +388,7 @@ pub trait Client {
         zone_origin: Name,
         dns_class: DNSClass,
     ) -> ClientResult<DnsResponse> {
-        let (mut client, mut runtime) = self.spawn_client()?;
+        let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
     }
