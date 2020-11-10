@@ -19,9 +19,12 @@ use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, DnsStreamHandle};
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
+use trust_dns_proto::TokioTime;
+
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_example;

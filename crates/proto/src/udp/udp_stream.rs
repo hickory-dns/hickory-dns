@@ -13,7 +13,7 @@ use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use futures_util::stream::Stream;
-use futures_util::{future::poll_fn, future::Future, ready, FutureExt, TryFutureExt};
+use futures_util::{future::Future, ready, FutureExt, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
@@ -232,7 +232,7 @@ impl UdpSocket for tokio::net::UdpSocket {
 
     // TODO: add poll_recv_from and poll_send_to to be more efficient in allocations...
     async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        poll_fn(|cx| {
+        futures_util::future::poll_fn(|cx| {
             let mut buf = tokio::io::ReadBuf::new(buf);
             let addr = ready!(tokio::net::UdpSocket::poll_recv_from(self, cx, &mut buf))?;
             let len = buf.filled().len();
@@ -243,7 +243,10 @@ impl UdpSocket for tokio::net::UdpSocket {
     }
 
     async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
-        poll_fn(|cx| tokio::net::UdpSocket::poll_send_to(self, cx, buf, target)).await
+        futures_util::future::poll_fn(|cx| {
+            tokio::net::UdpSocket::poll_send_to(self, cx, buf, target)
+        })
+        .await
     }
 }
 
