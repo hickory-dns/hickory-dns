@@ -87,7 +87,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 }
             }
 
-            panic!("timeout");
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .unwrap();
 

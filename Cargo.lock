@@ -1616,6 +1616,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-native-tls"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "501c8252b73bd01379aaae1521523c2629ff1bc6ea46c29e0baff515cee60f1b"
+dependencies = [
+ "native-tls",
+ "tokio 0.3.3",
+]
+
+[[package]]
 name = "tokio-openssl"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1844,7 +1854,7 @@ dependencies = [
  "futures-util",
  "native-tls",
  "tokio 0.3.3",
- "tokio-native-tls",
+ "tokio-native-tls 0.2.0",
  "trust-dns-proto",
 ]
 
@@ -1910,7 +1920,7 @@ dependencies = [
  "smallvec",
  "thiserror",
  "tokio 0.3.3",
- "tokio-native-tls",
+ "tokio-native-tls 0.1.0",
  "tokio-openssl 0.4.0",
  "tokio-rustls 0.14.1",
  "trust-dns-https",
