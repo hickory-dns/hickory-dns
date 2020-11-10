@@ -1626,6 +1626,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-openssl"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d01e5cc2d3a154fa310982d0affaec8140d6476805422265b2f648eb813f937f"
+dependencies = [
+ "openssl",
+ "openssl-sys",
+ "tokio 0.3.3",
+]
+
+[[package]]
 name = "tokio-rustls"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1845,7 +1856,7 @@ dependencies = [
  "futures-util",
  "openssl",
  "tokio 0.3.3",
- "tokio-openssl",
+ "tokio-openssl 0.5.0",
  "trust-dns-proto",
 ]
 
@@ -1900,7 +1911,7 @@ dependencies = [
  "thiserror",
  "tokio 0.3.3",
  "tokio-native-tls",
- "tokio-openssl",
+ "tokio-openssl 0.4.0",
  "tokio-rustls 0.14.1",
  "trust-dns-https",
  "trust-dns-native-tls",
@@ -1946,7 +1957,7 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio 0.3.3",
- "tokio-openssl",
+ "tokio-openssl 0.4.0",
  "tokio-rustls 0.14.1",
  "toml",
  "trust-dns-client",

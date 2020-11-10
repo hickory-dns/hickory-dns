@@ -20,7 +20,7 @@ use openssl::x509::{X509Ref, X509};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
-use trust_dns_proto::iocompat::AsyncIo02As03;
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::tcp::{self, TcpStream};
 use trust_dns_proto::xfer::BufStreamHandle;
 
@@ -57,7 +57,7 @@ impl TlsIdentityExt for SslContextBuilder {
 }
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
-pub type TlsStream = TcpStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>;
+pub type TlsStream = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>;
 
 fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnector> {
     let mut tls = SslConnector::builder(SslMethod::tls()).map_err(|e| {
@@ -116,7 +116,7 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 ///
 /// This is intended for use with a TlsListener and Incoming connections
 pub fn tls_stream_from_existing_tls_stream(
-    stream: AsyncIo02As03<TokioTlsStream<TokioTcpStream>>,
+    stream: AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>,
     peer_addr: SocketAddr,
 ) -> (TlsStream, BufStreamHandle) {
     let (message_sender, outbound_messages) = BufStreamHandle::create();
@@ -244,7 +244,7 @@ impl TlsStreamBuilder {
         let stream = Box::pin(
             connect_tls(tls_config, dns_name, name_server).map_ok(move |s| {
                 TcpStream::from_stream_with_receiver(
-                    AsyncIo02As03(s),
+                    AsyncIoTokioAsStd(s),
                     name_server,
                     outbound_messages,
                 )
