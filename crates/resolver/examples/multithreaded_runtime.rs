@@ -6,19 +6,19 @@
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     use tokio::runtime::Runtime;
-    use trust_dns_resolver::TokioAsyncResolver;
+    use trust_dns_resolver::{TokioAsyncResolver, TokioHandle};
 
     env_logger::init();
 
     // Set up the standard tokio runtime (multithreaded by default).
-    let mut runtime = Runtime::new().expect("Failed to create runtime");
+    let runtime = Runtime::new().expect("Failed to create runtime");
 
     let resolver = {
         // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(runtime.handle().clone())
+            TokioAsyncResolver::from_system_conf(TokioHandle)
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

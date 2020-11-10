@@ -161,21 +161,21 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::*;
-    use crate::TokioAsyncResolver;
+    use crate::{TokioAsyncResolver, TokioHandle};
 
     use super::*;
 
     #[test]
     #[ignore]
     fn test_list_services() {
-        let mut io_loop = Runtime::new().unwrap();
+        let io_loop = Runtime::new().unwrap();
         let resolver = TokioAsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
-            io_loop.handle().clone(),
+            TokioHandle,
         )
         .expect("failed to create resolver");
 

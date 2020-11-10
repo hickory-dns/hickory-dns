@@ -13,9 +13,9 @@ use std::task::Poll;
 use futures_util::future;
 
 #[cfg(feature = "tokio-runtime")]
-use trust_dns_resolver::TokioAsyncResolver;
-#[cfg(feature = "tokio-runtime")]
 use trust_dns_resolver::{IntoName, TryParseIp};
+#[cfg(feature = "tokio-runtime")]
+use trust_dns_resolver::{TokioAsyncResolver, TokioHandle};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -42,7 +42,7 @@ lazy_static! {
         // This thread will manage the actual resolution runtime
         thread::spawn(move || {
             // A runtime for this new thread
-            let mut runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
+            let runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
 
             // our platform independent future, result, see next blocks
             let resolver = {
@@ -51,7 +51,7 @@ lazy_static! {
                 #[cfg(any(unix, windows))]
                 {
                     // use the system resolver configuration
-                    TokioAsyncResolver::from_system_conf(runtime.handle().clone())
+                    TokioAsyncResolver::from_system_conf(TokioHandle)
                 }
 
                 // For other operating systems, we can use one of the preconfigured definitions
@@ -134,7 +134,7 @@ fn main() {
         .iter()
         .map(|name| {
             let join = thread::spawn(move || {
-                let mut runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
+                let runtime = tokio::runtime::Runtime::new().expect("failed to launch Runtime");
                 runtime.block_on(resolve(*name, 443))
             });
 

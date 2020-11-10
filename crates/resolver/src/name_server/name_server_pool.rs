@@ -14,9 +14,6 @@ use std::time::Duration;
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use futures_util::{future::Future, future::FutureExt};
 use smallvec::SmallVec;
-#[cfg(test)]
-#[cfg(feature = "tokio-runtime")]
-use tokio::runtime::Handle;
 
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use proto::Time;
@@ -28,7 +25,7 @@ use crate::name_server;
 use crate::name_server::{ConnectionProvider, NameServer};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
-use crate::name_server::{TokioConnection, TokioConnectionProvider};
+use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 
 /// A pool of NameServers
 ///
@@ -53,7 +50,7 @@ impl NameServerPool<TokioConnection, TokioConnectionProvider> {
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
-        runtime: Handle,
+        runtime: TokioHandle,
     ) -> Self {
         Self::from_config_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
@@ -472,11 +469,11 @@ mod tests {
         resolver_config.add_name_server(config1);
         resolver_config.add_name_server(config2);
 
-        let mut io_loop = Runtime::new().unwrap();
+        let io_loop = Runtime::new().unwrap();
         let mut pool = NameServerPool::<_, TokioConnectionProvider>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
-            io_loop.handle().clone(),
+            TokioHandle,
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -513,8 +510,8 @@ mod tests {
     fn test_multi_use_conns() {
         env_logger::try_init().ok();
 
-        let mut io_loop = Runtime::new().unwrap();
-        let conn_provider = TokioConnectionProvider::new(io_loop.handle().clone());
+        let io_loop = Runtime::new().unwrap();
+        let conn_provider = TokioConnectionProvider::new(TokioHandle);
 
         let tcp = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
