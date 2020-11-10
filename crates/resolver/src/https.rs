@@ -34,15 +34,14 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
-    use crate::TokioAsyncResolver;
+    use crate::{TokioAsyncResolver, TokioHandle};
 
     fn https_test(config: ResolverConfig) {
         //env_logger::try_init().ok();
-        let mut io_loop = Runtime::new().unwrap();
+        let io_loop = Runtime::new().unwrap();
 
-        let resolver =
-            TokioAsyncResolver::new(config, ResolverOpts::default(), io_loop.handle().clone())
-                .expect("failed to create resolver");
+        let resolver = TokioAsyncResolver::new(config, ResolverOpts::default(), TokioHandle)
+            .expect("failed to create resolver");
 
         let response = io_loop
             .block_on(resolver.lookup_ip("www.example.com."))

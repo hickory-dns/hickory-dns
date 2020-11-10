@@ -20,7 +20,7 @@ use crate::error::*;
 use crate::lookup;
 use crate::lookup::Lookup;
 use crate::lookup_ip::LookupIp;
-use crate::name_server::{TokioConnection, TokioConnectionProvider};
+use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 use crate::AsyncResolver;
 
 /// The Resolver is used for performing DNS queries.
@@ -76,13 +76,12 @@ impl Resolver {
     ///
     /// A new `Resolver` or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let mut builder = runtime::Builder::new();
-        builder.basic_scheduler();
+        let mut builder = runtime::Builder::new_current_thread();
         builder.enable_all();
 
         let runtime = builder.build()?;
-        let async_resolver = AsyncResolver::new(config, options, runtime.handle().clone())
-            .expect("failed to create resolver");
+        let async_resolver =
+            AsyncResolver::new(config, options, TokioHandle).expect("failed to create resolver");
 
         Ok(Resolver {
             runtime: Mutex::new(runtime),

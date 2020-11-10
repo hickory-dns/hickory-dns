@@ -28,7 +28,7 @@ use proto;
 use proto::error::ProtoError;
 
 #[cfg(feature = "tokio-runtime")]
-use proto::{iocompat::AsyncIo02As03, TokioTime};
+use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
@@ -228,18 +228,20 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
                     Box<
                         dyn Future<
                                 Output = Result<
-                                    TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
+                                    TcpClientStream<
+                                        AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>,
+                                    >,
                                     ProtoError,
                                 >,
                             > + Send
                             + 'static,
                     >,
                 >,
-                TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
+                TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
             DnsMultiplexer<
-                TcpClientStream<AsyncIo02As03<TokioTlsStream<TokioTcpStream>>>,
+                TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>,
                 NoopMessageFinalizer,
             >,
             TokioTime,
@@ -331,20 +333,22 @@ pub mod tokio_runtime {
     use super::*;
     use tokio::net::UdpSocket as TokioUdpSocket;
 
-    impl Spawn for tokio::runtime::Handle {
+    #[derive(Clone)]
+    pub struct TokioHandle;
+    impl Spawn for TokioHandle {
         fn spawn_bg<F>(&mut self, future: F)
         where
             F: Future<Output = Result<(), ProtoError>> + Send + 'static,
         {
-            let _join = self.spawn(future);
+            let _join = tokio::spawn(future);
         }
     }
 
     #[derive(Clone)]
     pub struct TokioRuntime;
     impl RuntimeProvider for TokioRuntime {
-        type Handle = tokio::runtime::Handle;
-        type Tcp = AsyncIo02As03<TokioTcpStream>;
+        type Handle = TokioHandle;
+        type Tcp = AsyncIoTokioAsStd<TokioTcpStream>;
         type Timer = TokioTime;
         type Udp = TokioUdpSocket;
     }

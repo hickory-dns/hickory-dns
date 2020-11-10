@@ -222,7 +222,7 @@ pub use async_resolver::TokioAsyncResolver;
 pub use hosts::Hosts;
 pub use name_server::ConnectionProvider;
 #[cfg(feature = "tokio-runtime")]
-pub use name_server::{TokioConnection, TokioConnectionProvider};
+pub use name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 #[cfg(feature = "tokio-runtime")]
 pub use resolver::Resolver;
 

@@ -12,8 +12,6 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures_util::{future::Future, lock::Mutex};
-#[cfg(feature = "tokio-runtime")]
-use tokio::runtime::Handle;
 
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
@@ -25,7 +23,7 @@ use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 use crate::name_server::{ConnectionProvider, NameServerState, NameServerStats};
 #[cfg(feature = "tokio-runtime")]
-use crate::name_server::{TokioConnection, TokioConnectionProvider};
+use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
@@ -51,7 +49,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
 
 #[cfg(feature = "tokio-runtime")]
 impl NameServer<TokioConnection, TokioConnectionProvider> {
-    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: Handle) -> Self {
+    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioHandle) -> Self {
         Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
 }
@@ -290,8 +288,8 @@ mod tests {
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
         };
-        let mut io_loop = Runtime::new().unwrap();
-        let runtime_handle = io_loop.handle().clone();
+        let io_loop = Runtime::new().unwrap();
+        let runtime_handle = TokioHandle;
         let name_server = future::lazy(|_| {
             NameServer::<_, TokioConnectionProvider>::new(
                 config,
@@ -324,8 +322,8 @@ mod tests {
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
         };
-        let mut io_loop = Runtime::new().unwrap();
-        let runtime_handle = io_loop.handle().clone();
+        let io_loop = Runtime::new().unwrap();
+        let runtime_handle = TokioHandle;
         let name_server = future::lazy(|_| {
             NameServer::<_, TokioConnectionProvider>::new(config, options, runtime_handle)
         });
