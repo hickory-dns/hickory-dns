@@ -15,7 +15,7 @@ use tokio::net::TcpStream;
 
 use crate::client::ClientConnection;
 use crate::error::*;
-use crate::proto::iocompat::AsyncIo02As03;
+use crate::proto::iocompat::AsyncIoTokioAsStd;
 use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use crate::rr::dnssec::Signer;
@@ -61,18 +61,19 @@ impl TcpClientConnection {
 }
 
 impl ClientConnection for TcpClientConnection {
-    type Sender = DnsMultiplexer<TcpClientStream<AsyncIo02As03<TcpStream>>, Signer>;
+    type Sender = DnsMultiplexer<TcpClientStream<AsyncIoTokioAsStd<TcpStream>>, Signer>;
     type SenderFuture = DnsMultiplexerConnect<
-        TcpClientConnect<AsyncIo02As03<TcpStream>>,
-        TcpClientStream<AsyncIo02As03<TcpStream>>,
+        TcpClientConnect<AsyncIoTokioAsStd<TcpStream>>,
+        TcpClientStream<AsyncIoTokioAsStd<TcpStream>>,
         Signer,
     >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (tcp_client_stream, handle) = TcpClientStream::<AsyncIo02As03<TcpStream>>::with_timeout(
-            self.name_server,
-            self.timeout,
-        );
+        let (tcp_client_stream, handle) =
+            TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::with_timeout(
+                self.name_server,
+                self.timeout,
+            );
         DnsMultiplexer::new(tcp_client_stream, handle, signer)
     }
 }
