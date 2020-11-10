@@ -213,21 +213,17 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         let ((cert, chain), key) = certificate_and_key;
 
-        let spawner = Handle::current();
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        let join = spawner.spawn({
-            let spawner = spawner.clone();
-
+        let join = tokio::spawn({
             async move {
                 let mut listener = listener;
-                let mut incoming = listener.incoming();
 
-                while let Some(tcp_stream) = incoming.next().await {
+                while let Some(tcp_stream) = listener.next().await {
                     let tcp_stream = match tcp_stream {
                         Ok(t) => t,
                         Err(e) => {
@@ -240,7 +236,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let tls_acceptor = tls_acceptor.clone();
 
                     // kick out to a different task immediately, let them do the TLS handshake
-                    spawner.spawn(async move {
+                    tokio::spawn(async move {
                         let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting TLS request from: {}", src_addr);
 

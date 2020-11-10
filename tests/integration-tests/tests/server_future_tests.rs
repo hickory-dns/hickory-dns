@@ -159,7 +159,7 @@ fn test_server_www_tls() {
     let pkcs12_der = read_file(&format!("{}/tests/test-data/cert.p12", server_path));
 
     // Server address
-    let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     let tcp_listener = runtime.block_on(TcpListener::bind(&addr)).unwrap();
 
@@ -316,8 +316,6 @@ fn server_thread_tls(
     }));
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(
-            future::lazy(|_| tokio::time::delay_for(Duration::from_millis(10))).flatten(),
-        );
+        io_loop.block_on(future::lazy(|_| tokio::time::sleep(Duration::from_millis(10))).flatten());
     }
 }

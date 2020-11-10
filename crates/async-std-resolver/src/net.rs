@@ -28,11 +28,11 @@ impl UdpSocket for AsyncStdUdpSocket {
             .map(AsyncStdUdpSocket)
     }
 
-    async fn recv_from(&mut self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
         self.0.recv_from(buf).await
     }
 
-    async fn send_to(&mut self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
+    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
         self.0.send_to(buf, target).await
     }
 }
