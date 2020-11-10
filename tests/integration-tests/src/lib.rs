@@ -13,7 +13,7 @@ use std::task::{Context, Poll};
 use futures::channel::mpsc;
 use futures::stream::{Fuse, Stream, StreamExt};
 use futures::{future, Future, FutureExt};
-use tokio::time::{Delay, Duration, Instant};
+use tokio::time::{Duration, Instant, Sleep};
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::error::ClientResult;
@@ -175,7 +175,7 @@ impl fmt::Debug for TestClientStream {
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {
-    timeout: Delay,
+    timeout: Sleep,
     outbound_messages: Fuse<mpsc::UnboundedReceiver<Vec<u8>>>,
 }
 
@@ -191,7 +191,7 @@ impl NeverReturnsClientStream {
 
         let stream = Box::pin(future::lazy(|_| {
             Ok(NeverReturnsClientStream {
-                timeout: tokio::time::delay_for(Duration::from_secs(1)),
+                timeout: tokio::time::sleep(Duration::from_secs(1)),
                 outbound_messages: outbound_messages.fuse(),
             })
         }));

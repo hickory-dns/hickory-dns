@@ -41,10 +41,10 @@ fn mdns_responsder(
     let join_handle = std::thread::Builder::new()
         .name(format!("{}:server", test_name))
         .spawn(move || {
-            let mut io_loop = Runtime::new().unwrap();
+            let io_loop = Runtime::new().unwrap();
 
             // a max time for the test to run
-            let mut timeout = tokio::time::delay_for(Duration::from_millis(100));
+            let mut timeout = tokio::time::sleep(Duration::from_millis(100));
 
             // TODO: ipv6 if is hardcoded, need a different strategy
             let (mdns_stream, mut mdns_handle) = MdnsStream::new(
@@ -87,7 +87,7 @@ fn mdns_responsder(
                     }
                     Either::Right(((), data_src_stream_tmp)) => {
                         stream = data_src_stream_tmp;
-                        timeout = tokio::time::delay_for(Duration::from_millis(100));
+                        timeout = tokio::time::sleep(Duration::from_millis(100));
                     }
                 }
             }
@@ -109,7 +109,7 @@ fn test_query_mdns_ipv4() {
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
 
     // Check that the server is ready before sending...
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
 
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
@@ -133,7 +133,7 @@ fn test_query_mdns_ipv6() {
     let addr = SocketAddr::new(*TEST_MDNS_IPV6, MDNS_PORT + 2);
     let client_done = Arc::new(AtomicBool::new(false));
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // not using MdnsClientConnection here, b/c we need to change the IP for testing.
     // FIXME: ipv6 if is hardcoded...

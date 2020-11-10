@@ -15,7 +15,7 @@ use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{DNSClass, RData, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 
-use trust_dns_proto::iocompat::AsyncIo02As03;
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
 use trust_dns_proto::DnssecDnsHandle;
 use trust_dns_server::authority::{Authority, Catalog};
@@ -39,7 +39,7 @@ fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example);
 }
 
-fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
+fn test_secure_query_example<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -81,7 +81,7 @@ fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example);
 }
 
-fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
+fn test_nsec_query_example<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -111,7 +111,7 @@ fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type);
 }
 
-fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
+fn test_nsec_query_type<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 where
     H: ClientHandle + Sync + 'static,
 {
@@ -146,7 +146,7 @@ where
 //     with_tcp(dnssec_rollernet_td_mixed_case_test);
 // }
 
-// fn dnssec_rollernet_td_test<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
+// fn dnssec_rollernet_td_test<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
@@ -166,7 +166,7 @@ where
 //     assert!(response.answers().is_empty());
 // }
 
-// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: DnssecDnsHandle<H>, mut io_loop: Runtime)
+// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: DnssecDnsHandle<H>, io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
@@ -203,7 +203,8 @@ where
                 }
             }
 
-            panic!("timeout");
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .unwrap();
 
@@ -227,7 +228,7 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
 
@@ -261,11 +262,12 @@ where
                 }
             }
 
-            panic!("timeout");
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .unwrap();
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
     let client = AsyncClient::connect(stream);
@@ -297,13 +299,14 @@ where
                 }
             }
 
-            panic!("timeout");
+            println!("Thread Killer has been awoken, killing process");
+            std::process::exit(-1);
         })
         .unwrap();
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);

@@ -21,7 +21,7 @@ use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, DnsStreamHandle};
-use trust_dns_proto::{iocompat::AsyncIo02As03, TokioTime};
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::authority::create_example;
@@ -35,7 +35,7 @@ fn test_query_nonet() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -47,7 +47,7 @@ fn test_query_nonet() {
 
 #[test]
 fn test_query_udp_ipv4() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
     let client = AsyncClient::connect(stream);
@@ -62,7 +62,7 @@ fn test_query_udp_ipv4() {
 #[test]
 #[ignore]
 fn test_query_udp_ipv6() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("2001:4860:4860::8888", 53)
         .to_socket_addrs()
         .unwrap()
@@ -80,9 +80,9 @@ fn test_query_udp_ipv6() {
 
 #[test]
 fn test_query_tcp_ipv4() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -95,13 +95,13 @@ fn test_query_tcp_ipv4() {
 #[test]
 #[ignore]
 fn test_query_tcp_ipv6() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("2001:4860:4860::8888", 53)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -119,7 +119,7 @@ fn test_query_https() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("1.1.1.1", 443).to_socket_addrs().unwrap().next().unwrap();
 
     // using the mozilla default root store
@@ -135,7 +135,7 @@ fn test_query_https() {
     let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
     let client = AsyncClient::connect(
         https_builder
-            .build::<AsyncIo02As03<TokioTcpStream>>(addr, "cloudflare-dns.com".to_string()),
+            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(addr, "cloudflare-dns.com".to_string()),
     );
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -180,7 +180,7 @@ fn test_notify() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, Box::new(sender), None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -257,7 +257,7 @@ async fn create_sig0_ready_client() -> (
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -301,7 +301,7 @@ fn test_create() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_create_multi() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -355,7 +355,7 @@ fn test_create_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -423,7 +423,7 @@ fn test_append() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_append_multi() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -497,7 +497,7 @@ fn test_append_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -555,7 +555,7 @@ fn test_compare_and_swap() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_compare_and_swap_multi() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -625,7 +625,7 @@ fn test_compare_and_swap_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -677,7 +677,7 @@ fn test_delete_by_rdata() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_by_rdata_multi() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -754,7 +754,7 @@ fn test_delete_by_rdata_multi() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_rrset() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -801,7 +801,7 @@ fn test_delete_rrset() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 #[test]
 fn test_delete_all() {
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let ((mut client, bg), origin) = io_loop.block_on(create_sig0_ready_client());
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -852,7 +852,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-fn test_timeout_query(mut client: AsyncClient, mut io_loop: Runtime) {
+fn test_timeout_query(mut client: AsyncClient, io_loop: Runtime) {
     let name = Name::from_str("www.example.com").unwrap();
 
     let err = io_loop
@@ -881,7 +881,7 @@ fn test_timeout_query(mut client: AsyncClient, mut io_loop: Runtime) {
 #[test]
 fn test_timeout_query_nonet() {
     //env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().expect("failed to create Tokio Runtime");
+    let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = AsyncClient::with_timeout(
         stream,
@@ -898,7 +898,7 @@ fn test_timeout_query_nonet() {
 #[test]
 fn test_timeout_query_udp() {
     //env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -919,7 +919,7 @@ fn test_timeout_query_udp() {
 #[test]
 fn test_timeout_query_tcp() {
     //env_logger::try_init().ok();
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -928,7 +928,7 @@ fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = TcpClientStream::<AsyncIo02As03<TokioTcpStream>>::with_timeout(
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::with_timeout(
         addr,
         std::time::Duration::from_millis(1),
     );
