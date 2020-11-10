@@ -51,13 +51,13 @@ cfg-if = "1"
 bytes = "0.5"
 data-encoding = "2.2.0"
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-h2 = { version = "0.2.6", features = ["stream"] }
+h2 = { version = "0.3.0", features = ["stream"] }
 http = "0.2"
 log = "0.4"
 rustls = "0.18"
 thiserror = "1.0.20"
-tokio = { version = "0.3.0", features = ["io-util", "net", "rt"] }
-tokio-rustls = "0.14"
+tokio = { version = "0.3", features = ["io-util", "net", "rt"] }
+tokio-rustls = "0.20.0"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.20.0-alpha.3", path = "../proto", features = ["tokio-runtime"], default-features = false }
 trust-dns-rustls = { version = "0.20.0-alpha.3", path = "../rustls", default-features = false }

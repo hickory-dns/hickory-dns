@@ -62,9 +62,9 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d373d78ded7d0b3fa8039375718cde0aace493f2e34fb60f51cbf567562ca801"
+checksum = "eb877970c7b440ead138f6321a3b5395d6061183af779340b65e20c0fede9146"
 dependencies = [
  "async-task",
  "concurrent-queue",
@@ -629,7 +629,26 @@ dependencies = [
  "indexmap",
  "slab",
  "tokio 0.2.22",
- "tokio-util",
+ "tokio-util 0.3.1",
+ "tracing",
+ "tracing-futures",
+]
+
+[[package]]
+name = "h2"
+version = "0.3.0"
+source = "git+https://github.com/hyperium/h2.git#cbbdd305b1afc1eaf19f2e3b26f9419048041e7d"
+dependencies = [
+ "bytes 0.5.6",
+ "fnv",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "http",
+ "indexmap",
+ "slab",
+ "tokio 0.3.3",
+ "tokio-util 0.4.0",
  "tracing",
  "tracing-futures",
 ]
@@ -879,9 +898,9 @@ dependencies = [
 
 [[package]]
 name = "native-tls"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a1cda389c26d6b88f3d2dc38aa1b750fe87d298cc5d795ec9e975f402f00372"
+checksum = "6fcc7939b5edc4e4f86b1b4a04bb1498afaaf871b1a6691838ed06fcb48d3a3f"
 dependencies = [
  "lazy_static",
  "libc",
@@ -1644,6 +1663,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-util"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "24793699f4665ba0416ed287dc794fe6b11a4aa5e4e95b58624f45f6c46b97d4"
+dependencies = [
+ "bytes 0.5.6",
+ "futures-core",
+ "futures-sink",
+ "log",
+ "pin-project-lite",
+ "tokio 0.3.3",
+]
+
+[[package]]
 name = "toml"
 version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1755,13 +1788,13 @@ dependencies = [
  "env_logger",
  "futures",
  "futures-util",
- "h2",
+ "h2 0.3.0",
  "http",
  "log",
  "rustls",
  "thiserror",
  "tokio 0.3.3",
- "tokio-rustls 0.14.1",
+ "tokio-rustls 0.20.0",
  "trust-dns-proto",
  "trust-dns-rustls",
  "webpki",
@@ -1904,7 +1937,7 @@ dependencies = [
  "env_logger",
  "futures-executor",
  "futures-util",
- "h2",
+ "h2 0.2.7",
  "http",
  "log",
  "openssl",
