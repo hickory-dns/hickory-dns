@@ -28,7 +28,7 @@ use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
 fn test_server_www_udp() {
-    let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     let udp_socket = runtime.block_on(UdpSocket::bind(&addr)).unwrap();
 
@@ -56,7 +56,7 @@ fn test_server_www_udp() {
 
 #[test]
 fn test_server_www_tcp() {
-    let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     let tcp_listener = runtime.block_on(TcpListener::bind(&addr)).unwrap();
 
@@ -84,7 +84,7 @@ fn test_server_www_tcp() {
 
 #[test]
 fn test_server_unknown_type() {
-    let mut runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     let udp_socket = runtime.block_on(UdpSocket::bind(&addr)).unwrap();
 
@@ -261,44 +261,34 @@ fn new_catalog() -> Catalog {
     catalog
 }
 
-fn server_thread_udp(
-    mut io_loop: Runtime,
-    udp_socket: UdpSocket,
-    server_continue: Arc<AtomicBool>,
-) {
+fn server_thread_udp(io_loop: Runtime, udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
 
     let mut server = ServerFuture::new(catalog);
 
-    io_loop
-        .handle()
-        .enter(|| server.register_socket(udp_socket));
+    let _guard = io_loop.enter();
+    server.register_socket(udp_socket);
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(
-            future::lazy(|_| tokio::time::delay_for(Duration::from_millis(10))).flatten(),
-        );
+        io_loop.block_on(future::lazy(|_| tokio::time::sleep(Duration::from_millis(10))).flatten());
     }
 
     drop(io_loop);
 }
 
 fn server_thread_tcp(
-    mut io_loop: Runtime,
+    io_loop: Runtime,
     tcp_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
 ) {
     let catalog = new_catalog();
     let mut server = ServerFuture::new(catalog);
 
-    io_loop
-        .handle()
-        .enter(|| server.register_listener(tcp_listener, Duration::from_secs(30)));
+    let _guard = io_loop.enter();
+    server.register_listener(tcp_listener, Duration::from_secs(30));
 
     while server_continue.load(Ordering::Relaxed) {
-        io_loop.block_on(
-            future::lazy(|_| tokio::time::delay_for(Duration::from_millis(10))).flatten(),
-        );
+        io_loop.block_on(future::lazy(|_| tokio::time::sleep(Duration::from_millis(10))).flatten());
     }
 }
 
@@ -308,7 +298,7 @@ fn server_thread_tls(
     tls_listener: TcpListener,
     server_continue: Arc<AtomicBool>,
     pkcs12_der: Vec<u8>,
-    mut io_loop: Runtime,
+    io_loop: Runtime,
 ) {
     use openssl::pkcs12::Pkcs12;
 

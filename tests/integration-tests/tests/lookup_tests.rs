@@ -27,7 +27,7 @@ fn test_lookup() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
@@ -55,7 +55,7 @@ fn test_lookup_hosts() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
@@ -113,7 +113,7 @@ fn test_lookup_ipv4_like() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
@@ -143,7 +143,7 @@ fn test_lookup_ipv4_like_fall_through() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), Box::new(authority));
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
 
@@ -185,7 +185,7 @@ fn test_mock_lookup() {
         CachingClient::new(0, client, false),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -216,7 +216,7 @@ fn test_cname_lookup() {
         CachingClient::new(0, client, false),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -252,7 +252,7 @@ fn test_cname_lookup_preserve() {
         CachingClient::new(0, client, true),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     let mut iter = lookup.iter();
@@ -290,7 +290,7 @@ fn test_chained_cname_lookup() {
         CachingClient::new(0, client, false),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
@@ -331,7 +331,7 @@ fn test_chained_cname_lookup_preserve() {
         CachingClient::new(0, client, true),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
     let lookup = io_loop.block_on(lookup).unwrap();
 
     let mut iter = lookup.iter();
@@ -420,7 +420,7 @@ fn test_max_chained_lookup_depth() {
         client.clone(),
     );
 
-    let mut io_loop = Runtime::new().unwrap();
+    let io_loop = Runtime::new().unwrap();
 
     println!("performing max cname validation");
     assert!(io_loop.block_on(lookup).is_err());
