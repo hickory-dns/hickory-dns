@@ -20,7 +20,7 @@ use log::warn;
 
 use crate::error::ProtoError;
 #[cfg(feature = "tokio-runtime")]
-use crate::iocompat::AsyncIo02As03;
+use crate::iocompat::AsyncIoTokioAsStd;
 use crate::tcp::{Connect, DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
 #[cfg(feature = "tokio-runtime")]
@@ -139,7 +139,7 @@ impl<S: DnsTcpStream> Future for TcpClientConnect<S> {
 use tokio::net::TcpStream as TokioTcpStream;
 
 #[cfg(feature = "tokio-runtime")]
-impl<T> DnsTcpStream for AsyncIo02As03<T>
+impl<T> DnsTcpStream for AsyncIoTokioAsStd<T>
 where
     T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + Sync + Sized + 'static,
 {
@@ -148,16 +148,16 @@ where
 
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
-impl Connect for AsyncIo02As03<TokioTcpStream> {
+impl Connect for AsyncIoTokioAsStd<TokioTcpStream> {
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
-        super::tokio::connect(&addr).await.map(AsyncIo02As03)
+        super::tokio::connect(&addr).await.map(AsyncIoTokioAsStd)
     }
 }
 
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
-    use super::AsyncIo02As03;
+    use super::AsyncIoTokioAsStd;
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
@@ -169,7 +169,7 @@ mod tests {
     #[test]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_client_stream_test::<AsyncIo02As03<TokioTcpStream>, Runtime, TokioTime>(
+        tcp_client_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime, TokioTime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
         )
@@ -179,7 +179,7 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_client_stream_test::<AsyncIo02As03<TokioTcpStream>, Runtime, TokioTime>(
+        tcp_client_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime, TokioTime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
         )

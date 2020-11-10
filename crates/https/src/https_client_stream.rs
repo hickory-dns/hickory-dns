@@ -31,7 +31,7 @@ use tokio_rustls::{
 use webpki::DNSNameRef;
 
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::iocompat::AsyncIo03As02;
+use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{
     DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage,
@@ -381,7 +381,7 @@ where
     },
     TlsConnecting {
         // FIXME: also abstract away Tokio TLS in RuntimeProvider.
-        tls: TokioTlsConnect<AsyncIo03As02<S>>,
+        tls: TokioTlsConnect<AsyncIoStdAsTokio<S>>,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
     },
@@ -392,7 +392,7 @@ where
                         Output = Result<
                             (
                                 SendRequest<Bytes>,
-                                Connection<TokioTlsClientStream<AsyncIo03As02<S>>, Bytes>,
+                                Connection<TokioTlsClientStream<AsyncIoStdAsTokio<S>>, Bytes>,
                             ),
                             h2::Error,
                         >,
@@ -444,7 +444,7 @@ where
                     match DNSNameRef::try_from_ascii_str(&dns_name) {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
-                            let tls = tls.connect(dns_name, AsyncIo03As02(tcp));
+                            let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
                             HttpsClientConnectState::TlsConnecting {
                                 name_server_name,
                                 name_server,
@@ -533,7 +533,7 @@ mod tests {
     use webpki_roots;
 
     use tokio::net::TcpStream as TokioTcpStream;
-    use trust_dns_proto::iocompat::AsyncIo02As03;
+    use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
     use trust_dns_proto::op::{Message, Query, ResponseCode};
     use trust_dns_proto::rr::{Name, RData, RecordType};
 
@@ -562,11 +562,11 @@ mod tests {
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect =
-            https_builder.build::<AsyncIo02As03<TokioTcpStream>>(google, "dns.google".to_string());
+        let connect = https_builder
+            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(google, "dns.google".to_string());
 
         // tokio runtime stuff...
-        let mut runtime = Runtime::new().expect("could not start runtime");
+        let runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let response = runtime
@@ -637,11 +637,13 @@ mod tests {
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
-        let connect = https_builder
-            .build::<AsyncIo02As03<TokioTcpStream>>(cloudflare, "cloudflare-dns.com".to_string());
+        let connect = https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(
+            cloudflare,
+            "cloudflare-dns.com".to_string(),
+        );
 
         // tokio runtime stuff...
-        let mut runtime = Runtime::new().expect("could not start runtime");
+        let runtime = Runtime::new().expect("could not start runtime");
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let response = runtime

@@ -84,10 +84,10 @@ pub mod iocompat {
     use tokio::io::{AsyncRead as TokioAsyncRead, AsyncWrite as TokioAsyncWrite, ReadBuf};
 
     /// Conversion from `tokio::io::{AsyncRead, AsyncWrite}` to `std::io::{AsyncRead, AsyncWrite}`
-    pub struct AsyncIo02As03<T>(pub T);
+    pub struct AsyncIoTokioAsStd<T: TokioAsyncRead + TokioAsyncWrite>(pub T);
 
-    impl<T> Unpin for AsyncIo02As03<T> {}
-    impl<R: TokioAsyncRead + Unpin> AsyncRead for AsyncIo02As03<R> {
+    impl<T: TokioAsyncRead + TokioAsyncWrite> Unpin for AsyncIoTokioAsStd<T> {}
+    impl<R: TokioAsyncRead + TokioAsyncWrite + Unpin> AsyncRead for AsyncIoTokioAsStd<R> {
         fn poll_read(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -100,7 +100,7 @@ pub mod iocompat {
         }
     }
 
-    impl<W: TokioAsyncWrite + Unpin> AsyncWrite for AsyncIo02As03<W> {
+    impl<W: TokioAsyncRead + TokioAsyncWrite + Unpin> AsyncWrite for AsyncIoTokioAsStd<W> {
         fn poll_write(
             mut self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -117,9 +117,9 @@ pub mod iocompat {
     }
 
     /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
-    pub struct AsyncIo03As02<T>(pub T);
+    pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
-    impl<R: AsyncRead + Unpin> TokioAsyncRead for AsyncIo03As02<R> {
+    impl<R: AsyncRead + AsyncWrite + Unpin> TokioAsyncRead for AsyncIoStdAsTokio<R> {
         fn poll_read(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -132,7 +132,7 @@ pub mod iocompat {
         }
     }
 
-    impl<W: AsyncWrite + Unpin> TokioAsyncWrite for AsyncIo03As02<W> {
+    impl<W: AsyncRead + AsyncWrite + Unpin> TokioAsyncWrite for AsyncIoStdAsTokio<W> {
         fn poll_write(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
@@ -140,9 +140,11 @@ pub mod iocompat {
         ) -> Poll<Result<usize, io::Error>> {
             Pin::new(&mut self.get_mut().0).poll_write(cx, buf)
         }
+
         fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
             Pin::new(&mut self.get_mut().0).poll_flush(cx)
         }
+
         fn poll_shutdown(
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
