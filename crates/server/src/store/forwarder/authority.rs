@@ -12,7 +12,6 @@ use std::task::{Context, Poll};
 
 use futures_util::{future, FutureExt};
 use log::info;
-use tokio::runtime::Handle;
 
 use crate::client::op::LowerQuery;
 use crate::client::op::ResponseCode;
@@ -21,7 +20,7 @@ use crate::client::rr::{LowerName, Name, Record, RecordType};
 use crate::resolver::config::ResolverConfig;
 use crate::resolver::error::ResolveError;
 use crate::resolver::lookup::Lookup as ResolverLookup;
-use crate::resolver::TokioAsyncResolver;
+use crate::resolver::{TokioAsyncResolver, TokioHandle};
 
 use crate::authority::{
     Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
@@ -40,7 +39,7 @@ impl ForwardAuthority {
     /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub async fn new(runtime: Handle) -> Result<Self, String> {
+    pub async fn new(runtime: TokioHandle) -> Result<Self, String> {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
@@ -55,7 +54,7 @@ impl ForwardAuthority {
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,
-        runtime: Handle,
+        runtime: TokioHandle,
     ) -> Result<Self, String> {
         info!("loading forwarder config: {}", origin);
 
