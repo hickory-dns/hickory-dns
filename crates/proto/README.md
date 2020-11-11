@@ -6,7 +6,7 @@ Trust-DNS Proto is the foundational DNS protocol library and implementation for 
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.42`
+The current minimum rustc version for this project is `1.45`
 
 ## Versioning
 
