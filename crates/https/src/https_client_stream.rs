@@ -541,7 +541,7 @@ mod tests {
 
     #[test]
     fn test_https_google() {
-        // self::env_logger::try_init().ok();
+        //env_logger::try_init().ok();
 
         let google = SocketAddr::from(([8, 8, 8, 8], 443));
         let mut request = Message::new();

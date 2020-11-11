@@ -125,10 +125,9 @@ pub mod iocompat {
             cx: &mut Context<'_>,
             buf: &mut ReadBuf<'_>,
         ) -> Poll<io::Result<()>> {
-            let buf = buf.initialized_mut();
             Pin::new(&mut self.get_mut().0)
-                .poll_read(cx, buf)
-                .map_ok(|_| ())
+                .poll_read(cx, buf.initialized_mut())
+                .map_ok(|len| buf.advance(len))
         }
     }
 
