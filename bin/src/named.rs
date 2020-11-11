@@ -46,7 +46,6 @@ use trust_dns_server::authority::{AuthorityObject, Catalog, ZoneType};
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
 use trust_dns_server::config::{Config, ZoneConfig};
 use trust_dns_server::logger;
-use trust_dns_server::resolver::TokioHandle;
 use trust_dns_server::server::ServerFuture;
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
 #[cfg(feature = "resolver")]
@@ -108,6 +107,8 @@ fn load_zone(
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
+            use trust_dns_server::resolver::TokioHandle;
+
             let forwarder =
                 ForwardAuthority::try_from_config(zone_name, zone_type, config, TokioHandle);
             let forwarder = runtime.block_on(forwarder)?;
