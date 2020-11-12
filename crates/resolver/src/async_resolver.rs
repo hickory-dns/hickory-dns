@@ -144,7 +144,9 @@ impl TokioAsyncResolver {
 }
 
 impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvider<R>> {
-    /// Construct a new `AsyncResolver` with the provided configuration.
+    /// Construct a new generic `AsyncResolver` with the provided configuration.
+    ///
+    /// see [crate::trust_dns_resolver::TokioAsyncResolver::tokio] instead.
     ///
     /// # Arguments
     ///
@@ -171,6 +173,8 @@ impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvi
 
     /// Constructs a new Resolver with the system configuration.
     ///
+    /// see [crate::trust_dns_resolver::TokioAsyncResolver::tokio_from_system_conf] instead.
+    ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
@@ -193,7 +197,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
-    pub fn new_with_conn(
+    pub(crate) fn new_with_conn(
         config: ResolverConfig,
         options: ResolverOpts,
         conn_provider: P,
@@ -239,7 +243,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
-    pub fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
+    pub(crate) fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Self::new_with_conn(config, options, conn_provider)
     }

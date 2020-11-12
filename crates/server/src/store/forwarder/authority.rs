@@ -54,7 +54,6 @@ impl ForwardAuthority {
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,
-        runtime: TokioHandle,
     ) -> Result<Self, String> {
         info!("loading forwarder config: {}", origin);
 
@@ -62,7 +61,7 @@ impl ForwardAuthority {
         let options = config.options.unwrap_or_default();
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = TokioAsyncResolver::new(config, options, runtime)
+        let resolver = TokioAsyncResolver::new(config, options, TokioHandle)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         info!("forward resolver configured: {}: ", origin);
