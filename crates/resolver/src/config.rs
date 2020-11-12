@@ -29,8 +29,10 @@ use serde::{
 #[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
 pub struct ResolverConfig {
     // base search domain
+    #[cfg_attr(feature = "serde-config", serde(default))]
     domain: Option<Name>,
     // search domains
+    #[cfg_attr(feature = "serde-config", serde(default))]
     search: Vec<Name>,
     // nameservers to use for resolution.
     name_servers: NameServerConfigGroup,
@@ -233,7 +235,11 @@ impl Default for ResolverConfig {
 
 /// The protocol on which a NameServer should be communicated with
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "serde-config",
+    derive(Serialize, Deserialize),
+    serde(rename_all = "lowercase")
+)]
 pub enum Protocol {
     /// UDP is the traditional DNS port, this is generally the correct choice
     Udp,
@@ -302,6 +308,13 @@ impl Protocol {
     }
 }
 
+impl Default for Protocol {
+    /// Default protocol should be UDP, which is supported by all DNS servers
+    fn default() -> Self {
+        Protocol::Udp
+    }
+}
+
 #[cfg(feature = "dns-over-rustls")]
 #[derive(Clone)]
 /// a compatibility wrapper around rustls
@@ -332,13 +345,16 @@ pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
     /// The protocol to use when communicating with the NameServer.
+    #[cfg_attr(feature = "serde-config", serde(default))]
     pub protocol: Protocol,
     /// SPKI name, only relevant for TLS connections
+    #[cfg_attr(feature = "serde-config", serde(default))]
     pub tls_dns_name: Option<String>,
     /// Default to not trust negative responses from upstream nameservers
     ///
     /// When a SERVFAIL, NXDOMAIN and NoError/Empty response is received, the query will be
     /// retried against other configured name servers.
+    #[cfg_attr(feature = "serde-config", serde(default))]
     pub trust_nx_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(feature = "serde-config", serde(skip))]
