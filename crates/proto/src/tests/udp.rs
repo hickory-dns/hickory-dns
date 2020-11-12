@@ -58,7 +58,7 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
         .spawn(move || {
             let mut buffer = [0_u8; 512];
 
-            for _i in 0..send_recv_times {
+            for _ in 0..send_recv_times {
                 // wait for some bytes...
                 //println!("receiving message: {}", _i);
                 let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
