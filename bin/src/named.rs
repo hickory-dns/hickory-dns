@@ -107,10 +107,7 @@ fn load_zone(
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
-            use trust_dns_server::resolver::TokioHandle;
-
-            let forwarder =
-                ForwardAuthority::try_from_config(zone_name, zone_type, config, TokioHandle);
+            let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
             let forwarder = runtime.block_on(forwarder)?;
 
             Box::new(forwarder)
