@@ -8,9 +8,11 @@
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
+use futures_util::future::FutureExt;
 use trust_dns_resolver::proto::tcp::{Connect, DnsTcpStream};
 use trust_dns_resolver::proto::udp::UdpSocket;
 
@@ -28,12 +30,21 @@ impl UdpSocket for AsyncStdUdpSocket {
             .map(AsyncStdUdpSocket)
     }
 
-    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
-        self.0.recv_from(buf).await
+    fn poll_recv_from(
+        &self,
+        cx: &mut Context,
+        buf: &mut [u8],
+    ) -> Poll<io::Result<(usize, SocketAddr)>> {
+        Box::pin(self.0.recv_from(buf)).poll_unpin(cx)
     }
 
-    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
-        self.0.send_to(buf, target).await
+    fn poll_send_to(
+        &self,
+        cx: &mut Context,
+        buf: &[u8],
+        target: &SocketAddr,
+    ) -> Poll<io::Result<usize>> {
+        Box::pin(self.0.send_to(buf, target)).poll_unpin(cx)
     }
 }
 
