@@ -152,6 +152,7 @@ dependencies = [
  "async-trait",
  "futures-io",
  "futures-util",
+ "pin-utils",
  "trust-dns-resolver",
 ]
 

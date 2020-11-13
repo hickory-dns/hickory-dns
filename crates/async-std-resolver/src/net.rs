@@ -13,6 +13,7 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::future::FutureExt;
+use pin_utils::pin_mut;
 use trust_dns_resolver::proto::tcp::{Connect, DnsTcpStream};
 use trust_dns_resolver::proto::udp::UdpSocket;
 
@@ -35,7 +36,14 @@ impl UdpSocket for AsyncStdUdpSocket {
         cx: &mut Context,
         buf: &mut [u8],
     ) -> Poll<io::Result<(usize, SocketAddr)>> {
-        Box::pin(self.0.recv_from(buf)).poll_unpin(cx)
+        let fut = self.0.recv_from(buf);
+        pin_mut!(fut);
+
+        fut.poll_unpin(cx)
+    }
+
+    async fn recv_from(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        self.0.recv_from(buf).await
     }
 
     fn poll_send_to(
@@ -44,7 +52,14 @@ impl UdpSocket for AsyncStdUdpSocket {
         buf: &[u8],
         target: &SocketAddr,
     ) -> Poll<io::Result<usize>> {
-        Box::pin(self.0.send_to(buf, target)).poll_unpin(cx)
+        let fut = self.0.send_to(buf, target);
+        pin_mut!(fut);
+
+        fut.poll_unpin(cx)
+    }
+
+    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
+        self.0.send_to(buf, target).await
     }
 }
 
