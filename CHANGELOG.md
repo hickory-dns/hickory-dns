@@ -60,6 +60,12 @@ bound for implementing the `Connect` trait.
 - (proto) Add Name.parse_ptr_name, to IP address (@Mygod) #1107
 - (resolver) Allow HTTPS to be generic over Runtime (@balboah) #1077 #1074
 
+## 0.19.6
+
+### Fixed
+
+- bump resolv-conf from 0.6.0 to 0.7.0, fixes system resolv.conf parse issue (@wg) #1285
+
 ## 0.19.5
 
 ### Fixed
