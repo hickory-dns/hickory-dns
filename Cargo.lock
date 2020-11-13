@@ -151,6 +151,7 @@ dependencies = [
  "async-std",
  "async-trait",
  "futures-io",
+ "futures-util",
  "trust-dns-resolver",
 ]
 
