@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-openssl"
-version = "0.19.5"
+version = "0.19.6"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -51,7 +51,7 @@ futures = { version = "0.3.4", default-features = false, features = ["std"] }
 openssl = { version = "0.10", features = ["v102", "v110"] }
 tokio-openssl = "0.4.0"
 tokio = "0.2.16"
-trust-dns-proto = { version = "0.19.5", path = "../proto", features = ["openssl"] }
+trust-dns-proto = { version = "0.19.6", path = "../proto", features = ["openssl"] }
 
 [dev-dependencies]
 openssl = { version = "0.10", features = ["v102", "v110"] }

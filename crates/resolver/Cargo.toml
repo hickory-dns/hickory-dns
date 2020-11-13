@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-resolver"
-version = "0.19.5"
+version = "0.19.6"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -80,11 +80,11 @@ tokio = { version = "0.2.16", optional = true }
 tokio-tls = { version = "0.3.0", optional = true }
 tokio-openssl = { version = "0.4.0", optional = true }
 tokio-rustls = { version = "0.13", optional = true }
-trust-dns-https = { version = "0.19.5", path = "../https", optional = true }
-trust-dns-native-tls = { version = "0.19.5", path = "../native-tls", optional = true }
-trust-dns-openssl = { version = "0.19.5", path = "../openssl", optional = true }
-trust-dns-proto = { version = "0.19.5", path = "../proto", default-features = false }
-trust-dns-rustls = { version = "0.19.5", path = "../rustls", optional = true }
+trust-dns-https = { version = "0.19.6", path = "../https", optional = true }
+trust-dns-native-tls = { version = "0.19.6", path = "../native-tls", optional = true }
+trust-dns-openssl = { version = "0.19.6", path = "../openssl", optional = true }
+trust-dns-proto = { version = "0.19.6", path = "../proto", default-features = false }
+trust-dns-rustls = { version = "0.19.6", path = "../rustls", optional = true }
 webpki-roots = { version = "0.19", optional = true }
 
 [target.'cfg(windows)'.dependencies]
