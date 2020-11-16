@@ -31,7 +31,7 @@ where
     type Time: Time;
 
     /// UdpSocket
-    async fn bind(addr: &SocketAddr) -> io::Result<Self>;
+    async fn bind(addr: SocketAddr) -> io::Result<Self>;
 
     /// Poll once Receive data from the socket and returns the number of bytes read and the address from
     /// where the data came on success.
@@ -52,11 +52,11 @@ where
         &self,
         cx: &mut Context,
         buf: &[u8],
-        target: &SocketAddr,
+        target: SocketAddr,
     ) -> Poll<io::Result<usize>>;
 
     /// Send data to the given address.
-    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
+    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
         futures_util::future::poll_fn(|cx| self.poll_send_to(cx, buf, target)).await
     }
 }
@@ -156,7 +156,7 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
         //  makes this self throttling.
         while let Poll::Ready(Some(message)) = outbound_messages.as_mut().poll_peek(cx) {
             // first try to send
-            let addr = &message.addr();
+            let addr = message.addr();
 
             // this wiil return if not ready,
             //   meaning that sending will be prefered over receiving...
@@ -201,7 +201,7 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
     }
 
     async fn bind(zero_addr: SocketAddr) -> Result<S, io::Error> {
-        S::bind(&zero_addr).await
+        S::bind(zero_addr).await
     }
 }
 
@@ -248,7 +248,7 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 impl UdpSocket for tokio::net::UdpSocket {
     type Time = crate::TokioTime;
 
-    async fn bind(addr: &SocketAddr) -> io::Result<Self> {
+    async fn bind(addr: SocketAddr) -> io::Result<Self> {
         tokio::net::UdpSocket::bind(addr).await
     }
 
@@ -268,9 +268,9 @@ impl UdpSocket for tokio::net::UdpSocket {
         &self,
         cx: &mut Context,
         buf: &[u8],
-        target: &SocketAddr,
+        target: SocketAddr,
     ) -> Poll<io::Result<usize>> {
-        tokio::net::UdpSocket::poll_send_to(self, cx, buf, target)
+        tokio::net::UdpSocket::poll_send_to(self, cx, buf, &target)
     }
 }
 

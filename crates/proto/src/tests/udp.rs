@@ -84,7 +84,7 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
     };
 
     println!("binding client socket");
-    let socket = S::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap())
+    let socket = S::bind(client_addr.to_socket_addrs().unwrap().next().unwrap())
         .await
         .expect("could not create socket"); // some random address...
     println!("bound client socket");
