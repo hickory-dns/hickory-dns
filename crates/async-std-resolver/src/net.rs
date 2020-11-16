@@ -25,7 +25,7 @@ pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
 impl UdpSocket for AsyncStdUdpSocket {
     type Time = AsyncStdTime;
 
-    async fn bind(addr: &SocketAddr) -> io::Result<Self> {
+    async fn bind(addr: SocketAddr) -> io::Result<Self> {
         async_std::net::UdpSocket::bind(addr)
             .await
             .map(AsyncStdUdpSocket)
@@ -50,7 +50,7 @@ impl UdpSocket for AsyncStdUdpSocket {
         &self,
         cx: &mut Context,
         buf: &[u8],
-        target: &SocketAddr,
+        target: SocketAddr,
     ) -> Poll<io::Result<usize>> {
         let fut = self.0.send_to(buf, target);
         pin_mut!(fut);
@@ -58,7 +58,7 @@ impl UdpSocket for AsyncStdUdpSocket {
         fut.poll_unpin(cx)
     }
 
-    async fn send_to(&self, buf: &[u8], target: &SocketAddr) -> io::Result<usize> {
+    async fn send_to(&self, buf: &[u8], target: SocketAddr) -> io::Result<usize> {
         self.0.send_to(buf, target).await
     }
 }

@@ -211,7 +211,7 @@ async fn send_serial_message<S: UdpSocket + Send>(
     let name_server = msg.addr();
     let socket: S = NextRandomUdpSocket::new(&name_server).await?;
     let bytes = msg.bytes();
-    let addr = &msg.addr();
+    let addr = msg.addr();
     let len_sent: usize = socket.send_to(bytes, addr).await?;
 
     if bytes.len() != len_sent {
