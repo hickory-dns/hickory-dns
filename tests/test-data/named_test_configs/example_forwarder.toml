@@ -37,5 +37,5 @@ zone_type = "Forward"
 
 ## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.
 ##   Tls and/or Https require features dns-over-tls and/or dns-over-https
-stores = { type = "forward", name_servers = [{ socket_addr = "8.8.8.8:53", protocol = "Udp", trust_nx_responses = false },
-                                             { socket_addr = "8.8.8.8:53", protocol = "Tcp", trust_nx_responses = false }] }
+stores = { type = "forward", name_servers = [{ socket_addr = "8.8.8.8:53", protocol = "udp", trust_nx_responses = false },
+                                             { socket_addr = "8.8.8.8:53", protocol = "tcp", trust_nx_responses = false }] }
