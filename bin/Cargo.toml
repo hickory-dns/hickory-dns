@@ -73,7 +73,7 @@ path = "src/named.rs"
 [dependencies]
 chrono = "0.4"
 clap = "2.33"
-futures = { version = "0.3.5", default-features = false, features = ["std"] }
+futures = { version = "0.3.8", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = { version = "0.18", optional = true }
 tokio = { version = "0.2.22", features = ["rt-core", "rt-threaded", "time"] }
