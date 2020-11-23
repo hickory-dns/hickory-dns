@@ -215,6 +215,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
 
 [[package]]
+name = "base64"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "904dfeac50f3cdaba28fc6f57fdcddb75f49ed61346676a78c4ffe55877802fd"
+
+[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1331,7 +1337,20 @@ version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d1126dcf58e93cee7d098dbda643b5f92ed724f1f6a63007c1116eed6700c81"
 dependencies = [
- "base64",
+ "base64 0.12.3",
+ "log",
+ "ring",
+ "sct",
+ "webpki",
+]
+
+[[package]]
+name = "rustls"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "064fd21ff87c6e87ed4506e68beb42459caa4a0e2eb144932e6776768556980b"
+dependencies = [
+ "base64 0.13.0",
  "log",
  "ring",
  "sct",
@@ -1622,7 +1641,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e12831b255bcfa39dc0436b01e19fea231a37db570686c06ee72c423479f889a"
 dependencies = [
  "futures-core",
- "rustls",
+ "rustls 0.18.1",
  "tokio",
  "webpki",
 ]
@@ -1692,7 +1711,7 @@ dependencies = [
  "log",
  "native-tls",
  "regex",
- "rustls",
+ "rustls 0.19.0",
  "tokio",
  "trust-dns-client",
  "trust-dns-https",
@@ -1721,7 +1740,7 @@ dependencies = [
  "radix_trie",
  "rand",
  "ring",
- "rustls",
+ "rustls 0.19.0",
  "serde",
  "thiserror",
  "tokio",
@@ -1756,7 +1775,7 @@ dependencies = [
  "h2",
  "http",
  "log",
- "rustls",
+ "rustls 0.19.0",
  "thiserror",
  "tokio",
  "tokio-rustls",
@@ -1778,7 +1797,7 @@ dependencies = [
  "openssl",
  "rand",
  "rusqlite",
- "rustls",
+ "rustls 0.19.0",
  "tokio",
  "trust-dns-client",
  "trust-dns-https",
@@ -1859,7 +1878,7 @@ dependencies = [
  "lru-cache",
  "parking_lot",
  "resolv-conf",
- "rustls",
+ "rustls 0.19.0",
  "serde",
  "smallvec",
  "thiserror",
@@ -1884,7 +1903,7 @@ dependencies = [
  "futures-util",
  "log",
  "openssl",
- "rustls",
+ "rustls 0.19.0",
  "tokio",
  "tokio-rustls",
  "trust-dns-proto",
@@ -1907,7 +1926,7 @@ dependencies = [
  "log",
  "openssl",
  "rusqlite",
- "rustls",
+ "rustls 0.19.0",
  "serde",
  "thiserror",
  "tokio",
