@@ -86,7 +86,7 @@ trust-dns-native-tls = { version = "0.20.0-alpha.3", path = "../native-tls", opt
 trust-dns-openssl = { version = "0.20.0-alpha.3", path = "../openssl", optional = true }
 trust-dns-proto = { version = "0.20.0-alpha.3", path = "../proto", default-features = false }
 trust-dns-rustls = { version = "0.20.0-alpha.3", path = "../rustls", optional = true }
-webpki-roots = { version = "0.20", optional = true }
+webpki-roots = { version = "0.21", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { version = "0.2.2", optional = true }

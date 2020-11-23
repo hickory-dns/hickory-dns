@@ -91,4 +91,4 @@ trust-dns-proto = { version = "0.20.0-alpha.3", path = "../crates/proto", featur
 trust-dns-native-tls = { version = "0.20.0-alpha.3", path = "../crates/native-tls" }
 trust-dns-https = { version = "0.20.0-alpha.3", path = "../crates/https" }
 trust-dns-resolver = { version = "0.20.0-alpha.3", path = "../crates/resolver" }
-webpki-roots = { version = "0.20" }
+webpki-roots = { version = "0.21" }
