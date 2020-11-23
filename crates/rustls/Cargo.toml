@@ -49,7 +49,7 @@ path = "src/lib.rs"
 [dependencies]
 futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-io = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.8", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = "0.18"
 tokio = { version = "0.2.22", features = ["tcp", "io-util"] }
