@@ -39,8 +39,8 @@ pub struct NameServerPool<
     P: ConnectionProvider<Conn = C> + Send + 'static,
 > {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
-    datagram_conns: Arc<Vec<NameServer<C, P>>>, /* All NameServers must be the same type */
-    stream_conns: Arc<Vec<NameServer<C, P>>>,   /* All NameServers must be the same type */
+    datagram_conns: Arc<[NameServer<C, P>]>, /* All NameServers must be the same type */
+    stream_conns: Arc<[NameServer<C, P>]>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -106,8 +106,8 @@ where
             .collect();
 
         NameServerPool {
-            datagram_conns: Arc::new(datagram_conns),
-            stream_conns: Arc::new(stream_conns),
+            datagram_conns: Arc::from(datagram_conns),
+            stream_conns: Arc::from(stream_conns),
             #[cfg(feature = "mdns")]
             mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone(), false),
             options: *options,
@@ -124,8 +124,8 @@ where
         conn_provider: P,
     ) -> Self {
         NameServerPool {
-            datagram_conns: Arc::new(datagram_conns.into_iter().collect()),
-            stream_conns: Arc::new(stream_conns.into_iter().collect()),
+            datagram_conns: Arc::from(datagram_conns),
+            stream_conns: Arc::from(stream_conns),
             options: *options,
             conn_provider,
         }
@@ -141,8 +141,8 @@ where
         conn_provider: P,
     ) -> Self {
         NameServerPool {
-            datagram_conns: Arc::new(datagram_conns.into_iter().collect()),
-            stream_conns: Arc::new(stream_conns.into_iter().collect()),
+            datagram_conns: Arc::from(datagram_conns),
+            stream_conns: Arc::from(stream_conns),
             mdns_conns,
             options: *options,
             conn_provider,
@@ -153,8 +153,8 @@ where
     #[cfg(not(feature = "mdns"))]
     fn from_nameservers_test(
         options: &ResolverOpts,
-        datagram_conns: Arc<Vec<NameServer<C, P>>>,
-        stream_conns: Arc<Vec<NameServer<C, P>>>,
+        datagram_conns: Arc<[NameServer<C, P>]>,
+        stream_conns: Arc<[NameServer<C, P>]>,
         conn_provider: P,
     ) -> Self {
         NameServerPool {
@@ -169,8 +169,8 @@ where
     #[cfg(feature = "mdns")]
     fn from_nameservers_test(
         options: &ResolverOpts,
-        datagram_conns: Arc<Vec<NameServer<C, P>>>,
-        stream_conns: Arc<Vec<NameServer<C, P>>>,
+        datagram_conns: Arc<[NameServer<C, P>]>,
+        stream_conns: Arc<[NameServer<C, P>]>,
         mdns_conns: NameServer<C, P>,
         conn_provider: P,
     ) -> Self {
@@ -185,7 +185,7 @@ where
 
     async fn try_send(
         opts: ResolverOpts,
-        conns: Arc<Vec<NameServer<C, P>>>,
+        conns: Arc<[NameServer<C, P>]>,
         request: DnsRequest,
     ) -> Result<DnsResponse, ResolveError> {
         let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
@@ -528,11 +528,11 @@ mod tests {
         let opts = ResolverOpts::default();
         let ns_config = { tcp };
         let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider.clone());
-        let name_servers = Arc::new(vec![name_server]);
+        let name_servers: Arc<[_]> = Arc::from([name_server]);
 
         let mut pool = NameServerPool::from_nameservers_test(
             &opts,
-            Arc::new(vec![]),
+            Arc::from([]),
             Arc::clone(&name_servers),
             #[cfg(feature = "mdns")]
             name_server::mdns_nameserver(opts, conn_provider.clone(), false),

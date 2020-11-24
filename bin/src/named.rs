@@ -122,13 +122,12 @@ fn load_zone(
             warn!(
                 "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
             );
-            let zone_file_path =
-                zone_path.ok_or_else(|| "file is a necessary parameter of zone_config")?;
+            let zone_file_path = zone_path.ok_or("file is a necessary parameter of zone_config")?;
             let journal_file_path = PathBuf::from(zone_file_path.clone())
                 .with_extension("jrnl")
                 .to_str()
                 .map(String::from)
-                .ok_or_else(|| "non-unicode characters in file name")?;
+                .ok_or("non-unicode characters in file name")?;
 
             let config = SqliteConfig {
                 zone_file_path,
@@ -148,8 +147,7 @@ fn load_zone(
         }
         None => {
             let config = FileConfig {
-                zone_file_path: zone_path
-                    .ok_or_else(|| "file is a necessary parameter of zone_config")?,
+                zone_file_path: zone_path.ok_or("file is a necessary parameter of zone_config")?,
             };
             FileAuthority::try_from_config(
                 zone_name,

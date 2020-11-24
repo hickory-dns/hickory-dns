@@ -25,7 +25,7 @@ pub async fn h2_handler<T, I>(
     handler: Arc<Mutex<T>>,
     io: I,
     src_addr: SocketAddr,
-    dns_hostname: Arc<String>,
+    dns_hostname: Arc<str>,
 ) where
     T: RequestHandler,
     I: AsyncRead + AsyncWrite + Unpin,

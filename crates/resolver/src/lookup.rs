@@ -15,7 +15,6 @@ use std::slice::Iter;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
-use std::vec::IntoIter;
 
 use futures_util::{future, future::Future, FutureExt};
 
@@ -40,7 +39,7 @@ use crate::name_server::{ConnectionProvider, NameServerPool};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     query: Query,
-    records: Arc<Vec<Record>>,
+    records: Arc<[Record]>,
     valid_until: Instant,
 }
 
@@ -48,11 +47,11 @@ impl Lookup {
     /// Return new instance with given rdata and the maximum TTL.
     pub fn from_rdata(query: Query, rdata: RData) -> Self {
         let record = Record::from_rdata(query.name().clone(), MAX_TTL, rdata);
-        Self::new_with_max_ttl(query, Arc::new(vec![record]))
+        Self::new_with_max_ttl(query, Arc::from([record]))
     }
 
     /// Return new instance with given records and the maximum TTL.
-    pub fn new_with_max_ttl(query: Query, records: Arc<Vec<Record>>) -> Self {
+    pub fn new_with_max_ttl(query: Query, records: Arc<[Record]>) -> Self {
         let valid_until = Instant::now() + Duration::from_secs(u64::from(MAX_TTL));
         Lookup {
             query,
@@ -62,11 +61,7 @@ impl Lookup {
     }
 
     /// Return a new instance with the given records and deadline.
-    pub fn new_with_deadline(
-        query: Query,
-        records: Arc<Vec<Record>>,
-        valid_until: Instant,
-    ) -> Self {
+    pub fn new_with_deadline(query: Query, records: Arc<[Record]>, valid_until: Instant) -> Self {
         Lookup {
             query,
             records,
@@ -116,7 +111,7 @@ impl Lookup {
 
         // Choose the sooner deadline of the two lookups.
         let valid_until = min(self.valid_until(), other.valid_until());
-        Self::new_with_deadline(self.query.clone(), Arc::new(records), valid_until)
+        Self::new_with_deadline(self.query.clone(), Arc::from(records), valid_until)
     }
 }
 
@@ -142,6 +137,7 @@ impl<'a> Iterator for LookupRecordIter<'a> {
     }
 }
 
+// TODO: consider removing this as it's not a zero-cost abstraction
 impl IntoIterator for Lookup {
     type Item = RData;
     type IntoIter = LookupIntoIter;
@@ -150,7 +146,7 @@ impl IntoIterator for Lookup {
     ///  held behind an Arc with more than one reference (which is most likely the case coming from cache)
     fn into_iter(self) -> Self::IntoIter {
         LookupIntoIter {
-            records: Arc::try_unwrap(self.records).map(IntoIterator::into_iter),
+            records: Arc::clone(&self.records),
             index: 0,
         }
     }
@@ -161,7 +157,7 @@ impl IntoIterator for Lookup {
 /// This is not usually a zero overhead `Iterator`, it may result in clones of the [`RData`].
 pub struct LookupIntoIter {
     // the result of the try_unwrap on Arc
-    records: Result<IntoIter<Record>, Arc<Vec<Record>>>,
+    records: Arc<[Record]>,
     index: usize,
 }
 
@@ -169,15 +165,9 @@ impl Iterator for LookupIntoIter {
     type Item = RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.records {
-            // a zero overhead unwrap
-            Ok(ref mut iter) => iter.next().map(Record::into_data),
-            Err(ref records) => {
-                let rdata = records.get(self.index).map(Record::rdata);
-                self.index += 1;
-                rdata.cloned()
-            }
-        }
+        let rdata = self.records.get(self.index).map(Record::rdata);
+        self.index += 1;
+        rdata.cloned()
     }
 }
 
@@ -664,7 +654,7 @@ pub mod tests {
     #[test]
     fn test_lookup_into_iter_arc() {
         let mut lookup = LookupIntoIter {
-            records: Err(Arc::new(vec![
+            records: Arc::from([
                 Record::from_rdata(
                     Name::from_str("www.example.com.").unwrap(),
                     80,
@@ -675,37 +665,7 @@ pub mod tests {
                     80,
                     RData::A(Ipv4Addr::new(127, 0, 0, 2)),
                 ),
-            ])),
-            index: 0,
-        };
-
-        assert_eq!(
-            lookup.next().unwrap(),
-            RData::A(Ipv4Addr::new(127, 0, 0, 1))
-        );
-        assert_eq!(
-            lookup.next().unwrap(),
-            RData::A(Ipv4Addr::new(127, 0, 0, 2))
-        );
-        assert_eq!(lookup.next(), None);
-    }
-
-    #[test]
-    fn test_lookup_into_iter_vec() {
-        let mut lookup = LookupIntoIter {
-            records: Ok(vec![
-                Record::from_rdata(
-                    Name::from_str("www.example.com.").unwrap(),
-                    80,
-                    RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-                ),
-                Record::from_rdata(
-                    Name::from_str("www.example.com.").unwrap(),
-                    80,
-                    RData::A(Ipv4Addr::new(127, 0, 0, 2)),
-                ),
-            ]
-            .into_iter()),
+            ]),
             index: 0,
         };
 

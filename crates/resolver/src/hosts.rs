@@ -67,11 +67,11 @@ impl Hosts {
             let old_lookup = match record_type {
                 RecordType::A => lookup_type.a.get_or_insert_with(|| {
                     let query = Query::query(name.clone(), record_type);
-                    Lookup::new_with_max_ttl(query, Arc::new(vec![]))
+                    Lookup::new_with_max_ttl(query, Arc::from([]))
                 }),
                 RecordType::AAAA => lookup_type.aaaa.get_or_insert_with(|| {
                     let query = Query::query(name.clone(), record_type);
-                    Lookup::new_with_max_ttl(query, Arc::new(vec![]))
+                    Lookup::new_with_max_ttl(query, Arc::from([]))
                 }),
                 _ => {
                     warn!("unsupported IP type from Hosts file: {:#?}", record_type);
@@ -151,12 +151,12 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
                 match addr {
                     RData::A(..) => {
                         let query = Query::query(name.clone(), RecordType::A);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
                         hosts.insert(name.clone(), RecordType::A, lookup);
                     }
                     RData::AAAA(..) => {
                         let query = Query::query(name.clone(), RecordType::AAAA);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
+                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
                         hosts.insert(name.clone(), RecordType::AAAA, lookup);
                     }
                     _ => {

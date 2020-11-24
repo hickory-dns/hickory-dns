@@ -489,7 +489,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         use trust_dns_rustls::tls_server;
 
         let spawner = Handle::current();
-        let dns_hostname = Arc::new(dns_hostname);
+        let dns_hostname: Arc<str> = Arc::from(dns_hostname);
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 

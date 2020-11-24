@@ -44,7 +44,7 @@ const ALPN_H2: &[u8] = b"h2";
 #[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
     // Corresponds to the dns-name of the HTTPS server
-    name_server_name: Arc<String>,
+    name_server_name: Arc<str>,
     name_server: SocketAddr,
     h2: SendRequest<Bytes>,
     is_shutdown: bool,
@@ -64,7 +64,7 @@ impl HttpsClientStream {
     async fn inner_send(
         h2: SendRequest<Bytes>,
         message: SerialMessage,
-        name_server_name: Arc<String>,
+        name_server_name: Arc<str>,
         name_server: SocketAddr,
     ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
@@ -327,7 +327,7 @@ impl HttpsClientStreamBuilder {
 
         let tls = TlsConfig {
             client_config: self.client_config,
-            dns_name: Arc::new(dns_name),
+            dns_name: Arc::from(dns_name),
         };
 
         HttpsClientConnect::<S>(HttpsClientConnectState::ConnectTcp {
@@ -361,7 +361,7 @@ where
 
 struct TlsConfig {
     client_config: Arc<ClientConfig>,
-    dns_name: Arc<String>,
+    dns_name: Arc<str>,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -382,7 +382,7 @@ where
     TlsConnecting {
         // FIXME: also abstract away Tokio TLS in RuntimeProvider.
         tls: TokioTlsConnect<AsyncIo03As02<S>>,
-        name_server_name: Arc<String>,
+        name_server_name: Arc<str>,
         name_server: SocketAddr,
     },
     H2Handshake {
@@ -399,7 +399,7 @@ where
                     > + Send,
             >,
         >,
-        name_server_name: Arc<String>,
+        name_server_name: Arc<str>,
         name_server: SocketAddr,
     },
     Connected(Option<HttpsClientStream>),

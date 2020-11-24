@@ -124,13 +124,13 @@ impl RestrictedMath for Restrict<usize> {
     type Value = usize;
 
     fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_add(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_add(arg).map(Restrict).ok_or(arg)
     }
     fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_sub(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_sub(arg).map(Restrict).ok_or(arg)
     }
     fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_mul(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_mul(arg).map(Restrict).ok_or(arg)
     }
 }
 
@@ -139,13 +139,13 @@ impl RestrictedMath for Restrict<u8> {
     type Value = u8;
 
     fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_add(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_add(arg).map(Restrict).ok_or(arg)
     }
     fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_sub(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_sub(arg).map(Restrict).ok_or(arg)
     }
     fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_mul(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_mul(arg).map(Restrict).ok_or(arg)
     }
 }
 
@@ -154,13 +154,13 @@ impl RestrictedMath for Restrict<u16> {
     type Value = u16;
 
     fn checked_add(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_add(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_add(arg).map(Restrict).ok_or(arg)
     }
     fn checked_sub(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_sub(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_sub(arg).map(Restrict).ok_or(arg)
     }
     fn checked_mul(&self, arg: Self::Arg) -> Result<Restrict<Self::Value>, Self::Arg> {
-        self.0.checked_mul(arg).map(Restrict).ok_or_else(|| arg)
+        self.0.checked_mul(arg).map(Restrict).ok_or(arg)
     }
 }
 

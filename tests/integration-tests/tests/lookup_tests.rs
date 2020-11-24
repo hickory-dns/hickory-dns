@@ -74,7 +74,7 @@ fn test_lookup_hosts() {
         RecordType::A,
         Lookup::new_with_max_ttl(
             Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A),
-            Arc::new(vec![record]),
+            Arc::from([record]),
         ),
     );
 

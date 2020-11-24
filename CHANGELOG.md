@@ -9,6 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (https) dns_hostname args all are `Arc<str>` rather than `Arc<String>`, use `Arc::from`
 - (proto) Set TCP_NODELAY when building a TCP connection (@djc) #1249
 - (all) *BREAKING* The `UdpSocket` trait has grown an associated `Time` type.
 - (all) *BREAKING* The `Connect` trait has lost its
