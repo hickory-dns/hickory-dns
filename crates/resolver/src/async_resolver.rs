@@ -362,7 +362,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
                 finally_ip_addr = Some(record);
             } else {
                 let query = Query::query(name, ip_addr.to_record_type());
-                let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![record]));
+                let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
                 return Ok(lookup.into());
             }
         }
@@ -372,7 +372,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
             (Err(_), Some(ip_addr)) => {
                 // it was a valid IP, return that...
                 let query = Query::query(ip_addr.name().clone(), ip_addr.record_type());
-                let lookup = Lookup::new_with_max_ttl(query, Arc::new(vec![ip_addr.clone()]));
+                let lookup = Lookup::new_with_max_ttl(query, Arc::from([ip_addr.clone()]));
                 return Ok(lookup.into());
             }
             (Err(err), None) => {

@@ -177,7 +177,7 @@ where
                     // Otherwise, if there's an IP address to fall back to,
                     // we'll return it.
                     let record = Record::from_rdata(Name::new(), MAX_TTL, ip_addr);
-                    let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::new(vec![record]));
+                    let lookup = Lookup::new_with_max_ttl(Query::new(), Arc::from([record]));
                     return Poll::Ready(Ok(lookup.into()));
                 }
             };

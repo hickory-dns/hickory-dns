@@ -171,7 +171,7 @@ impl DnsLru {
         let valid_until = now + ttl;
 
         // insert into the LRU
-        let lookup = Lookup::new_with_deadline(query.clone(), Arc::new(records), valid_until);
+        let lookup = Lookup::new_with_deadline(query.clone(), Arc::from(records), valid_until);
         self.cache.lock().insert(
             query,
             LruValue {
