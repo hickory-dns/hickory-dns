@@ -11,7 +11,7 @@ use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use lru_cache::LruCache;
+use hashlink::LruCache;
 use parking_lot::Mutex;
 
 use proto::op::Query;
