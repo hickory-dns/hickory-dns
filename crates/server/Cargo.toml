@@ -71,7 +71,7 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
-bytes = "0.5"
+bytes = "0.6"
 cfg-if = "1"
 chrono = "0.4"
 enum-as-inner = "0.3"
@@ -83,12 +83,12 @@ http = { version = "0.2", optional = true }
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rusqlite = { version = "0.24.0", features = ["bundled", "chrono"], optional = true }
-rustls = { version = "0.18", optional = true }
+rustls = { version = "0.19", optional = true }
 serde = { version = "1.0.114", features = ["derive"] }
 thiserror = "1.0.20"
 tokio = { version = "0.3.0", features = ["stream", "net"] }
 tokio-openssl = { version = "0.5.0", optional = true }
-tokio-rustls = { version = "0.20", optional = true }
+tokio-rustls = { version = "0.21", optional = true }
 toml = "0.5"
 trust-dns-client= { version = "0.20.0-alpha.3", path = "../client" }
 trust-dns-https = { version = "0.20.0-alpha.3", path = "../https", optional = true }
