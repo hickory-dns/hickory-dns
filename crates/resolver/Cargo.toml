@@ -73,20 +73,20 @@ log = "0.4"
 lru-cache = "0.1.2"
 parking_lot = "0.11"
 resolv-conf = { version = "0.7.0", optional = true, features = ["system"] }
-rustls = {version  = "0.18", optional = true}
+rustls = {version  = "0.19", optional = true}
 serde = { version = "1.0", features = ["derive"], optional = true }
 smallvec = "1.2"
 thiserror = "1.0.20"
 tokio = { version = "0.3.0", optional = true }
 tokio-native-tls = { version = "0.2", optional = true }
 tokio-openssl = { version = "0.5.0", optional = true }
-tokio-rustls = { version = "0.20", optional = true }
+tokio-rustls = { version = "0.21", optional = true }
 trust-dns-https = { version = "0.20.0-alpha.3", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.20.0-alpha.3", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.20.0-alpha.3", path = "../openssl", optional = true }
 trust-dns-proto = { version = "0.20.0-alpha.3", path = "../proto", default-features = false }
 trust-dns-rustls = { version = "0.20.0-alpha.3", path = "../rustls", optional = true }
-webpki-roots = { version = "0.20", optional = true }
+webpki-roots = { version = "0.21", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { version = "0.2.2", optional = true }

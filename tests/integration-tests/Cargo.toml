@@ -76,7 +76,7 @@ futures = "0.3.5"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.7"
 rusqlite = { version = "0.24.0", features = ["bundled"] }
-rustls = "0.18"
+rustls = "0.19"
 tokio = { version = "0.3.0", features = ["time", "rt"] }
 trust-dns-client= { version = "0.20.0-alpha.3", path = "../../crates/client" }
 trust-dns-https = { version = "0.20.0-alpha.3", path = "../../crates/https" }
@@ -86,7 +86,7 @@ trust-dns-resolver = { version = "0.20.0-alpha.3", path = "../../crates/resolver
 trust-dns-rustls = { version = "0.20.0-alpha.3", path = "../../crates/rustls" }
 # TODO: fixup tests to not require openssl
 trust-dns-server = { version = "0.20.0-alpha.3", path = "../../crates/server" }
-webpki-roots = { version = "0.20", optional = true }
+webpki-roots = { version = "0.21", optional = true }
 
 [dev-dependencies]
 futures = { version = "0.3.5", features = ["thread-pool"] }
