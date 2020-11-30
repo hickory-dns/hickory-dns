@@ -165,6 +165,7 @@ fn test_catalog_lookup() {
     );
 
     // other zone
+    let mut question: Message = Message::new();
     let mut query: Query = Query::new();
     query.set_name(test_origin.into());
 
@@ -187,7 +188,7 @@ fn test_catalog_lookup() {
     assert_eq!(answers.first().unwrap().rr_type(), RecordType::A);
     assert_eq!(
         answers.first().unwrap().rdata(),
-        &RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        &RData::A(Ipv4Addr::new(94, 184, 216, 34))
     );
 }
 
