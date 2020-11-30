@@ -495,13 +495,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
             sections.additionals.iter(),
         );
 
-        let result = send_response(
-            response_edns
-                .as_ref()
-                .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-            response,
-            response_handle.clone(),
-        );
+        let result = send_response(response_edns.clone(), response, response_handle.clone());
         if let Err(e) = result {
             error!("error sending response: {}", e);
         }
