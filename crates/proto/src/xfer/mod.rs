@@ -170,7 +170,7 @@ impl DnsHandle for BufDnsRequestStreamHandle {
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         try_oneshot!(self.sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
-            ProtoError::from("could not send request")
+            ProtoError::from(ProtoErrorKind::Busy)
         }));
 
         OneshotDnsResponseReceiver::Receiver(oneshot)
