@@ -72,7 +72,7 @@ fn send_response<R: ResponseHandler>(
 }
 
 impl RequestHandler for Catalog {
-    type ResponseFuture = HandleRequest;
+    type ResponseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
@@ -117,7 +117,10 @@ impl RequestHandler for Catalog {
                 // TODO: should ResponseHandle consume self?
                 let result =
                     response_handle.send_response(response.build_no_records(response_header));
-                return HandleRequest::result(result);
+                if let Err(e) = result {
+                    error!("request error: {}", e);
+                }
+                return Box::pin(async {});
             }
 
             response_edns = Some(resp_edns);
@@ -125,30 +128,27 @@ impl RequestHandler for Catalog {
             response_edns = None;
         }
 
-        match request_message.message_type() {
+        let result = match request_message.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
-                    let lookup = self.lookup(request_message, response_edns, response_handle);
-                    HandleRequest::lookup(lookup)
+                    return Box::pin(self.lookup(request_message, response_edns, response_handle));
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
                     // TODO: this should be a future
-                    let result = self.update(&request_message, response_edns, response_handle);
-                    HandleRequest::result(result)
+                    self.update(&request_message, response_edns, response_handle)
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    let result = response_handle.send_response(response.error_msg(
+                    response_handle.send_response(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
                         ResponseCode::NotImp,
-                    ));
-                    HandleRequest::result(result)
+                    ))
                 }
             },
             MessageType::Response => {
@@ -157,49 +157,18 @@ impl RequestHandler for Catalog {
                     request_message.id()
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-
-                let result = response_handle.send_response(response.error_msg(
+                response_handle.send_response(response.error_msg(
                     request_message.id(),
                     request_message.op_code(),
                     ResponseCode::FormErr,
-                ));
-                HandleRequest::result(result)
+                ))
             }
+        };
+
+        if let Err(e) = result {
+            error!("request failed: {}", e);
         }
-    }
-}
-
-/// Future response to handle a request
-#[must_use = "futures do nothing unless polled"]
-pub enum HandleRequest {
-    LookupFuture(Pin<Box<dyn Future<Output = ()> + Send>>),
-    Result(io::Result<()>),
-}
-
-impl HandleRequest {
-    fn lookup<R: ResponseHandler + Unpin>(lookup_future: LookupFuture<R>) -> Self {
-        let lookup = Box::pin(lookup_future) as Pin<Box<dyn Future<Output = ()> + Send>>;
-        HandleRequest::LookupFuture(lookup)
-    }
-
-    fn result(result: io::Result<()>) -> Self {
-        HandleRequest::Result(result)
-    }
-}
-
-impl Future for HandleRequest {
-    // TODO: return ()
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match *self {
-            HandleRequest::LookupFuture(ref mut lookup) => lookup.as_mut().poll(cx),
-            HandleRequest::Result(Ok(_)) => Poll::Ready(()),
-            HandleRequest::Result(Err(ref res)) => {
-                error!("update failed: {}", res);
-                Poll::Ready(())
-            }
-        }
+        Box::pin(async {})
     }
 }
 
