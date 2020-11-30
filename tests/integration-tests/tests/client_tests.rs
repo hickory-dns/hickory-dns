@@ -2,7 +2,7 @@ use std::net::*;
 use std::pin::Pin;
 #[cfg(feature = "dnssec")]
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
@@ -60,7 +60,10 @@ impl ClientConnection for TestClientConnection {
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
 
     let client = SyncClient::new(TestClientConnection::new(catalog));
 
@@ -402,7 +405,10 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     ))));
     authority.upsert(auth_key, 0);
 
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
     let client = SyncClient::with_signer(TestClientConnection::new(catalog), signer);
 
     (client, origin.into())
