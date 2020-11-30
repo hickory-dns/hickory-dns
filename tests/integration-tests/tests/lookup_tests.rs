@@ -1,6 +1,6 @@
 use std::net::*;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use tokio::runtime::Runtime;
 
@@ -25,7 +25,10 @@ use trust_dns_integration::TestClientStream;
 fn test_lookup() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
@@ -53,7 +56,10 @@ fn test_lookup() {
 fn test_lookup_hosts() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
@@ -111,7 +117,10 @@ fn create_ip_like_example() -> InMemoryAuthority {
 fn test_lookup_ipv4_like() {
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
@@ -141,7 +150,10 @@ fn test_lookup_ipv4_like() {
 fn test_lookup_ipv4_like_fall_through() {
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));

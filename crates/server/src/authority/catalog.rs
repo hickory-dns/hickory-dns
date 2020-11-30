@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::{ready, FutureExt, TryFutureExt};
@@ -42,7 +42,7 @@ use crate::server::{Request, RequestHandler, ResponseHandler};
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
 pub struct Catalog {
-    authorities: HashMap<LowerName, Arc<RwLock<Box<dyn AuthorityObject>>>>,
+    authorities: HashMap<LowerName, Box<dyn AuthorityObject>>,
 }
 
 fn send_response<R: ResponseHandler>(
@@ -218,13 +218,11 @@ impl Catalog {
     /// * `name` - zone name, e.g. example.com.
     /// * `authority` - the zone data
     pub fn upsert(&mut self, name: LowerName, authority: Box<dyn AuthorityObject>) {
-        // self.authorities.insert(name, Arc::new(RwLock::new(authority)));
-        self.authorities
-            .insert(name, Arc::new(RwLock::new(authority)));
+        self.authorities.insert(name, authority);
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Arc<RwLock<Box<dyn AuthorityObject>>>> {
+    pub fn remove(&mut self, name: &LowerName) -> Option<Box<dyn AuthorityObject>> {
         self.authorities.remove(name)
     }
 
@@ -321,8 +319,6 @@ impl Catalog {
             .map(LowerQuery::name)
             .and_then(|name| self.find(name))
         {
-            let mut authority = authority.write().unwrap(); // poison errors should panic...
-
             // Ask for Master/Slave terms to be replaced
             #[allow(deprecated)]
             match authority.zone_type() {
@@ -422,7 +418,7 @@ impl Catalog {
             .enumerate()
             .filter_map(|(idx, q)| {
                 self.find(q.name())
-                    .map(|authority| (idx, Arc::clone(authority)))
+                    .map(|authority| (idx, authority.box_clone()))
             })
             .collect::<Vec<_>>();
 
@@ -450,16 +446,19 @@ impl Catalog {
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&Arc<RwLock<Box<dyn AuthorityObject>>>> {
+    pub fn find(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
         debug!("searching authorities for: {}", name);
-        self.authorities.get(name).or_else(|| {
-            if !name.is_root() {
-                let name = name.base_name();
-                self.find(&name)
-            } else {
-                None
-            }
-        })
+        self.authorities
+            .get(name)
+            .map(|authority| &**authority)
+            .or_else(|| {
+                if !name.is_root() {
+                    let name = name.base_name();
+                    self.find(&name)
+                } else {
+                    None
+                }
+            })
     }
 }
 
@@ -470,7 +469,7 @@ pub struct LookupFuture<R: ResponseHandler + Unpin> {
     request: Arc<MessageRequest>,
     response_edns: Option<Arc<Edns>>,
     response_handle: R,
-    queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
+    queries_and_authorities: Vec<(usize, Box<dyn AuthorityObject>)>,
     lookup: Option<AuthorityLookup<R>>,
 }
 
@@ -480,7 +479,7 @@ impl<R: ResponseHandler + Unpin> LookupFuture<R> {
         request: Arc<MessageRequest>,
         response_edns: Option<Arc<Edns>>,
         response_handle: R,
-        queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
+        queries_and_authorities: Vec<(usize, Box<dyn AuthorityObject + 'static>)>,
     ) -> Self {
         LookupFuture {
             request,
@@ -508,7 +507,7 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
             self.lookup = None;
 
             // get next query
-            let (query_idx, ref_authority) = if let Some(q_a) = self.queries_and_authorities.pop() {
+            let (query_idx, authority) = if let Some(q_a) = self.queries_and_authorities.pop() {
                 q_a
             } else {
                 // all lookups are complete, finish request
@@ -523,7 +522,6 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
                 continue;
             };
 
-            let authority = &ref_authority.read().unwrap(); // poison errors should panic
             info!(
                 "request: {} found authority: {}",
                 self.request.id(),
@@ -583,7 +581,7 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
                         response_params,
                         request_params,
                         lookup_future,
-                        Arc::clone(&ref_authority),
+                        authority,
                     ));
                 }
                 ZoneType::Forward | ZoneType::Hint => {
@@ -592,7 +590,7 @@ impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
                         response_params,
                         request_params,
                         lookup_future,
-                        Arc::clone(&ref_authority),
+                        authority,
                     ));
                 }
             }
@@ -618,7 +616,7 @@ struct ResponseParams<R: ResponseHandler> {
 struct AuthorityLookup<R: ResponseHandler> {
     response_params: Option<ResponseParams<R>>,
     request_params: RequestParams,
-    authority: Arc<RwLock<Box<dyn AuthorityObject>>>,
+    authority: Box<dyn AuthorityObject>,
     state: AuthOrResolve,
 }
 
@@ -628,7 +626,7 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
         response_params: ResponseParams<R>,
         request_params: RequestParams,
         record_lookup: BoxedLookupFuture,
-        authority: Arc<RwLock<Box<dyn AuthorityObject>>>,
+        authority: Box<dyn AuthorityObject>,
     ) -> Self {
         debug!("handling authoritative request: {}", request_id);
 
@@ -647,7 +645,7 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
         response_params: ResponseParams<R>,
         request_params: RequestParams,
         record_lookup: BoxedLookupFuture,
-        authority: Arc<RwLock<Box<dyn AuthorityObject>>>,
+        authority: Box<dyn AuthorityObject>,
     ) -> Self {
         debug!("handling forwarded resolve: {}", request_id);
 
@@ -667,7 +665,7 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
     ) -> (
         &mut ResponseParams<R>,
         &RequestParams,
-        &Arc<RwLock<Box<dyn AuthorityObject>>>,
+        &dyn AuthorityObject,
         &mut AuthOrResolve,
     ) {
         (
@@ -675,7 +673,7 @@ impl<R: ResponseHandler> AuthorityLookup<R> {
                 .as_mut()
                 .expect("bad state, response_params should not be none here"),
             &self.request_params,
-            &self.authority,
+            &*self.authority,
             &mut self.state,
         )
     }
@@ -743,7 +741,7 @@ impl AuthOrResolve {
         cx: &mut Context,
         request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
-        authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
+        authority: &dyn AuthorityObject,
     ) -> Poll<LookupSections> {
         match self {
             AuthOrResolve::AuthorityLookupState(a) => {
@@ -790,7 +788,7 @@ impl AuthorityLookupState {
         cx: &mut Context,
         request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
-        authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
+        authority: &dyn AuthorityObject,
     ) -> Poll<LookupSections> {
         loop {
             *self = match self {
@@ -809,7 +807,7 @@ impl AuthorityLookupState {
 
                             // This was a successful authoritative lookup:
                             //   get the NS records
-                            let ns_lookup = authority.read().expect("authority poisoned").ns(
+                            let ns_lookup = authority.ns(
                                 request_params.is_dnssec,
                                 request_params.supported_algorithms,
                             );
@@ -857,14 +855,11 @@ impl AuthorityLookupState {
                                 );
 
                                 // get NSEC records
-                                let nsecs = authority
-                                    .read()
-                                    .expect("authority poisoned")
-                                    .get_nsec_records(
-                                        request_params.query.name(),
-                                        true,
-                                        request_params.supported_algorithms,
-                                    );
+                                let nsecs = authority.get_nsec_records(
+                                    request_params.query.name(),
+                                    true,
+                                    request_params.supported_algorithms,
+                                );
 
                                 BoxedLookupFuture::from(nsecs)
                             } else {
@@ -908,7 +903,7 @@ impl AuthorityLookupState {
                         }
                     };
 
-                    let soa_lookup = authority.read().expect("authority poisoned").soa_secure(
+                    let soa_lookup = authority.soa_secure(
                         request_params.is_dnssec,
                         request_params.supported_algorithms,
                     );
@@ -973,7 +968,7 @@ impl ResolveLookupState {
         cx: &mut Context,
         _request_params: &RequestParams,
         response_params: &mut ResponseParams<R>,
-        _authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
+        _authority: &dyn AuthorityObject,
     ) -> Poll<LookupSections> {
         #[allow(clippy::never_loop)]
         loop {
