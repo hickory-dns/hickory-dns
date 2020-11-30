@@ -247,12 +247,6 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
-        let response = MessageResponseBuilder::new(None);
-        let mut response_header = Header::default();
-        response_header.set_id(update.id());
-        response_header.set_op_code(OpCode::Update);
-        response_header.set_message_type(MessageType::Response);
-
         let zones: &[LowerQuery] = update.queries();
 
         // 2.3 - Zone Section
@@ -265,22 +259,14 @@ impl Catalog {
             .first()
             .map(LowerQuery::query_type)
             .unwrap_or(RecordType::Unknown(0));
-        if zones.len() != 1 || ztype != RecordType::SOA {
+        let response_code = if zones.len() != 1 || ztype != RecordType::SOA {
             warn!(
                 "invalid update request zones must be 1 and not SOA records, zones: {} ztype: {}",
                 zones.len(),
                 ztype
             );
-            response_header.set_response_code(ResponseCode::FormErr);
-
-            return send_response(
-                response_edns,
-                response.build_no_records(response_header),
-                response_handle,
-            );
-        }
-
-        if let Some(authority) = zones
+            ResponseCode::FormErr
+        } else if let Some(authority) = zones
             .first()
             .map(LowerQuery::name)
             .and_then(|name| self.find(name))
@@ -298,51 +284,34 @@ impl Catalog {
             match authority.zone_type() {
                 ZoneType::Secondary | ZoneType::Slave => {
                     error!("secondary forwarding for update not yet implemented");
-                    response_header.set_response_code(ResponseCode::NotImp);
-
-                    send_response(
-                        response_edns,
-                        response.build_no_records(response_header),
-                        response_handle,
-                    )
+                    ResponseCode::NotImp
                 }
                 ZoneType::Primary | ZoneType::Master => {
                     let update_result = authority.update(update);
                     match update_result {
                         // successful update
-                        Ok(..) => {
-                            response_header.set_response_code(ResponseCode::NoError);
-                        }
-                        Err(response_code) => {
-                            response_header.set_response_code(response_code);
-                        }
+                        Ok(..) => ResponseCode::NoError,
+                        Err(response_code) => response_code,
                     }
-
-                    send_response(
-                        response_edns,
-                        response.build_no_records(response_header),
-                        response_handle,
-                    )
                 }
-                _ => {
-                    response_header.set_response_code(ResponseCode::NotAuth);
-
-                    send_response(
-                        response_edns,
-                        response.build_no_records(response_header),
-                        response_handle,
-                    )
-                }
+                _ => ResponseCode::NotAuth,
             }
         } else {
-            response_header.set_response_code(ResponseCode::Refused);
+            ResponseCode::Refused
+        };
 
-            send_response(
-                response_edns,
-                response.build_no_records(response_header),
-                response_handle,
-            )
-        }
+        let response = MessageResponseBuilder::new(None);
+        let mut response_header = Header::default();
+        response_header.set_id(update.id());
+        response_header.set_op_code(OpCode::Update);
+        response_header.set_message_type(MessageType::Response);
+        response_header.set_response_code(response_code);
+
+        send_response(
+            response_edns,
+            response.build_no_records(response_header),
+            response_handle,
+        )
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
