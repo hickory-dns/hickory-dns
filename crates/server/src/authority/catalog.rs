@@ -259,45 +259,51 @@ impl Catalog {
             .first()
             .map(LowerQuery::query_type)
             .unwrap_or(RecordType::Unknown(0));
-        let response_code = if zones.len() != 1 || ztype != RecordType::SOA {
+
+        let result = if zones.len() != 1 || ztype != RecordType::SOA {
             warn!(
                 "invalid update request zones must be 1 and not SOA records, zones: {} ztype: {}",
                 zones.len(),
                 ztype
             );
-            ResponseCode::FormErr
-        } else if let Some(authority) = zones
-            .first()
-            .map(LowerQuery::name)
-            .and_then(|name| self.find(name))
-        {
-            // Ask for Master/Slave terms to be replaced
-            #[allow(deprecated)]
-            match authority.zone_type() {
-                ZoneType::Slave | ZoneType::Master => {
-                    warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
-                }
-                _ => (),
-            }
-
-            #[allow(deprecated)]
-            match authority.zone_type() {
-                ZoneType::Secondary | ZoneType::Slave => {
-                    error!("secondary forwarding for update not yet implemented");
-                    ResponseCode::NotImp
-                }
-                ZoneType::Primary | ZoneType::Master => {
-                    let update_result = authority.update(update);
-                    match update_result {
-                        // successful update
-                        Ok(..) => ResponseCode::NoError,
-                        Err(response_code) => response_code,
-                    }
-                }
-                _ => ResponseCode::NotAuth,
-            }
+            Err(ResponseCode::FormErr)
         } else {
-            ResponseCode::Refused
+            zones
+                .first()
+                .map(LowerQuery::name)
+                .and_then(|name| self.find(name).map(|a| a.box_clone()))
+                .ok_or(ResponseCode::Refused)
+        };
+
+        let response_code = match result {
+            Ok(authority) => {
+                // Ask for Master/Slave terms to be replaced
+                #[allow(deprecated)]
+                match authority.zone_type() {
+                    ZoneType::Slave | ZoneType::Master => {
+                        warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
+                    }
+                    _ => (),
+                }
+
+                #[allow(deprecated)]
+                match authority.zone_type() {
+                    ZoneType::Secondary | ZoneType::Slave => {
+                        error!("secondary forwarding for update not yet implemented");
+                        ResponseCode::NotImp
+                    }
+                    ZoneType::Primary | ZoneType::Master => {
+                        let update_result = authority.update(update);
+                        match update_result {
+                            // successful update
+                            Ok(..) => ResponseCode::NoError,
+                            Err(response_code) => response_code,
+                        }
+                    }
+                    _ => ResponseCode::NotAuth,
+                }
+            }
+            Err(response_code) => response_code,
         };
 
         let response = MessageResponseBuilder::new(None);
