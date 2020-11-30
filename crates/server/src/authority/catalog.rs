@@ -435,57 +435,8 @@ async fn lookup<R: ResponseHandler + Unpin>(
             authority.origin()
         );
 
-        let mut response_header = Header::new();
-        response_header.set_id(request.id());
-        response_header.set_op_code(OpCode::Query);
-        response_header.set_message_type(MessageType::Response);
-        response_header.set_authoritative(authority.zone_type().is_authoritative());
-
-        let (is_dnssec, supported_algorithms) =
-            request
-                .edns()
-                .map_or((false, SupportedAlgorithms::new()), |edns| {
-                    let supported_algorithms =
-                        if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
-                            algs
-                        } else {
-                            debug!("no DAU in request, used default SupportAlgorithms");
-                            Default::default()
-                        };
-
-                    (edns.dnssec_ok(), supported_algorithms)
-                });
-
-        // log algorithms being requested
-        if is_dnssec {
-            info!(
-                "request: {} supported_algs: {}",
-                request.id(),
-                supported_algorithms
-            );
-        }
-
-        debug!("performing {} on {}", query, authority.origin());
-        let future = authority.search(query, is_dnssec, supported_algorithms);
-
-        #[allow(deprecated)]
-        let sections = match authority.zone_type() {
-            ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
-                send_authoritative_response(
-                    future,
-                    &*authority,
-                    &mut response_header,
-                    is_dnssec,
-                    supported_algorithms,
-                    &request,
-                    &query,
-                )
-                .await
-            }
-            ZoneType::Forward | ZoneType::Hint => {
-                send_forwarded_response(future, &mut response_header).await
-            }
-        };
+        let (response_header, sections) =
+            build_response(&*authority, request.id(), query, request.edns()).await;
 
         let response = MessageResponseBuilder::new(Some(request.raw_queries())).build(
             response_header,
@@ -502,13 +453,71 @@ async fn lookup<R: ResponseHandler + Unpin>(
     }
 }
 
+async fn build_response(
+    authority: &dyn AuthorityObject,
+    request_id: u16,
+    query: &LowerQuery,
+    edns: Option<&Edns>,
+) -> (Header, LookupSections) {
+    let (is_dnssec, supported_algorithms) =
+        edns.map_or((false, SupportedAlgorithms::new()), |edns| {
+            let supported_algorithms =
+                if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
+                    algs
+                } else {
+                    debug!("no DAU in request, used default SupportAlgorithms");
+                    Default::default()
+                };
+
+            (edns.dnssec_ok(), supported_algorithms)
+        });
+
+    // log algorithms being requested
+    if is_dnssec {
+        info!(
+            "request: {} supported_algs: {}",
+            request_id, supported_algorithms
+        );
+    }
+
+    let mut response_header = Header::new();
+    response_header.set_id(request_id);
+    response_header.set_op_code(OpCode::Query);
+    response_header.set_message_type(MessageType::Response);
+    response_header.set_authoritative(authority.zone_type().is_authoritative());
+
+    debug!("performing {} on {}", query, authority.origin());
+    let future = authority.search(query, is_dnssec, supported_algorithms);
+
+    #[allow(deprecated)]
+    let sections = match authority.zone_type() {
+        ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
+            send_authoritative_response(
+                future,
+                authority,
+                &mut response_header,
+                is_dnssec,
+                supported_algorithms,
+                request_id,
+                &query,
+            )
+            .await
+        }
+        ZoneType::Forward | ZoneType::Hint => {
+            send_forwarded_response(future, &mut response_header).await
+        }
+    };
+
+    (response_header, sections)
+}
+
 async fn send_authoritative_response(
     future: BoxedLookupFuture,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     is_dnssec: bool,
     supported_algorithms: SupportedAlgorithms,
-    request: &MessageRequest,
+    request_id: u16,
     query: &LowerQuery,
 ) -> LookupSections {
     // In this state we await the records, on success we transition to getting
@@ -555,7 +564,7 @@ async fn send_authoritative_response(
     } else {
         let nsecs = if is_dnssec {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-            debug!("request: {} non-existent adding nsecs", request.id());
+            debug!("request: {} non-existent adding nsecs", request_id);
             // run the nsec lookup future, and then transition to get soa
             let future = authority.get_nsec_records(query.name(), true, supported_algorithms);
             match future.await {
