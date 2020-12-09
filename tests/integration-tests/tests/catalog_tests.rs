@@ -1,5 +1,6 @@
 use std::net::*;
 use std::str::FromStr;
+use std::sync::{Arc, RwLock};
 
 use futures::executor::block_on;
 
@@ -118,8 +119,8 @@ fn test_catalog_lookup() {
     let test_origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(example));
-    catalog.upsert(test_origin.clone(), Box::new(test));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(RwLock::new(example))));
+    catalog.upsert(test_origin.clone(), Box::new(Arc::new(RwLock::new(test))));
 
     let mut question: Message = Message::new();
 
@@ -164,6 +165,7 @@ fn test_catalog_lookup() {
     );
 
     // other zone
+    let mut question: Message = Message::new();
     let mut query: Query = Query::new();
     query.set_name(test_origin.into());
 
@@ -186,7 +188,7 @@ fn test_catalog_lookup() {
     assert_eq!(answers.first().unwrap().rr_type(), RecordType::A);
     assert_eq!(
         answers.first().unwrap().rdata(),
-        &RData::A(Ipv4Addr::new(93, 184, 216, 34))
+        &RData::A(Ipv4Addr::new(94, 184, 216, 34))
     );
 }
 
@@ -197,7 +199,7 @@ fn test_catalog_nx_soa() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(example));
+    catalog.upsert(origin, Box::new(Arc::new(RwLock::new(example))));
 
     let mut question: Message = Message::new();
 
@@ -259,7 +261,7 @@ fn test_axfr() {
         .clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(test));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(RwLock::new(test))));
 
     let mut query: Query = Query::new();
     query.set_name(origin.clone().into());
@@ -376,7 +378,7 @@ fn test_axfr_refused() {
     let origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(test));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(RwLock::new(test))));
 
     let mut query: Query = Query::new();
     query.set_name(origin.into());
@@ -412,7 +414,7 @@ fn test_cname_additionals() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(example));
+    catalog.upsert(origin, Box::new(Arc::new(RwLock::new(example))));
 
     let mut question: Message = Message::new();
 
@@ -456,7 +458,7 @@ fn test_multiple_cname_additionals() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(example));
+    catalog.upsert(origin, Box::new(Arc::new(RwLock::new(example))));
 
     let mut question: Message = Message::new();
 

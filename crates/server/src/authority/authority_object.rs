@@ -9,9 +9,11 @@
 
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::{Arc, RwLock};
 use std::task::{Context, Poll};
 
 use futures_util::{future, TryFutureExt};
+use log::debug;
 
 use crate::client::op::LowerQuery;
 use crate::client::proto::rr::dnssec::rdata::key::KEY;
@@ -22,6 +24,9 @@ use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, Zon
 
 /// An Object safe Authority
 pub trait AuthorityObject: Send + Sync {
+    /// Clone the object
+    fn box_clone(&self) -> Box<dyn AuthorityObject>;
+
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
 
@@ -29,10 +34,10 @@ pub trait AuthorityObject: Send + Sync {
     fn is_axfr_allowed(&self) -> bool;
 
     /// Perform a dynamic update of a zone
-    fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool>;
+    fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName;
+    fn origin(&self) -> LowerName;
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
     ///
@@ -77,7 +82,7 @@ pub trait AuthorityObject: Send + Sync {
     /// Get the NS, NameServer, record for the zone
     fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> BoxedLookupFuture {
         self.lookup(
-            self.origin(),
+            &self.origin(),
             RecordType::NS,
             is_secure,
             supported_algorithms,
@@ -105,7 +110,7 @@ pub trait AuthorityObject: Send + Sync {
     fn soa(&self) -> BoxedLookupFuture {
         // SOA should be origin|SOA
         self.lookup(
-            self.origin(),
+            &self.origin(),
             RecordType::SOA,
             false,
             SupportedAlgorithms::new(),
@@ -119,7 +124,7 @@ pub trait AuthorityObject: Send + Sync {
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
         self.lookup(
-            self.origin(),
+            &self.origin(),
             RecordType::SOA,
             is_secure,
             supported_algorithms,
@@ -128,51 +133,55 @@ pub trait AuthorityObject: Send + Sync {
 
     // TODO: this should probably be a general purpose higher level component?
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
+    fn add_update_auth_key(&self, _name: Name, _key: KEY) -> DnsSecResult<()> {
         Err(DnsSecError::from(
             "dynamic update not supported by this Authority type",
         ))
     }
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&self, _signer: Signer) -> DnsSecResult<()> {
         Err(DnsSecError::from(
             "zone signing not supported by this Authority type",
         ))
     }
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
+    fn secure_zone(&self) -> DnsSecResult<()> {
         Err(DnsSecError::from(
             "zone signing not supported by this Authority type",
         ))
     }
 }
 
-impl<A, L> AuthorityObject for A
+impl<A, L> AuthorityObject for Arc<RwLock<A>>
 where
     A: Authority<Lookup = L> + Send + Sync + 'static,
     A::LookupFuture: Send + 'static,
     L: LookupObject + Send + 'static,
 {
+    fn box_clone(&self) -> Box<dyn AuthorityObject> {
+        Box::new(self.clone())
+    }
+
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
-        Authority::zone_type(self)
+        Authority::zone_type(&*self.read().expect("poisoned"))
     }
 
     /// Return true if AXFR is allowed
     fn is_axfr_allowed(&self) -> bool {
-        Authority::is_axfr_allowed(self)
+        Authority::is_axfr_allowed(&*self.read().expect("poisoned"))
     }
 
     /// Perform a dynamic update of a zone
-    fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool> {
-        Authority::update(self, update)
+    fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
+        Authority::update(&mut *self.write().expect("poisoned"), update)
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> &LowerName {
-        Authority::origin(self)
+    fn origin(&self) -> LowerName {
+        Authority::origin(&*self.read().expect("poisoned")).clone()
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -196,7 +205,8 @@ where
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
-        let lookup = Authority::lookup(self, name, rtype, is_secure, supported_algorithms);
+        let this = self.read().expect("poisoned");
+        let lookup = Authority::lookup(&*this, name, rtype, is_secure, supported_algorithms);
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
@@ -217,7 +227,9 @@ where
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
-        let lookup = Authority::search(self, query, is_secure, supported_algorithms);
+        let this = self.read().expect("poisoned");
+        debug!("performing {} on {}", query, this.origin());
+        let lookup = Authority::search(&*this, query, is_secure, supported_algorithms);
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
@@ -234,20 +246,25 @@ where
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> BoxedLookupFuture {
-        let lookup = Authority::get_nsec_records(self, name, is_secure, supported_algorithms);
+        let lookup = Authority::get_nsec_records(
+            &*self.read().expect("poisoned"),
+            name,
+            is_secure,
+            supported_algorithms,
+        );
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        Authority::add_update_auth_key(self, name, key)
+    fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
+        Authority::add_update_auth_key(&mut *self.write().expect("poisoned"), name, key)
     }
 
-    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
-        Authority::add_zone_signing_key(self, signer)
+    fn add_zone_signing_key(&self, signer: Signer) -> DnsSecResult<()> {
+        Authority::add_zone_signing_key(&mut *self.write().expect("poisoned"), signer)
     }
 
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Authority::secure_zone(self)
+    fn secure_zone(&self) -> DnsSecResult<()> {
+        Authority::secure_zone(&mut *self.write().expect("poisoned"))
     }
 }
 

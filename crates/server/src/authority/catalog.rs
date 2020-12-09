@@ -21,10 +21,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::sync::{Arc, RwLock};
-use std::task::{Context, Poll};
 
-use futures_util::{ready, FutureExt, TryFutureExt};
 use log::{debug, error, info, trace, warn};
 
 use crate::authority::{
@@ -42,7 +39,7 @@ use crate::server::{Request, RequestHandler, ResponseHandler};
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
 pub struct Catalog {
-    authorities: HashMap<LowerName, Arc<RwLock<Box<dyn AuthorityObject>>>>,
+    authorities: HashMap<LowerName, Box<dyn AuthorityObject>>,
 }
 
 fn send_response<R: ResponseHandler>(
@@ -72,7 +69,7 @@ fn send_response<R: ResponseHandler>(
 }
 
 impl RequestHandler for Catalog {
-    type ResponseFuture = HandleRequest;
+    type ResponseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
@@ -117,7 +114,10 @@ impl RequestHandler for Catalog {
                 // TODO: should ResponseHandle consume self?
                 let result =
                     response_handle.send_response(response.build_no_records(response_header));
-                return HandleRequest::result(result);
+                if let Err(e) = result {
+                    error!("request error: {}", e);
+                }
+                return Box::pin(async {});
             }
 
             response_edns = Some(resp_edns);
@@ -125,30 +125,27 @@ impl RequestHandler for Catalog {
             response_edns = None;
         }
 
-        match request_message.message_type() {
+        let result = match request_message.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
-                    let lookup = self.lookup(request_message, response_edns, response_handle);
-                    HandleRequest::lookup(lookup)
+                    return Box::pin(self.lookup(request_message, response_edns, response_handle));
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
                     // TODO: this should be a future
-                    let result = self.update(&request_message, response_edns, response_handle);
-                    HandleRequest::result(result)
+                    self.update(&request_message, response_edns, response_handle)
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    let result = response_handle.send_response(response.error_msg(
+                    response_handle.send_response(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
                         ResponseCode::NotImp,
-                    ));
-                    HandleRequest::result(result)
+                    ))
                 }
             },
             MessageType::Response => {
@@ -157,49 +154,18 @@ impl RequestHandler for Catalog {
                     request_message.id()
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-
-                let result = response_handle.send_response(response.error_msg(
+                response_handle.send_response(response.error_msg(
                     request_message.id(),
                     request_message.op_code(),
                     ResponseCode::FormErr,
-                ));
-                HandleRequest::result(result)
+                ))
             }
+        };
+
+        if let Err(e) = result {
+            error!("request failed: {}", e);
         }
-    }
-}
-
-/// Future response to handle a request
-#[must_use = "futures do nothing unless polled"]
-pub enum HandleRequest {
-    LookupFuture(Pin<Box<dyn Future<Output = ()> + Send>>),
-    Result(io::Result<()>),
-}
-
-impl HandleRequest {
-    fn lookup<R: ResponseHandler + Unpin>(lookup_future: LookupFuture<R>) -> Self {
-        let lookup = Box::pin(lookup_future) as Pin<Box<dyn Future<Output = ()> + Send>>;
-        HandleRequest::LookupFuture(lookup)
-    }
-
-    fn result(result: io::Result<()>) -> Self {
-        HandleRequest::Result(result)
-    }
-}
-
-impl Future for HandleRequest {
-    // TODO: return ()
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        match *self {
-            HandleRequest::LookupFuture(ref mut lookup) => lookup.as_mut().poll(cx),
-            HandleRequest::Result(Ok(_)) => Poll::Ready(()),
-            HandleRequest::Result(Err(ref res)) => {
-                error!("update failed: {}", res);
-                Poll::Ready(())
-            }
-        }
+        Box::pin(async {})
     }
 }
 
@@ -218,13 +184,11 @@ impl Catalog {
     /// * `name` - zone name, e.g. example.com.
     /// * `authority` - the zone data
     pub fn upsert(&mut self, name: LowerName, authority: Box<dyn AuthorityObject>) {
-        // self.authorities.insert(name, Arc::new(RwLock::new(authority)));
-        self.authorities
-            .insert(name, Arc::new(RwLock::new(authority)));
+        self.authorities.insert(name, authority);
     }
 
     /// Remove a zone from the catalog
-    pub fn remove(&mut self, name: &LowerName) -> Option<Arc<RwLock<Box<dyn AuthorityObject>>>> {
+    pub fn remove(&mut self, name: &LowerName) -> Option<Box<dyn AuthorityObject>> {
         self.authorities.remove(name)
     }
 
@@ -283,12 +247,6 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
-        let response = MessageResponseBuilder::new(None);
-        let mut response_header = Header::default();
-        response_header.set_id(update.id());
-        response_header.set_op_code(OpCode::Update);
-        response_header.set_message_type(MessageType::Response);
-
         let zones: &[LowerQuery] = update.queries();
 
         // 2.3 - Zone Section
@@ -301,86 +259,65 @@ impl Catalog {
             .first()
             .map(LowerQuery::query_type)
             .unwrap_or(RecordType::Unknown(0));
-        if zones.len() != 1 || ztype != RecordType::SOA {
+
+        let result = if zones.len() != 1 || ztype != RecordType::SOA {
             warn!(
                 "invalid update request zones must be 1 and not SOA records, zones: {} ztype: {}",
                 zones.len(),
                 ztype
             );
-            response_header.set_response_code(ResponseCode::FormErr);
+            Err(ResponseCode::FormErr)
+        } else {
+            zones
+                .first()
+                .map(LowerQuery::name)
+                .and_then(|name| self.find(name).map(|a| a.box_clone()))
+                .ok_or(ResponseCode::Refused)
+        };
 
-            return send_response(
-                response_edns,
-                response.build_no_records(response_header),
-                response_handle,
-            );
-        }
-
-        if let Some(authority) = zones
-            .first()
-            .map(LowerQuery::name)
-            .and_then(|name| self.find(name))
-        {
-            let mut authority = authority.write().unwrap(); // poison errors should panic...
-
-            // Ask for Master/Slave terms to be replaced
-            #[allow(deprecated)]
-            match authority.zone_type() {
-                ZoneType::Slave | ZoneType::Master => {
-                    warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
+        let response_code = match result {
+            Ok(authority) => {
+                // Ask for Master/Slave terms to be replaced
+                #[allow(deprecated)]
+                match authority.zone_type() {
+                    ZoneType::Slave | ZoneType::Master => {
+                        warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
+                    }
+                    _ => (),
                 }
-                _ => (),
-            }
 
-            #[allow(deprecated)]
-            match authority.zone_type() {
-                ZoneType::Secondary | ZoneType::Slave => {
-                    error!("secondary forwarding for update not yet implemented");
-                    response_header.set_response_code(ResponseCode::NotImp);
-
-                    send_response(
-                        response_edns,
-                        response.build_no_records(response_header),
-                        response_handle,
-                    )
-                }
-                ZoneType::Primary | ZoneType::Master => {
-                    let update_result = authority.update(update);
-                    match update_result {
-                        // successful update
-                        Ok(..) => {
-                            response_header.set_response_code(ResponseCode::NoError);
-                        }
-                        Err(response_code) => {
-                            response_header.set_response_code(response_code);
+                #[allow(deprecated)]
+                match authority.zone_type() {
+                    ZoneType::Secondary | ZoneType::Slave => {
+                        error!("secondary forwarding for update not yet implemented");
+                        ResponseCode::NotImp
+                    }
+                    ZoneType::Primary | ZoneType::Master => {
+                        let update_result = authority.update(update);
+                        match update_result {
+                            // successful update
+                            Ok(..) => ResponseCode::NoError,
+                            Err(response_code) => response_code,
                         }
                     }
-
-                    send_response(
-                        response_edns,
-                        response.build_no_records(response_header),
-                        response_handle,
-                    )
-                }
-                _ => {
-                    response_header.set_response_code(ResponseCode::NotAuth);
-
-                    send_response(
-                        response_edns,
-                        response.build_no_records(response_header),
-                        response_handle,
-                    )
+                    _ => ResponseCode::NotAuth,
                 }
             }
-        } else {
-            response_header.set_response_code(ResponseCode::Refused);
+            Err(response_code) => response_code,
+        };
 
-            send_response(
-                response_edns,
-                response.build_no_records(response_header),
-                response_handle,
-            )
-        }
+        let response = MessageResponseBuilder::new(None);
+        let mut response_header = Header::default();
+        response_header.set_id(update.id());
+        response_header.set_op_code(OpCode::Update);
+        response_header.set_message_type(MessageType::Response);
+        response_header.set_response_code(response_code);
+
+        send_response(
+            response_edns,
+            response.build_no_records(response_header),
+            response_handle,
+        )
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -407,28 +344,18 @@ impl Catalog {
         request: MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> LookupFuture<R> {
-        let request = Arc::new(request);
-        let response_edns = response_edns.map(Arc::new);
-
-        // TODO: the spec is very unclear on what to do with multiple queries
-        //  we will search for each, in the future, maybe make this threaded to respond even faster.
-        //  the current impl will return on the first query result
-
-        // collect all the queries and lookups
+    ) -> impl Future<Output = ()> + 'static {
         let queries_and_authorities = request
             .queries()
             .iter()
             .enumerate()
-            .filter_map(|(idx, q)| {
+            .filter_map(|(i, q)| {
                 self.find(q.name())
-                    .map(|authority| (idx, Arc::clone(authority)))
+                    .map(|authority| (i, authority.box_clone()))
             })
             .collect::<Vec<_>>();
 
-        let found_authority = !queries_and_authorities.is_empty();
-
-        if !found_authority {
+        if queries_and_authorities.is_empty() {
             let response = MessageResponseBuilder::new(Some(request.raw_queries()));
             send_response(
                 response_edns
@@ -441,577 +368,251 @@ impl Catalog {
             .ok();
         }
 
-        LookupFuture::new(
+        lookup(
+            queries_and_authorities,
             request,
             response_edns,
             response_handle,
-            queries_and_authorities,
         )
     }
 
     /// Recursively searches the catalog for a matching authority
-    pub fn find(&self, name: &LowerName) -> Option<&Arc<RwLock<Box<dyn AuthorityObject>>>> {
+    pub fn find(&self, name: &LowerName) -> Option<&(dyn AuthorityObject + 'static)> {
         debug!("searching authorities for: {}", name);
-        self.authorities.get(name).or_else(|| {
-            if !name.is_root() {
-                let name = name.base_name();
-                self.find(&name)
-            } else {
-                None
-            }
-        })
+        self.authorities
+            .get(name)
+            .map(|authority| &**authority)
+            .or_else(|| {
+                if !name.is_root() {
+                    let name = name.base_name();
+                    self.find(&name)
+                } else {
+                    None
+                }
+            })
     }
 }
 
-/// A Future that runs the lookups and responds to the requests
-#[allow(clippy::type_complexity)]
-#[must_use = "futures do nothing unless polled"]
-pub struct LookupFuture<R: ResponseHandler + Unpin> {
-    request: Arc<MessageRequest>,
-    response_edns: Option<Arc<Edns>>,
+async fn lookup<R: ResponseHandler + Unpin>(
+    queries_and_authorities: Vec<(usize, Box<dyn AuthorityObject>)>,
+    request: MessageRequest,
+    response_edns: Option<Edns>,
     response_handle: R,
-    queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
-    lookup: Option<AuthorityLookup<R>>,
-}
+) {
+    // TODO: the spec is very unclear on what to do with multiple queries
+    //  we will search for each, in the future, maybe make this threaded to respond even faster.
+    //  the current impl will return on the first query result
+    for (query_idx, authority) in queries_and_authorities {
+        let query = &request.queries()[query_idx];
+        info!(
+            "request: {} found authority: {}",
+            request.id(),
+            authority.origin()
+        );
 
-impl<R: ResponseHandler + Unpin> LookupFuture<R> {
-    #[allow(clippy::type_complexity)]
-    fn new(
-        request: Arc<MessageRequest>,
-        response_edns: Option<Arc<Edns>>,
-        response_handle: R,
-        queries_and_authorities: Vec<(usize, Arc<RwLock<Box<dyn AuthorityObject>>>)>,
-    ) -> Self {
-        LookupFuture {
-            request,
-            response_edns,
-            response_handle,
-            queries_and_authorities,
-            lookup: None,
+        let (response_header, sections) =
+            build_response(&*authority, request.id(), query, request.edns()).await;
+
+        let response = MessageResponseBuilder::new(Some(request.raw_queries())).build(
+            response_header,
+            sections.answers.iter(),
+            sections.ns.iter(),
+            sections.soa.iter(),
+            sections.additionals.iter(),
+        );
+
+        let result = send_response(response_edns.clone(), response, response_handle.clone());
+        if let Err(e) = result {
+            error!("error sending response: {}", e);
         }
     }
 }
 
-impl<R: ResponseHandler + Unpin> Future for LookupFuture<R> {
-    type Output = ();
+async fn build_response(
+    authority: &dyn AuthorityObject,
+    request_id: u16,
+    query: &LowerQuery,
+    edns: Option<&Edns>,
+) -> (Header, LookupSections) {
+    let (is_dnssec, supported_algorithms) =
+        edns.map_or((false, SupportedAlgorithms::new()), |edns| {
+            let supported_algorithms =
+                if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
+                    algs
+                } else {
+                    debug!("no DAU in request, used default SupportAlgorithms");
+                    Default::default()
+                };
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        loop {
-            // See if the lookup had anything
-            match self.lookup.as_mut().map(|f| f.poll_unpin(cx)) {
-                Some(Poll::Pending) => return Poll::Pending,
-                Some(Poll::Ready(())) => (),
-                None => (),
-            }
+            (edns.dnssec_ok(), supported_algorithms)
+        });
 
-            // lookup is complete, make sure it is None at this point
-            self.lookup = None;
+    // log algorithms being requested
+    if is_dnssec {
+        info!(
+            "request: {} supported_algs: {}",
+            request_id, supported_algorithms
+        );
+    }
 
-            // get next query
-            let (query_idx, ref_authority) = if let Some(q_a) = self.queries_and_authorities.pop() {
-                q_a
-            } else {
-                // all lookups are complete, finish request
-                return Poll::Ready(());
-            };
+    let mut response_header = Header::new();
+    response_header.set_id(request_id);
+    response_header.set_op_code(OpCode::Query);
+    response_header.set_message_type(MessageType::Response);
+    response_header.set_authoritative(authority.zone_type().is_authoritative());
 
-            let query = if let Some(query) = self.request.queries().get(query_idx) {
-                query
-            } else {
-                // bad state, could just panic
-                error!("query_idx out of bounds? {}", query_idx);
-                continue;
-            };
+    debug!("performing {} on {}", query, authority.origin());
+    let future = authority.search(query, is_dnssec, supported_algorithms);
 
-            let authority = &ref_authority.read().unwrap(); // poison errors should panic
-            info!(
-                "request: {} found authority: {}",
-                self.request.id(),
-                authority.origin()
-            );
-
-            let mut response_header = Header::new();
-            response_header.set_id(self.request.id());
-            response_header.set_op_code(OpCode::Query);
-            response_header.set_message_type(MessageType::Response);
-            response_header.set_authoritative(authority.zone_type().is_authoritative());
-
-            let (is_dnssec, supported_algorithms) =
-                self.request
-                    .edns()
-                    .map_or((false, SupportedAlgorithms::new()), |edns| {
-                        let supported_algorithms =
-                            if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
-                                algs
-                            } else {
-                                debug!("no DAU in request, used default SupportAlgorithms");
-                                Default::default()
-                            };
-
-                        (edns.dnssec_ok(), supported_algorithms)
-                    });
-
-            // log algorithms being requested
-            if is_dnssec {
-                info!(
-                    "request: {} supported_algs: {}",
-                    self.request.id(),
-                    supported_algorithms
-                );
-            }
-
-            debug!("performing {} on {}", query, authority.origin());
-            let lookup_future = authority.search(query, is_dnssec, supported_algorithms);
-
-            let request_params = RequestParams {
+    #[allow(deprecated)]
+    let sections = match authority.zone_type() {
+        ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
+            send_authoritative_response(
+                future,
+                authority,
+                &mut response_header,
                 is_dnssec,
                 supported_algorithms,
-                query: query.clone(),
-                request: Arc::clone(&self.request),
-            };
-            let response_params = ResponseParams {
-                response_edns: self.response_edns.clone(),
-                response_header,
-                response_handle: self.response_handle.clone(),
-            };
-
-            #[allow(deprecated)]
-            match authority.zone_type() {
-                ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
-                    self.lookup = Some(AuthorityLookup::authority(
-                        self.request.id(),
-                        response_params,
-                        request_params,
-                        lookup_future,
-                        Arc::clone(&ref_authority),
-                    ));
-                }
-                ZoneType::Forward | ZoneType::Hint => {
-                    self.lookup = Some(AuthorityLookup::resolve(
-                        self.request.id(),
-                        response_params,
-                        request_params,
-                        lookup_future,
-                        Arc::clone(&ref_authority),
-                    ));
-                }
-            }
+                request_id,
+                &query,
+            )
+            .await
         }
-    }
+        ZoneType::Forward | ZoneType::Hint => {
+            send_forwarded_response(future, &mut response_header).await
+        }
+    };
+
+    (response_header, sections)
 }
 
-struct RequestParams {
+async fn send_authoritative_response(
+    future: BoxedLookupFuture,
+    authority: &dyn AuthorityObject,
+    response_header: &mut Header,
     is_dnssec: bool,
     supported_algorithms: SupportedAlgorithms,
-    query: LowerQuery,
-    request: Arc<MessageRequest>,
-}
-
-struct ResponseParams<R: ResponseHandler> {
-    response_edns: Option<Arc<Edns>>,
-    response_header: Header,
-    response_handle: R,
-}
-
-/// Authority Lookup future to perform all actions for authoritative responses.
-#[must_use = "futures do nothing unless polled"]
-struct AuthorityLookup<R: ResponseHandler> {
-    response_params: Option<ResponseParams<R>>,
-    request_params: RequestParams,
-    authority: Arc<RwLock<Box<dyn AuthorityObject>>>,
-    state: AuthOrResolve,
-}
-
-impl<R: ResponseHandler> AuthorityLookup<R> {
-    fn authority(
-        request_id: u16,
-        response_params: ResponseParams<R>,
-        request_params: RequestParams,
-        record_lookup: BoxedLookupFuture,
-        authority: Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Self {
-        debug!("handling authoritative request: {}", request_id);
-
-        AuthorityLookup {
-            response_params: Some(response_params),
-            request_params,
-            authority,
-            state: AuthOrResolve::AuthorityLookupState(AuthorityLookupState::Records {
-                record_lookup,
-            }),
+    request_id: u16,
+    query: &LowerQuery,
+) -> LookupSections {
+    // In this state we await the records, on success we transition to getting
+    // NS records, which indicate an authoritative response.
+    //
+    // On Errors, the transition depends on the type of error.
+    let answers = match future.await {
+        Ok(records) => {
+            response_header.set_response_code(ResponseCode::NoError);
+            response_header.set_authoritative(true);
+            Some(records)
         }
-    }
-
-    fn resolve(
-        request_id: u16,
-        response_params: ResponseParams<R>,
-        request_params: RequestParams,
-        record_lookup: BoxedLookupFuture,
-        authority: Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Self {
-        debug!("handling forwarded resolve: {}", request_id);
-
-        AuthorityLookup {
-            response_params: Some(response_params),
-            request_params,
-            authority,
-            state: AuthOrResolve::ResolveLookupState(ResolveLookupState::Records { record_lookup }),
+        // This request was refused
+        // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
+        Err(LookupError::ResponseCode(ResponseCode::Refused)) => {
+            response_header.set_response_code(ResponseCode::Refused);
+            return LookupSections {
+                answers: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+                ns: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+                soa: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+                additionals: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+            };
         }
-    }
-}
+        Err(e) => {
+            if e.is_nx_domain() {
+                response_header.set_response_code(ResponseCode::NXDomain);
+            } else if e.is_name_exists() {
+                response_header.set_response_code(ResponseCode::NoError);
+            };
+            None
+        }
+    };
 
-impl<R: ResponseHandler> AuthorityLookup<R> {
-    #[allow(clippy::type_complexity)]
-    fn split(
-        &mut self,
-    ) -> (
-        &mut ResponseParams<R>,
-        &RequestParams,
-        &Arc<RwLock<Box<dyn AuthorityObject>>>,
-        &mut AuthOrResolve,
-    ) {
-        (
-            self.response_params
-                .as_mut()
-                .expect("bad state, response_params should not be none here"),
-            &self.request_params,
-            &self.authority,
-            &mut self.state,
-        )
-    }
-}
+    let (ns, soa) = if answers.is_some() {
+        // This was a successful authoritative lookup:
+        //   get the NS records
+        match authority.ns(is_dnssec, supported_algorithms).await {
+            Ok(ns) => (Some(ns), None),
+            Err(e) => {
+                warn!("ns_lookup errored: {}", e);
+                (None, None)
+            }
+        }
+    } else {
+        let nsecs = if is_dnssec {
+            // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
+            debug!("request: {} non-existent adding nsecs", request_id);
+            // run the nsec lookup future, and then transition to get soa
+            let future = authority.get_nsec_records(query.name(), true, supported_algorithms);
+            match future.await {
+                // run the soa lookup
+                Ok(nsecs) => Some(nsecs),
+                Err(e) => {
+                    warn!("failed to lookup nsecs: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
 
-impl<R: ResponseHandler> Future for AuthorityLookup<R> {
-    type Output = ();
+        match authority.soa_secure(is_dnssec, supported_algorithms).await {
+            Ok(soa) => (nsecs, Some(soa)),
+            Err(e) => {
+                warn!("failed to lookup soa: {}", e);
+                (nsecs, None)
+            }
+        }
+    };
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let (response_params, request_params, authority, state) = self.split();
-
-        let sections = ready!(state.poll(cx, request_params, response_params, authority));
-
-        let records = sections.answers;
-        let soa = sections.soa;
-        let ns = sections.ns;
-        let additionals = sections.additionals;
-
-        let response_params = self
-            .response_params
-            .take()
-            .expect("AuthorityLookup already complete");
-        let response_edns = response_params.response_edns;
-        let response = MessageResponseBuilder::new(Some(self.request_params.request.raw_queries()));
-        let response_header = response_params.response_header;
-        let response_handle = response_params.response_handle;
-
-        send_response(
-            response_edns
-                .as_ref()
-                .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-            response.build(
-                response_header,
-                records.iter(),
-                ns.iter(),
-                soa.iter(),
-                additionals.iter(),
+    // everything is done, return results.
+    let (answers, additionals) = match answers {
+        Some(mut answers) => match answers.take_additionals() {
+            Some(additionals) => (answers, additionals),
+            None => (
+                answers,
+                Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
             ),
-            response_handle,
-        )
-        .map_err(|e| error!("error sending response: {}", e))
-        .ok();
+        },
+        None => (
+            Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+            Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+        ),
+    };
 
-        Poll::Ready(())
+    LookupSections {
+        answers,
+        ns: ns.unwrap_or_else(|| Box::new(AuthLookup::default()) as Box<dyn LookupObject>),
+        soa: soa.unwrap_or_else(|| Box::new(AuthLookup::default()) as Box<dyn LookupObject>),
+        additionals,
+    }
+}
+
+async fn send_forwarded_response(
+    future: BoxedLookupFuture,
+    response_header: &mut Header,
+) -> LookupSections {
+    let answers = match future.await {
+        Ok(rsp) => rsp,
+        Err(e) => {
+            if e.is_nx_domain() {
+                response_header.set_response_code(ResponseCode::NXDomain);
+            }
+            error!("error resolving: {}", e);
+            Box::new(EmptyLookup)
+        }
+    };
+
+    response_header.set_authoritative(false);
+    LookupSections {
+        answers,
+        ns: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+        soa: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
+        additionals: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
     }
 }
 
 struct LookupSections {
     answers: Box<dyn LookupObject>,
-    soa: Box<dyn LookupObject>,
     ns: Box<dyn LookupObject>,
+    soa: Box<dyn LookupObject>,
     additionals: Box<dyn LookupObject>,
-}
-
-#[must_use = "futures do nothing unless polled"]
-enum AuthOrResolve {
-    AuthorityLookupState(AuthorityLookupState),
-    ResolveLookupState(ResolveLookupState),
-}
-
-impl AuthOrResolve {
-    #[allow(clippy::type_complexity)]
-    fn poll<R: ResponseHandler>(
-        &mut self,
-        cx: &mut Context,
-        request_params: &RequestParams,
-        response_params: &mut ResponseParams<R>,
-        authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<LookupSections> {
-        match self {
-            AuthOrResolve::AuthorityLookupState(a) => {
-                a.poll(cx, request_params, response_params, authority)
-            }
-            AuthOrResolve::ResolveLookupState(r) => {
-                r.poll(cx, request_params, response_params, authority)
-            }
-        }
-    }
-}
-
-/// state machine for handling the response to the request
-#[must_use = "futures do nothing unless polled"]
-enum AuthorityLookupState {
-    /// This is the initial lookup for the Records
-    Records { record_lookup: BoxedLookupFuture },
-    /// This performs the lookup for NS records, transitions to complete after
-    LookupNs {
-        ns_lookup: BoxedLookupFuture,
-        records: Option<Box<dyn LookupObject>>,
-    },
-    /// In a negative response case, we need to return the NSEC records
-    NxLookupNsec { nsec_lookup: BoxedLookupFuture },
-    /// In a negative response case, we need to return the NSEC records
-    NxLookupSoa {
-        soa_lookup: BoxedLookupFuture,
-        nsecs: Option<Box<dyn LookupObject>>,
-    },
-    /// The Completion state
-    Complete {
-        // TODO: convert to a single Option with all Boxes
-        records: Option<Box<dyn LookupObject>>,
-        soa: Option<Box<dyn LookupObject>>,
-        ns: Option<Box<dyn LookupObject>>,
-    },
-}
-
-// TODO: turn this into a real future
-impl AuthorityLookupState {
-    #[allow(clippy::type_complexity)]
-    fn poll<R: ResponseHandler>(
-        &mut self,
-        cx: &mut Context,
-        request_params: &RequestParams,
-        response_params: &mut ResponseParams<R>,
-        authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<LookupSections> {
-        loop {
-            *self = match self {
-                // In this state we await the records, on success we transition to getting
-                //   NS records, which indicate an authoritative response.
-                //
-                // On Errors, the transition depends on the type of error.
-                AuthorityLookupState::Records { record_lookup } => {
-                    match record_lookup.poll_unpin(cx) {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Ok(records)) => {
-                            response_params
-                                .response_header
-                                .set_response_code(ResponseCode::NoError);
-                            response_params.response_header.set_authoritative(true);
-
-                            // This was a successful authoritative lookup:
-                            //   get the NS records
-                            let ns_lookup = authority.read().expect("authority poisoned").ns(
-                                request_params.is_dnssec,
-                                request_params.supported_algorithms,
-                            );
-                            AuthorityLookupState::LookupNs {
-                                ns_lookup,
-                                records: Some(records),
-                            }
-                        }
-                        // This request was refused
-                        // TODO: there are probably other error cases that should just drop through (FormErr, ServFail)
-                        Poll::Ready(Err(LookupError::ResponseCode(ResponseCode::Refused))) => {
-                            response_params
-                                .response_header
-                                .set_response_code(ResponseCode::Refused);
-
-                            let ns = Box::new(AuthLookup::default()) as Box<dyn LookupObject>;
-                            let soa = Box::new(AuthLookup::default()) as Box<dyn LookupObject>;
-                            let records = Box::new(AuthLookup::default()) as Box<dyn LookupObject>;
-
-                            AuthorityLookupState::Complete {
-                                records: Some(records),
-                                soa: Some(soa),
-                                ns: Some(ns),
-                            }
-                        }
-                        // in the not found case it's standard to return the SOA in the authority section
-                        //   if the name is in this zone, etc.
-                        // see https://tools.ietf.org/html/rfc2308 for proper response construct
-                        Poll::Ready(Err(e)) => {
-                            if e.is_nx_domain() {
-                                response_params
-                                    .response_header
-                                    .set_response_code(ResponseCode::NXDomain);
-                            } else if e.is_name_exists() {
-                                response_params
-                                    .response_header
-                                    .set_response_code(ResponseCode::NoError);
-                            };
-
-                            // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-                            let nsec_lookup = if request_params.is_dnssec {
-                                debug!(
-                                    "request: {} non-existent adding nsecs",
-                                    request_params.request.id()
-                                );
-
-                                // get NSEC records
-                                let nsecs = authority
-                                    .read()
-                                    .expect("authority poisoned")
-                                    .get_nsec_records(
-                                        request_params.query.name(),
-                                        true,
-                                        request_params.supported_algorithms,
-                                    );
-
-                                BoxedLookupFuture::from(nsecs)
-                            } else {
-                                // place holder...
-                                debug!("request: {} non-existent", request_params.request.id());
-                                BoxedLookupFuture::empty()
-                            };
-
-                            AuthorityLookupState::NxLookupNsec { nsec_lookup }
-                        }
-                    }
-                }
-                // This is still a successful path, getting the ns records,
-                //   which represent an Authoritative answer
-                AuthorityLookupState::LookupNs { ns_lookup, records } => {
-                    // ns is allowed to fail
-                    let ns = match ns_lookup.poll_unpin(cx) {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Ok(ns)) => ns,
-                        Poll::Ready(Err(e)) => {
-                            warn!("ns_lookup errored: {}", e);
-                            Box::new(AuthLookup::default()) as Box<dyn LookupObject>
-                        }
-                    };
-
-                    let soa = Box::new(AuthLookup::default()) as Box<dyn LookupObject>;
-                    AuthorityLookupState::Complete {
-                        records: records.take(),
-                        soa: Some(soa),
-                        ns: Some(ns),
-                    }
-                }
-                // run the nsec lookup future, and then transition to get soa
-                AuthorityLookupState::NxLookupNsec { nsec_lookup } => {
-                    let nsecs = match nsec_lookup.poll_unpin(cx) {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Ok(nsecs)) => nsecs,
-                        Poll::Ready(Err(e)) => {
-                            warn!("failed to lookup nsecs: {}", e);
-                            Box::new(AuthLookup::default()) as Box<dyn LookupObject>
-                        }
-                    };
-
-                    let soa_lookup = authority.read().expect("authority poisoned").soa_secure(
-                        request_params.is_dnssec,
-                        request_params.supported_algorithms,
-                    );
-
-                    AuthorityLookupState::NxLookupSoa {
-                        soa_lookup,
-                        nsecs: Some(nsecs),
-                    }
-                }
-                // run the soa lookup, and then transition to complete
-                AuthorityLookupState::NxLookupSoa { soa_lookup, nsecs } => {
-                    let soa = match soa_lookup.poll_unpin(cx) {
-                        Poll::Pending => return Poll::Pending,
-                        Poll::Ready(Ok(soa)) => soa,
-                        Poll::Ready(Err(e)) => {
-                            warn!("failed to lookup soa: {}", e);
-                            Box::new(AuthLookup::default()) as Box<dyn LookupObject>
-                        }
-                    };
-
-                    let records = Box::new(AuthLookup::default()) as Box<dyn LookupObject>;
-                    AuthorityLookupState::Complete {
-                        records: Some(records),
-                        soa: Some(soa),
-                        ns: nsecs.take(),
-                    }
-                }
-                // everything is done, return results.
-                AuthorityLookupState::Complete { records, soa, ns } => {
-                    let mut records = records
-                        .take()
-                        .expect("AuthorityLookupState already complete");
-                    let additionals = records.take_additionals();
-
-                    let sections = LookupSections {
-                        answers: records,
-                        soa: soa.take().expect("AuthorityLookupState already complete"),
-                        ns: ns.take().expect("AuthorityLookupState already complete"),
-                        additionals: additionals.unwrap_or_else(|| {
-                            Box::new(AuthLookup::default()) as Box<dyn LookupObject>
-                        }),
-                    };
-
-                    return Poll::Ready(sections);
-                }
-            }
-        }
-    }
-}
-
-/// state machine for handling the response to the request
-#[must_use = "futures do nothing unless polled"]
-enum ResolveLookupState {
-    /// This is the initial lookup for the Records
-    Records { record_lookup: BoxedLookupFuture },
-}
-
-impl ResolveLookupState {
-    #[allow(clippy::type_complexity)]
-    fn poll<R: ResponseHandler>(
-        &mut self,
-        cx: &mut Context,
-        _request_params: &RequestParams,
-        response_params: &mut ResponseParams<R>,
-        _authority: &Arc<RwLock<Box<dyn AuthorityObject>>>,
-    ) -> Poll<LookupSections> {
-        #[allow(clippy::never_loop)]
-        loop {
-            // TODO: way more states to consider.
-            /* *self = */
-            match self {
-                // In this state we await the records.
-                //
-                // On Errors, the transition depends on the type of error.
-                ResolveLookupState::Records { record_lookup } => {
-                    let records = ready!(record_lookup
-                        .map_err(|e| {
-                            if e.is_nx_domain() {
-                                response_params
-                                    .response_header
-                                    .set_response_code(ResponseCode::NXDomain);
-                            };
-                            error!("error resolving: {}", e)
-                        })
-                        .map(|r: Result<_, ()>| match r {
-                            Ok(r) => r,
-                            Err(()) => Box::new(EmptyLookup),
-                        })
-                        .poll_unpin(cx));
-                    // need to clone the result codes...
-
-                    response_params.response_header.set_authoritative(false);
-
-                    let sections = LookupSections {
-                        answers: records,
-                        soa: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
-                        ns: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
-                        additionals: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,
-                    };
-
-                    return Poll::Ready(sections);
-                }
-            }
-        }
-    }
 }

@@ -2,7 +2,7 @@
 
 use std::net::*;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
@@ -226,7 +226,10 @@ where
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), Box::new(authority));
+    catalog.upsert(
+        authority.origin().clone(),
+        Box::new(Arc::new(RwLock::new(authority))),
+    );
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));

@@ -32,6 +32,7 @@ extern crate log;
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 
 use clap::{Arg, ArgMatches};
 use tokio::net::TcpListener;
@@ -90,7 +91,7 @@ fn load_zone(
                 Some(zone_dir),
                 config,
             )
-            .map(Box::new)?
+            .map(|a| Box::new(Arc::new(RwLock::new(a))))?
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
@@ -103,14 +104,14 @@ fn load_zone(
                 Some(zone_dir),
                 config,
             )
-            .map(Box::new)?
+            .map(|a| Box::new(Arc::new(RwLock::new(a))))?
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
             let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
             let forwarder = runtime.block_on(forwarder)?;
 
-            Box::new(forwarder)
+            Box::new(Arc::new(RwLock::new(forwarder)))
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
@@ -138,7 +139,7 @@ fn load_zone(
                 Some(zone_dir),
                 &config,
             )
-            .map(Box::new)?
+            .map(|a| Box::new(Arc::new(RwLock::new(a))))?
         }
         None => {
             let config = FileConfig {
@@ -151,7 +152,7 @@ fn load_zone(
                 Some(zone_dir),
                 &config,
             )
-            .map(Box::new)?
+            .map(|a| Box::new(Arc::new(RwLock::new(a))))?
         }
     };
 
