@@ -22,6 +22,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::serialize::binary::*;
 
@@ -35,6 +38,7 @@ use crate::rr::dnssec::rdata::DNSSECRecordType;
 /// The type of the resource record.
 ///
 /// This specifies the type of data in the RData field of the Resource Record
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
