@@ -33,6 +33,8 @@ use std::str::FromStr;
 
 use enum_as_inner::EnumAsInner;
 use log::trace;
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::rdata::null;
@@ -48,6 +50,7 @@ pub use self::nsec3param::NSEC3PARAM;
 pub use self::sig::SIG;
 
 /// The type of the resource record, for DNSSEC-specific records.
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 pub enum DNSSECRecordType {
     //  CDS,        //	59	RFC 7344	Child DS
