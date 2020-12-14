@@ -57,7 +57,7 @@ log = "0.4"
 rustls = "0.19"
 thiserror = "1.0.20"
 tokio = { version = "0.3", features = ["io-util", "net", "rt"] }
-tokio-rustls = "0.21.0"
+tokio-rustls = "0.21.1"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.20.0-alpha.3", path = "../proto", features = ["tokio-runtime"], default-features = false }
 trust-dns-rustls = { version = "0.20.0-alpha.3", path = "../rustls", default-features = false }
