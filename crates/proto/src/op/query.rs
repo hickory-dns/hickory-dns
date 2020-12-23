@@ -58,7 +58,7 @@ const MDNS_UNICAST_RESPONSE: u16 = 1 << 15;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Ord, PartialOrd)]
 pub struct Query {
     name: Name,
     query_type: RecordType,
