@@ -270,7 +270,7 @@ impl UdpSocket for tokio::net::UdpSocket {
         buf: &[u8],
         target: SocketAddr,
     ) -> Poll<io::Result<usize>> {
-        tokio::net::UdpSocket::poll_send_to(self, cx, buf, &target)
+        tokio::net::UdpSocket::poll_send_to(self, cx, buf, target)
     }
 }
 

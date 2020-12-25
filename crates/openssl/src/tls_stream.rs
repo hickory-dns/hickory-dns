@@ -135,14 +135,15 @@ async fn connect_tls(
             format!("tls error: {}", e),
         )
     })?;
-    let result = tokio_openssl::connect(tls_config, &dns_name, tcp).await;
-
-    result.map_err(|e| {
+    let ssl = tls_config.into_ssl(&dns_name).unwrap();
+    let mut stream = TokioTlsStream::new(ssl, tcp).unwrap();
+    Pin::new(&mut stream).connect().await.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
         )
-    })
+    })?;
+    Ok(stream)
 }
 
 /// A builder for the TlsStream

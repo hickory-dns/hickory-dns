@@ -15,7 +15,7 @@ use tokio::time::Sleep;
 pub struct TimeoutStream<S> {
     stream: S,
     timeout_duration: Duration,
-    timeout: Option<Sleep>,
+    timeout: Option<Pin<Box<Sleep>>>,
 }
 
 impl<S> TimeoutStream<S> {
@@ -34,9 +34,9 @@ impl<S> TimeoutStream<S> {
         }
     }
 
-    fn timeout(timeout_duration: Duration) -> Option<Sleep> {
+    fn timeout(timeout_duration: Duration) -> Option<Pin<Box<Sleep>>> {
         if timeout_duration > Duration::from_millis(0) {
-            Some(tokio::time::sleep(timeout_duration))
+            Some(Box::pin(tokio::time::sleep(timeout_duration)))
         } else {
             None
         }
