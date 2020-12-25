@@ -65,4 +65,4 @@ trust-dns-resolver = { version = "0.20.0-alpha.3", features = ["dnssec-openssl"]
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 structopt = "0.3"
-tokio = { version = "0.3.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
