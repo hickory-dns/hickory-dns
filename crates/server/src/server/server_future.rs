@@ -239,8 +239,15 @@ impl<T: RequestHandler> ServerFuture<T> {
                         debug!("starting TLS request from: {}", src_addr);
 
                         // perform the TLS
-                        let ssl = Ssl::new(tls_acceptor.context()).unwrap();
-                        let mut tls_stream = TokioSslStream::new(ssl, tcp_stream).unwrap();
+                        let mut tls_stream = match Ssl::new(tls_acceptor.context())
+                            .and_then(|ssl| TokioSslStream::new(ssl, tcp_stream))
+                        {
+                            Ok(tls_stream) => tls_stream,
+                            Err(e) => {
+                                debug!("tls handshake src: {} error: {}", src_addr, e);
+                                return ();
+                            }
+                        };
                         match Pin::new(&mut tls_stream).accept().await {
                             Ok(()) => {}
                             Err(e) => {
