@@ -135,8 +135,10 @@ async fn connect_tls(
             format!("tls error: {}", e),
         )
     })?;
-    let ssl = tls_config.into_ssl(&dns_name).unwrap();
-    let mut stream = TokioTlsStream::new(ssl, tcp).unwrap();
+    let mut stream = tls_config
+        .into_ssl(&dns_name)
+        .and_then(|ssl| TokioTlsStream::new(ssl, tcp))
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("tls error: {}", e)))?;
     Pin::new(&mut stream).connect().await.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
