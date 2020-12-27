@@ -175,7 +175,7 @@ impl fmt::Debug for TestClientStream {
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {
-    timeout: Sleep,
+    timeout: Pin<Box<Sleep>>,
     outbound_messages: Fuse<mpsc::UnboundedReceiver<Vec<u8>>>,
 }
 
@@ -191,7 +191,7 @@ impl NeverReturnsClientStream {
 
         let stream = Box::pin(future::lazy(|_| {
             Ok(NeverReturnsClientStream {
-                timeout: tokio::time::sleep(Duration::from_secs(1)),
+                timeout: Box::pin(tokio::time::sleep(Duration::from_secs(1))),
                 outbound_messages: outbound_messages.fuse(),
             })
         }));
@@ -223,7 +223,9 @@ impl Stream for NeverReturnsClientStream {
             return Poll::Pending;
         }
 
-        self.timeout.reset(Instant::now() + Duration::from_secs(1));
+        self.timeout
+            .as_mut()
+            .reset(Instant::now() + Duration::from_secs(1));
 
         match self.timeout.poll_unpin(cx) {
             Poll::Pending => Poll::Pending,

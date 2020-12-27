@@ -114,11 +114,10 @@ impl<T: RequestHandler> ServerFuture<T> {
         // for each incoming request...
         let join = tokio::spawn({
             async move {
-                let mut listener = listener;
-
-                while let Some(tcp_stream) = listener.next().await {
+                loop {
+                    let tcp_stream = listener.accept().await;
                     let tcp_stream = match tcp_stream {
-                        Ok(t) => t,
+                        Ok((t, _)) => t,
                         Err(e) => {
                             debug!("error receiving TCP tcp_stream error: {}", e);
                             continue;
@@ -160,8 +159,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                         }
                     });
                 }
-
-                Err(ProtoError::from("unexpected close of TCP socket"))
             }
         });
 
@@ -209,6 +206,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
+        use openssl::ssl::Ssl;
+        use tokio_openssl::SslStream as TokioSslStream;
         use trust_dns_openssl::{tls_server, TlsStream};
 
         let ((cert, chain), key) = certificate_and_key;
@@ -221,11 +220,10 @@ impl<T: RequestHandler> ServerFuture<T> {
         // for each incoming request...
         let join = tokio::spawn({
             async move {
-                let mut listener = listener;
-
-                while let Some(tcp_stream) = listener.next().await {
+                loop {
+                    let tcp_stream = listener.accept().await;
                     let tcp_stream = match tcp_stream {
-                        Ok(t) => t,
+                        Ok((t, _)) => t,
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
                             continue;
@@ -241,10 +239,17 @@ impl<T: RequestHandler> ServerFuture<T> {
                         debug!("starting TLS request from: {}", src_addr);
 
                         // perform the TLS
-                        let tls_stream = tokio_openssl::accept(&*tls_acceptor, tcp_stream).await;
-
-                        let tls_stream = match tls_stream {
+                        let mut tls_stream = match Ssl::new(tls_acceptor.context())
+                            .and_then(|ssl| TokioSslStream::new(ssl, tcp_stream))
+                        {
                             Ok(tls_stream) => tls_stream,
+                            Err(e) => {
+                                debug!("tls handshake src: {} error: {}", src_addr, e);
+                                return ();
+                            }
+                        };
+                        match Pin::new(&mut tls_stream).accept().await {
+                            Ok(()) => {}
                             Err(e) => {
                                 debug!("tls handshake src: {} error: {}", src_addr, e);
                                 return ();
@@ -277,8 +282,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                         }
                     });
                 }
-
-                Err(ProtoError::from("unexpected close of TLS socket"))
             }
         });
 
@@ -353,11 +356,10 @@ impl<T: RequestHandler> ServerFuture<T> {
         // for each incoming request...
         let join = tokio::spawn({
             async move {
-                let mut listener = listener;
-
-                while let Some(tcp_stream) = listener.next().await {
+                loop {
+                    let tcp_stream = listener.accept().await;
                     let tcp_stream = match tcp_stream {
-                        Ok(t) => t,
+                        Ok((t, _)) => t,
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
                             continue;
@@ -408,8 +410,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                         }
                     });
                 }
-
-                Err(ProtoError::from("unexpected close of TLS socket"))
             }
         });
 
@@ -488,13 +488,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         let dns_hostname = dns_hostname;
         let join = tokio::spawn({
             async move {
-                let mut listener = listener;
-
                 let dns_hostname = dns_hostname;
-
-                while let Some(tcp_stream) = listener.next().await {
+                loop {
+                    let tcp_stream = listener.accept().await;
                     let tcp_stream = match tcp_stream {
-                        Ok(t) => t,
+                        Ok((t, _)) => t,
                         Err(e) => {
                             debug!("error receiving HTTPS tcp_stream error: {}", e);
                             continue;
@@ -525,8 +523,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                         h2_handler(handler, tls_stream, src_addr, dns_hostname).await;
                     });
                 }
-
-                Err(ProtoError::from("unexpected close of HTTPS socket"))
             }
         });
 
