@@ -46,7 +46,7 @@ mod tests {
             .block_on(resolver.lookup_ip("www.example.com."))
             .expect("failed to run lookup");
 
-        assert_eq!(response.iter().count(), 1);
+        assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
                 assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
