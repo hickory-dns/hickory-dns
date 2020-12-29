@@ -5,11 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
-## 0.20.0 (unreleased)
+## 0.20.0
 
 ### Changed
 
-- (all) upgraded to Tokio 0.3
+- (all) upgraded to Tokio 1.0 (@messense) #1330 (0.3 updates in #1262)
+- (proto) Add serde support for the RecordType in the proto crate (@LEXUGE) #1319
 - (https) dns_hostname args all are `Arc<str>` rather than `Arc<String>`, use `Arc::from`
 - (proto) Set TCP_NODELAY when building a TCP connection (@djc) #1249
 - (all) *BREAKING* The `UdpSocket` trait has grown an associated `Time` type.
