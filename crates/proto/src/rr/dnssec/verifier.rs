@@ -13,7 +13,7 @@ pub trait Verifier {
     fn algorithm(&self) -> Algorithm;
 
     /// Return the public key associated with this verifier
-    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>>;
+    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>>;
 
     /// Verifies the hash matches the signature with the current `key`.
     ///
@@ -75,7 +75,7 @@ impl Verifier for DNSKEY {
         self.algorithm()
     }
 
-    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
+    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
         PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }
@@ -85,7 +85,7 @@ impl Verifier for KEY {
         self.algorithm()
     }
 
-    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
+    fn key(&self) -> ProtoResult<PublicKeyEnum<'_>> {
         PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }

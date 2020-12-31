@@ -1043,7 +1043,7 @@ impl<'r> BinDecodable<'r> for Name {
     }
 }
 
-fn read_inner<'r>(decoder: &mut BinDecoder<'r>, max_idx: Option<usize>) -> ProtoResult<Name> {
+fn read_inner(decoder: &mut BinDecoder<'_>, max_idx: Option<usize>) -> ProtoResult<Name> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
     let mut labels: Vec<Label> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
     let name_start = decoder.index();

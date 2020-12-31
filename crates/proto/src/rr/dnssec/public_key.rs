@@ -373,7 +373,7 @@ fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<PKey<Public>> {
 }
 
 #[cfg(feature = "ring")]
-fn into_pkey<'k>(parsed: RSAPublicKey<'k>) -> ProtoResult<RSAPublicKey<'k>> {
+fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<RSAPublicKey<'_>> {
     Ok(parsed)
 }
 

@@ -133,7 +133,7 @@ impl ServiceInfo {
     /// Returns this as a map, this allocates a new hashmap
     ///
     /// This converts the DNS-SD TXT record into a map following the rules specified in https://tools.ietf.org/html/rfc6763#section-6.4
-    pub fn to_map<'s>(&'s self) -> HashMap<Cow<'s, str>, Option<Cow<'s, str>>> {
+    pub fn to_map(&self) -> HashMap<Cow<'_, str>, Option<Cow<'_, str>>> {
         self.0
             .iter()
             .flat_map(TXT::iter)

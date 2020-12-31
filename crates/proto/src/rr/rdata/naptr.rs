@@ -194,12 +194,9 @@ impl NAPTR {
 
 /// verifies that the flags are valid
 pub fn verify_flags(flags: &[u8]) -> bool {
-    flags.iter().all(|c| match c {
-        b'0'..=b'9' => true,
-        b'a'..=b'z' => true,
-        b'A'..=b'Z' => true,
-        _ => false,
-    })
+    flags
+        .iter()
+        .all(|c| matches!(c, b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z'))
 }
 
 /// Read the RData from the given Decoder

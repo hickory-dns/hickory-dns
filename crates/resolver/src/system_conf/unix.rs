@@ -94,10 +94,12 @@ fn into_resolver_config(
 
     let config = ResolverConfig::from_parts(domain, search, nameservers);
 
-    let mut options = ResolverOpts::default();
-    options.ndots = parsed_config.ndots as usize;
-    options.timeout = Duration::from_secs(u64::from(parsed_config.timeout));
-    options.attempts = parsed_config.attempts as usize;
+    let options = ResolverOpts {
+        ndots: parsed_config.ndots as usize,
+        timeout: Duration::from_secs(u64::from(parsed_config.timeout)),
+        attempts: parsed_config.attempts as usize,
+        ..Default::default()
+    };
 
     Ok((config, options))
 }
