@@ -403,9 +403,11 @@ where
 
 #[test]
 fn test_concurrent_requests_2_conns() {
-    let mut options = ResolverOpts::default();
-    // there are only 2 conns, so this matches that count
-    options.num_concurrent_reqs = 2;
+    let options = ResolverOpts {
+        // there are only 2 conns, so this matches that count
+        num_concurrent_reqs: 2,
+        ..Default::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -443,9 +445,11 @@ fn test_concurrent_requests_2_conns() {
 
 #[test]
 fn test_concurrent_requests_more_than_conns() {
-    let mut options = ResolverOpts::default();
-    // there are only two conns, but this requests 3 concurrent requests, only 2 called
-    options.num_concurrent_reqs = 3;
+    let options = ResolverOpts {
+        // there are only two conns, but this requests 3 concurrent requests, only 2 called
+        num_concurrent_reqs: 3,
+        ..Default::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -483,9 +487,11 @@ fn test_concurrent_requests_more_than_conns() {
 
 #[test]
 fn test_concurrent_requests_1_conn() {
-    let mut options = ResolverOpts::default();
-    // there are two connections, but no concurrency requested
-    options.num_concurrent_reqs = 1;
+    let options = ResolverOpts {
+        // there are two connections, but no concurrency requested
+        num_concurrent_reqs: 1,
+        ..Default::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.
@@ -523,9 +529,11 @@ fn test_concurrent_requests_1_conn() {
 
 #[test]
 fn test_concurrent_requests_0_conn() {
-    let mut options = ResolverOpts::default();
-    // there are two connections, but no concurrency requested, 0==1
-    options.num_concurrent_reqs = 0;
+    let options = ResolverOpts {
+        // there are two connections, but no concurrency requested, 0==1
+        num_concurrent_reqs: 0,
+        ..Default::default()
+    };
 
     // we want to make sure that both udp connections are called
     //   this will count down to 0 only if both are called.

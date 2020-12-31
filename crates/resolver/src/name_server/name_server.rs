@@ -312,8 +312,10 @@ mod tests {
 
     #[test]
     fn test_failed_name_server() {
-        let mut options = ResolverOpts::default();
-        options.timeout = Duration::from_millis(1); // this is going to fail, make it fail fast...
+        let options = ResolverOpts {
+            timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
+            ..Default::default()
+        };
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
             protocol: Protocol::Udp,

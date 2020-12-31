@@ -27,6 +27,7 @@ use crate::HttpsResult;
 /// request (as described in Section 7), encoded with base64url
 /// [RFC4648].
 /// ```
+#[allow(clippy::field_reassign_with_default)] // https://github.com/rust-lang/rust-clippy/issues/6527
 pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()>> {
     // TODO: this is basically the GET version, but it is more expensive than POST
     //   perhaps add an option if people want better HTTP caching options.

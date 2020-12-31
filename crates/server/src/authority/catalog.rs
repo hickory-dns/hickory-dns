@@ -241,9 +241,9 @@ impl Catalog {
     ///
     /// * `request` - an update message
     /// * `response_handle` - sink for the response message to be sent
-    pub fn update<'q, R: ResponseHandler + 'static>(
+    pub fn update<R: ResponseHandler + 'static>(
         &self,
-        update: &'q MessageRequest,
+        update: &MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
