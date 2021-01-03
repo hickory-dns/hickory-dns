@@ -528,6 +528,7 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 
+    use futures_util::stream::StreamExt;
     use rustls::{ClientConfig, KeyLogFile, ProtocolVersion, RootCertStore};
     use tokio::runtime::Runtime;
     use webpki_roots;
@@ -570,7 +571,8 @@ mod tests {
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request))
+            .block_on(https.send_message(request).next())
+            .expect("stream canceled")
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -594,7 +596,8 @@ mod tests {
 
         for _ in 0..3 {
             let response = runtime
-                .block_on(https.send_message(request.clone()))
+                .block_on(https.send_message(request.clone()).next())
+                .expect("stream canceled")
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -647,7 +650,8 @@ mod tests {
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request))
+            .block_on(https.send_message(request).next())
+            .expect("stream canceled")
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -670,7 +674,8 @@ mod tests {
         let request = DnsRequest::new(request, Default::default());
 
         let response = runtime
-            .block_on(https.send_message(request))
+            .block_on(https.send_message(request).next())
+            .expect("stream canceled")
             .expect("send_message failed");
 
         let record = &response.answers()[0];

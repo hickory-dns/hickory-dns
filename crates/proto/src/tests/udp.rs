@@ -4,7 +4,7 @@ use futures_util::stream::StreamExt;
 use log::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
-use crate::{Executor, Time};
+use crate::Executor;
 
 /// Test next random udpsocket.
 pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut exec: E) {
@@ -110,10 +110,7 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Time>(
-    server_addr: IpAddr,
-    mut exec: E,
-) {
+pub async fn udp_client_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr) {
     use crate::op::{Message, Query};
     use crate::rr::rdata::NULL;
     use crate::rr::{Name, RData, Record, RecordType};
@@ -202,15 +199,15 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
     let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
-    let mut stream: UdpClientStream<S> = exec.block_on(stream).ok().unwrap();
+    let mut stream: UdpClientStream<S> = stream.await.ok().unwrap();
     let mut worked_once = false;
 
     for i in 0..send_recv_times {
         // test once
-        let response_future =
+        let mut response_future =
             stream.send_message(DnsRequest::new(query.clone(), Default::default()));
         println!("client sending request {}", i);
-        let response = match exec.block_on(response_future) {
+        let response = match response_future.next().await.unwrap() {
             Ok(response) => response,
             Err(err) => {
                 println!("failed to get message: {}", err);

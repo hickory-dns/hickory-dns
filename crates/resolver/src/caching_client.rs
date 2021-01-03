@@ -18,7 +18,7 @@ use std::time::Instant;
 use futures_util::future::Future;
 
 use proto::error::ProtoError;
-use proto::op::{Message, Query, ResponseCode};
+use proto::op::{Query, ResponseCode};
 use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
     LOCALHOST as LOCALHOST_usage,
@@ -328,7 +328,7 @@ where
                     // For SRV, the name added for the search becomes the target name.
                     //
                     // TODO: should this include the additionals?
-                    response.messages().flat_map(Message::answers).fold(
+                    response.message().answers().iter().fold(
                         (Cow::Borrowed(query.name()), INITIAL_TTL, false),
                         |(search_name, cname_ttl, was_cname), r| {
                             match *r.rdata() {
@@ -357,18 +357,9 @@ where
                 };
 
             // take all answers. // TODO: following CNAMES?
-            let answers: Vec<Record> = response
-                .messages_mut()
-                .flat_map(Message::take_answers)
-                .collect();
-            let additionals: Vec<Record> = response
-                .messages_mut()
-                .flat_map(Message::take_additionals)
-                .collect();
-            let name_servers: Vec<Record> = response
-                .messages_mut()
-                .flat_map(Message::take_name_servers)
-                .collect();
+            let answers: Vec<Record> = response.message_mut().take_answers();
+            let additionals: Vec<Record> = response.message_mut().take_additionals();
+            let name_servers: Vec<Record> = response.message_mut().take_name_servers();
 
             // set of names that still require resolution
             // TODO: this needs to be enhanced for SRV

@@ -238,9 +238,12 @@ impl Future for OneshotDnsResponseReceiver {
                         .map_err(|_| ProtoError::from("receiver was canceled")))?;
                     OneshotDnsResponseReceiver::Received(future)
                 }
-                OneshotDnsResponseReceiver::Received(ref mut future) => {
-                    let future = Pin::new(future);
-                    return future.poll(cx);
+                OneshotDnsResponseReceiver::Received(ref mut stream) => {
+                    let future = Pin::new(stream);
+                    return match ready!(future.poll_next(cx)) {
+                        Some(r) => Poll::Ready(r),
+                        None => Poll::Ready(Err(ProtoError::from("stream was closed"))),
+                    };
                 }
                 OneshotDnsResponseReceiver::Err(ref mut err) => {
                     return Poll::Ready(Err(err

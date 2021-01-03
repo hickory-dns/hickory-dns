@@ -17,13 +17,12 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures_channel::oneshot;
+use futures_channel::mpsc;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future::Future, ready, FutureExt};
 use log::{debug, warn};
 use rand;
 use rand::distributions::{Distribution, Standard};
-use smallvec::SmallVec;
 
 use crate::error::*;
 use crate::op::{Message, MessageFinalizer, OpCode};
@@ -37,31 +36,28 @@ use crate::Time;
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 struct ActiveRequest {
-    // the completion is the channel for a response to the original request
-    completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
-    request_id: u16,
-    request_options: DnsRequestOptions,
+    // the completion is the channel for a response to the original request.
     // most requests pass a single Message response directly through to the completion
     //  this small vec will have no allocations, unless the requests is a DNS-SD request
-    //  expecting more than one response
-    // TODO: change the completion above to a Stream, and don't hold messages...
-    responses: SmallVec<[Message; 1]>,
+    //  expecting more than one response.
+    //  FIXME: change to a Bounded channel
+    channel: mpsc::UnboundedSender<Result<DnsResponse, ProtoError>>,
+    request_id: u16,
+    request_options: DnsRequestOptions,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
 }
 
 impl ActiveRequest {
     fn new(
-        completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
+        channel: mpsc::UnboundedSender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         request_options: DnsRequestOptions,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
     ) -> Self {
         ActiveRequest {
-            completion,
+            channel,
             request_id,
             request_options,
-            // request,
-            responses: SmallVec::new(),
             timeout,
         }
     }
@@ -73,12 +69,12 @@ impl ActiveRequest {
 
     /// Returns true of the other side canceled the request
     fn is_canceled(&self) -> bool {
-        self.completion.is_canceled()
+        self.channel.is_closed()
     }
 
     /// Adds the response to the request such that it can be later sent to the client
-    fn add_response(&mut self, message: Message) {
-        self.responses.push(message);
+    fn send_response(&mut self, message: Message) {
+        ignore_send(self.channel.unbounded_send(Ok(message.into())));
     }
 
     /// the request id of the message that was sent
@@ -92,20 +88,17 @@ impl ActiveRequest {
     }
 
     /// Sends an error
-    fn complete_with_error(self, error: ProtoError) {
-        ignore_send(self.completion.send(Err(error)));
+    fn send_error(&self, error: ProtoError) {
+        ignore_send(self.channel.unbounded_send(Err(error)));
     }
 
     /// sends any registered responses to the requestor
     ///
     /// Any error sending will be logged and ignored. This must only be called after associating a response,
     ///   otherwise an error will always be returned.
-    fn complete(self) {
-        if self.responses.is_empty() {
-            self.complete_with_error("no responses received, should have timedout".into());
-        } else {
-            ignore_send(self.completion.send(Ok(self.responses.into())));
-        }
+    /// FIXME: is this necessary after stream API?
+    fn complete(mut self) {
+        self.channel.close_channel();
     }
 }
 
@@ -184,32 +177,28 @@ where
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
     fn drop_cancelled(&mut self, cx: &mut Context<'_>) {
-        let mut canceled = HashMap::<u16, ProtoError>::new();
+        let mut canceled = Vec::<u16>::new();
         for (&id, ref mut active_req) in &mut self.active_requests {
             if active_req.is_canceled() {
-                canceled.insert(id, ProtoError::from("requestor canceled"));
+                active_req.send_error(ProtoError::from("requestor canceled"));
+                canceled.push(id);
             }
 
             // check for timeouts...
             match active_req.poll_timeout(cx) {
                 Poll::Ready(()) => {
                     debug!("request timed out: {}", id);
-                    canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
+                    active_req.send_error(ProtoError::from(ProtoErrorKind::Timeout));
+                    canceled.push(id);
                 }
                 Poll::Pending => (),
             }
         }
 
         // drop all the canceled requests
-        for (id, error) in canceled {
+        for id in canceled {
             if let Some(active_request) = self.active_requests.remove(&id) {
-                if active_request.responses.is_empty() {
-                    // complete the request, it's failed...
-                    active_request.complete_with_error(error);
-                } else {
-                    // this is a timeout waiting for multiple responses...
-                    active_request.complete();
-                }
+                active_request.complete();
             }
         }
     }
@@ -240,13 +229,8 @@ where
         }
 
         for (_, active_request) in self.active_requests.drain() {
-            if active_request.responses.is_empty() {
-                // complete the request, it's failed...
-                active_request.complete_with_error(error.clone());
-            } else {
-                // this is a timeout waiting for multiple responses...
-                active_request.complete();
-            }
+            active_request.send_error(error.clone());
+            active_request.complete();
         }
     }
 }
@@ -343,7 +327,7 @@ where
         // store a Timeout for this message before sending
         let timeout = S::Time::delay_for(self.timeout_duration);
 
-        let (complete, receiver) = oneshot::channel();
+        let (complete, receiver) = mpsc::unbounded();
 
         // send the message
         let active_request =
@@ -418,7 +402,7 @@ where
                                 // first add the response to the active_requests responses
                                 let complete = {
                                     let active_request = request_entry.get_mut();
-                                    active_request.add_response(message);
+                                    active_request.send_response(message);
 
                                     // determine if this is complete
                                     !active_request.request_options().expects_multiple_responses

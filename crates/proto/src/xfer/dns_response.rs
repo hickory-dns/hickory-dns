@@ -11,12 +11,11 @@ use std::future::Future;
 use std::io;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use std::slice::{Iter, IterMut};
 use std::task::{Context, Poll};
 
-use futures_channel::oneshot;
+use futures_channel::mpsc;
+use futures_core::Stream;
 use futures_util::ready;
-use smallvec::SmallVec;
 
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, ResponseCode};
@@ -26,23 +25,21 @@ use crate::rr::RecordType;
 /// A future returning a DNS response
 pub struct DnsResponseFuture(DnsResponseFutureInner);
 
-impl Future for DnsResponseFuture {
-    type Output = Result<DnsResponse, ProtoError>;
+// FIXME: rename to DnsResponseStream
+impl Stream for DnsResponseFuture {
+    type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use DnsResponseFutureInner::*;
-        Poll::Ready(match &mut self.0 {
+        match &mut self.0 {
             Timeout(fut) => match ready!(fut.as_mut().poll(cx)) {
-                Ok(x) => x,
-                Err(e) => Err(e.into()),
+                Ok(x) => Poll::Ready(Some(x)),
+                Err(e) => Poll::Ready(Some(Err(ProtoError::from(e)))),
             },
-            Receiver(ref mut fut) => match ready!(Pin::new(fut).poll(cx)) {
-                Ok(x) => x,
-                Err(_) => Err(ProtoError::from("the completion was canceled")),
-            },
-            Error(err) => Err(err.take().expect("cannot poll after complete")),
-            Boxed(fut) => ready!(fut.as_mut().poll(cx)),
-        })
+            Channel(ref mut fut) => Pin::new(fut).poll_next(cx),
+            Error(err) => Poll::Ready(err.take().map(Err)),
+            Boxed(fut) => fut.as_mut().poll(cx).map(Some),
+        }
     }
 }
 
@@ -52,9 +49,9 @@ impl From<TimeoutFuture> for DnsResponseFuture {
     }
 }
 
-impl From<oneshot::Receiver<ProtoResult<DnsResponse>>> for DnsResponseFuture {
-    fn from(receiver: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Receiver(receiver))
+impl From<mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>> for DnsResponseFuture {
+    fn from(receiver: mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>) -> Self {
+        DnsResponseFuture(DnsResponseFutureInner::Channel(receiver))
     }
 }
 
@@ -77,7 +74,7 @@ where
 
 enum DnsResponseFutureInner {
     Timeout(TimeoutFuture),
-    Receiver(oneshot::Receiver<ProtoResult<DnsResponse>>),
+    Channel(mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>),
     Error(Option<ProtoError>),
     Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
@@ -86,34 +83,22 @@ type TimeoutFuture = Pin<
     Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send + 'static>,
 >;
 
-// TODO: this needs to have the IP addr of the remote system...
-// TODO: see https://github.com/bluejekyll/trust-dns/issues/383 for removing vec of messages and instead returning a Stream
 /// A DNS response object
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.
 #[derive(Clone, Debug)]
-pub struct DnsResponse(SmallVec<[Message; 1]>);
+pub struct DnsResponse(Message);
 
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
     /// Get all the messages in the Response
-    pub fn messages(&self) -> Iter<'_, Message> {
-        self.0.as_slice().iter()
+    pub fn message(&self) -> &Message {
+        &self.0
     }
 
     /// Get all the messages in the Response
-    pub fn messages_mut(&mut self) -> IterMut<'_, Message> {
-        self.0.as_mut_slice().iter_mut()
-    }
-
-    /// returns the number of messages in the response
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// returns the number of messages in the response
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+    pub fn message_mut(&mut self) -> &mut Message {
+        &mut self.0
     }
 
     /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.
@@ -267,35 +252,25 @@ impl Deref for DnsResponse {
     type Target = Message;
 
     fn deref(&self) -> &Self::Target {
-        &self.0[0]
+        &self.0
     }
 }
 
 impl DerefMut for DnsResponse {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0[0]
+        &mut self.0
     }
 }
 
 impl From<DnsResponse> for Message {
-    fn from(mut response: DnsResponse) -> Message {
-        response.0.remove(0)
+    fn from(response: DnsResponse) -> Message {
+        response.0
     }
 }
 
 impl From<Message> for DnsResponse {
     fn from(message: Message) -> DnsResponse {
-        DnsResponse(SmallVec::from([message]))
-    }
-}
-
-impl From<SmallVec<[Message; 1]>> for DnsResponse {
-    fn from(messages: SmallVec<[Message; 1]>) -> DnsResponse {
-        debug_assert!(
-            !messages.is_empty(),
-            "There should be at least one message in any DnsResponse"
-        );
-        DnsResponse(messages)
+        DnsResponse(message)
     }
 }
 
