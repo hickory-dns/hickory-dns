@@ -21,7 +21,7 @@ use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{MessageFinalizer, OpCode};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 use crate::Time;
 
 /// A UDP client stream of DNS binary packets
@@ -107,7 +107,7 @@ fn random_query_id() -> u16 {
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseFuture {
+    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }

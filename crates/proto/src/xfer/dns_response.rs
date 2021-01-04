@@ -23,14 +23,14 @@ use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
 
 /// A future returning a DNS response
-pub struct DnsResponseFuture(DnsResponseFutureInner);
+pub struct DnsResponseStream(DnsResponseStreamInner);
 
 // FIXME: rename to DnsResponseStream
-impl Stream for DnsResponseFuture {
+impl Stream for DnsResponseStream {
     type Item = Result<DnsResponse, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        use DnsResponseFutureInner::*;
+        use DnsResponseStreamInner::*;
         match &mut self.0 {
             Timeout(fut) => match ready!(fut.as_mut().poll(cx)) {
                 Ok(x) => Poll::Ready(Some(x)),
@@ -43,36 +43,36 @@ impl Stream for DnsResponseFuture {
     }
 }
 
-impl From<TimeoutFuture> for DnsResponseFuture {
+impl From<TimeoutFuture> for DnsResponseStream {
     fn from(f: TimeoutFuture) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Timeout(f))
+        DnsResponseStream(DnsResponseStreamInner::Timeout(f))
     }
 }
 
-impl From<mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>> for DnsResponseFuture {
+impl From<mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
     fn from(receiver: mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Channel(receiver))
+        DnsResponseStream(DnsResponseStreamInner::Channel(receiver))
     }
 }
 
-impl From<ProtoError> for DnsResponseFuture {
+impl From<ProtoError> for DnsResponseStream {
     fn from(e: ProtoError) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Error(Some(e)))
+        DnsResponseStream(DnsResponseStreamInner::Error(Some(e)))
     }
 }
 
-impl<F> From<Pin<Box<F>>> for DnsResponseFuture
+impl<F> From<Pin<Box<F>>> for DnsResponseStream
 where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Boxed(
+        DnsResponseStream(DnsResponseStreamInner::Boxed(
             f as Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
         ))
     }
 }
 
-enum DnsResponseFutureInner {
+enum DnsResponseStreamInner {
     Timeout(TimeoutFuture),
     Channel(mpsc::UnboundedReceiver<ProtoResult<DnsResponse>>),
     Error(Option<ProtoError>),

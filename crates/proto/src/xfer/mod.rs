@@ -35,7 +35,7 @@ pub use self::dns_exchange::{
 pub use self::dns_handle::{DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
-pub use self::dns_response::{DnsResponse, DnsResponseFuture};
+pub use self::dns_response::{DnsResponse, DnsResponseStream};
 #[cfg(feature = "dnssec")]
 pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;
@@ -126,7 +126,7 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message(&mut self, message: DnsRequest) -> DnsResponseFuture;
+    fn send_message(&mut self, message: DnsRequest) -> DnsResponseStream;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
@@ -181,13 +181,13 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 /// A OneshotDnsRequest creates a channel for a response to message
 pub struct OneshotDnsRequest {
     dns_request: DnsRequest,
-    sender_for_response: oneshot::Sender<DnsResponseFuture>,
+    sender_for_response: oneshot::Sender<DnsResponseStream>,
 }
 
 impl OneshotDnsRequest {
     fn oneshot(
         dns_request: DnsRequest,
-    ) -> (OneshotDnsRequest, oneshot::Receiver<DnsResponseFuture>) {
+    ) -> (OneshotDnsRequest, oneshot::Receiver<DnsResponseStream>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
         (
@@ -207,10 +207,10 @@ impl OneshotDnsRequest {
     }
 }
 
-struct OneshotDnsResponse(oneshot::Sender<DnsResponseFuture>);
+struct OneshotDnsResponse(oneshot::Sender<DnsResponseStream>);
 
 impl OneshotDnsResponse {
-    fn send_response(self, serial_response: DnsResponseFuture) -> Result<(), DnsResponseFuture> {
+    fn send_response(self, serial_response: DnsResponseStream) -> Result<(), DnsResponseStream> {
         self.0.send(serial_response)
     }
 }
@@ -218,9 +218,9 @@ impl OneshotDnsResponse {
 /// A Future that wraps a oneshot::Receiver and resolves to the final value
 pub enum OneshotDnsResponseReceiver {
     /// The receiver
-    Receiver(oneshot::Receiver<DnsResponseFuture>),
+    Receiver(oneshot::Receiver<DnsResponseStream>),
     /// The future once received
-    Received(DnsResponseFuture),
+    Received(DnsResponseStream),
     /// Error during the send operation
     Err(Option<ProtoError>),
 }

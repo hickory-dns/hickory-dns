@@ -34,7 +34,7 @@ use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{
-    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage,
+    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage,
 };
 
 const ALPN_H2: &[u8] = b"h2";
@@ -233,7 +233,7 @@ impl DnsRequestSender for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseFuture {
+    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
