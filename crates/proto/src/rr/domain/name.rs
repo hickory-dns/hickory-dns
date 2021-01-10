@@ -479,7 +479,7 @@ impl Name {
         Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
     }
 
-    /// First attempts to decode via `from_utf8`, if that fails IDNA checks, than falls back to
+    /// First attempts to decode via `from_utf8`, if that fails IDNA checks, then falls back to
     /// ascii decoding.
     ///
     /// # Examples
