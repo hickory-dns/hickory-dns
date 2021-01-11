@@ -72,7 +72,7 @@ chrono = "0.4"
 env_logger = "0.8"
 lazy_static = "1.0"
 log = "0.4"
-futures = "0.3.5"
+futures = "0.3.9"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.8"
 rusqlite = { version = "0.24.0", features = ["bundled"] }
@@ -89,4 +89,4 @@ trust-dns-server = { version = "0.20.0", path = "../../crates/server" }
 webpki-roots = { version = "0.21", optional = true }
 
 [dev-dependencies]
-futures = { version = "0.3.5", features = ["thread-pool"] }
+futures = { version = "0.3.9", features = ["thread-pool"] }
