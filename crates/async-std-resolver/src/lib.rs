@@ -80,8 +80,8 @@
 
 use trust_dns_resolver::AsyncResolver;
 
-use crate::runtime::AsyncStdConnection;
-use crate::runtime::AsyncStdConnectionProvider;
+pub use crate::runtime::AsyncStdConnection;
+pub use crate::runtime::AsyncStdConnectionProvider;
 use crate::runtime::AsyncStdRuntimeHandle;
 
 mod net;
