@@ -61,6 +61,8 @@ pub enum RecordType {
     CNAME,
     //  DHCID,      // 49 RFC 4701 DHCP identifier
     //  DNAME,      // 39 RFC 2672 Delegation Name
+    /// RFC 1035[1] host information
+    HINFO,
     //  HIP,        // 55 RFC 5205 Host Identity Protocol
     //  IPSECKEY,   // 45 RFC 4025 IPsec Key
     /// RFC 1996 Incremental Zone Transfer
@@ -169,6 +171,7 @@ impl FromStr for RecordType {
             "ANAME" => Ok(RecordType::ANAME),
             "CAA" => Ok(RecordType::CAA),
             "CNAME" => Ok(RecordType::CNAME),
+            "HINFO" => Ok(RecordType::HINFO),
             "NULL" => Ok(RecordType::NULL),
             "MX" => Ok(RecordType::MX),
             "NAPTR" => Ok(RecordType::NAPTR),
@@ -279,6 +282,7 @@ impl From<RecordType> for &'static str {
             RecordType::AXFR => "AXFR",
             RecordType::CAA => "CAA",
             RecordType::CNAME => "CNAME",
+            RecordType::HINFO => "HINFO",
             RecordType::ZERO => "",
             RecordType::IXFR => "IXFR",
             RecordType::MX => "MX",
@@ -320,6 +324,7 @@ impl From<RecordType> for u16 {
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
             RecordType::CNAME => 5,
+            RecordType::HINFO => 13,
             RecordType::ZERO => 0,
             RecordType::IXFR => 251,
             RecordType::MX => 15,
@@ -376,6 +381,7 @@ mod tests {
             RecordType::SOA,
             RecordType::NULL,
             RecordType::PTR,
+            RecordType::HINFO,
             RecordType::MX,
             RecordType::TXT,
             RecordType::AAAA,
@@ -397,6 +403,7 @@ mod tests {
             RecordType::CNAME,
             RecordType::TXT,
             RecordType::AAAA,
+            RecordType::HINFO,
         ];
 
         unordered.sort();
@@ -418,6 +425,7 @@ mod tests {
             "ANAME",
             "CAA",
             "CNAME",
+            "HINFO",
             "NULL",
             "MX",
             "NAPTR",

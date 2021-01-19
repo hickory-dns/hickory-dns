@@ -22,6 +22,7 @@
 pub mod a;
 pub mod aaaa;
 pub mod caa;
+pub mod hinfo;
 pub mod mx;
 pub mod name;
 pub mod naptr;

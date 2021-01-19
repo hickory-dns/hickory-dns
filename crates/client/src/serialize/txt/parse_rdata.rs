@@ -45,6 +45,7 @@ impl RDataParser for RData {
             RecordType::AXFR => panic!("parsing AXFR doesn't make sense"), // valid panic, never should happen
             RecordType::CAA => caa::parse(tokens).map(RData::CAA)?,
             RecordType::CNAME => RData::CNAME(name::parse(tokens, origin)?),
+            RecordType::HINFO => RData::HINFO(hinfo::parse(tokens)?),
             RecordType::IXFR => panic!("parsing IXFR doesn't make sense"), // valid panic, never should happen
             RecordType::MX => RData::MX(mx::parse(tokens, origin)?),
             RecordType::NAPTR => RData::NAPTR(naptr::parse(tokens, origin)?),
