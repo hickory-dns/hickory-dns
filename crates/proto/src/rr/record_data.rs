@@ -27,7 +27,7 @@ use log::{trace, warn};
 
 use super::domain::Name;
 use super::rdata;
-use super::rdata::{CAA, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, TLSA, TXT};
+use super::rdata::{CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, TLSA, TXT};
 use super::record_type::RecordType;
 use crate::error::*;
 use crate::serialize::binary::*;
@@ -168,6 +168,32 @@ pub enum RData {
     /// the description of name server logic in [RFC-1034] for details.
     /// ```
     CNAME(Name),
+
+    /// ```text
+    /// 3.3.2. HINFO RDATA format
+    ///
+    ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+    ///     /                      CPU                      /
+    ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+    ///     /                       OS                      /
+    ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+    ///
+    /// where:
+    ///
+    /// CPU             A <character-string> which specifies the CPU type.
+    ///
+    /// OS              A <character-string> which specifies the operating
+    ///                 system type.
+    ///
+    /// Standard values for CPU and OS can be found in [RFC-1010].
+    ///
+    /// HINFO records are used to acquire general information about a host.  The
+    /// main use is for protocols such as FTP that can use special procedures
+    /// when talking between machines or operating systems of the same type.
+    /// ```
+    ///
+    /// `HINFO` is also used by [RFC 8482](https://tools.ietf.org/html/rfc8482)
+    HINFO(HINFO),
 
     /// ```text
     /// 3.3.9. MX RDATA format
@@ -642,6 +668,10 @@ impl RData {
                 trace!("reading CNAME");
                 rdata::name::read(decoder).map(RData::CNAME)
             }
+            RecordType::HINFO => {
+                trace!("reading HINFO");
+                rdata::hinfo::read(decoder).map(RData::HINFO)
+            }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
                 return Ok(RData::ZERO);
@@ -800,6 +830,7 @@ impl RData {
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
                 rdata::name::emit(encoder, name)
             }
+            RData::HINFO(ref hinfo) => rdata::hinfo::emit(encoder, hinfo),
             RData::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
@@ -838,6 +869,7 @@ impl RData {
             RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
+            RData::HINFO(..) => RecordType::HINFO,
             RData::MX(..) => RecordType::MX,
             RData::NAPTR(..) => RecordType::NAPTR,
             RData::NS(..) => RecordType::NS,
@@ -880,6 +912,7 @@ impl fmt::Display for RData {
             RData::CAA(ref caa) => w(f, caa),
             // to_lowercase for rfc4034 and rfc6840
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
+            RData::HINFO(ref hinfo) => w(f, hinfo),
             RData::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => w(f, mx),
@@ -1025,6 +1058,10 @@ mod tests {
                     b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0,
                 ],
             ),
+            (
+                RData::HINFO(HINFO::new("cpu".to_string(), "os".to_string())),
+                vec![3, b'c', b'p', b'u', 2, b'o', b's'],
+            ),
         ]
     }
 
@@ -1120,6 +1157,7 @@ mod tests {
             RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
+            RData::HINFO(..) => RecordType::HINFO,
             RData::MX(..) => RecordType::MX,
             RData::NAPTR(..) => RecordType::NAPTR,
             RData::NS(..) => RecordType::NS,

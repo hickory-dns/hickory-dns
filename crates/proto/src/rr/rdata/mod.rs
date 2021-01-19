@@ -22,6 +22,7 @@
 pub mod a;
 pub mod aaaa;
 pub mod caa;
+pub mod hinfo;
 pub mod mx;
 pub mod name;
 pub mod naptr;
@@ -35,6 +36,7 @@ pub mod tlsa;
 pub mod txt;
 
 pub use self::caa::CAA;
+pub use self::hinfo::HINFO;
 pub use self::mx::MX;
 pub use self::naptr::NAPTR;
 pub use self::null::NULL;
