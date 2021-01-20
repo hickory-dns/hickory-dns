@@ -221,7 +221,8 @@ fn test_encode_decode() {
     edns.set_max_payload(0x8008);
     edns.set_version(0x40);
     edns.set_rcode_high(0x01);
-    edns.set_option(EdnsOption::DAU(SupportedAlgorithms::all()));
+    edns.options_mut()
+        .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
     let record: Record = (&edns).into();
     let edns_decode: Edns = (&record).into();
