@@ -115,13 +115,9 @@ impl Edns {
     }
 
     /// Set the specified EDNS option
+    #[deprecated(note = "Please use options_mut() to modify")]
     pub fn set_option(&mut self, option: EdnsOption) {
         self.options.insert(option);
-    }
-
-    /// Remove the option specified by the `EdnsCode`
-    pub fn remove_option(&mut self, option: EdnsCode) {
-        self.options.remove(option);
     }
 }
 
@@ -236,11 +232,7 @@ fn test_encode_decode() {
     assert_eq!(edns.rcode_high(), edns_decode.rcode_high());
     assert_eq!(edns.options(), edns_decode.options());
 
-    // remove option
-    edns.remove_option(EdnsCode::DAU);
-    assert!(edns.option(EdnsCode::DAU).is_none());
-
-    // re-insert and remove r using mut
+    // re-insert and remove using mut
     edns.options_mut()
         .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
     edns.options_mut().remove(EdnsCode::DAU);
