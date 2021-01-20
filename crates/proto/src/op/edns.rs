@@ -115,7 +115,7 @@ impl Edns {
     }
 
     /// Set the specified EDNS option
-    #[deprecated(note = "Please use options_mut() to modify")]
+    #[deprecated(note = "Please use options_mut().insert() to modify")]
     pub fn set_option(&mut self, option: EdnsOption) {
         self.options.insert(option);
     }

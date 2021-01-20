@@ -36,7 +36,7 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
             edns.set_dnssec_ok(true);
 
             if let Some(supported_algs) = self.support_algorithms {
-                edns.set_option(EdnsOption::DAU(supported_algs));
+                edns.options_mut().insert(EdnsOption::DAU(supported_algs));
             }
         }
 
