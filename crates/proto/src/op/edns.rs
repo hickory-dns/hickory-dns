@@ -88,6 +88,11 @@ impl Edns {
         &self.options
     }
 
+    /// Returns a mutable options portion of EDNS
+    pub fn options_mut(&mut self) -> &mut OPT {
+        &mut self.options
+    }
+
     /// Set the high order bits for the result code.
     pub fn set_rcode_high(&mut self, rcode_high: u8) {
         self.rcode_high = rcode_high
@@ -110,6 +115,7 @@ impl Edns {
     }
 
     /// Set the specified EDNS option
+    #[deprecated(note = "Please use options_mut().insert() to modify")]
     pub fn set_option(&mut self, option: EdnsOption) {
         self.options.insert(option);
     }
@@ -215,7 +221,8 @@ fn test_encode_decode() {
     edns.set_max_payload(0x8008);
     edns.set_version(0x40);
     edns.set_rcode_high(0x01);
-    edns.set_option(EdnsOption::DAU(SupportedAlgorithms::all()));
+    edns.options_mut()
+        .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
     let record: Record = (&edns).into();
     let edns_decode: Edns = (&record).into();
@@ -225,4 +232,10 @@ fn test_encode_decode() {
     assert_eq!(edns.version(), edns_decode.version());
     assert_eq!(edns.rcode_high(), edns_decode.rcode_high());
     assert_eq!(edns.options(), edns_decode.options());
+
+    // re-insert and remove using mut
+    edns.options_mut()
+        .insert(EdnsOption::DAU(SupportedAlgorithms::all()));
+    edns.options_mut().remove(EdnsCode::DAU);
+    assert!(edns.option(EdnsCode::DAU).is_none());
 }
