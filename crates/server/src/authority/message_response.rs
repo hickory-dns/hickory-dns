@@ -223,11 +223,7 @@ mod tests {
             let mut encoder = BinEncoder::new(&mut buf);
             encoder.set_max_size(512);
 
-            let answer = Record::new()
-                .set_name(Name::from_str("www.example.com.").unwrap())
-                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
-                .set_dns_class(DNSClass::NONE)
-                .clone();
+            let answer = make_example_record();
 
             let message = MessageResponse {
                 header: Header::new(),
@@ -259,11 +255,7 @@ mod tests {
             let mut encoder = BinEncoder::new(&mut buf);
             encoder.set_max_size(512);
 
-            let answer = Record::new()
-                .set_name(Name::from_str("www.example.com.").unwrap())
-                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
-                .set_dns_class(DNSClass::NONE)
-                .clone();
+            let answer = make_example_record();
 
             let message = MessageResponse {
                 header: Header::new(),
@@ -285,5 +277,68 @@ mod tests {
         assert!(response.header().truncated());
         assert_eq!(response.answer_count(), 0);
         assert!(response.name_server_count() > 1);
+    }
+
+    #[test]
+    fn test_edns_persists_in_truncated_message() {
+        let mut buf = Vec::with_capacity(512);
+        {
+            let mut encoder = BinEncoder::new(&mut buf);
+            encoder.set_max_size(512);
+
+            let answer = make_example_record();
+
+            let message = MessageResponse {
+                header: Header::new(),
+                queries: None,
+                answers: iter::repeat(&answer),
+                name_servers: iter::once(&answer),
+                soa: iter::once(&answer),
+                additionals: iter::once(&answer),
+                sig0: vec![],
+                edns: Some(Edns::new()),
+            };
+
+            message
+                .destructive_emit(&mut encoder)
+                .expect("failed to encode");
+        }
+
+        let response = Message::from_vec(&buf).expect("failed to decode");
+        assert!(response.header().truncated());
+        assert!(response.answer_count() > 1);
+        // should never have written the name server field...
+        assert_eq!(response.name_server_count(), 0);
+        assert!(response.edns().is_some());
+    }
+
+    #[test]
+    fn test_too_low_max_size() {
+        let mut buf = Vec::with_capacity(512);
+        let mut encoder = BinEncoder::new(&mut buf);
+        encoder.set_max_size(2);
+
+        let answer = make_example_record();
+
+        let message = MessageResponse {
+            header: Header::new(),
+            queries: None,
+            answers: iter::repeat(&answer),
+            name_servers: iter::once(&answer),
+            soa: iter::once(&answer),
+            additionals: iter::once(&answer),
+            sig0: vec![],
+            edns: Some(Edns::new()),
+        };
+
+        assert!(message.destructive_emit(&mut encoder).is_err())
+    }
+
+    fn make_example_record() -> Record {
+        Record::new()
+            .set_name(Name::from_str("www.example.com.").unwrap())
+            .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+            .set_dns_class(DNSClass::NONE)
+            .clone()
     }
 }

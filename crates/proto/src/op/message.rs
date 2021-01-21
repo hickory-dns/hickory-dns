@@ -16,7 +16,6 @@
 
 //! Basic protocol message for DNS
 
-use std::iter;
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -769,6 +768,23 @@ where
     N: EmitAndCount,
     D: EmitAndCount,
 {
+    let real_encoder_max_size = encoder.max_size();
+    if let Some(edns) = edns {
+        // From RFC 6891 section-7:
+        //   The minimal response MUST be the DNS header, question section, and an
+        //   OPT record. This MUST also occur when a truncated response (using
+        //   the DNS header's TC bit) is returned.
+        // Hence, we reserve some space for the EDNS OPT record
+        encoder.set_max_size(match real_encoder_max_size.checked_sub(edns.len()) {
+            Some(size) => size,
+            None => {
+                return Err(
+                    ProtoErrorKind::MaxBufferSizeExceeded(real_encoder_max_size as usize).into(),
+                )
+            }
+        });
+    }
+
     let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
     let place = encoder.place::<Header>()?;
 
@@ -780,10 +796,10 @@ where
     let mut additional_count = count_was_truncated(additionals.emit(encoder))?;
 
     if let Some(edns) = edns {
+        encoder.set_max_size(real_encoder_max_size);
         // need to commit the error code
-        let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(edns))))?;
-        additional_count.0 += count.0;
-        additional_count.1 |= count.1;
+        Record::from(edns).emit(encoder)?;
+        additional_count.0 += 1;
     }
 
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message

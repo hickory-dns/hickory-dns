@@ -23,6 +23,7 @@ use crate::op::Header;
 // this is private to make sure there is no accidental access to the inner buffer.
 mod private {
     use crate::error::{ProtoErrorKind, ProtoResult};
+    use std::convert::TryFrom;
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
     pub struct MaximalBuf<'a> {
@@ -41,6 +42,11 @@ mod private {
         /// Sets the maximum size to enforce
         pub fn set_max_size(&mut self, max: u16) {
             self.max_size = max as usize;
+        }
+
+        /// Returns the enforced maximum size
+        pub fn max_size(&mut self) -> u16 {
+            u16::try_from(self.max_size).expect("max_size is known to fit into u16")
         }
 
         /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
@@ -143,6 +149,11 @@ impl<'a> BinEncoder<'a> {
     /// *this method will move to the constructor in a future release*
     pub fn set_max_size(&mut self, max: u16) {
         self.buffer.set_max_size(max);
+    }
+
+    /// Returns the enforced maximum size of the buffer
+    pub(crate) fn max_size(&mut self) -> u16 {
+        self.buffer.max_size()
     }
 
     /// Returns a reference to the internal buffer
@@ -400,8 +411,12 @@ impl<'a> BinEncoder<'a> {
         let len = T::size_of();
 
         // resize the buffer
-        self.buffer
-            .enforced_write(len, |buffer| buffer.resize(index + len, 0))?;
+        match (len + index).checked_sub(self.buffer.len()) {
+            None => {}
+            Some(resize_to) => self
+                .buffer
+                .enforced_write(resize_to, |buffer| buffer.resize(index + len, 0))?,
+        }
 
         // update the offset
         self.offset += len;
