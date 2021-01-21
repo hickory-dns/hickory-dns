@@ -59,8 +59,8 @@ fn send_response<R: ResponseHandler>(
         let dau = EdnsOption::DAU(algorithms);
         let dhu = EdnsOption::DHU(algorithms);
 
-        resp_edns.set_option(dau);
-        resp_edns.set_option(dhu);
+        resp_edns.options_mut().insert(dau);
+        resp_edns.options_mut().insert(dhu);
 
         response.set_edns(resp_edns);
     }

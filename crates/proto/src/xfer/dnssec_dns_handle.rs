@@ -152,8 +152,8 @@ where
                 let dau = EdnsOption::DAU(algorithms);
                 let dhu = EdnsOption::DHU(algorithms);
 
-                edns.set_option(dau);
-                edns.set_option(dhu);
+                edns.options_mut().insert(dau);
+                edns.options_mut().insert(dhu);
             }
 
             request.set_authentic_data(true);

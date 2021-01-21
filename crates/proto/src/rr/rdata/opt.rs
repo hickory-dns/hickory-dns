@@ -195,6 +195,11 @@ impl OPT {
     pub fn insert(&mut self, option: EdnsOption) {
         self.options.insert((&option).into(), option);
     }
+
+    /// Remove an option, the key is derived from the `EdnsOption`
+    pub fn remove(&mut self, option: EdnsCode) {
+        self.options.remove(&option);
+    }
 }
 
 /// Read the RData from the given Decoder
