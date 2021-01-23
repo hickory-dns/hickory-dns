@@ -97,7 +97,7 @@ impl ActiveRequest {
     /// Any error sending will be logged and ignored. This must only be called after associating a response,
     ///   otherwise an error will always be returned.
     /// FIXME: is this necessary after stream API?
-    fn complete(mut self) {
+    fn complete(self) {
         self.channel.close_channel();
     }
 }

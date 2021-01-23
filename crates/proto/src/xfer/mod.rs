@@ -225,30 +225,25 @@ pub enum OneshotDnsResponseReceiver {
     Err(Option<ProtoError>),
 }
 
-impl Future for OneshotDnsResponseReceiver {
-    type Output = Result<DnsResponse, ProtoError>;
+impl Stream for OneshotDnsResponseReceiver {
+    type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             *self = match *self.as_mut() {
                 OneshotDnsResponseReceiver::Receiver(ref mut receiver) => {
                     let receiver = Pin::new(receiver);
-                    let future = ready!(receiver
+                    let stream = ready!(receiver
                         .poll(cx)
                         .map_err(|_| ProtoError::from("receiver was canceled")))?;
-                    OneshotDnsResponseReceiver::Received(future)
+                    OneshotDnsResponseReceiver::Received(stream)
                 }
                 OneshotDnsResponseReceiver::Received(ref mut stream) => {
-                    let future = Pin::new(stream);
-                    return match ready!(future.poll_next(cx)) {
-                        Some(r) => Poll::Ready(r),
-                        None => Poll::Ready(Err(ProtoError::from("stream was closed"))),
-                    };
+                    let stream = Pin::new(stream);
+                    return stream.poll_next(cx);
                 }
                 OneshotDnsResponseReceiver::Err(ref mut err) => {
-                    return Poll::Ready(Err(err
-                        .take()
-                        .expect("futures should not be polled after complete")))
+                    return Poll::Ready(err.take().map(Err))
                 }
             };
         }

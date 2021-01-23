@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use futures_util::stream::Stream;
 use futures_util::{ready, FutureExt};
 use log::debug;
 use rand;
@@ -576,15 +577,18 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientResponse<R>(R)
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
 
-impl<R> Future for ClientResponse<R>
+impl<R> Stream for ClientResponse<R>
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
-    type Output = Result<DnsResponse, ClientError>;
+    type Item = Result<DnsResponse, ClientError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx).map_err(ClientError::from)
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let stream = Pin::new(&mut self.0);
+        stream
+            .poll_next(cx)
+            .map(|i| i.map(|e| e.map_err(ClientError::from)))
     }
 }

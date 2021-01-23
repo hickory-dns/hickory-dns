@@ -14,8 +14,8 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use futures_channel::mpsc;
-use futures_core::Stream;
 use futures_util::ready;
+use futures_util::stream::Stream;
 
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, ResponseCode};

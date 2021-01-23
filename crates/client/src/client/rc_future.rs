@@ -5,43 +5,45 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use futures_util::lock::Mutex;
-use futures_util::{future::Fuse, ready, FutureExt};
+use futures_util::stream::{Fuse, Stream, StreamExt};
+use futures_util::{ready, FutureExt};
 
+// FIXME: rename to RcStream, hmmm, this probably needs a queue per cloned stream...
 #[allow(clippy::type_complexity)]
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct RcFuture<F: Future>
+pub(crate) struct RcFuture<S: Stream>
 where
-    F: Future + Send + Unpin,
-    F::Output: Clone + Send,
+    S: Stream + Send + Unpin,
+    S::Item: Clone + Send,
 {
-    future_and_result: Arc<Mutex<(Fuse<F>, Option<F::Output>)>>,
+    // FIXME: rather than a future and restult, this should be a Stream and mpscs...
+    future_and_result: Arc<Mutex<(Fuse<S>, Option<Option<S::Item>>)>>,
 }
 
-pub(crate) fn rc_future<F>(future: F) -> RcFuture<F>
+pub(crate) fn rc_future<S>(stream: S) -> RcFuture<S>
 where
-    F: Future + Unpin,
-    F::Output: Clone + Send,
-    F: Send,
+    S: Stream + Unpin,
+    S::Item: Clone + Send,
+    S: Send,
 {
-    let future_and_result = Arc::new(Mutex::new((future.fuse(), None)));
+    let future_and_result = Arc::new(Mutex::new((stream.fuse(), None)));
 
     RcFuture { future_and_result }
 }
 
-impl<F> Future for RcFuture<F>
+impl<S> Stream for RcFuture<S>
 where
-    F: Future + Send + Unpin,
-    F::Output: Clone + Send,
+    S: Stream + Send + Unpin,
+    S::Item: Clone + Send,
 {
-    type Output = F::Output;
+    type Item = S::Item;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
@@ -49,7 +51,7 @@ where
         let (ref mut future, ref mut stored_result) = *future_and_result;
 
         // if pending it's either done, or it's actually pending
-        match future.poll_unpin(cx) {
+        match future.poll_next_unpin(cx) {
             Poll::Pending => (),
             Poll::Ready(result) => {
                 *stored_result = Some(result.clone());
@@ -67,10 +69,10 @@ where
     }
 }
 
-impl<F> Clone for RcFuture<F>
+impl<S> Clone for RcFuture<S>
 where
-    F: Future + Send + Unpin,
-    F::Output: Clone + Send + Unpin,
+    S: Stream + Send + Unpin,
+    S::Item: Clone + Send + Unpin,
 {
     fn clone(&self) -> Self {
         RcFuture {
@@ -82,33 +84,45 @@ where
 #[cfg(test)]
 mod tests {
     use futures::executor::block_on;
-    use futures::future;
+    use futures::{future, stream};
 
     use super::*;
 
     #[test]
     fn test_rc_future() {
-        let future = future::ok::<usize, usize>(1_usize);
+        let future = stream::once(future::ok::<usize, usize>(1_usize));
 
-        let rc = rc_future(future);
+        let mut rc = rc_future(future);
 
-        let i = block_on(rc.clone()).ok().unwrap();
+        let i = block_on(rc.clone().next())
+            .expect("where's the once?")
+            .ok()
+            .unwrap();
         assert_eq!(i, 1);
 
-        let i = block_on(rc).ok().unwrap();
+        let i = block_on(rc.next())
+            .expect("where's the once?")
+            .ok()
+            .unwrap();
         assert_eq!(i, 1);
     }
 
     #[test]
     fn test_rc_future_failed() {
-        let future = future::err::<usize, usize>(2);
+        let future = stream::once(future::err::<usize, usize>(2));
 
-        let rc = rc_future(future);
+        let mut rc = rc_future(future);
 
-        let i = block_on(rc.clone()).err().unwrap();
+        let i = block_on(rc.clone().next())
+            .expect("where's the once?")
+            .err()
+            .unwrap();
         assert_eq!(i, 2);
 
-        let i = block_on(rc).err().unwrap();
+        let i = block_on(rc.next())
+            .expect("where's the once?")
+            .err()
+            .unwrap();
         assert_eq!(i, 2);
     }
 }

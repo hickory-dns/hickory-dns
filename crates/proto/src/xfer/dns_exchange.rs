@@ -112,12 +112,12 @@ pub struct DnsExchangeSend {
     _sender: BufDnsRequestStreamHandle,
 }
 
-impl Future for DnsExchangeSend {
-    type Output = Result<DnsResponse, ProtoError>;
+impl Stream for DnsExchangeSend {
+    type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // as long as there is no result, poll the exchange
-        self.result.poll_unpin(cx)
+        self.result.poll_next_unpin(cx)
     }
 }
 

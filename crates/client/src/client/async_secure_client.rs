@@ -10,6 +10,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use futures_util::stream::Stream;
 use futures_util::{ready, FutureExt};
 
 use crate::client::{AsyncClient, AsyncClientConnect};
@@ -68,8 +69,7 @@ impl Clone for AsyncDnssecClient {
 }
 
 impl DnsHandle for AsyncDnssecClient {
-    type Response =
-        Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
+    type Response = Pin<Box<(dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {

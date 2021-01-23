@@ -16,6 +16,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use futures_util::stream::{Stream, StreamExt};
 use tokio::runtime::{self, Runtime};
 
 #[cfg(feature = "dnssec")]
@@ -63,7 +64,7 @@ pub(crate) type NewFutureObj<H> = Pin<
 /// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
 pub trait Client {
     /// The result future that will resolve into a DnsResponse
-    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    type Response: Stream<Item = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The AsyncClient type used
     type Handle: DnsHandle<Response = Self::Response, Error = ProtoError> + 'static + Send + Unpin;
 
@@ -106,7 +107,9 @@ pub trait Client {
     ) -> ClientResult<DnsResponse> {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.query(name.clone(), query_class, query_type))
+        runtime
+            .block_on(client.query(name.clone(), query_class, query_type).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -129,7 +132,9 @@ pub trait Client {
     {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.notify(name, query_class, query_type, rrset))
+        runtime
+            .block_on(client.notify(name, query_class, query_type, rrset).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -171,7 +176,9 @@ pub trait Client {
     {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.create(rrset, zone_origin))
+        runtime
+            .block_on(client.create(rrset, zone_origin).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -214,7 +221,9 @@ pub trait Client {
     {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.append(rrset, zone_origin, must_exist))
+        runtime
+            .block_on(client.append(rrset, zone_origin, must_exist).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -270,7 +279,9 @@ pub trait Client {
     {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.compare_and_swap(current, new, zone_origin))
+        runtime
+            .block_on(client.compare_and_swap(current, new, zone_origin).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -314,7 +325,9 @@ pub trait Client {
     {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.delete_by_rdata(record, zone_origin))
+        runtime
+            .block_on(client.delete_by_rdata(record, zone_origin).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -355,7 +368,9 @@ pub trait Client {
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.delete_rrset(record, zone_origin))
+        runtime
+            .block_on(client.delete_rrset(record, zone_origin).next())
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 
     /// Deletes all records at the specified name
@@ -390,7 +405,13 @@ pub trait Client {
     ) -> ClientResult<DnsResponse> {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
+        runtime
+            .block_on(
+                client
+                    .delete_all(name_of_records, zone_origin, dns_class)
+                    .next(),
+            )
+            .unwrap_or_else(|| Err(ClientError::from("query returned no result")))
     }
 }
 
@@ -475,8 +496,7 @@ impl<CC: ClientConnection> SyncDnssecClient<CC> {
 
 #[cfg(feature = "dnssec")]
 impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
-    type Response =
-        Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
+    type Response = Pin<Box<(dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
     type Handle = AsyncDnssecClient;
 
     #[allow(clippy::type_complexity)]

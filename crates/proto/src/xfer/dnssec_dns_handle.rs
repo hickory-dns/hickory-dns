@@ -13,8 +13,9 @@ use std::error::Error;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_util::future;
-use futures_util::future::{Future, FutureExt, TryFutureExt};
+use futures_util::future::{self, Future, FutureExt, TryFutureExt};
+use futures_util::pin_mut;
+use futures_util::stream::{self, Stream, StreamExt, TryStreamExt};
 use log::{debug, trace};
 
 use crate::error::*;
@@ -101,9 +102,9 @@ where
 
 impl<H> DnsHandle for DnssecDnsHandle<H>
 where
-    H: DnsHandle + Sync + Unpin,
+    H: DnsHandle,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, Self::Error>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send>>;
     type Error = <H as DnsHandle>::Error;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -116,8 +117,8 @@ where
 
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::pin(future::err(Self::Error::from(ProtoError::from(
-                "exceeded max validation depth",
+            return Box::pin(stream::once(future::err(Self::Error::from(
+                ProtoError::from("exceeded max validation depth"),
             ))));
         }
 
@@ -174,7 +175,7 @@ where
                             message_response.id(),
                             handle.trust_anchor.len(),
                         );
-                        verify_rrsets(handle, message_response, dns_class)
+                        verify_rrsets(handle.clone(), message_response, dns_class)
                     })
                     .and_then(move |verified_message| {
                         // at this point all of the message is verified.
@@ -512,7 +513,7 @@ where
             Query::query(rrset.name.clone(), RecordType::DNSSEC(DNSSECRecordType::DS)),
             DnsRequestOptions::default(),
         )
-        .and_then(move |ds_message| {
+        .and_then(|ds_message| {
             let valid_keys = rrset
                 .records
                 .iter()
@@ -555,20 +556,33 @@ where
                 .map(|(i, _)| i)
                 .collect::<Vec<usize>>();
 
+            future::ok(valid_keys)
+        });
+
+    pin_mut!(valid_dnskey);
+
+    // For a single query there should be no additional records to await, so only looking for the first...
+    valid_dnskey
+        .next()
+        .await
+        .ok_or_else(|| {
+            E::from(ProtoError::from(ProtoErrorKind::Message(
+                "Could not validate all DNSKEYs",
+            )))
+        })?
+        .and_then(move |valid_keys| {
             if !valid_keys.is_empty() {
                 let mut rrset = rrset;
                 preserve(&mut rrset.records, valid_keys);
 
                 trace!("validated dnskey: {}", rrset.name);
-                future::ok(rrset)
+                Ok(rrset)
             } else {
-                future::err(E::from(ProtoError::from(ProtoErrorKind::Message(
+                Err(E::from(ProtoError::from(ProtoErrorKind::Message(
                     "Could not validate all DNSKEYs",
                 ))))
             }
-        });
-
-    valid_dnskey.await
+        })
 }
 
 /// Preserves the specified indexes in vec, all others will be removed
@@ -756,6 +770,12 @@ where
                         .map(|_| ())
                         .ok_or_else(|| E::from(ProtoError::from(ProtoErrorKind::Message("validation failed")))))
                 )
+                // there should only be one Message as a response
+                .into_future()
+                .map(| (fut, _)| match fut {
+                    Some(f) => f,
+                    None => Err(E::from(ProtoError::from(ProtoErrorKind::Message("No DNSKEY found")))),
+                })
         })
         .collect::<Vec<_>>();
 

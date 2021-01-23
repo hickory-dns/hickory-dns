@@ -4,12 +4,16 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
 use std::collections::HashMap;
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_util::lock::Mutex;
+use futures_util::{
+    future::FutureExt,
+    lock::Mutex,
+    stream::{Stream, StreamExt},
+};
 use trust_dns_proto::{
     error::ProtoError,
     xfer::{DnsHandle, DnsRequest, DnsResponse},
@@ -58,14 +62,22 @@ where
         // TODO: we need to consider TTL on the records here at some point
         // If the query is running, grab that existing one...
         if let Some(rc_future) = active_queries.get(&query) {
-            return rc_future.clone().await;
+            // FIXME: this needs to be revisited, how to properly deal with the stream...
+            return rc_future
+                .clone()
+                .next()
+                .await
+                .unwrap_or_else(|| Err(ProtoError::from("request return no result")));
         };
 
         // Otherwise issue a new query and store in the map
+        // FIXME: this needs to be revisited, how to properly deal with the stream...
         active_queries
             .entry(query)
             .or_insert_with(|| rc_future(client.send(request)))
+            .next()
             .await
+            .unwrap_or_else(|| Err(ProtoError::from("request return no result")))
     }
 }
 
@@ -73,17 +85,21 @@ impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
 
-        Box::pin(Self::inner_send(
-            request,
-            Arc::clone(&self.active_queries),
-            self.client.clone(),
-        ))
+        // FIXME: future to stream, need to figure out this entire types meaning with streams...
+        Box::pin(
+            Self::inner_send(
+                request,
+                Arc::clone(&self.active_queries),
+                self.client.clone(),
+            )
+            .into_stream(),
+        )
     }
 }
 
@@ -111,7 +127,7 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
         type Error = ProtoError;
 
         fn send<R: Into<DnsRequest> + Send + 'static>(&mut self, request: R) -> Self::Response {
@@ -135,7 +151,7 @@ mod test {
                 Ok(message.into())
             };
 
-            Box::pin(future)
+            Box::pin(future.into_stream())
         }
     }
 
@@ -153,17 +169,29 @@ mod test {
         let mut test2 = Message::new();
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
-        let result = block_on(client.send(test1.clone())).ok().unwrap();
+        let result = block_on(client.send(test1.clone()).next())
+            .expect("no message")
+            .ok()
+            .unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2.clone())).ok().unwrap();
+        let result = block_on(client.send(test2.clone()).next())
+            .expect("no message")
+            .ok()
+            .unwrap();
         assert_eq!(result.id(), 1);
 
         // should get the same result for each...
-        let result = block_on(client.send(test1)).ok().unwrap();
+        let result = block_on(client.send(test1).next())
+            .expect("no message")
+            .ok()
+            .unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2)).ok().unwrap();
+        let result = block_on(client.send(test2).next())
+            .expect("no message")
+            .ok()
+            .unwrap();
         assert_eq!(result.id(), 1);
     }
 }
