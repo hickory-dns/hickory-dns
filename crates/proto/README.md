@@ -1,8 +1,6 @@
 # Overview
 
-Trust-DNS Proto is the foundational DNS protocol library and implementation for Trust-DNS. It is not expected to be used directly. Please see Trust-DNS [Resolver](https://crates.io/crates/trust-dns-resolver), [Client](https://crates.io/crates/trust-dns-client), or [Server](https://crates.io/crates/trust-dns-server) for higher level interfaces.
-
-*WARNING* The Proto crate is designed as an internal layer in the Trust-DNS ecosystem, it will change potentially in breaking ways, and should not generally be used directly. Please see the Resolver, Client or Server for more stable interfaces.
+Trust-DNS Proto is the foundational DNS protocol library and implementation for Trust-DNS. Unless you want to manipulate the DNS packets directly, it is likely not the library you want. Please see Trust-DNS [Resolver](https://crates.io/crates/trust-dns-resolver), [Client](https://crates.io/crates/trust-dns-client), or [Server](https://crates.io/crates/trust-dns-server) for higher level interfaces.
 
 ## Minimum Rust Version
 
