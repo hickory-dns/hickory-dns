@@ -94,24 +94,28 @@ impl Edns {
     }
 
     /// Set the high order bits for the result code.
-    pub fn set_rcode_high(&mut self, rcode_high: u8) {
-        self.rcode_high = rcode_high
+    pub fn set_rcode_high(&mut self, rcode_high: u8) -> &mut Self {
+        self.rcode_high = rcode_high;
+        self
     }
 
     /// Set the EDNS version
-    pub fn set_version(&mut self, version: u8) {
-        self.version = version
+    pub fn set_version(&mut self, version: u8) -> &mut Self {
+        self.version = version;
+        self
     }
 
     /// Set to true if DNSSec is supported
-    pub fn set_dnssec_ok(&mut self, dnssec_ok: bool) {
-        self.dnssec_ok = dnssec_ok
+    pub fn set_dnssec_ok(&mut self, dnssec_ok: bool) -> &mut Self {
+        self.dnssec_ok = dnssec_ok;
+        self
     }
 
     /// Set the maximum payload which can be supported
     /// From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`
-    pub fn set_max_payload(&mut self, max_payload: u16) {
+    pub fn set_max_payload(&mut self, max_payload: u16) -> &mut Self {
         self.max_payload = max_payload.max(512);
+        self
     }
 
     /// Set the specified EDNS option
