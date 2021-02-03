@@ -208,7 +208,8 @@ where
 
 #[cfg(feature = "dns-over-tls")]
 /// Predefined type for TLS client stream
-type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<proto::iocompat::AsyncIoStdAsTokio<S>>>>;
+type TlsClientStream<S> =
+    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<proto::iocompat::AsyncIoStdAsTokio<S>>>>;
 
 /// The variants of all supported connections for the Resolver
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
