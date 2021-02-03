@@ -16,8 +16,9 @@ use futures::Future;
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::rr::dnssec::Signer;
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
-use trust_dns_proto::{error::ProtoError, tcp::Connect};
 
 use rustls::ClientConfig;
 use trust_dns_rustls::{tls_client_connect, TlsClientStream};

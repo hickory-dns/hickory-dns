@@ -26,9 +26,11 @@ use openssl::x509::*;
 use futures_util::stream::StreamExt;
 use rustls::Certificate;
 use rustls::ClientConfig;
-use tokio::{net::TcpStream as TokioTcpStream, runtime::Runtime};
+use tokio::net::TcpStream as TokioTcpStream;
+use tokio::runtime::Runtime;
 
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, xfer::SerialMessage};
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
+use trust_dns_proto::xfer::SerialMessage;
 
 use crate::tls_connect;
 
