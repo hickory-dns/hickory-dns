@@ -158,7 +158,7 @@ where
                 let (stream, handle) =
                     { crate::tls::new_tls_stream::<R>(socket_addr, tls_dns_name, client_config) };
                 #[cfg(not(feature = "dns-over-rustls"))]
-                let (stream, handle) = { crate::tls::new_tls_stream(socket_addr, tls_dns_name) };
+                let (stream, handle) = { crate::tls::new_tls_stream::<R>(socket_addr, tls_dns_name) };
 
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,

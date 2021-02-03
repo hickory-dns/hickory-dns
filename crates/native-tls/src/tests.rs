@@ -27,8 +27,9 @@ use futures_util::stream::StreamExt;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
 use tokio::runtime::Runtime;
+use tokio::net::TcpStream as TokioTcpStream;
 
-use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, xfer::SerialMessage};
 
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
@@ -193,7 +194,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::new();
+    let mut builder = TlsStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
     builder.add_ca(trust_chain);
 
     // fix MTLS
