@@ -14,9 +14,8 @@ use std::sync::Arc;
 
 use futures_util::TryFutureExt;
 use rustls::ClientConfig;
-use tokio::net::TcpStream as TokioTcpStream;
 
-use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::{error::ProtoError, iocompat::AsyncIoStdAsTokio, tcp::Connect};
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::xfer::BufDnsStreamHandle;
@@ -24,8 +23,8 @@ use trust_dns_proto::xfer::BufDnsStreamHandle;
 use crate::tls_stream::tls_connect;
 
 /// Type of TlsClientStream used with Rustls
-pub type TlsClientStream =
-    TcpClientStream<AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<TokioTcpStream>>>;
+pub type TlsClientStream<S> =
+    TcpClientStream<AsyncIoTokioAsStd<tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// Creates a new TlsStream to the specified name_server
 ///
@@ -34,12 +33,12 @@ pub type TlsClientStream =
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
 #[allow(clippy::type_complexity)]
-pub fn tls_client_connect(
+pub fn tls_client_connect<S: Connect>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send + Unpin>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send + Unpin>>,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) = tls_connect(name_server, dns_name, client_config);

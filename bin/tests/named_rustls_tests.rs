@@ -21,9 +21,11 @@ use std::sync::Arc;
 
 use rustls::Certificate;
 use rustls::ClientConfig;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_rustls::tls_client_connect;
 
 use server_harness::{named_test_harness, query_a};
@@ -57,8 +59,11 @@ fn test_example_tls_toml_startup() {
             config.root_store.add(&cert).expect("bad certificate");
             let config = Arc::new(config);
 
-            let (stream, sender) =
-                tls_client_connect(addr, "ns.example.com".to_string(), config.clone());
+            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+                addr,
+                "ns.example.com".to_string(),
+                config.clone(),
+            );
             let client = AsyncClient::new(stream, Box::new(sender), None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -72,7 +77,11 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let (stream, sender) = tls_client_connect(addr, "ns.example.com".to_string(), config);
+            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+                addr,
+                "ns.example.com".to_string(),
+                config,
+            );
             let client = AsyncClient::new(stream, Box::new(sender), None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

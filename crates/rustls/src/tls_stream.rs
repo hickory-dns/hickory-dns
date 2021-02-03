@@ -20,12 +20,15 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::{self, DnsTcpStream, TcpStream};
+use trust_dns_proto::tcp::{DnsTcpStream, TcpStream};
 use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
+use trust_dns_proto::{
+    iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd},
+    tcp::Connect,
+};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
-pub type TokioTlsClientStream = tokio_rustls::client::TlsStream<TokioTcpStream>;
+pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
 
 /// Predefined type for abstracting the TlsServerStream with TokioTls
 pub type TokioTlsServerStream = tokio_rustls::server::TlsStream<TokioTcpStream>;
@@ -71,7 +74,7 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
 #[allow(clippy::type_complexity)]
-pub fn tls_connect(
+pub fn tls_connect<S: Connect>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
@@ -79,7 +82,10 @@ pub fn tls_connect(
     Pin<
         Box<
             dyn Future<
-                    Output = Result<TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream>>, io::Error>,
+                    Output = Result<
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
+                        io::Error,
+                    >,
                 > + Send,
         >,
     >,
@@ -101,20 +107,20 @@ pub fn tls_connect(
     (stream, message_sender)
 }
 
-async fn connect_tls(
+async fn connect_tls<S: Connect>(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
     dns_name: String,
     outbound_messages: StreamReceiver,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream>>> {
-    let tcp = tcp::tokio::connect(&name_server).await?;
+) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
+    let tcp = S::connect(name_server).await?;
 
     let dns_name = DNSNameRef::try_from_ascii_str(&dns_name)
         .map(DNSName::from)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name"))?;
 
     let s = tls_connector
-        .connect(dns_name.as_ref(), tcp)
+        .connect(dns_name.as_ref(), AsyncIoStdAsTokio(tcp))
         .map_err(|e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,

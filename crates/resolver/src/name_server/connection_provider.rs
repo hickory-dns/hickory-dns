@@ -28,7 +28,10 @@ use proto;
 use proto::error::ProtoError;
 
 #[cfg(feature = "tokio-runtime")]
-use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
+use proto::{
+    iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd},
+    TokioTime,
+};
 
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
@@ -153,7 +156,7 @@ where
 
                 #[cfg(feature = "dns-over-rustls")]
                 let (stream, handle) =
-                    { crate::tls::new_tls_stream(socket_addr, tls_dns_name, client_config) };
+                    { crate::tls::new_tls_stream::<R>(socket_addr, tls_dns_name, client_config) };
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let (stream, handle) = { crate::tls::new_tls_stream(socket_addr, tls_dns_name) };
 
@@ -205,6 +208,10 @@ where
     }
 }
 
+#[cfg(feature = "dns-over-tls")]
+/// Predefined type for TLS client stream
+type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
+
 /// The variants of all supported connections for the Resolver
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
 pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
@@ -228,22 +235,17 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
                     Box<
                         dyn Future<
                                 Output = Result<
-                                    TcpClientStream<
-                                        AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>,
-                                    >,
+                                    TlsClientStream<<R as RuntimeProvider>::Tcp>,
                                     ProtoError,
                                 >,
                             > + Send
                             + 'static,
                     >,
                 >,
-                TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>,
+                TlsClientStream<<R as RuntimeProvider>::Tcp>,
                 NoopMessageFinalizer,
             >,
-            DnsMultiplexer<
-                TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>,
-                NoopMessageFinalizer,
-            >,
+            DnsMultiplexer<TlsClientStream<<R as RuntimeProvider>::Tcp>, NoopMessageFinalizer>,
             TokioTime,
         >,
     ),
