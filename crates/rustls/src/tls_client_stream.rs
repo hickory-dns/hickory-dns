@@ -15,9 +15,10 @@ use std::sync::Arc;
 use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 
-use trust_dns_proto::{error::ProtoError, iocompat::AsyncIoStdAsTokio, tcp::Connect};
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::TcpClientStream;
+use trust_dns_proto::tcp::{Connect, TcpClientStream};
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use crate::tls_stream::tls_connect;

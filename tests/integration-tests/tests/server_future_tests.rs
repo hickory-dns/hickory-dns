@@ -7,6 +7,7 @@ use std::time::Duration;
 
 use futures::{future, Future, FutureExt};
 use tokio::net::TcpListener;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
@@ -15,8 +16,8 @@ use trust_dns_client::op::*;
 use trust_dns_client::rr::*;
 use trust_dns_client::tcp::TcpClientConnection;
 use trust_dns_client::udp::UdpClientConnection;
-use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::DnsRequestSender;
+use trust_dns_proto::{error::ProtoError, iocompat::AsyncIoTokioAsStd};
 
 use trust_dns_server::authority::{Authority, Catalog};
 use trust_dns_server::ServerFuture;
@@ -194,7 +195,11 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
 }
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
+fn lazy_tls_client(
+    ipaddr: SocketAddr,
+    dns_name: String,
+    cert_der: Vec<u8>,
+) -> TlsClientConnection<AsyncIoTokioAsStd<TokioTcpStream>> {
     use rustls::{Certificate, ClientConfig};
 
     let trust_chain = Certificate(cert_der);

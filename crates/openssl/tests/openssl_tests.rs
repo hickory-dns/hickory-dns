@@ -19,6 +19,7 @@ use openssl::pkey::*;
 use openssl::ssl::*;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::*;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use openssl::asn1::*;
@@ -29,7 +30,7 @@ use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
 
-use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, tcp::Connect, xfer::SerialMessage};
 
 use trust_dns_openssl::TlsStreamBuilder;
 
@@ -198,7 +199,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = X509::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::new();
+    let mut builder = TlsStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
     builder.add_ca(trust_chain);
 
     if mtls {
@@ -228,11 +229,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 }
 
 #[allow(unused_variables)]
-fn config_mtls(
+fn config_mtls<S: Connect>(
     root_pkey: &PKey<Private>,
     root_name: &X509Name,
     root_cert: &X509,
-    builder: &mut TlsStreamBuilder,
+    builder: &mut TlsStreamBuilder<S>,
 ) {
     #[cfg(feature = "mtls")]
     {

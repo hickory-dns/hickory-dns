@@ -17,9 +17,10 @@ use native_tls::Certificate;
 use native_tls::Pkcs12;
 use tokio_native_tls::TlsStream as TokioTlsStream;
 
-use trust_dns_proto::{error::ProtoError, iocompat::AsyncIoStdAsTokio, tcp::Connect};
+use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::TcpClientStream;
+use trust_dns_proto::tcp::{Connect, TcpClientStream};
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use crate::TlsStreamBuilder;
@@ -27,7 +28,8 @@ use crate::TlsStreamBuilder;
 /// TlsClientStream secure DNS over TCP stream
 ///
 /// See TlsClientStreamBuilder::new()
-pub type TlsClientStream<S> = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
+pub type TlsClientStream<S> =
+    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// Builder for TlsClientStream
 pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);

@@ -19,8 +19,8 @@ use proto::error::ProtoError;
 use proto::BufDnsStreamHandle;
 use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 
-use crate::name_server::RuntimeProvider;
 use crate::config::TlsClientConfig;
+use crate::name_server::RuntimeProvider;
 
 const ALPN_H2: &[u8] = b"h2";
 

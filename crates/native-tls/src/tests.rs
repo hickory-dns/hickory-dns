@@ -26,8 +26,8 @@ use std::{thread, time};
 use futures_util::stream::StreamExt;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
-use tokio::runtime::Runtime;
 use tokio::net::TcpStream as TokioTcpStream;
+use tokio::runtime::Runtime;
 
 use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, xfer::SerialMessage};
 
