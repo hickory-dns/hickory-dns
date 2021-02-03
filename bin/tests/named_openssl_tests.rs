@@ -22,12 +22,14 @@ use std::io::*;
 use std::net::*;
 
 use native_tls::Certificate;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_native_tls::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 
 #[test]
 fn test_example_tls_toml_startup() {
@@ -59,7 +61,8 @@ fn test_startup(toml: &'static str) {
             .unwrap()
             .next()
             .unwrap();
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
+        let mut tls_conn_builder =
+            TlsClientStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
@@ -74,7 +77,8 @@ fn test_startup(toml: &'static str) {
             .unwrap()
             .next()
             .unwrap();
-        let mut tls_conn_builder = TlsClientStreamBuilder::new();
+        let mut tls_conn_builder =
+            TlsClientStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());

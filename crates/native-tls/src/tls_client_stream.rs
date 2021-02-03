@@ -15,12 +15,12 @@ use futures_util::TryFutureExt;
 use native_tls::Certificate;
 #[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio_native_tls::TlsStream as TokioTlsStream;
 
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::TcpClientStream;
+use trust_dns_proto::tcp::{Connect, TcpClientStream};
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use crate::TlsStreamBuilder;
@@ -28,14 +28,15 @@ use crate::TlsStreamBuilder;
 /// TlsClientStream secure DNS over TCP stream
 ///
 /// See TlsClientStreamBuilder::new()
-pub type TlsClientStream = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>;
+pub type TlsClientStream<S> =
+    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// Builder for TlsClientStream
-pub struct TlsClientStreamBuilder(TlsStreamBuilder);
+pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);
 
-impl TlsClientStreamBuilder {
+impl<S: Connect> TlsClientStreamBuilder<S> {
     /// Creates a builder fo the construction of a TlsClientStream
-    pub fn new() -> TlsClientStreamBuilder {
+    pub fn new() -> TlsClientStreamBuilder<S> {
         TlsClientStreamBuilder(TlsStreamBuilder::new())
     }
 
@@ -64,7 +65,7 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
@@ -81,7 +82,7 @@ impl TlsClientStreamBuilder {
     }
 }
 
-impl Default for TlsClientStreamBuilder {
+impl<S: Connect> Default for TlsClientStreamBuilder<S> {
     fn default() -> Self {
         Self::new()
     }

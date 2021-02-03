@@ -7,23 +7,23 @@
 
 //! Base TlsStream
 
-use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::{future::Future, marker::PhantomData};
 
 use futures_util::TryFutureExt;
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::{self, TcpStream};
+use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use trust_dns_proto::tcp::Connect;
+use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
-pub type TlsStream = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>;
+pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
 fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsConnector> {
     let mut builder = TlsConnector::builder();
@@ -47,10 +47,10 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsC
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream(
-    stream: TokioTlsStream<TokioTcpStream>,
+pub fn tls_from_stream<S: Connect>(
+    stream: TokioTlsStream<AsyncIoStdAsTokio<S>>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle) {
+) -> (TlsStream<S>, BufStreamHandle) {
     let (message_sender, outbound_messages) = BufStreamHandle::create();
 
     let stream = TcpStream::from_stream_with_receiver(
@@ -64,17 +64,19 @@ pub fn tls_from_stream(
 
 /// A builder for the TlsStream
 #[derive(Default)]
-pub struct TlsStreamBuilder {
+pub struct TlsStreamBuilder<S> {
     ca_chain: Vec<Certificate>,
     identity: Option<Identity>,
+    marker: PhantomData<S>,
 }
 
-impl TlsStreamBuilder {
+impl<S: Connect> TlsStreamBuilder<S> {
     /// Constructs a new TlsStreamBuilder
-    pub fn new() -> TlsStreamBuilder {
+    pub fn new() -> TlsStreamBuilder<S> {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
+            marker: PhantomData,
         }
     }
 
@@ -123,7 +125,7 @@ impl TlsStreamBuilder {
         dns_name: String,
     ) -> (
         // TODO: change to impl?
-        Pin<Box<dyn Future<Output = Result<TlsStream, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsStream<S>, io::Error>> + Send>>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufStreamHandle::create();
@@ -137,17 +139,17 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
         outbound_messages: StreamReceiver,
-    ) -> Result<TlsStream, io::Error> {
+    ) -> Result<TlsStream<S>, io::Error> {
         use crate::tls_stream;
 
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;
 
-        let tcp_stream = tcp::tokio::connect(&name_server).await;
+        let tcp_stream = S::connect(name_server).await;
 
         // TODO: for some reason the above wouldn't accept a ?
         let tcp_stream = match tcp_stream {
-            Ok(tcp_stream) => tcp_stream,
+            Ok(tcp_stream) => AsyncIoStdAsTokio(tcp_stream),
             Err(err) => return Err(err),
         };
 

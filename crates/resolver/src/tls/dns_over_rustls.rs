@@ -20,6 +20,7 @@ use proto::BufDnsStreamHandle;
 use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 
 use crate::config::TlsClientConfig;
+use crate::name_server::RuntimeProvider;
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -40,12 +41,12 @@ lazy_static! {
 }
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn new_tls_stream(
+pub(crate) fn new_tls_stream<R: RuntimeProvider>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let client_config = client_config.map_or_else(

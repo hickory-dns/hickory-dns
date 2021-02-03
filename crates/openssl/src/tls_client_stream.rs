@@ -14,23 +14,24 @@ use futures_util::TryFutureExt;
 #[cfg(feature = "mtls")]
 use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::SslStream as TokioTlsStream;
 
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::TcpClientStream;
+use trust_dns_proto::tcp::{Connect, TcpClientStream};
 use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 use super::TlsStreamBuilder;
 
 /// A Type definition for the TLS stream
-pub type TlsClientStream = TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>;
+pub type TlsClientStream<S> =
+    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
 
 /// A Builder for the TlsClientStream
-pub struct TlsClientStreamBuilder(TlsStreamBuilder);
+pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);
 
-impl TlsClientStreamBuilder {
+impl<S: Connect> TlsClientStreamBuilder<S> {
     /// Creates a builder for the construction of a TlsClientStream.
     pub fn new() -> Self {
         TlsClientStreamBuilder(TlsStreamBuilder::new())
@@ -71,7 +72,7 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
@@ -88,7 +89,7 @@ impl TlsClientStreamBuilder {
     }
 }
 
-impl Default for TlsClientStreamBuilder {
+impl<S: Connect> Default for TlsClientStreamBuilder<S> {
     fn default() -> Self {
         Self::new()
     }

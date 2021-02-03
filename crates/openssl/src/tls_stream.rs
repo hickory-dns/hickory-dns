@@ -5,10 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::{future::Future, marker::PhantomData};
 
 use futures_util::{future, TryFutureExt};
 use openssl::pkcs12::ParsedPkcs12;
@@ -17,11 +17,11 @@ use openssl::ssl::{ConnectConfiguration, SslConnector, SslContextBuilder, SslMet
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::{X509Ref, X509};
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::{self, TcpStream};
+use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use trust_dns_proto::tcp::Connect;
+use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
 
 pub trait TlsIdentityExt {
@@ -57,7 +57,8 @@ impl TlsIdentityExt for SslContextBuilder {
 }
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
-pub type TlsStream = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>>;
+pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<S>>>;
+pub type CompatTlsStream<S> = TlsStream<AsyncIoStdAsTokio<S>>;
 
 fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnector> {
     let mut tls = SslConnector::builder(SslMethod::tls()).map_err(|e| {
@@ -115,21 +116,21 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_stream_from_existing_tls_stream(
-    stream: AsyncIoTokioAsStd<TokioTlsStream<TokioTcpStream>>,
+pub fn tls_stream_from_existing_tls_stream<S: Connect>(
+    stream: AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle) {
+) -> (CompatTlsStream<S>, BufStreamHandle) {
     let (message_sender, outbound_messages) = BufStreamHandle::create();
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
     (stream, message_sender)
 }
 
-async fn connect_tls(
+async fn connect_tls<S: Connect>(
     tls_config: ConnectConfiguration,
     dns_name: String,
     name_server: SocketAddr,
-) -> Result<TokioTlsStream<TokioTcpStream>, io::Error> {
-    let tcp = tcp::tokio::connect(&name_server).await.map_err(|e| {
+) -> Result<TokioTlsStream<AsyncIoStdAsTokio<S>>, io::Error> {
+    let tcp = S::connect(name_server).await.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
@@ -137,7 +138,7 @@ async fn connect_tls(
     })?;
     let mut stream = tls_config
         .into_ssl(&dns_name)
-        .and_then(|ssl| TokioTlsStream::new(ssl, tcp))
+        .and_then(|ssl| TokioTlsStream::new(ssl, AsyncIoStdAsTokio(tcp)))
         .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("tls error: {}", e)))?;
     Pin::new(&mut stream).connect().await.map_err(|e| {
         io::Error::new(
@@ -150,17 +151,19 @@ async fn connect_tls(
 
 /// A builder for the TlsStream
 #[derive(Default)]
-pub struct TlsStreamBuilder {
+pub struct TlsStreamBuilder<S> {
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12>,
+    marker: PhantomData<S>,
 }
 
-impl TlsStreamBuilder {
+impl<S: Connect> TlsStreamBuilder<S> {
     /// A builder for associating trust information to the `TlsStream`.
     pub fn new() -> Self {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
+            marker: PhantomData,
         }
     }
 
@@ -208,7 +211,7 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsStream, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<CompatTlsStream<S>, io::Error>> + Send>>,
         BufStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufStreamHandle::create();

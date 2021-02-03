@@ -194,7 +194,11 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
 }
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
+fn lazy_tls_client(
+    ipaddr: SocketAddr,
+    dns_name: String,
+    cert_der: Vec<u8>,
+) -> TlsClientConnection<trust_dns_proto::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>> {
     use rustls::{Certificate, ClientConfig};
 
     let trust_chain = Certificate(cert_der);

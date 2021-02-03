@@ -8,15 +8,16 @@
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::{marker::PhantomData, net::SocketAddr};
 
 use futures::Future;
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
 use rustls::ClientConfig;
@@ -25,14 +26,15 @@ use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 /// Tls client connection
 ///
 /// Use with `trust_dns_client::client::Client` impls
-pub struct TlsClientConnection {
+pub struct TlsClientConnection<T> {
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
+    marker: PhantomData<T>,
 }
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-impl TlsClientConnection {
+impl<T> TlsClientConnection<T> {
     pub fn new(
         name_server: SocketAddr,
         dns_name: String,
@@ -42,16 +44,17 @@ impl TlsClientConnection {
             name_server,
             dns_name,
             client_config,
+            marker: PhantomData,
         }
     }
 }
 
 #[allow(clippy::type_complexity)]
-impl ClientConnection for TlsClientConnection {
-    type Sender = DnsMultiplexer<TlsClientStream, Signer>;
+impl<T: Connect> ClientConnection for TlsClientConnection<T> {
+    type Sender = DnsMultiplexer<TlsClientStream<T>, Signer>;
     type SenderFuture = DnsMultiplexerConnect<
-        Pin<Box<dyn Future<Output = Result<TlsClientStream, ProtoError>> + Send>>,
-        TlsClientStream,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<T>, ProtoError>> + Send>>,
+        TlsClientStream<T>,
         Signer,
     >;
 

@@ -26,8 +26,10 @@ use openssl::x509::*;
 use futures_util::stream::StreamExt;
 use rustls::Certificate;
 use rustls::ClientConfig;
+use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
+use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::xfer::SerialMessage;
 
 use crate::tls_connect;
@@ -214,7 +216,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     //     config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     // }
 
-    let (stream, mut sender) = tls_connect(server_addr, dns_name.to_string(), Arc::new(config));
+    let (stream, mut sender) = tls_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+        server_addr,
+        dns_name.to_string(),
+        Arc::new(config),
+    );
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
