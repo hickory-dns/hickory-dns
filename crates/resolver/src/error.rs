@@ -23,6 +23,7 @@ use crate::proto::{trace, ExtBacktrace};
 /// An alias for results returned by functions of this crate
 pub type ResolveResult<T> = ::std::result::Result<T, ResolveError>;
 
+#[allow(clippy::large_enum_variant)]
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
 pub enum ResolveErrorKind {

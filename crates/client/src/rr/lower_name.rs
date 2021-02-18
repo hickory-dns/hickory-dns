@@ -11,14 +11,13 @@ use std::borrow::Borrow;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::ops::Index;
 use std::str::FromStr;
 
 use crate::proto::error::*;
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::rr::{Label, Name};
+use crate::rr::Name;
 use crate::serialize::binary::*;
 
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
@@ -188,14 +187,6 @@ impl BinEncodable for LowerName {
 impl fmt::Display for LowerName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.0.fmt(f)
-    }
-}
-
-impl Index<usize> for LowerName {
-    type Output = Label;
-
-    fn index(&self, _index: usize) -> &Label {
-        &(self.0[_index])
     }
 }
 
