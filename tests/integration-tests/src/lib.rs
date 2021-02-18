@@ -219,7 +219,7 @@ impl Stream for NeverReturnsClientStream {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
         // poll the timer forever...
-        if let Poll::Pending = self.timeout.poll_unpin(cx) {
+        if self.timeout.poll_unpin(cx).is_pending() {
             return Poll::Pending;
         }
 

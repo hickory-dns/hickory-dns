@@ -197,6 +197,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
     /// background task that runs resolutions for the `AsyncResolver`. See the
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
+    #[allow(clippy::unnecessary_wraps)]
     pub(crate) fn new_with_conn(
         config: ResolverConfig,
         options: ResolverOpts,

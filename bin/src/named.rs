@@ -201,6 +201,7 @@ fn load_zone(
     }
 
     #[cfg(not(feature = "dnssec"))]
+    #[allow(clippy::unnecessary_wraps)]
     fn load_keys(
         _authority: &mut dyn AuthorityObject,
         _zone_name: Name,

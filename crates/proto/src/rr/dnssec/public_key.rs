@@ -373,6 +373,7 @@ fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<PKey<Public>> {
 }
 
 #[cfg(feature = "ring")]
+#[allow(clippy::unnecessary_wraps)]
 fn into_pkey(parsed: RSAPublicKey<'_>) -> ProtoResult<RSAPublicKey<'_>> {
     Ok(parsed)
 }

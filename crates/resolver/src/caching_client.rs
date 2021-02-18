@@ -387,6 +387,7 @@ where
                     // restrict to the RData type requested
                     if query.query_class() == r.dns_class() {
                         // standard evaluation, it's an any type or it's the requested type and the search_name matches
+                        #[allow(clippy::suspicious_operation_groupings)]
                         if (query.query_type().is_any() || query.query_type() == r.rr_type())
                             && (search_name.as_ref() == r.name() || query.name() == r.name())
                         {
@@ -462,6 +463,7 @@ where
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn cname(&self, lookup: Lookup, query: Query, cname_ttl: u32) -> Result<Lookup, ResolveError> {
         // this duplicates the cache entry under the original query
         Ok(self.lru.duplicate(query, lookup, cname_ttl, Instant::now()))
