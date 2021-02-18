@@ -1792,6 +1792,7 @@ dependencies = [
  "smallvec",
  "socket2",
  "thiserror",
+ "tinyvec",
  "tokio",
  "url",
  "wasm-bindgen",

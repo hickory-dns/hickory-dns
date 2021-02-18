@@ -15,6 +15,7 @@ use crate::client::op::ResponseCode;
 use crate::resolver::error::ResolveError;
 
 // TODO: should this implement Failure?
+#[allow(clippy::large_enum_variant)]
 /// A query could not be fulfilled
 #[derive(Debug, EnumAsInner, Error)]
 pub enum LookupError {

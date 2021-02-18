@@ -7,14 +7,11 @@
 
 //! domain name, aka labels, implementation
 
-use std::borrow::Borrow;
 use std::char;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt::{self, Write};
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::ops::Index;
-use std::slice::Iter;
 use std::str::FromStr;
 
 use crate::error::*;
@@ -24,12 +21,16 @@ use crate::serialize::binary::*;
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 #[cfg(feature = "serde-config")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use tinyvec::TinyVec;
 
-/// Them should be through references. As a workaround the Strings are all Rc as well as the array
+/// A domain name
 #[derive(Clone, Default, Debug, Eq)]
 pub struct Name {
     is_fqdn: bool,
-    labels: Vec<Label>,
+    label_data: TinyVec<[u8; 32]>,
+    // This 24 is chosen because TinyVec accomodates an inline buffer up to 24 bytes without
+    // increasing its stack footprint
+    label_ends: TinyVec<[u8; 24]>,
 }
 
 impl Name {
@@ -58,7 +59,7 @@ impl Name {
     /// assert_eq!(&root.to_string(), ".");
     /// ```
     pub fn is_root(&self) -> bool {
-        self.labels.is_empty() && self.is_fqdn()
+        self.label_ends.is_empty() && self.is_fqdn()
     }
 
     /// Returns true if the name is a fully qualified domain name.
@@ -96,7 +97,12 @@ impl Name {
 
     /// Returns an iterator over the labels
     pub fn iter(&self) -> LabelIter<'_> {
-        LabelIter(self.labels.iter())
+        LabelIter {
+            name: self,
+            index: 0,
+            started: false,
+            finished: false,
+        }
     }
 
     /// Appends the label to the end of this name
@@ -112,8 +118,10 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
-        self.labels.push(label.into_label()?);
-        if self.labels.len() > 255 {
+        self.label_data
+            .extend_from_slice(label.into_label()?.as_bytes());
+        self.label_ends.push(self.label_data.len() as u8);
+        if self.len() > 255 {
             return Err("labels exceed maximum length of 255".into());
         };
         Ok(self)
@@ -137,7 +145,7 @@ impl Name {
     ///
     /// // Force a set of bytes into labels (this is none-standard and potentially dangerous)
     /// let from_labels = Name::from_labels(vec!["bad chars".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
-    /// assert_eq!(from_labels[0].as_bytes(), "bad chars".as_bytes());
+    /// assert_eq!(from_labels.iter().next(), Some(&b"bad chars"[..]));
     ///
     /// let root = Name::from_labels(Vec::<&str>::new()).unwrap();
     /// assert!(root.is_root());
@@ -161,9 +169,17 @@ impl Name {
             return Err(format!("error converting some labels: {:?}", errors).into());
         };
 
+        let mut label_ends = TinyVec::new();
+        let mut label_data = TinyVec::new();
+        for label in labels {
+            label_data.extend_from_slice(label.as_bytes());
+            label_ends.push(label_data.len() as u8);
+        }
+
         Ok(Name {
             is_fqdn: true,
-            labels,
+            label_data,
+            label_ends,
         })
     }
 
@@ -193,9 +209,9 @@ impl Name {
     /// assert!(name.is_fqdn());
     /// ```
     pub fn append_name(mut self, other: &Self) -> Self {
-        self.labels.reserve_exact(other.labels.len());
-        for label in &other.labels {
-            self.labels.push(label.clone());
+        for label in other.iter() {
+            self.label_data.extend_from_slice(label);
+            self.label_ends.push(self.label_data.len() as u8);
         }
 
         self.is_fqdn = other.is_fqdn;
@@ -240,14 +256,15 @@ impl Name {
     /// assert!(example_com.to_lowercase().eq_case(&Name::from_str("example.com").unwrap()));
     /// ```
     pub fn to_lowercase(&self) -> Self {
-        let mut new_labels: Vec<Label> = Vec::with_capacity(self.labels.len());
-        for label in &self.labels {
-            new_labels.push(label.to_lowercase())
-        }
-
+        let new_label_data = self
+            .label_data
+            .iter()
+            .map(|c| c.to_ascii_lowercase())
+            .collect();
         Name {
             is_fqdn: self.is_fqdn,
-            labels: new_labels,
+            label_data: new_label_data,
+            label_ends: self.label_ends.clone(),
         }
     }
 
@@ -265,7 +282,7 @@ impl Name {
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
     pub fn base_name(&self) -> Name {
-        let length = self.labels.len();
+        let length = self.label_ends.len();
         if length > 0 {
             return self.trim_to(length - 1);
         }
@@ -287,21 +304,17 @@ impl Name {
     /// assert_eq!(example_com.trim_to(3), Name::from_str("example.com.").unwrap());
     /// ```
     pub fn trim_to(&self, num_labels: usize) -> Name {
-        if self.labels.len() >= num_labels {
-            let trim = self.labels.len() - num_labels;
-            Name {
-                is_fqdn: self.is_fqdn,
-                labels: self.labels[trim..].to_vec(),
-            }
-        } else {
+        if num_labels > self.label_ends.len() {
             self.clone()
+        } else {
+            Name::from_labels(self.iter().skip(self.label_ends.len() - num_labels)).unwrap()
         }
     }
 
     /// same as `zone_of` allows for case sensitive call
     pub fn zone_of_case(&self, name: &Self) -> bool {
-        let self_len = self.labels.len();
-        let name_len = name.labels.len();
+        let self_len = self.label_ends.len();
+        let name_len = name.label_ends.len();
         if self_len == 0 {
             return true;
         }
@@ -370,11 +383,11 @@ impl Name {
     pub fn num_labels(&self) -> u8 {
         // it is illegal to have more than 256 labels.
 
-        let num = self.labels.len() as u8;
+        let num = self.label_ends.len() as u8;
 
-        self.labels
-            .first()
-            .map(|l| if l.is_wildcard() { num - 1 } else { num })
+        self.iter()
+            .next()
+            .map(|l| if l == b"*" { num - 1 } else { num })
             .unwrap_or(num)
     }
 
@@ -394,12 +407,12 @@ impl Name {
     /// assert_eq!(Name::root().len(), 1);
     /// ```
     pub fn len(&self) -> usize {
-        let dots = if !self.labels.is_empty() {
-            self.labels.len()
+        let dots = if !self.label_ends.is_empty() {
+            self.label_ends.len()
         } else {
             1
         };
-        self.labels.iter().fold(dots, |acc, item| acc + item.len())
+        dots + self.label_data.len()
     }
 
     /// Returns whether the length of the labels, in bytes is 0. In practice, since '.' counts as
@@ -418,7 +431,7 @@ impl Name {
     ///
     /// let name = Name::from_str("example.com.").unwrap();
     /// assert_eq!(name.base_name(), Name::from_str("com.").unwrap());
-    /// assert_eq!(name[0].to_string(), "example");
+    /// assert_eq!(name.iter().next(), Some(&b"example"[..]));
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(local, origin)
@@ -520,7 +533,7 @@ impl Name {
             match state {
                 ParseState::Label => match ch {
                     '.' => {
-                        name.labels.push(E::to_label(&label)?);
+                        name = name.append_label(E::to_label(&label)?)?;
                         label.clear();
                     }
                     '\\' => state = ParseState::Escape1,
@@ -569,7 +582,7 @@ impl Name {
         }
 
         if !label.is_empty() {
-            name.labels.push(E::to_label(&label)?);
+            name = name.append_label(E::to_label(&label)?)?;
         }
 
         if local.ends_with('.') {
@@ -592,10 +605,10 @@ impl Name {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
                                      // lookup the label in the BinEncoder
                                      // if it exists, write the Pointer
-        let labels: &[Label] = &self.labels;
+        let labels = self.iter();
 
         // start index of each label
-        let mut labels_written: Vec<usize> = Vec::with_capacity(labels.len());
+        let mut labels_written: Vec<usize> = Vec::with_capacity(self.label_ends.len());
 
         if canonical {
             for label in labels {
@@ -675,22 +688,24 @@ impl Name {
 
     /// compares with the other label, ignoring case
     fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
-        if self.labels.is_empty() && other.labels.is_empty() {
+        if self.label_ends.is_empty() && other.label_ends.is_empty() {
             return Ordering::Equal;
         }
 
         // we reverse the iters so that we are comparing from the root/domain to the local...
-        let self_labels = self.labels.iter().rev();
-        let other_labels = other.labels.iter().rev();
+        let self_labels = self.iter().rev();
+        let other_labels = other.iter().rev();
 
         for (l, r) in self_labels.zip(other_labels) {
-            match l.cmp_with_f::<F>(r) {
+            let l = Label::from_raw_bytes(l).unwrap();
+            let r = Label::from_raw_bytes(r).unwrap();
+            match l.cmp_with_f::<F>(&r) {
                 Ordering::Equal => continue,
                 not_eq => return not_eq,
             }
         }
 
-        self.labels.len().cmp(&other.labels.len())
+        self.label_ends.len().cmp(&other.label_ends.len())
     }
 
     /// Case sensitive comparison
@@ -784,14 +799,14 @@ impl Name {
     }
 
     fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error> {
-        let mut iter = self.labels.iter();
+        let mut iter = self.iter().map(|b| Label::from_raw_bytes(b).unwrap());
         if let Some(label) = iter.next() {
-            E::write_label(f, label)?;
+            E::write_label(f, &label)?;
         }
 
         for label in iter {
             write!(f, ".")?;
-            E::write_label(f, label)?;
+            E::write_label(f, &label)?;
         }
 
         // if it was the root name
@@ -840,7 +855,7 @@ impl Name {
     /// assert!(!name.is_wildcard());
     /// ```
     pub fn is_wildcard(&self) -> bool {
-        self.labels.first().map_or(false, Label::is_wildcard)
+        self.iter().next().map_or(false, |l| l == b"*")
     }
 
     /// Converts a name to a wildcard, by replacing the first label with `*`
@@ -858,13 +873,24 @@ impl Name {
     /// let name = Name::root().into_wildcard();
     /// assert_eq!(name, Name::root());
     /// ```
-    pub fn into_wildcard(mut self) -> Self {
-        let wildcard = Label::wildcard();
-        if let Some(first) = self.labels.first_mut() {
-            *first = wildcard;
+    pub fn into_wildcard(self) -> Self {
+        if self.label_ends.is_empty() {
+            Name::root()
+        } else {
+            let mut label_data = TinyVec::new();
+            label_data.push(b'*');
+            let mut label_ends = TinyVec::new();
+            label_ends.push(1);
+            for label in self.iter().skip(1) {
+                label_data.extend_from_slice(label);
+                label_ends.push(label_data.len() as u8);
+            }
+            Name {
+                label_data,
+                label_ends,
+                is_fqdn: self.is_fqdn,
+            }
         }
-
-        self
     }
 }
 
@@ -899,20 +925,63 @@ impl LabelEnc for LabelEncUtf8 {
 }
 
 /// An iterator over labels in a name
-pub struct LabelIter<'a>(Iter<'a, Label>);
+pub struct LabelIter<'a> {
+    name: &'a Name,
+    index: usize,
+    started: bool,
+    finished: bool,
+}
 
 impl<'a> Iterator for LabelIter<'a> {
     type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Borrow::borrow)
+        if self.finished {
+            return None;
+        }
+        self.started = true;
+        let end = *self.name.label_ends.get(self.index)?;
+        let start = if self.index == 0 {
+            0
+        } else {
+            self.name.label_ends[self.index - 1]
+        };
+        self.index += 1;
+        if self.index == self.name.label_ends.len() {
+            self.finished = true;
+        }
+        Some(&self.name.label_data[start as usize..end as usize])
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = self.name.label_ends.len() - self.index;
+        (len, Some(len))
     }
 }
 
 impl<'a> ExactSizeIterator for LabelIter<'a> {}
+
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(Borrow::borrow)
+        if self.finished {
+            return None;
+        }
+        if !self.started {
+            self.index = self.name.label_ends.len().checked_sub(1)?;
+        }
+        self.started = true;
+        let end = *self.name.label_ends.get(self.index)?;
+        let start = if self.index == 0 {
+            0
+        } else {
+            self.name.label_ends[self.index - 1]
+        };
+        if self.index == 0 {
+            self.finished = true;
+        } else {
+            self.index -= 1;
+        }
+        Some(&self.name.label_data[start as usize..end as usize])
     }
 }
 
@@ -1016,7 +1085,10 @@ impl Hash for Name {
         self.is_fqdn.hash(state);
 
         // this needs to be CaseInsensitive like PartialEq
-        for l in self.labels.iter().map(Label::to_lowercase) {
+        for l in self
+            .iter()
+            .map(|l| Label::from_raw_bytes(l).unwrap().to_lowercase())
+        {
             l.hash(state);
         }
     }
@@ -1042,15 +1114,25 @@ impl<'r> BinDecodable<'r> for Name {
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the `Vec` which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
-        read_inner(decoder, None)
+        let mut label_data = TinyVec::new();
+        let mut label_ends = TinyVec::new();
+        read_inner(decoder, &mut label_data, &mut label_ends, None)?;
+        Ok(Name {
+            is_fqdn: true,
+            label_data,
+            label_ends,
+        })
     }
 }
 
-fn read_inner(decoder: &mut BinDecoder<'_>, max_idx: Option<usize>) -> ProtoResult<Name> {
+fn read_inner(
+    decoder: &mut BinDecoder<'_>,
+    label_data: &mut TinyVec<[u8; 32]>,
+    label_ends: &mut TinyVec<[u8; 24]>,
+    max_idx: Option<usize>,
+) -> ProtoResult<()> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
-    let mut labels: Vec<Label> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
     let name_start = decoder.index();
-    let mut run_len = 0_usize;
 
     // assume all chars are utf-8. We're doing byte-by-byte operations, no endianess issues...
     // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
@@ -1070,7 +1152,7 @@ fn read_inner(decoder: &mut BinDecoder<'_>, max_idx: Option<usize>) -> ProtoResu
         }
 
         // enforce max length of name
-        let cur_len = run_len + labels.len();
+        let cur_len = label_data.len() + label_ends.len();
         if cur_len > 255 {
             return Err(ProtoErrorKind::DomainNameTooLong(cur_len).into());
         }
@@ -1095,8 +1177,8 @@ fn read_inner(decoder: &mut BinDecoder<'_>, max_idx: Option<usize>) -> ProtoResu
                     .verify_unwrap(|l| l.len() <= 63)
                     .map_err(|_| ProtoError::from("label exceeds maximum length of 63"))?;
 
-                run_len += label.len();
-                labels.push(label.into_label()?);
+                label_data.extend_from_slice(label);
+                label_ends.push(label_data.len() as u8);
 
                 // reset to collect more data
                 LabelParseState::LabelLengthOrPointer
@@ -1142,14 +1224,7 @@ fn read_inner(decoder: &mut BinDecoder<'_>, max_idx: Option<usize>) -> ProtoResu
                     })?;
 
                 let mut pointer = decoder.clone(location);
-                let pointed = read_inner(&mut pointer, Some(name_start))?;
-
-                for l in &*pointed.labels {
-                    if !l.is_empty() {
-                        run_len += l.len();
-                    }
-                    labels.push(l.clone());
-                }
+                read_inner(&mut pointer, label_data, label_ends, Some(name_start))?;
 
                 // Pointers always finish the name, break like Root.
                 break;
@@ -1162,28 +1237,12 @@ fn read_inner(decoder: &mut BinDecoder<'_>, max_idx: Option<usize>) -> ProtoResu
         }
     }
 
-    run_len += if labels.is_empty() { 1 } else { labels.len() };
-    let name = Name {
-        is_fqdn: true,
-        labels,
-    };
-
-    debug_assert_eq!(run_len, name.len());
-
-    Ok(name)
+    Ok(())
 }
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.write_labels::<fmt::Formatter<'_>, LabelEncUtf8>(f)
-    }
-}
-
-impl Index<usize> for Name {
-    type Output = Label;
-
-    fn index(&self, _index: usize) -> &Label {
-        &self.labels[_index]
     }
 }
 
