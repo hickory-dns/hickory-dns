@@ -365,11 +365,15 @@ impl<'r> BinDecodable<'r> for Record {
 
         // RDLENGTH        an unsigned 16 bit integer that specifies the length in
         //                octets of the RDATA field.
-        let rd_length: u16 = decoder
+        let rd_length = decoder
             .read_u16()?
             .verify_unwrap(|u| (*u as usize) <= decoder.len())
-            .map_err(|_| {
-                ProtoError::from("rdata length too large for remaining bytes, need: {} remain: {}")
+            .map_err(|u| {
+                ProtoError::from(format!(
+                    "rdata length too large for remaining bytes, need: {} remain: {}",
+                    u,
+                    decoder.len()
+                ))
             })?;
 
         // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of
