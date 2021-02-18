@@ -37,7 +37,7 @@ CARGO_MAKE_CRATES_IO_TOKEN = { value = "--token=${CRATES_IO_TOKEN}", condition =
 [tasks.install-openssl]
 description = "Installs OpenSSL on Windows"
 workspace = false
-env = { OPENSSL_VERSION = "1_1_1i", OPENSSL_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\\OpenSSL" }
+env = { OPENSSL_VERSION = "1_1_1j", OPENSSL_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\\OpenSSL" }
 condition = { platforms = ["windows"], files_not_exist = ["${OPENSSL_DIR}"] }
 script_runner = "powershell"
 script_extension = "ps1"
