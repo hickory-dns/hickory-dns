@@ -797,7 +797,8 @@ where
         nameserver_count: nameserver_count.0,
         additional_count: additional_count.0,
     };
-    let was_truncated = answer_count.1 || nameserver_count.1 || additional_count.1;
+    let was_truncated =
+        header.truncated() || answer_count.1 || nameserver_count.1 || additional_count.1;
 
     place.replace(encoder, update_header_counts(header, was_truncated, counts))?;
     Ok(())
