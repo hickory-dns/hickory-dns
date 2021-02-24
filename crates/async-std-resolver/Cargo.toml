@@ -36,7 +36,8 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["system-config"]
+default = ["backtrace", "system-config"]
+backtrace = ["trust-dns-resolver/backtrace"]
 
 # resolver configuration
 system-config = ["trust-dns-resolver/system-config"]

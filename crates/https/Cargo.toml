@@ -36,6 +36,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "g
 maintenance = { status = "actively-developed" }
 
 [features]
+default = ["backtrace"]
 backtrace = ["trust-dns-proto/backtrace"]
 dns-over-https-rustls = []
 
