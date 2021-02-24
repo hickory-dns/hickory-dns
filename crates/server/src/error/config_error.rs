@@ -46,7 +46,7 @@ impl Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "with-backtrace")] {
+            if #[cfg(feature = "backtrace")] {
                 if let Some(ref backtrace) = self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
