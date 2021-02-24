@@ -43,3 +43,15 @@ impl SerialMessage {
         Message::from_vec(&self.message)
     }
 }
+
+impl From<(Vec<u8>, SocketAddr)> for SerialMessage {
+    fn from((message, addr): (Vec<u8>, SocketAddr)) -> Self {
+        SerialMessage { message, addr }
+    }
+}
+
+impl From<SerialMessage> for (Vec<u8>, SocketAddr) {
+    fn from(msg: SerialMessage) -> Self {
+        msg.into_parts()
+    }
+}
