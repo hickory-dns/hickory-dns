@@ -156,6 +156,7 @@ impl Message {
     pub fn truncate(&self) -> Self {
         let mut truncated = self.clone();
         truncated.set_truncated(true);
+        // drops additional/answer/queries so len is 0
         truncated.take_additionals();
         truncated.take_answers();
         truncated.take_queries();

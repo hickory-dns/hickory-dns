@@ -35,7 +35,12 @@ impl SerialMessage {
 
     /// Unwrap the Bytes and address
     pub fn into_parts(self) -> (Vec<u8>, SocketAddr) {
-        (self.message, self.addr)
+        self.into()
+    }
+
+    /// Build a `SerialMessage` from some bytes and an address
+    pub fn from_parts(message: Vec<u8>, addr: SocketAddr) -> Self {
+        (message, addr).into()
     }
 
     /// Deserializes the inner data into a Message
@@ -52,6 +57,7 @@ impl From<(Vec<u8>, SocketAddr)> for SerialMessage {
 
 impl From<SerialMessage> for (Vec<u8>, SocketAddr) {
     fn from(msg: SerialMessage) -> Self {
-        msg.into_parts()
+        let SerialMessage { message, addr } = msg;
+        (message, addr)
     }
 }

@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::net::IpAddr;
-use std::str::FromStr;
 
 use crate::rr::{Name, RData};
 
@@ -18,19 +17,12 @@ pub trait TryParseIp {
 
 impl TryParseIp for str {
     fn try_parse_ip(&self) -> Option<RData> {
-        RData::from_str(self).ok()
-    }
-}
-
-impl FromStr for RData {
-    type Err = std::net::AddrParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.parse::<IpAddr>() {
+        match self.parse::<IpAddr>() {
             Ok(IpAddr::V4(ip4)) => Ok(RData::A(ip4)),
             Ok(IpAddr::V6(ip6)) => Ok(RData::AAAA(ip6)),
             Err(err) => Err(err),
         }
+        .ok()
     }
 }
 
