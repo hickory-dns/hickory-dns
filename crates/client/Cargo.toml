@@ -86,5 +86,5 @@ trust-dns-proto = { version = "0.20.0", path = "../proto", features = ["dnssec"]
 webpki = { version = "0.21", optional = true }
 
 [dev-dependencies]
-futures = { version = "0.3.5", default-features = false, features = ["std", "executor"] }
+futures = { version = "0.3.13", default-features = false, features = ["std", "executor"] }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = false }
