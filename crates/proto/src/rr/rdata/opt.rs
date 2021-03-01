@@ -186,6 +186,11 @@ impl OPT {
         &self.options
     }
 
+    /// The entire map of options
+    pub fn options_mut(&mut self) -> &mut HashMap<EdnsCode, EdnsOption> {
+        &mut self.options
+    }
+
     /// Get a single option based on the code
     pub fn get(&self, code: EdnsCode) -> Option<&EdnsOption> {
         self.options.get(&code)
@@ -199,6 +204,18 @@ impl OPT {
     /// Remove an option, the key is derived from the `EdnsOption`
     pub fn remove(&mut self, option: EdnsCode) {
         self.options.remove(&option);
+    }
+}
+
+impl AsMut<HashMap<EdnsCode, EdnsOption>> for OPT {
+    fn as_mut(&mut self) -> &mut HashMap<EdnsCode, EdnsOption> {
+        self.options_mut()
+    }
+}
+
+impl AsRef<HashMap<EdnsCode, EdnsOption>> for OPT {
+    fn as_ref(&self) -> &HashMap<EdnsCode, EdnsOption> {
+        self.options()
     }
 }
 

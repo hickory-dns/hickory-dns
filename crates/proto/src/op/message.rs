@@ -95,7 +95,8 @@ pub fn update_header_counts(
     assert!(counts.nameserver_count <= u16::max_value() as usize);
     assert!(counts.additional_count <= u16::max_value() as usize);
 
-    let mut header = current_header.clone();
+    // TODO: should the function just take by value?
+    let mut header = *current_header;
     header
         .set_query_count(counts.query_count as u16)
         .set_answer_count(counts.answer_count as u16)
@@ -677,6 +678,39 @@ impl Message {
         }
 
         Ok(())
+    }
+
+    #[allow(clippy::type_complexity)]
+    /// Consumes `Message` and returns into components
+    pub fn into_parts(
+        self,
+    ) -> (
+        Header,
+        Vec<Query>,
+        Vec<Record>,
+        Vec<Record>,
+        Vec<Record>,
+        Vec<Record>,
+        Option<Edns>,
+    ) {
+        let Message {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
+        } = self;
+        (
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
+        )
     }
 }
 

@@ -159,6 +159,29 @@ impl Query {
     pub fn mdns_unicast_response(&self) -> bool {
         self.mdns_unicast_response
     }
+
+    /// Consumes `Query` and returns it's components
+    #[cfg(feature = "mdns")]
+    pub fn into_parts(self) -> (Name, RecordType, DNSClass, bool) {
+        let Query {
+            name,
+            query_type,
+            query_class,
+            mdns_unicast_response,
+        } = self;
+        (name, query_type, query_class, mdns_unicast_response)
+    }
+
+    /// Consumes `Query` and returns it's components
+    #[cfg(not(feature = "mdns"))]
+    pub fn into_parts(self) -> (Name, RecordType, DNSClass) {
+        let Query {
+            name,
+            query_type,
+            query_class,
+        } = self;
+        (name, query_type, query_class)
+    }
 }
 
 impl BinEncodable for Query {

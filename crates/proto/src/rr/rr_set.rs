@@ -431,6 +431,30 @@ impl RecordSet {
 
         removed
     }
+
+    /// Consumes `RecordSet` and returns its components
+    pub fn into_parts(
+        self,
+    ) -> (
+        Name,
+        RecordType,
+        DNSClass,
+        u32,
+        Vec<Record>,
+        Vec<Record>,
+        u32,
+    ) {
+        let RecordSet {
+            name,
+            record_type,
+            dns_class,
+            ttl,
+            records,
+            rrsigs,
+            serial,
+        } = self;
+        (name, record_type, dns_class, ttl, records, rrsigs, serial)
+    }
 }
 
 impl From<Record> for RecordSet {

@@ -264,6 +264,40 @@ impl Record {
     pub fn into_data(self) -> RData {
         self.rdata
     }
+
+    /// Consumes `Record` and returns its components
+    #[cfg(feature = "mdns")]
+    pub fn into_parts(self) -> (Name, RecordType, DNSClass, u32, RData, bool) {
+        let Record {
+            name_labels,
+            rr_type,
+            dns_class,
+            ttl,
+            rdata,
+            mdns_cache_flush,
+        } = self;
+        (
+            name_labels,
+            rr_type,
+            dns_class,
+            ttl,
+            rdata,
+            mdns_cache_flush,
+        )
+    }
+
+    /// Consumes `Record` and returns its components
+    #[cfg(not(feature = "mdns"))]
+    pub fn into_parts(self) -> (Name, RecordType, DNSClass, u32, RData) {
+        let Record {
+            name_labels,
+            rr_type,
+            dns_class,
+            ttl,
+            rdata,
+        } = self;
+        (name_labels, rr_type, dns_class, ttl, rdata)
+    }
 }
 
 #[allow(deprecated)]
