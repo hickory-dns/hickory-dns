@@ -79,7 +79,7 @@ enum-as-inner = "0.3"
 env_logger = "0.8"
 futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-h2 = { version = "0.3.0", features = ["stream"], optional = true }
+h2 = { version = "0.3.1", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
