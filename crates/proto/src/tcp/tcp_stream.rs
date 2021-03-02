@@ -287,7 +287,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                     // already handled above, here to make sure the poll() pops the next message
                     Poll::Ready(Some(message)) => {
                         // if there is no peer, this connection should die...
-                        let (buffer, dst) = message.into_parts();
+                        let (buffer, dst) = message.into();
 
                         // This is an error if the destination is not our peer (this is TCP after all)
                         //  This will kill the connection...
