@@ -564,7 +564,7 @@ impl Message {
     pub fn update_counts(&mut self) -> &mut Self {
         self.header = update_header_counts(
             &self.header,
-            false,
+            self.truncated(),
             HeaderCounts {
                 query_count: self.queries.len(),
                 answer_count: self.answers.len(),
