@@ -96,11 +96,12 @@ pub fn update_header_counts(
     assert!(counts.additional_count <= u16::max_value() as usize);
 
     let mut header = current_header.clone();
-    header.set_query_count(counts.query_count as u16);
-    header.set_answer_count(counts.answer_count as u16);
-    header.set_name_server_count(counts.nameserver_count as u16);
-    header.set_additional_count(counts.additional_count as u16);
-    header.set_truncated(is_truncated);
+    header
+        .set_query_count(counts.query_count as u16)
+        .set_answer_count(counts.answer_count as u16)
+        .set_name_server_count(counts.nameserver_count as u16)
+        .set_additional_count(counts.additional_count as u16)
+        .set_truncated(is_truncated);
 
     header
 }
@@ -141,29 +142,24 @@ impl Message {
     /// * `op_code` - operation of the request
     /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
-        let mut message: Message = Message::new();
-        message.set_message_type(MessageType::Response);
-        message.set_id(id);
-        message.set_response_code(response_code);
-        message.set_op_code(op_code);
+        let mut message = Message::new();
+        message
+            .set_message_type(MessageType::Response)
+            .set_id(id)
+            .set_response_code(response_code)
+            .set_op_code(op_code);
 
         message
     }
 
     /// Truncates a Message, this blindly removes all response fields and sets truncated to `true`
     pub fn truncate(&self) -> Self {
-        let mut truncated: Message = Message::new();
-        truncated.set_id(self.id());
-        truncated.set_message_type(self.message_type());
-        truncated.set_op_code(self.op_code());
-        truncated.set_authoritative(self.authoritative());
+        let mut truncated = self.clone();
         truncated.set_truncated(true);
-        truncated.set_recursion_desired(self.recursion_desired());
-        truncated.set_recursion_available(self.recursion_available());
-        truncated.set_response_code(self.response_code());
-        if self.edns().is_some() {
-            truncated.set_edns(self.edns().unwrap().clone());
-        }
+        // drops additional/answer/queries so len is 0
+        truncated.take_additionals();
+        truncated.take_answers();
+        truncated.take_queries();
 
         // TODO, perhaps just quickly add a few response records here? that we know would fit?
         truncated
