@@ -110,6 +110,7 @@ pub fn update_header_counts(
 /// Tracks the counts of the records in the Message.
 ///
 /// This is only used internally during serialization.
+#[derive(Debug, Copy, Clone)]
 pub struct HeaderCounts {
     /// The number of queries in the Message
     pub query_count: usize,
@@ -743,6 +744,7 @@ pub trait MessageFinalizer: Send + Sync + 'static {
 /// A MessageFinalizer which does nothing
 ///
 /// *WARNING* This should only be used in None context, it will panic in all cases where finalize is called.
+#[derive(Debug, Clone, Copy)]
 pub struct NoopMessageFinalizer;
 
 impl NoopMessageFinalizer {
