@@ -1124,7 +1124,7 @@ fn read_inner(
     label_data: &mut TinyVec<[u8; 32]>,
     label_ends: &mut TinyVec<[u8; 24]>,
     max_idx: Option<usize>,
-) -> ProtoResult<()> {
+) -> Result<(), DecodeError> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
     let name_start = decoder.index();
 
@@ -1137,18 +1137,17 @@ fn read_inner(
         // this protects against overlapping labels
         if let Some(max_idx) = max_idx {
             if decoder.index() >= max_idx {
-                return Err(ProtoErrorKind::LabelOverlapsWithOther {
+                return Err(DecodeError::LabelOverlapsWithOther {
                     label: name_start,
                     other: max_idx,
-                }
-                .into());
+                });
             }
         }
 
         // enforce max length of name
         let cur_len = label_data.len() + label_ends.len();
         if cur_len > 255 {
-            return Err(ProtoErrorKind::DomainNameTooLong(cur_len).into());
+            return Err(DecodeError::DomainNameTooLong(cur_len));
         }
 
         state = match state {
@@ -1161,15 +1160,15 @@ fn read_inner(
                     Some(0) | None => LabelParseState::Root,
                     Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
                     Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
-                    Some(byte) => return Err(ProtoErrorKind::UnrecognizedLabelCode(byte).into()),
+                    Some(byte) => return Err(DecodeError::UnrecognizedLabelCode(byte)),
                 }
             }
             // labels must have a maximum length of 63
             LabelParseState::Label => {
                 let label = decoder
-                    .read_character_data_max(Some(63))?
+                    .read_character_data()?
                     .verify_unwrap(|l| l.len() <= 63)
-                    .map_err(|_| ProtoError::from("label exceeds maximum length of 63"))?;
+                    .map_err(|l| DecodeError::LabelBytesTooLong(l.len()))?;
 
                 label_data.extend_from_slice(label);
                 label_ends.push(label_data.len() as u8);
@@ -1210,11 +1209,9 @@ fn read_inner(
                         // all labels must appear "prior" to this Name
                         (*ptr as usize) < name_start
                     })
-                    .map_err(|e| {
-                        ProtoError::from(ProtoErrorKind::PointerNotPriorToLabel {
-                            idx: pointer_location,
-                            ptr: e,
-                        })
+                    .map_err(|e| DecodeError::PointerNotPriorToLabel {
+                        idx: pointer_location,
+                        ptr: e,
                     })?;
 
                 let mut pointer = decoder.clone(location);

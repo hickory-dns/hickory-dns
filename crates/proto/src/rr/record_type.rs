@@ -249,12 +249,12 @@ impl BinEncodable for RecordType {
 
 impl<'r> BinDecodable<'r> for RecordType {
     fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
-        decoder
+        Ok(decoder
             .read_u16()
             .map(
                 Restrict::unverified, /*RecordType is safe with any u16*/
             )
-            .map(Self::from)
+            .map(Self::from)?)
     }
 }
 

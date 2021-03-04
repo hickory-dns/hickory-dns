@@ -26,6 +26,7 @@ use ring::error::Unspecified;
 use thiserror::Error;
 
 use crate::rr::{Name, RecordType};
+use crate::serialize::binary::DecodeError;
 
 #[cfg(feature = "backtrace")]
 lazy_static! {
@@ -266,6 +267,24 @@ impl From<ProtoErrorKind> for ProtoError {
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
+    }
+}
+
+impl From<DecodeError> for ProtoError {
+    fn from(err: DecodeError) -> ProtoError {
+        match err {
+            DecodeError::PointerNotPriorToLabel { idx, ptr } => {
+                ProtoErrorKind::PointerNotPriorToLabel { idx, ptr }
+            }
+            DecodeError::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
+            DecodeError::UnrecognizedLabelCode(code) => ProtoErrorKind::UnrecognizedLabelCode(code),
+            DecodeError::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
+            DecodeError::LabelOverlapsWithOther { label, other } => {
+                ProtoErrorKind::LabelOverlapsWithOther { label, other }
+            }
+            _ => ProtoErrorKind::Msg(err.to_string()),
+        }
+        .into()
     }
 }
 

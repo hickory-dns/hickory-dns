@@ -20,7 +20,7 @@ mod decoder;
 mod encoder;
 mod restrict;
 
-pub use self::decoder::BinDecoder;
+pub use self::decoder::{BinDecoder, DecodeError};
 pub use self::encoder::BinEncoder;
 pub use self::encoder::EncodeMode;
 pub use self::restrict::{Restrict, RestrictedMath, Verified};
@@ -67,7 +67,10 @@ impl BinEncodable for u16 {
 
 impl<'r> BinDecodable<'r> for u16 {
     fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
-        decoder.read_u16().map(Restrict::unverified)
+        decoder
+            .read_u16()
+            .map(Restrict::unverified)
+            .map_err(Into::into)
     }
 }
 
@@ -79,7 +82,10 @@ impl BinEncodable for i32 {
 
 impl<'r> BinDecodable<'r> for i32 {
     fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<i32> {
-        decoder.read_i32().map(Restrict::unverified)
+        decoder
+            .read_i32()
+            .map(Restrict::unverified)
+            .map_err(Into::into)
     }
 }
 
@@ -91,7 +97,10 @@ impl BinEncodable for u32 {
 
 impl<'r> BinDecodable<'r> for u32 {
     fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
-        decoder.read_u32().map(Restrict::unverified)
+        decoder
+            .read_u32()
+            .map(Restrict::unverified)
+            .map_err(Into::into)
     }
 }
 

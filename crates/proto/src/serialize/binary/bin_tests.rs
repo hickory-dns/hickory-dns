@@ -58,7 +58,7 @@ fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
 #[test]
 fn read_u16() {
     test_read_data_set(get_u16_data(), |mut d| {
-        d.read_u16().map(Restrict::unverified)
+        d.read_u16().map(Restrict::unverified).map_err(Into::into)
     });
 }
 
@@ -83,7 +83,7 @@ fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
 #[test]
 fn read_i32() {
     test_read_data_set(get_i32_data(), |mut d| {
-        d.read_i32().map(Restrict::unverified)
+        d.read_i32().map(Restrict::unverified).map_err(Into::into)
     });
 }
 
@@ -109,7 +109,7 @@ fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
 #[test]
 fn read_u32() {
     test_read_data_set(get_u32_data(), |mut d| {
-        d.read_u32().map(Restrict::unverified)
+        d.read_u32().map(Restrict::unverified).map_err(Into::into)
     });
 }
 
