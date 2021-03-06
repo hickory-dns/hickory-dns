@@ -173,7 +173,6 @@ impl Name {
             is_fqdn: true,
             ..Default::default()
         };
-        name.is_fqdn = true;
         for label in labels {
             name = name.append_label(label)?;
         }
