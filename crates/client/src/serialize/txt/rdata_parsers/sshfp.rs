@@ -25,7 +25,7 @@ use crate::rr::rdata::{sshfp, SSHFP};
 ///
 ///    The use of mnemonics instead of numbers is not allowed.
 /// ```
-pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<SSHFP> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<SSHFP> {
     fn missing_field<E: From<ParseErrorKind>>(field: &str) -> E {
         ParseErrorKind::Msg(format!("SSHFP {} field missing", field)).into()
     }

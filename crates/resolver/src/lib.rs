@@ -167,11 +167,17 @@
 //!
 //! Multicast DNS is an experimental feature in Trust-DNS at the moment. It's support on different platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be added to the `Resolver` and used for any lookups performed in the `.local.` zone.
 
+// LIBRARY WARNINGS
 #![warn(
-    missing_docs,
     clippy::dbg_macro,
     clippy::print_stdout,
-    clippy::unimplemented
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
 )]
 #![recursion_limit = "128"]
 #![allow(

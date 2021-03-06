@@ -139,7 +139,7 @@ where
 {
     type Output = Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let result = ready!(self.client_connect.poll_unpin(cx));
         let trust_anchor = self
             .trust_anchor

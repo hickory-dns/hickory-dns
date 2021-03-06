@@ -24,7 +24,7 @@ use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::tcp::TcpStream;
 use trust_dns_proto::xfer::BufStreamHandle;
 
-pub trait TlsIdentityExt {
+pub(crate) trait TlsIdentityExt {
     fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {
         self.identity_parts(&pkcs12.cert, &pkcs12.pkey, pkcs12.chain.as_ref())
     }
@@ -58,7 +58,7 @@ impl TlsIdentityExt for SslContextBuilder {
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<S>>>;
-pub type CompatTlsStream<S> = TlsStream<AsyncIoStdAsTokio<S>>;
+pub(crate) type CompatTlsStream<S> = TlsStream<AsyncIoStdAsTokio<S>>;
 
 fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnector> {
     let mut tls = SslConnector::builder(SslMethod::tls()).map_err(|e| {

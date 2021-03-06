@@ -32,7 +32,7 @@ use crate::rr::dnssec::TrustAnchor;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 #[allow(clippy::type_complexity)]
-pub type NewFutureObj<H> = Pin<
+pub(crate) type NewFutureObj<H> = Pin<
     Box<
         dyn Future<
                 Output = Result<

@@ -45,7 +45,7 @@ use crate::rr::rdata::CAA;
 ///    Value:  Is the <character-string> encoding of the value field as
 ///       specified in [RFC1035], Section 5.1.
 /// ```
-pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<CAA> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<CAA> {
     let flags_str: &str = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("caa flags not present")))?;

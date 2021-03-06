@@ -121,7 +121,7 @@ use crate::serialize::txt::zone_lex::{Lexer, Token};
 /// ;               Semicolon is used to start a comment; the remainder of
 ///                 the line is ignored.
 /// ```
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct Parser;
 
 impl Parser {
@@ -137,7 +137,7 @@ impl Parser {
     /// A pair of the Zone origin name and a map of all Keys to RecordSets
     pub fn parse(
         &mut self,
-        lexer: Lexer,
+        lexer: Lexer<'_>,
         origin: Option<Name>,
         class: Option<DNSClass>,
     ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {

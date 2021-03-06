@@ -270,7 +270,7 @@ pub struct ConnectionFuture<R: RuntimeProvider> {
 impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
     type Output = Result<GenericConnection, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(Ok(match &mut self.connect {
             ConnectionConnect::Udp(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
@@ -324,17 +324,18 @@ pub struct ConnectionResponse(DnsExchangeSend);
 impl Future for ConnectionResponse {
     type Output = Result<DnsResponse, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx).map_err(ResolveError::from)
     }
 }
 
 #[cfg(feature = "tokio-runtime")]
+#[allow(unreachable_pub)]
 pub mod tokio_runtime {
     use super::*;
     use tokio::net::UdpSocket as TokioUdpSocket;
 
-    #[derive(Clone)]
+    #[derive(Clone, Copy)]
     pub struct TokioHandle;
     impl Spawn for TokioHandle {
         fn spawn_bg<F>(&mut self, future: F)
@@ -345,7 +346,7 @@ pub mod tokio_runtime {
         }
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Copy)]
     pub struct TokioRuntime;
     impl RuntimeProvider for TokioRuntime {
         type Handle = TokioHandle;

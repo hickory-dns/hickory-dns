@@ -27,6 +27,7 @@ use crate::proto::{trace, ExtBacktrace};
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for dnssec errors that get returned in the crate
+#[allow(unreachable_pub)]
 #[derive(Debug, Error)]
 pub enum ErrorKind {
     /// An error with an arbitrary message, referenced as &'static str
@@ -92,7 +93,7 @@ impl Error {
 }
 
 impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
             if #[cfg(feature = "backtrace")] {
                 if let Some(ref backtrace) = self.backtrack {
@@ -157,15 +158,16 @@ impl From<SslErrorStack> for Error {
     }
 }
 
+#[allow(unreachable_pub)]
 #[cfg(not(feature = "openssl"))]
 pub mod not_openssl {
     use std;
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Clone, Copy, Debug)]
     pub struct SslErrorStack;
 
     impl std::fmt::Display for SslErrorStack {
-        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
             Ok(())
         }
     }
@@ -177,18 +179,19 @@ pub mod not_openssl {
     }
 }
 
+#[allow(unreachable_pub)]
 #[cfg(not(feature = "ring"))]
 pub mod not_ring {
     use std;
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Clone, Copy, Debug)]
     pub struct KeyRejected;
 
-    #[derive(Debug, Clone, Copy)]
+    #[derive(Clone, Copy, Debug)]
     pub struct Unspecified;
 
     impl std::fmt::Display for KeyRejected {
-        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
             Ok(())
         }
     }
@@ -200,7 +203,7 @@ pub mod not_ring {
     }
 
     impl std::fmt::Display for Unspecified {
-        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
             Ok(())
         }
     }

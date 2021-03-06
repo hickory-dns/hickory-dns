@@ -23,7 +23,7 @@ use crate::lookup::Lookup;
 
 /// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181, 2147483647
 ///   Setting this to a value of 1 day, in seconds
-pub const MAX_TTL: u32 = 86400_u32;
+pub(crate) const MAX_TTL: u32 = 86400_u32;
 
 #[derive(Debug)]
 struct LruValue {
@@ -98,22 +98,22 @@ pub(crate) struct TtlConfig {
     ///
     /// Positive responses with TTLs under `positive_min_ttl` will use
     /// `positive_min_ttl` instead.
-    pub positive_min_ttl: Option<Duration>,
+    pub(crate) positive_min_ttl: Option<Duration>,
     /// An optional minimum TTL value for negative (`NXDOMAIN`) responses.
     ///
     /// `NXDOMAIN` responses with TTLs under `negative_min_ttl will use
     /// `negative_min_ttl` instead.
-    pub negative_min_ttl: Option<Duration>,
+    pub(crate) negative_min_ttl: Option<Duration>,
     /// An optional maximum TTL value for positive responses.
     ///
     /// Positive responses with TTLs positive `positive_max_ttl` will use
     /// `positive_max_ttl` instead.
-    pub positive_max_ttl: Option<Duration>,
+    pub(crate) positive_max_ttl: Option<Duration>,
     /// An optional maximum TTL value for negative (`NXDOMAIN`) responses.
     ///
     /// `NXDOMAIN` responses with TTLs over `negative_max_ttl` will use
     /// `negative_max_ttl` instead.
-    pub negative_max_ttl: Option<Duration>,
+    pub(crate) negative_max_ttl: Option<Duration>,
 }
 
 impl TtlConfig {

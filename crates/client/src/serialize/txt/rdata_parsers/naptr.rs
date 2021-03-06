@@ -21,7 +21,7 @@ use crate::rr::Name;
 /// IN NAPTR 100  50  "a"    "rcds+N2C"          ""   cidserver.example.com.
 /// IN NAPTR 100  50  "s"    "http+N2L+N2C+N2R"  ""   www.example.com.
 /// ```
-pub fn parse<'i, I: Iterator<Item = &'i str>>(
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<NAPTR> {

@@ -923,7 +923,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         let rdata = KEY::new(
             Default::default(),
             Default::default(),

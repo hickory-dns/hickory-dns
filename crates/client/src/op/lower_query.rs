@@ -72,7 +72,7 @@ impl From<Query> for LowerQuery {
 }
 
 impl BinEncodable for LowerQuery {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         self.original.emit(encoder)
     }
 }
@@ -85,7 +85,7 @@ impl<'r> BinDecodable<'r> for LowerQuery {
 }
 
 impl Display for LowerQuery {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
             "name: {} type: {} class: {}",

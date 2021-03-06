@@ -22,18 +22,18 @@ impl Default for NameServerStats {
 }
 
 impl NameServerStats {
-    pub fn new(successes: usize, failures: usize) -> Self {
+    pub(crate) fn new(successes: usize, failures: usize) -> Self {
         NameServerStats {
             successes: AtomicUsize::new(successes),
             failures: AtomicUsize::new(failures),
         }
     }
 
-    pub fn next_success(&self) {
+    pub(crate) fn next_success(&self) {
         self.successes.fetch_add(1, atomic::Ordering::Release);
     }
 
-    pub fn next_failure(&self) {
+    pub(crate) fn next_failure(&self) {
         self.failures.fetch_add(1, atomic::Ordering::Release);
     }
 

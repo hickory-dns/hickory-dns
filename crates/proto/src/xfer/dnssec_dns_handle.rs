@@ -30,10 +30,10 @@ use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 
 #[derive(Debug)]
 struct Rrset {
-    pub name: Name,
-    pub record_type: RecordType,
-    pub record_class: DNSClass,
-    pub records: Vec<Record>,
+    pub(crate) name: Name,
+    pub(crate) record_type: RecordType,
+    pub(crate) record_class: DNSClass,
+    pub(crate) records: Vec<Record>,
 }
 
 /// Performs DNSSec validation of all DNS responses from the wrapped DnsHandle

@@ -66,11 +66,13 @@ mod faux_key_type {
     impl<K: HasPrivate> HasPublic for K {}
 
     /// Faux implementation of the Openssl Public key types
+    #[derive(Clone, Copy)]
     pub enum Public {}
 
     impl HasPublic for Public {}
 
     /// Faux implementation of the Openssl Public key types
+    #[derive(Clone, Copy)]
     pub enum Private {}
 
     impl HasPrivate for Private {}

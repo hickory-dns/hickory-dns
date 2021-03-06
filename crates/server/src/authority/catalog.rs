@@ -44,7 +44,7 @@ pub struct Catalog {
 
 fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
-    mut response: MessageResponse,
+    mut response: MessageResponse<'_, '_>,
     mut response_handle: R,
 ) -> io::Result<()> {
     if let Some(mut resp_edns) = response_edns {

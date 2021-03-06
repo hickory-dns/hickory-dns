@@ -416,7 +416,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
 impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> fmt::Debug
     for AsyncResolver<C, P>
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("AsyncResolver")
             .field("request_tx", &"...")
             .finish()

@@ -13,7 +13,7 @@ use std::time::Instant;
 use futures_util::lock::Mutex;
 use proto::op::Edns;
 
-pub struct NameServerState {
+pub(crate) struct NameServerState {
     conn_state: AtomicU8,
     remote_edns: Mutex<Arc<Option<Edns>>>,
 }
@@ -65,7 +65,7 @@ impl NameServerState {
     /// Set at the new Init state
     ///
     /// If send_dns is some, this will be sent on the first request when it is established
-    pub fn init(_send_edns: Option<Edns>) -> Self {
+    pub(crate) fn init(_send_edns: Option<Edns>) -> Self {
         // TODO: need to track send_edns
         NameServerState {
             conn_state: AtomicU8::new(NameServerStateInner::Init.into()),
@@ -76,7 +76,7 @@ impl NameServerState {
     /// Set at the new Init state
     ///
     /// If send_dns is some, this will be sent on the first request when it is established
-    pub fn reinit(&self, _send_edns: Option<Edns>) {
+    pub(crate) fn reinit(&self, _send_edns: Option<Edns>) {
         // eventually do this
         // self.send_edns.lock() = send_edns;
 
@@ -87,7 +87,7 @@ impl NameServerState {
     ///
     /// If remote_edns is Some, then it will be used to effect things like buffer sizes based on
     ///   the remote's support.
-    pub fn establish(&self, remote_edns: Option<Edns>) {
+    pub(crate) fn establish(&self, remote_edns: Option<Edns>) {
         if remote_edns.is_some() {
             // best effort locking, we'll assume a different user of this connection is storing the same thing...
             if let Some(mut current_edns) = self.remote_edns.try_lock() {
@@ -103,7 +103,7 @@ impl NameServerState {
     /// when is the time of the failure
     ///
     /// * when - deprecated
-    pub fn fail(&self, _when: /* FIXME: remove in 0.20 */ Instant) {
+    pub(crate) fn fail(&self, _when: /* FIXME: remove in 0.20 */ Instant) {
         self.store(NameServerStateInner::Failed);
     }
 

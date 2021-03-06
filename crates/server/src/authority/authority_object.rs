@@ -283,6 +283,7 @@ pub trait LookupObject: Send {
 }
 
 /// A lookup that returns no records
+#[derive(Clone, Copy, Debug)]
 pub struct EmptyLookup;
 
 impl LookupObject for EmptyLookup {
@@ -325,7 +326,7 @@ impl BoxedLookupFuture {
 impl Future for BoxedLookupFuture {
     type Output = Result<Box<dyn LookupObject>, LookupError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx)
     }
 }

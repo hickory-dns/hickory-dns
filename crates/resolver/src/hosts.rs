@@ -106,7 +106,7 @@ fn hosts_path() -> std::path::PathBuf {
 
 /// parse configuration from `path`
 #[cfg(any(unix, windows))]
-pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
+pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     use std::fs::File;
     use std::io::{BufRead, BufReader};
 

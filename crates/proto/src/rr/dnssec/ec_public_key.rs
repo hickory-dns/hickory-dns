@@ -8,7 +8,8 @@
 use super::Algorithm;
 use crate::error::*;
 
-#[derive(Copy, Clone)]
+#[allow(unreachable_pub)]
+#[derive(Clone, Copy)]
 pub struct ECPublicKey {
     buf: [u8; MAX_LEN],
     len: usize,
@@ -17,6 +18,7 @@ pub struct ECPublicKey {
 // The length of the longest supported EC public key (P-384).
 const MAX_LEN: usize = 1 + (2 * 48);
 
+#[allow(unreachable_pub)]
 impl ECPublicKey {
     // DNSSEC encodes uncompressed EC public keys without the standard 0x04
     // prefix that indicates they are uncompressed, but crypto libraries

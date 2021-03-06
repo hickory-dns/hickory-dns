@@ -52,7 +52,7 @@ impl<'q> From<Option<&'q Queries>> for EmptyOrQueries<'q> {
 }
 
 impl<'q> EmitAndCount for EmptyOrQueries<'q> {
-    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+    fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
         match self {
             EmptyOrQueries::Empty => Ok(0),
             EmptyOrQueries::Queries(q) => q.emit(encoder),
@@ -79,7 +79,7 @@ where
     }
 
     /// Consumes self, and emits to the encoder.
-    pub fn destructive_emit(mut self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    pub fn destructive_emit(mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         // soa records are part of the nameserver section
         let mut name_servers = self.name_servers.chain(self.soa);
 

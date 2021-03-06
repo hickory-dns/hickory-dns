@@ -512,7 +512,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "dnssec")]
-    pub fn test() {
+    fn test() {
         let mut rdata = OPT::default();
         rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 

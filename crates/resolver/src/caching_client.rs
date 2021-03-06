@@ -605,7 +605,8 @@ mod tests {
         );
     }
 
-    pub fn cname_message() -> Result<DnsResponse, ResolveError> {
+    #[allow(clippy::unnecessary_wraps)]
+    pub(crate) fn cname_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.add_query(Query::query(
             Name::from_str("www.example.com.").unwrap(),
@@ -619,7 +620,8 @@ mod tests {
         Ok(message.into())
     }
 
-    pub fn srv_message() -> Result<DnsResponse, ResolveError> {
+    #[allow(clippy::unnecessary_wraps)]
+    pub(crate) fn srv_message() -> Result<DnsResponse, ResolveError> {
         let mut message = Message::new();
         message.add_query(Query::query(
             Name::from_str("_443._tcp.www.example.com.").unwrap(),

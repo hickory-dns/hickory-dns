@@ -21,7 +21,7 @@ use crate::rr::rdata::DNSSECRecordType;
 use crate::rr::{Name, RData, RecordType};
 use crate::serialize::txt::rdata_parsers::*;
 
-pub trait RDataParser: Sized {
+pub(crate) trait RDataParser: Sized {
     fn parse<'i, I: Iterator<Item = &'i str>>(
         record_type: RecordType,
         tokens: I,

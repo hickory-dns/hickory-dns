@@ -25,13 +25,13 @@ mod private {
     use crate::error::{ProtoErrorKind, ProtoResult};
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
-    pub struct MaximalBuf<'a> {
+    pub(crate) struct MaximalBuf<'a> {
         max_size: usize,
         buffer: &'a mut Vec<u8>,
     }
 
     impl<'a> MaximalBuf<'a> {
-        pub fn new(max_size: u16, buffer: &'a mut Vec<u8>) -> Self {
+        pub(crate) fn new(max_size: u16, buffer: &'a mut Vec<u8>) -> Self {
             MaximalBuf {
                 max_size: max_size as usize,
                 buffer,
@@ -39,14 +39,14 @@ mod private {
         }
 
         /// Sets the maximum size to enforce
-        pub fn set_max_size(&mut self, max: u16) {
+        pub(crate) fn set_max_size(&mut self, max: u16) {
             self.max_size = max as usize;
         }
 
         /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
         ///
         /// and reserves the additional space in the buffer
-        pub fn enforced_write<F>(&mut self, additional: usize, writer: F) -> ProtoResult<()>
+        pub(crate) fn enforced_write<F>(&mut self, additional: usize, writer: F) -> ProtoResult<()>
         where
             F: FnOnce(&mut Vec<u8>),
         {
@@ -64,22 +64,22 @@ mod private {
         }
 
         /// truncates are always safe
-        pub fn truncate(&mut self, len: usize) {
+        pub(crate) fn truncate(&mut self, len: usize) {
             self.buffer.truncate(len)
         }
 
         /// returns the length of the underlying buffer
-        pub fn len(&self) -> usize {
+        pub(crate) fn len(&self) -> usize {
             self.buffer.len()
         }
 
         /// Immutable reads are always safe
-        pub fn buffer(&'a self) -> &'a [u8] {
+        pub(crate) fn buffer(&'a self) -> &'a [u8] {
             self.buffer as &'a [u8]
         }
 
         /// Returns a reference to the internal buffer
-        pub fn into_bytes(self) -> &'a Vec<u8> {
+        pub(crate) fn into_bytes(self) -> &'a Vec<u8> {
             self.buffer
         }
     }
@@ -485,12 +485,12 @@ impl<T: EncodedSize> Place<T> {
 }
 
 /// A type representing a rollback point in a stream
-pub struct Rollback {
+pub(crate) struct Rollback {
     rollback_index: usize,
 }
 
 impl Rollback {
-    pub fn rollback(self, encoder: &mut BinEncoder<'_>) {
+    pub(crate) fn rollback(self, encoder: &mut BinEncoder<'_>) {
         encoder.set_offset(self.rollback_index)
     }
 }

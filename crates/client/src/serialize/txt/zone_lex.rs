@@ -19,7 +19,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer with the given data to parse
-    pub fn new(txt: &str) -> Lexer {
+    pub fn new(txt: &str) -> Lexer<'_> {
         Lexer {
             txt: txt.chars().peekable(),
             state: State::StartLine,
@@ -340,7 +340,7 @@ impl<'a> Lexer<'a> {
 
 #[doc(hidden)]
 #[derive(Copy, Clone, PartialEq, Debug)]
-pub enum State {
+pub(crate) enum State {
     StartLine,
     RestOfLine,
     Blank,                      // only if the first part of the line
@@ -380,7 +380,7 @@ pub enum Token {
 mod lex_test {
     use super::*;
 
-    fn next_token(lexer: &mut Lexer) -> Option<Token> {
+    fn next_token(lexer: &mut Lexer<'_>) -> Option<Token> {
         let result = lexer.next_token();
         assert!(!result.is_err(), "{:?}", result);
         result.unwrap()

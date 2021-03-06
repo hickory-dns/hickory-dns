@@ -44,7 +44,7 @@ use crate::time::AsyncStdTime;
 /// [timer]: crate::time
 /// [mod]: index.html
 /// [`new`]: #method.new
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct AsyncStdRuntime;
 
 impl Executor for AsyncStdRuntime {
@@ -57,7 +57,7 @@ impl Executor for AsyncStdRuntime {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct AsyncStdRuntimeHandle;
 impl Spawn for AsyncStdRuntimeHandle {
     fn spawn_bg<F>(&mut self, future: F)
@@ -82,5 +82,8 @@ impl AsyncStdRuntime {
     }
 }
 
+/// AsyncStd default connection
 pub type AsyncStdConnection = GenericConnection;
+
+/// AsyncStd default connection provider
 pub type AsyncStdConnectionProvider = GenericConnectionProvider<AsyncStdRuntime>;

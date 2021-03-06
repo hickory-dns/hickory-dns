@@ -39,7 +39,7 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 ///       string of hexadecimal characters.  Whitespace is allowed within
 ///       the string of hexadecimal characters, as described in [RFC1035].
 /// ```
-pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
     let mut iter = tokens;
 
     let token: &str = iter

@@ -6,12 +6,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+// LIBRARY WARNINGS
 #![warn(
-    missing_docs,
-    missing_copy_implementations,
     clippy::dbg_macro,
     clippy::print_stdout,
-    clippy::unimplemented
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
 )]
 #![allow(clippy::single_component_path_imports)]
 #![recursion_limit = "2048"]
@@ -195,7 +200,7 @@ pub trait Time {
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
 #[cfg(any(test, feature = "tokio-runtime"))]
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct TokioTime;
 
 #[cfg(any(test, feature = "tokio-runtime"))]

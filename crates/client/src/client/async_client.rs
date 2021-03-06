@@ -30,7 +30,7 @@ use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
 // https://dnsflagday.net/2020/
-pub const MAX_PAYLOAD_LEN: u16 = 1232;
+pub(crate) const MAX_PAYLOAD_LEN: u16 = 1232;
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -144,7 +144,7 @@ where
 {
     type Output = Result<(AsyncClient, DnsExchangeBackground<S, TokioTime>), ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));
         let client_background = result.map(|(exchange, bg)| (AsyncClient { exchange }, bg));
 
@@ -584,7 +584,7 @@ where
 {
     type Output = Result<DnsResponse, ClientError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx).map_err(ClientError::from)
     }
 }
