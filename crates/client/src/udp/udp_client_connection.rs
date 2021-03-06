@@ -22,7 +22,7 @@ use tokio::net::UdpSocket;
 /// UDP based DNS Client connection
 ///
 /// Use with `trust_dns_client::client::Client` impls
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct UdpClientConnection {
     name_server: SocketAddr,
     timeout: Duration,

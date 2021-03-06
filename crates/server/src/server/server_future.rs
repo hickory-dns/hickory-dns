@@ -601,7 +601,7 @@ pub(crate) enum HandleRawRequest<F: Future<Output = ()>> {
 impl<F: Future<Output = ()> + Unpin> Future for HandleRawRequest<F> {
     type Output = ();
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match *self {
             HandleRawRequest::HandleRequest(ref mut f) => f.poll_unpin(cx),
             HandleRawRequest::Result(ref res) => {

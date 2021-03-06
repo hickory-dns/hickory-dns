@@ -214,7 +214,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         use crate::rr::dnssec::rdata::DNSSECRecordType;
         use crate::rr::RecordType;
         use std::str::FromStr;

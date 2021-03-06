@@ -248,7 +248,7 @@ pub struct Signer {
 
 /// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Signer;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -587,7 +587,7 @@ mod tests {
     use crate::rr::rdata::{DNSSECRData, SIG};
     use crate::rr::{DNSClass, Name, Record, RecordType};
 
-    pub use super::*;
+    use super::*;
 
     fn assert_send_and_sync<T: Send + Sync>() {}
 

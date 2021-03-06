@@ -75,12 +75,12 @@ impl Lookup {
     }
 
     /// Returns a borrowed iterator of the returned IPs
-    pub fn iter(&self) -> LookupIter {
+    pub fn iter(&self) -> LookupIter<'_> {
         LookupIter(self.records.iter())
     }
 
     /// Returns a borrowed iterator of the returned IPs
-    pub fn record_iter(&self) -> LookupRecordIter {
+    pub fn record_iter(&self) -> LookupRecordIter<'_> {
         LookupRecordIter(self.records.iter())
     }
 
@@ -267,7 +267,7 @@ where
 {
     type Output = Result<Lookup, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             // Try polling the underlying DNS query.
             let query = self.query.as_mut().poll_unpin(cx);
@@ -317,7 +317,7 @@ pub struct SrvLookup(Lookup);
 
 impl SrvLookup {
     /// Returns an iterator over the SRV RData
-    pub fn iter(&self) -> SrvLookupIter {
+    pub fn iter(&self) -> SrvLookupIter<'_> {
         SrvLookupIter(self.0.iter())
     }
 
@@ -329,7 +329,7 @@ impl SrvLookup {
     /// Returns the list of IPs associated with the SRV record.
     ///
     /// *Note*: That Trust-DNS performs a recursive lookup on SRV records for IPs if they were not included in the original request. If there are no IPs associated to the result, a subsequent query for the IPs via the `srv.target()` should not resolve to the IPs.
-    pub fn ip_iter(&self) -> LookupIpIter {
+    pub fn ip_iter(&self) -> LookupIpIter<'_> {
         LookupIpIter(self.0.iter())
     }
 
@@ -399,7 +399,7 @@ macro_rules! lookup_type {
 
         impl $l {
             /// Returns an iterator over the RData
-            pub fn iter(&self) -> $i {
+            pub fn iter(&self) -> $i<'_> {
                 $i(self.0.iter())
             }
 

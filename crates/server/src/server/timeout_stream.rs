@@ -50,7 +50,7 @@ where
     type Item = Result<I, io::Error>;
 
     // somehow insert a timeout here...
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // if the timer isn't set, set one now
         if self.timeout.is_none() {
             let timeout = Self::timeout(self.timeout_duration);

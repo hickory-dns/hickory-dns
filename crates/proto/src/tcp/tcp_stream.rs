@@ -60,7 +60,7 @@ enum WriteTcpState {
 }
 
 /// Current state of a TCP stream as it's being read.
-pub enum ReadTcpState {
+pub(crate) enum ReadTcpState {
     /// Currently reading the length of the TCP packet
     LenBytes {
         /// Current position in the buffer

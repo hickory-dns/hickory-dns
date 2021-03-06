@@ -22,7 +22,17 @@
 //!    --tls-port=PORT         Override the listening port for TLS connections
 //! ```
 
-#![warn(missing_docs, clippy::dbg_macro, clippy::unimplemented)]
+// BINARY WARNINGS
+#![warn(
+    clippy::dbg_macro,
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![recursion_limit = "128"]
 
 #[macro_use]
@@ -230,14 +240,15 @@ const TLS_PORT_ARG: &str = "tls-port";
 const HTTPS_PORT_ARG: &str = "https-port";
 
 /// Args struct for all options
+#[allow(dead_code)]
 struct Args {
-    pub flag_quiet: bool,
-    pub flag_debug: bool,
-    pub flag_config: String,
-    pub flag_zonedir: Option<String>,
-    pub flag_port: Option<u16>,
-    pub flag_tls_port: Option<u16>,
-    pub flag_https_port: Option<u16>,
+    pub(crate) flag_quiet: bool,
+    pub(crate) flag_debug: bool,
+    pub(crate) flag_config: String,
+    pub(crate) flag_zonedir: Option<String>,
+    pub(crate) flag_port: Option<u16>,
+    pub(crate) flag_tls_port: Option<u16>,
+    pub(crate) flag_https_port: Option<u16>,
 }
 
 impl<'a> From<ArgMatches<'a>> for Args {

@@ -51,7 +51,7 @@ pub struct HttpsClientStream {
 }
 
 impl Display for HttpsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             formatter,
             "HTTPS({},{})",
@@ -268,7 +268,7 @@ impl DnsRequestSender for HttpsClientStream {
 impl Stream for HttpsClientStream {
     type Item = Result<(), ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
             return Poll::Ready(None);
         }
@@ -354,7 +354,7 @@ where
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
     }
 }
@@ -412,7 +412,7 @@ where
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let next = match *self {
                 HttpsClientConnectState::ConnectTcp {
@@ -518,7 +518,7 @@ pub struct HttpsClientResponse(
 impl Future for HttpsClientResponse {
     type Output = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
     }
 }

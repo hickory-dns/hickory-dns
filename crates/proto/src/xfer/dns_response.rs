@@ -443,7 +443,7 @@ impl From<SmallVec<[Message; 1]>> for DnsResponse {
 ///    NXT and SIG records MUST be added.
 ///
 /// ```
-#[derive(Eq, PartialEq, Debug, Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum NegativeType {
     /// ```text
     ///            NXDOMAIN RESPONSE: TYPE 1.

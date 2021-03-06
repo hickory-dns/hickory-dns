@@ -562,7 +562,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         use crate::rr::dnssec::rdata::DNSSECRecordType;
 
         let rdata = NSEC3::new(
@@ -593,7 +593,7 @@ mod tests {
     }
 
     #[test]
-    pub fn test_dups() {
+    fn test_dups() {
         use crate::rr::dnssec::rdata::DNSSECRecordType;
 
         let rdata_with_dups = NSEC3::new(

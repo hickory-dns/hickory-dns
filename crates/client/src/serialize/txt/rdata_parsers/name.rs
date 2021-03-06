@@ -20,7 +20,7 @@ use crate::error::*;
 use crate::rr::domain::Name;
 
 /// Parse the RData from a set of Tokens
-pub fn parse<'i, I: Iterator<Item = &'i str>>(
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<Name> {

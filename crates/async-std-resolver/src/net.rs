@@ -33,7 +33,7 @@ impl UdpSocket for AsyncStdUdpSocket {
 
     fn poll_recv_from(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<(usize, SocketAddr)>> {
         let fut = self.0.recv_from(buf);
@@ -48,7 +48,7 @@ impl UdpSocket for AsyncStdUdpSocket {
 
     fn poll_send_to(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         buf: &[u8],
         target: SocketAddr,
     ) -> Poll<io::Result<usize>> {

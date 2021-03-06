@@ -21,7 +21,7 @@ use crate::rr::dnssec::Signer;
 /// MDNS based DNS Client connection
 ///
 /// Use with `trust_dns_client::client::Client` impls
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct MdnsClientConnection {
     multicast_addr: SocketAddr,
     packet_ttl: Option<u32>,

@@ -52,7 +52,7 @@ impl Journal {
     }
 
     /// Returns a reference to the Sqlite Connection
-    pub fn conn(&self) -> MutexGuard<Connection> {
+    pub fn conn(&self) -> MutexGuard<'_, Connection> {
         self.conn.lock().expect("conn poisoned")
     }
 
@@ -62,7 +62,7 @@ impl Journal {
     }
 
     /// this returns an iterator from the beginning of time, to be used to recreate an authority
-    pub fn iter(&self) -> JournalIter {
+    pub fn iter(&self) -> JournalIter<'_> {
         JournalIter::new(self)
     }
 

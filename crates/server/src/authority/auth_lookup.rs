@@ -70,7 +70,7 @@ impl AuthLookup {
     }
 
     /// Conversion to an iterator
-    pub fn iter(&self) -> AuthLookupIter {
+    pub fn iter(&self) -> AuthLookupIter<'_> {
         self.into_iter()
     }
 
@@ -215,7 +215,7 @@ impl AnyRecords {
         }
     }
 
-    fn iter(&self) -> AnyRecordsIter {
+    fn iter(&self) -> AnyRecordsIter<'_> {
         self.into_iter()
     }
 }
@@ -344,7 +344,7 @@ impl LookupRecords {
     }
 
     /// Conversion to an iterator
-    pub fn iter(&self) -> LookupRecordsIter {
+    pub fn iter(&self) -> LookupRecordsIter<'_> {
         self.into_iter()
     }
 }

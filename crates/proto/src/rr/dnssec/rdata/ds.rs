@@ -280,7 +280,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         let rdata = DS::new(
             0xF00F,
             Algorithm::RSASHA256,
@@ -303,7 +303,7 @@ mod tests {
 
     #[test]
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn test_covers() {
+    pub(crate) fn test_covers() {
         use crate::rr::dnssec::rdata::DNSKEY;
 
         let name = Name::parse("www.example.com.", None).unwrap();

@@ -7,13 +7,13 @@
 
 use crate::error::*;
 
-pub struct RSAPublicKey<'a> {
+pub(crate) struct RSAPublicKey<'a> {
     n: &'a [u8],
     e: &'a [u8],
 }
 
 impl<'a> RSAPublicKey<'a> {
-    pub fn try_from(encoded: &'a [u8]) -> ProtoResult<RSAPublicKey<'a>> {
+    pub(crate) fn try_from(encoded: &'a [u8]) -> ProtoResult<RSAPublicKey<'a>> {
         let (e_len_len, e_len) = match encoded.get(0) {
             Some(&0) if encoded.len() >= 3 => {
                 (3, (usize::from(encoded[1]) << 8) | usize::from(encoded[2]))
@@ -33,10 +33,10 @@ impl<'a> RSAPublicKey<'a> {
         Ok(Self { n, e })
     }
 
-    pub fn n(&self) -> &[u8] {
+    pub(crate) fn n(&self) -> &[u8] {
         self.n
     }
-    pub fn e(&self) -> &[u8] {
+    pub(crate) fn e(&self) -> &[u8] {
         self.e
     }
 }

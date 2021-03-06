@@ -359,7 +359,10 @@ mod mdns {
     use proto::DnsHandle;
 
     /// Returns true
-    pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
+    pub(crate) fn maybe_local<C, P>(
+        name_server: &mut NameServer<C, P>,
+        request: DnsRequest,
+    ) -> Local
     where
         C: DnsHandle<Error = ResolveError> + 'static,
         P: ConnectionProvider<Conn = C> + 'static,
@@ -377,7 +380,7 @@ mod mdns {
     }
 }
 
-pub enum Local {
+pub(crate) enum Local {
     #[allow(dead_code)]
     ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>),
     NotMdns(DnsRequest),
@@ -418,7 +421,7 @@ impl Local {
 impl Future for Local {
     type Output = Result<DnsResponse, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match *self {
             Local::ResolveFuture(ref mut ns) => ns.as_mut().poll(cx),
             // TODO: making this a panic for now

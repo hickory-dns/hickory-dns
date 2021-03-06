@@ -5,6 +5,21 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
+//! The bind_dnskey_to_pem program
+
+// BINARY WARNINGS
+#![warn(
+    clippy::dbg_macro,
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
+)]
+
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Lines, Write};
 use std::str::FromStr;
@@ -41,6 +56,7 @@ fn args<'a>() -> ArgMatches<'a> {
         .get_matches()
 }
 
+/// Run the bind_dnskey_to_pem program
 pub fn main() {
     env_logger::init();
     let matches = args();

@@ -22,7 +22,7 @@ use crate::rr::rdata::OPENPGPKEY;
 ///    Section 11.1 of [RFC4880] encoded in base64 as defined in Section 4
 ///    of [RFC4648].
 /// ```
-pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<OPENPGPKEY> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<OPENPGPKEY> {
     let encoded_public_key = tokens.next().ok_or(ParseErrorKind::Message(
         "OPENPGPKEY public key field is missing",
     ))?;

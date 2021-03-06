@@ -5,6 +5,18 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+// LIBRARY WARNINGS
+#![warn(
+    clippy::dbg_macro,
+    clippy::print_stdout,
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
+)]
 #![allow(clippy::needless_doctest_main)]
 
 //! The Resolver is responsible for performing recursive queries to lookup domain names.

@@ -109,7 +109,7 @@ mod tests {
     impl Stream for TestBytesStream {
         type Item = Result<Bytes, h2::Error>;
 
-        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context) -> Poll<Option<Self::Item>> {
+        fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
             match self.0.pop() {
                 Some(Ok(bytes)) => Poll::Ready(Some(Ok(bytes))),
                 Some(Err(err)) => Poll::Ready(Some(Err(err))),

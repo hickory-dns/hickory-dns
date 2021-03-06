@@ -21,7 +21,7 @@ use crate::rr::domain::Name;
 use crate::rr::rdata::MX;
 
 /// Parse the RData from a set of Tokens
-pub fn parse<'i, I: Iterator<Item = &'i str>>(
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     mut tokens: I,
     origin: Option<&Name>,
 ) -> ParseResult<MX> {

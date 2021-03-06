@@ -5,6 +5,21 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
+//! The get_root_ksks program
+
+// BINARY WARNINGS
+#![warn(
+    clippy::dbg_macro,
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
+)]
+
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
@@ -24,6 +39,7 @@ fn args<'a>() -> ArgMatches<'a> {
     app_from_crate!().bin_name("get-root-ksks").get_matches()
 }
 
+/// Run the get_root_ksks program
 pub fn main() {
     env_logger::init();
     let _matches = args();

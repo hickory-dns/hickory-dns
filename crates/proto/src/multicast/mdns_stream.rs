@@ -26,7 +26,7 @@ use crate::udp::UdpStream;
 use crate::xfer::SerialMessage;
 use crate::BufStreamHandle;
 
-pub const MDNS_PORT: u16 = 5353;
+pub(crate) const MDNS_PORT: u16 = 5353;
 lazy_static! {
     /// mDNS ipv4 address https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
     pub static ref MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,251).into(), MDNS_PORT);
@@ -261,7 +261,7 @@ impl MdnsStream {
 impl Stream for MdnsStream {
     type Item = io::Result<SerialMessage>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         assert!(self.datagram.is_some() || self.multicast.is_some());
 
         // we poll the datagram socket first, if available, since it's a direct response or direct request
@@ -361,7 +361,7 @@ impl Future for NextRandomUdpSocket {
     /// polls until there is an available next random UDP port.
     ///
     /// if there is no port available after 10 attempts, returns NotReady
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // non-one-shot, i.e. continuous, always use one of the well-known mdns ports and bind to the multicast addr
         if !self.mdns_query_type.sender() {
             debug!("skipping sending stream");
@@ -412,7 +412,7 @@ impl Future for NextRandomUdpSocket {
 }
 
 #[cfg(test)]
-pub mod tests {
+pub(crate) mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;

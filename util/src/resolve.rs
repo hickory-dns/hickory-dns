@@ -5,6 +5,20 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! The resolve program
+
+// BINARY WARNINGS
+#![warn(
+    clippy::dbg_macro,
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
+)]
+
 use std::net::SocketAddr;
 
 use console::style;
@@ -91,6 +105,7 @@ struct Opts {
     error: bool,
 }
 
+/// Run the resolve program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opts: Opts = Opts::from_args();

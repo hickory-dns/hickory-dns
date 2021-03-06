@@ -4,6 +4,21 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
+//! The pem_to_public_dnskey program
+
+// BINARY WARNINGS
+#![warn(
+    clippy::dbg_macro,
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
+)]
+
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 
@@ -39,6 +54,7 @@ fn args<'a>() -> ArgMatches<'a> {
         .get_matches()
 }
 
+/// Run the pem_to_public_dnskey program
 pub fn main() {
     env_logger::init();
     let matches = args();

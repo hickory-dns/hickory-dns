@@ -77,7 +77,7 @@ pub struct ListServicesFuture(
 impl Future for ListServicesFuture {
     type Output = Result<ListServices, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.0.as_mut().poll(cx) {
             Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(ListServices(lookup))),
             Poll::Pending => Poll::Pending,
@@ -93,7 +93,7 @@ impl ListServices {
     /// Returns an iterator over the list of returned names of services.
     ///
     /// Each name can be queried for additional information. To lookup service entries see [`AsyncResolver::lookup_srv`]. To get parameters associated with the service, see `DnsSdFuture::service_info`.
-    pub fn iter(&self) -> ListServicesIter {
+    pub fn iter(&self) -> ListServicesIter<'_> {
         ListServicesIter(self.0.iter())
     }
 }
@@ -117,7 +117,7 @@ pub struct ServiceInfoFuture(
 impl Future for ServiceInfoFuture {
     type Output = Result<ServiceInfo, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.0.as_mut().poll(cx) {
             Poll::Ready(Ok(lookup)) => Poll::Ready(Ok(ServiceInfo(lookup))),
             Poll::Pending => Poll::Pending,

@@ -528,7 +528,7 @@ impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
 /// An iterator that limits the record signatures by SupportedAlgorithms
 #[cfg(feature = "dnssec")]
 #[derive(Debug)]
-pub struct RrsigsByAlgorithms<'r> {
+pub(crate) struct RrsigsByAlgorithms<'r> {
     rrsigs: Iter<'r, Record>,
     supported_algorithms: SupportedAlgorithms,
 }

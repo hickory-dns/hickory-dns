@@ -270,7 +270,7 @@ impl KeyFormat {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    pub use super::*;
+    use super::*;
 
     #[test]
     #[cfg(feature = "openssl")]

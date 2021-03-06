@@ -250,7 +250,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         let rdata = NSEC3PARAM::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1, 2, 3, 4, 5]);
 
         let mut bytes = Vec::new();

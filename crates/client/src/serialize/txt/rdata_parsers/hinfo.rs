@@ -16,7 +16,7 @@ use crate::rr::rdata::HINFO;
 /// IN HINFO DEC-2060 TOPS20
 /// IN HINFO VAX-11/780 UNIX
 /// ```
-pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<HINFO> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<HINFO> {
     let cpu = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("cpu".to_string())))

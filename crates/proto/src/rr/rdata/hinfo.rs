@@ -151,7 +151,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         let rdata = HINFO::new("cpu".to_string(), "os".to_string());
 
         let mut bytes = Vec::new();

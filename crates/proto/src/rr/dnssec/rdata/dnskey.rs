@@ -459,7 +459,7 @@ mod tests {
 
     #[test]
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn test() {
+    fn test() {
         let rdata = DNSKEY::new(
             true,
             true,

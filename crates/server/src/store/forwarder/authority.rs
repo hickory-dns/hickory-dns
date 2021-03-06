@@ -164,7 +164,7 @@ impl LookupObject for ForwardLookup {
     }
 }
 
-pub struct ForwardLookupFuture<
+pub(crate) struct ForwardLookupFuture<
     F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin + 'static,
 >(F);
 
@@ -173,7 +173,7 @@ impl<F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin> Fu
 {
     type Output = Result<ForwardLookup, LookupError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match self.0.poll_unpin(cx) {
             Poll::Ready(Ok(f)) => Poll::Ready(Ok(ForwardLookup(f))),
             Poll::Pending => Poll::Pending,

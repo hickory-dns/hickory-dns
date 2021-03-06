@@ -144,7 +144,11 @@ impl LowerName {
     /// Emits the canonical version of the name to the encoder.
     ///
     /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
-    pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
+    pub fn emit_as_canonical(
+        &self,
+        encoder: &mut BinEncoder<'_>,
+        canonical: bool,
+    ) -> ProtoResult<()> {
         self.0.emit_as_canonical(encoder, canonical)
     }
 
@@ -178,14 +182,14 @@ impl PartialEq<LowerName> for LowerName {
 }
 
 impl BinEncodable for LowerName {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
         self.emit_as_canonical(encoder, is_canonical_names)
     }
 }
 
 impl fmt::Display for LowerName {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }

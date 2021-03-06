@@ -165,7 +165,7 @@ mod tests {
     use super::*;
 
     #[test]
-    pub fn test() {
+    fn test() {
         use std::str::FromStr;
 
         let rdata = MX::new(16, Name::from_str("mail.example.com").unwrap());

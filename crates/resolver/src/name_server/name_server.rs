@@ -42,7 +42,7 @@ pub struct NameServer<
 impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
     for NameServer<C, P>
 {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "config: {:?}, options: {:?}", self.config, self.options)
     }
 }

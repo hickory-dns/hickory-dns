@@ -37,7 +37,7 @@ where
     /// where the data came on success.
     fn poll_recv_from(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<(usize, SocketAddr)>>;
 
@@ -50,7 +50,7 @@ where
     /// Poll once to send data to the given address.
     fn poll_send_to(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         buf: &[u8],
         target: SocketAddr,
     ) -> Poll<io::Result<usize>>;
@@ -254,7 +254,7 @@ impl UdpSocket for tokio::net::UdpSocket {
 
     fn poll_recv_from(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<io::Result<(usize, SocketAddr)>> {
         let mut buf = tokio::io::ReadBuf::new(buf);
@@ -266,7 +266,7 @@ impl UdpSocket for tokio::net::UdpSocket {
 
     fn poll_send_to(
         &self,
-        cx: &mut Context,
+        cx: &mut Context<'_>,
         buf: &[u8],
         target: SocketAddr,
     ) -> Poll<io::Result<usize>> {

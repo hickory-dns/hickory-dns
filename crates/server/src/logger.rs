@@ -34,7 +34,7 @@ where
     writeln!(fmt, "{}:{}:{}:{}:{}", now_secs, level, module, line, args)
 }
 
-fn plain_formatter(fmt: &mut Formatter, record: &log::Record) -> io::Result<()> {
+fn plain_formatter(fmt: &mut Formatter, record: &log::Record<'_>) -> io::Result<()> {
     format(
         fmt,
         record.level(),

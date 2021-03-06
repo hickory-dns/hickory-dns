@@ -20,7 +20,8 @@ use crate::error::*;
 use crate::rr::rdata::TXT;
 
 /// Parse the RData from a set of Tokens
-pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TXT> {
+#[allow(clippy::unnecessary_wraps)]
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TXT> {
     let txt_data: Vec<String> = tokens.map(ToString::to_string).collect();
     Ok(TXT::new(txt_data))
 }

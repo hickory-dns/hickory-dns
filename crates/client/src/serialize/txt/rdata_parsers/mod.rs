@@ -19,17 +19,17 @@
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
-pub mod a;
-pub mod aaaa;
-pub mod caa;
-pub mod hinfo;
-pub mod mx;
-pub mod name;
-pub mod naptr;
-pub mod null;
-pub mod openpgpkey;
-pub mod soa;
-pub mod srv;
-pub mod sshfp;
-pub mod tlsa;
-pub mod txt;
+pub(crate) mod a;
+pub(crate) mod aaaa;
+pub(crate) mod caa;
+pub(crate) mod hinfo;
+pub(crate) mod mx;
+pub(crate) mod name;
+pub(crate) mod naptr;
+pub(crate) mod null;
+pub(crate) mod openpgpkey;
+pub(crate) mod soa;
+pub(crate) mod srv;
+pub(crate) mod sshfp;
+pub(crate) mod tlsa;
+pub(crate) mod txt;

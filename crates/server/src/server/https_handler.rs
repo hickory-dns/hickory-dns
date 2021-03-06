@@ -21,7 +21,7 @@ use crate::server::request_handler::RequestHandler;
 use crate::server::response_handler::ResponseHandler;
 use crate::server::server_future;
 
-pub async fn h2_handler<T, I>(
+pub(crate) async fn h2_handler<T, I>(
     handler: Arc<Mutex<T>>,
     io: I,
     src_addr: SocketAddr,
@@ -91,7 +91,7 @@ async fn handle_request<T>(
 struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
 impl ResponseHandler for HttpsResponseHandle {
-    fn send_response(&mut self, response: MessageResponse) -> io::Result<()> {
+    fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
         use crate::proto::serialize::binary::BinEncoder;
         use trust_dns_https::response;
         use trust_dns_https::HttpsError;

@@ -38,7 +38,7 @@ pub struct LookupIp(Lookup);
 
 impl LookupIp {
     /// Returns a borrowed iterator of the returned IPs
-    pub fn iter(&self) -> LookupIpIter {
+    pub fn iter(&self) -> LookupIpIter<'_> {
         LookupIpIter(self.0.iter())
     }
 
@@ -141,7 +141,7 @@ where
 {
     type Output = Result<LookupIp, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             // Try polling the underlying DNS query.
             let query = self.query.as_mut().poll(cx);

@@ -217,7 +217,7 @@ pub struct Queries {
 }
 
 impl Queries {
-    fn read_queries(decoder: &mut BinDecoder, count: usize) -> ProtoResult<Vec<LowerQuery>> {
+    fn read_queries(decoder: &mut BinDecoder<'_>, count: usize) -> ProtoResult<Vec<LowerQuery>> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(LowerQuery::read(decoder)?);
@@ -226,7 +226,7 @@ impl Queries {
     }
 
     /// Read queries from a decoder
-    pub fn read(decoder: &mut BinDecoder, num_queries: usize) -> ProtoResult<Self> {
+    pub fn read(decoder: &mut BinDecoder<'_>, num_queries: usize) -> ProtoResult<Self> {
         let queries_start = decoder.index();
         let queries = Self::read_queries(decoder, num_queries)?;
         let original = decoder
@@ -252,7 +252,7 @@ impl Queries {
         self.original.as_ref()
     }
 
-    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount {
+    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
         QueriesEmitAndCount {
             length: self.queries.len(),
             original: self.original.as_ref(),
@@ -266,14 +266,14 @@ pub(crate) struct QueriesEmitAndCount<'q> {
 }
 
 impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
-    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+    fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
         encoder.emit_vec(self.original)?;
         Ok(self.length)
     }
 }
 
 impl BinEncodable for MessageRequest {
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         message::emit_message_parts(
             &self.header,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form

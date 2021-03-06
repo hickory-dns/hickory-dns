@@ -13,11 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+// LIBRARY WARNINGS
 #![warn(
-    missing_docs,
     clippy::dbg_macro,
     clippy::print_stdout,
-    clippy::unimplemented
+    clippy::unimplemented,
+    missing_copy_implementations,
+    missing_docs,
+    non_snake_case,
+    non_upper_case_globals,
+    rust_2018_idioms,
+    unreachable_pub
 )]
 #![allow(clippy::single_component_path_imports)]
 #![recursion_limit = "2048"]

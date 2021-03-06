@@ -77,7 +77,7 @@ impl MdnsClientStream {
 }
 
 impl Display for MdnsClientStream {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "mDNS({})", self.mdns_stream.multicast_addr())
     }
 }
@@ -93,7 +93,7 @@ impl DnsClientStream for MdnsClientStream {
 impl Stream for MdnsClientStream {
     type Item = Result<SerialMessage, ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mdns_stream = &mut self.as_mut().mdns_stream;
         mdns_stream.map_err(ProtoError::from).poll_next_unpin(cx)
         // match ready!(self.mdns_stream.poll_next_unpin(cx).map_err(ProtoError::from)) {
@@ -115,7 +115,7 @@ pub struct MdnsClientConnect(
 impl Future for MdnsClientConnect {
     type Output = Result<MdnsClientStream, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll_unpin(cx)
     }
 }

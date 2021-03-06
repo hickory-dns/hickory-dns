@@ -12,6 +12,7 @@ use async_trait::async_trait;
 use trust_dns_resolver::proto::Time;
 
 /// AsyncStd backed timer implementation
+#[derive(Clone, Copy)]
 pub struct AsyncStdTime;
 
 #[async_trait]

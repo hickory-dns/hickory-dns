@@ -15,7 +15,7 @@ use futures_util::{future::Fuse, ready, FutureExt};
 
 #[allow(clippy::type_complexity)]
 #[must_use = "futures do nothing unless polled"]
-pub struct RcFuture<F: Future>
+pub(crate) struct RcFuture<F: Future>
 where
     F: Future + Send + Unpin,
     F::Output: Clone + Send,
@@ -23,7 +23,7 @@ where
     future_and_result: Arc<Mutex<(Fuse<F>, Option<F::Output>)>>,
 }
 
-pub fn rc_future<F>(future: F) -> RcFuture<F>
+pub(crate) fn rc_future<F>(future: F) -> RcFuture<F>
 where
     F: Future + Unpin,
     F::Output: Clone + Send,
@@ -41,7 +41,7 @@ where
 {
     type Output = F::Output;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
