@@ -169,18 +169,16 @@ impl Name {
             return Err(format!("error converting some labels: {:?}", errors).into());
         };
 
-        let mut label_ends = TinyVec::new();
-        let mut label_data = TinyVec::new();
+        let mut name = Name {
+            is_fqdn: true,
+            ..Default::default()
+        };
+        name.is_fqdn = true;
         for label in labels {
-            label_data.extend_from_slice(label.as_bytes());
-            label_ends.push(label_data.len() as u8);
+            name = name.append_label(label)?;
         }
 
-        Ok(Name {
-            is_fqdn: true,
-            label_data,
-            label_ends,
-        })
+        Ok(name)
     }
 
     /// Appends `other` to `self`, returning a new `Name`
@@ -875,21 +873,20 @@ impl Name {
     /// ```
     pub fn into_wildcard(self) -> Self {
         if self.label_ends.is_empty() {
-            Name::root()
-        } else {
-            let mut label_data = TinyVec::new();
-            label_data.push(b'*');
-            let mut label_ends = TinyVec::new();
-            label_ends.push(1);
-            for label in self.iter().skip(1) {
-                label_data.extend_from_slice(label);
-                label_ends.push(label_data.len() as u8);
-            }
-            Name {
-                label_data,
-                label_ends,
-                is_fqdn: self.is_fqdn,
-            }
+            return Name::root();
+        }
+        let mut label_data = TinyVec::new();
+        label_data.push(b'*');
+        let mut label_ends = TinyVec::new();
+        label_ends.push(1);
+        for label in self.iter().skip(1) {
+            label_data.extend_from_slice(label);
+            label_ends.push(label_data.len() as u8);
+        }
+        Name {
+            label_data,
+            label_ends,
+            is_fqdn: self.is_fqdn,
         }
     }
 }
@@ -941,10 +938,9 @@ impl<'a> Iterator for LabelIter<'a> {
         }
         self.started = true;
         let end = *self.name.label_ends.get(self.index)?;
-        let start = if self.index == 0 {
-            0
-        } else {
-            self.name.label_ends[self.index - 1]
+        let start = match self.index {
+            0 => 0,
+            _ => self.name.label_ends[self.index - 1],
         };
         self.index += 1;
         if self.index == self.name.label_ends.len() {
@@ -971,10 +967,9 @@ impl<'a> DoubleEndedIterator for LabelIter<'a> {
         }
         self.started = true;
         let end = *self.name.label_ends.get(self.index)?;
-        let start = if self.index == 0 {
-            0
-        } else {
-            self.name.label_ends[self.index - 1]
+        let start = match self.index {
+            0 => 0,
+            _ => self.name.label_ends[self.index - 1],
         };
         if self.index == 0 {
             self.finished = true;
