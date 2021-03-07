@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015-2019 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! record type definitions
 
@@ -64,6 +55,8 @@ pub enum RecordType {
     /// RFC 1035[1] host information
     HINFO,
     //  HIP,        // 55 RFC 5205 Host Identity Protocol
+    /// RFC draft-ietf-dnsop-svcb-https-03 DNS SVCB and HTTPS RRs
+    HTTPS,
     //  IPSECKEY,   // 45 RFC 4025 IPsec Key
     /// RFC 1996 Incremental Zone Transfer
     IXFR,
@@ -90,6 +83,8 @@ pub enum RecordType {
     SRV,
     /// RFC 4255 SSH Public Key Fingerprint
     SSHFP,
+    /// RFC draft-ietf-dnsop-svcb-https-03 DNS SVCB and HTTPS RRs
+    SVCB,
     //  TA,         // 32768 N/A DNSSEC Trust Authorities
     //  TKEY,       // 249 RFC 2930 Secret key record
     /// RFC 6698 TLSA certificate association
@@ -172,6 +167,7 @@ impl FromStr for RecordType {
             "CAA" => Ok(RecordType::CAA),
             "CNAME" => Ok(RecordType::CNAME),
             "HINFO" => Ok(RecordType::HINFO),
+            "HTTPS" => Ok(RecordType::HTTPS),
             "NULL" => Ok(RecordType::NULL),
             "MX" => Ok(RecordType::MX),
             "NAPTR" => Ok(RecordType::NAPTR),
@@ -181,6 +177,7 @@ impl FromStr for RecordType {
             "SOA" => Ok(RecordType::SOA),
             "SRV" => Ok(RecordType::SRV),
             "SSHFP" => Ok(RecordType::SSHFP),
+            "SVCB" => Ok(RecordType::SVCB),
             "TLSA" => Ok(RecordType::TLSA),
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
@@ -213,7 +210,8 @@ impl From<u16> for RecordType {
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
             5 => RecordType::CNAME,
-            0 => RecordType::ZERO,
+            13 => RecordType::HINFO,
+            65 => RecordType::HTTPS,
             15 => RecordType::MX,
             35 => RecordType::NAPTR,
             2 => RecordType::NS,
@@ -224,8 +222,10 @@ impl From<u16> for RecordType {
             6 => RecordType::SOA,
             33 => RecordType::SRV,
             44 => RecordType::SSHFP,
+            64 => RecordType::SVCB,
             52 => RecordType::TLSA,
             16 => RecordType::TXT,
+            0 => RecordType::ZERO,
             #[cfg(feature = "dnssec")]
             48/*DNSKEY*/ |
             43/*DS*/ |
@@ -283,7 +283,8 @@ impl From<RecordType> for &'static str {
             RecordType::CAA => "CAA",
             RecordType::CNAME => "CNAME",
             RecordType::HINFO => "HINFO",
-            RecordType::ZERO => "",
+            RecordType::HTTPS => "HTTPS",
+            RecordType::ZERO => "ZERO",
             RecordType::IXFR => "IXFR",
             RecordType::MX => "MX",
             RecordType::NAPTR => "NAPTR",
@@ -295,6 +296,7 @@ impl From<RecordType> for &'static str {
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
             RecordType::SSHFP => "SSHFP",
+            RecordType::SVCB => "SVCB",
             RecordType::TLSA => "TLSA",
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
@@ -325,6 +327,7 @@ impl From<RecordType> for u16 {
             RecordType::CAA => 257,
             RecordType::CNAME => 5,
             RecordType::HINFO => 13,
+            RecordType::HTTPS => 65,
             RecordType::ZERO => 0,
             RecordType::IXFR => 251,
             RecordType::MX => 15,
@@ -337,6 +340,7 @@ impl From<RecordType> for u16 {
             RecordType::SOA => 6,
             RecordType::SRV => 33,
             RecordType::SSHFP => 44,
+            RecordType::SVCB => 64,
             RecordType::TLSA => 52,
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]
