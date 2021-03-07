@@ -161,7 +161,7 @@ impl From<SslErrorStack> for Error {
 pub mod not_openssl {
     use std;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     pub struct SslErrorStack;
 
     impl std::fmt::Display for SslErrorStack {
@@ -181,10 +181,10 @@ pub mod not_openssl {
 pub mod not_ring {
     use std;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     pub struct KeyRejected;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     pub struct Unspecified;
 
     impl std::fmt::Display for KeyRejected {

@@ -291,6 +291,7 @@ pub struct RecordParts {
 
 impl From<Record> for RecordParts {
     fn from(record: Record) -> Self {
+        #[cfg(feature = "mdns")]
         let Record {
             name_labels,
             rr_type,
@@ -299,6 +300,16 @@ impl From<Record> for RecordParts {
             rdata,
             mdns_cache_flush,
         } = record;
+
+        #[cfg(not(feature = "mdns"))]
+        let Record {
+            name_labels,
+            rr_type,
+            dns_class,
+            ttl,
+            rdata,
+        } = record;
+
         RecordParts {
             name_labels,
             rr_type,

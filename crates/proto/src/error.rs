@@ -354,7 +354,7 @@ pub mod not_ring {
     use std;
 
     /// The Unspecified error replacement
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub struct Unspecified;
 
     impl std::fmt::Display for Unspecified {

@@ -166,7 +166,7 @@ where
                         name,
                         self.strategy,
                         self.client_cache.clone(),
-                        self.options.clone(),
+                        self.options,
                         self.hosts.clone(),
                     )
                     .boxed();
@@ -315,7 +315,7 @@ where
         hosts_lookup(
             Query::query(name.clone(), RecordType::A),
             client.clone(),
-            options.clone(),
+            options,
             hosts.clone(),
         )
         .boxed(),
@@ -414,7 +414,7 @@ where
     let res = hosts_lookup(
         Query::query(name.clone(), first_type),
         client,
-        options.clone(),
+        options,
         hosts.clone(),
     )
     .await;

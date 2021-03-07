@@ -177,7 +177,7 @@ where
 
         let response_message = client
             .client
-            .lookup(query.clone(), options.clone())
+            .lookup(query.clone(), options)
             .await
             .map_err(E::into);
 
