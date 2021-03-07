@@ -183,19 +183,22 @@ pub struct QueryParts {
 
 impl From<Query> for QueryParts {
     fn from(q: Query) -> Self {
-        #[cfg(feature = "mdns")]
-        let Query {
-            name,
-            query_type,
-            query_class,
-            mdns_unicast_response,
-        } = q;
-        #[cfg(not(feature = "mdns"))]
-        let Query {
-            name,
-            query_type,
-            query_class,
-        } = q;
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "mdns")] {
+                let Query {
+                    name,
+                    query_type,
+                    query_class,
+                    mdns_unicast_response,
+                } = q;
+            } else {
+                let Query {
+                    name,
+                    query_type,
+                    query_class,
+                } = q;
+            }
+        }
 
         Self {
             name,
