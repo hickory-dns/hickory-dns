@@ -161,26 +161,41 @@ impl Query {
     }
 
     /// Consumes `Query` and returns it's components
+    pub fn into_parts(self) -> QueryParts {
+        self.into()
+    }
+}
+
+/// Consumes `Query` giving public access to fields of `Query` so they can
+/// be destructured and taken by value.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct QueryParts {
+    /// QNAME
+    pub name: Name,
+    /// QTYPE
+    pub query_type: RecordType,
+    /// QCLASS
+    pub query_class: DNSClass,
+    /// mDNS unicast-response bit set or not
     #[cfg(feature = "mdns")]
-    pub fn into_parts(self) -> (Name, RecordType, DNSClass, bool) {
+    pub mdns_unicast_response: bool,
+}
+
+impl From<Query> for QueryParts {
+    fn from(q: Query) -> Self {
         let Query {
             name,
             query_type,
             query_class,
             mdns_unicast_response,
-        } = self;
-        (name, query_type, query_class, mdns_unicast_response)
-    }
-
-    /// Consumes `Query` and returns it's components
-    #[cfg(not(feature = "mdns"))]
-    pub fn into_parts(self) -> (Name, RecordType, DNSClass) {
-        let Query {
+        } = q;
+        Self {
             name,
             query_type,
             query_class,
-        } = self;
-        (name, query_type, query_class)
+            #[cfg(feature = "mdns")]
+            mdns_unicast_response,
+        }
     }
 }
 

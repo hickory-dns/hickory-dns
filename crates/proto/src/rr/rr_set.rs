@@ -433,17 +433,26 @@ impl RecordSet {
     }
 
     /// Consumes `RecordSet` and returns its components
-    pub fn into_parts(
-        self,
-    ) -> (
-        Name,
-        RecordType,
-        DNSClass,
-        u32,
-        Vec<Record>,
-        Vec<Record>,
-        u32,
-    ) {
+    pub fn into_parts(self) -> RecordSetParts {
+        self.into()
+    }
+}
+
+/// Consumes `RecordSet` giving public access to fields of `RecordSet` so they can
+/// be destructured and taken by value
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecordSetParts {
+    pub name: Name,
+    pub record_type: RecordType,
+    pub dns_class: DNSClass,
+    pub ttl: u32,
+    pub records: Vec<Record>,
+    pub rrsigs: Vec<Record>,
+    pub serial: u32, // serial number at which this record was modifie,
+}
+
+impl From<RecordSet> for RecordSetParts {
+    fn from(rset: RecordSet) -> Self {
         let RecordSet {
             name,
             record_type,
@@ -452,8 +461,16 @@ impl RecordSet {
             records,
             rrsigs,
             serial,
-        } = self;
-        (name, record_type, dns_class, ttl, records, rrsigs, serial)
+        } = rset;
+        RecordSetParts {
+            name,
+            record_type,
+            dns_class,
+            ttl,
+            records,
+            rrsigs,
+            serial,
+        }
     }
 }
 

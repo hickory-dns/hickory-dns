@@ -681,19 +681,38 @@ impl Message {
         Ok(())
     }
 
-    #[allow(clippy::type_complexity)]
     /// Consumes `Message` and returns into components
-    pub fn into_parts(
-        self,
-    ) -> (
-        Header,
-        Vec<Query>,
-        Vec<Record>,
-        Vec<Record>,
-        Vec<Record>,
-        Vec<Record>,
-        Option<Edns>,
-    ) {
+    pub fn into_parts(self) -> MessageParts {
+        self.into()
+    }
+}
+
+/// Consumes `Message` giving public access to fields in `Message` so they can be
+/// destructured and taken by value
+/// ```rust
+///  let msg = Message::new();
+///  let MessageParts { queries, .. } = msg.into_parts();
+/// ```
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct MessageParts {
+    /// message header
+    pub header: Header,
+    /// message queries
+    pub queries: Vec<Query>,
+    /// message answers
+    pub answers: Vec<Record>,
+    /// message name_servers
+    pub name_servers: Vec<Record>,
+    /// message additional records
+    pub additionals: Vec<Record>,
+    /// sig0
+    pub sig0: Vec<Record>,
+    /// optional edns records
+    pub edns: Option<Edns>,
+}
+
+impl From<Message> for MessageParts {
+    fn from(msg: Message) -> Self {
         let Message {
             header,
             queries,
@@ -702,8 +721,8 @@ impl Message {
             additionals,
             sig0,
             edns,
-        } = self;
-        (
+        } = msg;
+        MessageParts {
             header,
             queries,
             answers,
@@ -711,7 +730,7 @@ impl Message {
             additionals,
             sig0,
             edns,
-        )
+        }
     }
 }
 

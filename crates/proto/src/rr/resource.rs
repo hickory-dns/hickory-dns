@@ -266,37 +266,48 @@ impl Record {
     }
 
     /// Consumes `Record` and returns its components
-    #[cfg(feature = "mdns")]
-    pub fn into_parts(self) -> (Name, RecordType, DNSClass, u32, RData, bool) {
-        let Record {
-            name_labels,
-            rr_type,
-            dns_class,
-            ttl,
-            rdata,
-            mdns_cache_flush,
-        } = self;
-        (
-            name_labels,
-            rr_type,
-            dns_class,
-            ttl,
-            rdata,
-            mdns_cache_flush,
-        )
+    pub fn into_parts(self) -> RecordParts {
+        self.into()
     }
+}
 
-    /// Consumes `Record` and returns its components
-    #[cfg(not(feature = "mdns"))]
-    pub fn into_parts(self) -> (Name, RecordType, DNSClass, u32, RData) {
+/// Consumes `Record` giving public access to fields of `Record` so they can
+/// be destructured and taken by value
+pub struct RecordParts {
+    /// label names
+    pub name_labels: Name,
+    /// record type
+    pub rr_type: RecordType,
+    /// dns class
+    pub dns_class: DNSClass,
+    /// time to live
+    pub ttl: u32,
+    /// rdata
+    pub rdata: RData,
+    /// mDNS cache flush
+    #[cfg(feature = "mdns")]
+    pub mdns_cache_flush: bool,
+}
+
+impl From<Record> for RecordParts {
+    fn from(record: Record) -> Self {
         let Record {
             name_labels,
             rr_type,
             dns_class,
             ttl,
             rdata,
-        } = self;
-        (name_labels, rr_type, dns_class, ttl, rdata)
+            mdns_cache_flush,
+        } = record;
+        RecordParts {
+            name_labels,
+            rr_type,
+            dns_class,
+            ttl,
+            rdata,
+            #[cfg(feature = "mdns")]
+            mdns_cache_flush,
+        }
     }
 }
 
