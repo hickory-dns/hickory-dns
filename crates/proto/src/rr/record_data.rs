@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015-2019 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! record data enum variants
 
@@ -27,7 +18,9 @@ use log::{trace, warn};
 
 use super::domain::Name;
 use super::rdata;
-use super::rdata::{CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, TLSA, TXT};
+use super::rdata::{
+    CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+};
 use super::record_type::RecordType;
 use crate::error::*;
 use crate::serialize::binary::*;
@@ -194,6 +187,29 @@ pub enum RData {
     ///
     /// `HINFO` is also used by [RFC 8482](https://tools.ietf.org/html/rfc8482)
     HINFO(HINFO),
+
+    /// [RFC draft-ietf-dnsop-svcb-https-03, DNS SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-8)
+    ///
+    /// ```text
+    ///    8.  Using SVCB with HTTPS and HTTP
+    ///
+    ///    Use of any protocol with SVCB requires a protocol-specific mapping
+    ///    specification.  This section specifies the mapping for HTTPS and
+    ///    HTTP.
+    ///
+    ///    To enable special handling for the HTTPS and HTTP use-cases, the
+    ///    HTTPS RR type is defined as a SVCB-compatible RR type, specific to
+    ///    the https and http schemes.  Clients MUST NOT perform SVCB queries or
+    ///    accept SVCB responses for "https" or "http" schemes.
+    ///
+    ///    The HTTPS RR wire format and presentation format are identical to
+    ///    SVCB, and both share the SvcParamKey registry.  SVCB semantics apply
+    ///    equally to HTTPS RRs unless specified otherwise.  The presentation
+    ///    format of the record is:
+    ///
+    ///    Name TTL IN HTTPS SvcPriority TargetName SvcParams
+    /// ```
+    HTTPS(SVCB),
 
     /// ```text
     /// 3.3.9. MX RDATA format
@@ -574,6 +590,31 @@ pub enum RData {
     /// [RFC 7479](https://tools.ietf.org/html/rfc7479).
     SSHFP(SSHFP),
 
+    /// [RFC draft-ietf-dnsop-svcb-https-03, DNS SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2)
+    ///
+    /// ```text
+    ///    2.  The SVCB record type
+    ///
+    ///   The SVCB DNS resource record (RR) type (RR type 64) is used to locate
+    ///   alternative endpoints for a service.
+    ///
+    ///   The algorithm for resolving SVCB records and associated address
+    ///   records is specified in Section 3.
+    ///
+    ///   Other SVCB-compatible resource record types can also be defined as-
+    ///   needed.  In particular, the HTTPS RR (RR type 65) provides special
+    ///   handling for the case of "https" origins as described in Section 8.
+    ///
+    ///   SVCB RRs are extensible by a list of SvcParams, which are pairs
+    ///   consisting of a SvcParamKey and a SvcParamValue.  Each SvcParamKey
+    ///   has a presentation name and a registered number.  Values are in a
+    ///   format specific to the SvcParamKey.  Their definition should specify
+    ///   both their presentation format and wire encoding (e.g., domain names,
+    ///   binary data, or numeric values).  The initial SvcParamKeys and
+    ///   formats are defined in Section 6.
+    /// ```
+    SVCB(SVCB),
+
     /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
     ///
     /// ```text
@@ -672,6 +713,10 @@ impl RData {
                 trace!("reading HINFO");
                 rdata::hinfo::read(decoder).map(RData::HINFO)
             }
+            RecordType::HTTPS => {
+                trace!("reading HTTPS");
+                rdata::svcb::read(decoder, rdata_length).map(RData::HTTPS)
+            }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
                 return Ok(RData::ZERO);
@@ -715,6 +760,10 @@ impl RData {
             RecordType::SSHFP => {
                 trace!("reading SSHFP");
                 rdata::sshfp::read(decoder, rdata_length).map(RData::SSHFP)
+            }
+            RecordType::SVCB => {
+                trace!("reading SVCB");
+                rdata::svcb::read(decoder, rdata_length).map(RData::SVCB)
             }
             RecordType::TLSA => {
                 trace!("reading TLSA");
@@ -831,6 +880,7 @@ impl RData {
                 rdata::name::emit(encoder, name)
             }
             RData::HINFO(ref hinfo) => rdata::hinfo::emit(encoder, hinfo),
+            RData::HTTPS(ref svcb) => rdata::svcb::emit(encoder, svcb),
             RData::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
@@ -851,6 +901,7 @@ impl RData {
             RData::SSHFP(ref sshfp) => {
                 encoder.with_canonical_names(|encoder| rdata::sshfp::emit(encoder, sshfp))
             }
+            RData::SVCB(ref svcb) => rdata::svcb::emit(encoder, svcb),
             RData::TLSA(ref tlsa) => {
                 encoder.with_canonical_names(|encoder| rdata::tlsa::emit(encoder, tlsa))
             }
@@ -870,6 +921,7 @@ impl RData {
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
             RData::HINFO(..) => RecordType::HINFO,
+            RData::HTTPS(..) => RecordType::HTTPS,
             RData::MX(..) => RecordType::MX,
             RData::NAPTR(..) => RecordType::NAPTR,
             RData::NS(..) => RecordType::NS,
@@ -880,6 +932,7 @@ impl RData {
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::SSHFP(..) => RecordType::SSHFP,
+            RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
@@ -913,6 +966,7 @@ impl fmt::Display for RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
             RData::HINFO(ref hinfo) => w(f, hinfo),
+            RData::HTTPS(ref svcb) => w(f, svcb),
             RData::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => w(f, mx),
@@ -926,6 +980,7 @@ impl fmt::Display for RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::SRV(ref srv) => w(f, srv),
             RData::SSHFP(ref sshfp) => w(f, sshfp),
+            RData::SVCB(ref svcb) => w(f, svcb),
             RData::TLSA(ref tlsa) => w(f, tlsa),
             RData::TXT(ref txt) => w(f, txt),
             #[cfg(feature = "dnssec")]
@@ -1158,6 +1213,7 @@ mod tests {
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
             RData::HINFO(..) => RecordType::HINFO,
+            RData::HTTPS(..) => RecordType::HTTPS,
             RData::MX(..) => RecordType::MX,
             RData::NAPTR(..) => RecordType::NAPTR,
             RData::NS(..) => RecordType::NS,
@@ -1168,6 +1224,7 @@ mod tests {
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::SSHFP(..) => RecordType::SSHFP,
+            RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
