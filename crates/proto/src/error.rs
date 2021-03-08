@@ -332,7 +332,7 @@ pub mod not_openssl {
     use std;
 
     /// SslErrorStac stub
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     pub struct SslErrorStack;
 
     impl std::fmt::Display for SslErrorStack {
