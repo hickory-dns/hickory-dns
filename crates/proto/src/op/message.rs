@@ -95,7 +95,8 @@ pub fn update_header_counts(
     assert!(counts.nameserver_count <= u16::max_value() as usize);
     assert!(counts.additional_count <= u16::max_value() as usize);
 
-    let mut header = current_header.clone();
+    // TODO: should the function just take by value?
+    let mut header = *current_header;
     header
         .set_query_count(counts.query_count as u16)
         .set_answer_count(counts.answer_count as u16)
@@ -109,6 +110,7 @@ pub fn update_header_counts(
 /// Tracks the counts of the records in the Message.
 ///
 /// This is only used internally during serialization.
+#[derive(Debug, Copy, Clone)]
 pub struct HeaderCounts {
     /// The number of queries in the Message
     pub query_count: usize,
@@ -678,6 +680,58 @@ impl Message {
 
         Ok(())
     }
+
+    /// Consumes `Message` and returns into components
+    pub fn into_parts(self) -> MessageParts {
+        self.into()
+    }
+}
+
+/// Consumes `Message` giving public access to fields in `Message` so they can be
+/// destructured and taken by value
+/// ```rust
+///  let msg = Message::new();
+///  let MessageParts { queries, .. } = msg.into_parts();
+/// ```
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct MessageParts {
+    /// message header
+    pub header: Header,
+    /// message queries
+    pub queries: Vec<Query>,
+    /// message answers
+    pub answers: Vec<Record>,
+    /// message name_servers
+    pub name_servers: Vec<Record>,
+    /// message additional records
+    pub additionals: Vec<Record>,
+    /// sig0
+    pub sig0: Vec<Record>,
+    /// optional edns records
+    pub edns: Option<Edns>,
+}
+
+impl From<Message> for MessageParts {
+    fn from(msg: Message) -> Self {
+        let Message {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
+        } = msg;
+        MessageParts {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
+        }
+    }
 }
 
 impl Deref for Message {
@@ -709,6 +763,7 @@ pub trait MessageFinalizer: Send + Sync + 'static {
 /// A MessageFinalizer which does nothing
 ///
 /// *WARNING* This should only be used in None context, it will panic in all cases where finalize is called.
+#[derive(Debug, Clone, Copy)]
 pub struct NoopMessageFinalizer;
 
 impl NoopMessageFinalizer {

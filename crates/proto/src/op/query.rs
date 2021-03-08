@@ -159,6 +159,55 @@ impl Query {
     pub fn mdns_unicast_response(&self) -> bool {
         self.mdns_unicast_response
     }
+
+    /// Consumes `Query` and returns it's components
+    pub fn into_parts(self) -> QueryParts {
+        self.into()
+    }
+}
+
+/// Consumes `Query` giving public access to fields of `Query` so they can
+/// be destructured and taken by value.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct QueryParts {
+    /// QNAME
+    pub name: Name,
+    /// QTYPE
+    pub query_type: RecordType,
+    /// QCLASS
+    pub query_class: DNSClass,
+    /// mDNS unicast-response bit set or not
+    #[cfg(feature = "mdns")]
+    pub mdns_unicast_response: bool,
+}
+
+impl From<Query> for QueryParts {
+    fn from(q: Query) -> Self {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "mdns")] {
+                let Query {
+                    name,
+                    query_type,
+                    query_class,
+                    mdns_unicast_response,
+                } = q;
+            } else {
+                let Query {
+                    name,
+                    query_type,
+                    query_class,
+                } = q;
+            }
+        }
+
+        Self {
+            name,
+            query_type,
+            query_class,
+            #[cfg(feature = "mdns")]
+            mdns_unicast_response,
+        }
+    }
 }
 
 impl BinEncodable for Query {

@@ -55,7 +55,7 @@ use crate::serialize::binary::*;
 ///
 /// ```
 ///
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Header {
     id: u16,
     message_type: MessageType,

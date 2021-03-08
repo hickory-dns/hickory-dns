@@ -8,6 +8,7 @@
 
 #![warn(
     missing_docs,
+    missing_copy_implementations,
     clippy::dbg_macro,
     clippy::print_stdout,
     clippy::unimplemented
@@ -194,6 +195,7 @@ pub trait Time {
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
 #[cfg(any(test, feature = "tokio-runtime"))]
+#[derive(Debug, Clone, Copy)]
 pub struct TokioTime;
 
 #[cfg(any(test, feature = "tokio-runtime"))]

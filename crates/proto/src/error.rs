@@ -332,7 +332,7 @@ pub mod not_openssl {
     use std;
 
     /// SslErrorStac stub
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     pub struct SslErrorStack;
 
     impl std::fmt::Display for SslErrorStack {
@@ -354,7 +354,7 @@ pub mod not_ring {
     use std;
 
     /// The Unspecified error replacement
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub struct Unspecified;
 
     impl std::fmt::Display for Unspecified {

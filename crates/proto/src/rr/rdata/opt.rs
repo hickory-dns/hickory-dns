@@ -181,6 +181,7 @@ impl OPT {
         OPT { options }
     }
 
+    #[deprecated(note = "Please use as_ref() or as_mut() for shared/mutable references")]
     /// The entire map of options
     pub fn options(&self) -> &HashMap<EdnsCode, EdnsOption> {
         &self.options
@@ -199,6 +200,18 @@ impl OPT {
     /// Remove an option, the key is derived from the `EdnsOption`
     pub fn remove(&mut self, option: EdnsCode) {
         self.options.remove(&option);
+    }
+}
+
+impl AsMut<HashMap<EdnsCode, EdnsOption>> for OPT {
+    fn as_mut(&mut self) -> &mut HashMap<EdnsCode, EdnsOption> {
+        &mut self.options
+    }
+}
+
+impl AsRef<HashMap<EdnsCode, EdnsOption>> for OPT {
+    fn as_ref(&self) -> &HashMap<EdnsCode, EdnsOption> {
+        &self.options
     }
 }
 
@@ -277,7 +290,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder<'_>, opt: &OPT) -> ProtoResult<()> {
-    for (edns_code, edns_option) in opt.options().iter() {
+    for (edns_code, edns_option) in opt.as_ref().iter() {
         encoder.emit_u16(u16::from(*edns_code))?;
         encoder.emit_u16(edns_option.len())?;
         edns_option.emit(encoder)?

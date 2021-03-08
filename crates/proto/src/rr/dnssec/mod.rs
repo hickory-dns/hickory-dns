@@ -49,6 +49,7 @@ pub use ring::digest::Digest;
 
 /// This is an empty type, enable Ring or OpenSSL for this feature
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[derive(Copy, Clone, Debug)]
 pub struct Digest;
 
 #[cfg(not(any(feature = "openssl", feature = "ring")))]

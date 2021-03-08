@@ -245,7 +245,7 @@ where
 
         let query: Pin<Box<dyn Future<Output = Result<Lookup, ResolveError>> + Send>> = match name {
             Ok(name) => client_cache
-                .lookup(Query::query(name, record_type), options.clone())
+                .lookup(Query::query(name, record_type), options)
                 .boxed(),
             Err(err) => future::err(err).boxed(),
         };
@@ -287,7 +287,7 @@ where
             if should_retry {
                 if let Some(name) = self.names.pop() {
                     let record_type = self.record_type;
-                    let options = self.options.clone();
+                    let options = self.options;
 
                     // If there's another name left to try, build a new query
                     // for that next name and continue looping.
