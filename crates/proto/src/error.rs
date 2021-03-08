@@ -218,6 +218,10 @@ pub enum ProtoErrorKind {
     #[error("error parsing utf8 string")]
     Utf8(#[from] std::str::Utf8Error),
 
+    /// A utf8 parsing error
+    #[error("error parsing utf8 string")]
+    FromUtf8(#[from] std::string::FromUtf8Error),
+
     /// An int parsing error
     #[error("error parsing int")]
     ParseInt(#[from] std::num::ParseIntError),
@@ -335,6 +339,12 @@ impl From<url::ParseError> for ProtoError {
 
 impl From<std::str::Utf8Error> for ProtoError {
     fn from(e: std::str::Utf8Error) -> ProtoError {
+        ProtoErrorKind::from(e).into()
+    }
+}
+
+impl From<std::string::FromUtf8Error> for ProtoError {
+    fn from(e: std::string::FromUtf8Error) -> ProtoError {
         ProtoErrorKind::from(e).into()
     }
 }
@@ -458,6 +468,7 @@ impl Clone for ProtoErrorKind {
             Timer => Timer,
             UrlParsing(ref e) => UrlParsing(*e),
             Utf8(ref e) => Utf8(*e),
+            FromUtf8(ref e) => FromUtf8(e.clone()),
             ParseInt(ref e) => ParseInt(e.clone()),
         }
     }

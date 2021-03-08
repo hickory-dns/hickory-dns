@@ -5,9 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! SSHFP records for SSH public key fingerprints
-use std::cmp::{Ord, Ordering, PartialOrd};
-use std::fmt;
+//! SVCB records, see [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03)
+
+use std::{
+    cmp::{Ord, Ordering, PartialOrd},
+    convert::TryFrom,
+    fmt,
+    net::Ipv4Addr,
+    net::Ipv6Addr,
+};
 
 use crate::error::*;
 use crate::rr::Name;
@@ -177,6 +183,22 @@ impl From<SvcParamKey> for u16 {
     }
 }
 
+impl<'r> BinDecodable<'r> for SvcParamKey {
+    // a 2 octet field containing the SvcParamKey as an integer in
+    //      network byte order.  (See Section 14.3.2 for the defined values.)
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        Ok(decoder.read_u16()?.unverified(/*any u16 is valid*/).into())
+    }
+}
+
+impl BinEncodable for SvcParamKey {
+    // a 2 octet field containing the SvcParamKey as an integer in
+    //      network byte order.  (See Section 14.3.2 for the defined values.)
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_u16((*self).into())
+    }
+}
+
 impl fmt::Display for SvcParamKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let mut write_key = |name| write!(f, "{}", name);
@@ -220,25 +242,620 @@ impl PartialOrd for SvcParamKey {
 ///      determined by the SvcParamKey.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-#[repr(transparent)]
-pub struct SvcParamValue(Vec<u8>);
+pub enum SvcParamValue {
+    ///    In a ServiceMode RR, a SvcParamKey is considered "mandatory" if the
+    ///    RR will not function correctly for clients that ignore this
+    ///    SvcParamKey.  Each SVCB protocol mapping SHOULD specify a set of keys
+    ///    that are "automatically mandatory", i.e. mandatory if they are
+    ///    present in an RR.  The SvcParamKey "mandatory" is used to indicate
+    ///    any mandatory keys for this RR, in addition to any automatically
+    ///    mandatory keys that are present.
+    ///
+    /// see `Mandatory`
+    Mandatory(Mandatory),
+    /// The "alpn" and "no-default-alpn" SvcParamKeys together indicate the
+    ///    set of Application Layer Protocol Negotiation (ALPN) protocol
+    ///    identifiers [ALPN] and associated transport protocols supported by
+    ///    this service endpoint.
+    Alpn(Alpn),
+    /// For "no-default-alpn", the presentation and wire format values MUST
+    ///    be empty.
+    /// See also `Alpn`
+    NoDefaultAlpn,
+    /// ```text
+    ///    6.2.  "port"
+    ///
+    ///   The "port" SvcParamKey defines the TCP or UDP port that should be
+    ///   used to reach this alternative endpoint.  If this key is not present,
+    ///   clients SHALL use the authority endpoint's port number.
+    ///
+    ///   The presentation "value" of the SvcParamValue is a single decimal
+    ///   integer between 0 and 65535 in ASCII.  Any other "value" (e.g. an
+    ///   empty value) is a syntax error.  To enable simpler parsing, this
+    ///   SvcParam MUST NOT contain escape sequences.
+    ///
+    ///   The wire format of the SvcParamValue is the corresponding 2 octet
+    ///   numeric value in network byte order.
+    ///
+    ///   If a port-restricting firewall is in place between some client and
+    ///   the service endpoint, changing the port number might cause that
+    ///   client to lose access to the service, so operators should exercise
+    ///   caution when using this SvcParamKey to specify a non-default port.
+    /// ```
+    Port(u16),
+    ///   The "ipv4hint" and "ipv6hint" keys convey IP addresses that clients
+    ///   MAY use to reach the service.  If A and AAAA records for TargetName
+    ///   are locally available, the client SHOULD ignore these hints.
+    ///   Otherwise, clients SHOULD perform A and/or AAAA queries for
+    ///   TargetName as in Section 3, and clients SHOULD use the IP address in
+    ///   those responses for future connections.  Clients MAY opt to terminate
+    ///   any connections using the addresses in hints and instead switch to
+    ///   the addresses in response to the TargetName query.  Failure to use A
+    ///   and/or AAAA response addresses could negatively impact load balancing
+    ///   or other geo-aware features and thereby degrade client performance.
+    ///
+    /// see `IpHint`
+    Ipv4Hint(IpHint<Ipv4Addr>),
+    /// ```text
+    /// 6.3.  "echconfig"
+    ///
+    ///   The SvcParamKey to enable Encrypted ClientHello (ECH) is "echconfig".
+    ///   Its value is defined in Section 9.  It is applicable to most TLS-
+    ///   based protocols.
+    ///
+    ///   When publishing a record containing an "echconfig" parameter, the
+    ///   publisher MUST ensure that all IP addresses of TargetName correspond
+    ///   to servers that have access to the corresponding private key or are
+    ///   authoritative for the public name.  (See Section 7.2.2 of [ECH] for
+    ///   more details about the public name.)  This yields an anonymity set of
+    ///   cardinality equal to the number of ECH-enabled server domains
+    ///   supported by a given client-facing server.  Thus, even with an
+    ///   encrypted ClientHello, an attacker who can enumerate the set of ECH-
+    ///   enabled domains supported by a client-facing server can guess the
+    ///   correct SNI with probability at least 1/K, where K is the size of
+    ///   this ECH-enabled server anonymity set.  This probability may be
+    ///   increased via traffic analysis or other mechanisms.
+    /// ```
+    EchConfig(EchConfig),
+    /// See `IpHint`
+    Ipv6Hint(IpHint<Ipv6Addr>),
+    /// Unparsed network data. Refer to documents on the associated key value
+    ///
+    /// This will be left as is when read off the wire, and encoded in bas64
+    ///    for presentation.
+    Unknown(Vec<u8>),
+}
 
 impl SvcParamValue {
-    /// Return the inner data as a slice of bytes
-    pub fn as_slice(&self) -> &[u8] {
-        &self.0
+    // a 2 octet field containing the length of the SvcParamValue as an
+    //      integer between 0 and 65535 in network byte order (but constrained
+    //      by the RDATA and DNS message sizes).
+    fn read(key: SvcParamKey, decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+        let len: usize = decoder
+            .read_u16()?
+            .verify_unwrap(|len| *len as usize <= decoder.len())
+            .map(|len| len as usize)
+            .map_err(|u| {
+                ProtoError::from(format!(
+                    "length of SvcParamValue ({}) exceeds remainder in RDATA ({})",
+                    u,
+                    decoder.len()
+                ))
+            })?;
+
+        let param_data = decoder.read_slice(len)?.unverified(/*verification to be done by individual param types*/);
+        let mut decoder = BinDecoder::new(param_data);
+
+        let value = match key {
+            SvcParamKey::Mandatory => Self::Mandatory(Mandatory::read(&mut decoder)?),
+            SvcParamKey::Alpn => Self::Alpn(Alpn::read(&mut decoder)?),
+            // should always be empty
+            SvcParamKey::NoDefaultAlpn => {
+                if len > 0 {
+                    return Err(ProtoError::from("Alpn expects at least one value"));
+                }
+
+                Self::NoDefaultAlpn
+            }
+            // The wire format of the SvcParamValue is the corresponding 2 octet
+            // numeric value in network byte order.
+            SvcParamKey::Port => {
+                let port = decoder.read_u16()?.unverified(/*all values are legal ports*/);
+                Self::Port(port)
+            }
+            SvcParamKey::Ipv4Hint => Self::Ipv4Hint(IpHint::<Ipv4Addr>::read(&mut decoder)?),
+            SvcParamKey::EchConfig => Self::EchConfig(EchConfig::read(&mut decoder)?),
+            SvcParamKey::Ipv6Hint => Self::Ipv6Hint(IpHint::<Ipv6Addr>::read(&mut decoder)?),
+            SvcParamKey::Key(_) | SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => {
+                let data = decoder.read_vec(len)?.unverified(/*Consumer must verify the data*/);
+                Self::Unknown(data)
+            }
+        };
+
+        Ok(value)
     }
 }
 
-impl From<Vec<u8>> for SvcParamValue {
-    fn from(val: Vec<u8>) -> Self {
-        Self(val)
+impl BinEncodable for SvcParamValue {
+    // a 2 octet field containing the length of the SvcParamValue as an
+    //      integer between 0 and 65535 in network byte order (but constrained
+    //      by the RDATA and DNS message sizes).
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        // set the place for the length...
+        let place = encoder.place::<u16>()?;
+
+        match self {
+            SvcParamValue::Mandatory(mandatory) => mandatory.emit(encoder)?,
+            SvcParamValue::Alpn(alpn) => alpn.emit(encoder)?,
+            SvcParamValue::NoDefaultAlpn => (),
+            SvcParamValue::Port(port) => encoder.emit_u16(*port)?,
+            SvcParamValue::Ipv4Hint(ip_hint) => ip_hint.emit(encoder)?,
+            SvcParamValue::EchConfig(ech_config) => ech_config.emit(encoder)?,
+            SvcParamValue::Ipv6Hint(ip_hint) => ip_hint.emit(encoder)?,
+            SvcParamValue::Unknown(data) => encoder.emit_vec(data.as_slice())?,
+        }
+
+        // go back and set the length
+        let len = u16::try_from(encoder.len_since_place(&place))
+            .map_err(|_| ProtoError::from("Total length of SvcParamValue exceeds u16::MAX"))?;
+        place.replace(encoder, len)?;
+
+        Ok(())
     }
 }
 
-impl From<SvcParamValue> for Vec<u8> {
-    fn from(val: SvcParamValue) -> Self {
-        val.0
+impl fmt::Display for SvcParamValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            SvcParamValue::Mandatory(mandatory) => write!(f, "{}", mandatory)?,
+            SvcParamValue::Alpn(alpn) => write!(f, "{}", alpn)?,
+            SvcParamValue::NoDefaultAlpn => (),
+            SvcParamValue::Port(port) => write!(f, "{}", port)?,
+            SvcParamValue::Ipv4Hint(ip_hint) => write!(f, "{}", ip_hint)?,
+            SvcParamValue::EchConfig(ech_config) => write!(f, "{}", ech_config)?,
+            SvcParamValue::Ipv6Hint(ip_hint) => write!(f, "{}", ip_hint)?,
+            SvcParamValue::Unknown(data) => write!(f, "{}", data_encoding::BASE64.encode(data))?,
+        }
+
+        Ok(())
+    }
+}
+
+/// ```text
+/// 7.  ServiceMode RR compatibility and mandatory keys
+///
+///    In a ServiceMode RR, a SvcParamKey is considered "mandatory" if the
+///    RR will not function correctly for clients that ignore this
+///    SvcParamKey.  Each SVCB protocol mapping SHOULD specify a set of keys
+///    that are "automatically mandatory", i.e. mandatory if they are
+///    present in an RR.  The SvcParamKey "mandatory" is used to indicate
+///    any mandatory keys for this RR, in addition to any automatically
+///    mandatory keys that are present.
+///
+///    A ServiceMode RR is considered "compatible" with a client if the
+///    client recognizes all the mandatory keys, and their values indicate
+///    that successful connection establishment is possible.  If the SVCB
+///    RRSet contains no compatible RRs, the client will generally act as if
+///    the RRSet is empty.
+///
+///    The presentation "value" SHALL be a comma-separated list
+///    (Appendix A.1) of one or more valid SvcParamKeys, either by their
+///    registered name or in the unknown-key format (Section 2.1).  Keys MAY
+///    appear in any order, but MUST NOT appear more than once.  For self-
+///    consistency (Section 2.4.3), listed keys MUST also appear in the
+///    SvcParams.
+///
+///    To enable simpler parsing, this SvcParamValue MUST NOT contain escape
+///    sequences.
+///
+///    For example, the following is a valid list of SvcParams:
+///
+///    echconfig=... key65333=ex1 key65444=ex2 mandatory=key65444,echconfig
+///
+///    In wire format, the keys are represented by their numeric values in
+///    network byte order, concatenated in ascending order.
+///
+///    This SvcParamKey is always automatically mandatory, and MUST NOT
+///    appear in its own value-list.  Other automatically mandatory keys
+///    SHOULD NOT appear in the list either.  (Including them wastes space
+///    and otherwise has no effect.)
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[repr(transparent)]
+pub struct Mandatory(Vec<SvcParamKey>);
+
+impl<'r> BinDecodable<'r> for Mandatory {
+    /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
+    ///   is the end of input for the fields
+    ///
+    /// ```text
+    ///    In wire format, the keys are represented by their numeric values in
+    ///    network byte order, concatenated in ascending order.
+    /// ```
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let mut keys = Vec::with_capacity(1);
+
+        while decoder.peek().is_some() {
+            keys.push(SvcParamKey::read(decoder)?);
+        }
+
+        if keys.is_empty() {
+            return Err(ProtoError::from("Mandatory expects at least one value"));
+        }
+
+        Ok(Mandatory(keys))
+    }
+}
+
+impl BinEncodable for Mandatory {
+    /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
+    ///   is the end of input for the fields
+    ///
+    /// ```text
+    ///    In wire format, the keys are represented by their numeric values in
+    ///    network byte order, concatenated in ascending order.
+    /// ```
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        if self.0.is_empty() {
+            return Err(ProtoError::from("Alpn expects at least one value"));
+        }
+
+        // TODO: order by key value
+        for key in self.0.iter() {
+            key.emit(encoder)?
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for Mandatory {
+    ///    The presentation "value" SHALL be a comma-separated list
+    ///    (Appendix A.1) of one or more valid SvcParamKeys, either by their
+    ///    registered name or in the unknown-key format (Section 2.1).  Keys MAY
+    ///    appear in any order, but MUST NOT appear more than once.  For self-
+    ///    consistency (Section 2.4.3), listed keys MUST also appear in the
+    ///    SvcParams.
+    ///
+    ///    To enable simpler parsing, this SvcParamValue MUST NOT contain escape
+    ///    sequences.
+    ///
+    ///    For example, the following is a valid list of SvcParams:
+    ///
+    ///    echconfig=... key65333=ex1 key65444=ex2 mandatory=key65444,echconfig
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        for key in self.0.iter() {
+            // TODO: confirm in the RFC that trailing commas are ok
+            write!(f, "{},", key)?;
+        }
+
+        Ok(())
+    }
+}
+
+///  [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-6.1)
+///
+/// ```text
+/// 6.1.  "alpn" and "no-default-alpn"
+///
+///   The "alpn" and "no-default-alpn" SvcParamKeys together indicate the
+///   set of Application Layer Protocol Negotiation (ALPN) protocol
+///   identifiers [ALPN] and associated transport protocols supported by
+///   this service endpoint.
+///
+///   As with Alt-Svc [AltSvc], the ALPN protocol identifier is used to
+///   identify the application protocol and associated suite of protocols
+///   supported by the endpoint (the "protocol suite").  Clients filter the
+///   set of ALPN identifiers to match the protocol suites they support,
+///   and this informs the underlying transport protocol used (such as
+///   QUIC-over-UDP or TLS-over-TCP).
+///
+///   ALPNs are identified by their registered "Identification Sequence"
+///   ("alpn-id"), which is a sequence of 1-255 octets.
+///
+///   alpn-id = 1*255OCTET
+///
+///   The presentation "value" SHALL be a comma-separated list
+///   (Appendix A.1) of one or more "alpn-id"s.
+///
+///   The wire format value for "alpn" consists of at least one "alpn-id"
+///   prefixed by its length as a single octet, and these length-value
+///   pairs are concatenated to form the SvcParamValue.  These pairs MUST
+///   exactly fill the SvcParamValue; otherwise, the SvcParamValue is
+///   malformed.
+///
+///   For "no-default-alpn", the presentation and wire format values MUST
+///   be empty.  When "no-default-alpn" is specified in an RR, "alpn" must
+///   also be specified in order for the RR to be "self-consistent"
+///   (Section 2.4.3).
+///
+///   Each scheme that uses this SvcParamKey defines a "default set" of
+///   supported ALPNs, which SHOULD NOT be empty.  To determine the set of
+///   protocol suites supported by an endpoint (the "SVCB ALPN set"), the
+///   client adds the default set to the list of "alpn-id"s unless the "no-
+///   default-alpn" SvcParamKey is present.  The presence of an ALPN
+///   protocol in the SVCB ALPN set indicates that this service endpoint,
+///   described by TargetName and the other parameters (e.g. "port") offers
+///   service with the protocol suite associated with this ALPN protocol.
+///
+///   ALPN protocol names that do not uniquely identify a protocol suite
+///   (e.g. an Identification Sequence that can be used with both TLS and
+///   DTLS) are not compatible with this SvcParamKey and MUST NOT be
+///   included in the SVCB ALPN set.
+///
+///   To establish a connection to the endpoint, clients MUST
+///
+///   1.  Let SVCB-ALPN-Intersection be the set of protocols in the SVCB
+///       ALPN set that the client supports.
+///
+///   2.  Let Intersection-Transports be the set of transports (e.g.  TLS,
+///       DTLS, QUIC) implied by the protocols in SVCB-ALPN-Intersection.
+///
+///   3.  For each transport in Intersection-Transports, construct a
+///       ProtocolNameList containing the Identification Sequences of all
+///       the client's supported ALPN protocols for that transport, without
+///       regard to the SVCB ALPN set.
+///
+///   For example, if the SVCB ALPN set is ["http/1.1", "h3"], and the
+///   client supports HTTP/1.1, HTTP/2, and HTTP/3, the client could
+///   attempt to connect using TLS over TCP with a ProtocolNameList of
+///   ["http/1.1", "h2"], and could also attempt a connection using QUIC,
+///   with a ProtocolNameList of ["h3"].
+///
+///   Once the client has constructed a ClientHello, protocol negotiation
+///   in that handshake proceeds as specified in [ALPN], without regard to
+///   the SVCB ALPN set.
+///
+///   With this procedure in place, an attacker who can modify DNS and
+///   network traffic can prevent a successful transport connection, but
+///   cannot otherwise interfere with ALPN protocol selection.  This
+///   procedure also ensures that each ProtocolNameList includes at least
+///   one protocol from the SVCB ALPN set.
+///
+///   Clients SHOULD NOT attempt connection to a service endpoint whose
+///   SVCB ALPN set does not contain any supported protocols.  To ensure
+///   consistency of behavior, clients MAY reject the entire SVCB RRSet and
+///   fall back to basic connection establishment if all of the RRs
+///   indicate "no-default-alpn", even if connection could have succeeded
+///   using a non-default alpn.
+///
+///   For compatibility with clients that require default transports, zone
+///   operators SHOULD ensure that at least one RR in each RRSet supports
+///   the default transports.
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[repr(transparent)]
+pub struct Alpn(Vec<String>);
+
+impl<'r> BinDecodable<'r> for Alpn {
+    /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
+    ///   is the end of input for the fields
+    ///
+    /// ```text
+    ///   The wire format value for "alpn" consists of at least one "alpn-id"
+    ///   prefixed by its length as a single octet, and these length-value
+    ///   pairs are concatenated to form the SvcParamValue.  These pairs MUST
+    ///   exactly fill the SvcParamValue; otherwise, the SvcParamValue is
+    ///   malformed.
+    /// ```
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let mut alpns = Vec::with_capacity(1);
+
+        while decoder.peek().is_some() {
+            let alpn = decoder.read_character_data()?.unverified(/*will rely on string parser*/);
+            let alpn = String::from_utf8(alpn.to_vec())?;
+            alpns.push(alpn);
+        }
+
+        if alpns.is_empty() {
+            return Err(ProtoError::from("Alpn expects at least one value"));
+        }
+
+        Ok(Alpn(alpns))
+    }
+}
+
+impl BinEncodable for Alpn {
+    ///   The wire format value for "alpn" consists of at least one "alpn-id"
+    ///   prefixed by its length as a single octet, and these length-value
+    ///   pairs are concatenated to form the SvcParamValue.  These pairs MUST
+    ///   exactly fill the SvcParamValue; otherwise, the SvcParamValue is
+    ///   malformed.
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        if self.0.is_empty() {
+            return Err(ProtoError::from("Alpn expects at least one value"));
+        }
+
+        for alpn in self.0.iter() {
+            encoder.emit_character_data(alpn)?
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for Alpn {
+    ///   The presentation "value" SHALL be a comma-separated list
+    ///   (Appendix A.1) of one or more "alpn-id"s.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        for alpn in self.0.iter() {
+            // TODO: confirm in the RFC that trailing commas are ok
+            write!(f, "{},", alpn)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// ```text
+/// 9.  SVCB/HTTPS RR parameter for ECH configuration
+///
+///   The SVCB "echconfig" parameter is defined for conveying the ECH
+///   configuration of an alternative endpoint.  In wire format, the value
+///   of the parameter is an ECHConfigs vector [ECH], including the
+///   redundant length prefix.  In presentation format, the value is a
+///   single ECHConfigs encoded in Base64 [base64].  Base64 is used here to
+///   simplify integration with TLS server software.  To enable simpler
+///   parsing, this SvcParam MUST NOT contain escape sequences.
+///
+///   When ECH is in use, the TLS ClientHello is divided into an
+///   unencrypted "outer" and an encrypted "inner" ClientHello.  The outer
+///   ClientHello is an implementation detail of ECH, and its contents are
+///   controlled by the ECHConfig in accordance with [ECH].  The inner
+///   ClientHello is used for establishing a connection to the service, so
+///   its contents may be influenced by other SVCB parameters.  For
+///   example, the requirements on the ProtocolNameList in Section 6.1
+///   apply only to the inner ClientHello.  Similarly, it is the inner
+///   ClientHello whose Server Name Indication identifies the desired
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[repr(transparent)]
+pub struct EchConfig(Vec<u8>);
+
+impl<'r> BinDecodable<'r> for EchConfig {
+    /// In wire format, the value
+    ///   of the parameter is an ECHConfigs vector [ECH], including the
+    ///   redundant length prefix (a 2 octet field containing the length of the SvcParamValue
+    ///   as an integer between 0 and 65535 in network byte order).
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let redundant_len = decoder
+            .read_u16()?
+            .map(|len| len as usize)
+            .verify_unwrap(|len| *len <= decoder.len())
+            .map_err(|_| ProtoError::from("ECH value length exceeds max size of u16::MAX"))?;
+
+        let data =
+            decoder.read_vec(redundant_len)?.unverified(/*up to consumer to validate this data*/);
+
+        Ok(EchConfig(data))
+    }
+}
+
+impl BinEncodable for EchConfig {
+    /// In wire format, the value
+    ///   of the parameter is an ECHConfigs vector [ECH], including the
+    ///   redundant length prefix (a 2 octet field containing the length of the SvcParamValue
+    ///   as an integer between 0 and 65535 in network byte order).
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let len = u16::try_from(self.0.len())
+            .map_err(|_| ProtoError::from("ECH value length exceeds max size of u16::MAX"))?;
+
+        // redundant length...
+        encoder.emit_u16(len)?;
+        encoder.emit_vec(&self.0)?;
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for EchConfig {
+    /// In presentation format, the value is a
+    ///   single ECHConfigs encoded in Base64 [base64].  Base64 is used here to
+    ///   simplify integration with TLS server software.  To enable simpler
+    ///   parsing, this SvcParam MUST NOT contain escape sequences.
+    ///
+    /// *note* while the on the wire the EchConfig has a redundant length,
+    ///   the RFC is not explicit about including it in the base64
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "{}", data_encoding::BASE64.encode(&self.0))
+    }
+}
+
+/// ```text
+///    6.4.  "ipv4hint" and "ipv6hint"
+///
+///   The "ipv4hint" and "ipv6hint" keys convey IP addresses that clients
+///   MAY use to reach the service.  If A and AAAA records for TargetName
+///   are locally available, the client SHOULD ignore these hints.
+///   Otherwise, clients SHOULD perform A and/or AAAA queries for
+///   TargetName as in Section 3, and clients SHOULD use the IP address in
+///   those responses for future connections.  Clients MAY opt to terminate
+///   any connections using the addresses in hints and instead switch to
+///   the addresses in response to the TargetName query.  Failure to use A
+///   and/or AAAA response addresses could negatively impact load balancing
+///   or other geo-aware features and thereby degrade client performance.
+///
+///   The presentation "value" SHALL be a comma-separated list
+///   (Appendix A.1) of one or more IP addresses of the appropriate family
+///   in standard textual format [RFC5952].  To enable simpler parsing,
+///   this SvcParamValue MUST NOT contain escape sequences.
+///
+///   The wire format for each parameter is a sequence of IP addresses in
+///   network byte order.  Like an A or AAAA RRSet, the list of addresses
+///   represents an unordered collection, and clients SHOULD pick addresses
+///   to use in a random order.  An empty list of addresses is invalid.
+///
+///   When selecting between IPv4 and IPv6 addresses to use, clients may
+///   use an approach such as Happy Eyeballs [HappyEyeballsV2].  When only
+///   "ipv4hint" is present, IPv6-only clients may synthesize IPv6
+///   addresses as specified in [RFC7050] or ignore the "ipv4hint" key and
+///   wait for AAAA resolution (Section 3).  Recursive resolvers MUST NOT
+///   perform DNS64 ([RFC6147]) on parameters within a SVCB record.  For
+///   best performance, server operators SHOULD include an "ipv6hint"
+///   parameter whenever they include an "ipv4hint" parameter.
+///
+///   These parameters are intended to minimize additional connection
+///   latency when a recursive resolver is not compliant with the
+///   requirements in Section 4, and SHOULD NOT be included if most clients
+///   are using compliant recursive resolvers.  When TargetName is the
+///   origin hostname or the owner name (which can be written as "."),
+///   server operators SHOULD NOT include these hints, because they are
+///   unlikely to convey any performance benefit.
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[repr(transparent)]
+pub struct IpHint<T>(Vec<T>);
+
+impl<'r, T> BinDecodable<'r> for IpHint<T>
+where
+    T: BinDecodable<'r>,
+{
+    ///   The wire format for each parameter is a sequence of IP addresses in
+    ///   network byte order.  Like an A or AAAA RRSet, the list of addresses
+    ///   represents an unordered collection, and clients SHOULD pick addresses
+    ///   to use in a random order.  An empty list of addresses is invalid.
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let mut ips = Vec::new();
+
+        while decoder.peek().is_some() {
+            ips.push(T::read(decoder)?)
+        }
+
+        Ok(IpHint(ips))
+    }
+}
+
+impl<T> BinEncodable for IpHint<T>
+where
+    T: BinEncodable,
+{
+    ///   The wire format for each parameter is a sequence of IP addresses in
+    ///   network byte order.  Like an A or AAAA RRSet, the list of addresses
+    ///   represents an unordered collection, and clients SHOULD pick addresses
+    ///   to use in a random order.  An empty list of addresses is invalid.
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        for ip in self.0.iter() {
+            ip.emit(encoder)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl<T> fmt::Display for IpHint<T>
+where
+    T: fmt::Display,
+{
+    ///   The presentation "value" SHALL be a comma-separated list
+    ///   (Appendix A.1) of one or more IP addresses of the appropriate family
+    ///   in standard textual format [RFC5952].  To enable simpler parsing,
+    ///   this SvcParamValue MUST NOT contain escape sequences.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        for ip in self.0.iter() {
+            write!(f, "{},", ip)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -271,24 +888,12 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
     while remainder_len >= 4 {
         // a 2 octet field containing the SvcParamKey as an integer in
         //      network byte order.  (See Section 14.3.2 for the defined values.)
-        let key: SvcParamKey = decoder.read_u16()?.unverified(/*any u16 is valid*/).into();
+        let key = SvcParamKey::read(decoder)?;
 
         // a 2 octet field containing the length of the SvcParamValue as an
         //      integer between 0 and 65535 in network byte order (but constrained
         //      by the RDATA and DNS message sizes).
-        let len: u16 = decoder
-            .read_u16()?
-            .verify_unwrap(|len| *len as usize <= remainder_len)
-            .map_err(|u| {
-                ProtoError::from(format!(
-                    "length of SvcParamValue ({}) exceeds remainder in RDATA ({})",
-                    u, remainder_len
-                ))
-            })?;
-
-        // an octet string of this length whose contents are in a format
-        //      determined by the SvcParamKey.
-        let value = decoder.read_vec(len as usize)?.unverified(/*char data for users*/);
+        let value = SvcParamValue::read(key, decoder)?;
 
         if let Some(last_key) = svc_params.last().map(|(key, _)| key) {
             if last_key >= &key {
@@ -296,7 +901,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
             }
         }
 
-        svc_params.push((key, value.into()));
+        svc_params.push((key, value));
         remainder_len = rdata_length.map(|len| len as usize - (decoder.index() - start_index)).unverified(/*valid len*/);
     }
 
@@ -320,13 +925,8 @@ pub fn emit(encoder: &mut BinEncoder<'_>, svcb: &SVCB) -> ProtoResult<()> {
             }
         }
 
-        if param.as_slice().len() > u16::MAX as usize {
-            return Err(ProtoError::from("SvcParams exceeds u16 max size"));
-        }
-
-        encoder.emit_u16((*key).into())?;
-        encoder.emit_u16(param.as_slice().len() as u16)?;
-        encoder.emit_vec(param.as_slice())?;
+        key.emit(encoder)?;
+        param.emit(encoder)?;
 
         last_key = Some(*key);
     }
@@ -353,7 +953,6 @@ impl fmt::Display for SVCB {
         )?;
 
         for (key, param) in self.svc_params.iter() {
-            let param = String::from_utf8_lossy(param.as_slice());
             write!(f, " {key}=\"{param}\"", key = key, param = param)?
         }
 
@@ -421,14 +1020,23 @@ mod tests {
         test_encode_decode(SVCB::new(
             0,
             Name::from_utf8(".").unwrap(),
-            vec![(SvcParamKey::Alpn, "h2".as_bytes().to_vec().into())],
+            vec![(
+                SvcParamKey::Alpn,
+                SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+            )],
         ));
         test_encode_decode(SVCB::new(
             0,
             Name::from_utf8("example.com.").unwrap(),
             vec![
-                (SvcParamKey::Mandatory, "alpn".as_bytes().to_vec().into()),
-                (SvcParamKey::Alpn, "h2".as_bytes().to_vec().into()),
+                (
+                    SvcParamKey::Mandatory,
+                    SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::Alpn])),
+                ),
+                (
+                    SvcParamKey::Alpn,
+                    SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                ),
             ],
         ));
     }
@@ -440,8 +1048,14 @@ mod tests {
             0,
             Name::from_utf8(".").unwrap(),
             vec![
-                (SvcParamKey::Alpn, "h2".as_bytes().to_vec().into()),
-                (SvcParamKey::Mandatory, "alpn".as_bytes().to_vec().into()),
+                (
+                    SvcParamKey::Alpn,
+                    SvcParamValue::Alpn(Alpn(vec!["h2".to_string()])),
+                ),
+                (
+                    SvcParamKey::Mandatory,
+                    SvcParamValue::Mandatory(Mandatory(vec![SvcParamKey::Alpn])),
+                ),
             ],
         ));
     }
