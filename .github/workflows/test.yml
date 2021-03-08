@@ -156,6 +156,7 @@ jobs:
 
     # Clippy
     - name: cargo make clippy
+      if: github.base_ref == 'refs/heads/main'
       run: cargo make clippy
     # Rustfmt
     - name: cargo make fmt
