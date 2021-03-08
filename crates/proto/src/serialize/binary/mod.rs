@@ -20,6 +20,8 @@ mod decoder;
 mod encoder;
 mod restrict;
 
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 pub use self::decoder::{BinDecoder, DecodeError};
 pub use self::encoder::BinEncoder;
 pub use self::encoder::EncodeMode;
@@ -107,5 +109,29 @@ impl<'r> BinDecodable<'r> for u32 {
 impl BinEncodable for Vec<u8> {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         encoder.emit_vec(self)
+    }
+}
+
+impl BinEncodable for Ipv4Addr {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        crate::rr::rdata::a::emit(encoder, *self)
+    }
+}
+
+impl<'r> BinDecodable<'r> for Ipv4Addr {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+        crate::rr::rdata::a::read(decoder)
+    }
+}
+
+impl BinEncodable for Ipv6Addr {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        crate::rr::rdata::aaaa::emit(encoder, self)
+    }
+}
+
+impl<'r> BinDecodable<'r> for Ipv6Addr {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+        crate::rr::rdata::aaaa::read(decoder)
     }
 }
