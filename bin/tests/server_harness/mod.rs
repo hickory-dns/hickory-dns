@@ -156,7 +156,10 @@ where
 
     stdout().flush().unwrap();
     assert!(found);
-    println!("server started");
+    println!(
+        "Test server started. ports: udp {:?}, tcp {:?}, tls {:?}, https {:?}",
+        test_udp_port, test_tcp_port, test_tls_port, test_https_port
+    );
 
     // spawn a thread to capture stdout
     let succeeded_clone = succeeded.clone();
