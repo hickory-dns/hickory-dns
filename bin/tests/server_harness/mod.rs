@@ -109,10 +109,10 @@ where
     let wait_for_start_until = Instant::now() + Duration::from_secs(60);
 
     // Search strings for the ports used during testing
-    let udp_regex = Regex::new(r"listening for UDP on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
-    let tcp_regex = Regex::new(r"listening for TCP on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
-    let tls_regex = Regex::new(r"listening for TLS on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
-    let https_regex = Regex::new(r"listening for HTTPS on V4\(0\.0\.0\.0:(:?\d+)\)").unwrap();
+    let udp_regex = Regex::new(r"listening for UDP on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
+    let tcp_regex = Regex::new(r"listening for TCP on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
+    let tls_regex = Regex::new(r"listening for TLS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
+    let https_regex = Regex::new(r"listening for HTTPS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
 
     while Instant::now() < wait_for_start_until {
         {
