@@ -8,8 +8,7 @@
 use super::Algorithm;
 use crate::error::*;
 
-#[derive(Debug, Clone)]
-#[allow(missing_copy_implementations)]
+#[derive(Copy, Clone)]
 pub struct ECPublicKey {
     buf: [u8; MAX_LEN],
     len: usize,
