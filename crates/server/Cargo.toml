@@ -71,7 +71,7 @@ name = "trust_dns_server"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.42"
+async-trait = "0.1.47"
 bytes = "1"
 cfg-if = "1"
 chrono = "0.4"
