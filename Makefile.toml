@@ -36,7 +36,7 @@ CARGO_MAKE_CRATES_IO_TOKEN = { value = "--token=${CRATES_IO_TOKEN}", condition =
 [tasks.install-openssl]
 description = "Installs OpenSSL on Windows"
 workspace = false
-env = { OPENSSL_VERSION = "1_1_1g", OPENSSL_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\\OpenSSL" }
+env = { OPENSSL_VERSION = "1_1_1j", OPENSSL_DIR = "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\\OpenSSL" }
 condition = { platforms = ["windows"], files_not_exist = ["${OPENSSL_DIR}"] }
 script_runner = "powershell"
 script_extension = "ps1"
@@ -267,7 +267,7 @@ description = "Run cargo audit on all crates"
 workspace = false
 dependencies = ["check", "install-audit"]
 command = "cargo"
-args = ["audit", "--deny-warnings", "--ignore=RUSTSEC-2019-0031"]
+args = ["audit", "--deny-warnings", "--ignore=RUSTSEC-2019-0031", "--ignore=RUSTSEC-2020-0016"]
 
 [tasks.bind-compatibility]
 description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND_PATH to another BIND9 installation"
