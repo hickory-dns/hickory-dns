@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.19.7
+
+### Changed
+
+- make `backtrace` an optional dependency, backported from 0.20 (@jmagnuson) #1387
+
 ## 0.19.6
 
 ### Fixed
