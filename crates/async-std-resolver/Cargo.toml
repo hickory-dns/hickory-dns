@@ -1,6 +1,6 @@
 [package]
 name = "async-std-resolver"
-version = "0.19.6"
+version = "0.19.7"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -68,8 +68,8 @@ path = "src/lib.rs"
 async-std = "1.0"
 async-trait = "0.1.27"
 futures = { version = "0.3.4", default-features = false, features = ["std"] }
-trust-dns-resolver = { version = "0.19.6", path = "../resolver", default-features = false }
+trust-dns-resolver = { version = "0.19.7", path = "../resolver", default-features = false }
 
 [dev-dependencies]
 async-std = { version = "1.0", features = ["attributes"] }
-trust-dns-resolver = { version = "0.19.6", path = "../resolver", default-features = false, features = ["testing"] }
+trust-dns-resolver = { version = "0.19.7", path = "../resolver", default-features = false, features = ["testing"] }
