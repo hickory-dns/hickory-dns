@@ -63,6 +63,12 @@ bound for implementing the `Connect` trait.
 - (proto) Add Name.parse_ptr_name, to IP address (@Mygod) #1107
 - (resolver) Allow HTTPS to be generic over Runtime (@balboah) #1077 #1074
 
+## 0.19.7
+
+### Changed
+
+- make `backtrace` an optional dependency, backported from 0.20 (@jmagnuson) #1387
+
 ## 0.19.6
 
 ### Fixed
