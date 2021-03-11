@@ -44,12 +44,11 @@ impl<'a> BinDecoder<'a> {
 
     /// Pop one byte from the buffer
     pub fn pop(&mut self) -> ProtoResult<Restrict<u8>> {
-        if self.remaining.is_empty() {
-            return Err("unexpected end of input reached".into());
+        if let Some((first, remaining)) = self.remaining.split_first() {
+            self.remaining = remaining;
+            return Ok(Restrict::new(*first));
         }
-        let (first, remaining) = self.remaining.split_at(1);
-        self.remaining = remaining;
-        Ok(Restrict::new(first[0]))
+        Err("unexpected end of input reached".into())
     }
 
     /// Returns the number of bytes in the buffer
