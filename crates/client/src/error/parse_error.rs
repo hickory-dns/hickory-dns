@@ -196,6 +196,12 @@ impl From<ProtoError> for Error {
     }
 }
 
+impl From<std::convert::Infallible> for Error {
+    fn from(_e: std::convert::Infallible) -> Error {
+        panic!("infallible")
+    }
+}
+
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match *e.kind() {

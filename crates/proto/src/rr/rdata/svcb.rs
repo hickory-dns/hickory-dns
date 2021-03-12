@@ -15,6 +15,8 @@ use std::{
     net::Ipv6Addr,
 };
 
+use enum_as_inner::EnumAsInner;
+
 use crate::error::*;
 use crate::rr::Name;
 use crate::serialize::binary::*;
@@ -81,6 +83,68 @@ impl SVCB {
             target_name,
             svc_params,
         }
+    }
+
+    ///  [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.4.1)
+    /// ```text
+    /// 2.4.1.  SvcPriority
+    ///
+    ///   When SvcPriority is 0 the SVCB record is in AliasMode
+    ///   (Section 2.4.2).  Otherwise, it is in ServiceMode (Section 2.4.3).
+    ///
+    ///   Within a SVCB RRSet, all RRs SHOULD have the same Mode.  If an RRSet
+    ///   contains a record in AliasMode, the recipient MUST ignore any
+    ///   ServiceMode records in the set.
+    ///
+    ///   RRSets are explicitly unordered collections, so the SvcPriority field
+    ///   is used to impose an ordering on SVCB RRs.  SVCB RRs with a smaller
+    ///   SvcPriority value SHOULD be given preference over RRs with a larger
+    ///   SvcPriority value.
+    ///
+    ///   When receiving an RRSet containing multiple SVCB records with the
+    ///   same SvcPriority value, clients SHOULD apply a random shuffle within
+    ///   a priority level to the records before using them, to ensure uniform
+    ///   load-balancing.
+    /// ```
+    pub fn svc_priority(&self) -> u16 {
+        self.svc_priority
+    }
+
+    ///  [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.5)
+    /// ```text
+    /// 2.5.  Special handling of "." in TargetName
+    ///
+    ///   If TargetName has the value "." (represented in the wire format as a
+    ///    zero-length label), special rules apply.
+    ///
+    /// 2.5.1.  AliasMode
+    ///
+    ///    For AliasMode SVCB RRs, a TargetName of "." indicates that the
+    ///    service is not available or does not exist.  This indication is
+    ///    advisory: clients encountering this indication MAY ignore it and
+    ///    attempt to connect without the use of SVCB.
+    ///
+    /// 2.5.2.  ServiceMode
+    ///
+    ///    For ServiceMode SVCB RRs, if TargetName has the value ".", then the
+    ///    owner name of this record MUST be used as the effective TargetName.
+    ///
+    ///    For example, in the following example "svc2.example.net" is the
+    ///    effective TargetName:
+    ///
+    ///    example.com.      7200  IN HTTPS 0 svc.example.net.
+    ///    svc.example.net.  7200  IN CNAME svc2.example.net.
+    ///    svc2.example.net. 7200  IN HTTPS 1 . port=8002 echconfig="..."
+    ///    svc2.example.net. 300   IN A     192.0.2.2
+    ///    svc2.example.net. 300   IN AAAA  2001:db8::2
+    /// ```
+    pub fn target_name(&self) -> &Name {
+        &self.target_name
+    }
+
+    /// See [`SvcParamKey`] for details on each parameter
+    pub fn svc_params(&self) -> &[(SvcParamKey, SvcParamValue)] {
+        &self.svc_params
     }
 }
 
@@ -220,6 +284,40 @@ impl fmt::Display for SvcParamKey {
     }
 }
 
+impl std::str::FromStr for SvcParamKey {
+    type Err = ProtoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        /// keys are in the format of key#, e.g. key12344, with a max value of u16
+        fn parse_unknown_key(key: &str) -> Result<SvcParamKey, ProtoError> {
+            let key_value = key.strip_prefix("key").ok_or_else(|| {
+                ProtoError::from(ProtoErrorKind::Msg(format!(
+                    "bad formatted key ({}), expected key1234",
+                    key
+                )))
+            })?;
+
+            let key_value = u16::from_str(key_value)?;
+            let key = SvcParamKey::from(key_value);
+            Ok(key)
+        }
+
+        let key = match s {
+            "mandatory" => SvcParamKey::Mandatory,
+            "alpn" => SvcParamKey::Alpn,
+            "no-default-alpn" => SvcParamKey::NoDefaultAlpn,
+            "port" => SvcParamKey::Port,
+            "ipv4hint" => SvcParamKey::Ipv4Hint,
+            "echconfig" => SvcParamKey::EchConfig,
+            "ipv6hint" => SvcParamKey::Ipv6Hint,
+            "key65535" => SvcParamKey::Key65535,
+            _ => parse_unknown_key(s)?,
+        };
+
+        Ok(key)
+    }
+}
+
 impl Ord for SvcParamKey {
     fn cmp(&self, other: &Self) -> Ordering {
         u16::from(*self).cmp(&u16::from(*other))
@@ -241,7 +339,7 @@ impl PartialOrd for SvcParamKey {
 ///   *  an octet string of this length whose contents are in a format
 ///      determined by the SvcParamKey.
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, EnumAsInner)]
 pub enum SvcParamValue {
     ///    In a ServiceMode RR, a SvcParamKey is considered "mandatory" if the
     ///    RR will not function correctly for clients that ignore this
@@ -323,7 +421,7 @@ pub enum SvcParamValue {
     ///
     /// This will be left as is when read off the wire, and encoded in bas64
     ///    for presentation.
-    Unknown(Vec<u8>),
+    Unknown(Unknown),
 }
 
 impl SvcParamValue {
@@ -367,8 +465,7 @@ impl SvcParamValue {
             SvcParamKey::EchConfig => Self::EchConfig(EchConfig::read(&mut decoder)?),
             SvcParamKey::Ipv6Hint => Self::Ipv6Hint(IpHint::<Ipv6Addr>::read(&mut decoder)?),
             SvcParamKey::Key(_) | SvcParamKey::Key65535 | SvcParamKey::Unknown(_) => {
-                let data = decoder.read_vec(len)?.unverified(/*Consumer must verify the data*/);
-                Self::Unknown(data)
+                Self::Unknown(Unknown::read(&mut decoder)?)
             }
         };
 
@@ -392,7 +489,7 @@ impl BinEncodable for SvcParamValue {
             SvcParamValue::Ipv4Hint(ip_hint) => ip_hint.emit(encoder)?,
             SvcParamValue::EchConfig(ech_config) => ech_config.emit(encoder)?,
             SvcParamValue::Ipv6Hint(ip_hint) => ip_hint.emit(encoder)?,
-            SvcParamValue::Unknown(data) => encoder.emit_vec(data.as_slice())?,
+            SvcParamValue::Unknown(unknown) => unknown.emit(encoder)?,
         }
 
         // go back and set the length
@@ -414,7 +511,7 @@ impl fmt::Display for SvcParamValue {
             SvcParamValue::Ipv4Hint(ip_hint) => write!(f, "{}", ip_hint)?,
             SvcParamValue::EchConfig(ech_config) => write!(f, "{}", ech_config)?,
             SvcParamValue::Ipv6Hint(ip_hint) => write!(f, "{}", ip_hint)?,
-            SvcParamValue::Unknown(data) => write!(f, "{}", data_encoding::BASE64.encode(data))?,
+            SvcParamValue::Unknown(unknown) => write!(f, "{}", unknown)?,
         }
 
         Ok(())
@@ -462,7 +559,7 @@ impl fmt::Display for SvcParamValue {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct Mandatory(Vec<SvcParamKey>);
+pub struct Mandatory(pub Vec<SvcParamKey>);
 
 impl<'r> BinDecodable<'r> for Mandatory {
     /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
@@ -625,7 +722,7 @@ impl fmt::Display for Mandatory {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct Alpn(Vec<String>);
+pub struct Alpn(pub Vec<String>);
 
 impl<'r> BinDecodable<'r> for Alpn {
     /// This expects the decoder to be limited to only this field, i.e. the end of input for the decoder
@@ -710,7 +807,7 @@ impl fmt::Display for Alpn {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct EchConfig(Vec<u8>);
+pub struct EchConfig(pub Vec<u8>);
 
 impl<'r> BinDecodable<'r> for EchConfig {
     /// In wire format, the value
@@ -757,7 +854,7 @@ impl fmt::Display for EchConfig {
     /// *note* while the on the wire the EchConfig has a redundant length,
     ///   the RFC is not explicit about including it in the base64
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "{}", data_encoding::BASE64.encode(&self.0))
+        write!(f, "\"{}\"", data_encoding::BASE64.encode(&self.0))
     }
 }
 
@@ -804,7 +901,7 @@ impl fmt::Display for EchConfig {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct IpHint<T>(Vec<T>);
+pub struct IpHint<T>(pub Vec<T>);
 
 impl<'r, T> BinDecodable<'r> for IpHint<T>
 where
@@ -853,6 +950,60 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for ip in self.0.iter() {
             write!(f, "{},", ip)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.1)
+/// ```text
+/// Unrecognized keys are represented in presentation format as
+///   "keyNNNNN" where NNNNN is the numeric value of the key type without
+///   leading zeros.  A SvcParam in this form SHALL be parsed as specified
+///   above, and the decoded "value" SHALL be used as its wire format
+///   encoding.
+///
+///   For some SvcParamKeys, the "value" corresponds to a list or set of
+///   items.  Presentation formats for such keys SHOULD use a comma-
+///   separated list (Appendix A.1).
+///
+///   SvcParams in presentation format MAY appear in any order, but keys
+///   MUST NOT be repeated.
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[repr(transparent)]
+pub struct Unknown(pub Vec<Vec<u8>>);
+
+impl<'r> BinDecodable<'r> for Unknown {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let mut unknowns = Vec::new();
+
+        while decoder.peek().is_some() {
+            let data = decoder.read_character_data()?;
+            let data = data.unverified(/*any data is valid here*/).to_vec();
+            unknowns.push(data)
+        }
+
+        Ok(Unknown(unknowns))
+    }
+}
+
+impl BinEncodable for Unknown {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        for unknown in self.0.iter() {
+            encoder.emit_character_data(unknown)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Display for Unknown {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        for unknown in self.0.iter() {
+            // TODO: this needs to be properly encoded
+            write!(f, "\"{}\",", String::from_utf8_lossy(unknown))?;
         }
 
         Ok(())
@@ -953,7 +1104,7 @@ impl fmt::Display for SVCB {
         )?;
 
         for (key, param) in self.svc_params.iter() {
-            write!(f, " {key}=\"{param}\"", key = key, param = param)?
+            write!(f, " {key}={param}", key = key, param = param)?
         }
 
         Ok(())
