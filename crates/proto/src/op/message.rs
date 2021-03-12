@@ -690,6 +690,8 @@ impl Message {
 /// Consumes `Message` giving public access to fields in `Message` so they can be
 /// destructured and taken by value
 /// ```rust
+/// use trust_dns_proto::op::{Message, MessageParts};
+///
 ///  let msg = Message::new();
 ///  let MessageParts { queries, .. } = msg.into_parts();
 /// ```
