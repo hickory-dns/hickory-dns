@@ -226,7 +226,7 @@ pub enum ProtoErrorKind {
 /// The error type for errors that get returned in the crate
 #[derive(Error, Clone, Debug)]
 pub struct ProtoError {
-    kind: ProtoErrorKind,
+    kind: Box<ProtoErrorKind>,
     #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
@@ -239,7 +239,7 @@ impl ProtoError {
 
     /// If this is a ProtoErrorKind::Busy
     pub fn is_busy(&self) -> bool {
-        matches!(self.kind, ProtoErrorKind::Busy)
+        matches!(*self.kind, ProtoErrorKind::Busy)
     }
 }
 
@@ -263,7 +263,7 @@ impl fmt::Display for ProtoError {
 impl From<ProtoErrorKind> for ProtoError {
     fn from(kind: ProtoErrorKind) -> ProtoError {
         ProtoError {
-            kind,
+            kind: Box::new(kind),
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
