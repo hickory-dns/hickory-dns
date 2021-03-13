@@ -30,7 +30,7 @@ use crate::store::in_memory::InMemoryAuthority;
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
-#[derive(Clone)]
+#[cfg_attr(not(any(feature = "openssl", feature = "ring")), derive(Clone))]
 pub struct FileAuthority(InMemoryAuthority);
 
 /// Max traversal depth for $INCLUDE files
