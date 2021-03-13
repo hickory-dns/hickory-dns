@@ -34,6 +34,7 @@ use crate::authority::{
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
+#[derive(Clone)]
 pub struct InMemoryAuthority {
     origin: LowerName,
     class: DNSClass,
