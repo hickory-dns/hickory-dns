@@ -34,7 +34,7 @@ use crate::authority::{
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
-#[cfg_attr(not(any(feature = "openssl", feature = "ring")), derive(Clone))]
+#[cfg_attr(not(any(feature = "openssl", feature = "dnssec-ring")), derive(Clone))]
 pub struct InMemoryAuthority {
     origin: LowerName,
     class: DNSClass,
