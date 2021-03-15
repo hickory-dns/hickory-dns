@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-compatibility"
-version = "0.20.0"
+version = "0.20.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -52,4 +52,4 @@ env_logger = "0.8"
 futures = "0.3.5"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 rand = "0.8"
-trust-dns-client= { version = "0.20.0", path="../../crates/client", features = ["dnssec-openssl"] }
+trust-dns-client= { version = "0.20.1", path="../../crates/client", features = ["dnssec-openssl"] }
