@@ -107,7 +107,7 @@ impl ResolverConfig {
         }
     }
 
-    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
+    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
     /// Please see: https://www.quad9.net/faq/
     ///
@@ -121,7 +121,7 @@ impl ResolverConfig {
         }
     }
 
-    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
+    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
     /// Please see: https://www.quad9.net/faq/
     ///
@@ -133,6 +133,21 @@ impl ResolverConfig {
             domain: None,
             search: vec![],
             name_servers: NameServerConfigGroup::quad9_tls(),
+        }
+    }
+
+    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
+    ///
+    /// Please see: https://www.quad9.net/faq/
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
+    #[cfg(feature = "dns-over-https")]
+    pub fn quad9_https() -> Self {
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::quad9_https(),
         }
     }
 
@@ -545,19 +560,27 @@ impl NameServerConfigGroup {
         Self::from_ips_https(CLOUDFLARE_IPS, 443, "cloudflare-dns.com".to_string(), true)
     }
 
-    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
+    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
     /// Please see: https://www.quad9.net/faq/
     pub fn quad9() -> Self {
         Self::from_ips_clear(QUAD9_IPS, 53, true)
     }
 
-    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
+    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
     /// Please see: https://www.quad9.net/faq/
     #[cfg(feature = "dns-over-tls")]
     pub fn quad9_tls() -> Self {
         Self::from_ips_tls(QUAD9_IPS, 853, "dns.quad9.net".to_string(), true)
+    }
+
+    /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
+    ///
+    /// Please see: https://www.quad9.net/faq/
+    #[cfg(feature = "dns-over-https")]
+    pub fn quad9_https() -> Self {
+        Self::from_ips_https(QUAD9_IPS, 443, "dns.quad9.net".to_string(), true)
     }
 
     /// Merges this set of [`NameServerConfig`]s with the other
@@ -758,5 +781,7 @@ pub const CLOUDFLARE_IPS: &[IpAddr] = &[
 /// IP address for the Quad9 DNS service
 pub const QUAD9_IPS: &[IpAddr] = &[
     IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+    IpAddr::V4(Ipv4Addr::new(149, 112, 112, 112)),
     IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+    IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0x00fe, 0x0009)),
 ];
