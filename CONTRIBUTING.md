@@ -15,7 +15,7 @@ Please read the [Architecture](ARCHITECTURE.md) to understand the general design
 
 Before submitting a PR it would be good to discuss the change in an issue so as to avoid wasted work, also feel free to reach out on the Discord channel listed on the front page of the GitHub project. Please, consider keep PRs focused on one issue at a time. While issues are not required for a PR to be accepted they are encouraged, especially for anything that would change behavior, change an API, or be a medium to large change.
 
-If changes will span multiple crates, consider breaking up the PR into multiple commits such that a reviewer can follow the change. This is no necessary, but can make it easier for a reviewer to follow the changes.
+When making submitting PRs please keep refactoring commits separate from functional change commits. Breaking up the PR into multiple commits such that a reviewer can follow the change improves the review experience. This is not necessary, but can make it easier for a reviewer to follow the changes and will result in PRs getting merged more quickly.
 
 ### Test policy
 
@@ -25,7 +25,7 @@ All PRs *must* be passing all tests. Ideally any PR submitted should have more t
 
 Trust-DNS tries to follow semver versioning semantics. Major versions will not break APIs in a current major revision. If changes are being made to the current `main` branch, double check the current status of the Major release. Until `1.x.x`, all `0.x.x` minor releases are treated as major releases with breaking changes allowed. Releases are performed on an ad-hoc/on-demand basis.
 
-*Maintainers*: If changes are needed to previous releases, then there should exist a `releease/x.x`. If this does not exist, then go to the previous most recent tag (release) and create a new branch at that tag `release/x.x`, for example the branch `release/0.19`:
+*Maintainers*: If changes are needed to previous releases, then there should exist a `release/x.x`. If this does not exist, then go to the previous most recent tag (release) and create a new branch at that tag `release/x.x`, for example the branch `release/0.19`:
 
 ```shell
 > git fetch origin
@@ -42,14 +42,15 @@ Releases are somewhat automated. The github action, `publish`, watches for any t
 
 1. Create a new branch like `git checkout -b prepare-0.20.1`
 2. Update all Cargo.toml files to the new version, `version = 0.20.1`
-3. Update all inter-dependent crates, i.e. trust-dns-resolver to use `trust-dns-proto = 0.20.1`
-4. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
-5. Push to Github, create a PR and merge in `main` or the target release branch.
-6. Go to [Releases](https://github.com/bluejekyll/trust-dns/releases) and `Draft a new release`
-7. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
-8. Give it a  `Release Title` of something key to the release
-9. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`
-10. `Publish Release`, this will kick off the publish workflow
+3. Update dependencies, `cargo update`
+4. Update all inter-dependent crates, i.e. trust-dns-resolver to use `trust-dns-proto = 0.20.1`
+5. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
+6. Push to Github, create a PR and merge in `main` or the target release branch.
+7. Go to [Releases](https://github.com/bluejekyll/trust-dns/releases) and `Draft a new release`
+8. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
+9. Give it a  `Release Title` of something key to the release
+10. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`
+11. `Publish Release`, this will kick off the publish workflow
 
 After approximately 45 minutes it should be published. This may fail.
 
@@ -68,7 +69,7 @@ There have not been that many people familiar with DNS internals, networking, se
 
 - Will new maintainers be considered?
 
-Yes! There is no formal process, and while generally it's a goal to open up to anyone, we'd ask that you are committed to the goals of an open DNS implementation that anyone can freely use as they see fit. Please reach out on Discord if you'd like to become a maintainer and discuss with us.
+Yes! There is no formal process, and while generally it's a goal to open up to anyone who's been committing regularly to the project. We'd ask that you are committed to the goals of an open DNS implementation that anyone can freely use as they see fit. Please reach out on Discord if you'd like to become a maintainer and discuss with us.
 
 ## Thank you!
 
