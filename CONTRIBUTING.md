@@ -41,16 +41,16 @@ Previous release can fail due to time-lapse, please see **Updating Security Rela
 Releases are somewhat automated. The github action, `publish`, watches for any tags on the project. It then attempts to perform a release of all the libraries, this does not always work, for various reasons.
 
 1. Create a new branch like `git checkout -b prepare-0.20.1`
-2. Update all Cargo.toml files to the new version, `version = 0.20.1`
-3. Update dependencies, `cargo update`
-4. Update all inter-dependent crates, i.e. trust-dns-resolver to use `trust-dns-proto = 0.20.1`
-5. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
-6. Push to Github, create a PR and merge in `main` or the target release branch.
-7. Go to [Releases](https://github.com/bluejekyll/trust-dns/releases) and `Draft a new release`
-8. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
-9. Give it a  `Release Title` of something key to the release
-10. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`
-11. `Publish Release`, this will kick off the publish workflow
+1. Update all Cargo.toml files to the new version, `version = 0.20.1`
+1. Update dependencies, `cargo update`
+1. Update all inter-dependent crates, i.e. trust-dns-resolver to use `trust-dns-proto = 0.20.1`
+1. Update [CHANGELOG.md](CHANGELOG.md) to include all PR's (of consequence) since the previous release
+1. Push to Github, create a PR and merge in `main` or the target release branch.
+1. Go to [Releases](https://github.com/bluejekyll/trust-dns/releases) and `Draft a new release`
+1. Give it a `Tag Version` of `vX.x.x`, e.g. `v0.20.1`, *make sure this is tagging the correct branch, e.g. `main` or `release/0.19`*
+1. Give it a  `Release Title` of something key to the release
+1. Copy and pase the part of the CHANGELOG.md for this release into `Describe this release`
+1. `Publish Release`, this will kick off the publish workflow
 
 After approximately 45 minutes it should be published. This may fail.
 
