@@ -7,10 +7,10 @@
 
 #![allow(deprecated)]
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// The type of zone stored in a Catalog
-#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
     /// This authority for a zone
     Primary,
