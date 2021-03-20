@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-rustls"
-version = "0.20.0"
+version = "0.20.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -55,7 +55,7 @@ rustls = "0.19"
 tokio = { version = "1.0", features = ["io-util", "net"] }
 tokio-rustls = { version = "0.22", features = ["early-data"] }
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.20.0", path = "../proto", features = ["tokio-runtime"], default-features = false }
+trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["tokio-runtime"], default-features = false }
 webpki = "0.21"
 
 [dev-dependencies]

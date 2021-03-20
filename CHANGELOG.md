@@ -5,6 +5,28 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.20.1
+
+### Added
+
+- (proto) HINFO record type support (@vlad20012) #1361
+- (proto) proto: add into_parts methods (@leshow) #1397
+- (proto) new HTTPS and SVCB record types #1402
+- (resolver) predefined Quad9 HTTPS resolver configuration (@zonyitoo) #1413
+### Fixed
+
+- (proto) Don't kill a DnsExchangeBackground if a receiver is gone (see #1276) (@djc) #1356
+- (proto) Take the current header truncated bit into account (@ilaidlaw) #1384
+### Changed
+
+- (async-std-resolver) Re-export AsyncStdConnection(Provider) (@romanb) #1354
+- (proto) Mutate edns & remove edns options (@leshow) #1363
+- (proto) Change Edns set_* to -> &mut Self (@leshow) #1369
+- (resolver) Enable RuntimeProvider in DoT implementations (@chengyuhui) #1373
+- (proto) Optimize name parsing (@saethlin) #1388
+- (proto) Remove a lot of bounds checks in BinDecoder by tracking position with a second slice (@saethlin) #1399
+- (proto) Make errors/error reporting more lightweight (@saethlin) #1409
+
 ## 0.20.0
 
 ### Changed
