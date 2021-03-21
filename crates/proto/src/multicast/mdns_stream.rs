@@ -205,18 +205,18 @@ impl MdnsStream {
         let socket = match ip_addr {
             IpAddr::V4(ref mdns_v4) => {
                 let socket = Socket::new(
-                    socket2::Domain::ipv4(),
-                    socket2::Type::dgram(),
-                    Some(socket2::Protocol::udp()),
+                    socket2::Domain::IPV4,
+                    socket2::Type::DGRAM,
+                    Some(socket2::Protocol::UDP),
                 )?;
                 socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
                 socket
             }
             IpAddr::V6(ref mdns_v6) => {
                 let socket = Socket::new(
-                    socket2::Domain::ipv6(),
-                    socket2::Type::dgram(),
-                    Some(socket2::Protocol::udp()),
+                    socket2::Domain::IPV6,
+                    socket2::Type::DGRAM,
+                    Some(socket2::Protocol::UDP),
                 )?;
 
                 socket.set_only_v6(true)?;
@@ -232,7 +232,7 @@ impl MdnsStream {
         Self::bind_multicast(&socket, multicast_addr)?;
 
         debug!("joined {}", multicast_addr);
-        Ok(Some(socket.into_udp_socket()))
+        Ok(Some(std::net::UdpSocket::from(socket)))
     }
 
     /// Creates a future for randomly binding to a local socket address for client connections.
@@ -350,7 +350,7 @@ impl NextRandomUdpSocket {
             }
         }
 
-        Ok(socket.into_udp_socket())
+        Ok(std::net::UdpSocket::from(socket))
     }
 }
 
