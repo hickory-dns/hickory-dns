@@ -64,8 +64,8 @@ impl DerefMut for DnsRequest {
     }
 }
 
-impl Into<DnsRequest> for Message {
-    fn into(self) -> DnsRequest {
-        DnsRequest::new(self, DnsRequestOptions::default())
+impl From<Message> for DnsRequest {
+    fn from(message: Message) -> DnsRequest {
+        DnsRequest::new(message, DnsRequestOptions::default())
     }
 }

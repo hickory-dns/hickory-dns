@@ -28,8 +28,8 @@
 )]
 #![allow(
     clippy::needless_doctest_main,
-    clippy::unknown_clippy_lints,
-    clippy::single_component_path_imports
+    clippy::single_component_path_imports,
+    clippy::upper_case_acronyms, // can be removed on a major release boundary
 )]
 #![recursion_limit = "1024"]
 

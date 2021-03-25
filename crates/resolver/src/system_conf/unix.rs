@@ -27,7 +27,7 @@ use crate::proto::rr::Name;
 const DEFAULT_PORT: u16 = 53;
 
 pub fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
-    Ok(read_resolv_conf("/etc/resolv.conf")?)
+    read_resolv_conf("/etc/resolv.conf")
 }
 
 fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {

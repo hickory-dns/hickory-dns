@@ -382,7 +382,7 @@ impl InMemoryAuthority {
             (upsert_type == check_type && occupied_type != check_type) ||
                 // it's a different record, but there is already a CNAME/ANAME here
                 (upsert_type != check_type && occupied_type == check_type)
-        };
+        }
 
         // check that CNAME and ANAME is either not already present, or no other records are if it's a CNAME
         let start_range_key =
