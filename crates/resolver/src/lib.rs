@@ -180,11 +180,7 @@
     unreachable_pub
 )]
 #![recursion_limit = "128"]
-#![allow(
-    clippy::needless_doctest_main,
-    clippy::unknown_clippy_lints,
-    clippy::single_component_path_imports
-)]
+#![allow(clippy::needless_doctest_main, clippy::single_component_path_imports)]
 
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]
