@@ -31,6 +31,7 @@
     clippy::upper_case_acronyms, // can be removed on a major release boundary
 )]
 #![recursion_limit = "2048"]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -46,6 +47,7 @@
 pub use trust_dns_client as client;
 pub use trust_dns_proto as proto;
 #[cfg(feature = "trust-dns-resolver")]
+#[cfg_attr(docsrs, doc(cfg(feature = "trust-dns-resolver")))]
 pub use trust_dns_resolver as resolver;
 
 pub mod authority;

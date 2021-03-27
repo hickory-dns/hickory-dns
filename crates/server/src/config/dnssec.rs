@@ -76,6 +76,7 @@ impl KeyConfig {
 
     /// Converts key into
     #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "dns-over-tls", feature = "dnssec"))))]
     pub fn format(&self) -> ParseResult<KeyFormat> {
         use crate::client::error::ParseErrorKind;
 
@@ -146,6 +147,7 @@ impl KeyConfig {
 
     /// Tries to read the defined key into a Signer
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<Signer, String> {
         let signer_name = signer_name
             .into_name()
@@ -354,6 +356,7 @@ pub fn load_cert(
 
 /// Load a Certificate from the path (with rustls)
 #[cfg(feature = "dns-over-rustls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
 pub fn load_cert(
     zone_dir: &Path,
     tls_cert_config: &TlsCertConfig,

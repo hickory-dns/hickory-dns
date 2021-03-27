@@ -97,3 +97,9 @@ trust-dns-proto = { version = "0.20.1", path = "../proto" }
 trust-dns-openssl = { version = "0.20.1", path = "../openssl", optional = true }
 trust-dns-resolver = { version = "0.20.1", path = "../resolver", features = ["serde-config"], optional = true }
 trust-dns-rustls = { version = "0.20.1", path = "../rustls", optional = true }
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
+rustc-args = ["--cfg", "docsrs"]

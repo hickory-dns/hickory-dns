@@ -39,6 +39,7 @@ pub enum ErrorKind {
 
     /// An error got returned from the rusqlite crate
     #[cfg(feature = "sqlite")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
     #[error("sqlite error: {0}")]
     Sqlite(#[from] rusqlite::Error),
 
@@ -99,6 +100,7 @@ impl From<ProtoError> for Error {
 }
 
 #[cfg(feature = "sqlite")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
 impl From<rusqlite::Error> for Error {
     fn from(e: rusqlite::Error) -> Error {
         ErrorKind::from(e).into()

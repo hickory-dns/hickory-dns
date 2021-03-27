@@ -12,6 +12,7 @@ pub mod file;
 pub mod forwarder;
 pub mod in_memory;
 #[cfg(feature = "sqlite")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
 pub mod sqlite;
 
 // TODO: add a dynamic library option?
