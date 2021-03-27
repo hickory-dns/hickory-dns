@@ -200,6 +200,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls"))))
+    )]
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
@@ -304,6 +308,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls"))))
+    )]
     pub fn register_tls_listener_std(
         &mut self,
         listener: std::net::TcpListener,
@@ -331,6 +339,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn register_tls_listener(
         &mut self,
         listener: net::TcpListener,
@@ -435,6 +444,13 @@ impl<T: RequestHandler> ServerFuture<T> {
         feature = "dns-over-https-openssl",
         not(feature = "dns-over-https-rustls")
     ))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(all(
+            feature = "dns-over-https-openssl",
+            not(feature = "dns-over-https-rustls")
+        )))
+    )]
     pub fn register_https_listener(
         &self,
         listener: tcp::TcpListener,
@@ -458,6 +474,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
     #[cfg(feature = "dns-over-https-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn register_https_listener(
         &mut self,
         listener: net::TcpListener,

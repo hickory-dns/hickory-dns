@@ -24,8 +24,10 @@ pub enum StoreConfig {
     File(FileConfig),
     /// Sqlite based configuration file
     #[cfg(feature = "sqlite")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
     Sqlite(SqliteConfig),
     /// Forwarder, aka Resolver
     #[cfg(feature = "trust-dns-resolver")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "trust-dns-resolver")))]
     Forward(ForwardConfig),
 }

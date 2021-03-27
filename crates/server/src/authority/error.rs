@@ -27,6 +27,7 @@ pub enum LookupError {
     ResponseCode(ResponseCode),
     /// Resolve Error
     #[cfg(feature = "trust-dns-resolver")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
     #[error("Resolution error: {0}")]
     ResolveError(#[from] ResolveError),
     /// An underlying IO error occurred
