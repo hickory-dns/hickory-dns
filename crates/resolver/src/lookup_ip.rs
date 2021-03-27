@@ -117,7 +117,7 @@ impl Iterator for LookupIpIntoIter {
     }
 }
 
-/// The Future returned from [`AsyncResolver`] when performing an A or AAAA lookup.
+/// The Future returned from [crate::AsyncResolver] when performing an A or AAAA lookup.
 ///
 /// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
 pub struct LookupIpFuture<C, E>

@@ -48,6 +48,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
 }
 
 #[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 impl NameServer<TokioConnection, TokioConnectionProvider> {
     pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioHandle) -> Self {
         Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))

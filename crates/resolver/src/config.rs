@@ -65,7 +65,7 @@ impl ResolverConfig {
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
-    /// Please see: https://www.cloudflare.com/dns/
+    /// Please see: <https://www.cloudflare.com/dns/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn cloudflare() -> Self {
@@ -79,10 +79,11 @@ impl ResolverConfig {
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
     ///
-    /// Please see: https://www.cloudflare.com/dns/
+    /// Please see: <https://www.cloudflare.com/dns/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn cloudflare_tls() -> Self {
         ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
@@ -94,10 +95,11 @@ impl ResolverConfig {
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
     ///
-    /// Please see: https://www.cloudflare.com/dns/
+    /// Please see: <https://www.cloudflare.com/dns/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn cloudflare_https() -> Self {
         ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
@@ -109,7 +111,7 @@ impl ResolverConfig {
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
-    /// Please see: https://www.quad9.net/faq/
+    /// Please see: <https://www.quad9.net/faq/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn quad9() -> Self {
@@ -123,10 +125,11 @@ impl ResolverConfig {
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
-    /// Please see: https://www.quad9.net/faq/
+    /// Please see: <https://www.quad9.net/faq/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn quad9_tls() -> Self {
         ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
@@ -138,10 +141,11 @@ impl ResolverConfig {
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
     ///
-    /// Please see: https://www.quad9.net/faq/
+    /// Please see: <https://www.quad9.net/faq/>
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn quad9_https() -> Self {
         ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
@@ -208,11 +212,12 @@ impl ResolverConfig {
 
     /// return the associated TlsClientConfig
     #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn client_config(&self) -> &Option<TlsClientConfig> {
         &self.name_servers.1
     }
 
-    /// adds the [`rustls::ClientConf`] for every configured NameServer
+    /// adds the `rustls::ClientConf` for every configured NameServer
     /// of the Resolver.
     ///
     /// ```
@@ -234,6 +239,7 @@ impl ResolverConfig {
     /// resolver_config.set_tls_client_config(Arc::new(client_config));
     /// ```
     #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn set_tls_client_config(&mut self, client_config: Arc<ClientConfig>) {
         self.name_servers = self.name_servers.clone().with_client_config(client_config);
     }
@@ -262,12 +268,15 @@ pub enum Protocol {
     Tcp,
     /// Tls for DNS over TLS
     #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     Tls,
     /// Https for DNS over HTTPS
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     Https,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     Mdns,
 }
 
@@ -330,10 +339,11 @@ impl Default for Protocol {
     }
 }
 
-#[cfg(feature = "dns-over-rustls")]
-#[derive(Clone)]
 /// a compatibility wrapper around rustls
 /// ClientConfig
+#[cfg(feature = "dns-over-rustls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
+#[derive(Clone)]
 pub struct TlsClientConfig(pub Arc<ClientConfig>);
 
 #[cfg(feature = "dns-over-rustls")]
@@ -372,6 +382,7 @@ pub struct NameServerConfig {
     #[cfg_attr(feature = "serde-config", serde(default))]
     pub trust_nx_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     #[cfg_attr(feature = "serde-config", serde(skip))]
     /// optional configuration for the tls client
     pub tls_config: Option<TlsClientConfig>,
@@ -500,6 +511,7 @@ impl NameServerConfigGroup {
     ///
     /// This will create a TLS connections.
     #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn from_ips_tls(
         ips: &[IpAddr],
         port: u16,
@@ -513,6 +525,7 @@ impl NameServerConfigGroup {
     ///
     /// This will create a HTTPS connections.
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn from_ips_https(
         ips: &[IpAddr],
         port: u16,
@@ -533,52 +546,57 @@ impl NameServerConfigGroup {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn google_https() -> Self {
         Self::from_ips_https(GOOGLE_IPS, 53, "dns.google".to_string(), true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
-    /// Please see: https://www.cloudflare.com/dns/
+    /// Please see: <https://www.cloudflare.com/dns/>
     pub fn cloudflare() -> Self {
         Self::from_ips_clear(CLOUDFLARE_IPS, 53, true)
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
     ///
-    /// Please see: https://www.cloudflare.com/dns/
+    /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn cloudflare_tls() -> Self {
         Self::from_ips_tls(CLOUDFLARE_IPS, 853, "cloudflare-dns.com".to_string(), true)
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just HTTPS lookups
     ///
-    /// Please see: https://www.cloudflare.com/dns/
+    /// Please see: <https://www.cloudflare.com/dns/>
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn cloudflare_https() -> Self {
         Self::from_ips_https(CLOUDFLARE_IPS, 443, "cloudflare-dns.com".to_string(), true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
-    /// Please see: https://www.quad9.net/faq/
+    /// Please see: <https://www.quad9.net/faq/>
     pub fn quad9() -> Self {
         Self::from_ips_clear(QUAD9_IPS, 53, true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
-    /// Please see: https://www.quad9.net/faq/
+    /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "dns-over-tls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn quad9_tls() -> Self {
         Self::from_ips_tls(QUAD9_IPS, 853, "dns.quad9.net".to_string(), true)
     }
 
     /// Creates a configuration, using `9.9.9.9`, `149.112.112.112` and `2620:fe::fe`, `2620:fe::fe:9`, the "secure" variants of the quad9 settings. This limits the registered connections to just HTTPS lookups
     ///
-    /// Please see: https://www.quad9.net/faq/
+    /// Please see: <https://www.quad9.net/faq/>
     #[cfg(feature = "dns-over-https")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn quad9_https() -> Self {
         Self::from_ips_https(QUAD9_IPS, 443, "dns.quad9.net".to_string(), true)
     }
@@ -608,8 +626,9 @@ impl NameServerConfigGroup {
         }
     }
 
-    #[cfg(feature = "dns-over-rustls")]
     /// add a [`rustls::ClientConfig`]
+    #[cfg(feature = "dns-over-rustls")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     pub fn with_client_config(self, client_config: Arc<ClientConfig>) -> Self {
         Self(self.0, Some(TlsClientConfig(client_config)))
     }
