@@ -16,6 +16,7 @@ use self::not_openssl::SslErrorStack;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
 #[cfg(feature = "backtrace")]
+#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use backtrace::Backtrace as ExtBacktrace;
 #[cfg(feature = "backtrace")]
 use lazy_static::lazy_static;
@@ -29,6 +30,7 @@ use crate::rr::{Name, RecordType};
 use crate::serialize::binary::DecodeError;
 
 #[cfg(feature = "backtrace")]
+#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 lazy_static! {
     /// Boolean for checking if backtrace is enabled at runtime
     pub static ref ENABLE_BACKTRACE: bool = {
@@ -42,6 +44,7 @@ lazy_static! {
 ///
 /// If RUST_BACKTRACE is 1 or full then this will return Some(Backtrace), otherwise, NONE.
 #[cfg(feature = "backtrace")]
+#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 #[macro_export]
 macro_rules! trace {
     () => {{
@@ -357,6 +360,7 @@ impl From<std::num::ParseIntError> for ProtoError {
 
 /// Stubs for running without OpenSSL
 #[cfg(not(feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
 pub mod not_openssl {
     use std;
 
@@ -379,6 +383,7 @@ pub mod not_openssl {
 
 /// Types used without ring
 #[cfg(not(feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "ring"))))]
 pub mod not_ring {
     use std;
 
@@ -415,6 +420,7 @@ impl From<ProtoError> for String {
 }
 
 #[cfg(feature = "wasm-bindgen")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm-bindgen")))]
 impl From<ProtoError> for wasm_bindgen_crate::JsValue {
     fn from(e: ProtoError) -> Self {
         js_sys::Error::new(&e.to_string()).into()

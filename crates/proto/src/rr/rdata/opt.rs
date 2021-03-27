@@ -406,19 +406,22 @@ impl From<EdnsCode> for u16 {
 ///
 /// `note: Not all EdnsOptions are supported at this time.`
 ///
-/// http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13
+/// <http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13>
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 pub enum EdnsOption {
     /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DAU(SupportedAlgorithms),
 
     /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DHU(SupportedAlgorithms),
 
     /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     N3U(SupportedAlgorithms),
 
     /// Unknown, used to deal with unknown or unsupported codes

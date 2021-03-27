@@ -25,6 +25,7 @@ pub mod dns_multiplexer;
 pub mod dns_request;
 pub mod dns_response;
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub mod dnssec_dns_handle;
 pub mod retry_dns_handle;
 mod serial_message;
@@ -37,6 +38,7 @@ pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::{DnsResponse, DnsResponseFuture};
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub use self::dnssec_dns_handle::DnssecDnsHandle;
 pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;

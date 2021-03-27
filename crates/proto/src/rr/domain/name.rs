@@ -1295,7 +1295,7 @@ enum LabelParseState {
 impl FromStr for Name {
     type Err = ProtoError;
 
-    /// Uses the Name::from_utf8 conversion on this string, see [`from_ascii`] for ascii only, or for preserving case
+    /// Uses the Name::from_utf8 conversion on this string, see [Name::from_ascii] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Name::from_str_relaxed(s)
     }

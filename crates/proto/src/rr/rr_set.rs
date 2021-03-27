@@ -13,6 +13,7 @@ use log::info;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use crate::rr::dnssec::SupportedAlgorithms;
 
 /// Set of resource records associated to a name and type
@@ -136,6 +137,7 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn records(
         &self,
         and_rrsigs: bool,
@@ -155,6 +157,7 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn records_with_rrsigs(
         &self,
         supported_algorithms: SupportedAlgorithms,
@@ -513,10 +516,12 @@ impl IntoIterator for RecordSet {
 
 /// An iterator over all the records and their signatures
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 #[derive(Debug)]
 pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, RrsigsByAlgorithms<'r>>);
 
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
     type Item = &'r Record;
 
@@ -527,6 +532,7 @@ impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
 
 /// An iterator that limits the record signatures by SupportedAlgorithms
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 #[derive(Debug)]
 pub(crate) struct RrsigsByAlgorithms<'r> {
     rrsigs: Iter<'r, Record>,
@@ -534,6 +540,7 @@ pub(crate) struct RrsigsByAlgorithms<'r> {
 }
 
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl<'r> Iterator for RrsigsByAlgorithms<'r> {
     type Item = &'r Record;
 
@@ -576,6 +583,7 @@ pub enum RrsetRecords<'r> {
     RecordsOnly(Iter<'r, Record>),
     /// The records along with their signatures in the record set
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     RecordsAndRrsigs(RecordsAndRrsigsIter<'r>),
 }
 

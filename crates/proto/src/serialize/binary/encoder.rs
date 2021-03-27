@@ -185,7 +185,7 @@ impl<'a> BinEncoder<'a> {
         self.canonical_names
     }
 
-    /// Emit all names in canonical form, useful for https://tools.ietf.org/html/rfc3597
+    /// Emit all names in canonical form, useful for <https://tools.ietf.org/html/rfc3597>
     pub fn with_canonical_names<F: FnOnce(&mut Self) -> ProtoResult<()>>(
         &mut self,
         f: F,

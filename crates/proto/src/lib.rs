@@ -23,6 +23,7 @@
     clippy::upper_case_acronyms, // can be removed on a major release boundary
 )]
 #![recursion_limit = "2048"]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Trust-DNS Protocol library
 
@@ -49,6 +50,7 @@ macro_rules! try_ready_stream {
 
 /// Spawn a background task, if it was present
 #[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
     runtime: &Runtime,
     background: F,
@@ -58,12 +60,14 @@ pub fn spawn_bg<F: Future<Output = R> + Send + 'static, R: Send + 'static>(
 
 pub mod error;
 #[cfg(feature = "mdns")]
+#[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
 pub mod op;
 pub mod rr;
 pub mod serialize;
 pub mod tcp;
 #[cfg(any(test, feature = "testing"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
 pub mod tests;
 pub mod udp;
 pub mod xfer;
@@ -80,6 +84,7 @@ pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};
 #[cfg(feature = "backtrace")]
+#[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use error::ExtBacktrace;
 
 #[cfg(feature = "tokio-runtime")]
@@ -176,6 +181,7 @@ pub trait Executor {
 }
 
 #[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 impl Executor for Runtime {
     fn new() -> Self {
         Runtime::new().expect("failed to create tokio runtime")
@@ -203,10 +209,12 @@ pub trait Time {
 
 /// New type which is implemented using tokio::time::{Delay, Timeout}
 #[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[derive(Clone, Copy, Debug)]
 pub struct TokioTime;
 
 #[cfg(any(test, feature = "tokio-runtime"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[async_trait]
 impl Time for TokioTime {
     async fn delay_for(duration: Duration) {

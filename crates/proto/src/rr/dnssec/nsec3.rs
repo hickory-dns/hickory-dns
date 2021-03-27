@@ -103,7 +103,7 @@ pub enum Nsec3HashAlgorithm {
 }
 
 impl Nsec3HashAlgorithm {
-    /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
             1 => Ok(Nsec3HashAlgorithm::SHA1),
@@ -144,6 +144,7 @@ impl Nsec3HashAlgorithm {
     ///        substitution);
     /// ```
     #[cfg(any(feature = "openssl", feature = "ring"))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
     pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method

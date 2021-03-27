@@ -83,12 +83,14 @@ fn verify_with_pkey(
 
 /// Elyptic Curve public key type
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
 pub struct Ec<'k> {
     raw: &'k [u8],
     pkey: PKey<Public>,
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
 impl<'k> Ec<'k> {
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
@@ -177,8 +179,10 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
     output.push(int_output.len() as u8);
     output.extend(int_output);
 }
+
 /// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
 pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     if signature.is_empty() || signature.len() & 1 != 0 || signature.len() > 127 {
         return Err("invalid signature length".into());
@@ -191,7 +195,9 @@ pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     signature_asn1[1] = (signature_asn1.len() - 2) as u8;
     Ok(signature_asn1)
 }
+
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
 impl<'k> PublicKey for Ec<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
@@ -205,7 +211,8 @@ impl<'k> PublicKey for Ec<'k> {
 
 /// Elyptic Curve public key type
 #[cfg(feature = "ring")]
-type Ec = ECPublicKey;
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+pub type Ec = ECPublicKey;
 
 #[cfg(feature = "ring")]
 impl Ec {
@@ -247,6 +254,7 @@ impl Ec {
 }
 
 #[cfg(feature = "ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 impl PublicKey for Ec {
     fn public_bytes(&self) -> &[u8] {
         self.unprefixed_bytes()
@@ -266,11 +274,13 @@ impl PublicKey for Ec {
 
 /// Ed25519 Public key
 #[cfg(feature = "ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 pub struct Ed25519<'k> {
     raw: &'k [u8],
 }
 
 #[cfg(feature = "ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 impl<'k> Ed25519<'k> {
     /// ```text
     ///  Internet-Draft              EdDSA for DNSSEC               December 2016
@@ -310,6 +320,7 @@ impl<'k> PublicKey for Ed25519<'k> {
 
 /// Rsa public key
 #[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 pub struct Rsa<'k> {
     raw: &'k [u8],
 
@@ -321,6 +332,7 @@ pub struct Rsa<'k> {
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 impl<'k> Rsa<'k> {
     /// ```text
     /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
@@ -414,18 +426,23 @@ impl<'k> PublicKey for Rsa<'k> {
 pub enum PublicKeyEnum<'k> {
     /// RSA keypair, supported by OpenSSL
     #[cfg(any(feature = "openssl", feature = "ring"))]
+    #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
     Rsa(Rsa<'k>),
     /// Elliptic curve keypair
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    #[cfg_attr(docsrs, doc(cfg(any(all(not(feature = "ring"), feature = "openssl")))))]
     Ec(Ec<'k>),
     /// Elliptic curve keypair
     #[cfg(feature = "ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     Ec(Ec),
     /// Ed25519 public key for the Algorithm::ED25519
     #[cfg(feature = "ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     Ed25519(Ed25519<'k>),
     /// PhatomData for compiler when ring and or openssl not defined, do not use...
     #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[cfg_attr(docsrs, doc(cfg(not(any(feature = "ring", feature = "openssl")))))]
     Phantom(&'k PhantomData<()>),
 }
 

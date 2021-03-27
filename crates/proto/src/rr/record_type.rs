@@ -33,71 +33,72 @@ use crate::rr::dnssec::rdata::DNSSECRecordType;
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
-    /// RFC 1035[1] IPv4 Address record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) IPv4 Address record
     A,
-    /// RFC 3596[2] IPv6 address record
+    /// [RFC 3596](https://tools.ietf.org/html/rfc3596) IPv6 address record
     AAAA,
-    /// ANAME draft-ietf-dnsop-aname
+    /// [ANAME draft-ietf-dnsop-aname](https://tools.ietf.org/html/draft-ietf-dnsop-aname-04)
     ANAME,
     //  AFSDB,      //	18	RFC 1183	AFS database record
-    /// RFC 1035[1] All cached records, aka ANY
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) All cached records, aka ANY
     ANY,
     //  APL,        //	42	RFC 3123	Address Prefix List
-    /// RFC 1035[1] Authoritative Zone Transfer
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Authoritative Zone Transfer
     AXFR,
-    /// RFC 6844 Certification Authority Authorization
+    /// [RFC 6844](https://tools.ietf.org/html/rfc6844) Certification Authority Authorization
     CAA,
     //  CERT,       // 37 RFC 4398 Certificate record
-    /// RFC 1035[1] Canonical name record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Canonical name record
     CNAME,
     //  DHCID,      // 49 RFC 4701 DHCP identifier
     //  DNAME,      // 39 RFC 2672 Delegation Name
-    /// RFC 1035[1] host information
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) host information
     HINFO,
     //  HIP,        // 55 RFC 5205 Host Identity Protocol
-    /// RFC draft-ietf-dnsop-svcb-https-03 DNS SVCB and HTTPS RRs
+    /// [RFC draft-ietf-dnsop-svcb-https-03](https://tools.ietf.org/html/draft-ietf-dnsop-svcb-httpssvc-03) DNS SVCB and HTTPS RRs
     HTTPS,
     //  IPSECKEY,   // 45 RFC 4025 IPsec Key
-    /// RFC 1996 Incremental Zone Transfer
+    /// [RFC 1996](https://tools.ietf.org/html/rfc1996) Incremental Zone Transfer
     IXFR,
     //  KX,         // 36 RFC 2230 Key eXchanger record
     //  LOC,        // 29 RFC 1876 Location record
-    /// RFC 1035[1] Mail exchange record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Mail exchange record
     MX,
-    /// RFC 3403 Naming Authority Pointer
+    /// [RFC 3403](https://tools.ietf.org/html/rfc3403) Naming Authority Pointer
     NAPTR,
-    /// RFC 1035[1] Name server record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Name server record
     NS,
-    /// RFC 1035[1] Null server record, for testing
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Null server record, for testing
     NULL,
-    /// RFC 7929 OpenPGP public key
+    /// [RFC 7929](https://tools.ietf.org/html/rfc7929) OpenPGP public key
     OPENPGPKEY,
-    /// RFC 6891 Option
+    /// [RFC 6891](https://tools.ietf.org/html/rfc6891) Option
     OPT,
-    /// RFC 1035[1] Pointer record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Pointer record
     PTR,
     //  RP,         // 17 RFC 1183 Responsible person
-    /// RFC 1035[1] and RFC 2308[9] Start of [a zone of] authority record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) and [RFC 2308](https://tools.ietf.org/html/rfc2308) Start of [a zone of] authority record
     SOA,
-    /// RFC 2782 Service locator
+    /// [RFC 2782](https://tools.ietf.org/html/rfc2782) Service locator
     SRV,
-    /// RFC 4255 SSH Public Key Fingerprint
+    /// [RFC 4255](https://tools.ietf.org/html/rfc4255) SSH Public Key Fingerprint
     SSHFP,
-    /// RFC draft-ietf-dnsop-svcb-https-03 DNS SVCB and HTTPS RRs
+    /// [RFC draft-ietf-dnsop-svcb-https-03](https://tools.ietf.org/html/draft-ietf-dnsop-svcb-httpssvc-03) DNS SVCB and HTTPS RRs
     SVCB,
     //  TA,         // 32768 N/A DNSSEC Trust Authorities
     //  TKEY,       // 249 RFC 2930 Secret key record
-    /// RFC 6698 TLSA certificate association
+    /// [RFC 6698](https://tools.ietf.org/html/rfc6698) TLSA certificate association
     TLSA,
     //  TSIG,       // 250 RFC 2845 Transaction Signature
-    /// RFC 1035[1] Text record
+    /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Text record
     TXT,
 
     /// A DNSSEC- or SIG(0)- specific record type.
     ///
-    /// These types are in `DNSSECRecordType` to make them easy to disable when
+    /// These types are in [DNSSECRecordType] to make them easy to disable when
     /// crypto functionality isn't needed.
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DNSSEC(DNSSECRecordType),
 
     /// Unknown Record type, or unsupported

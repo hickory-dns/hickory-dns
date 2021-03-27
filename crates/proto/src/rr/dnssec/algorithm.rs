@@ -113,7 +113,7 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
-    /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> Self {
         match value {
             5 => Algorithm::RSASHA1,
