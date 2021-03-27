@@ -97,6 +97,7 @@ lazy_static! {
 /// This looks up the `host` (a `&str` or `String` is good), and combines that with the provided port
 ///   this mimics the lookup functions of `std::net`.
 #[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub async fn resolve<N: IntoName + Display + TryParseIp + 'static>(
     host: N,
     port: u16,

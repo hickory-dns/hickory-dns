@@ -180,6 +180,7 @@ pub enum LookupEither<
 > {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     Secure(DnssecDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 

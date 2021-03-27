@@ -105,6 +105,10 @@ impl Resolver {
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
     #[cfg(feature = "system-config")]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
+    )]
     pub fn from_system_conf() -> io::Result<Self> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Self::new(config, options)

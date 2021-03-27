@@ -29,7 +29,7 @@ use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
 
 /// A pool of NameServers
 ///
-/// This is not expected to be used directly, see [`AsyncResolver`].
+/// This is not expected to be used directly, see [crate::AsyncResolver].
 #[derive(Clone)]
 pub struct NameServerPool<
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static,

@@ -18,6 +18,7 @@ mod unix;
 
 #[cfg(unix)]
 #[cfg(feature = "system-config")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "system-config", unix))))]
 pub use self::unix::read_system_conf;
 
 #[cfg(windows)]
@@ -26,4 +27,5 @@ mod windows;
 
 #[cfg(target_os = "windows")]
 #[cfg(feature = "system-config")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "system-config", windows))))]
 pub use self::windows::read_system_conf;

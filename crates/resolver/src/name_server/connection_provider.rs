@@ -330,6 +330,7 @@ impl Future for ConnectionResponse {
 }
 
 #[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 #[allow(unreachable_pub)]
 pub mod tokio_runtime {
     use super::*;
