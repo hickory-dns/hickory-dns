@@ -35,6 +35,7 @@ pub use self::dnssec::TrustAnchor;
 pub use self::dnssec::Verifier;
 pub use self::dnssec::TBS;
 #[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
 pub use self::signer::Signer;
@@ -44,18 +45,23 @@ pub use crate::error::DnsSecErrorKind;
 pub use crate::error::DnsSecResult;
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
 pub use openssl::hash::DigestBytes as Digest;
 
 #[cfg(feature = "ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 pub use ring::digest::Digest;
 
 #[cfg(feature = "openssl")]
+#[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
 pub use openssl::pkey::{HasPrivate, HasPublic, Private, Public};
 
 #[cfg(not(feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
 pub use self::faux_key_type::{HasPrivate, HasPublic, Private, Public};
 
 #[cfg(not(feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
 mod faux_key_type {
     /// A key that contains public key material
     pub trait HasPublic {}

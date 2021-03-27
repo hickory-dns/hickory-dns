@@ -32,6 +32,7 @@
     clippy::upper_case_acronyms, // can be removed on a major release boundary
 )]
 #![recursion_limit = "1024"]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -264,6 +265,7 @@
 pub mod client;
 pub mod error;
 #[cfg(feature = "mdns")]
+#[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
 pub mod op;
 pub mod rr;
@@ -279,6 +281,7 @@ pub use trust_dns_proto as proto;
 
 /// The https module which contains all https related connection types
 #[cfg(feature = "dns-over-https")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
 pub mod https {
     pub use super::https_client_connection::HttpsClientConnection;
 }

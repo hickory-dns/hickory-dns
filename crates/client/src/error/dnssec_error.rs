@@ -160,6 +160,7 @@ impl From<SslErrorStack> for Error {
 
 #[allow(unreachable_pub)]
 #[cfg(not(feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
 pub mod not_openssl {
     use std;
 
@@ -181,6 +182,7 @@ pub mod not_openssl {
 
 #[allow(unreachable_pub)]
 #[cfg(not(feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 pub mod not_ring {
     use std;
 

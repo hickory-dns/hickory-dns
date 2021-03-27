@@ -370,8 +370,8 @@ impl Parser {
     }
 
     /// parses the string following the rules from:
-    ///  https://tools.ietf.org/html/rfc2308 (NXCaching RFC) and
-    ///  http://www.zytrax.com/books/dns/apa/time.html
+    ///  <https://tools.ietf.org/html/rfc2308> (NXCaching RFC) and
+    ///  <http://www.zytrax.com/books/dns/apa/time.html>
     ///
     /// default is seconds
     /// #s = seconds = # x 1 seconds (really!)

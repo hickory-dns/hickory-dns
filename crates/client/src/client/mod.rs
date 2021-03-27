@@ -18,6 +18,7 @@
 
 pub(crate) mod async_client;
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub(crate) mod async_secure_client;
 #[allow(clippy::module_inception)]
 mod client;
@@ -30,10 +31,12 @@ pub use self::async_client::{
     AsyncClient, AsyncClientConnect, ClientFuture, ClientHandle, ClientResponse,
 };
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub use self::async_secure_client::{
     AsyncDnssecClient, AsyncSecureClientBuilder, AsyncSecureClientConnect,
 };
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub use self::client::SyncDnssecClient;
 #[allow(deprecated)]
 pub use self::client::{Client, SyncClient};

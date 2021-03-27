@@ -88,3 +88,9 @@ webpki = { version = "0.21", optional = true }
 [dev-dependencies]
 futures = { version = "0.3.5", default-features = false, features = ["std", "executor"] }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = false }
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-unknown-linux-gnu"
+targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
+rustc-args = ["--cfg", "docsrs"]
