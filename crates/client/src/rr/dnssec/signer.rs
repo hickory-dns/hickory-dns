@@ -236,6 +236,7 @@ use crate::serialize::binary::BinEncoder;
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
 #[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 pub struct Signer {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -252,6 +253,7 @@ pub struct Signer {
 pub struct Signer;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 impl Signer {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     ///

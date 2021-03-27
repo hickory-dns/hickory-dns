@@ -79,6 +79,7 @@ impl DnsHandle for AsyncDnssecClient {
 
 /// A builder to allow a custom trust to be used for validating all signed records
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct AsyncSecureClientBuilder<F, S>
 where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,

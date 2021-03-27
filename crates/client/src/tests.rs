@@ -14,8 +14,8 @@ pub mod tls {
     use openssl::pkcs12::*;
     use openssl::pkey::*;
     use openssl::rsa::*;
-    use openssl::x509::*;
     use openssl::x509::extension::*;
+    use openssl::x509::*;
 
     /// Generates a root certificate
     pub fn root_ca() -> (PKey, X509Name, X509) {
@@ -45,11 +45,7 @@ pub mod tls {
         x509_build.set_pubkey(&pkey).unwrap();
         x509_build.set_serial_number(&serial).unwrap();
 
-        let basic_constraints = BasicConstraints::new()
-            .critical()
-            .ca()
-            .build()
-            .unwrap();
+        let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
         x509_build.append_extension(basic_constraints).unwrap();
 
         let subject_alternative_name = SubjectAlternativeName::new()
@@ -67,11 +63,12 @@ pub mod tls {
     }
 
     /// Generates a certificate, see root_ca() for getting a root cert
-    pub fn cert(subject_name: &str,
-                ca_pkey: &PKey,
-                ca_name: &X509Name,
-                _: &X509)
-                -> (PKey, X509, Pkcs12) {
+    pub fn cert(
+        subject_name: &str,
+        ca_pkey: &PKey,
+        ca_name: &X509Name,
+        _: &X509,
+    ) -> (PKey, X509, Pkcs12) {
         let rsa = Rsa::generate(2048).unwrap();
         let pkey = PKey::from_rsa(rsa).unwrap();
 
@@ -103,9 +100,7 @@ pub mod tls {
         let subject_key_identifier = SubjectKeyIdentifier::new()
             .build(&x509_build.x509v3_context(None, None))
             .unwrap();
-        x509_build
-            .append_extension(subject_key_identifier)
-            .unwrap();
+        x509_build.append_extension(subject_key_identifier).unwrap();
 
         let authority_key_identifier = AuthorityKeyIdentifier::new()
             .keyid(true)
@@ -119,9 +114,7 @@ pub mod tls {
         let basic_constraints = BasicConstraints::new().critical().build().unwrap();
         x509_build.append_extension(basic_constraints).unwrap();
 
-        x509_build
-            .sign(&ca_pkey, MessageDigest::sha256())
-            .unwrap();
+        x509_build.sign(&ca_pkey, MessageDigest::sha256()).unwrap();
         let cert = x509_build.build();
 
         let pkcs12_builder = Pkcs12::builder();

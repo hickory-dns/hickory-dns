@@ -450,6 +450,7 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
 
 /// A DNS client which will validate DNSSec records upon receipt
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct SyncDnssecClient<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
@@ -500,6 +501,7 @@ impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
 }
 
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct SecureSyncClientBuilder<CC: ClientConnection> {
     conn: CC,
     signer: Option<Arc<Signer>>,
