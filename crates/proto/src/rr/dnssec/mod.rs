@@ -42,17 +42,21 @@ pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
 pub use openssl::hash::DigestBytes as Digest;
 
 #[cfg(feature = "ring")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
 pub use ring::digest::Digest;
 
 /// This is an empty type, enable Ring or OpenSSL for this feature
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[cfg_attr(docsrs, doc(cfg(not(any(feature = "openssl", feature = "ring")))))]
 #[derive(Clone, Copy, Debug)]
 pub struct Digest;
 
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[cfg_attr(docsrs, doc(cfg(not(any(feature = "openssl", feature = "ring")))))]
 #[allow(clippy::should_implement_trait)]
 impl Digest {
     /// This is an empty type, enable Ring or OpenSSL for this feature

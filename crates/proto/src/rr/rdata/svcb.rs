@@ -353,7 +353,7 @@ pub enum SvcParamValue {
     Mandatory(Mandatory),
     /// The "alpn" and "no-default-alpn" SvcParamKeys together indicate the
     ///    set of Application Layer Protocol Negotiation (ALPN) protocol
-    ///    identifiers [ALPN] and associated transport protocols supported by
+    ///    identifiers [Alpn] and associated transport protocols supported by
     ///    this service endpoint.
     Alpn(Alpn),
     /// For "no-default-alpn", the presentation and wire format values MUST
@@ -811,7 +811,7 @@ pub struct EchConfig(pub Vec<u8>);
 
 impl<'r> BinDecodable<'r> for EchConfig {
     /// In wire format, the value
-    ///   of the parameter is an ECHConfigs vector [ECH], including the
+    ///   of the parameter is an ECHConfigs vector (ECH), including the
     ///   redundant length prefix (a 2 octet field containing the length of the SvcParamValue
     ///   as an integer between 0 and 65535 in network byte order).
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
@@ -830,7 +830,7 @@ impl<'r> BinDecodable<'r> for EchConfig {
 
 impl BinEncodable for EchConfig {
     /// In wire format, the value
-    ///   of the parameter is an ECHConfigs vector [ECH], including the
+    ///   of the parameter is an ECHConfigs vector (ECH), including the
     ///   redundant length prefix (a 2 octet field containing the length of the SvcParamValue
     ///   as an integer between 0 and 65535 in network byte order).
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
@@ -847,7 +847,7 @@ impl BinEncodable for EchConfig {
 
 impl fmt::Display for EchConfig {
     /// In presentation format, the value is a
-    ///   single ECHConfigs encoded in Base64 [base64].  Base64 is used here to
+    ///   single ECHConfigs encoded in Base64 (base64).  Base64 is used here to
     ///   simplify integration with TLS server software.  To enable simpler
     ///   parsing, this SvcParam MUST NOT contain escape sequences.
     ///
@@ -945,7 +945,7 @@ where
 {
     ///   The presentation "value" SHALL be a comma-separated list
     ///   (Appendix A.1) of one or more IP addresses of the appropriate family
-    ///   in standard textual format [RFC5952].  To enable simpler parsing,
+    ///   in standard textual format [RFC 5952](https://tools.ietf.org/html/rfc5952).  To enable simpler parsing,
     ///   this SvcParamValue MUST NOT contain escape sequences.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for ip in self.0.iter() {

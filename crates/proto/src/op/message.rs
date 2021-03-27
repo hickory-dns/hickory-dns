@@ -29,6 +29,7 @@ use crate::rr::{Record, RecordType};
 use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
 
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use crate::rr::dnssec::rdata::DNSSECRecordType;
 
 /// The basic request and response datastructure, used for all DNS protocols.
@@ -330,6 +331,7 @@ impl Message {
     ///
     /// This must be don't only after all records have been associated. Generally this will be handled by the client and not need to be used directly
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::DNSSEC(DNSSECRecordType::SIG), record.rr_type());
         self.sig0.push(record);

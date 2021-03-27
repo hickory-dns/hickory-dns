@@ -209,9 +209,10 @@ impl Record {
         self
     }
 
-    #[cfg(feature = "mdns")]
     /// Changes mDNS cache-flush bit
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+    #[cfg(feature = "mdns")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn set_mdns_cache_flush(&mut self, flag: bool) -> &mut Self {
         self.mdns_cache_flush = flag;
         self
@@ -248,9 +249,10 @@ impl Record {
         &self.rdata
     }
 
-    #[cfg(feature = "mdns")]
     /// Returns if the mDNS cache-flush bit is set or not
     /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+    #[cfg(feature = "mdns")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn mdns_cache_flush(&self) -> bool {
         self.mdns_cache_flush
     }
@@ -286,6 +288,7 @@ pub struct RecordParts {
     pub rdata: RData,
     /// mDNS cache flush
     #[cfg(feature = "mdns")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub mdns_cache_flush: bool,
 }
 

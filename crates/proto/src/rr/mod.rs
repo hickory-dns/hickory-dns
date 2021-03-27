@@ -19,6 +19,7 @@
 pub mod dns_class;
 // TODO: rename to sec
 #[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub mod dnssec;
 pub mod domain;
 pub mod rdata;

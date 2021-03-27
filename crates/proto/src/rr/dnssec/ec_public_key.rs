@@ -43,6 +43,7 @@ impl ECPublicKey {
     }
 
     #[cfg(feature = "ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     pub fn unprefixed_bytes(&self) -> &[u8] {
         &self.buf[1..self.len]
     }

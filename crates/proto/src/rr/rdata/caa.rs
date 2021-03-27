@@ -233,7 +233,7 @@ pub enum Property {
     ///    Certification Practices or Certificate Policy, or that a
     ///    Certificate Evaluator may use to report observation of a possible
     ///    policy violation. The Incident Object Description Exchange Format
-    ///    (IODEF) format is used [RFC5070].
+    ///    (IODEF) format is used [RFC5070](https://tools.ietf.org/html/rfc5070).
     Iodef,
     /// Unknown format to Trust-DNS
     Unknown(String),

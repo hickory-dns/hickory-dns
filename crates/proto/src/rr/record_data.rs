@@ -651,6 +651,7 @@ pub enum RData {
     /// These types are in `DNSSECRData` to make them easy to disable when
     /// crypto functionality isn't needed.
     #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DNSSEC(DNSSECRData),
 
     /// Unknown RecordData is for record types not supported by Trust-DNS

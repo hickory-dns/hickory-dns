@@ -178,10 +178,10 @@ impl From<CertUsage> for u8 {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Selector {
-    /// Full certificate: the Certificate binary structure as defined in [RFC5280]
+    /// Full certificate: the Certificate binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
     Full,
 
-    /// SubjectPublicKeyInfo: DER-encoded binary structure as defined in [RFC5280]
+    /// SubjectPublicKeyInfo: DER-encoded binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
     Spki,
 
     /// Unassigned at the time of this writing
@@ -239,10 +239,10 @@ pub enum Matching {
     /// Exact match on selected content
     Raw,
 
-    /// SHA-256 hash of selected content [RFC6234]
+    /// SHA-256 hash of selected content [RFC6234](https://tools.ietf.org/html/rfc6234)
     Sha256,
 
-    /// SHA-512 hash of selected content [RFC6234]
+    /// SHA-512 hash of selected content [RFC6234](https://tools.ietf.org/html/rfc6234)
     Sha512,
 
     /// Unassigned at the time of this writing
