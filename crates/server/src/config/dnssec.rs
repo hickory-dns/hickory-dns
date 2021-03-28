@@ -165,6 +165,7 @@ impl KeyConfig {
 /// Certificate format of the file being read
 #[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum CertType {
     /// Pkcs12 formatted certificates and private key (requires OpenSSL)
     Pkcs12,
@@ -181,6 +182,7 @@ impl Default for CertType {
 /// Format of the private key file to read
 #[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
+#[non_exhaustive]
 pub enum PrivateKeyType {
     /// PKCS8 formatted key file, allows for a password (requires Rustls)
     Pkcs8,

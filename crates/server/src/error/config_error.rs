@@ -17,6 +17,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ErrorKind {
     // foreign
     /// An error got returned from IO

@@ -52,6 +52,7 @@ pub use self::sig::SIG;
 /// The type of the resource record, for DNSSEC-specific records.
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[non_exhaustive]
 pub enum DNSSECRecordType {
     //  CDS,        //	59	RFC 7344	Child DS
     //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
@@ -148,6 +149,7 @@ impl From<DNSSECRecordType> for u16 {
 
 /// Record data enum variants for DNSSEC-specific records.
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
+#[non_exhaustive]
 pub enum DNSSECRData {
     /// ```text
     /// RFC 4034                DNSSEC Resource Records               March 2005

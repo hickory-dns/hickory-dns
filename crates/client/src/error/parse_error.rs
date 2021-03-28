@@ -23,6 +23,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for parse errors that get returned in the crate
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// An invalid numerical character was found
     #[error("invalid numerical character: {0}")]
@@ -73,6 +74,10 @@ pub enum ErrorKind {
     #[error("proto error: {0}")]
     Proto(#[from] ProtoError),
 
+    /// Unknown RecordType
+    #[error("unknown RecordType: {0}")]
+    UnknownRecordType(u16),
+
     /// A request timed out
     #[error("request timed out")]
     Timeout,
@@ -95,6 +100,7 @@ impl Clone for ErrorKind {
             Lexer(e) => Lexer(e.clone()),
             ParseInt(e) => ParseInt(e.clone()),
             Proto(e) => Proto(e.clone()),
+            UnknownRecordType(ty) => UnknownRecordType(*ty),
             Timeout => Timeout,
         }
     }

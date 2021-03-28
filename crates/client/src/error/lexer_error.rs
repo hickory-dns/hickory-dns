@@ -19,6 +19,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for lexer errors that get returned in the crate
 #[derive(Eq, PartialEq, Debug, Error, Clone)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// Unexpected end of input
     #[error("unexpected end of input")]

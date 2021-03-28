@@ -22,6 +22,7 @@ pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]
