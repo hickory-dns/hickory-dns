@@ -18,6 +18,7 @@ use crate::resolver::error::ResolveError;
 #[allow(clippy::large_enum_variant)]
 /// A query could not be fulfilled
 #[derive(Debug, EnumAsInner, Error)]
+#[non_exhaustive]
 pub enum LookupError {
     /// A record at the same Name as the query exists, but not of the queried RecordType
     #[error("The name exists, but not for the record requested")]

@@ -48,6 +48,7 @@ use super::dnssec::rdata::DNSSECRData;
 /// length (including the length octet).
 /// ```
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
+#[non_exhaustive]
 pub enum RData {
     /// ```text
     /// -- RFC 1035 -- Domain Implementation and Specification    November 1987

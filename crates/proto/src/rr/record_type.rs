@@ -32,6 +32,7 @@ use crate::rr::dnssec::rdata::DNSSECRecordType;
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
+#[non_exhaustive]
 pub enum RecordType {
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) IPv4 Address record
     A,

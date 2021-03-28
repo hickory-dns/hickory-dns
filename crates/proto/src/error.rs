@@ -63,6 +63,7 @@ pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ProtoErrorKind {
     /// The underlying resource is too busy
     ///
