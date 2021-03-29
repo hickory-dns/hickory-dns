@@ -9,8 +9,6 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::{AsyncClient, ClientHandle};
-use trust_dns_client::error::ClientErrorKind;
 use trust_dns_client::op::ResponseCode;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::dnssec::Signer;
@@ -19,6 +17,11 @@ use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
+use trust_dns_client::{
+    client::{AsyncClient, ClientHandle},
+    rr::rdata::opt::EdnsOption,
+};
+use trust_dns_client::{error::ClientErrorKind, op::Edns, rr::rdata::opt::EdnsCode};
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, DnsStreamHandle};
@@ -63,6 +66,7 @@ fn test_query_udp_ipv4() {
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query_edns(&mut client));
 }
 
 #[test]
@@ -82,6 +86,7 @@ fn test_query_udp_ipv6() {
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.block_on(test_query(&mut client));
     io_loop.block_on(test_query(&mut client));
+    io_loop.block_on(test_query_edns(&mut client));
 }
 
 #[test]
@@ -171,6 +176,44 @@ fn test_query(client: &mut AsyncClient) -> impl Future<Output = ()> {
             assert_eq!(record.rr_type(), RecordType::A);
             assert_eq!(record.dns_class(), DNSClass::IN);
 
+            if let RData::A(ref address) = *record.rdata() {
+                assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
+            } else {
+                panic!();
+            }
+        })
+        .map(|r: Result<_, _>| r.expect("query failed"))
+}
+
+#[cfg(test)]
+fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
+    let name = Name::from_ascii("WWW.example.com").unwrap();
+    let mut edns = Edns::new();
+    // garbage subnet value, but lets check
+    edns.options_mut().insert(EdnsOption::Unknown(
+        EdnsCode::Subnet.into(),
+        vec![0, 1, 16, 0, 1, 2],
+    ));
+    client
+        .query_edns(name.clone(), DNSClass::IN, RecordType::A, edns)
+        .map_ok(move |response| {
+            println!("response records: {:?}", response);
+            assert!(response
+                .queries()
+                .first()
+                .expect("expected query")
+                .name()
+                .eq_case(&name));
+
+            let record = &response.answers()[0];
+            assert_eq!(record.name(), &name);
+            assert_eq!(record.rr_type(), RecordType::A);
+            assert_eq!(record.dns_class(), DNSClass::IN);
+            assert!(response.edns().is_some());
+            assert_eq!(
+                response.edns().unwrap().option(EdnsCode::Subnet).unwrap(),
+                &EdnsOption::Unknown(EdnsCode::Subnet.into(), vec![0, 1, 16, 0, 1, 2])
+            );
             if let RData::A(ref address) = *record.rdata() {
                 assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
             } else {

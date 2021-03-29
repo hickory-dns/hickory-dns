@@ -13,9 +13,9 @@ use futures_util::future::Future;
 use log::debug;
 use rand;
 
-use crate::error::*;
 use crate::op::{Message, MessageType, OpCode, Query};
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
+use crate::{error::*, op::Edns};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
@@ -77,30 +77,59 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// # Arguments
     ///
     /// * `query` - the query to lookup
+    /// * `options` - options to use when constructing the message
     fn lookup(&mut self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
+        self.send(DnsRequest::new(build_message(query, options), options))
+    }
 
-        // build the message
-        let mut message: Message = Message::new();
-
-        // TODO: This is not the final ID, it's actually set in the poll method of DNS future
-        //  should we just remove this?
-        let id: u16 = rand::random();
-
-        message.add_query(query);
-        message
-            .set_id(id)
-            .set_message_type(MessageType::Query)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true);
-
-        // Extended dns
-        if options.use_edns {
-            let edns = message.edns_mut();
-            edns.set_max_payload(MAX_PAYLOAD_LEN);
-            edns.set_version(0);
-        }
-
+    /// A DNS query with edns, i.e. does not perform any DNSSec operations
+    ///
+    /// *Note* As of now, this will not recurse on PTR record responses, that is up to
+    ///        the caller.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - the query to lookup
+    /// * `edns` - an Edns section to insert in the message
+    /// * `options` - options to use when constructing the message
+    fn lookup_edns(
+        &mut self,
+        query: Query,
+        edns: Edns,
+        options: DnsRequestOptions,
+    ) -> Self::Response {
+        debug!(
+            "querying: {} {:?} {:?}",
+            query.name(),
+            query.query_type(),
+            edns
+        );
+        let mut message = build_message(query, options);
+        message.set_edns(edns);
         self.send(DnsRequest::new(message, options))
     }
+}
+
+fn build_message(query: Query, options: DnsRequestOptions) -> Message {
+    // build the message
+    let mut message: Message = Message::new();
+    // TODO: This is not the final ID, it's actually set in the poll method of DNS future
+    //  should we just remove this?
+    let id: u16 = rand::random();
+    message
+        .add_query(query)
+        .set_id(id)
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Query)
+        .set_recursion_desired(true);
+
+    // Extended dns
+    if options.use_edns {
+        message
+            .edns_mut()
+            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_version(0);
+    }
+    message
 }

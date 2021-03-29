@@ -12,16 +12,20 @@ use futures::Future;
 use trust_dns_client::client::SyncDnssecClient;
 #[allow(deprecated)]
 use trust_dns_client::client::{Client, ClientConnection, SyncClient};
-use trust_dns_client::error::ClientErrorKind;
 use trust_dns_client::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 use trust_dns_client::tcp::TcpClientConnection;
 use trust_dns_client::udp::UdpClientConnection;
+use trust_dns_client::{
+    error::ClientErrorKind,
+    rr::rdata::opt::{EdnsCode, EdnsOption},
+};
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::op::Edns;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::op::*;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
@@ -84,6 +88,17 @@ fn test_query_udp() {
 #[test]
 #[ignore]
 #[allow(deprecated)]
+fn test_query_udp_edns() {
+    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = UdpClientConnection::new(addr).unwrap();
+    let client = SyncClient::new(conn);
+
+    test_query_edns(client);
+}
+
+#[test]
+#[ignore]
+#[allow(deprecated)]
 fn test_query_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -115,6 +130,47 @@ where
     assert_eq!(record.name(), &name);
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
+
+    if let RData::A(ref address) = *record.rdata() {
+        assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
+    } else {
+        panic!();
+    }
+}
+
+fn test_query_edns<CC>(client: SyncClient<CC>)
+where
+    CC: ClientConnection,
+{
+    let name = Name::from_ascii("WWW.example.com").unwrap();
+
+    let mut edns = Edns::new();
+    // garbage subnet value, but lets check
+    edns.options_mut().insert(EdnsOption::Unknown(
+        EdnsCode::Subnet.into(),
+        vec![0, 1, 16, 0, 1, 2],
+    ));
+    let response = client
+        .query_edns(&name, DNSClass::IN, RecordType::A, edns)
+        .expect("Query failed");
+
+    println!("response records: {:?}", response);
+    assert!(response
+        .queries()
+        .first()
+        .expect("expected query")
+        .name()
+        .eq_case(&name));
+
+    let record = &response.answers()[0];
+    assert_eq!(record.name(), &name);
+    assert_eq!(record.rr_type(), RecordType::A);
+    assert_eq!(record.dns_class(), DNSClass::IN);
+    assert!(response.edns().is_some());
+    assert_eq!(
+        response.edns().unwrap().option(EdnsCode::Subnet).unwrap(),
+        &EdnsOption::Unknown(EdnsCode::Subnet.into(), vec![0, 1, 16, 0, 1, 2])
+    );
 
     if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
