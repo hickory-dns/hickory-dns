@@ -50,7 +50,7 @@ path = "src/lib.rs"
 futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 native-tls = "0.2"
-tokio = "1.0"
+tokio = "1.4"
 tokio-native-tls = "0.3.0"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["tokio-runtime"], default-features = false }
