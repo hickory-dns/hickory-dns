@@ -93,6 +93,7 @@ use crate::serialize::binary::*;
 ///    successor document.
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[non_exhaustive]
 pub enum Algorithm {
     /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatibility
     RSASHA1,

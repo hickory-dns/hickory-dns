@@ -26,6 +26,7 @@ pub type ResolveResult<T> = ::std::result::Result<T, ResolveError>;
 #[allow(clippy::large_enum_variant)]
 /// The error kind for errors that get returned in the crate
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ResolveErrorKind {
     /// An error with an arbitrary message, referenced as &'static str
     #[error("{0}")]

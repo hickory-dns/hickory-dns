@@ -480,7 +480,6 @@ impl KeyPair<Private> {
                 "use generate_pkcs8 for generating private key and encoding",
             )
             .into()),
-            #[cfg(not(all(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
@@ -519,7 +518,6 @@ impl KeyPair<Private> {
                     .map_err(Into::into)
                     .map(|pkcs8_bytes| pkcs8_bytes.as_ref().to_vec())
             }
-            #[cfg(not(all(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }

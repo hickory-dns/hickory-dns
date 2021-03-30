@@ -423,6 +423,7 @@ impl<'k> PublicKey for Rsa<'k> {
 }
 
 /// Variants of all know public keys
+#[non_exhaustive]
 pub enum PublicKeyEnum<'k> {
     /// RSA keypair, supported by OpenSSL
     #[cfg(any(feature = "openssl", feature = "ring"))]

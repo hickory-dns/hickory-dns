@@ -313,6 +313,7 @@ enum OptReadState {
 
 /// The code of the EDNS data option
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum EdnsCode {
     /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
     Zero,
@@ -408,6 +409,7 @@ impl From<EdnsCode> for u16 {
 ///
 /// <http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13>
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
+#[non_exhaustive]
 pub enum EdnsOption {
     /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
     #[cfg(feature = "dnssec")]

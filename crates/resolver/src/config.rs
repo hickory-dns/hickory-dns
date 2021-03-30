@@ -261,6 +261,7 @@ impl Default for ResolverConfig {
     derive(Serialize, Deserialize),
     serde(rename_all = "lowercase")
 )]
+#[non_exhaustive]
 pub enum Protocol {
     /// UDP is the traditional DNS port, this is generally the correct choice
     Udp,

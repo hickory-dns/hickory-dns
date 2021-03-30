@@ -20,6 +20,7 @@ use crate::proto::{trace, ExtBacktrace};
 pub type Result<T> = ::std::result::Result<T, Error>;
 
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum ErrorKind {
     /// Unable to decode header value to string
     #[error("header decode error: {0}")]

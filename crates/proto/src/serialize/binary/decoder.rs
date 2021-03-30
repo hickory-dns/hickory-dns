@@ -34,6 +34,7 @@ pub(crate) type DecodeResult<T> = Result<T, DecodeError>;
 /// An error that can occur deep in a decoder
 /// This type is kept very small so that function that use it inline often
 #[derive(Clone, Copy, Debug, Error)]
+#[non_exhaustive]
 pub enum DecodeError {
     /// Insufficient data in the buffer for a read operation
     #[error("unexpected end of input reached")]

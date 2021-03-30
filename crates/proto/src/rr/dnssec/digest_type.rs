@@ -37,6 +37,7 @@ use super::Digest;
 /// 5-255 Unassigned -
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[non_exhaustive]
 pub enum DigestType {
     /// [RFC 3658](https://tools.ietf.org/html/rfc3658)
     SHA1,

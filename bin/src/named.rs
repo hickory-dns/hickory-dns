@@ -66,6 +66,7 @@ use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use trust_dns_server::store::StoreConfig;
 
 #[cfg_attr(not(feature = "dnssec"), allow(unused_mut, unused))]
+#[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
 fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
@@ -163,6 +164,9 @@ fn load_zone(
                 &config,
             )
             .map(|a| Box::new(Arc::new(RwLock::new(a))))?
+        }
+        Some(_) => {
+            panic!("unrecognized authority type, check enabled features");
         }
     };
 
