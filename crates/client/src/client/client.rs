@@ -17,7 +17,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use tokio::runtime::{self, Runtime};
-use trust_dns_proto::op::Message;
+use trust_dns_proto::xfer::DnsRequest;
 
 #[cfg(feature = "dnssec")]
 use crate::client::AsyncDnssecClient;
@@ -31,6 +31,8 @@ use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
+
+use super::ClientResponse;
 
 #[allow(clippy::type_complexity)]
 pub(crate) type NewFutureObj<H> = Pin<
@@ -89,10 +91,13 @@ pub trait Client {
         Ok((client, reactor))
     }
 
-    /// Sends an arbitrary `Message` to the client
-    fn send_msg<M: Into<Message>>(&self, msg: M) -> ClientResult<DnsResponse> {
+    /// Sends an arbitrary `DnsRequest` to the client
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        &self,
+        msg: R,
+    ) -> ClientResult<DnsResponse> {
         let (mut client, runtime) = self.spawn_client()?;
-        runtime.block_on(client.send_msg(msg))
+        runtime.block_on(ClientResponse(client.send(msg)))
     }
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
