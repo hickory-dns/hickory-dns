@@ -164,7 +164,7 @@ where
     .set_max_payload(1232)
     .set_version(0);
 
-    let response = client.send_msg(msg).expect("Query failed");
+    let response = client.send(msg).expect("Query failed");
 
     println!("response records: {:?}", response);
     assert!(response

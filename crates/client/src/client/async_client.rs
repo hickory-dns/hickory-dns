@@ -156,15 +156,6 @@ impl<T> ClientHandle for T where T: DnsHandle<Error = ProtoError> {}
 
 /// A trait for implementing high level functions of DNS.
 pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
-    /// Sends an arbitrary `Message` to the client
-    fn send_msg<M: Into<Message>>(
-        &mut self,
-        msg: M,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
-        let msg = msg.into();
-        debug!("sending message: {:?}", msg);
-        ClientResponse(self.send(msg))
-    }
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
@@ -583,7 +574,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
 /// A future result of a Client Request
 #[must_use = "futures do nothing unless polled"]
-pub struct ClientResponse<R>(R)
+pub struct ClientResponse<R>(pub(crate) R)
 where
     R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
 
