@@ -70,6 +70,7 @@ pub fn main() {
                     }
                     Algorithm::ED25519 => String::from("ed25519"),
                     Algorithm::Unknown(v) => format!("unknown_{}", v),
+                    alg => panic!("unknown Algorithm {:?}", alg),
                 };
 
                 let mut path = PathBuf::from("/tmp");

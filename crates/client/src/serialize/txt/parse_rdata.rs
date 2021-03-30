@@ -29,6 +29,7 @@ pub(crate) trait RDataParser: Sized {
     ) -> ParseResult<Self>;
 }
 
+#[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
 impl RDataParser for RData {
     /// Parse the RData from a set of Tokens
     fn parse<'i, I: Iterator<Item = &'i str>>(
@@ -40,19 +41,19 @@ impl RDataParser for RData {
             RecordType::A => RData::A(a::parse(tokens)?),
             RecordType::AAAA => RData::AAAA(aaaa::parse(tokens)?),
             RecordType::ANAME => RData::ANAME(name::parse(tokens, origin)?),
-            RecordType::ANY => Err(ParseError::from("parsing ANY doesn't make sense"))?, // valid panic, never should happen
-            RecordType::AXFR => Err(ParseError::from("parsing AXFR doesn't make sense"))?, // valid panic, never should happen
+            RecordType::ANY => return Err(ParseError::from("parsing ANY doesn't make sense")),
+            RecordType::AXFR => return Err(ParseError::from("parsing AXFR doesn't make sense")),
             RecordType::CAA => caa::parse(tokens).map(RData::CAA)?,
             RecordType::CNAME => RData::CNAME(name::parse(tokens, origin)?),
             RecordType::HINFO => RData::HINFO(hinfo::parse(tokens)?),
             RecordType::HTTPS => svcb::parse(tokens).map(RData::SVCB)?,
-            RecordType::IXFR => Err(ParseError::from("parsing IXFR doesn't make sense"))?, // valid panic, never should happen
+            RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
             RecordType::MX => RData::MX(mx::parse(tokens, origin)?),
             RecordType::NAPTR => RData::NAPTR(naptr::parse(tokens, origin)?),
             RecordType::NULL => RData::NULL(null::parse(tokens)?),
             RecordType::NS => RData::NS(name::parse(tokens, origin)?),
             RecordType::OPENPGPKEY => RData::OPENPGPKEY(openpgpkey::parse(tokens)?),
-            RecordType::OPT => Err(ParseError::from("parsing OPT doesn't make sense"))?, // valid panic, never should happen
+            RecordType::OPT => return Err(ParseError::from("parsing OPT doesn't make sense")),
             RecordType::PTR => RData::PTR(name::parse(tokens, origin)?),
             RecordType::SOA => RData::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => RData::SRV(srv::parse(tokens, origin)?),
@@ -61,38 +62,44 @@ impl RDataParser for RData {
             RecordType::TLSA => RData::TLSA(tlsa::parse(tokens)?),
             RecordType::TXT => RData::TXT(txt::parse(tokens)?),
             RecordType::DNSSEC(DNSSECRecordType::SIG) => {
-                Err(ParseError::from("parsing SIG doesn't make sense"))?
-            } // valid panic, never should happen
+                return Err(ParseError::from("parsing SIG doesn't make sense"))
+            }
             RecordType::DNSSEC(DNSSECRecordType::DNSKEY) => {
-                Err(ParseError::from("DNSKEY should be dynamically generated"))?
-            } // valid panic, never should happen
+                return Err(ParseError::from("DNSKEY should be dynamically generated"))
+            }
             RecordType::DNSSEC(DNSSECRecordType::KEY) => {
-                Err(ParseError::from("KEY should be dynamically generated"))?
-            } // valid panic, never should happen
+                return Err(ParseError::from("KEY should be dynamically generated"))
+            }
             RecordType::DNSSEC(DNSSECRecordType::DS) => {
-                Err(ParseError::from("DS should be dynamically generated"))?
-            } // valid panic, never should happen
+                return Err(ParseError::from("DS should be dynamically generated"))
+            }
             RecordType::DNSSEC(DNSSECRecordType::NSEC) => {
-                Err(ParseError::from("NSEC should be dynamically generated"))?
-            } // valid panic, never should happen
+                return Err(ParseError::from("NSEC should be dynamically generated"))
+            }
             RecordType::DNSSEC(DNSSECRecordType::NSEC3) => {
-                Err(ParseError::from("NSEC3 should be dynamically generated"))?
-            } // valid panic, never should happen
-            RecordType::DNSSEC(DNSSECRecordType::NSEC3PARAM) => Err(ParseError::from(
-                "NSEC3PARAM should be dynamically generated",
-            ))?, // valid panic, never should happen
+                return Err(ParseError::from("NSEC3 should be dynamically generated"))
+            }
+            RecordType::DNSSEC(DNSSECRecordType::NSEC3PARAM) => {
+                return Err(ParseError::from(
+                    "NSEC3PARAM should be dynamically generated",
+                ))
+            }
             RecordType::DNSSEC(DNSSECRecordType::RRSIG) => {
-                Err(ParseError::from("RRSIG should be dynamically generated"))?
-            } // valid panic, never should happen
+                return Err(ParseError::from("RRSIG should be dynamically generated"))
+            }
             RecordType::DNSSEC(DNSSECRecordType::Unknown(code)) => {
-                Err(ParseError::from(ParseErrorKind::UnknownRecordType(code)))?
-            } // valid panic, never should happen
+                return Err(ParseError::from(ParseErrorKind::UnknownRecordType(code)))
+            }
             RecordType::Unknown(code) => {
                 // TODO: add a way to associate generic record types to the zone
-                Err(ParseError::from(ParseErrorKind::UnknownRecordType(code)))?
+                return Err(ParseError::from(ParseErrorKind::UnknownRecordType(code)));
             }
             RecordType::ZERO => RData::ZERO,
-            _ => unreachable!("This should be an exhaustive match"),
+            r @ trust_dns_proto::rr::RecordType::DNSSEC(..) | r => {
+                return Err(ParseError::from(ParseErrorKind::UnknownRecordType(
+                    u16::from(r),
+                )))
+            }
         };
 
         Ok(rdata)

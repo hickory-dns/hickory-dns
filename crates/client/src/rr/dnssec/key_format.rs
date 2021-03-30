@@ -112,7 +112,6 @@ impl KeyFormat {
                 )
                 .into()),
             },
-            #[cfg(not(all(feature = "openssl", feature = "ring")))]
             e => Err(format!(
                 "unsupported Algorithm, enable openssl or ring feature: {:?}",
                 e
@@ -154,7 +153,6 @@ impl KeyFormat {
             },
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
-            #[cfg(not(all(feature = "openssl", feature = "ring")))]
             e => {
                 return Err(format!(
                     "unsupported Algorithm, enable openssl or ring feature: {:?}",
