@@ -13,9 +13,9 @@ use futures_util::future::Future;
 use log::debug;
 use rand;
 
+use crate::error::*;
 use crate::op::{Message, MessageType, OpCode, Query};
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
-use crate::{error::*, op::Edns};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
@@ -81,33 +81,6 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     fn lookup(&mut self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
         self.send(DnsRequest::new(build_message(query, options), options))
-    }
-
-    /// A DNS query with edns, i.e. does not perform any DNSSec operations
-    ///
-    /// *Note* As of now, this will not recurse on PTR record responses, that is up to
-    ///        the caller.
-    ///
-    /// # Arguments
-    ///
-    /// * `query` - the query to lookup
-    /// * `edns` - an Edns section to insert in the message
-    /// * `options` - options to use when constructing the message
-    fn lookup_edns(
-        &mut self,
-        query: Query,
-        edns: Edns,
-        options: DnsRequestOptions,
-    ) -> Self::Response {
-        debug!(
-            "querying: {} {:?} {:?}",
-            query.name(),
-            query.query_type(),
-            edns
-        );
-        let mut message = build_message(query, options);
-        message.set_edns(edns);
-        self.send(DnsRequest::new(message, options))
     }
 }
 

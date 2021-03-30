@@ -9,7 +9,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::op::ResponseCode;
+use trust_dns_client::op::{Message, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
@@ -194,8 +194,25 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
         EdnsCode::Subnet.into(),
         vec![0, 1, 16, 0, 1, 2],
     ));
+
+    // TODO: write builder
+    let mut msg = Message::new();
+    msg.add_query({
+        let mut query = Query::query(name.clone(), RecordType::A);
+        query.set_query_class(DNSClass::IN);
+        query
+    })
+    .set_id(rand::random::<u16>())
+    .set_message_type(MessageType::Query)
+    .set_op_code(OpCode::Query)
+    .set_recursion_desired(true)
+    .set_edns(edns)
+    .edns_mut()
+    .set_max_payload(1232)
+    .set_version(0);
+
     client
-        .query_edns(name.clone(), DNSClass::IN, RecordType::A, edns)
+        .send_msg(msg)
         .map_ok(move |response| {
             println!("response records: {:?}", response);
             assert!(response
