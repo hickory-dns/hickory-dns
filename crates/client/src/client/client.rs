@@ -17,7 +17,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use tokio::runtime::{self, Runtime};
-use trust_dns_proto::op::Edns;
+use trust_dns_proto::op::Message;
 
 #[cfg(feature = "dnssec")]
 use crate::client::AsyncDnssecClient;
@@ -89,6 +89,12 @@ pub trait Client {
         Ok((client, reactor))
     }
 
+    /// Sends an arbitrary `Message` to the client
+    fn send_msg<M: Into<Message>>(&self, msg: M) -> ClientResult<DnsResponse> {
+        let (mut client, runtime) = self.spawn_client()?;
+        runtime.block_on(client.send_msg(msg))
+    }
+
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
     /// *Note* As of now, this will not recurse on PTR record responses, that is up to
@@ -108,29 +114,6 @@ pub trait Client {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.query(name.clone(), query_class, query_type))
-    }
-
-    /// A DNS query with edns, i.e. does not perform any DNSSec operations
-    ///
-    /// *Note* As of now, this will not recurse on PTR record responses, that is up to
-    ///        the caller.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - the label to lookup
-    /// * `query_class` - most likely this should always be DNSClass::IN
-    /// * `query_type` - record type to lookup
-    /// * `edns` - an Edns section to insert in the message
-    fn query_edns(
-        &self,
-        name: &Name,
-        query_class: DNSClass,
-        query_type: RecordType,
-        edns: Edns,
-    ) -> ClientResult<DnsResponse> {
-        let (mut client, runtime) = self.spawn_client()?;
-
-        runtime.block_on(client.query_edns(name.clone(), query_class, query_type, edns))
     }
 
     /// Sends a NOTIFY message to the remote system

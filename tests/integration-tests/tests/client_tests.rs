@@ -25,8 +25,6 @@ use trust_dns_client::{
 use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::op::Edns;
-#[cfg(feature = "dnssec")]
 use trust_dns_proto::op::*;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use trust_dns_server::authority::{Authority, Catalog};
@@ -143,16 +141,30 @@ where
     CC: ClientConnection,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
-
     let mut edns = Edns::new();
     // garbage subnet value, but lets check
     edns.options_mut().insert(EdnsOption::Unknown(
         EdnsCode::Subnet.into(),
         vec![0, 1, 16, 0, 1, 2],
     ));
-    let response = client
-        .query_edns(&name, DNSClass::IN, RecordType::A, edns)
-        .expect("Query failed");
+
+    // TODO: write builder
+    let mut msg = Message::new();
+    msg.add_query({
+        let mut query = Query::query(name.clone(), RecordType::A);
+        query.set_query_class(DNSClass::IN);
+        query
+    })
+    .set_id(rand::random::<u16>())
+    .set_message_type(MessageType::Query)
+    .set_op_code(OpCode::Query)
+    .set_recursion_desired(true)
+    .set_edns(edns)
+    .edns_mut()
+    .set_max_payload(1232)
+    .set_version(0);
+
+    let response = client.send_msg(msg).expect("Query failed");
 
     println!("response records: {:?}", response);
     assert!(response

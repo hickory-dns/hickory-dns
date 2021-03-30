@@ -14,7 +14,6 @@ use std::time::Duration;
 use futures_util::{ready, FutureExt};
 use log::debug;
 use rand;
-use trust_dns_proto::op::Edns;
 
 use crate::error::*;
 use crate::op::{update_message, Message, MessageType, OpCode, Query};
@@ -157,6 +156,15 @@ impl<T> ClientHandle for T where T: DnsHandle<Error = ProtoError> {}
 
 /// A trait for implementing high level functions of DNS.
 pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
+    /// Sends an arbitrary `Message` to the client
+    fn send_msg<M: Into<Message>>(
+        &mut self,
+        msg: M,
+    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+        let msg = msg.into();
+        debug!("sending message: {:?}", msg);
+        ClientResponse(self.send(msg))
+    }
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
@@ -176,37 +184,6 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
         ClientResponse(self.lookup(query, DnsRequestOptions::default()))
-    }
-
-    /// A DNS query with edns, i.e. does not perform any DNSSec operations
-    ///
-    /// *Note* As of now, this will not recurse on PTR record responses, that is up to
-    ///        the caller.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - the label to lookup
-    /// * `query_class` - most likely this should always be DNSClass::IN
-    /// * `query_type` - record type to lookup
-    /// * `edns` - an Edns section to insert in the message
-    fn query_edns(
-        &mut self,
-        name: Name,
-        query_class: DNSClass,
-        query_type: RecordType,
-        edns: Edns,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
-        let mut query = Query::query(name, query_type);
-        query.set_query_class(query_class);
-
-        ClientResponse(self.lookup_edns(
-            query,
-            edns,
-            DnsRequestOptions {
-                use_edns: true,
-                ..DnsRequestOptions::default()
-            },
-        ))
     }
 
     /// Sends a NOTIFY message to the remote system
