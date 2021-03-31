@@ -133,7 +133,7 @@ fn mock_nameserver_pool_on_send<O: OnSend + Unpin>(
         &options,
         udp,
         tcp,
-        _mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
+        //_mdns.unwrap_or_else(move || mock_nameserver_on_send(vec![], options, on_send)),
         conn_provider,
     );
 }

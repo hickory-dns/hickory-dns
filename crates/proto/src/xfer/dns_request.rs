@@ -18,6 +18,7 @@ pub struct DnsRequestOptions {
     /// When true, the underlying DNS protocols will not return on the first response received.
     ///
     /// Setting this option will cause the underlying protocol to await the timeout, and then return all Responses.
+    #[deprecated]
     pub expects_multiple_responses: bool,
     // /// If set, then the request will terminate early if all types have been received
     // pub expected_record_types: Option<SmallVec<[RecordType; 2]>>,

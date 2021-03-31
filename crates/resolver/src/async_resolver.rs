@@ -435,7 +435,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> fmt::D
 /// Unit tests compatible with different runtime.
 #[cfg(any(test, feature = "testing"))]
 #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
-#[allow(dead_code)]
+#[allow(dead_code, unreachable_pub)]
 pub mod testing {
     use std::{net::*, str::FromStr};
 

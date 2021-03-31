@@ -54,7 +54,8 @@ dnssec-ring = ["dnssec",
 dnssec = []
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["trust-dns-client/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
+# TODO: revisit how mdns is implemented in resolver
+# mdns = ["trust-dns-client/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
 
 dns-over-https-rustls = ["trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "webpki-roots"]
 dns-over-https = []
