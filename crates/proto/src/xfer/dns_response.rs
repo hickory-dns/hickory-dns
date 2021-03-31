@@ -11,12 +11,10 @@ use std::future::Future;
 use std::io;
 use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
-use std::slice::{Iter, IterMut};
 use std::task::{Context, Poll};
 
 use futures_channel::oneshot;
 use futures_util::ready;
-use smallvec::SmallVec;
 
 use crate::error::{ProtoError, ProtoResult};
 use crate::op::{Message, ResponseCode};
@@ -92,30 +90,10 @@ type TimeoutFuture = Pin<
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.
 #[derive(Clone, Debug)]
-pub struct DnsResponse(SmallVec<[Message; 1]>);
+pub struct DnsResponse(Message);
 
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
-    /// Get all the messages in the Response
-    pub fn messages(&self) -> Iter<'_, Message> {
-        self.0.as_slice().iter()
-    }
-
-    /// Get all the messages in the Response
-    pub fn messages_mut(&mut self) -> IterMut<'_, Message> {
-        self.0.as_mut_slice().iter_mut()
-    }
-
-    /// returns the number of messages in the response
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    /// returns the number of messages in the response
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
     /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.
     pub fn soa(&self) -> Option<SOA> {
         self.name_servers()
@@ -267,35 +245,25 @@ impl Deref for DnsResponse {
     type Target = Message;
 
     fn deref(&self) -> &Self::Target {
-        &self.0[0]
+        &self.0
     }
 }
 
 impl DerefMut for DnsResponse {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0[0]
+        &mut self.0
     }
 }
 
 impl From<DnsResponse> for Message {
-    fn from(mut response: DnsResponse) -> Message {
-        response.0.remove(0)
+    fn from(response: DnsResponse) -> Message {
+        response.0
     }
 }
 
 impl From<Message> for DnsResponse {
     fn from(message: Message) -> DnsResponse {
-        DnsResponse(SmallVec::from([message]))
-    }
-}
-
-impl From<SmallVec<[Message; 1]>> for DnsResponse {
-    fn from(messages: SmallVec<[Message; 1]>) -> DnsResponse {
-        debug_assert!(
-            !messages.is_empty(),
-            "There should be at least one message in any DnsResponse"
-        );
-        DnsResponse(messages)
+        DnsResponse(message)
     }
 }
 

@@ -251,9 +251,18 @@ description = "Run tests all the crates"
 command = "cargo"
 args = ["test", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
 
+[tasks.touch_all_rs]
+description = "Touch all Rust files (for clippy)"
+script_runner = "@shell"
+script = [
+'''
+find . -name '*.rs' -exec touch {} \;
+'''
+]
+
 [tasks.clippy]
 description = "Run the clippy linter on all crates"
-dependencies = ["clean"]
+dependencies = ["touch_all_rs"]
 command = "cargo"
 args = ["clippy", "--lib", "--examples", "--tests", "--bins", "--all-features", "--", "-D", "warnings"]
 
@@ -357,7 +366,7 @@ run_task = { name = "all", fork = true }
 description = "Run all with --features=mdns"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;util" }
+env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/resolver;crates/async-std-resolver;crates/native-tls;crates/openssl;crates/rustls;crates/https;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.async-std]

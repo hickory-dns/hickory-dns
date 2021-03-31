@@ -23,13 +23,12 @@ use futures_util::{future::Future, ready, FutureExt};
 use log::{debug, warn};
 use rand;
 use rand::distributions::{Distribution, Standard};
-use smallvec::SmallVec;
 
 use crate::error::*;
-use crate::op::{Message, MessageFinalizer, OpCode};
+use crate::op::{MessageFinalizer, OpCode};
 use crate::xfer::{
-    ignore_send, DnsClientStream, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
-    DnsResponseFuture, SerialMessage, CHANNEL_BUFFER_SIZE,
+    ignore_send, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture,
+    SerialMessage, CHANNEL_BUFFER_SIZE,
 };
 use crate::DnsStreamHandle;
 use crate::Time;
@@ -40,12 +39,6 @@ struct ActiveRequest {
     // the completion is the channel for a response to the original request
     completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
-    request_options: DnsRequestOptions,
-    // most requests pass a single Message response directly through to the completion
-    //  this small vec will have no allocations, unless the requests is a DNS-SD request
-    //  expecting more than one response
-    // TODO: change the completion above to a Stream, and don't hold messages...
-    responses: SmallVec<[Message; 1]>,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
 }
 
@@ -53,15 +46,12 @@ impl ActiveRequest {
     fn new(
         completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
-        request_options: DnsRequestOptions,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
     ) -> Self {
         ActiveRequest {
             completion,
             request_id,
-            request_options,
             // request,
-            responses: SmallVec::new(),
             timeout,
         }
     }
@@ -76,36 +66,14 @@ impl ActiveRequest {
         self.completion.is_canceled()
     }
 
-    /// Adds the response to the request such that it can be later sent to the client
-    fn add_response(&mut self, message: Message) {
-        self.responses.push(message);
-    }
-
     /// the request id of the message that was sent
     fn request_id(&self) -> u16 {
         self.request_id
     }
 
-    /// the request options from the message that was sent
-    fn request_options(&self) -> &DnsRequestOptions {
-        &self.request_options
-    }
-
     /// Sends an error
     fn complete_with_error(self, error: ProtoError) {
         ignore_send(self.completion.send(Err(error)));
-    }
-
-    /// sends any registered responses to the requestor
-    ///
-    /// Any error sending will be logged and ignored. This must only be called after associating a response,
-    ///   otherwise an error will always be returned.
-    fn complete(self) {
-        if self.responses.is_empty() {
-            self.complete_with_error("no responses received, should have timedout".into());
-        } else {
-            ignore_send(self.completion.send(Ok(self.responses.into())));
-        }
     }
 }
 
@@ -203,13 +171,8 @@ where
         // drop all the canceled requests
         for (id, error) in canceled {
             if let Some(active_request) = self.active_requests.remove(&id) {
-                if active_request.responses.is_empty() {
-                    // complete the request, it's failed...
-                    active_request.complete_with_error(error);
-                } else {
-                    // this is a timeout waiting for multiple responses...
-                    active_request.complete();
-                }
+                // complete the request, it's failed...
+                active_request.complete_with_error(error);
             }
         }
     }
@@ -240,13 +203,8 @@ where
         }
 
         for (_, active_request) in self.active_requests.drain() {
-            if active_request.responses.is_empty() {
-                // complete the request, it's failed...
-                active_request.complete_with_error(error.clone());
-            } else {
-                // this is a timeout waiting for multiple responses...
-                active_request.complete();
-            }
+            // complete the request, it's failed...
+            active_request.complete_with_error(error.clone());
         }
     }
 }
@@ -319,7 +277,7 @@ where
             Err(e) => return e.into(),
         };
 
-        let (mut request, request_options) = request.into_parts();
+        let (mut request, _) = request.into_parts();
         request.set_id(query_id);
 
         let now = match SystemTime::now().duration_since(UNIX_EPOCH) {
@@ -346,8 +304,7 @@ where
         let (complete, receiver) = oneshot::channel();
 
         // send the message
-        let active_request =
-            ActiveRequest::new(complete, request.id(), request_options, Box::new(timeout));
+        let active_request = ActiveRequest::new(complete, request.id(), Box::new(timeout));
 
         match request.to_vec() {
             Ok(buffer) => {
@@ -414,21 +371,10 @@ where
                     //   deserialize or log decode_error
                     match buffer.to_message() {
                         Ok(message) => match self.active_requests.entry(message.id()) {
-                            Entry::Occupied(mut request_entry) => {
-                                // first add the response to the active_requests responses
-                                let complete = {
-                                    let active_request = request_entry.get_mut();
-                                    active_request.add_response(message);
-
-                                    // determine if this is complete
-                                    !active_request.request_options().expects_multiple_responses
-                                };
-
-                                // now check if the request is complete
-                                if complete {
-                                    let active_request = request_entry.remove();
-                                    active_request.complete();
-                                }
+                            Entry::Occupied(request_entry) => {
+                                // send the response, complete the request...
+                                let active_request = request_entry.remove();
+                                ignore_send(active_request.completion.send(Ok(message.into())));
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
