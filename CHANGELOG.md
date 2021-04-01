@@ -11,6 +11,14 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (all) Most public enum types are now marked `#[non_exaustive]` #1426
 - (resolver) DnsRequestOptions and ResolverOpts now `#[non_exaustive]` #1426
+- (proto) all I/O Streams now use `BufDnsStreamHandle` rather than generic `DnsStreamHandle` #1433
+- (proto) `DnsResponse` response now contains only a single Response #1433
+
+
+### Removed
+
+- (proto) removed `BufStreamHandle` and `StreamHandle` #1433
+- (response) disabled `mdns` to work on a new solution #1433
 
 ## 0.20.1
 
@@ -20,10 +28,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) proto: add into_parts methods (@leshow) #1397
 - (proto) new HTTPS and SVCB record types #1402
 - (resolver) predefined Quad9 HTTPS resolver configuration (@zonyitoo) #1413
+
 ### Fixed
 
 - (proto) Don't kill a DnsExchangeBackground if a receiver is gone (see #1276) (@djc) #1356
 - (proto) Take the current header truncated bit into account (@ilaidlaw) #1384
+
 ### Changed
 
 - (async-std-resolver) Re-export AsyncStdConnection(Provider) (@romanb) #1354
