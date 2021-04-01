@@ -67,10 +67,11 @@ pub type StreamReceiver = Peekable<Fuse<mpsc::Receiver<SerialMessage>>>;
 const CHANNEL_BUFFER_SIZE: usize = 32;
 
 /// A buffering stream bound to a `SocketAddr`
+///
+/// This stream handle ensures that all messages sent via this handle have the remote_addr set as the destination for the packet
 #[derive(Clone)]
 pub struct BufDnsStreamHandle {
-    // TODO: rename to remote or peer_addr
-    name_server: SocketAddr,
+    remote_addr: SocketAddr,
     sender: mpsc::Sender<SerialMessage>,
 }
 
@@ -79,14 +80,14 @@ impl BufDnsStreamHandle {
     ///
     /// # Arguments
     ///
-    /// * `name_server` - the address of the DNS server
+    /// * `remote_addr` - the address of the remote DNS system (client or server)
     /// * `sender` - the handle being used to send data to the server
-    pub fn new(name_server: SocketAddr) -> (Self, StreamReceiver) {
+    pub fn new(remote_addr: SocketAddr) -> (Self, StreamReceiver) {
         let (sender, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let receiver = receiver.fuse().peekable();
 
         let this = BufDnsStreamHandle {
-            name_server,
+            remote_addr,
             sender,
         };
 
@@ -98,7 +99,7 @@ impl BufDnsStreamHandle {
     /// This is mainly useful in server use cases where the incoming address is only known after receiving a packet.
     pub fn with_remote_addr(&self, remote_addr: SocketAddr) -> Self {
         Self {
-            name_server: remote_addr,
+            remote_addr,
             sender: self.sender.clone(),
         }
     }
@@ -106,10 +107,10 @@ impl BufDnsStreamHandle {
 
 impl DnsStreamHandle for BufDnsStreamHandle {
     fn send(&mut self, buffer: SerialMessage) -> Result<(), ProtoError> {
-        let name_server: SocketAddr = self.name_server;
+        let remote_addr: SocketAddr = self.remote_addr;
         let sender: &mut _ = &mut self.sender;
         sender
-            .try_send(SerialMessage::new(buffer.into_parts().0, name_server))
+            .try_send(SerialMessage::new(buffer.into_parts().0, remote_addr))
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }

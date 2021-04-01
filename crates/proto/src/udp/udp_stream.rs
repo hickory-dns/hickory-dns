@@ -76,7 +76,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     ///
     /// # Arguments
     ///
-    /// * `name_server` - socket address for the remote server (used to determine IPv4 or IPv6)
+    /// * `remote_addr` - socket address for the remote connection (used to determine IPv4 or IPv6)
     ///
     /// # Return
     ///
@@ -84,16 +84,16 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::type_complexity)]
     pub fn new(
-        name_server: SocketAddr,
+        remote_addr: SocketAddr,
     ) -> (
         Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
-        let next_socket = NextRandomUdpSocket::new(&name_server);
+        let next_socket = NextRandomUdpSocket::new(&remote_addr);
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
@@ -113,17 +113,14 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// # Arguments
     ///
     /// * `socket` - an already bound UDP socket
-    /// * `name_server` - remote side of this connection
+    /// * `remote_addr` - remote side of this connection
     ///
     /// # Return
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound(
-        socket: S,
-        /*TODO: change this is to remove*/ name_server: SocketAddr,
-    ) -> (Self, BufDnsStreamHandle) {
-        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+    pub fn with_bound(socket: S, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
         let stream = UdpStream {
             socket,
             outbound_messages,
