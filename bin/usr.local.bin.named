@@ -1,0 +1,12 @@
+# vim:syntax=apparmor
+# AppArmor policy for named
+
+#include <tunables/global>
+
+/usr/local/bin/named {
+  #include <abstractions/base>
+
+  network,
+  /etc/named.toml r,
+  /var/named/**/*.zone rw,
+}

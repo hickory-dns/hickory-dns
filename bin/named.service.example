@@ -1,0 +1,21 @@
+[Unit]
+Description=Trust-DNS Named Service
+Documentation=https://github.com/bluejekyll/trust-dns
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/named
+Restart=on-failure
+RestartSec=5
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectSystem=yes
+ProtectHome=yes
+ProtectDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target
