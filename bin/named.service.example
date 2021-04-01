@@ -3,19 +3,29 @@ Description=Trust-DNS Named Service
 Documentation=https://github.com/bluejekyll/trust-dns
 
 [Service]
+User=www-data
+Group=www-data
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 Type=simple
 ExecStart=/usr/local/bin/named
 Restart=on-failure
 RestartSec=5
 PrivateTmp=yes
-NoNewPrivileges=yes
-ProtectSystem=yes
-ProtectHome=yes
-ProtectDevices=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
-MemoryDenyWriteExecute=yes
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ProtectDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectKernelLogs=true
+MemoryDenyWriteExecute=true
+RestrictSUIDSGID=true
+KeyringMode=private
+ProtectClock=true
+RestrictRealtime=true
+ProtectHostname=true
 
 [Install]
 WantedBy=multi-user.target

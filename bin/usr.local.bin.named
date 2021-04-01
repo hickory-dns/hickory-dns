@@ -7,6 +7,7 @@
   #include <abstractions/base>
 
   network,
+  capability net_bind_service,
   /etc/named.toml r,
   /var/named/**/*.zone rw,
 }
