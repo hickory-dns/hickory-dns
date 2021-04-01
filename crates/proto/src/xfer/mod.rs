@@ -33,7 +33,7 @@ mod serial_message;
 pub use self::dns_exchange::{
     DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
 };
-pub use self::dns_handle::{DnsHandle, DnsStreamHandle, StreamHandle};
+pub use self::dns_handle::{DnsHandle, DnsStreamHandle};
 pub use self::dns_multiplexer::{DnsMultiplexer, DnsMultiplexerConnect};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::{DnsResponse, DnsResponseFuture};
