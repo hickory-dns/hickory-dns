@@ -160,7 +160,7 @@ where
 
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
-                    Box::new(handle),
+                    handle,
                     timeout,
                     NoopMessageFinalizer::new(),
                 );

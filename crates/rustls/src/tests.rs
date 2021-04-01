@@ -29,8 +29,8 @@ use rustls::ClientConfig;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
 use crate::tls_connect;
 

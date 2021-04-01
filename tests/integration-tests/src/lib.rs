@@ -10,8 +10,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
-use futures::channel::mpsc;
-use futures::stream::{Fuse, Stream, StreamExt};
+use futures::stream::{Stream, StreamExt};
 use futures::{future, Future, FutureExt};
 use tokio::time::{Duration, Instant, Sleep};
 
@@ -20,11 +19,11 @@ use trust_dns_client::error::ClientResult;
 use trust_dns_client::op::*;
 use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_client::serialize::binary::*;
-use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{
-    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage,
+    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver,
 };
-use trust_dns_proto::{StreamHandle, TokioTime};
+use trust_dns_proto::TokioTime;
+use trust_dns_proto::{error::ProtoError, BufDnsStreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
@@ -36,7 +35,7 @@ pub mod tls_client_connection;
 #[allow(unused)]
 pub struct TestClientStream {
     catalog: Arc<Mutex<Catalog>>,
-    outbound_messages: mpsc::UnboundedReceiver<Vec<u8>>,
+    outbound_messages: StreamReceiver,
 }
 
 #[allow(unused)]
@@ -46,10 +45,9 @@ impl TestClientStream {
         catalog: Arc<Mutex<Catalog>>,
     ) -> (
         Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
-        StreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = StreamHandle::new(message_sender);
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
 
         let stream = Box::pin(future::ok(TestClientStream {
             catalog,
@@ -133,7 +131,7 @@ impl Stream for TestClientStream {
         match self.outbound_messages.next().poll_unpin(cx) {
             // already handled above, here to make sure the poll() pops the next message
             Poll::Ready(Some(bytes)) => {
-                let mut decoder = BinDecoder::new(&bytes);
+                let mut decoder = BinDecoder::new(bytes.bytes());
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
@@ -176,7 +174,7 @@ impl fmt::Debug for TestClientStream {
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {
     timeout: Pin<Box<Sleep>>,
-    outbound_messages: Fuse<mpsc::UnboundedReceiver<Vec<u8>>>,
+    outbound_messages: StreamReceiver,
 }
 
 #[allow(dead_code)]
@@ -184,15 +182,14 @@ impl NeverReturnsClientStream {
     #[allow(clippy::type_complexity)]
     pub fn new() -> (
         Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>>,
-        StreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = mpsc::unbounded();
-        let message_sender = StreamHandle::new(message_sender);
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(([0, 0, 0, 0], 0).into());
 
         let stream = Box::pin(future::lazy(|_| {
             Ok(NeverReturnsClientStream {
                 timeout: Box::pin(tokio::time::sleep(Duration::from_secs(1))),
-                outbound_messages: outbound_messages.fuse(),
+                outbound_messages,
             })
         }));
 
@@ -261,6 +258,6 @@ impl ClientConnection for NeverReturnsClientConnection {
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
-        DnsMultiplexer::new(Box::pin(client_stream), Box::new(handle), signer)
+        DnsMultiplexer::new(Box::pin(client_stream), handle, signer)
     }
 }

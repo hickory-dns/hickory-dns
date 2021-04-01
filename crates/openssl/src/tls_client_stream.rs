@@ -83,8 +83,6 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
                 .map_err(ProtoError::from),
         );
 
-        let sender = BufDnsStreamHandle::new(name_server, sender);
-
         (new_future, sender)
     }
 }

@@ -65,6 +65,6 @@ impl<T: Connect> ClientConnection for TlsClientConnection<T> {
             self.client_config.clone(),
         );
 
-        DnsMultiplexer::new(Box::pin(tls_client_stream), Box::new(handle), signer)
+        DnsMultiplexer::new(Box::pin(tls_client_stream), handle, signer)
     }
 }

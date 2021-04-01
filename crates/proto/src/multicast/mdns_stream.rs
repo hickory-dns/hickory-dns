@@ -24,7 +24,7 @@ use tokio::net::UdpSocket;
 use crate::multicast::MdnsQueryType;
 use crate::udp::UdpStream;
 use crate::xfer::SerialMessage;
-use crate::BufStreamHandle;
+use crate::BufDnsStreamHandle;
 
 pub(crate) const MDNS_PORT: u16 = 5353;
 lazy_static! {
@@ -56,7 +56,7 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
         Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
@@ -68,7 +68,7 @@ impl MdnsStream {
         ipv6_if: Option<u32>,
     ) -> (
         Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
@@ -107,9 +107,9 @@ impl MdnsStream {
         ipv6_if: Option<u32>,
     ) -> (
         Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(multicast_addr);
         let multicast_socket = match Self::join_multicast(&multicast_addr, mdns_query_type) {
             Ok(socket) => socket,
             Err(err) => return (Box::new(future::err(err)), message_sender),
@@ -418,6 +418,7 @@ pub(crate) mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
+    use crate::xfer::dns_handle::DnsStreamHandle;
     use futures_util::future::Either;
     use tokio::runtime;
 

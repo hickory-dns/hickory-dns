@@ -29,8 +29,8 @@ use native_tls::{Certificate, TlsAcceptor};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]

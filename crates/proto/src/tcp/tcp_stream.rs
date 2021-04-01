@@ -21,7 +21,8 @@ use futures_util::{self, future::Future, ready, FutureExt};
 use log::debug;
 
 use crate::error::*;
-use crate::xfer::{BufStreamHandle, SerialMessage, StreamReceiver};
+use crate::xfer::{SerialMessage, StreamReceiver};
+use crate::BufDnsStreamHandle;
 use crate::Time;
 
 /// Trait for TCP connection
@@ -100,7 +101,7 @@ impl<S: Connect> TcpStream<S> {
         name_server: SocketAddr,
     ) -> (
         impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     )
     where
         E: FromProtoError,
@@ -120,9 +121,10 @@ impl<S: Connect> TcpStream<S> {
         timeout: Duration,
     ) -> (
         impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
+
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream_fut = Self::connect(name_server, timeout, outbound_messages);
@@ -188,8 +190,8 @@ impl<S: DnsTcpStream> TcpStream<S> {
     ///
     /// * `stream` - the established IO stream for communication
     /// * `peer_addr` - sources address of the stream
-    pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+    pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
         (stream, message_sender)
     }

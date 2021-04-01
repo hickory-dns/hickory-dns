@@ -19,9 +19,9 @@ use crate::error::*;
 use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::proto::error::ProtoError;
 use crate::proto::xfer::{
-    DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect, DnsExchangeSend,
-    DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest, DnsRequestOptions,
-    DnsRequestSender, DnsResponse, DnsStreamHandle,
+    BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect,
+    DnsExchangeSend, DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest,
+    DnsRequestOptions, DnsRequestSender, DnsResponse,
 };
 use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
@@ -58,7 +58,7 @@ impl AsyncClient {
     #[allow(clippy::new_ret_no_self)]
     pub fn new<F, S>(
         stream: F,
-        stream_handle: Box<dyn DnsStreamHandle>,
+        stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<Signer>>,
     ) -> AsyncClientConnect<DnsMultiplexerConnect<F, S, Signer>, DnsMultiplexer<S, Signer>>
     where
@@ -80,7 +80,7 @@ impl AsyncClient {
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout<F, S>(
         stream: F,
-        stream_handle: Box<dyn DnsStreamHandle>,
+        stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
     ) -> AsyncClientConnect<DnsMultiplexerConnect<F, S, Signer>, DnsMultiplexer<S, Signer>>

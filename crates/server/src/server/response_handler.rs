@@ -13,7 +13,7 @@ use log::info;
 use crate::authority::MessageResponse;
 use crate::client::serialize::binary::BinEncoder;
 use crate::proto::xfer::SerialMessage;
-use crate::proto::BufStreamHandle;
+use crate::proto::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// A handler for send a response to a client
 pub trait ResponseHandler: Clone + Send + Unpin + 'static {
@@ -31,12 +31,12 @@ pub trait ResponseHandler: Clone + Send + Unpin + 'static {
 #[derive(Clone)]
 pub struct ResponseHandle {
     dst: SocketAddr,
-    stream_handle: BufStreamHandle,
+    stream_handle: BufDnsStreamHandle,
 }
 
 impl ResponseHandle {
     /// Returns a new `ResponseHandle` for sending a response message
-    pub fn new(dst: SocketAddr, stream_handle: BufStreamHandle) -> Self {
+    pub fn new(dst: SocketAddr, stream_handle: BufDnsStreamHandle) -> Self {
         ResponseHandle { dst, stream_handle }
     }
 }

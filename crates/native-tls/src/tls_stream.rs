@@ -20,7 +20,7 @@ use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsS
 use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
+use trust_dns_proto::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
@@ -50,8 +50,8 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsC
 pub fn tls_from_stream<S: Connect>(
     stream: TokioTlsStream<AsyncIoStdAsTokio<S>>,
     peer_addr: SocketAddr,
-) -> (TlsStream<S>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = BufStreamHandle::create();
+) -> (TlsStream<S>, BufDnsStreamHandle) {
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
 
     let stream = TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(stream),
@@ -126,9 +126,9 @@ impl<S: Connect> TlsStreamBuilder<S> {
     ) -> (
         // TODO: change to impl?
         Pin<Box<dyn Future<Output = Result<TlsStream<S>, io::Error>> + Send>>,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
 
         let stream = self.inner_build(name_server, dns_name, outbound_messages);
         (Box::pin(stream), message_sender)

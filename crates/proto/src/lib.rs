@@ -82,7 +82,7 @@ pub use crate::xfer::dnssec_dns_handle::DnssecDnsHandle;
 #[doc(hidden)]
 pub use crate::xfer::retry_dns_handle::RetryDnsHandle;
 #[doc(hidden)]
-pub use crate::xfer::{BufDnsStreamHandle, BufStreamHandle};
+pub use crate::xfer::BufDnsStreamHandle;
 #[cfg(feature = "backtrace")]
 #[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use error::ExtBacktrace;

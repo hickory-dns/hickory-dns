@@ -23,9 +23,9 @@ use crate::error::ProtoError;
 use crate::iocompat::AsyncIoTokioAsStd;
 use crate::tcp::{Connect, DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
+use crate::BufDnsStreamHandle;
 #[cfg(feature = "tokio-runtime")]
 use crate::TokioTime;
-use crate::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// Tcp client stream
 ///
@@ -47,12 +47,7 @@ impl<S: Connect> TcpClientStream<S> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(
-        name_server: SocketAddr,
-    ) -> (
-        TcpClientConnect<S>,
-        Box<dyn DnsStreamHandle + 'static + Send>,
-    ) {
+    pub fn new(name_server: SocketAddr) -> (TcpClientConnect<S>, BufDnsStreamHandle) {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -65,10 +60,7 @@ impl<S: Connect> TcpClientStream<S> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> (
-        TcpClientConnect<S>,
-        Box<dyn DnsStreamHandle + 'static + Send>,
-    ) {
+    ) -> (TcpClientConnect<S>, BufDnsStreamHandle) {
         let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout);
 
         let new_future = Box::pin(
@@ -76,8 +68,6 @@ impl<S: Connect> TcpClientStream<S> {
                 .map_ok(move |tcp_stream| TcpClientStream { tcp_stream })
                 .map_err(ProtoError::from),
         );
-
-        let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
         (TcpClientConnect(new_future), sender)
     }
