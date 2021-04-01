@@ -29,7 +29,7 @@ pub(crate) trait RDataParser: Sized {
     ) -> ParseResult<Self>;
 }
 
-#[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
+#[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled
 impl RDataParser for RData {
     /// Parse the RData from a set of Tokens
     fn parse<'i, I: Iterator<Item = &'i str>>(

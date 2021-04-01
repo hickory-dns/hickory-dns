@@ -47,12 +47,11 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> DnsSdH
         let this = self.clone();
 
         let ptr_future = async move {
-            let options = DnsRequestOptions {
-                expects_multiple_responses: true,
-                // TODO: This should use the AsyncResolver's options.edns0
-                // setting, but options is private.
-                use_edns: false,
-            };
+            let mut options = DnsRequestOptions::default();
+            options.expects_multiple_responses = true;
+            // TODO: This should use the AsyncResolver's options.edns0
+            // setting, but options is private.
+            options.use_edns = false;
 
             this.inner_lookup(name, RecordType::PTR, options).await
         };

@@ -698,6 +698,7 @@ impl Default for LookupIpStrategy {
     serde(default)
 )]
 #[allow(dead_code)] // TODO: remove after all params are supported
+#[non_exhaustive]
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
     ///  that must appear before a query is assumed to include the TLD. The default is one, which
