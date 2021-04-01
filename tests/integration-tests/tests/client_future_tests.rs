@@ -24,7 +24,7 @@ use trust_dns_client::{
 use trust_dns_client::{error::ClientErrorKind, op::Edns, rr::rdata::opt::EdnsCode};
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, DnsStreamHandle};
+use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use trust_dns_proto::DnsHandle;
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_proto::TokioTime;
@@ -47,7 +47,7 @@ fn test_query_nonet() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = AsyncClient::new(stream, Box::new(sender), None);
+    let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -252,7 +252,7 @@ fn test_notify() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = AsyncClient::new(stream, Box::new(sender), None);
+    let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -278,10 +278,7 @@ fn test_notify() {
 async fn create_sig0_ready_client() -> (
     (
         AsyncClient,
-        DnsExchangeBackground<
-            DnsMultiplexer<TestClientStream, Signer, Box<dyn DnsStreamHandle>>,
-            TokioTime,
-        >,
+        DnsExchangeBackground<DnsMultiplexer<TestClientStream, Signer>, TokioTime>,
     ),
     Name,
 ) {
@@ -320,7 +317,7 @@ async fn create_sig0_ready_client() -> (
 
     let signer = Arc::new(signer);
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = AsyncClient::new(stream, Box::new(sender), Some(signer))
+    let client = AsyncClient::new(stream, sender, Some(signer))
         .await
         .expect("failed to get new AsyncClient");
 
@@ -956,12 +953,8 @@ fn test_timeout_query_nonet() {
     //env_logger::try_init().ok();
     let io_loop = Runtime::new().expect("failed to create Tokio Runtime");
     let (stream, sender) = NeverReturnsClientStream::new();
-    let client = AsyncClient::with_timeout(
-        stream,
-        Box::new(sender),
-        std::time::Duration::from_millis(1),
-        None,
-    );
+    let client =
+        AsyncClient::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 

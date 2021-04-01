@@ -30,9 +30,9 @@ use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
 use trust_dns_openssl::TlsStreamBuilder;
 

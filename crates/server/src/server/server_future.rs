@@ -27,7 +27,7 @@ use crate::proto::serialize::binary::{BinDecodable, BinDecoder};
 use crate::proto::tcp::TcpStream;
 use crate::proto::udp::UdpStream;
 use crate::proto::xfer::SerialMessage;
-use crate::proto::BufStreamHandle;
+use crate::proto::BufDnsStreamHandle;
 use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use trust_dns_openssl::tls_server::*;
@@ -53,8 +53,10 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn register_socket(&mut self, socket: net::UdpSocket) {
         debug!("registering udp: {:?}", socket);
 
-        // create the new UdpStream
-        let (mut buf_stream, stream_handle) = UdpStream::with_bound(socket);
+        // create the new UdpStream, the IP address isn't relevant, and ideally goes essentially no where.
+        //   the address used is acquired from the inbound queries
+        let (mut buf_stream, stream_handle) =
+            UdpStream::with_bound(socket, ([127, 255, 255, 254], 0).into());
         //let request_stream = RequestStream::new(buf_stream, stream_handle);
         let handler = self.handler.clone();
 
@@ -73,7 +75,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let src_addr = message.addr();
                     debug!("received udp request from: {}", src_addr);
                     let handler = handler.clone();
-                    let stream_handle = stream_handle.clone();
+                    let stream_handle = stream_handle.with_remote_addr(src_addr);
 
                     tokio::spawn(async move {
                         self::handle_raw_request(message, handler, stream_handle).await;
@@ -558,7 +560,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 pub(crate) fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     request_handler: Arc<Mutex<T>>,
-    response_handler: BufStreamHandle,
+    response_handler: BufDnsStreamHandle,
 ) -> HandleRawRequest<T::ResponseFuture> {
     let src_addr = message.addr();
     let response_handler = ResponseHandle::new(message.addr(), response_handler);

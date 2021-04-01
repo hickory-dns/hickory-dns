@@ -32,7 +32,7 @@ fn test_lookup() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -63,7 +63,7 @@ fn test_lookup_hosts() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
@@ -124,7 +124,7 @@ fn test_lookup_ipv4_like() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");
@@ -157,7 +157,7 @@ fn test_lookup_ipv4_like_fall_through() {
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let dns_conn = DnsMultiplexer::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
     let (client, bg) = io_loop.block_on(client).expect("client connect failed");

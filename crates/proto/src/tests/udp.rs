@@ -4,6 +4,7 @@ use futures_util::stream::StreamExt;
 use log::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
+use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::{Executor, Time};
 
 /// Test next random udpsocket.
@@ -89,7 +90,7 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
         .expect("could not create socket"); // some random address...
     println!("bound client socket");
 
-    let (mut stream, mut sender) = UdpStream::<S>::with_bound(socket);
+    let (mut stream, mut sender) = UdpStream::<S>::with_bound(socket, server_addr);
 
     for _i in 0..send_recv_times {
         // test once

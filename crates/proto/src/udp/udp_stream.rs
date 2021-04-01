@@ -18,7 +18,7 @@ use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 
-use crate::xfer::{BufStreamHandle, SerialMessage, StreamReceiver};
+use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
 
 /// Trait for UdpSocket
@@ -87,9 +87,9 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         name_server: SocketAddr,
     ) -> (
         Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -113,13 +113,17 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// # Arguments
     ///
     /// * `socket` - an already bound UDP socket
+    /// * `name_server` - remote side of this connection
     ///
     /// # Return
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound(socket: S) -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+    pub fn with_bound(
+        socket: S,
+        /*TODO: change this is to remove*/ name_server: SocketAddr,
+    ) -> (Self, BufDnsStreamHandle) {
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
         let stream = UdpStream {
             socket,
             outbound_messages,

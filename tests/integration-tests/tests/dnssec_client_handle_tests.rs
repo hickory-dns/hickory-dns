@@ -233,7 +233,7 @@ where
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = AsyncClient::new(stream, Box::new(sender), None);
+    let client = AsyncClient::new(stream, sender, None);
 
     let (client, bg) = io_loop
         .block_on(client)

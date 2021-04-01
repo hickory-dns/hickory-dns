@@ -27,8 +27,8 @@ use rand::distributions::{Distribution, Standard};
 use crate::error::*;
 use crate::op::{MessageFinalizer, OpCode};
 use crate::xfer::{
-    ignore_send, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture,
-    SerialMessage, CHANNEL_BUFFER_SIZE,
+    ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse,
+    DnsResponseFuture, SerialMessage, CHANNEL_BUFFER_SIZE,
 };
 use crate::DnsStreamHandle;
 use crate::Time;
@@ -83,21 +83,20 @@ impl ActiveRequest {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexer<S, MF, D = Box<dyn DnsStreamHandle>>
+pub struct DnsMultiplexer<S, MF>
 where
-    D: Send + 'static,
     S: DnsClientStream + 'static,
     MF: MessageFinalizer,
 {
     stream: S,
     timeout_duration: Duration,
-    stream_handle: D,
+    stream_handle: BufDnsStreamHandle,
     active_requests: HashMap<u16, ActiveRequest>,
     signer: Option<Arc<MF>>,
     is_shutdown: bool,
 }
 
-impl<S, MF> DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>
+impl<S, MF> DnsMultiplexer<S, MF>
 where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer,
@@ -113,7 +112,7 @@ where
     #[allow(clippy::new_ret_no_self)]
     pub fn new<F>(
         stream: F,
-        stream_handle: Box<dyn DnsStreamHandle>,
+        stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
     where
@@ -134,7 +133,7 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout<F>(
         stream: F,
-        stream_handle: Box<dyn DnsStreamHandle>,
+        stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
     ) -> DnsMultiplexerConnect<F, S, MF>
@@ -218,7 +217,7 @@ where
     MF: MessageFinalizer + Send + Sync + 'static,
 {
     stream: F,
-    stream_handle: Option<Box<dyn DnsStreamHandle>>,
+    stream_handle: Option<BufDnsStreamHandle>,
     timeout_duration: Duration,
     signer: Option<Arc<MF>>,
 }
@@ -229,7 +228,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    type Output = Result<DnsMultiplexer<S, MF, Box<dyn DnsStreamHandle>>, ProtoError>;
+    type Output = Result<DnsMultiplexer<S, MF>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let stream: S = ready!(self.stream.poll_unpin(cx))?;

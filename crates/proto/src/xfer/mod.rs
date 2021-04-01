@@ -61,35 +61,17 @@ pub trait DnsClientStream:
     fn name_server_addr(&self) -> SocketAddr;
 }
 
-// TODO: change to Sink
-/// A sender to which serialized DNS Messages can be sent
-#[derive(Clone)]
-pub struct BufStreamHandle {
-    sender: mpsc::Sender<SerialMessage>,
-}
-
-impl BufStreamHandle {
-    /// Constructs a new BufStreamHandle with associated StreamReceiver
-    pub fn create() -> (Self, StreamReceiver) {
-        let (sender, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
-        (BufStreamHandle { sender }, receiver.fuse().peekable())
-    }
-
-    /// Send SerialMessage over the channel
-    pub fn send(&mut self, msg: SerialMessage) -> Result<(), mpsc::TrySendError<SerialMessage>> {
-        self.sender.try_send(msg)
-    }
-}
-
 /// Receiver handle for peekable fused SerialMessage channel
 pub type StreamReceiver = Peekable<Fuse<mpsc::Receiver<SerialMessage>>>;
 
 const CHANNEL_BUFFER_SIZE: usize = 32;
 
 /// A buffering stream bound to a `SocketAddr`
+#[derive(Clone)]
 pub struct BufDnsStreamHandle {
+    // TODO: rename to remote or peer_addr
     name_server: SocketAddr,
-    sender: BufStreamHandle,
+    sender: mpsc::Sender<SerialMessage>,
 }
 
 impl BufDnsStreamHandle {
@@ -99,10 +81,25 @@ impl BufDnsStreamHandle {
     ///
     /// * `name_server` - the address of the DNS server
     /// * `sender` - the handle being used to send data to the server
-    pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
-        BufDnsStreamHandle {
+    pub fn new(name_server: SocketAddr) -> (Self, StreamReceiver) {
+        let (sender, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
+        let receiver = receiver.fuse().peekable();
+
+        let this = BufDnsStreamHandle {
             name_server,
             sender,
+        };
+
+        (this, receiver)
+    }
+
+    /// Associates a different remote address for any responses.
+    ///
+    /// This is mainly useful in server use cases where the incoming address is only known after receiving a packet.
+    pub fn with_remote_addr(&self, remote_addr: SocketAddr) -> Self {
+        Self {
+            name_server: remote_addr,
+            sender: self.sender.clone(),
         }
     }
 }
@@ -112,7 +109,7 @@ impl DnsStreamHandle for BufDnsStreamHandle {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
         sender
-            .send(SerialMessage::new(buffer.into_parts().0, name_server))
+            .try_send(SerialMessage::new(buffer.into_parts().0, name_server))
             .map_err(|e| ProtoError::from(format!("mpsc::SendError {}", e)))
     }
 }

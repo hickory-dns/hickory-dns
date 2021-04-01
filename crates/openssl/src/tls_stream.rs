@@ -22,7 +22,7 @@ use tokio_openssl::{self, SslStream as TokioTlsStream};
 use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::xfer::BufStreamHandle;
+use trust_dns_proto::xfer::BufDnsStreamHandle;
 
 pub(crate) trait TlsIdentityExt {
     fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {
@@ -119,8 +119,8 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 pub fn tls_stream_from_existing_tls_stream<S: Connect>(
     stream: AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>,
     peer_addr: SocketAddr,
-) -> (CompatTlsStream<S>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = BufStreamHandle::create();
+) -> (CompatTlsStream<S>, BufDnsStreamHandle) {
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
     (stream, message_sender)
 }
@@ -212,9 +212,9 @@ impl<S: Connect> TlsStreamBuilder<S> {
         dns_name: String,
     ) -> (
         Pin<Box<dyn Future<Output = Result<CompatTlsStream<S>, io::Error>> + Send>>,
-        BufStreamHandle,
+        BufDnsStreamHandle,
     ) {
-        let (message_sender, outbound_messages) = BufStreamHandle::create();
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
         let tls_config = match new(self.ca_chain, self.identity) {
             Ok(c) => c,
             Err(e) => {

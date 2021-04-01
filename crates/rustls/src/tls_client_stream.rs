@@ -50,7 +50,5 @@ pub fn tls_client_connect<S: Connect>(
             .map_err(ProtoError::from),
     );
 
-    let sender = BufDnsStreamHandle::new(name_server, sender);
-
     (new_future, sender)
 }

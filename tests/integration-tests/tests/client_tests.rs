@@ -53,7 +53,7 @@ impl ClientConnection for TestClientConnection {
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         let (client_stream, handle) = TestClientStream::new(self.catalog.clone());
 
-        DnsMultiplexer::new(Box::pin(client_stream), Box::new(handle), signer)
+        DnsMultiplexer::new(Box::pin(client_stream), handle, signer)
     }
 }
 

@@ -6,6 +6,7 @@ use futures_util::stream::StreamExt;
 
 use crate::error::ProtoError;
 use crate::tcp::{Connect, TcpClientStream, TcpStream};
+use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::SerialMessage;
 use crate::{Executor, Time};
 

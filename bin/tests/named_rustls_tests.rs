@@ -64,7 +64,7 @@ fn test_example_tls_toml_startup() {
                 "ns.example.com".to_string(),
                 config.clone(),
             );
-            let client = AsyncClient::new(stream, Box::new(sender), None);
+            let client = AsyncClient::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
             trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -82,7 +82,7 @@ fn test_example_tls_toml_startup() {
                 "ns.example.com".to_string(),
                 config,
             );
-            let client = AsyncClient::new(stream, Box::new(sender), None);
+            let client = AsyncClient::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
             trust_dns_proto::spawn_bg(&io_loop, bg);

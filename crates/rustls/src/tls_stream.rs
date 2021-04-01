@@ -23,7 +23,7 @@ use webpki::{DNSName, DNSNameRef};
 use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::tcp::{DnsTcpStream, TcpStream};
-use trust_dns_proto::xfer::{BufStreamHandle, StreamReceiver};
+use trust_dns_proto::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
@@ -40,8 +40,8 @@ pub type TlsStream<S> = TcpStream<S>;
 pub fn tls_from_stream<S: DnsTcpStream>(
     stream: S,
     peer_addr: SocketAddr,
-) -> (TlsStream<S>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = BufStreamHandle::create();
+) -> (TlsStream<S>, BufDnsStreamHandle) {
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
     (stream, message_sender)
 }
@@ -87,9 +87,9 @@ pub fn tls_connect<S: Connect>(
                 > + Send,
         >,
     >,
-    BufStreamHandle,
+    BufDnsStreamHandle,
 ) {
-    let (message_sender, outbound_messages) = BufStreamHandle::create();
+    let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
     let early_data_enabled = client_config.enable_early_data;
     let tls_connector = TlsConnector::from(client_config).early_data(early_data_enabled);
 
