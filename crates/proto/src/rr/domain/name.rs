@@ -1321,6 +1321,13 @@ impl IntoName for String {
     }
 }
 
+impl IntoName for &String {
+    /// Performs a utf8, IDNA or punycode, translation of the `&String` into `Name`
+    fn into_name(self) -> ProtoResult<Name> {
+        Name::from_utf8(self)
+    }
+}
+
 impl<T> IntoName for T
 where
     T: Into<Name>,
