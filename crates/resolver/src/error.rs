@@ -282,7 +282,8 @@ impl From<&'static str> for ResolveError {
 }
 
 #[cfg(target_os = "windows")]
-#[cfg_attr(docsrs, doc(cfg(target_os = "windows")))]
+#[cfg(feature = "system-config")]
+#[cfg_attr(docsrs, doc(cfg(all(feature = "system-config", windows))))]
 impl From<ipconfig::error::Error> for ResolveError {
     fn from(e: ipconfig::error::Error) -> ResolveError {
         ResolveErrorKind::Msg(format!("failed to read from registry: {}", e)).into()
