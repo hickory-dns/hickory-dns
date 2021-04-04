@@ -5,6 +5,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.21.0 (unreleased)
+
+### Changed
+
+- (all) Most public enum types are now marked `#[non_exaustive]` #1426
+- (resolver) DnsRequestOptions and ResolverOpts now `#[non_exaustive]` #1426
+
 ## 0.20.1
 
 ### Added
