@@ -56,7 +56,7 @@ serde-config = ["serde", "trust-dns-proto/serde-config"]
 system-config = ["ipconfig", "resolv-conf"]
 
 # # enables experimental the mDNS (multicast) feature
-# TODO: we will be revisiting how mdns is build into the resolver...
+# TODO: we will be revisiting how mdns is built into the resolver...
 #mdns = ["trust-dns-proto/mdns"]
 
 testing = []

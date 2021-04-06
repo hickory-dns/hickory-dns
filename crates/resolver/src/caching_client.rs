@@ -357,9 +357,9 @@ where
                 };
 
             // take all answers. // TODO: following CNAMES?
-            let answers: Vec<Record> = response.take_answers();
-            let additionals: Vec<Record> = response.take_additionals();
-            let name_servers: Vec<Record> = response.take_name_servers();
+            let answers = response.take_answers();
+            let additionals = response.take_additionals();
+            let name_servers = response.take_name_servers();
 
             // set of names that still require resolution
             // TODO: this needs to be enhanced for SRV
