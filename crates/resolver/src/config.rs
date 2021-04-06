@@ -367,6 +367,7 @@ impl std::fmt::Debug for TlsClientConfig {
 /// Configuration for the NameServer
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+#[non_exhaustive]
 pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,

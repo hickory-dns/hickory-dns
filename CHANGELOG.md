@@ -11,6 +11,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (all) Most public enum types are now marked `#[non_exaustive]` #1426
 - (resolver) DnsRequestOptions and ResolverOpts now `#[non_exaustive]` #1426
+- (resolver) NameServerConfig is now `#[non_exaustive]`
 
 ## 0.20.1
 
