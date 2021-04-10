@@ -13,12 +13,16 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (resolver) DnsRequestOptions and ResolverOpts now `#[non_exaustive]` #1426
 - (proto) all I/O Streams now use `BufDnsStreamHandle` rather than generic `DnsStreamHandle` #1433
 - (proto) `DnsResponse` response now contains only a single Response #1433
-
+- (proto) `Name::append_name` and `Name::append_domain` now properly fallible when name is too long #1448
 
 ### Removed
 
 - (proto) removed `BufStreamHandle` and `StreamHandle` #1433
 - (response) disabled `mdns` to work on a new solution #1433
+
+### Fixed
+
+- (proto) Panic when name exceeds maximal domain name length during display #1447
 
 ## 0.20.1
 
