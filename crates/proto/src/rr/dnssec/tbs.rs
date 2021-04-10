@@ -103,11 +103,7 @@ pub fn rrset_tbs(
     // put records in canonical order
     rrset.sort();
 
-    let name: Name = if let Some(name) = determine_name(name, num_labels) {
-        name
-    } else {
-        return Err(format!("could not determine name from {}", name).into());
-    };
+    let name = determine_name(name, num_labels)?;
 
     // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
     let mut buf: Vec<u8> = Vec::new();
@@ -254,7 +250,7 @@ pub fn rrset_tbs_with_sig(
 ///
 ///    The canonical forms for names and RRsets are defined in [RFC4034].
 /// ```
-pub fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {
+pub fn determine_name(name: &Name, num_labels: u8) -> Result<Name, ProtoError> {
     //             To calculate the name:
     //                let rrsig_labels = the value of the RRSIG Labels field
     //
@@ -267,7 +263,7 @@ pub fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {
     //                    name = fqdn
 
     if fqdn_labels == num_labels {
-        return Some(name.clone());
+        return Ok(name.clone());
     }
     //                if rrsig_labels < fqdn_labels,
     //                   name = "*." | the rightmost rrsig_label labels of the
@@ -276,10 +272,10 @@ pub fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {
         let mut star_name: Name = Name::from_labels(vec![b"*" as &[u8]]).unwrap();
         let rightmost = name.trim_to(num_labels as usize);
         if !rightmost.is_root() {
-            star_name = star_name.append_name(&rightmost);
-            return Some(star_name);
+            star_name = star_name.append_name(&rightmost)?;
+            return Ok(star_name);
         }
-        return Some(star_name);
+        return Ok(star_name);
     }
     //
     //                if rrsig_labels > fqdn_labels
@@ -287,6 +283,5 @@ pub fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {
     //                   checks and MUST NOT be used to authenticate this
     //                   RRset.
 
-    // TODO: this should be an error
-    None
+    Err(format!("could not determine name from {}", name).into())
 }

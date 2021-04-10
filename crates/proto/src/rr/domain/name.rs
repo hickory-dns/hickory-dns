@@ -46,6 +46,16 @@ impl Name {
         this
     }
 
+    /// Extend the name with the offered label, and ensure maximum name length is not exceeded.
+    fn extend_name(&mut self, label: &[u8]) -> Result<(), ProtoError> {
+        self.label_data.extend_from_slice(label);
+        self.label_ends.push(self.label_data.len() as u8);
+        if self.len() > 255 {
+            return Err("labels exceed maximum length of 255".into());
+        };
+        Ok(())
+    }
+
     /// Returns true if there are no labels, i.e. it's empty.
     ///
     /// In DNS the root is represented by `.`
@@ -118,12 +128,7 @@ impl Name {
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
-        self.label_data
-            .extend_from_slice(label.into_label()?.as_bytes());
-        self.label_ends.push(self.label_data.len() as u8);
-        if self.len() > 255 {
-            return Err("labels exceed maximum length of 255".into());
-        };
+        self.extend_name(label.into_label()?.as_bytes())?;
         Ok(self)
     }
 
@@ -194,25 +199,24 @@ impl Name {
     /// let domain = Name::from_str("example.com").unwrap();
     /// assert!(!domain.is_fqdn());
     ///
-    /// let name = local.clone().append_name(&domain);
+    /// let name = local.clone().append_name(&domain).unwrap();
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// assert!(!name.is_fqdn());
     ///
     /// // see also `Name::append_domain`
     /// let domain = Name::from_str("example.com.").unwrap();
     /// assert!(domain.is_fqdn());
-    /// let name = local.append_name(&domain);
+    /// let name = local.append_name(&domain).unwrap();
     /// assert_eq!(name, Name::from_str("www.example.com.").unwrap());
     /// assert!(name.is_fqdn());
     /// ```
-    pub fn append_name(mut self, other: &Self) -> Self {
+    pub fn append_name(mut self, other: &Self) -> Result<Self, ProtoError> {
         for label in other.iter() {
-            self.label_data.extend_from_slice(label);
-            self.label_ends.push(self.label_data.len() as u8);
+            self.extend_name(label)?;
         }
 
         self.is_fqdn = other.is_fqdn;
-        self
+        Ok(self)
     }
 
     /// Appends the `domain` to `self`, making the new `Name` an FQDN
@@ -228,14 +232,14 @@ impl Name {
     ///
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
-    /// let name = local.append_domain(&domain);
+    /// let name = local.append_domain(&domain).unwrap();
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// assert!(name.is_fqdn())
     /// ```
-    pub fn append_domain(self, domain: &Self) -> Self {
-        let mut this = self.append_name(domain);
+    pub fn append_domain(self, domain: &Self) -> Result<Self, ProtoError> {
+        let mut this = self.append_name(domain)?;
         this.set_fqdn(true);
-        this
+        Ok(this)
     }
 
     /// Creates a new Name with all labels lowercased
@@ -585,7 +589,7 @@ impl Name {
         if local.ends_with('.') {
             name.set_fqdn(true);
         } else if let Some(other) = origin {
-            return Ok(name.append_domain(other));
+            return name.append_domain(other);
         }
 
         Ok(name)
@@ -878,6 +882,8 @@ impl Name {
         label_data.push(b'*');
         let mut label_ends = TinyVec::new();
         label_ends.push(1);
+
+        // this is not using the Name::extend_name function as it should always be shorter than the original name, so length check is unnecessary
         for label in self.iter().skip(1) {
             label_data.extend_from_slice(label);
             label_ends.push(label_data.len() as u8);
@@ -1108,21 +1114,16 @@ impl<'r> BinDecodable<'r> for Name {
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the `Vec` which it is reading...
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
-        let mut label_data = TinyVec::new();
-        let mut label_ends = TinyVec::new();
-        read_inner(decoder, &mut label_data, &mut label_ends, None)?;
-        Ok(Name {
-            is_fqdn: true,
-            label_data,
-            label_ends,
-        })
+        let mut name = Name::root(); // this is FQDN
+
+        read_inner(decoder, &mut name, None)?;
+        Ok(name)
     }
 }
 
 fn read_inner(
     decoder: &mut BinDecoder<'_>,
-    label_data: &mut TinyVec<[u8; 32]>,
-    label_ends: &mut TinyVec<[u8; 24]>,
+    name: &mut Name,
     max_idx: Option<usize>,
 ) -> Result<(), DecodeError> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
@@ -1142,12 +1143,6 @@ fn read_inner(
                     other: max_idx,
                 });
             }
-        }
-
-        // enforce max length of name
-        let cur_len = label_data.len() + label_ends.len();
-        if cur_len > 255 {
-            return Err(DecodeError::DomainNameTooLong(cur_len));
         }
 
         state = match state {
@@ -1170,8 +1165,8 @@ fn read_inner(
                     .verify_unwrap(|l| l.len() <= 63)
                     .map_err(|l| DecodeError::LabelBytesTooLong(l.len()))?;
 
-                label_data.extend_from_slice(label);
-                label_ends.push(label_data.len() as u8);
+                name.extend_name(label)
+                    .map_err(|_| DecodeError::DomainNameTooLong(label.len()))?;
 
                 // reset to collect more data
                 LabelParseState::LabelLengthOrPointer
@@ -1215,7 +1210,7 @@ fn read_inner(
                     })?;
 
                 let mut pointer = decoder.clone(location);
-                read_inner(&mut pointer, label_data, label_ends, Some(name_start))?;
+                read_inner(&mut pointer, name, Some(name_start))?;
 
                 // Pointers always finish the name, break like Root.
                 break;
@@ -1890,5 +1885,22 @@ mod tests {
                 Ipv6Net::new("2001:db8:85a3:8d3:1319:8a2e:370:7334".parse().unwrap(), 128).unwrap()
             )
         );
+    }
+
+    #[test]
+    fn test_name_too_long_with_append() {
+        // from https://github.com/bluejekyll/trust-dns/issues/1447
+        let n = Name::from_ascii("Llocainvannnnnnaxgtezqzqznnnnnn1na.nnntnninvannnnnnaxgtezqzqznnnnnn1na.nnntnnnnnnnaxgtezqzqznnnnnn1na.nnntnaaaaaaaaaaaaaaaaaaaaaaaaiK.iaaaaaaaaaaaaaaaaaaaaaaaaiKa.innnnnaxgtezqzqznnnnnn1na.nnntnaaaaaaaaaaaaaaaaaaaaaaaaiK.iaaaaaaaaaaaaaaaaaaaaaaaaiKa.in").unwrap();
+        let sfx = Name::from_ascii("xxxxxxx.yyyyy.zzz").unwrap();
+
+        let error = n
+            .append_domain(&sfx)
+            .err()
+            .expect("should have errored, too long");
+
+        match error.kind() {
+            ProtoErrorKind::Message("labels exceed maximum length of 255") => (),
+            _ => panic!("expected too long message"),
+        }
     }
 }
