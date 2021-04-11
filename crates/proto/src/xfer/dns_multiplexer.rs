@@ -26,6 +26,7 @@ use rand::distributions::{Distribution, Standard};
 
 use crate::error::*;
 use crate::op::{MessageFinalizer, OpCode};
+use crate::rr::record_type::RecordType;
 use crate::xfer::{
     ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse,
     DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
@@ -287,8 +288,13 @@ where
         // TODO: truncates u64 to u32, error on overflow?
         let now = now as u32;
 
-        // update messages need to be signed.
-        if let OpCode::Update = request.op_code() {
+        // update, notify and XFR queries need to be signed.
+        if [OpCode::Update, OpCode::Notify].contains(&request.op_code())
+            || request
+                .queries()
+                .iter()
+                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
+        {
             if let Some(ref signer) = self.signer {
                 if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
                     debug!("could not sign message: {}", e);
