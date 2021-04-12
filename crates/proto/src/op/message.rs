@@ -81,7 +81,7 @@ pub struct Message {
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
-    sig0: Vec<Record>,
+    signature: Vec<Record>,
     edns: Option<Edns>,
 }
 
@@ -132,7 +132,7 @@ impl Message {
             answers: Vec::new(),
             name_servers: Vec::new(),
             additionals: Vec::new(),
-            sig0: Vec::new(),
+            signature: Vec::new(),
             edns: None,
         }
     }
@@ -329,12 +329,21 @@ impl Message {
 
     /// Add a SIG0 record, i.e. sign this message
     ///
-    /// This must be don't only after all records have been associated. Generally this will be handled by the client and not need to be used directly
+    /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::DNSSEC(DNSSECRecordType::SIG), record.rr_type());
-        self.sig0.push(record);
+        self.signature.push(record);
+        self
+    }
+
+    /// Add a TSIG record, i.e. authenticate this message
+    ///
+    /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
+    pub fn add_tsig(&mut self, record: Record) -> &mut Self {
+        assert_eq!(RecordType::TSIG, record.rr_type());
+        self.signature.push(record);
         self
     }
 
@@ -552,9 +561,29 @@ impl Message {
     ///
     /// # Return value
     ///
-    /// The sig0, i.e. signed record, for verifying the sending and package integrity
+    /// The sig0 and tsig, i.e. signed record, for verifying the sending and package integrity
+    // comportment change: can now return TSIG instead of SIG0. Maybe should get deprecated in
+    // favor of signature() which have more correct naming ?
     pub fn sig0(&self) -> &[Record] {
-        &self.sig0
+        &self.signature
+    }
+
+    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
+    ///
+    /// ```text
+    /// A DNS request may be optionally signed by including one or more SIGs
+    ///  at the end of the query. Such SIGs are identified by having a "type
+    ///  covered" field of zero. They sign the preceding DNS request message
+    ///  including DNS header but not including the IP header or any request
+    ///  SIGs at the end and before the request RR counts have been adjusted
+    ///  for the inclusions of any request SIG(s).
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// The sig0 and tsig, i.e. signed record, for verifying the sending and package integrity
+    pub fn signature(&self) -> &[Record] {
+        &self.signature
     }
 
     // TODO: only necessary in tests, should it be removed?
@@ -588,7 +617,7 @@ impl Message {
     ///
     /// # Returns
     ///
-    /// This returns a tuple of first standard Records, then a possibly associated Edns, and then finally any optionally associated SIG0 records.
+    /// This returns a tuple of first standard Records, then a possibly associated Edns, and then finally any optionally associated SIG0 and TSIG records.
     #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
     pub fn read_records(
         decoder: &mut BinDecoder<'_>,
@@ -597,13 +626,17 @@ impl Message {
     ) -> ProtoResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
-        let mut sig0s: Vec<Record> = Vec::with_capacity(if is_additional { 1 } else { 0 });
+        let mut sigs: Vec<Record> = Vec::with_capacity(if is_additional { 1 } else { 0 });
 
         // sig0 must be last, once this is set, disable.
         let mut saw_sig0 = false;
+        // tsig must be last, once this is set, disable.
+        let mut saw_tsig = false;
         for _ in 0..count {
             let record = Record::read(decoder)?;
-
+            if saw_tsig {
+                return Err("tsig must be final resource record".into());
+            } // TSIG must be last and multiple TSIG records are not allowed
             if !is_additional {
                 if saw_sig0 {
                     return Err("sig0 must be final resource record".into());
@@ -614,7 +647,14 @@ impl Message {
                     #[cfg(feature = "dnssec")]
                     RecordType::DNSSEC(DNSSECRecordType::SIG) => {
                         saw_sig0 = true;
-                        sig0s.push(record);
+                        sigs.push(record);
+                    }
+                    RecordType::TSIG => {
+                        if saw_sig0 {
+                            return Err("sig0 must be final resource record".into());
+                        } // SIG0 must be last
+                        saw_tsig = true;
+                        sigs.push(record);
                     }
                     RecordType::OPT => {
                         if saw_sig0 {
@@ -635,7 +675,7 @@ impl Message {
             }
         }
 
-        Ok((records, edns, sig0s))
+        Ok((records, edns, sigs))
     }
 
     /// Decodes a message from the buffer.
@@ -676,6 +716,7 @@ impl Message {
                 // SIG0's are special, and come at the very end of the message
                 #[cfg(feature = "dnssec")]
                 RecordType::DNSSEC(DNSSECRecordType::SIG) => self.add_sig0(fin),
+                RecordType::TSIG => self.add_tsig(fin),
                 _ => self.add_additional(fin),
             };
         }
@@ -709,7 +750,9 @@ pub struct MessageParts {
     pub name_servers: Vec<Record>,
     /// message additional records
     pub additionals: Vec<Record>,
-    /// sig0
+    /// sig0 or tsig
+    // this can now contains TSIG too. It should probably be renamed to reflect that, but it's a
+    // breaking change
     pub sig0: Vec<Record>,
     /// optional edns records
     pub edns: Option<Edns>,
@@ -723,7 +766,7 @@ impl From<Message> for MessageParts {
             answers,
             name_servers,
             additionals,
-            sig0,
+            signature,
             edns,
         } = msg;
         MessageParts {
@@ -732,7 +775,7 @@ impl From<Message> for MessageParts {
             answers,
             name_servers,
             additionals,
-            sig0,
+            sig0: signature,
             edns,
         }
     }
@@ -815,7 +858,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     name_servers: &mut N,
     additionals: &mut D,
     edns: Option<&Edns>,
-    sig0: &[Record],
+    signature: &[Record],
     encoder: &mut BinEncoder<'_>,
 ) -> ProtoResult<()>
 where
@@ -824,7 +867,7 @@ where
     N: EmitAndCount,
     D: EmitAndCount,
 {
-    let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
+    let include_signature: bool = encoder.mode() != EncodeMode::Signing;
     let place = encoder.place::<Header>()?;
 
     let query_count = queries.emit(encoder)?;
@@ -844,8 +887,8 @@ where
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
     //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
     //  part of the additionals section.
-    if include_sig0 {
-        let count = count_was_truncated(encoder.emit_all(sig0.iter()))?;
+    if include_signature {
+        let count = count_was_truncated(encoder.emit_all(signature.iter()))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
     }
@@ -872,7 +915,7 @@ impl BinEncodable for Message {
             &mut self.name_servers.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
-            &self.sig0,
+            &self.signature,
             encoder,
         )
     }
@@ -899,7 +942,7 @@ impl<'r> BinDecodable<'r> for Message {
 
         let (answers, _, _) = Self::read_records(decoder, answer_count, false)?;
         let (name_servers, _, _) = Self::read_records(decoder, name_server_count, false)?;
-        let (additionals, edns, sig0) = Self::read_records(decoder, additional_count, true)?;
+        let (additionals, edns, signature) = Self::read_records(decoder, additional_count, true)?;
 
         Ok(Message {
             header,
@@ -907,7 +950,7 @@ impl<'r> BinDecodable<'r> for Message {
             answers,
             name_servers,
             additionals,
-            sig0,
+            signature,
             edns,
         })
     }
