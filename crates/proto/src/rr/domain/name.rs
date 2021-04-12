@@ -609,34 +609,25 @@ impl Name {
         let labels = self.iter();
 
         // start index of each label
-        let mut labels_written: Vec<usize> = Vec::with_capacity(self.label_ends.len());
-
-        if canonical {
-            for label in labels {
-                encoder.emit_character_data(label)?;
-            }
-        } else {
-            // we're going to write out each label, tracking the indexes of the start to each label
-            //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
-            for label in labels {
-                if label.len() > 63 {
-                    return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
-                }
-
-                labels_written.push(encoder.offset());
-                encoder.emit_character_data(label)?;
+        let mut labels_written = Vec::with_capacity(self.label_ends.len());
+        // we're going to write out each label, tracking the indexes of the start to each label
+        //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
+        for label in labels {
+            if label.len() > 63 {
+                return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
             }
 
-            // we've written all the labels to the buf, the current offset is the end
-            let last_index = encoder.offset();
-
-            // now search for other labels already stored matching from the beginning label, strip then to the end
-            //   if it's not found, then store this as a new label
-            for label_idx in &labels_written {
-                let label_ptr: Option<u16> = encoder.get_label_pointer(*label_idx, last_index);
-
-                // before we write the label, let's look for the current set of labels.
-                if let Some(loc) = label_ptr {
+            labels_written.push(encoder.offset());
+            encoder.emit_character_data(label)?;
+        }
+        let last_index = encoder.offset();
+        // now search for other labels already stored matching from the beginning label, strip then to the end
+        //   if it's not found, then store this as a new label
+        for label_idx in &labels_written {
+            match encoder.get_label_pointer(*label_idx, last_index) {
+                // if writing canonical and already found, continue
+                Some(_) if canonical => continue,
+                Some(loc) if !canonical => {
                     // reset back to the beginning of this label, and then write the pointer...
                     encoder.set_offset(*label_idx);
                     encoder.trim();
@@ -647,7 +638,8 @@ impl Name {
 
                     // we found a pointer don't write more, break
                     return Ok(());
-                } else {
+                }
+                _ => {
                     // no existing label exists, store this new one.
                     encoder.store_label_pointer(*label_idx, last_index);
                 }

@@ -507,9 +507,14 @@ pub enum EncodeMode {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
-    use crate::op::Message;
-    use crate::serialize::binary::BinDecoder;
+    use crate::{
+        op::{Message, Query},
+        rr::{rdata::SRV, RData, Record, RecordType},
+    };
+    use crate::{rr::Name, serialize::binary::BinDecoder};
 
     #[test]
     fn test_label_compression_regression() {
@@ -616,5 +621,46 @@ mod tests {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => panic!(),
         }
+    }
+
+    #[test]
+    fn test_target_compression() {
+        let mut msg = Message::new();
+        msg.add_query(Query::query(
+            Name::from_str("www.google.com.").unwrap(),
+            RecordType::A,
+        ))
+        .add_answer(Record::from_rdata(
+            Name::from_str("www.google.com.").unwrap(),
+            0,
+            RData::SRV(SRV::new(
+                0,
+                0,
+                0,
+                Name::from_str("www.compressme.com").unwrap(),
+            )),
+        ))
+        .add_additional(Record::from_rdata(
+            Name::from_str("www.google.com.").unwrap(),
+            0,
+            RData::SRV(SRV::new(
+                0,
+                0,
+                0,
+                Name::from_str("www.compressme.com").unwrap(),
+            )),
+        ))
+        // name here should use compressed label from target in previous records
+        .add_answer(Record::from_rdata(
+            Name::from_str("www.compressme.com").unwrap(),
+            0,
+            RData::CNAME(Name::from_str("www.foo.com").unwrap()),
+        ));
+
+        let bytes = msg.to_vec().unwrap();
+        // label is compressed pointing to target, would be 145 otherwise
+        assert_eq!(bytes.len(), 130);
+        // check re-serializing
+        assert!(Message::from_vec(&bytes).is_ok());
     }
 }
