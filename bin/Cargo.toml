@@ -56,7 +56,7 @@ dns-over-https = ["trust-dns-server/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-server/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns-client/dns-over-rustls", "trust-dns-server/dns-over-rustls",]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-server/dns-over-rustls",]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -80,7 +80,6 @@ tokio = { version = "1.0", features = ["time"] }
 trust-dns-client = { version = "0.20.1", path = "../crates/client" }
 trust-dns-openssl = { version = "0.20.1", path = "../crates/openssl", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../crates/proto" }
-trust-dns-rustls = { version = "0.20.1", path = "../crates/rustls", optional = true }
 trust-dns-server = { version = "0.20.1", path = "../crates/server" }
 
 [dev-dependencies]

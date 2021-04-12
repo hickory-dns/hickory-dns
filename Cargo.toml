@@ -2,7 +2,6 @@
 members = ["crates/proto",
            "crates/native-tls",
            "crates/openssl",
-           "crates/rustls",
            "crates/https",
            "crates/resolver",
            "crates/client", 

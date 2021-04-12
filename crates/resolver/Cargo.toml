@@ -41,11 +41,11 @@ backtrace = ["trust-dns-proto/backtrace"]
 dns-over-native-tls = ["dns-over-tls", "tokio-native-tls", "trust-dns-native-tls"]
 # DNS over TLS with OpenSSL currently needs a good way to set default CAs, use rustls or native-tls
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tokio-openssl"]
-dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "trust-dns-rustls", "webpki-roots"]
+dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "trust-dns-proto/dns-over-rustls", "webpki-roots"]
 dns-over-tls = []
 
 # This requires some TLS library, currently only rustls is supported
-dns-over-https-rustls = ["trust-dns-https", "dns-over-rustls", "dns-over-https"]
+dns-over-https-rustls = ["trust-dns-https", "trust-dns-proto/dns-over-rustls", "dns-over-https"]
 dns-over-https = []
 
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
@@ -86,7 +86,6 @@ trust-dns-https = { version = "0.20.1", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.20.1", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.20.1", path = "../openssl", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../proto", default-features = false }
-trust-dns-rustls = { version = "0.20.1", path = "../rustls", optional = true }
 webpki-roots = { version = "0.21", optional = true }
 
 [target.'cfg(windows)'.dependencies]

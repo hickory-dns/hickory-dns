@@ -365,7 +365,7 @@ pub fn load_cert(
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
     use log::{info, warn};
 
-    use trust_dns_rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
+    use crate::proto::rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let cert_type = tls_cert_config.get_cert_type();

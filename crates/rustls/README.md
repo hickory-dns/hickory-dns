@@ -1,5 +1,7 @@
 # Overview
 
+*NOTICE* this crate has been deprecated, instead please see `trust-dns-proto` with the `dns-over-rustls` feature
+
 Trust-DNS Rustls is a library which implements the DNS over TLS protocol and client side functions.
 
 This library allows for TLS connections to be established to remote DNS servers. It can replace the standard `ClientConnection` in the Trust-DNS library. This uses the rustls TLS library for all TLS communications.

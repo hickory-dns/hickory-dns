@@ -26,7 +26,7 @@ use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_rustls::tls_client_connect;
+use trust_dns_proto::rustls::tls_client_connect;
 
 use server_harness::{named_test_harness, query_a};
 

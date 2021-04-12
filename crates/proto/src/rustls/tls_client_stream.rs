@@ -15,13 +15,13 @@ use std::sync::Arc;
 use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::{Connect, TcpClientStream};
-use trust_dns_proto::xfer::BufDnsStreamHandle;
+use crate::error::ProtoError;
+use crate::iocompat::AsyncIoStdAsTokio;
+use crate::iocompat::AsyncIoTokioAsStd;
+use crate::tcp::{Connect, TcpClientStream};
+use crate::xfer::BufDnsStreamHandle;
 
-use crate::tls_stream::tls_connect;
+use crate::rustls::tls_stream::tls_connect;
 
 /// Type of TlsClientStream used with Rustls
 pub type TlsClientStream<S> =

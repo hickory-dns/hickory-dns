@@ -20,10 +20,10 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 use webpki::{DNSName, DNSNameRef};
 
-use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::tcp::{DnsTcpStream, TcpStream};
-use trust_dns_proto::xfer::{BufDnsStreamHandle, StreamReceiver};
+use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::tcp::Connect;
+use crate::tcp::{DnsTcpStream, TcpStream};
+use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;

@@ -348,8 +348,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: (Vec<Certificate>, PrivateKey),
     ) -> io::Result<()> {
+        use crate::proto::rustls::{tls_from_stream, tls_server};
         use tokio_rustls::TlsAcceptor;
-        use trust_dns_rustls::{tls_from_stream, tls_server};
 
         let handler = self.handler.clone();
 
@@ -487,8 +487,8 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         use tokio_rustls::TlsAcceptor;
 
+        use crate::proto::rustls::tls_server;
         use crate::server::https_handler::h2_handler;
-        use trust_dns_rustls::tls_server;
 
         let dns_hostname: Arc<str> = Arc::from(dns_hostname);
         let handler = self.handler.clone();

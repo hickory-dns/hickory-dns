@@ -64,6 +64,9 @@ pub mod error;
 pub mod multicast;
 pub mod op;
 pub mod rr;
+#[cfg(feature = "dns-over-rustls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
+pub mod rustls;
 pub mod serialize;
 pub mod tcp;
 #[cfg(any(test, feature = "testing"))]
