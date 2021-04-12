@@ -16,8 +16,8 @@ use futures_util::future::Future;
 use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 
 use proto::error::ProtoError;
+use proto::rustls::{tls_client_connect, TlsClientStream};
 use proto::BufDnsStreamHandle;
-use trust_dns_rustls::{tls_client_connect, TlsClientStream};
 
 use crate::config::TlsClientConfig;
 use crate::name_server::RuntimeProvider;

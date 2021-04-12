@@ -28,17 +28,8 @@
 )]
 #![allow(clippy::single_component_path_imports)]
 
-//! TLS protocol related components for DNS over TLS
+//! Deprecated and removed as of 0.21.0, see the dns-over-rustls feature in `trust-dns-proto`
 
-#[macro_use]
-extern crate log;
-
-pub mod tls_client_stream;
-pub mod tls_server;
-pub mod tls_stream;
-
-pub use self::tls_client_stream::{tls_client_connect, TlsClientStream};
-pub use self::tls_stream::{tls_connect, tls_from_stream, TlsStream};
-
-#[cfg(test)]
-mod tests;
+compile_error!(
+    "Deprecated and removed as of 0.21.0, see the dns-over-rustls feature in `trust-dns-proto`"
+);

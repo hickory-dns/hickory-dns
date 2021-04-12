@@ -21,7 +21,7 @@ use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
 use rustls::ClientConfig;
-use trust_dns_rustls::{tls_client_connect, TlsClientStream};
+use trust_dns_proto::rustls::{tls_client_connect, TlsClientStream};
 
 /// Tls client connection
 ///

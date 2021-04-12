@@ -11,10 +11,11 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
+use log::warn;
 use rustls::internal::pemfile::{certs, pkcs8_private_keys};
 use rustls::{self, Certificate, PrivateKey, ServerConfig};
 
-use trust_dns_proto::error::{ProtoError, ProtoResult};
+use crate::error::{ProtoError, ProtoResult};
 
 /// Read the certificate from the specified path.
 ///

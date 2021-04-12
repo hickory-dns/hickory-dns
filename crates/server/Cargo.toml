@@ -56,7 +56,7 @@ dns-over-https = ["h2", "http", "trust-dns-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "tokio-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-rustls", "rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -96,7 +96,6 @@ trust-dns-https = { version = "0.20.1", path = "../https", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../proto" }
 trust-dns-openssl = { version = "0.20.1", path = "../openssl", optional = true }
 trust-dns-resolver = { version = "0.20.1", path = "../resolver", features = ["serde-config"], optional = true }
-trust-dns-rustls = { version = "0.20.1", path = "../rustls", optional = true }
 
 [package.metadata.docs.rs]
 all-features = true
