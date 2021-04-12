@@ -34,6 +34,7 @@ pub mod srv;
 pub mod sshfp;
 pub mod svcb;
 pub mod tlsa;
+pub mod tsig;
 pub mod txt;
 
 pub use self::caa::CAA;
@@ -48,4 +49,5 @@ pub use self::srv::SRV;
 pub use self::sshfp::SSHFP;
 pub use self::svcb::SVCB;
 pub use self::tlsa::TLSA;
+pub use self::tsig::TSIG;
 pub use self::txt::TXT;

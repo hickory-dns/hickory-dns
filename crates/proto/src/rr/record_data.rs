@@ -19,7 +19,7 @@ use log::{trace, warn};
 use super::domain::Name;
 use super::rdata;
 use super::rdata::{
-    CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+    CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TSIG, TXT,
 };
 use super::record_type::RecordType;
 use crate::error::*;
@@ -631,6 +631,58 @@ pub enum RData {
     /// ```
     TLSA(TLSA),
 
+    /// [RFC 2845, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc2845)
+    ///
+    /// ```text
+    ///   2.3. Record Format
+    ///
+    ///   NAME The name of the key used in domain name syntax.  The name
+    ///        should reflect the names of the hosts and uniquely identify
+    ///        the key among a set of keys these two hosts may share at any
+    ///        given time.  If hosts A.site.example and B.example.net share a
+    ///        key, possibilities for the key name include
+    ///        <id>.A.site.example, <id>.B.example.net, and
+    ///        <id>.A.site.example.B.example.net.  It should be possible for
+    ///        more than one key to be in simultaneous use among a set of
+    ///        interacting hosts.  The name only needs to be meaningful to
+    ///        the communicating hosts but a meaningful mnemonic name as
+    ///        above is strongly recommended.
+    ///
+    ///        The name may be used as a local index to the key involved and
+    ///        it is recommended that it be globally unique.  Where a key is
+    ///        just shared between two hosts, its name actually only need
+    ///        only be meaningful to them but it is recommended that the key
+    ///        name be mnemonic and incorporate the resolver and server host
+    ///        names in that order.
+    ///
+    ///   TYPE TSIG (250: Transaction SIGnature)
+    ///
+    ///   CLASS ANY
+    ///
+    ///   TTL  0
+    ///
+    ///   RdLen (variable)
+    ///
+    ///   RDATA
+    ///
+    ///     Field Name       Data Type      Notes
+    ///     --------------------------------------------------------------
+    ///     Algorithm Name   domain-name    Name of the algorithm
+    ///                                     in domain name syntax.
+    ///     Time Signed      u_int48_t      seconds since 1-Jan-70 UTC.
+    ///     Fudge            u_int16_t      seconds of error permitted
+    ///                                     in Time Signed.
+    ///     MAC Size         u_int16_t      number of octets in MAC.
+    ///     MAC              octet stream   defined by Algorithm Name.
+    ///     Original ID      u_int16_t      original message ID
+    ///     Error            u_int16_t      expanded RCODE covering
+    ///                                     TSIG processing.
+    ///     Other Len        u_int16_t      length, in octets, of
+    ///                                     Other Data.
+    ///     Other Data       octet stream   empty unless Error == BADTIME
+    /// ```
+    TSIG(TSIG),
+
     /// ```text
     /// 3.3.14. TXT RDATA format
     ///
@@ -771,6 +823,10 @@ impl RData {
                 trace!("reading TLSA");
                 rdata::tlsa::read(decoder, rdata_length).map(RData::TLSA)
             }
+            RecordType::TSIG => {
+                trace!("reading TSIG");
+                rdata::tsig::read(decoder).map(RData::TSIG)
+            }
             RecordType::TXT => {
                 trace!("reading TXT");
                 rdata::txt::read(decoder, rdata_length).map(RData::TXT)
@@ -907,6 +963,7 @@ impl RData {
             RData::TLSA(ref tlsa) => {
                 encoder.with_canonical_names(|encoder| rdata::tlsa::emit(encoder, tlsa))
             }
+            RData::TSIG(ref tsig) => rdata::tsig::emit(encoder, tsig),
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
@@ -936,6 +993,7 @@ impl RData {
             RData::SSHFP(..) => RecordType::SSHFP,
             RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
+            RData::TSIG(..) => RecordType::TSIG,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
@@ -984,6 +1042,7 @@ impl fmt::Display for RData {
             RData::SSHFP(ref sshfp) => w(f, sshfp),
             RData::SVCB(ref svcb) => w(f, svcb),
             RData::TLSA(ref tlsa) => w(f, tlsa),
+            RData::TSIG(ref tsig) => w(f, tsig),
             RData::TXT(ref txt) => w(f, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => w(f, rdata),
@@ -1228,6 +1287,7 @@ mod tests {
             RData::SSHFP(..) => RecordType::SSHFP,
             RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
+            RData::TSIG(..) => RecordType::TSIG,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),

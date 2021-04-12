@@ -90,7 +90,8 @@ pub enum RecordType {
     //  TKEY,       // 249 RFC 2930 Secret key record
     /// [RFC 6698](https://tools.ietf.org/html/rfc6698) TLSA certificate association
     TLSA,
-    //  TSIG,       // 250 RFC 2845 Transaction Signature
+    /// [RFC 2845](https://tools.ietf.org/html/rfc2845) Transaction Signature
+    TSIG,
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Text record
     TXT,
 
@@ -181,6 +182,7 @@ impl FromStr for RecordType {
             "SSHFP" => Ok(RecordType::SSHFP),
             "SVCB" => Ok(RecordType::SVCB),
             "TLSA" => Ok(RecordType::TLSA),
+            "TSIG" => Ok(RecordType::TSIG),
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
@@ -227,6 +229,7 @@ impl From<u16> for RecordType {
             44 => RecordType::SSHFP,
             64 => RecordType::SVCB,
             52 => RecordType::TLSA,
+            250 => RecordType::TSIG,
             16 => RecordType::TXT,
             0 => RecordType::ZERO,
             #[cfg(feature = "dnssec")]
@@ -301,6 +304,7 @@ impl From<RecordType> for &'static str {
             RecordType::SSHFP => "SSHFP",
             RecordType::SVCB => "SVCB",
             RecordType::TLSA => "TLSA",
+            RecordType::TSIG => "TSIG",
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
@@ -345,6 +349,7 @@ impl From<RecordType> for u16 {
             RecordType::SSHFP => 44,
             RecordType::SVCB => 64,
             RecordType::TLSA => 52,
+            RecordType::TSIG => 250,
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
@@ -443,6 +448,7 @@ mod tests {
             "SRV",
             "SSHFP",
             "TLSA",
+            "TSIG",
             "TXT",
             "ANY",
             "AXFR",
