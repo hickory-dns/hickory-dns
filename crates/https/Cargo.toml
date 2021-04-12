@@ -62,7 +62,7 @@ tokio-rustls = "0.22.0"
 trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["tokio-runtime"], default-features = false }
 trust-dns-rustls = { version = "0.20.1", path = "../rustls", default-features = false }
 webpki-roots = "0.21"
-webpki = "0.21"
+webpki = "0.22"
 
 [dev-dependencies]
 env_logger = "0.8"

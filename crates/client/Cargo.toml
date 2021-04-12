@@ -83,7 +83,7 @@ thiserror = "1.0.20"
 tokio = { version = "1.0", features = ["rt"] }
 trust-dns-https = { version = "0.20.1", path = "../https", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["dnssec"]}
-webpki = { version = "0.21", optional = true }
+webpki = { version = "0.22", optional = true }
 
 [dev-dependencies]
 futures = { version = "0.3.5", default-features = false, features = ["std", "executor"] }
