@@ -30,12 +30,10 @@ use tokio_rustls::{
 };
 use webpki::DNSNameRef;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
-use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::xfer::{
-    DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage,
-};
+use crate::error::ProtoError;
+use crate::iocompat::AsyncIoStdAsTokio;
+use crate::tcp::Connect;
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -78,7 +76,7 @@ impl HttpsClientStream {
         // build up the http request
 
         let bytes = BytesMut::from(message.bytes());
-        let request = crate::request::new(&name_server_name, bytes.len());
+        let request = crate::https::request::new(&name_server_name, bytes.len());
 
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
@@ -167,12 +165,12 @@ impl HttpsClientStream {
                             ProtoError::from(format!("ContentType header not a string: {}", err))
                         })
                     })
-                    .unwrap_or(Ok(crate::MIME_APPLICATION_DNS))?;
+                    .unwrap_or(Ok(crate::https::MIME_APPLICATION_DNS))?;
 
-                if content_type != crate::MIME_APPLICATION_DNS {
+                if content_type != crate::https::MIME_APPLICATION_DNS {
                     return Err(ProtoError::from(format!(
                         "ContentType unsupported (must be '{}'): '{}'",
-                        crate::MIME_APPLICATION_DNS,
+                        crate::https::MIME_APPLICATION_DNS,
                         content_type
                     )));
                 }

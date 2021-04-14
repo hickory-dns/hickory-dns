@@ -58,7 +58,7 @@ dnssec = []
 # mdns = ["trust-dns-client/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
 
 dns-over-https-rustls = ["trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "webpki-roots"]
-dns-over-https = []
+dns-over-https = ["trust-dns-proto/dns-over-https"]
 
 # TODO: need to make server support rustls and native-tls
 # dns-over-native-tls = ["dns-over-tls",  "trust-dns-resolver/dns-over-native-tls", "trust-dns-server/dns-over-native-tls"]
@@ -80,7 +80,6 @@ rusqlite = { version = "0.24.0", features = ["bundled"] }
 rustls = "0.19"
 tokio = { version = "1.0", features = ["time", "rt"] }
 trust-dns-client= { version = "0.20.1", path = "../../crates/client" }
-trust-dns-https = { version = "0.20.1", path = "../../crates/https" }
 trust-dns-openssl = { version = "0.20.1", path = "../../crates/openssl" }
 trust-dns-proto = { version = "0.20.1", path = "../../crates/proto", features = ["testing"] }
 trust-dns-resolver = { version = "0.20.1", path = "../../crates/resolver" }

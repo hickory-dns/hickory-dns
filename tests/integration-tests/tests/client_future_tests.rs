@@ -127,7 +127,7 @@ fn test_query_tcp_ipv6() {
 #[cfg(feature = "dns-over-https-rustls")]
 fn test_query_https() {
     use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
-    use trust_dns_https::HttpsClientStreamBuilder;
+    use trust_dns_proto::https::HttpsClientStreamBuilder;
 
     const ALPN_H2: &[u8] = b"h2";
 

@@ -8,20 +8,21 @@
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
+#![cfg(feature = "dns-over-rustls")]
+
 use std::pin::Pin;
 use std::sync::Arc;
 use std::{marker::PhantomData, net::SocketAddr};
 
 use futures::Future;
+use rustls::ClientConfig;
 
 use trust_dns_client::client::ClientConnection;
 use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::rustls::{tls_client_connect, TlsClientStream};
 use trust_dns_proto::tcp::Connect;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
-
-use rustls::ClientConfig;
-use trust_dns_proto::rustls::{tls_client_connect, TlsClientStream};
 
 /// Tls client connection
 ///

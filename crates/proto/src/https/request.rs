@@ -13,9 +13,8 @@ use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{header, uri, Request, Uri, Version};
 use log::debug;
 
-use trust_dns_proto::error::ProtoError;
-
-use crate::HttpsResult;
+use crate::error::ProtoError;
+use crate::https::HttpsResult;
 
 /// Create a new Request for an http/2 dns-message request
 ///
@@ -42,7 +41,7 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     //     .body(());
 
     let mut parts = uri::Parts::default();
-    parts.path_and_query = Some(uri::PathAndQuery::from_static(crate::DNS_QUERY_PATH));
+    parts.path_and_query = Some(uri::PathAndQuery::from_static(crate::https::DNS_QUERY_PATH));
     parts.scheme = Some(uri::Scheme::HTTPS);
     parts.authority = Some(
         uri::Authority::from_str(&name_server_name)
@@ -57,8 +56,8 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
         .method("POST")
         .uri(url)
         .version(Version::HTTP_2)
-        .header(CONTENT_TYPE, crate::MIME_APPLICATION_DNS)
-        .header(ACCEPT, crate::MIME_APPLICATION_DNS)
+        .header(CONTENT_TYPE, crate::https::MIME_APPLICATION_DNS)
+        .header(ACCEPT, crate::https::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
         .map_err(|e| ProtoError::from(format!("h2 stream errored: {}", e)))?;
@@ -72,11 +71,11 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
     let uri = request.uri();
 
     // validate path
-    if uri.path() != crate::DNS_QUERY_PATH {
+    if uri.path() != crate::https::DNS_QUERY_PATH {
         return Err(format!(
             "bad path: {}, expected: {}",
             uri.path(),
-            crate::DNS_QUERY_PATH
+            crate::https::DNS_QUERY_PATH
         )
         .into());
     }
@@ -97,7 +96,7 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
 
     // TODO: switch to mime::APPLICATION_DNS when that stabilizes
     match request.headers().get(CONTENT_TYPE).map(|v| v.to_str()) {
-        Some(Ok(ctype)) if ctype == crate::MIME_APPLICATION_DNS => {}
+        Some(Ok(ctype)) if ctype == crate::https::MIME_APPLICATION_DNS => {}
         _ => return Err("unsupported content type".into()),
     };
 
@@ -108,7 +107,7 @@ pub fn verify<T>(name_server: &str, request: &Request<T>) -> HttpsResult<()> {
             for mime_and_quality in ctype.split(',') {
                 let mut parts = mime_and_quality.splitn(2, ';');
                 match parts.next() {
-                    Some(mime) if mime.trim() == crate::MIME_APPLICATION_DNS => {
+                    Some(mime) if mime.trim() == crate::https::MIME_APPLICATION_DNS => {
                         found = true;
                         break;
                     }

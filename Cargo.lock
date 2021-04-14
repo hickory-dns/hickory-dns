@@ -1647,7 +1647,6 @@ dependencies = [
  "rustls",
  "tokio",
  "trust-dns-client",
- "trust-dns-https",
  "trust-dns-native-tls",
  "trust-dns-openssl",
  "trust-dns-proto",
@@ -1676,7 +1675,6 @@ dependencies = [
  "serde",
  "thiserror",
  "tokio",
- "trust-dns-https",
  "trust-dns-proto",
  "webpki",
 ]
@@ -1695,28 +1693,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-dns-https"
-version = "0.20.1"
-dependencies = [
- "bytes",
- "cfg-if 1.0.0",
- "data-encoding",
- "env_logger",
- "futures",
- "futures-util",
- "h2",
- "http",
- "log",
- "rustls",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "trust-dns-proto",
- "webpki",
- "webpki-roots",
-]
-
-[[package]]
 name = "trust-dns-integration"
 version = "0.20.1"
 dependencies = [
@@ -1731,7 +1707,6 @@ dependencies = [
  "rustls",
  "tokio",
  "trust-dns-client",
- "trust-dns-https",
  "trust-dns-openssl",
  "trust-dns-proto",
  "trust-dns-resolver",
@@ -1769,6 +1744,7 @@ version = "0.20.1"
 dependencies = [
  "async-trait",
  "backtrace",
+ "bytes",
  "cfg-if 1.0.0",
  "data-encoding",
  "enum-as-inner",
@@ -1777,6 +1753,8 @@ dependencies = [
  "futures-executor",
  "futures-io",
  "futures-util",
+ "h2",
+ "http",
  "idna",
  "ipnet",
  "js-sys",
@@ -1796,6 +1774,7 @@ dependencies = [
  "url",
  "wasm-bindgen",
  "webpki",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -1820,7 +1799,6 @@ dependencies = [
  "tokio-native-tls",
  "tokio-openssl",
  "tokio-rustls",
- "trust-dns-https",
  "trust-dns-native-tls",
  "trust-dns-openssl",
  "trust-dns-proto",
@@ -1852,7 +1830,6 @@ dependencies = [
  "tokio-rustls",
  "toml",
  "trust-dns-client",
- "trust-dns-https",
  "trust-dns-openssl",
  "trust-dns-proto",
  "trust-dns-resolver",

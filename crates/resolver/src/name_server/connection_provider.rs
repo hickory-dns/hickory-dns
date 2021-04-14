@@ -24,34 +24,31 @@ use tokio_openssl::SslStream as TokioTlsStream;
 #[cfg(feature = "dns-over-rustls")]
 use tokio_rustls::client::TlsStream as TokioTlsStream;
 
-use proto;
-use proto::error::ProtoError;
-
+#[cfg(feature = "dns-over-https")]
+use proto::https::{HttpsClientConnect, HttpsClientStream};
+#[cfg(feature = "mdns")]
+use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
+use proto::{
+    self,
+    error::ProtoError,
+    op::NoopMessageFinalizer,
+    tcp::Connect,
+    tcp::TcpClientConnect,
+    tcp::TcpClientStream,
+    udp::UdpClientConnect,
+    udp::{UdpClientStream, UdpSocket},
+    xfer::{
+        DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
+        DnsMultiplexerConnect, DnsRequest, DnsResponse,
+    },
+    Time,
+};
 #[cfg(feature = "tokio-runtime")]
 use proto::{iocompat::AsyncIoTokioAsStd, TokioTime};
 
-#[cfg(feature = "mdns")]
-use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
-
-use proto::op::NoopMessageFinalizer;
-
-use proto::udp::UdpClientStream;
-use proto::xfer::{DnsExchange, DnsExchangeSend, DnsHandle, DnsRequest, DnsResponse};
-
-use proto::xfer::DnsMultiplexer;
-
-use proto::{
-    tcp::Connect, tcp::TcpClientConnect, tcp::TcpClientStream, udp::UdpClientConnect,
-    udp::UdpSocket, xfer::DnsExchangeConnect, xfer::DnsMultiplexerConnect, Time,
-};
-
-use crate::error::ResolveError;
-
-#[cfg(feature = "dns-over-https")]
-use trust_dns_https::{self, HttpsClientConnect, HttpsClientStream};
-
 use crate::config::Protocol;
 use crate::config::{NameServerConfig, ResolverOpts};
+use crate::error::ResolveError;
 
 /// A type to allow for custom ConnectionProviders. Needed mainly for mocking purposes.
 ///

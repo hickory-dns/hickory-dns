@@ -45,8 +45,8 @@ backtrace = ["trust-dns-proto/backtrace"]
 # TODO: the rustls and openssl crates are not deps... should we change that to make them easier to use?
 #  or change this to also be external?
 dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls"]
-dns-over-https = ["trust-dns-https"]
+dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls"]
+dns-over-https = ["trust-dns-proto/dns-over-https"]
 
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "openssl"]
 dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "webpki"]
@@ -81,7 +81,6 @@ rustls = { version = "0.19", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 tokio = { version = "1.0", features = ["rt"] }
-trust-dns-https = { version = "0.20.1", path = "../https", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["dnssec"]}
 webpki = { version = "0.21", optional = true }
 

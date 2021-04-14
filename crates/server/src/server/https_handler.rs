@@ -13,9 +13,9 @@ use bytes::{Bytes, BytesMut};
 use h2::server;
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
-use trust_dns_https::https_server;
 
 use crate::authority::{MessageRequest, MessageResponse};
+use crate::proto::https::https_server;
 use crate::proto::serialize::binary::BinDecodable;
 use crate::server::request_handler::RequestHandler;
 use crate::server::response_handler::ResponseHandler;
@@ -92,9 +92,9 @@ struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
 impl ResponseHandler for HttpsResponseHandle {
     fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
+        use crate::proto::https::response;
+        use crate::proto::https::HttpsError;
         use crate::proto::serialize::binary::BinEncoder;
-        use trust_dns_https::response;
-        use trust_dns_https::HttpsError;
 
         let mut bytes = Vec::with_capacity(512);
         // mut block

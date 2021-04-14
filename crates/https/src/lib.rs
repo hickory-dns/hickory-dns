@@ -21,23 +21,8 @@
 )]
 #![allow(clippy::single_component_path_imports)]
 
-const MIME_APPLICATION_DNS: &str = "application/dns-message";
-const DNS_QUERY_PATH: &str = "/dns-query";
+//! Deprecated and removed as of 0.21.0, see the dns-over-https-rustls feature in `trust-dns-proto`
 
-//pub mod https_client_connection;
-mod error;
-mod https_client_stream;
-pub mod https_server;
-pub mod request;
-pub mod response;
-//pub mod https_stream;
-
-pub use trust_dns_proto as proto;
-
-pub use self::error::{Error as HttpsError, Result as HttpsResult};
-
-//pub use self::https_client_connection::{HttpsClientConnection, HttpsClientConnectionBuilder};
-pub use self::https_client_stream::{
-    HttpsClientConnect, HttpsClientResponse, HttpsClientStream, HttpsClientStreamBuilder,
-};
-//pub use self::https_stream::{HttpsStream, HttpsStreamBuilder};
+compile_error!(
+    "Deprecated and removed as of 0.21.0, see the dns-over-https-rustls feature in `trust-dns-proto`"
+);

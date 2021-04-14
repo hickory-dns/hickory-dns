@@ -3,9 +3,9 @@ use std::net::SocketAddr;
 use crate::name_server::RuntimeProvider;
 use crate::tls::CLIENT_CONFIG;
 
+use proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use proto::xfer::{DnsExchange, DnsExchangeConnect};
 use proto::TokioTime;
-use trust_dns_https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 
 use crate::config::TlsClientConfig;
 
