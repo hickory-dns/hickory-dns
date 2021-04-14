@@ -19,7 +19,7 @@ use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
 use log::debug;
 
-use crate::HttpsError;
+use crate::https::HttpsError;
 
 /// Given an HTTP request, return a future that will result in the next sequence of bytes.
 ///
@@ -35,7 +35,7 @@ where
     debug!("Received request: {:#?}", request);
 
     let this_server_name = this_server_name.borrow();
-    match crate::request::verify(this_server_name, &request) {
+    match crate::https::request::verify(this_server_name, &request) {
         Ok(_) => (),
         Err(err) => return Err(err),
     }

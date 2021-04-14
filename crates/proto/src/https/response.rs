@@ -10,9 +10,8 @@
 use http::header::{CONTENT_LENGTH, CONTENT_TYPE};
 use http::{Response, StatusCode, Version};
 
-use trust_dns_proto::error::ProtoError;
-
-use crate::HttpsResult;
+use crate::error::ProtoError;
+use crate::https::HttpsResult;
 
 /// Create a new Response for an http/2 dns-message request
 ///
@@ -43,7 +42,7 @@ pub fn new(message_len: usize) -> HttpsResult<Response<()>> {
     Response::builder()
         .status(StatusCode::OK)
         .version(Version::HTTP_2)
-        .header(CONTENT_TYPE, crate::MIME_APPLICATION_DNS)
+        .header(CONTENT_TYPE, crate::https::MIME_APPLICATION_DNS)
         .header(CONTENT_LENGTH, message_len)
         .body(())
         .map_err(|e| ProtoError::from(format!("invalid response: {}", e)).into())

@@ -51,8 +51,8 @@ sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "tokio-rustls"]
-dns-over-https = ["h2", "http", "trust-dns-https"]
+dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
+dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-openssl", "tokio-openssl", "trust-dns-client/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
@@ -92,7 +92,6 @@ tokio-openssl = { version = "0.6.0", optional = true }
 tokio-rustls = { version = "0.22", optional = true }
 toml = "0.5"
 trust-dns-client= { version = "0.20.1", path = "../client" }
-trust-dns-https = { version = "0.20.1", path = "../https", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../proto" }
 trust-dns-openssl = { version = "0.20.1", path = "../openssl", optional = true }
 trust-dns-resolver = { version = "0.20.1", path = "../resolver", features = ["serde-config"], optional = true }

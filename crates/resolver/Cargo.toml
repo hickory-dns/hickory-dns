@@ -45,8 +45,8 @@ dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "trust-dns-proto/dn
 dns-over-tls = []
 
 # This requires some TLS library, currently only rustls is supported
-dns-over-https-rustls = ["trust-dns-https", "trust-dns-proto/dns-over-rustls", "dns-over-https"]
-dns-over-https = []
+dns-over-https-rustls = ["trust-dns-proto/dns-over-https-rustls", "dns-over-rustls", "dns-over-https"]
+dns-over-https = ["trust-dns-proto/dns-over-https"]
 
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
@@ -82,7 +82,6 @@ tokio = { version = "1.0", optional = true }
 tokio-native-tls = { version = "0.3", optional = true }
 tokio-openssl = { version = "0.6.0", optional = true }
 tokio-rustls = { version = "0.22", optional = true }
-trust-dns-https = { version = "0.20.1", path = "../https", optional = true }
 trust-dns-native-tls = { version = "0.20.1", path = "../native-tls", optional = true }
 trust-dns-openssl = { version = "0.20.1", path = "../openssl", optional = true }
 trust-dns-proto = { version = "0.20.1", path = "../proto", default-features = false }

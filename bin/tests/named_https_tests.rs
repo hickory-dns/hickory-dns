@@ -23,7 +23,7 @@ use rustls::{Certificate, ClientConfig, ProtocolVersion, RootCertStore};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
-use trust_dns_https::HttpsClientStreamBuilder;
+use trust_dns_proto::https::HttpsClientStreamBuilder;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 
 use server_harness::{named_test_harness, query_a};

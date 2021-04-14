@@ -8,17 +8,18 @@
 use std::num::ParseIntError;
 use std::{fmt, io};
 
+use crate::error::ProtoError;
 use h2;
 use http::header::ToStrError;
 use thiserror::Error;
-use trust_dns_proto::error::ProtoError;
 
 #[cfg(feature = "backtrace")]
-use crate::proto::{trace, ExtBacktrace};
+use crate::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
+// FIXME: remove this and put in ProtoError
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ErrorKind {
