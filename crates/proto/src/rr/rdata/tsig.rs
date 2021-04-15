@@ -202,7 +202,7 @@ impl TSIG {
     pub fn emit_tsig_for_mac(
         &self,
         encoder: &mut BinEncoder<'_>,
-        key_name: Name,
+        key_name: &Name,
     ) -> ProtoResult<()> {
         key_name.emit_as_canonical(encoder, true)?;
         DNSClass::ANY.emit(encoder)?;
@@ -353,11 +353,60 @@ impl Algorithm {
             _ => Unknown(name),
         }
     }
+
+    /// Compute the Message Authentication Code using key and algorithm
+    ///
+    /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
+    /// Other algorithm return an error.
+    pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
+        use hmac::{Hmac, Mac, NewMac};
+        use Algorithm::*;
+
+        let res = match self {
+            HmacSha256 => {
+                let mut mac = Hmac::<sha2::Sha256>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                mac.update(message);
+                mac.finalize().into_bytes().to_vec()
+            }
+            HmacSha384 => {
+                let mut mac = Hmac::<sha2::Sha384>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                mac.update(message);
+                mac.finalize().into_bytes().to_vec()
+            }
+            HmacSha512 => {
+                let mut mac = Hmac::<sha2::Sha512>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                mac.update(message);
+                mac.finalize().into_bytes().to_vec()
+            }
+            HmacSha512_256 => {
+                let mut mac = Hmac::<sha2::Sha512Trunc256>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                mac.update(message);
+                mac.finalize().into_bytes().to_vec()
+            }
+            _ => return Err(ProtoError::from("unsuported mac algorithm")),
+        };
+        Ok(res)
+    }
 }
+
 impl fmt::Display for Algorithm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_name())
     }
+}
+
+/// Return the byte-message to be authenticated with a TSIG
+pub fn message_tbs<M: BinEncodable>(
+    message: &M,
+    pre_tsig: &TSIG,
+    key_name: &Name,
+) -> ProtoResult<Vec<u8>> {
+    let mut buf: Vec<u8> = Vec::with_capacity(512);
+    let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Signing);
+
+    message.emit(&mut encoder)?;
+    pre_tsig.emit_tsig_for_mac(&mut encoder, key_name)?;
+    Ok(buf)
 }
 
 #[cfg(test)]
