@@ -436,7 +436,7 @@ fn test_nsec_query_type() {
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     use openssl::rsa::Rsa;
-    use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
+    use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, Signer as Sig0Signer};
     use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, KEY};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
@@ -448,7 +448,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
 
-    let signer = Signer::new(
+    let signer = Sig0Signer::new(
         Algorithm::RSASHA256,
         key,
         Name::from_str("trusted.example.com").unwrap(),

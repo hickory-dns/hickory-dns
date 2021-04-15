@@ -9,9 +9,10 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
+use trust_dns_client::client::Signer;
 use trust_dns_client::op::{Message, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::dnssec::Signer;
+use trust_dns_client::rr::dnssec::Signer as Sig0Signer;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
@@ -299,7 +300,7 @@ async fn create_sig0_ready_client() -> (
     let key = KeyPair::from_rsa(rsa).unwrap();
     let sig0_key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
 
-    let signer = Signer::sig0(sig0_key.clone(), key, trusted_name.clone());
+    let signer = Sig0Signer::sig0(sig0_key.clone(), key, trusted_name.clone());
 
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(
@@ -317,7 +318,7 @@ async fn create_sig0_ready_client() -> (
         Box::new(Arc::new(RwLock::new(authority))),
     );
 
-    let signer = Arc::new(signer);
+    let signer = Arc::new(signer.into());
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, Some(signer))
         .await

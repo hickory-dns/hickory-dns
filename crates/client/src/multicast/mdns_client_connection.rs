@@ -15,8 +15,7 @@ use crate::proto::{
     xfer::{DnsMultiplexer, DnsMultiplexerConnect},
 };
 
-use crate::client::ClientConnection;
-use crate::rr::dnssec::Signer;
+use crate::client::{ClientConnection, Signer};
 
 /// MDNS based DNS Client connection
 ///
