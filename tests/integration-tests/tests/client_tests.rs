@@ -8,11 +8,11 @@ use std::sync::{Arc, Mutex, RwLock};
 use chrono::Duration;
 use futures::Future;
 
+use trust_dns_client::client::Signer;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::client::SyncDnssecClient;
 #[allow(deprecated)]
 use trust_dns_client::client::{Client, ClientConnection, SyncClient};
-use trust_dns_client::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};

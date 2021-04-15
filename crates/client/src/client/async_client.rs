@@ -16,6 +16,7 @@ use futures_util::{ready, FutureExt};
 use log::debug;
 use rand;
 
+use crate::client::Signer;
 use crate::error::*;
 use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::proto::error::{ProtoError, ProtoErrorKind};
@@ -25,7 +26,6 @@ use crate::proto::xfer::{
     DnsRequestOptions, DnsRequestSender, DnsResponse,
 };
 use crate::proto::TokioTime;
-use crate::rr::dnssec::Signer;
 use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 

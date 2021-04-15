@@ -15,9 +15,9 @@ use futures::{future, Future, FutureExt};
 use tokio::time::{Duration, Instant, Sleep};
 
 use trust_dns_client::client::ClientConnection;
+use trust_dns_client::client::Signer;
 use trust_dns_client::error::ClientResult;
 use trust_dns_client::op::*;
-use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_client::serialize::binary::*;
 use trust_dns_proto::xfer::{
     DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver,

@@ -18,7 +18,42 @@ use std::sync::Arc;
 
 use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
 
-use crate::rr::dnssec::Signer;
+use crate::op::MessageFinalizer;
+use crate::rr::dnssec::Signer as Sig0Signer;
+use crate::rr::tsig::TSigner;
+
+use crate::proto::error::ProtoResult;
+use crate::proto::op::Message;
+use crate::proto::rr::Record;
+
+/// List of currently supported signers
+pub enum Signer {
+    /// A Sig0 based signer
+    Sig0(Sig0Signer),
+    /// A TSIG based signer
+    TSIG(TSigner),
+}
+
+impl From<Sig0Signer> for Signer {
+    fn from(s: Sig0Signer) -> Self {
+        Signer::Sig0(s)
+    }
+}
+
+impl From<TSigner> for Signer {
+    fn from(s: TSigner) -> Self {
+        Signer::TSIG(s)
+    }
+}
+
+impl MessageFinalizer for Signer {
+    fn finalize_message(&self, message: &Message, time: u32) -> ProtoResult<Vec<Record>> {
+        match self {
+            Signer::Sig0(s0) => s0.finalize_message(message, time),
+            Signer::TSIG(tsig) => tsig.finalize_message(message, time),
+        }
+    }
+}
 
 /// Trait for client connections
 pub trait ClientConnection: 'static + Sized + Send + Sync + Unpin {

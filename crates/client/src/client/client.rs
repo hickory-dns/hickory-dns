@@ -23,16 +23,17 @@ use trust_dns_proto::xfer::DnsRequest;
 use crate::client::async_client::ClientStreamXfr;
 #[cfg(feature = "dnssec")]
 use crate::client::AsyncDnssecClient;
-use crate::client::{AsyncClient, ClientConnection, ClientHandle};
+use crate::client::{AsyncClient, ClientConnection, ClientHandle, Signer};
 use crate::error::*;
 use crate::proto::{
     error::ProtoError,
     xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
 };
-use crate::rr::dnssec::Signer;
+use crate::rr::dnssec::Signer as Sig0Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::rdata::SOA;
+use crate::rr::tsig::TSigner;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 use super::ClientStreamingResponse;
@@ -461,10 +462,25 @@ impl<CC: ClientConnection> SyncClient<CC> {
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
-    pub fn with_signer(conn: CC, signer: Signer) -> Self {
+    pub fn with_signer(conn: CC, signer: Sig0Signer) -> Self {
         SyncClient {
             conn,
-            signer: Some(Arc::new(signer)),
+            signer: Some(Arc::new(signer.into())),
+        }
+    }
+
+    /// Creates a new DNS client with the specified connection type and TSIG signer.
+    ///
+    /// This is necessary for signed update requests to update certain servers entries.
+    ///
+    /// # Arguments
+    ///
+    /// * `conn` - the [`ClientConnection`] to use for all communication
+    /// * `signer` - signer to use
+    pub fn with_tsigner(conn: CC, signer: TSigner) -> Self {
+        SyncClient {
+            conn,
+            signer: Some(Arc::new(signer.into())),
         }
     }
 }
