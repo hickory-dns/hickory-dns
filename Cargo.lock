@@ -240,6 +240,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
+name = "block-buffer"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
 name = "blocking"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -358,6 +367,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea221b5284a47e40033bf9b66f35f984ec0ea2931eb03505246cd27a963f981b"
 
 [[package]]
+name = "cpuid-bool"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8aebca1129a03dc6dc2b127edd729435bbc4a37e1d5f4d7513165089ceb02634"
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -366,6 +381,16 @@ dependencies = [
  "autocfg",
  "cfg-if 1.0.0",
  "lazy_static",
+]
+
+[[package]]
+name = "crypto-mac"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4857fd85a0c34b3c3297875b747c1e02e06b6a0ea32dd892d8192b9ce0813ea6"
+dependencies = [
+ "generic-array",
+ "subtle",
 ]
 
 [[package]]
@@ -383,6 +408,15 @@ name = "data-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ee2393c4a91429dffb4bedf19f4d6abf27d8a732c8ce4980305d782e5426d57"
+
+[[package]]
+name = "digest"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3dd60d1080a57a05ab032377049e0591415d2b31afd7028356dbf3cc6dcb066"
+dependencies = [
+ "generic-array",
+]
 
 [[package]]
 name = "encode_unicode"
@@ -588,6 +622,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "generic-array"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "501466ecc8a30d1d3b7fc9229b122b2ce8ed6e9d9223f1138d4babb253e51817"
+dependencies = [
+ "typenum",
+ "version_check",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -676,6 +720,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "322f4de77956e22ed0e5032c359a0f1273f1f7f0d79bfa3b8ffbc730d7fbcc5c"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "hmac"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1441c6b1e930e2817404b5046f1f989899143a12bf92de603b69f4e0aee1e15"
+dependencies = [
+ "crypto-mac",
+ "digest",
 ]
 
 [[package]]
@@ -972,6 +1026,12 @@ name = "once_cell"
 version = "1.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af8b08b04175473088b46763e51ee54da5f9a164bc162f615b91bc179dbf15a3"
+
+[[package]]
+name = "opaque-debug"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openssl"
@@ -1375,6 +1435,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha2"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa827a14b29ab7f44778d14a88d3cb76e949c45083f7dbfa507d0cb699dc12de"
+dependencies = [
+ "block-buffer",
+ "cfg-if 1.0.0",
+ "cpuid-bool",
+ "digest",
+ "opaque-debug",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1442,6 +1515,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "subtle"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e81da0851ada1f3e9d4312c704aa4f8806f0f9d69faaf8df2f3464b4a9437c2"
 
 [[package]]
 name = "syn"
@@ -1759,6 +1838,7 @@ dependencies = [
  "futures-io",
  "futures-util",
  "h2",
+ "hmac",
  "http",
  "idna",
  "ipnet",
@@ -1771,6 +1851,7 @@ dependencies = [
  "ring",
  "rustls",
  "serde",
+ "sha2",
  "smallvec",
  "socket2 0.4.0",
  "thiserror",
@@ -1863,6 +1944,12 @@ dependencies = [
  "trust-dns-proto",
  "trust-dns-resolver",
 ]
+
+[[package]]
+name = "typenum"
+version = "1.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "unicode-bidi"
