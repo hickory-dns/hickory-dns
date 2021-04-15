@@ -15,8 +15,7 @@ use rustls::{Certificate, ClientConfig};
 use trust_dns_proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use trust_dns_proto::tcp::Connect;
 
-use crate::client::ClientConnection;
-use crate::rr::dnssec::Signer;
+use crate::client::{ClientConnection, Signer};
 
 /// UDP based DNS Client connection
 ///

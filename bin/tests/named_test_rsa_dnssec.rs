@@ -15,7 +15,7 @@ use std::path::Path;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use trust_dns_client::client::*;
+use trust_dns_client::client::{Signer, *};
 use trust_dns_client::proto::tcp::TcpClientStream;
 use trust_dns_client::proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 use trust_dns_client::proto::DnssecDnsHandle;
