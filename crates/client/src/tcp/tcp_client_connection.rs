@@ -13,12 +13,11 @@ use std::time::Duration;
 
 use tokio::net::TcpStream;
 
-use crate::client::ClientConnection;
+use crate::client::{ClientConnection, Signer};
 use crate::error::*;
 use crate::proto::iocompat::AsyncIoTokioAsStd;
 use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
-use crate::rr::dnssec::Signer;
 
 /// Tcp client connection
 ///

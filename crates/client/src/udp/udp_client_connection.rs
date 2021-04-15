@@ -14,8 +14,8 @@ use std::time::Duration;
 use crate::proto::udp::{UdpClientConnect, UdpClientStream};
 
 use crate::client::ClientConnection;
+use crate::client::Signer;
 use crate::error::*;
-use crate::rr::dnssec::Signer;
 
 use tokio::net::UdpSocket;
 

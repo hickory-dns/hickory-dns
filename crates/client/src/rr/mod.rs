@@ -19,6 +19,7 @@
 pub mod dnssec;
 mod lower_name;
 mod rr_key;
+pub mod tsig;
 pub mod zone;
 
 use crate::proto::rr;

@@ -41,4 +41,5 @@ pub use self::client::SyncDnssecClient;
 #[allow(deprecated)]
 pub use self::client::{BlockingStream, Client, SyncClient};
 pub use self::client_connection::ClientConnection;
+pub use self::client_connection::Signer;
 pub use self::memoize_client_handle::MemoizeClientHandle;
