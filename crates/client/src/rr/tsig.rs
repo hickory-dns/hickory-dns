@@ -5,42 +5,126 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(missing_docs)] // reduce verbosity while working on it
-//! signer is a structure for performing many of the signing processes of the DNSSec specification
-use chrono::Duration;
-
-use crate::proto::error::ProtoResult;
-use crate::proto::rr::rdata::tsig::{message_tbs, Algorithm, TSIG};
+//! tsigner is a structure for computing tsig messasignuthentication code for dns transactions
+use crate::proto::error::{ProtoError, ProtoResult};
+use crate::proto::rr::rdata::tsig::{
+    make_tsig_record, message_tbs, signed_message_to_buff, Algorithm, TSIG,
+};
+use std::ops::Range;
 
 use crate::op::{Message, MessageFinalizer};
-use crate::rr::{DNSClass, Name, RData, Record, RecordType};
+use crate::rr::{Name, RData, Record};
 
+/// Struct to pass to a client for it to authenticate requests using TSIG.
 #[derive(Clone)]
 pub struct TSigner {
-    key: Vec<u8>,
+    key: Vec<u8>, // TODO this might want to be some sort of auto-zeroing on drop buffer, as it's cryptographic matterial
     algorithm: Algorithm,
     signer_name: Name,
-    fudge: Duration,
+    fudge: u16,
 }
 
 impl TSigner {
-    pub fn new(key: Vec<u8>, algorithm: Algorithm, signer_name: Name, fudge: Duration) -> Self {
-        TSigner {
-            key,
-            algorithm,
-            signer_name,
-            fudge,
+    /// Create a new Tsigner from its parts
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - cryptographic key used to authenticate exchanges
+    /// * `algorithm` - algorithm used to authenticate exchanges
+    /// * `signer_name` - name of the key. Must match the name known to the server
+    /// * `fudge` - maximum difference between client and server time, in seconds, see [fudge] for details
+    pub fn new(
+        key: Vec<u8>,
+        algorithm: Algorithm,
+        signer_name: Name,
+        fudge: u16,
+    ) -> ProtoResult<Self> {
+        if algorithm.supported() {
+            Ok(TSigner {
+                key,
+                algorithm,
+                signer_name,
+                fudge,
+            })
+        } else {
+            Err(ProtoError::from("unsupported mac algorithm"))
         }
     }
 
-    // TODO add getters
+    /// Return the key used for message authentication
+    pub fn key(&self) -> &[u8] {
+        &self.key
+    }
 
-    pub fn authenticate(&self, tbs: &[u8]) -> ProtoResult<Vec<u8>> {
+    /// Return the algorithm used for message authentication
+    pub fn algorithm(&self) -> &Algorithm {
+        &self.algorithm
+    }
+
+    /// Name of the key used by this signer
+    pub fn signer_name(&self) -> &Name {
+        &self.signer_name
+    }
+
+    /// Maximum time difference between client time when issuing a message, and server time when
+    /// receiving it, in second. If time is out, the server will consider the request invalid.
+    /// Longer values means more room for replay by an attacker. A few minutes are usually a good
+    /// value.
+    pub fn fudge(&self) -> u16 {
+        self.fudge
+    }
+
+    /// Compute authentication tag for a buffer
+    pub fn sign(&self, tbs: &[u8]) -> ProtoResult<Vec<u8>> {
         self.algorithm.mac_data(&self.key, tbs)
     }
 
-    pub fn authenticate_message(&self, message: &Message, pre_tsig: &TSIG) -> ProtoResult<Vec<u8>> {
-        message_tbs(message, pre_tsig, &self.signer_name).and_then(|tbs| self.authenticate(&tbs))
+    /// Compute authentication tag for a message
+    pub fn sign_message(&self, message: &Message, pre_tsig: &TSIG) -> ProtoResult<Vec<u8>> {
+        message_tbs(None, message, pre_tsig, &self.signer_name).and_then(|tbs| self.sign(&tbs))
+    }
+
+    /// Verify the message is correctly signed
+    /// Current time should be contained in returned range for the signature to still be valid
+    pub fn verify_message(
+        &self,
+        previous_hash: Option<&[u8]>,
+        message: Message,
+    ) -> ProtoResult<Range<u64>> {
+        let (vec, record) = signed_message_to_buff(previous_hash, message)?;
+        let signature = self.sign(&vec)?;
+        let tsig = if let RData::TSIG(tsig) = record.rdata() {
+            tsig
+        } else {
+            unreachable!("tsig::signed_message_to_buff always returns a TSIG record")
+        };
+
+        // https://tools.ietf.org/html/rfc8945#section-5.2
+        // 1.  Check key
+        if record.name() != &self.signer_name || tsig.algorithm() != &self.algorithm {
+            return Err(ProtoError::from("tsig validation error: wrong key"));
+        }
+        // 2.  Check MAC
+        if signature.strip_prefix(tsig.mac()).is_none() {
+            // tsig might be shorter if truncated, so we check if it is a prefix of the
+            // actual signature
+            return Err(ProtoError::from("tsig validation error: invalid signature"));
+        }
+        // 3.  Check time values
+        // we don't actually have time here so we will let upper level decide
+        // this is technically in violation of the RFC, in case both time and
+        // truncation policy are bad, time should be reported and this code will report
+        // truncation issue instead
+        // 4.  Check truncation policy
+        if tsig.mac().len() < std::cmp::max(10, signature.len() / 2) {
+            return Err(ProtoError::from(
+                "tsig validation error: truncated signature ",
+            ));
+        }
+        Ok(Range {
+            start: tsig.time() - tsig.fudge() as u64,
+            end: tsig.time() + tsig.fudge() as u64,
+        })
     }
 }
 
@@ -48,27 +132,17 @@ impl MessageFinalizer for TSigner {
     fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
         log::debug!("signing message: {:?}", message);
 
-        // this is based on RFCs 2535, 2931 and 3007
-
-        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
-        //  meaningless.' - 2931
-        let mut tsig = Record::new();
-        tsig.set_ttl(0);
-        tsig.set_dns_class(DNSClass::ANY);
-        tsig.set_record_type(RecordType::TSIG);
-        tsig.set_name(self.signer_name.clone());
-
         let pre_tsig = TSIG::new(
             self.algorithm.clone(),
             current_time as u64,
-            self.fudge.num_seconds() as u16,
+            self.fudge,
             Vec::new(),
             message.id(),
             0,
             Vec::new(),
         );
-        let signature: Vec<u8> = self.authenticate_message(message, &pre_tsig)?;
-        tsig.set_rdata(RData::TSIG(pre_tsig.set_mac(signature)));
+        let signature: Vec<u8> = self.sign_message(message, &pre_tsig)?;
+        let tsig = make_tsig_record(self.signer_name.clone(), pre_tsig.set_mac(signature));
         Ok(vec![tsig])
     }
 }
@@ -77,300 +151,139 @@ impl MessageFinalizer for TSigner {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
-    /*
-        use openssl::bn::BigNum;
-        use openssl::pkey::Private;
-        use openssl::rsa::Rsa;
+    use crate::op::{Message, Query};
+    use crate::rr::Name;
 
-        use crate::op::{Message, Query};
-        use crate::rr::rdata::key::KeyUsage;
-        use crate::rr::rdata::{DNSSECRData, SIG};
-        use crate::rr::{DNSClass, Name, Record, RecordType};
+    use super::*;
+    fn assert_send_and_sync<T: Send + Sync>() {}
 
-        use super::*;
-        fn assert_send_and_sync<T: Send + Sync>() {}
+    #[test]
+    fn test_send_and_sync() {
+        assert_send_and_sync::<TSigner>();
+    }
 
-        #[test]
-        fn test_send_and_sync() {
-            assert_send_and_sync::<Signer>();
-        }
+    #[test]
+    fn test_sign_and_verify_message_tsig() {
+        let time_begin = 1609459200u64;
+        let fudge = 300u64;
+        let origin: Name = Name::parse("example.com.", None).unwrap();
+        let key_name: Name = Name::from_ascii("key_name").unwrap();
+        let mut question: Message = Message::new();
+        let mut query: Query = Query::new();
+        query.set_name(origin);
+        question.add_query(query);
 
-        fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
-            SIG::new(
-                // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-                RecordType::ZERO,
-                signer.algorithm(),
-                0,
-                // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-                0,
-                // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-                expiration_time,
-                // current time, this should be UTC
-                // unsigned numbers of seconds since the start of 1 January 1970, GMT
-                inception_time,
-                signer.calculate_key_tag().unwrap(),
-                // can probably get rid of this clone if the ownership is correct
-                signer.signer_name().clone(),
-                Vec::new(),
-            )
-        }
+        let sig_key = b"some_key".to_vec();
+        let signer = TSigner::new(sig_key, Algorithm::HmacSha512, key_name, fudge as u16).unwrap();
 
-        #[test]
-        fn test_sign_and_verify_message_sig0() {
-            let origin: Name = Name::parse("example.com.", None).unwrap();
-            let mut question: Message = Message::new();
-            let mut query: Query = Query::new();
-            query.set_name(origin);
-            question.add_query(query);
+        assert!(question.signature().is_empty());
+        question
+            .finalize(&signer, time_begin as u32)
+            .expect("should have signed");
+        assert!(!question.signature().is_empty());
 
-            let rsa = Rsa::generate(2048).unwrap();
-            let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-            let signer = Signer::sig0(sig0key.clone(), key, Name::root());
+        let validity_range = signer.verify_message(None, question).unwrap();
+        assert!(validity_range.contains(&(time_begin + fudge / 2))); // slightly outdated, but still to be acceptable
+        assert!(validity_range.contains(&(time_begin - fudge / 2))); // sooner than our time, but still acceptable
+        assert!(!validity_range.contains(&(time_begin + fudge * 2))); // too late to be accepted
+        assert!(!validity_range.contains(&(time_begin - fudge * 2))); // too soon to be accepted
+    }
 
-            let pre_sig0 = pre_sig0(&signer, 0, 300);
-            let sig = signer.sign_message(&question, &pre_sig0).unwrap();
-            println!("sig: {:?}", sig);
+    // make rejection tests shorter by centralizing common setup code
+    fn get_message_and_signer() -> (Message, TSigner) {
+        let time_begin = 1609459200u64;
+        let fudge = 300u64;
+        let origin: Name = Name::parse("example.com.", None).unwrap();
+        let key_name: Name = Name::from_ascii("key_name").unwrap();
+        let mut question: Message = Message::new();
+        let mut query: Query = Query::new();
+        query.set_name(origin);
+        question.add_query(query);
 
-            assert!(!sig.is_empty());
+        let sig_key = b"some_key".to_vec();
+        let signer = TSigner::new(sig_key, Algorithm::HmacSha512, key_name, fudge as u16).unwrap();
 
-            assert!(sig0key.verify_message(&question, &sig, &pre_sig0).is_ok());
+        assert!(question.signature().is_empty());
+        question
+            .finalize(&signer, time_begin as u32)
+            .expect("should have signed");
+        assert!(!question.signature().is_empty());
 
-            // now test that the sig0 record works correctly.
-            assert!(question.sig0().is_empty());
-            question.finalize(&signer, 0).expect("should have signed");
-            assert!(!question.sig0().is_empty());
+        // this should be ok, it has not been tampered with
+        assert!(signer.verify_message(None, question.clone()).is_ok());
 
-            let sig = signer.sign_message(&question, &pre_sig0);
-            println!("sig after sign: {:?}", sig);
+        (question, signer)
+    }
 
-            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *question.sig0()[0].rdata() {
-                assert!(sig0key.verify_message(&question, sig.sig(), &sig).is_ok());
+    #[test]
+    fn test_sign_and_verify_message_tsig_reject_keyname() {
+        let (mut question, signer) = get_message_and_signer();
+
+        let other_name: Name = Name::from_ascii("other_name").unwrap();
+        let mut signature = question.take_signature().remove(0);
+        signature.set_name(other_name);
+        question.add_tsig(signature);
+
+        assert!(signer.verify_message(None, question).is_err());
+    }
+
+    #[test]
+    fn test_sign_and_verify_message_tsig_reject_invalid_mac() {
+        let (mut question, signer) = get_message_and_signer();
+
+        let mut query: Query = Query::new();
+        let origin: Name = Name::parse("example.net.", None).unwrap();
+        query.set_name(origin);
+        question.add_query(query);
+
+        assert!(signer.verify_message(None, question).is_err());
+    }
+
+    #[test]
+    fn test_sign_and_verify_message_tsig_truncation() {
+        let (mut question, signer) = get_message_and_signer();
+
+        {
+            let mut signature = question.take_signature().remove(0);
+            if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
+                let mut mac = tsig.mac().to_vec();
+                mac.push(0); // make one longer than sha512
+                std::mem::swap(tsig, &mut tsig.clone().set_mac(mac));
+            } else {
+                panic!("should have been a TSIG");
             }
+            question.add_tsig(signature);
         }
 
-        #[test]
-        #[allow(deprecated)]
-        fn test_sign_and_verify_rrset() {
-            let rsa = Rsa::generate(2048).unwrap();
-            let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key
-                .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
-                .unwrap();
-            let signer = Signer::sig0(sig0key, key, Name::root());
-
-            let origin: Name = Name::parse("example.com.", None).unwrap();
-            let rrsig = Record::new()
-                .set_name(origin.clone())
-                .set_ttl(86400)
-                .set_rr_type(RecordType::NS)
-                .set_dns_class(DNSClass::IN)
-                .set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
-                    RecordType::NS,
-                    Algorithm::RSASHA256,
-                    origin.num_labels(),
-                    86400,
-                    5,
-                    0,
-                    signer.calculate_key_tag().unwrap(),
-                    origin.clone(),
-                    vec![],
-                ))))
-                .clone();
-            let rrset = vec![
-                Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                    .clone(),
-                Record::new()
-                    .set_name(origin)
-                    .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                    .clone(),
-            ];
-
-            let tbs = tbs::rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
-            let sig = signer.sign(&tbs).unwrap();
-
-            let pub_key = signer.key().to_public_bytes().unwrap();
-            let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, Algorithm::RSASHA256).unwrap();
-
-            assert!(pub_key
-                .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
-                .is_ok());
-        }
-
-        fn get_rsa_from_vec(params: &[u32]) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
-            Rsa::from_private_components(
-                BigNum::from_u32(params[0]).unwrap(), // modulus: n
-                BigNum::from_u32(params[1]).unwrap(), // public exponent: e,
-                BigNum::from_u32(params[2]).unwrap(), // private exponent: de,
-                BigNum::from_u32(params[3]).unwrap(), // prime1: p,
-                BigNum::from_u32(params[4]).unwrap(), // prime2: q,
-                BigNum::from_u32(params[5]).unwrap(), // exponent1: dp,
-                BigNum::from_u32(params[6]).unwrap(), // exponent2: dq,
-                BigNum::from_u32(params[7]).unwrap(), // coefficient: qi
-            )
-        }
-
-        #[test]
-        #[allow(deprecated)]
-        #[allow(clippy::unreadable_literal)]
-        fn test_calculate_key_tag() {
-            let test_vectors = vec![
-                (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
-                (
-                    vec![
-                        0xc2fedb69, 0x10001, 0x6ebb9209, 0xf743, 0xc9e3, 0xd07f, 0x6275, 0x1095,
-                    ],
-                    42354,
-                ),
-            ];
-
-            for &(ref input_data, exp_result) in test_vectors.iter() {
-                let rsa = get_rsa_from_vec(input_data).unwrap();
-                let rsa_pem = rsa.private_key_to_pem().unwrap();
-                println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
-
-                let key = KeyPair::from_rsa(rsa).unwrap();
-                let sig0key = key
-                    .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
-                    .unwrap();
-                let signer = Signer::sig0(sig0key, key, Name::root());
-                let key_tag = signer.calculate_key_tag().unwrap();
-
-                assert_eq!(key_tag, exp_result);
+        // we are longer, there is a problem
+        assert!(signer.verify_message(None, question.clone()).is_err());
+        {
+            let mut signature = question.take_signature().remove(0);
+            if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
+                // sha512 is 512 bits, half of that is 256 bits, /8 for byte
+                let mac = tsig.mac()[..256 / 8].to_vec();
+                std::mem::swap(tsig, &mut tsig.clone().set_mac(mac));
+            } else {
+                panic!("should have been a TSIG");
             }
+            question.add_tsig(signature);
         }
 
-        #[test]
-        #[allow(deprecated)]
-        fn test_calculate_key_tag_pem() {
-            let x = "-----BEGIN RSA PRIVATE KEY-----
-    MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
-    -----END RSA PRIVATE KEY-----
-    ";
+        // we are at half, it's allowed
+        assert!(signer.verify_message(None, question.clone()).is_ok());
 
-            let rsa = Rsa::private_key_from_pem(x.as_bytes()).unwrap();
-            let rsa_pem = rsa.private_key_to_pem().unwrap();
-            println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
-
-            let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key
-                .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
-                .unwrap();
-            let signer = Signer::sig0(sig0key, key, Name::root());
-            let key_tag = signer.calculate_key_tag().unwrap();
-
-            assert_eq!(key_tag, 28551);
-        }
-
-        // TODO: these tests technically came from TBS in trust_dns_proto
-        #[cfg(feature = "openssl")]
-        #[allow(clippy::module_inception)]
-        #[cfg(test)]
-        mod tests {
-            use openssl::rsa::Rsa;
-
-            use crate::rr::dnssec::tbs::*;
-            use crate::rr::dnssec::*;
-            use crate::rr::rdata::{DNSSECRData, SIG};
-            use crate::rr::*;
-
-            #[test]
-            fn test_rrset_tbs() {
-                let rsa = Rsa::generate(2048).unwrap();
-                let key = KeyPair::from_rsa(rsa).unwrap();
-                let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-                let signer = Signer::sig0(sig0key, key, Name::root());
-
-                let origin: Name = Name::parse("example.com.", None).unwrap();
-                let rrsig = Record::new()
-                    .set_name(origin.clone())
-                    .set_ttl(86400)
-                    .set_rr_type(RecordType::NS)
-                    .set_dns_class(DNSClass::IN)
-                    .set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
-                        RecordType::NS,
-                        Algorithm::RSASHA256,
-                        origin.num_labels(),
-                        86400,
-                        5,
-                        0,
-                        signer.calculate_key_tag().unwrap(),
-                        origin.clone(),
-                        vec![],
-                    ))))
-                    .clone();
-                let rrset = vec![
-                    Record::new()
-                        .set_name(origin.clone())
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::NS)
-                        .set_dns_class(DNSClass::IN)
-                        .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                        .clone(),
-                    Record::new()
-                        .set_name(origin.clone())
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::NS)
-                        .set_dns_class(DNSClass::IN)
-                        .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                        .clone(),
-                ];
-
-                let tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
-                assert!(!tbs.as_ref().is_empty());
-
-                let rrset = vec![
-                    Record::new()
-                        .set_name(origin.clone())
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::CNAME)
-                        .set_dns_class(DNSClass::IN)
-                        .set_rdata(RData::CNAME(
-                            Name::parse("a.iana-servers.net.", None).unwrap(),
-                        ))
-                        .clone(), // different type
-                    Record::new()
-                        .set_name(Name::parse("www.example.com.", None).unwrap())
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::NS)
-                        .set_dns_class(DNSClass::IN)
-                        .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                        .clone(), // different name
-                    Record::new()
-                        .set_name(origin.clone())
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::NS)
-                        .set_dns_class(DNSClass::CH)
-                        .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                        .clone(), // different class
-                    Record::new()
-                        .set_name(origin.clone())
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::NS)
-                        .set_dns_class(DNSClass::IN)
-                        .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                        .clone(),
-                    Record::new()
-                        .set_name(origin)
-                        .set_ttl(86400)
-                        .set_rr_type(RecordType::NS)
-                        .set_dns_class(DNSClass::IN)
-                        .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                        .clone(),
-                ];
-
-                let filtered_tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
-                assert!(!filtered_tbs.as_ref().is_empty());
-                assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
+        {
+            let mut signature = question.take_signature().remove(0);
+            if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
+                // less than half of sha512
+                let mac = tsig.mac()[..240 / 8].to_vec();
+                std::mem::swap(tsig, &mut tsig.clone().set_mac(mac));
+            } else {
+                panic!("should have been a TSIG");
             }
+            question.add_tsig(signature);
         }
-        */
+
+        assert!(signer.verify_message(None, question).is_err());
+    }
 }

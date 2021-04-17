@@ -11,8 +11,11 @@ use std::fmt;
 use super::sshfp;
 
 use crate::error::*;
+use crate::op::Message;
 use crate::rr::dns_class::DNSClass;
-use crate::rr::Name;
+use crate::rr::record_data::RData;
+use crate::rr::record_type::RecordType;
+use crate::rr::{Name, Record};
 use crate::serialize::binary::*;
 
 /// [RFC 2845, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc2845)
@@ -106,21 +109,21 @@ pub struct TSIG {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Algorithm {
-    /// HMAC-MD5.SIG-ALG.REG.INT
+    /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)
     HmacMd5,
-    /// gss-tsig
+    /// gss-tsig (not supported for cryptographic operations)
     Gss,
-    /// hmac-sha1
+    /// hmac-sha1 (not supported for cryptographic operations)
     HmacSha1,
-    /// hmac-sha224
+    /// hmac-sha224 (not supported for cryptographic operations)
     HmacSha224,
     /// hmac-sha256
     HmacSha256,
-    /// hmac-sha256-128
+    /// hmac-sha256-128 (not supported for cryptographic operations)
     HmacSha256_128,
     /// hmac-sha384
     HmacSha384,
-    /// hmac-sha384-192
+    /// hmac-sha384-192 (not supported for cryptographic operations)
     HmacSha384_192,
     /// hmac-sha512
     HmacSha512,
@@ -154,7 +157,7 @@ impl TSIG {
         error: u16,
         other: Vec<u8>,
     ) -> Self {
-        // Should maybe not be a panic but return a Result::Err?
+        // Should maybe not be a panic but return a Result::Err, or be ignored?
         assert!(time < (1 << 48));
         assert!(mac.len() < (1 << 16));
         assert!(other.len() < (1 << 16));
@@ -169,35 +172,57 @@ impl TSIG {
         }
     }
 
+    /// Returns the Mac in this TSIG
+    pub fn mac(&self) -> &[u8] {
+        &self.mac
+    }
+
+    /// Returns the time this TSIG was generated at
+    pub fn time(&self) -> u64 {
+        self.time
+    }
+
+    /// Returns the max delta from `time` for remote to accept the signature
+    pub fn fudge(&self) -> u16 {
+        self.fudge
+    }
+
+    /// Returns the algorithm used for the authentication code
+    pub fn algorithm(&self) -> &Algorithm {
+        &self.algorithm
+    }
+
     /// Emit TSIG RR and RDATA as used for computing MAC
     ///
     /// ```text
-    ///       3.4.2. TSIG Variables
     ///
-    ///   Source       Field Name       Notes
-    ///   -----------------------------------------------------------------------
-    ///   TSIG RR      NAME             Key name, in canonical wire format
-    ///   TSIG RR      CLASS            (Always ANY in the current specification)
-    ///   TSIG RR      TTL              (Always 0 in the current specification)
-    ///   TSIG RDATA   Algorithm Name   in canonical wire format
-    ///   TSIG RDATA   Time Signed      in network byte order
-    ///   TSIG RDATA   Fudge            in network byte order
-    ///   TSIG RDATA   Error            in network byte order
-    ///   TSIG RDATA   Other Len        in network byte order
-    ///   TSIG RDATA   Other Data       exactly as transmitted
+    /// 4.3.3.  TSIG Variables
     ///
-    ///      The RR RDLEN and RDATA MAC Length are not included in the hash since
-    ///      they are not guaranteed to be knowable before the MAC is generated.
+    ///    Also included in the digest is certain information present in the
+    ///    TSIG RR.  Adding this data provides further protection against an
+    ///    attempt to interfere with the message.
     ///
-    ///      The Original ID field is not included in this section, as it has
-    ///      already been substituted for the message ID in the DNS header and
-    ///      hashed.
-    ///
-    ///      For each label type, there must be a defined "Canonical wire format"
-    ///      that specifies how to express a label in an unambiguous way.  For
-    ///      label type 00, this is defined in [RFC2535], for label type 01, this
-    ///      is defined in [RFC2673].  The use of label types other than 00 and 01
-    ///      is not defined for this specification.
+    ///    +============+================+====================================+
+    ///    | Source     | Field Name     | Notes                              |
+    ///    +============+================+====================================+
+    ///    | TSIG RR    | NAME           | Key name, in canonical wire format |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RR    | CLASS          | MUST be ANY                        |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RR    | TTL            | MUST be 0                          |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RDATA | Algorithm Name | in canonical wire format           |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RDATA | Time Signed    | in network byte order              |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RDATA | Fudge          | in network byte order              |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RDATA | Error          | in network byte order              |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RDATA | Other Len      | in network byte order              |
+    ///    +------------+----------------+------------------------------------+
+    ///    | TSIG RDATA | Other Data     | exactly as transmitted             |
+    ///    +------------+----------------+------------------------------------+
     /// ```
     pub fn emit_tsig_for_mac(
         &self,
@@ -223,6 +248,7 @@ impl TSIG {
     ///
     /// * `mac` - mac to be stored in this record.
     pub fn set_mac(self, mac: Vec<u8>) -> Self {
+        assert!(mac.len() < (1 << 16));
         TSIG { mac, ..self }
     }
 }
@@ -252,7 +278,7 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<TSIG> {
     let time_low = decoder.read_u32()?.unverified(/*valid as any u32*/) as u64;
     let time = (time_high << 32) + time_low;
     let fudge = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let mac_size = decoder.read_u16()?.unverified(/* TODO maybe compare to alg out size, but we don't know that value yet? */);
+    let mac_size = decoder.read_u16()?.unverified(/* TODO maybe compare to alg out size, but we don't actually know that value? */);
     let mac =
         decoder.read_vec(mac_size as usize)?.unverified(/*valid as any vec of the right size*/);
     let oid = decoder.read_u16()?.unverified(/*valid as any u16*/);
@@ -273,6 +299,24 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<TSIG> {
 }
 
 /// Write the RData from the given Encoder
+///
+/// ```text
+///    Field Name       Data Type      Notes
+///    --------------------------------------------------------------
+///    Algorithm Name   domain-name    Name of the algorithm
+///                                    in domain name syntax.
+///    Time Signed      u_int48_t      seconds since 1-Jan-70 UTC.
+///    Fudge            u_int16_t      seconds of error permitted
+///                                    in Time Signed.
+///    MAC Size         u_int16_t      number of octets in MAC.
+///    MAC              octet stream   defined by Algorithm Name.
+///    Original ID      u_int16_t      original message ID
+///    Error            u_int16_t      expanded RCODE covering
+///                                    TSIG processing.
+///    Other Len        u_int16_t      length, in octets, of
+///                                    Other Data.
+///    Other Data       octet stream   empty unless Error == BADTIME
+/// ```
 pub fn emit(encoder: &mut BinEncoder<'_>, tsig: &TSIG) -> ProtoResult<()> {
     tsig.algorithm.emit(encoder)?;
     encoder.emit_u16((tsig.time >> 32) as u16)?;
@@ -287,7 +331,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, tsig: &TSIG) -> ProtoResult<()> {
     Ok(())
 }
 
-// Does not appear to have a normed text representation
+// Does not appear to have a normalized text representation
 impl fmt::Display for TSIG {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
@@ -383,9 +427,16 @@ impl Algorithm {
                 mac.update(message);
                 mac.finalize().into_bytes().to_vec()
             }
-            _ => return Err(ProtoError::from("unsuported mac algorithm")),
+            _ => return Err(ProtoError::from("unsupported mac algorithm")),
         };
         Ok(res)
+    }
+
+    /// Return true if cryptographic operations needed for using this algorithm are supported,
+    /// false otherwise
+    pub fn supported(&self) -> bool {
+        use Algorithm::*;
+        matches!(self, HmacSha256 | HmacSha384 | HmacSha512 | HmacSha512_256)
     }
 }
 
@@ -396,7 +447,19 @@ impl fmt::Display for Algorithm {
 }
 
 /// Return the byte-message to be authenticated with a TSIG
+///
+/// # Arguments
+///
+/// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
+/// of response. Should be None for query
+/// * `message` - the message to authenticate. Should not be modified after calling message_tbs
+/// except for adding the TSIG record
+/// * `pre_tsig` - TSIG rrdata, possibly with missing mac. Should not be modified in any other way
+/// after callin message_tbs
+/// * `key_name` - name of they key, should be the same as the name known by the remove
+/// server/client
 pub fn message_tbs<M: BinEncodable>(
+    previous_hash: Option<&[u8]>,
     message: &M,
     pre_tsig: &TSIG,
     key_name: &Name,
@@ -404,9 +467,59 @@ pub fn message_tbs<M: BinEncodable>(
     let mut buf: Vec<u8> = Vec::with_capacity(512);
     let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Signing);
 
+    if let Some(previous_hash) = previous_hash {
+        encoder.emit_vec(previous_hash)?;
+    };
     message.emit(&mut encoder)?;
     pre_tsig.emit_tsig_for_mac(&mut encoder, key_name)?;
     Ok(buf)
+}
+
+/// Return the byte-message that would have been used to generate a TSIG
+///
+/// # Arguments
+///
+/// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
+/// of response. Should be None for query
+/// * `message` - the message to authenticate, with included TSIG
+pub fn signed_message_to_buff(
+    previous_hash: Option<&[u8]>,
+    mut message: Message,
+) -> ProtoResult<(Vec<u8>, Record)> {
+    let mut sig = message.take_signature();
+    if sig.len() != 1 {
+        return Err(ProtoError::from(
+            "Message contains invalid number of signature",
+        ));
+    }
+    let sig = sig.remove(0);
+    let tsig = if let (RecordType::TSIG, RData::TSIG(tsig_data)) = (sig.rr_type(), sig.rdata()) {
+        tsig_data
+    } else {
+        return Err(ProtoError::from("Signature is not TSIG"));
+    };
+
+    message.set_id(tsig.oid);
+
+    return message_tbs(previous_hash, &message, &tsig, sig.name()).map(|v| (v, sig));
+}
+
+/// Helper function to make a TSIG record from the name of the key, and the TSIG RData
+pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
+    // https://tools.ietf.org/html/rfc8945#section-4.2
+
+    let mut tsig = Record::new();
+
+    //   NAME:  The name of the key used, in domain name syntax
+    tsig.set_name(name)
+        //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
+        .set_record_type(RecordType::TSIG)
+        //   CLASS:  This MUST be ANY.
+        .set_dns_class(DNSClass::ANY)
+        //   TTL:  This MUST be 0.
+        .set_ttl(0)
+        .set_rdata(RData::TSIG(rdata));
+    tsig
 }
 
 #[cfg(test)]
@@ -414,6 +527,7 @@ mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
     use super::*;
+    use crate::rr::Record;
 
     fn test_encode_decode(rdata: TSIG) {
         let mut bytes = Vec::new();
@@ -449,7 +563,7 @@ mod tests {
             vec![],
         ));
         test_encode_decode(TSIG::new(
-            Algorithm::HmacSha512_256,
+            Algorithm::Unknown(Name::from_ascii("unkown_algorithm").unwrap()),
             123456789,
             60,
             vec![],
@@ -457,5 +571,76 @@ mod tests {
             2,
             vec![0, 1, 2, 3, 4, 5, 6],
         ));
+    }
+
+    #[test]
+    fn test_sign_encode() {
+        let mut message = Message::new();
+        message.add_answer(Record::new());
+
+        let key_name = Name::from_ascii("some.name").unwrap();
+
+        let pre_tsig = TSIG::new(
+            Algorithm::HmacSha256,
+            12345,
+            60,
+            vec![],
+            message.id(),
+            0,
+            vec![],
+        );
+
+        let tbs = message_tbs(None, &message, &pre_tsig, &key_name).unwrap();
+
+        let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
+
+        let tsig = make_tsig_record(key_name, pre_tsig);
+
+        message.add_tsig(tsig);
+
+        let message_byte = message.to_bytes().unwrap();
+        let message = Message::from_bytes(&message_byte).unwrap();
+
+        let tbv = signed_message_to_buff(None, message).unwrap().0;
+
+        assert_eq!(tbs, tbv);
+    }
+
+    #[test]
+    fn test_sign_encode_id_changed() {
+        let mut message = Message::new();
+        message.set_id(123).add_answer(Record::new());
+
+        let key_name = Name::from_ascii("some.name").unwrap();
+
+        let pre_tsig = TSIG::new(
+            Algorithm::HmacSha256,
+            12345,
+            60,
+            vec![],
+            message.id(),
+            0,
+            vec![],
+        );
+
+        let tbs = message_tbs(None, &message, &pre_tsig, &key_name).unwrap();
+
+        let pre_tsig = pre_tsig.set_mac(b"some signature".to_vec());
+
+        let tsig = make_tsig_record(key_name, pre_tsig);
+
+        message.add_tsig(tsig);
+
+        let message_byte = message.to_bytes().unwrap();
+        let mut message = Message::from_bytes(&message_byte).unwrap();
+
+        message.set_id(456); // simulate the request id being changed due to request forwarding
+
+        let message_byte = message.to_bytes().unwrap();
+        let message = Message::from_bytes(&message_byte).unwrap();
+
+        let tbv = signed_message_to_buff(None, message).unwrap().0;
+
+        assert_eq!(tbs, tbv);
     }
 }
