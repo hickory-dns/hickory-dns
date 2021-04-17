@@ -586,6 +586,11 @@ impl Message {
         &self.signature
     }
 
+    /// Remove signatures from the Message
+    pub fn take_signature(&mut self) -> Vec<Record> {
+        mem::replace(&mut self.signature, vec![])
+    }
+
     // TODO: only necessary in tests, should it be removed?
     /// this is necessary to match the counts in the header from the record sections
     ///  this happens implicitly on write_to, so no need to call before write_to

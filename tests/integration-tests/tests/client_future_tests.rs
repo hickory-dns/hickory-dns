@@ -9,6 +9,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
+#[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_client::client::Signer;
 use trust_dns_client::op::{Message, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "dnssec")]

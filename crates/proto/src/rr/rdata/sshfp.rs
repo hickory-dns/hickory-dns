@@ -108,7 +108,7 @@ impl SSHFP {
 ///           2        DSS
 ///
 ///    Reserving other types requires IETF consensus [4].
-/// ```text
+/// ```
 ///
 /// The algorithm values have been updated in
 /// [RFC 6594](https://tools.ietf.org/html/rfc6594) and
