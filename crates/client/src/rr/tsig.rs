@@ -32,7 +32,7 @@ impl TSigner {
     /// * `key` - cryptographic key used to authenticate exchanges
     /// * `algorithm` - algorithm used to authenticate exchanges
     /// * `signer_name` - name of the key. Must match the name known to the server
-    /// * `fudge` - maximum difference between client and server time, in seconds, see [fudge] for details
+    /// * `fudge` - maximum difference between client and server time, in seconds, see [fudge](TSigner::fudge) for details
     pub fn new(
         key: Vec<u8>,
         algorithm: Algorithm,
@@ -105,7 +105,8 @@ impl TSigner {
             return Err(ProtoError::from("tsig validation error: wrong key"));
         }
         // 2.  Check MAC
-        if signature.strip_prefix(tsig.mac()).is_none() {
+        let mac = tsig.mac();
+        if signature.len() < mac.len() || mac != &signature[..mac.len()] {
             // tsig might be shorter if truncated, so we check if it is a prefix of the
             // actual signature
             return Err(ProtoError::from("tsig validation error: invalid signature"));
