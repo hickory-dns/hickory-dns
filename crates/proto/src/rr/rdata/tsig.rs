@@ -18,55 +18,117 @@ use crate::rr::record_type::RecordType;
 use crate::rr::{Name, Record};
 use crate::serialize::binary::*;
 
-/// [RFC 2845, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc2845)
+/// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.2)
 ///
 /// ```text
-///   2.3. Record Format
+///   4.2.  TSIG Record Format
 ///
-///   NAME The name of the key used in domain name syntax.  The name
-///        should reflect the names of the hosts and uniquely identify
-///        the key among a set of keys these two hosts may share at any
-///        given time.  If hosts A.site.example and B.example.net share a
-///        key, possibilities for the key name include
-///        <id>.A.site.example, <id>.B.example.net, and
-///        <id>.A.site.example.B.example.net.  It should be possible for
-///        more than one key to be in simultaneous use among a set of
-///        interacting hosts.  The name only needs to be meaningful to
-///        the communicating hosts but a meaningful mnemonic name as
-///        above is strongly recommended.
+///   The fields of the TSIG RR are described below.  All multi-octet
+///   integers in the record are sent in network byte order (see
+///   Section 2.3.2 of [RFC1035]).
 ///
-///        The name may be used as a local index to the key involved and
-///        it is recommended that it be globally unique.  Where a key is
-///        just shared between two hosts, its name actually only need
-///        only be meaningful to them but it is recommended that the key
-///        name be mnemonic and incorporate the resolver and server host
-///        names in that order.
+///   NAME:  The name of the key used, in domain name syntax.  The name
+///      should reflect the names of the hosts and uniquely identify the
+///      key among a set of keys these two hosts may share at any given
+///      time.  For example, if hosts A.site.example and B.example.net
+///      share a key, possibilities for the key name include
+///      <id>.A.site.example, <id>.B.example.net, and
+///      <id>.A.site.example.B.example.net.  It should be possible for more
+///      than one key to be in simultaneous use among a set of interacting
+///      hosts.  This allows for periodic key rotation as per best
+///      operational practices, as well as algorithm agility as indicated
+///      by [RFC7696].
 ///
-///   TYPE TSIG (250: Transaction SIGnature)
+///      The name may be used as a local index to the key involved, but it
+///      is recommended that it be globally unique.  Where a key is just
+///      shared between two hosts, its name actually need only be
+///      meaningful to them, but it is recommended that the key name be
+///      mnemonic and incorporate the names of participating agents or
+///      resources as suggested above.
 ///
-///   CLASS ANY
+///   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
 ///
-///   TTL  0
+///   CLASS:  This MUST be ANY.
 ///
-///   RdLen (variable)
+///   TTL:  This MUST be 0.
 ///
-///   RDATA
+///   RDLENGTH:  (variable)
 ///
-///     Field Name       Data Type      Notes
-///     --------------------------------------------------------------
-///     Algorithm Name   domain-name    Name of the algorithm
-///                                     in domain name syntax.
-///     Time Signed      u_int48_t      seconds since 1-Jan-70 UTC.
-///     Fudge            u_int16_t      seconds of error permitted
-///                                     in Time Signed.
-///     MAC Size         u_int16_t      number of octets in MAC.
-///     MAC              octet stream   defined by Algorithm Name.
-///     Original ID      u_int16_t      original message ID
-///     Error            u_int16_t      expanded RCODE covering
-///                                     TSIG processing.
-///     Other Len        u_int16_t      length, in octets, of
-///                                     Other Data.
-///     Other Data       octet stream   empty unless Error == BADTIME
+///   RDATA:  The RDATA for a TSIG RR consists of a number of fields,
+///      described below:
+///
+///                            1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+///        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///       /                         Algorithm Name                        /
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///       |                                                               |
+///       |          Time Signed          +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///       |                               |            Fudge              |
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///       |          MAC Size             |                               /
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+             MAC               /
+///       /                                                               /
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///       |          Original ID          |            Error              |
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///       |          Other Len            |                               /
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+           Other Data          /
+///       /                                                               /
+///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///
+///   The contents of the RDATA fields are:
+///
+///   Algorithm Name:
+///      an octet sequence identifying the TSIG algorithm in the domain
+///      name syntax.  (Allowed names are listed in Table 3.)  The name is
+///      stored in the DNS name wire format as described in [RFC1034].  As
+///      per [RFC3597], this name MUST NOT be compressed.
+///
+///   Time Signed:
+///      an unsigned 48-bit integer containing the time the message was
+///      signed as seconds since 00:00 on 1970-01-01 UTC, ignoring leap
+///      seconds.
+///
+///   Fudge:
+///      an unsigned 16-bit integer specifying the allowed time difference
+///      in seconds permitted in the Time Signed field.
+///
+///   MAC Size:
+///      an unsigned 16-bit integer giving the length of the MAC field in
+///      octets.  Truncation is indicated by a MAC Size less than the size
+///      of the keyed hash produced by the algorithm specified by the
+///      Algorithm Name.
+///
+///   MAC:
+///      a sequence of octets whose contents are defined by the TSIG
+///      algorithm used, possibly truncated as specified by the MAC Size.
+///      The length of this field is given by the MAC Size.  Calculation of
+///      the MAC is detailed in Section 4.3.
+///
+///   Original ID:
+///      an unsigned 16-bit integer holding the message ID of the original
+///      request message.  For a TSIG RR on a request, it is set equal to
+///      the DNS message ID.  In a TSIG attached to a response -- or in
+///      cases such as the forwarding of a dynamic update request -- the
+///      field contains the ID of the original DNS request.
+///
+///   Error:
+///      in responses, an unsigned 16-bit integer containing the extended
+///      RCODE covering TSIG processing.  In requests, this MUST be zero.
+///
+///   Other Len:
+///      an unsigned 16-bit integer specifying the length of the Other Data
+///      field in octets.
+///
+///   Other Data:
+///      additional data relevant to the TSIG record.  In responses, this
+///      will be empty (i.e., Other Len will be zero) unless the content of
+///      the Error field is BADTIME, in which case it will be a 48-bit
+///      unsigned integer containing the server's current time as the
+///      number of seconds since 00:00 on 1970-01-01 UTC, ignoring leap
+///      seconds (see Section 5.2.3).  This document assigns no meaning to
+///      its contents in requests.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TSIG {
@@ -136,17 +198,21 @@ pub enum Algorithm {
 impl TSIG {
     /// Constructs a new TSIG
     ///
-    /// [RFC 2845, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc2845)
+    /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.1)
     ///
     /// ```text
-    /// 2.1 TSIG RR Type
+    /// 4.1.  TSIG RR Type
     ///
-    ///   To provide secret key authentication, we use a new RR type whose
+    ///   To provide secret key authentication, we use an RR type whose
     ///   mnemonic is TSIG and whose type code is 250.  TSIG is a meta-RR and
-    ///   MUST not be cached.  TSIG RRs are used for authentication between DNS
+    ///   MUST NOT be cached.  TSIG RRs are used for authentication between DNS
     ///   entities that have established a shared secret key.  TSIG RRs are
     ///   dynamically computed to cover a particular DNS transaction and are
     ///   not DNS RRs in the usual sense.
+    ///
+    ///   As the TSIG RRs are related to one DNS request/response, there is no
+    ///   value in storing or retransmitting them; thus, the TSIG RR is
+    ///   discarded once it has been used to authenticate a DNS message.
     /// ```
     pub fn new(
         algorithm: Algorithm,
@@ -195,7 +261,6 @@ impl TSIG {
     /// Emit TSIG RR and RDATA as used for computing MAC
     ///
     /// ```text
-    ///
     /// 4.3.3.  TSIG Variables
     ///
     ///    Also included in the digest is certain information present in the
@@ -256,21 +321,25 @@ impl TSIG {
 /// Read the RData from the given Decoder
 ///
 /// ```text
-///    Field Name       Data Type      Notes
-///    --------------------------------------------------------------
-///    Algorithm Name   domain-name    Name of the algorithm
-///                                    in domain name syntax.
-///    Time Signed      u_int48_t      seconds since 1-Jan-70 UTC.
-///    Fudge            u_int16_t      seconds of error permitted
-///                                    in Time Signed.
-///    MAC Size         u_int16_t      number of octets in MAC.
-///    MAC              octet stream   defined by Algorithm Name.
-///    Original ID      u_int16_t      original message ID
-///    Error            u_int16_t      expanded RCODE covering
-///                                    TSIG processing.
-///    Other Len        u_int16_t      length, in octets, of
-///                                    Other Data.
-///    Other Data       octet stream   empty unless Error == BADTIME
+///                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  /                         Algorithm Name                        /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |                                                               |
+///  |          Time Signed          +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |                               |            Fudge              |
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |          MAC Size             |                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+             MAC               /
+///  /                                                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |          Original ID          |            Error              |
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |          Other Len            |                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+           Other Data          /
+///  /                                                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
 pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<TSIG> {
     let algorithm = Algorithm::read(decoder)?;
@@ -301,21 +370,25 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<TSIG> {
 /// Write the RData from the given Encoder
 ///
 /// ```text
-///    Field Name       Data Type      Notes
-///    --------------------------------------------------------------
-///    Algorithm Name   domain-name    Name of the algorithm
-///                                    in domain name syntax.
-///    Time Signed      u_int48_t      seconds since 1-Jan-70 UTC.
-///    Fudge            u_int16_t      seconds of error permitted
-///                                    in Time Signed.
-///    MAC Size         u_int16_t      number of octets in MAC.
-///    MAC              octet stream   defined by Algorithm Name.
-///    Original ID      u_int16_t      original message ID
-///    Error            u_int16_t      expanded RCODE covering
-///                                    TSIG processing.
-///    Other Len        u_int16_t      length, in octets, of
-///                                    Other Data.
-///    Other Data       octet stream   empty unless Error == BADTIME
+///                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  /                         Algorithm Name                        /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |                                                               |
+///  |          Time Signed          +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |                               |            Fudge              |
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |          MAC Size             |                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+             MAC               /
+///  /                                                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |          Original ID          |            Error              |
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///  |          Other Len            |                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+           Other Data          /
+///  /                                                               /
+///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
 pub fn emit(encoder: &mut BinEncoder<'_>, tsig: &TSIG) -> ProtoResult<()> {
     tsig.algorithm.emit(encoder)?;

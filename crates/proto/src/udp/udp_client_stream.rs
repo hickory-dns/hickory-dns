@@ -262,7 +262,7 @@ async fn send_serial_message<S: UdpSocket + Send>(
             Ok(message) => {
                 if msg_id == message.id() {
                     debug!("received message id: {}", message.id());
-                    if let Some(verifier) = verifier {
+                    if let Some(mut verifier) = verifier {
                         return verifier(response.bytes());
                     } else {
                         return Ok(DnsResponse::from(message));
