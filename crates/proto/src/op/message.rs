@@ -797,7 +797,7 @@ impl Deref for Message {
 }
 
 /// Alias for a function verifying if a message is properly signed
-pub type MessageVerifier = Box<dyn Fn(&[u8]) -> ProtoResult<DnsResponse> + Send>;
+pub type MessageVerifier = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsResponse> + Send>;
 
 /// A trait for performing final amendments to a Message before it is sent.
 ///

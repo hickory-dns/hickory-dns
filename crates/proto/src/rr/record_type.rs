@@ -90,7 +90,7 @@ pub enum RecordType {
     //  TKEY,       // 249 RFC 2930 Secret key record
     /// [RFC 6698](https://tools.ietf.org/html/rfc6698) TLSA certificate association
     TLSA,
-    /// [RFC 2845](https://tools.ietf.org/html/rfc2845) Transaction Signature
+    /// [RFC 8945](https://tools.ietf.org/html/rfc8945) Transaction Signature
     TSIG,
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Text record
     TXT,
