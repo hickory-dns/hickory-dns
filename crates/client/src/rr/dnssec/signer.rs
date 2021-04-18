@@ -15,7 +15,7 @@ use crate::proto::rr::dnssec::{tbs, TBS};
 
 #[cfg(feature = "dnssec")]
 use crate::error::DnsSecResult;
-use crate::op::{Message, MessageFinalizer};
+use crate::op::{Message, MessageFinalizer, MessageVerifier};
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::Private;
 #[cfg(feature = "dnssec")]
@@ -519,7 +519,11 @@ impl Signer {
 
 impl MessageFinalizer for Signer {
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+    fn finalize_message(
+        &self,
+        message: &Message,
+        current_time: u32,
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         log::debug!("signing message: {:?}", message);
         let key_tag: u16 = self.calculate_key_tag()?;
 
@@ -562,11 +566,15 @@ impl MessageFinalizer for Signer {
         let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
         sig0.set_rdata(RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature))));
 
-        Ok(vec![sig0])
+        Ok((vec![sig0], None))
     }
 
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
-    fn finalize_message(&self, _: &Message, _: u32) -> ProtoResult<Vec<Record>> {
+    fn finalize_message(
+        &self,
+        _: &Message,
+        _: u32,
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         Err(
             ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
                 .into(),

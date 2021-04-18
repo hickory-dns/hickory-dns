@@ -11,7 +11,7 @@ use std::fmt;
 use super::sshfp;
 
 use crate::error::*;
-use crate::op::Message;
+use crate::op::{Header, Message, Query};
 use crate::rr::dns_class::DNSClass;
 use crate::rr::record_data::RData;
 use crate::rr::record_type::RecordType;
@@ -465,9 +465,10 @@ pub fn message_tbs<M: BinEncodable>(
     key_name: &Name,
 ) -> ProtoResult<Vec<u8>> {
     let mut buf: Vec<u8> = Vec::with_capacity(512);
-    let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Signing);
+    let mut encoder: BinEncoder<'_> = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
 
     if let Some(previous_hash) = previous_hash {
+        encoder.emit_u16(previous_hash.len() as u16)?;
         encoder.emit_vec(previous_hash)?;
     };
     message.emit(&mut encoder)?;
@@ -481,27 +482,67 @@ pub fn message_tbs<M: BinEncodable>(
 ///
 /// * `previous_hash` - hash of previous message in case of message chaining, or of query in case
 /// of response. Should be None for query
-/// * `message` - the message to authenticate, with included TSIG
-pub fn signed_message_to_buff(
+/// * `message` - the byte-message to authenticate, with included TSIG
+pub fn signed_bitmessage_to_buf(
     previous_hash: Option<&[u8]>,
-    mut message: Message,
+    message: &[u8],
 ) -> ProtoResult<(Vec<u8>, Record)> {
-    let mut sig = message.take_signature();
-    if sig.len() != 1 {
+    let mut decoder = BinDecoder::new(message);
+
+    // remove the tsig from Additional count
+    let mut header = Header::read(&mut decoder)?;
+    let adc = header.additional_count();
+    if adc > 0 {
+        header.set_additional_count(adc - 1);
+    } else {
         return Err(ProtoError::from(
-            "Message contains invalid number of signature",
+            "missing tsig from response that must be authenticated",
         ));
     }
-    let sig = sig.remove(0);
+
+    // keep position of data start
+    let start_data = message.len() - decoder.len();
+
+    let count = header.query_count();
+    for _ in 0..count {
+        Query::read(&mut decoder)?;
+    }
+
+    // read all records except for the last one (tsig)
+    let record_count = header.answer_count() as usize
+        + header.name_server_count() as usize
+        + header.additional_count() as usize;
+    Message::read_records(&mut decoder, record_count, false)?;
+
+    // keep position of data end
+    let end_data = message.len() - decoder.len();
+
+    // parse a tsig record
+    let sig = Record::read(&mut decoder)?;
     let tsig = if let (RecordType::TSIG, RData::TSIG(tsig_data)) = (sig.rr_type(), sig.rdata()) {
         tsig_data
     } else {
-        return Err(ProtoError::from("Signature is not TSIG"));
+        return Err(ProtoError::from("signature is not tsig"));
     };
+    header.set_id(tsig.oid);
 
-    message.set_id(tsig.oid);
+    let mut buf = Vec::with_capacity(message.len());
+    let mut encoder = BinEncoder::new(&mut buf);
 
-    return message_tbs(previous_hash, &message, &tsig, sig.name()).map(|v| (v, sig));
+    // prepend previous Mac if it exists
+    if let Some(previous_hash) = previous_hash {
+        encoder.emit_u16(previous_hash.len() as u16)?;
+        encoder.emit_vec(previous_hash)?;
+    }
+
+    // emit header without tsig
+    header.emit(&mut encoder)?;
+    // copy all records verbatim, without decompressing it
+    encoder.emit_vec(&message[start_data..end_data])?;
+    // emit the tsig pseudo-record
+    tsig.emit_tsig_for_mac(&mut encoder, sig.name())?;
+
+    Ok((buf, sig))
 }
 
 /// Helper function to make a TSIG record from the name of the key, and the TSIG RData
@@ -599,9 +640,8 @@ mod tests {
         message.add_tsig(tsig);
 
         let message_byte = message.to_bytes().unwrap();
-        let message = Message::from_bytes(&message_byte).unwrap();
 
-        let tbv = signed_message_to_buff(None, message).unwrap().0;
+        let tbv = signed_bitmessage_to_buf(None, &message_byte).unwrap().0;
 
         assert_eq!(tbs, tbv);
     }
@@ -637,9 +677,8 @@ mod tests {
         message.set_id(456); // simulate the request id being changed due to request forwarding
 
         let message_byte = message.to_bytes().unwrap();
-        let message = Message::from_bytes(&message_byte).unwrap();
 
-        let tbv = signed_message_to_buff(None, message).unwrap().0;
+        let tbv = signed_bitmessage_to_buf(None, &message_byte).unwrap().0;
 
         assert_eq!(tbs, tbv);
     }

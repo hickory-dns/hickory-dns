@@ -8,16 +8,19 @@
 //! tsigner is a structure for computing tsig messasignuthentication code for dns transactions
 use crate::proto::error::{ProtoError, ProtoResult};
 use crate::proto::rr::rdata::tsig::{
-    make_tsig_record, message_tbs, signed_message_to_buff, Algorithm, TSIG,
+    make_tsig_record, message_tbs, signed_bitmessage_to_buf, Algorithm, TSIG,
 };
 use std::ops::Range;
+use std::sync::Arc;
 
-use crate::op::{Message, MessageFinalizer};
+use crate::op::{DnsResponse, Message, MessageFinalizer, MessageVerifier};
 use crate::rr::{Name, RData, Record};
 
 /// Struct to pass to a client for it to authenticate requests using TSIG.
 #[derive(Clone)]
-pub struct TSigner {
+pub struct TSigner(Arc<TSignerInner>);
+
+struct TSignerInner {
     key: Vec<u8>, // TODO this might want to be some sort of auto-zeroing on drop buffer, as it's cryptographic matterial
     algorithm: Algorithm,
     signer_name: Name,
@@ -40,12 +43,12 @@ impl TSigner {
         fudge: u16,
     ) -> ProtoResult<Self> {
         if algorithm.supported() {
-            Ok(TSigner {
+            Ok(TSigner(Arc::new(TSignerInner {
                 key,
                 algorithm,
                 signer_name,
                 fudge,
-            })
+            })))
         } else {
             Err(ProtoError::from("unsupported mac algorithm"))
         }
@@ -53,17 +56,17 @@ impl TSigner {
 
     /// Return the key used for message authentication
     pub fn key(&self) -> &[u8] {
-        &self.key
+        &self.0.key
     }
 
     /// Return the algorithm used for message authentication
     pub fn algorithm(&self) -> &Algorithm {
-        &self.algorithm
+        &self.0.algorithm
     }
 
     /// Name of the key used by this signer
     pub fn signer_name(&self) -> &Name {
-        &self.signer_name
+        &self.0.signer_name
     }
 
     /// Maximum time difference between client time when issuing a message, and server time when
@@ -71,27 +74,27 @@ impl TSigner {
     /// Longer values means more room for replay by an attacker. A few minutes are usually a good
     /// value.
     pub fn fudge(&self) -> u16 {
-        self.fudge
+        self.0.fudge
     }
 
     /// Compute authentication tag for a buffer
     pub fn sign(&self, tbs: &[u8]) -> ProtoResult<Vec<u8>> {
-        self.algorithm.mac_data(&self.key, tbs)
+        self.0.algorithm.mac_data(&self.0.key, tbs)
     }
 
     /// Compute authentication tag for a message
     pub fn sign_message(&self, message: &Message, pre_tsig: &TSIG) -> ProtoResult<Vec<u8>> {
-        message_tbs(None, message, pre_tsig, &self.signer_name).and_then(|tbs| self.sign(&tbs))
+        message_tbs(None, message, pre_tsig, &self.0.signer_name).and_then(|tbs| self.sign(&tbs))
     }
 
     /// Verify the message is correctly signed
     /// Current time should be contained in returned range for the signature to still be valid
-    pub fn verify_message(
+    pub fn verify_message_byte(
         &self,
         previous_hash: Option<&[u8]>,
-        message: Message,
+        message: &[u8],
     ) -> ProtoResult<Range<u64>> {
-        let (vec, record) = signed_message_to_buff(previous_hash, message)?;
+        let (vec, record) = signed_bitmessage_to_buf(previous_hash, message)?;
         let signature = self.sign(&vec)?;
         let tsig = if let RData::TSIG(tsig) = record.rdata() {
             tsig
@@ -101,7 +104,7 @@ impl TSigner {
 
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key
-        if record.name() != &self.signer_name || tsig.algorithm() != &self.algorithm {
+        if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
             return Err(ProtoError::from("tsig validation error: wrong key"));
         }
         // 2.  Check MAC
@@ -119,7 +122,7 @@ impl TSigner {
         // 4.  Check truncation policy
         if tsig.mac().len() < std::cmp::max(10, signature.len() / 2) {
             return Err(ProtoError::from(
-                "tsig validation error: truncated signature ",
+                "tsig validation error: truncated signature",
             ));
         }
         Ok(Range {
@@ -130,21 +133,41 @@ impl TSigner {
 }
 
 impl MessageFinalizer for TSigner {
-    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+    fn finalize_message(
+        &self,
+        message: &Message,
+        current_time: u32,
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         log::debug!("signing message: {:?}", message);
 
         let pre_tsig = TSIG::new(
-            self.algorithm.clone(),
+            self.0.algorithm.clone(),
             current_time as u64,
-            self.fudge,
+            self.0.fudge,
             Vec::new(),
             message.id(),
             0,
             Vec::new(),
         );
         let signature: Vec<u8> = self.sign_message(message, &pre_tsig)?;
-        let tsig = make_tsig_record(self.signer_name.clone(), pre_tsig.set_mac(signature));
-        Ok(vec![tsig])
+        let tsig = make_tsig_record(
+            self.0.signer_name.clone(),
+            pre_tsig.set_mac(signature.clone()),
+        );
+        let self2 = self.clone();
+
+        let verifier = move |dns_response: &[u8]| {
+            if self2
+                .verify_message_byte(Some(signature.as_ref()), dns_response)?
+                .contains(&(current_time as u64))
+            // this assumes a no-latency answer
+            {
+                Message::from_vec(dns_response).map(DnsResponse::from)
+            } else {
+                Err(ProtoError::from("tsig validation error: outdated response"))
+            }
+        };
+        Ok((vec![tsig], Some(Box::new(verifier))))
     }
 }
 
@@ -154,6 +177,7 @@ mod tests {
 
     use crate::op::{Message, Query};
     use crate::rr::Name;
+    use crate::serialize::binary::BinEncodable;
 
     use super::*;
     fn assert_send_and_sync<T: Send + Sync>() {}
@@ -183,7 +207,9 @@ mod tests {
             .expect("should have signed");
         assert!(!question.signature().is_empty());
 
-        let validity_range = signer.verify_message(None, question).unwrap();
+        let validity_range = signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .unwrap();
         assert!(validity_range.contains(&(time_begin + fudge / 2))); // slightly outdated, but still to be acceptable
         assert!(validity_range.contains(&(time_begin - fudge / 2))); // sooner than our time, but still acceptable
         assert!(!validity_range.contains(&(time_begin + fudge * 2))); // too late to be accepted
@@ -211,7 +237,9 @@ mod tests {
         assert!(!question.signature().is_empty());
 
         // this should be ok, it has not been tampered with
-        assert!(signer.verify_message(None, question.clone()).is_ok());
+        assert!(signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .is_ok());
 
         (question, signer)
     }
@@ -225,7 +253,9 @@ mod tests {
         signature.set_name(other_name);
         question.add_tsig(signature);
 
-        assert!(signer.verify_message(None, question).is_err());
+        assert!(signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .is_err());
     }
 
     #[test]
@@ -237,7 +267,9 @@ mod tests {
         query.set_name(origin);
         question.add_query(query);
 
-        assert!(signer.verify_message(None, question).is_err());
+        assert!(signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .is_err());
     }
 
     #[test]
@@ -257,7 +289,9 @@ mod tests {
         }
 
         // we are longer, there is a problem
-        assert!(signer.verify_message(None, question.clone()).is_err());
+        assert!(signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .is_err());
         {
             let mut signature = question.take_signature().remove(0);
             if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
@@ -271,7 +305,9 @@ mod tests {
         }
 
         // we are at half, it's allowed
-        assert!(signer.verify_message(None, question.clone()).is_ok());
+        assert!(signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .is_ok());
 
         {
             let mut signature = question.take_signature().remove(0);
@@ -285,6 +321,8 @@ mod tests {
             question.add_tsig(signature);
         }
 
-        assert!(signer.verify_message(None, question).is_err());
+        assert!(signer
+            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .is_err());
     }
 }

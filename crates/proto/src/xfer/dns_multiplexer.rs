@@ -25,7 +25,7 @@ use rand;
 use rand::distributions::{Distribution, Standard};
 
 use crate::error::*;
-use crate::op::{MessageFinalizer, OpCode};
+use crate::op::{MessageFinalizer, MessageVerifier, OpCode};
 use crate::rr::record_type::RecordType;
 use crate::xfer::{
     ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse,
@@ -41,6 +41,7 @@ struct ActiveRequest {
     completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
+    verifier: Option<MessageVerifier>,
 }
 
 impl ActiveRequest {
@@ -48,12 +49,14 @@ impl ActiveRequest {
         completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
+        verifier: Option<MessageVerifier>,
     ) -> Self {
         ActiveRequest {
             completion,
             request_id,
             // request,
             timeout,
+            verifier,
         }
     }
 
@@ -288,6 +291,7 @@ where
         // TODO: truncates u64 to u32, error on overflow?
         let now = now as u32;
 
+        let mut verifier = None;
         // update, notify and XFR queries need to be signed.
         if [OpCode::Update, OpCode::Notify].contains(&request.op_code())
             || request
@@ -296,9 +300,12 @@ where
                 .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
         {
             if let Some(ref signer) = self.signer {
-                if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
-                    debug!("could not sign message: {}", e);
-                    return e.into();
+                match request.finalize::<MF>(signer.borrow(), now) {
+                    Ok(answer_verifier) => verifier = answer_verifier,
+                    Err(e) => {
+                        debug!("could not sign message: {}", e);
+                        return e.into();
+                    }
                 }
             }
         }
@@ -309,7 +316,8 @@ where
         let (complete, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         // send the message
-        let active_request = ActiveRequest::new(complete, request.id(), Box::new(timeout));
+        let active_request =
+            ActiveRequest::new(complete, request.id(), Box::new(timeout), verifier);
 
         match request.to_vec() {
             Ok(buffer) => {
@@ -379,7 +387,13 @@ where
                             Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
-                                ignore_send(active_request.completion.try_send(Ok(message.into())));
+                                if let Some(ref mut verifier) = active_request.verifier {
+                                    ignore_send(
+                                        active_request.completion.try_send(verifier(buffer.bytes())),
+                                    );
+                                } else {
+                                    ignore_send(active_request.completion.try_send(Ok(message.into())));
+                                }
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
