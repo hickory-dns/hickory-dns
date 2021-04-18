@@ -31,6 +31,7 @@ use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncode
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use crate::rr::dnssec::rdata::DNSSECRecordType;
+use crate::xfer::DnsResponse;
 
 /// The basic request and response datastructure, used for all DNS protocols.
 ///
@@ -711,9 +712,10 @@ impl Message {
         &mut self,
         finalizer: &MF,
         inception_time: u32,
-    ) -> ProtoResult<()> {
+    ) -> ProtoResult<Option<MessageVerifier>> {
         debug!("finalizing message: {:?}", self);
-        let finals: Vec<Record> = finalizer.finalize_message(self, inception_time)?;
+        let (finals, verifier): (Vec<Record>, Option<MessageVerifier>) =
+            finalizer.finalize_message(self, inception_time)?;
 
         // append all records to message
         for fin in finals {
@@ -726,7 +728,7 @@ impl Message {
             };
         }
 
-        Ok(())
+        Ok(verifier)
     }
 
     /// Consumes `Message` and returns into components
@@ -793,6 +795,10 @@ impl Deref for Message {
         &self.header
     }
 }
+
+/// Alias for a function verifying if a message is properly signed
+pub type MessageVerifier = Box<dyn Fn(&[u8]) -> ProtoResult<DnsResponse> + Send>;
+
 /// A trait for performing final amendments to a Message before it is sent.
 ///
 /// An example of this is a SIG0 signer, which needs the final form of the message,
@@ -809,7 +815,11 @@ pub trait MessageFinalizer: Send + Sync + 'static {
     /// # Return
     ///
     /// A vector to append to the additionals section of the message, sorted in the order as they should appear in the message.
-    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>>;
+    fn finalize_message(
+        &self,
+        message: &Message,
+        current_time: u32,
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)>;
 }
 
 /// A MessageFinalizer which does nothing
@@ -826,7 +836,11 @@ impl NoopMessageFinalizer {
 }
 
 impl MessageFinalizer for NoopMessageFinalizer {
-    fn finalize_message(&self, _: &Message, _: u32) -> ProtoResult<Vec<Record>> {
+    fn finalize_message(
+        &self,
+        _: &Message,
+        _: u32,
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         panic!("Misused NoopMessageFinalizer, None should be used instead")
     }
 }

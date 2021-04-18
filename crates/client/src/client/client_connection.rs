@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
 
-use crate::op::MessageFinalizer;
+use crate::op::{MessageFinalizer, MessageVerifier};
 use crate::rr::dnssec::Signer as Sig0Signer;
 use crate::rr::tsig::TSigner;
 
@@ -47,7 +47,11 @@ impl From<TSigner> for Signer {
 }
 
 impl MessageFinalizer for Signer {
-    fn finalize_message(&self, message: &Message, time: u32) -> ProtoResult<Vec<Record>> {
+    fn finalize_message(
+        &self,
+        message: &Message,
+        time: u32,
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         match self {
             Signer::Sig0(s0) => s0.finalize_message(message, time),
             Signer::TSIG(tsig) => tsig.finalize_message(message, time),

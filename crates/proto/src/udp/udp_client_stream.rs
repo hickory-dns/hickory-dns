@@ -19,7 +19,8 @@ use log::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
-use crate::op::{MessageFinalizer, OpCode};
+use crate::op::{MessageFinalizer, MessageVerifier, OpCode};
+use crate::rr::record_type::RecordType;
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 use crate::Time;
@@ -125,11 +126,21 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let now = now as u32;
 
         // TODO: move this logic into Message::finalize?
-        if let OpCode::Update = message.op_code() {
+        let mut verifier = None;
+        // update, notify and XFR queries need to be signed.
+        if [OpCode::Update, OpCode::Notify].contains(&message.op_code())
+            || message
+                .queries()
+                .iter()
+                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
+        {
             if let Some(ref signer) = self.signer {
-                if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
-                    debug!("could not sign message: {}", e);
-                    return e.into();
+                match message.finalize::<MF>(signer.borrow(), now) {
+                    Ok(answer_verifier) => verifier = answer_verifier,
+                    Err(e) => {
+                        debug!("could not sign message: {}", e);
+                        return e.into();
+                    }
                 }
             }
         }
@@ -146,7 +157,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
-            Box::pin(send_serial_message::<S>(message, message_id)),
+            Box::pin(send_serial_message::<S>(message, message_id, verifier)),
         )
         .into()
     }
@@ -207,6 +218,7 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
 async fn send_serial_message<S: UdpSocket + Send>(
     msg: SerialMessage,
     msg_id: u16,
+    verifier: Option<MessageVerifier>,
 ) -> Result<DnsResponse, ProtoError> {
     let name_server = msg.addr();
     let socket: S = NextRandomUdpSocket::new(&name_server).await?;
@@ -250,7 +262,11 @@ async fn send_serial_message<S: UdpSocket + Send>(
             Ok(message) => {
                 if msg_id == message.id() {
                     debug!("received message id: {}", message.id());
-                    return Ok(DnsResponse::from(message));
+                    if let Some(verifier) = verifier {
+                        return verifier(response.bytes());
+                    } else {
+                        return Ok(DnsResponse::from(message));
+                    }
                 } else {
                     // on wrong id, attempted poison?
                     warn!(

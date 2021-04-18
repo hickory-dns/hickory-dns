@@ -14,6 +14,9 @@ pub mod update_message;
 pub use self::lower_query::LowerQuery;
 pub use self::update_message::UpdateMessage;
 pub use crate::proto::{
-    op::{Edns, Header, Message, MessageFinalizer, MessageType, OpCode, Query, ResponseCode},
+    op::{
+        Edns, Header, Message, MessageFinalizer, MessageType, MessageVerifier, OpCode, Query,
+        ResponseCode,
+    },
     xfer::DnsResponse,
 };
