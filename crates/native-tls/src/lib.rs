@@ -29,11 +29,6 @@
     unreachable_pub
 )]
 
-pub mod tls_client_stream;
-pub mod tls_stream;
-
-pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
-pub use self::tls_stream::{TlsStream, TlsStreamBuilder};
-
-#[cfg(test)]
-mod tests;
+compile_error!(
+    "Deprecated and removed as of 0.21.0, see the dns-over-native-tls feature in `trust-dns-proto`"
+);

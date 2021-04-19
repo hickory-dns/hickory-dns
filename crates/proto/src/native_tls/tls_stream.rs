@@ -17,10 +17,10 @@ use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Identity, TlsConnector};
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
-use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::xfer::{BufDnsStreamHandle, StreamReceiver};
+use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::tcp::Connect;
+use crate::tcp::TcpStream;
+use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
@@ -140,7 +140,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         dns_name: String,
         outbound_messages: StreamReceiver,
     ) -> Result<TlsStream<S>, io::Error> {
-        use crate::tls_stream;
+        use crate::native_tls::tls_stream;
 
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;

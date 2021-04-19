@@ -94,12 +94,12 @@ where
 
 #[cfg(test)]
 mod tests {
-    use futures::executor::block_on;
+    use futures_executor::block_on;
     use std::pin::Pin;
     use std::task::{Context, Poll};
-    use trust_dns_proto::op::Message;
 
-    use crate::request;
+    use crate::https::request;
+    use crate::op::Message;
 
     use super::*;
 

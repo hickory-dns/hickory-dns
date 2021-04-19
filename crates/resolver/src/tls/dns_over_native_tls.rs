@@ -14,8 +14,8 @@ use std::pin::Pin;
 use futures_util::future::Future;
 
 use proto::error::ProtoError;
+use proto::native_tls::{TlsClientStream, TlsClientStreamBuilder};
 use proto::BufDnsStreamHandle;
-use trust_dns_native_tls::{TlsClientStream, TlsClientStreamBuilder};
 
 use crate::name_server::RuntimeProvider;
 

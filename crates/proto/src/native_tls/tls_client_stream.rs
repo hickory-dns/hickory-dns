@@ -17,13 +17,12 @@ use native_tls::Certificate;
 use native_tls::Pkcs12;
 use tokio_native_tls::TlsStream as TokioTlsStream;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::{Connect, TcpClientStream};
-use trust_dns_proto::xfer::BufDnsStreamHandle;
-
-use crate::TlsStreamBuilder;
+use crate::error::ProtoError;
+use crate::iocompat::AsyncIoStdAsTokio;
+use crate::iocompat::AsyncIoTokioAsStd;
+use crate::native_tls::TlsStreamBuilder;
+use crate::tcp::{Connect, TcpClientStream};
+use crate::xfer::BufDnsStreamHandle;
 
 /// TlsClientStream secure DNS over TCP stream
 ///

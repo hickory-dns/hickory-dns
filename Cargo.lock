@@ -1647,7 +1647,6 @@ dependencies = [
  "rustls",
  "tokio",
  "trust-dns-client",
- "trust-dns-native-tls",
  "trust-dns-openssl",
  "trust-dns-proto",
  "trust-dns-resolver",
@@ -1715,18 +1714,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-dns-native-tls"
-version = "0.20.1"
-dependencies = [
- "futures-channel",
- "futures-util",
- "native-tls",
- "tokio",
- "tokio-native-tls",
- "trust-dns-proto",
-]
-
-[[package]]
 name = "trust-dns-openssl"
 version = "0.20.1"
 dependencies = [
@@ -1760,6 +1747,7 @@ dependencies = [
  "js-sys",
  "lazy_static",
  "log",
+ "native-tls",
  "openssl",
  "rand",
  "ring",
@@ -1770,6 +1758,7 @@ dependencies = [
  "thiserror",
  "tinyvec",
  "tokio",
+ "tokio-native-tls",
  "tokio-rustls",
  "url",
  "wasm-bindgen",
@@ -1799,7 +1788,6 @@ dependencies = [
  "tokio-native-tls",
  "tokio-openssl",
  "tokio-rustls",
- "trust-dns-native-tls",
  "trust-dns-openssl",
  "trust-dns-proto",
  "webpki-roots",
