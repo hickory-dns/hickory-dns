@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.20.2
+
+### Fixed
+
+- (proto) Panic on bad length in SVCB for record length
+
 ## 0.20.1
 
 ### Added
