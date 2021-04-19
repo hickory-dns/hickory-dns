@@ -19,8 +19,7 @@ use log::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
-use crate::op::{MessageFinalizer, MessageVerifier, OpCode};
-use crate::rr::record_type::RecordType;
+use crate::op::{MessageFinalizer, MessageVerifier};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 use crate::Time;
@@ -125,16 +124,9 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         // TODO: truncates u64 to u32, error on overflow?
         let now = now as u32;
 
-        // TODO: move this logic into Message::finalize?
         let mut verifier = None;
-        // update, notify and XFR queries need to be signed.
-        if [OpCode::Update, OpCode::Notify].contains(&message.op_code())
-            || message
-                .queries()
-                .iter()
-                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
-        {
-            if let Some(ref signer) = self.signer {
+        if let Some(ref signer) = self.signer {
+            if signer.should_finalize_message(&message) {
                 match message.finalize::<MF>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {

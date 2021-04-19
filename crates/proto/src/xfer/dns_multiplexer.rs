@@ -25,8 +25,7 @@ use rand;
 use rand::distributions::{Distribution, Standard};
 
 use crate::error::*;
-use crate::op::{MessageFinalizer, MessageVerifier, OpCode};
-use crate::rr::record_type::RecordType;
+use crate::op::{MessageFinalizer, MessageVerifier};
 use crate::xfer::{
     ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse,
     DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
@@ -292,14 +291,8 @@ where
         let now = now as u32;
 
         let mut verifier = None;
-        // update, notify and XFR queries need to be signed.
-        if [OpCode::Update, OpCode::Notify].contains(&request.op_code())
-            || request
-                .queries()
-                .iter()
-                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
-        {
-            if let Some(ref signer) = self.signer {
+        if let Some(ref signer) = self.signer {
+            if signer.should_finalize_message(&request) {
                 match request.finalize::<MF>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
