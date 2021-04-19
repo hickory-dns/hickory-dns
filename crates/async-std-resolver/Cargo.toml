@@ -65,7 +65,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-std = "1.6"
-async-trait = "0.1.36"
+async-trait = "0.1.50"
 futures-io = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 pin-utils = "0.1.0"
