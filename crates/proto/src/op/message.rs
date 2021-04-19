@@ -820,6 +820,16 @@ pub trait MessageFinalizer: Send + Sync + 'static {
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)>;
+
+    /// Return whether the message require futher processing before being sent
+    /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
+    fn should_finalize_message(&self, message: &Message) -> bool {
+        [OpCode::Update, OpCode::Notify].contains(&message.op_code())
+            || message
+                .queries()
+                .iter()
+                .any(|q| [RecordType::AXFR, RecordType::IXFR].contains(&q.query_type()))
+    }
 }
 
 /// A MessageFinalizer which does nothing
@@ -842,6 +852,10 @@ impl MessageFinalizer for NoopMessageFinalizer {
         _: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         panic!("Misused NoopMessageFinalizer, None should be used instead")
+    }
+
+    fn should_finalize_message(&self, _: &Message) -> bool {
+        true
     }
 }
 
