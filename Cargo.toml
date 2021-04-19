@@ -1,6 +1,5 @@
 [workspace]
 members = ["crates/proto",
-           "crates/native-tls",
            "crates/openssl",
            "crates/resolver",
            "crates/client", 

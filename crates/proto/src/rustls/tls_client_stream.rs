@@ -18,10 +18,9 @@ use rustls::ClientConfig;
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
+use crate::rustls::tls_stream::tls_connect;
 use crate::tcp::{Connect, TcpClientStream};
 use crate::xfer::BufDnsStreamHandle;
-
-use crate::rustls::tls_stream::tls_connect;
 
 /// Type of TlsClientStream used with Rustls
 pub type TlsClientStream<S> =

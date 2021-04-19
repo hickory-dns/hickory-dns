@@ -65,6 +65,9 @@ pub mod https;
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
 pub mod multicast;
+#[cfg(feature = "dns-over-native-tls")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-native-tls")))]
+pub mod native_tls;
 pub mod op;
 pub mod rr;
 #[cfg(feature = "dns-over-rustls")]

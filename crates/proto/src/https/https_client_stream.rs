@@ -527,13 +527,13 @@ mod tests {
     use std::str::FromStr;
 
     use rustls::{ClientConfig, KeyLogFile, ProtocolVersion, RootCertStore};
+    use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
     use webpki_roots;
 
-    use tokio::net::TcpStream as TokioTcpStream;
-    use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-    use trust_dns_proto::op::{Message, Query, ResponseCode};
-    use trust_dns_proto::rr::{Name, RData, RecordType};
+    use crate::iocompat::AsyncIoTokioAsStd;
+    use crate::op::{Message, Query, ResponseCode};
+    use crate::rr::{Name, RData, RecordType};
 
     use super::*;
 

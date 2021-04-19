@@ -29,12 +29,11 @@ use native_tls::{Certificate, TlsAcceptor};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::xfer::SerialMessage;
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
-
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
-use crate::{TlsStream, TlsStreamBuilder};
+use crate::native_tls::{TlsStream, TlsStreamBuilder};
+use crate::xfer::SerialMessage;
+use crate::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a message buffer reads the wrong length. It works for 2 iterations
