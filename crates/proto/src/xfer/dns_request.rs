@@ -64,6 +64,7 @@ impl DerefMut for DnsRequest {
     }
 }
 
+#[allow(clippy::from_over_into)]
 impl Into<DnsRequest> for Message {
     fn into(self) -> DnsRequest {
         DnsRequest::new(self, DnsRequestOptions::default())

@@ -488,7 +488,7 @@ fn main() {
             );
 
             error!("{}", error_msg);
-            panic!(error_msg);
+            panic!("{}", error_msg);
         }
     };
 }
