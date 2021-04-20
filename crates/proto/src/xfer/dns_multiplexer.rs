@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures_channel::oneshot;
+use futures_channel::mpsc;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future::Future, ready, FutureExt};
 use log::{debug, warn};
@@ -37,14 +37,14 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 struct ActiveRequest {
     // the completion is the channel for a response to the original request
-    completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
+    completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
 }
 
 impl ActiveRequest {
     fn new(
-        completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
+        completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
     ) -> Self {
@@ -63,7 +63,7 @@ impl ActiveRequest {
 
     /// Returns true of the other side canceled the request
     fn is_canceled(&self) -> bool {
-        self.completion.is_canceled()
+        self.completion.is_closed()
     }
 
     /// the request id of the message that was sent
@@ -72,8 +72,8 @@ impl ActiveRequest {
     }
 
     /// Sends an error
-    fn complete_with_error(self, error: ProtoError) {
-        ignore_send(self.completion.send(Err(error)));
+    fn complete_with_error(mut self, error: ProtoError) {
+        ignore_send(self.completion.try_send(Err(error)));
     }
 }
 
@@ -300,7 +300,7 @@ where
         // store a Timeout for this message before sending
         let timeout = S::Time::delay_for(self.timeout_duration);
 
-        let (complete, receiver) = oneshot::channel();
+        let (complete, receiver) = mpsc::channel(1000); // max number of message we allow
 
         // send the message
         let active_request = ActiveRequest::new(complete, request.id(), Box::new(timeout));
@@ -370,10 +370,10 @@ where
                     //   deserialize or log decode_error
                     match buffer.to_message() {
                         Ok(message) => match self.active_requests.entry(message.id()) {
-                            Entry::Occupied(request_entry) => {
+                            Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
-                                let active_request = request_entry.remove();
-                                ignore_send(active_request.completion.send(Ok(message.into())));
+                                let active_request = request_entry.get_mut();
+                                ignore_send(active_request.completion.try_send(Ok(message.into())));
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
