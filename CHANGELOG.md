@@ -9,7 +9,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
-- (proto) Panic on bad length in SVCB for record length
+- (proto) Panic on bad length in SVCB for record length #1465
 
 ## 0.20.1
 
