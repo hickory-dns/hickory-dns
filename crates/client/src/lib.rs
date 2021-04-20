@@ -28,7 +28,7 @@
 )]
 #![allow(
     clippy::needless_doctest_main,
-    clippy::unknown_clippy_lints,
+    clippy::upper_case_acronyms,
     clippy::single_component_path_imports
 )]
 #![recursion_limit = "1024"]

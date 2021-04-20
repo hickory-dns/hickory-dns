@@ -541,7 +541,8 @@ pub fn test_read_empty_option_at_end_of_opt() {
     let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
     assert!(
         read_rdata.is_ok(),
-        format!("error decoding: {:?}", read_rdata.unwrap_err())
+        "error decoding: {:?}",
+        read_rdata.unwrap_err()
     );
 
     let opt = read_rdata.unwrap();

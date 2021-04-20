@@ -18,7 +18,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![allow(clippy::single_component_path_imports)]
+#![allow(clippy::single_component_path_imports, clippy::upper_case_acronyms)]
 #![recursion_limit = "2048"]
 
 //! Trust-DNS Protocol library
