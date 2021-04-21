@@ -1032,7 +1032,11 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
     let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
     let target_name = Name::read(decoder)?;
 
-    let mut remainder_len = rdata_length.map(|len| len as usize - (decoder.index() - start_index)).unverified(/*valid len*/);
+    let mut remainder_len = rdata_length
+        .map(|len| len as usize)
+        .checked_sub(decoder.index() - start_index)
+        .map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?
+        .unverified(); // valid len
     let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
 
     // must have at least 4 bytes left for the key and the length
@@ -1053,7 +1057,11 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
         }
 
         svc_params.push((key, value));
-        remainder_len = rdata_length.map(|len| len as usize - (decoder.index() - start_index)).unverified(/*valid len*/);
+        remainder_len = rdata_length
+            .map(|len| len as usize)
+            .checked_sub(decoder.index() - start_index)
+            .map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?
+            .unverified(); // valid len
     }
 
     Ok(SVCB {
@@ -1210,5 +1218,14 @@ mod tests {
                 ),
             ],
         ));
+    }
+
+    #[test]
+    fn test_no_panic() {
+        const BUF: &[u8] = &[
+            255, 121, 0, 0, 0, 0, 40, 255, 255, 160, 160, 0, 0, 0, 64, 0, 1, 255, 158, 0, 0, 0, 8,
+            0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        assert!(crate::op::Message::from_vec(&BUF).is_err());
     }
 }

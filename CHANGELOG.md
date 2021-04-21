@@ -24,6 +24,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (proto) Panic when name exceeds maximal domain name length during display #1447
 
+## 0.20.2
+
+### Fixed
+
+- (proto) Panic on bad length in SVCB for record length #1465
+
 ## 0.20.1
 
 ### Added
