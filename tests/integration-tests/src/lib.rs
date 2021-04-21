@@ -233,7 +233,7 @@ impl Stream for NeverReturnsClientStream {
 
 impl fmt::Debug for NeverReturnsClientStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TestClientStream catalog")
+        write!(f, "NeverReturnsClientStream")
     }
 }
 
