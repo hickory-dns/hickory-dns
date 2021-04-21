@@ -1032,7 +1032,11 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
     let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
     let target_name = Name::read(decoder)?;
 
-    let mut remainder_len = rdata_length.map(|len| len as usize).checked_sub(decoder.index() - start_index).map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?.unverified(/*valid len*/);
+    let mut remainder_len = rdata_length
+        .map(|len| len as usize)
+        .checked_sub(decoder.index() - start_index)
+        .map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?
+        .unverified(); // valid len
     let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
 
     // must have at least 4 bytes left for the key and the length
@@ -1053,7 +1057,11 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
         }
 
         svc_params.push((key, value));
-        remainder_len = rdata_length.map(|len| len as usize).checked_sub(decoder.index() - start_index).map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?.unverified(/*valid len*/);
+        remainder_len = rdata_length
+            .map(|len| len as usize)
+            .checked_sub(decoder.index() - start_index)
+            .map_err(|len| format!("Bad length for RDATA of SVCB: {}", len))?
+            .unverified(); // valid len
     }
 
     Ok(SVCB {
