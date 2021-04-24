@@ -317,12 +317,26 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
 
             for search in self.config.search().iter().rev() {
                 let name_search = name.clone().append_domain(search);
-                Self::push_name(name_search, &mut names);
+
+                match name_search {
+                    Ok(name_search) => Self::push_name(name_search, &mut names),
+                    Err(e) => debug!(
+                        "Not adding {} to {} for search due to error: {}",
+                        search, name, e
+                    ),
+                }
             }
 
             if let Some(domain) = self.config.domain() {
                 let name_search = name.clone().append_domain(domain);
-                Self::push_name(name_search, &mut names);
+
+                match name_search {
+                    Ok(name_search) => Self::push_name(name_search, &mut names),
+                    Err(e) => debug!(
+                        "Not adding {} to {} for search due to error: {}",
+                        domain, name, e
+                    ),
+                }
             }
 
             // this is the direct name lookup

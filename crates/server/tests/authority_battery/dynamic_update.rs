@@ -32,7 +32,9 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
+
         let record = Record::from_rdata(name.clone(), 8, RData::A(Ipv4Addr::new(127, 0, 0, 10)));
         let message = update_message::create(
             record.clone().into(),
@@ -69,7 +71,8 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
         // create a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
         record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
@@ -108,7 +111,8 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
@@ -185,7 +189,8 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
@@ -246,7 +251,8 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(mut authority: A
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // create a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
@@ -312,7 +318,8 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // create a record
         let mut current = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
@@ -386,7 +393,8 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(mut authority: A,
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // append a record
         let mut record1 = Record::with(name.clone(), RecordType::A, 8);
@@ -439,7 +447,9 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
+
         // append a record
         let mut rrset = RecordSet::with_ttl(name.clone(), RecordType::A, 8);
 
@@ -500,7 +510,8 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
@@ -547,7 +558,8 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
     for key in keys {
         let name = Name::from_str(key.algorithm().as_str())
             .unwrap()
-            .append_name(&name);
+            .append_name(&name)
+            .unwrap();
 
         // append a record
         let mut record = Record::with(name.clone(), RecordType::A, 8);
@@ -607,7 +619,8 @@ pub fn add_auth<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<Sig
 
     let update_name = Name::from_str("update")
         .unwrap()
-        .append_domain(&authority.origin().to_owned().into());
+        .append_domain(&authority.origin().to_owned().into())
+        .unwrap();
 
     let mut keys = Vec::<Signer>::new();
 
