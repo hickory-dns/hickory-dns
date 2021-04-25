@@ -38,7 +38,8 @@ maintenance = { status = "actively-developed" }
 [features]
 dns-over-tls = []
 dns-over-rustls = ["dns-over-tls", "rustls", "tokio-rustls", "webpki"]
-dns-over-native-tls = ["native-tls", "tokio-native-tls"]
+dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls"]
+dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl"]
 
 dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "webpki-roots"]
 dns-over-https = ["bytes", "dns-over-tls", "h2", "http"]
@@ -95,6 +96,7 @@ thiserror = "1.0.20"
 tinyvec = { version = "1.1.1", features = ["alloc"] }
 tokio = { version = "1.0", features = ["io-util"], optional = true }
 tokio-native-tls = { version = "0.3.0", optional = true }
+tokio-openssl = { version = "0.6.0", optional = true }
 tokio-rustls = { version = "0.22", optional = true, features = ["early-data"] }
 url = "2.1.0"
 wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bindgen" }

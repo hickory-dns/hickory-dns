@@ -69,6 +69,9 @@ pub mod multicast;
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-native-tls")))]
 pub mod native_tls;
 pub mod op;
+#[cfg(feature = "dns-over-openssl")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-openssl")))]
+pub mod openssl;
 pub mod rr;
 #[cfg(feature = "dns-over-rustls")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]

@@ -23,14 +23,14 @@ use crate::authority::MessageRequest;
 use crate::proto::error::ProtoError;
 use crate::proto::iocompat::AsyncIoTokioAsStd;
 use crate::proto::op::Edns;
+#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
+use crate::proto::openssl::tls_server::*;
 use crate::proto::serialize::binary::{BinDecodable, BinDecoder};
 use crate::proto::tcp::TcpStream;
 use crate::proto::udp::UdpStream;
 use crate::proto::xfer::SerialMessage;
 use crate::proto::BufDnsStreamHandle;
 use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
-use trust_dns_openssl::tls_server::*;
 
 // TODO, would be nice to have a Slab for buffers here...
 
@@ -212,9 +212,9 @@ impl<T: RequestHandler> ServerFuture<T> {
         timeout: Duration,
         certificate_and_key: ((X509, Option<Stack<X509>>), PKey<Private>),
     ) -> io::Result<()> {
+        use crate::proto::openssl::{tls_server, TlsStream};
         use openssl::ssl::Ssl;
         use tokio_openssl::SslStream as TokioSslStream;
-        use trust_dns_openssl::{tls_server, TlsStream};
 
         let ((cert, chain), key) = certificate_and_key;
 

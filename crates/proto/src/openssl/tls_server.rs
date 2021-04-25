@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -12,8 +12,8 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 
+use crate::error::{ProtoError, ProtoResult};
 use openssl::ssl::{SslAcceptor, SslMethod, SslOptions, SslVerifyMode};
-use trust_dns_proto::error::{ProtoError, ProtoResult};
 
 pub use openssl::pkcs12::{ParsedPkcs12, Pkcs12};
 pub use openssl::pkey::{PKey, Private};

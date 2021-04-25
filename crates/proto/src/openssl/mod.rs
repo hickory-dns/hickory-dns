@@ -5,21 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-// LIBRARY WARNINGS
-#![warn(
-    clippy::dbg_macro,
-    clippy::print_stdout,
-    clippy::unimplemented,
-    missing_copy_implementations,
-    missing_docs,
-    non_snake_case,
-    non_upper_case_globals,
-    rust_2018_idioms,
-    unreachable_pub
-)]
-
 //! TLS protocol related components for DNS over TLS
 
-compile_error!(
-    "Deprecated and removed as of 0.21.0, see the dns-over-openssl feature in `trust-dns-proto`"
-);
+mod tls_client_stream;
+pub mod tls_server;
+mod tls_stream;
+
+pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
+pub use self::tls_stream::{tls_stream_from_existing_tls_stream, TlsStream, TlsStreamBuilder};

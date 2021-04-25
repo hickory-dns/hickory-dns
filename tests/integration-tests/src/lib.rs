@@ -30,6 +30,7 @@ use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
 
 pub mod authority;
 pub mod mock_client;
+#[cfg(feature = "dns-over-rustls")]
 pub mod tls_client_connection;
 
 #[allow(unused)]

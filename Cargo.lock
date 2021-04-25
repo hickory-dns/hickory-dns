@@ -1647,7 +1647,6 @@ dependencies = [
  "rustls",
  "tokio",
  "trust-dns-client",
- "trust-dns-openssl",
  "trust-dns-proto",
  "trust-dns-resolver",
  "trust-dns-server",
@@ -1706,23 +1705,10 @@ dependencies = [
  "rustls",
  "tokio",
  "trust-dns-client",
- "trust-dns-openssl",
  "trust-dns-proto",
  "trust-dns-resolver",
  "trust-dns-server",
  "webpki-roots",
-]
-
-[[package]]
-name = "trust-dns-openssl"
-version = "0.20.1"
-dependencies = [
- "futures-channel",
- "futures-util",
- "openssl",
- "tokio",
- "tokio-openssl",
- "trust-dns-proto",
 ]
 
 [[package]]
@@ -1759,6 +1745,7 @@ dependencies = [
  "tinyvec",
  "tokio",
  "tokio-native-tls",
+ "tokio-openssl",
  "tokio-rustls",
  "url",
  "wasm-bindgen",
@@ -1788,7 +1775,6 @@ dependencies = [
  "tokio-native-tls",
  "tokio-openssl",
  "tokio-rustls",
- "trust-dns-openssl",
  "trust-dns-proto",
  "webpki-roots",
 ]
@@ -1818,7 +1804,6 @@ dependencies = [
  "tokio-rustls",
  "toml",
  "trust-dns-client",
- "trust-dns-openssl",
  "trust-dns-proto",
  "trust-dns-resolver",
 ]
