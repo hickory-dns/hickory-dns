@@ -137,16 +137,15 @@ fn read_file(path: &str) -> Vec<u8> {
 
     let mut bytes = vec![];
 
-    let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
+    let mut file = File::open(path).unwrap_or_else(|_| panic!("failed to open file: {}", path));
     file.read_to_end(&mut bytes)
-        .expect(&format!("failed to read file: {}", path));
+        .unwrap_or_else(|_| panic!("failed to read file: {}", path));
     bytes
 }
 
 // TODO: move all this to future based clients
 #[cfg(feature = "dns-over-rustls")]
 #[test]
-#[ignore] // need to fix private key reading...
 fn test_server_www_tls() {
     use std::env;
     use std::path::Path;
@@ -154,22 +153,28 @@ fn test_server_www_tls() {
 
     let dns_name = "ns.example.com";
 
-    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or("../..".to_owned());
+    let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "../..".to_owned());
     println!("using server src path: {}", server_path);
 
+    let ca = tls_server::read_cert(Path::new(&format!(
+        "{}/tests/test-data/ca.pem",
+        server_path
+    )))
+    .map_err(|e| format!("error reading cert: {}", e))
+    .unwrap();
     let cert = tls_server::read_cert(Path::new(&format!(
         "{}/tests/test-data/cert.pem",
         server_path
     )))
     .map_err(|e| format!("error reading cert: {}", e))
     .unwrap();
-    let key = tls_server::read_key_from_der(Path::new(&format!(
+    let key = tls_server::read_key_from_pem(Path::new(&format!(
         "{}/tests/test-data/cert-key.pem",
         server_path
     )))
     .unwrap();
 
-    let cert_chain = (cert.clone(), key);
+    let cert_key = (cert, key);
 
     // Server address
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
@@ -183,12 +188,12 @@ fn test_server_www_tls() {
 
     let server_thread = thread::Builder::new()
         .name("test_server:tls:server".to_string())
-        .spawn(move || server_thread_tls(tcp_listener, server_continue2, cert_chain, runtime))
+        .spawn(move || server_thread_tls(tcp_listener, server_continue2, cert_key, runtime))
         .unwrap();
 
     let client_thread = thread::Builder::new()
         .name("test_server:tcp:client".to_string())
-        .spawn(move || client_thread_www(lazy_tls_client(ipaddr, dns_name.to_string(), cert)))
+        .spawn(move || client_thread_www(lazy_tls_client(ipaddr, dns_name.to_string(), ca)))
         .unwrap();
 
     let client_result = client_thread.join();
