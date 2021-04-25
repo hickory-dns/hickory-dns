@@ -19,10 +19,10 @@ use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::{X509Ref, X509};
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
-use trust_dns_proto::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use trust_dns_proto::tcp::Connect;
-use trust_dns_proto::tcp::TcpStream;
-use trust_dns_proto::xfer::BufDnsStreamHandle;
+use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
+use crate::tcp::Connect;
+use crate::tcp::TcpStream;
+use crate::xfer::BufDnsStreamHandle;
 
 pub(crate) trait TlsIdentityExt {
     fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {

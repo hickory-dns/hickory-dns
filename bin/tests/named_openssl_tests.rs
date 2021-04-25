@@ -26,7 +26,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
-use trust_dns_native_tls::TlsClientStreamBuilder;
+use trust_dns_proto::native_tls::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
@@ -66,7 +66,7 @@ fn test_startup(toml: &'static str) {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = AsyncClient::new(stream, Box::new(sender), None);
+        let client = AsyncClient::new(stream, sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -82,7 +82,7 @@ fn test_startup(toml: &'static str) {
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let client = AsyncClient::new(stream, Box::new(sender), None);
+        let client = AsyncClient::new(stream, sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         trust_dns_proto::spawn_bg(&io_loop, bg);
 

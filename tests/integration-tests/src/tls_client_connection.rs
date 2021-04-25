@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,8 +7,6 @@
 
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
-
-#![cfg(feature = "dns-over-rustls")]
 
 use std::pin::Pin;
 use std::sync::Arc;
@@ -34,7 +32,6 @@ pub struct TlsClientConnection<T> {
     marker: PhantomData<T>,
 }
 
-#[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 impl<T> TlsClientConnection<T> {
     pub fn new(
         name_server: SocketAddr,

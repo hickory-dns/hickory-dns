@@ -16,11 +16,11 @@ use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509;
 use tokio_openssl::SslStream as TokioTlsStream;
 
-use trust_dns_proto::error::ProtoError;
-use trust_dns_proto::iocompat::AsyncIoStdAsTokio;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::tcp::{Connect, TcpClientStream};
-use trust_dns_proto::xfer::BufDnsStreamHandle;
+use crate::error::ProtoError;
+use crate::iocompat::AsyncIoStdAsTokio;
+use crate::iocompat::AsyncIoTokioAsStd;
+use crate::tcp::{Connect, TcpClientStream};
+use crate::xfer::BufDnsStreamHandle;
 
 use super::TlsStreamBuilder;
 

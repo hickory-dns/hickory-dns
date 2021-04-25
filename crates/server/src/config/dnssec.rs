@@ -306,7 +306,7 @@ pub fn load_cert(
 ) -> Result<((X509, Option<Stack<X509>>), PKey<Private>), String> {
     use log::{info, warn};
 
-    use trust_dns_openssl::tls_server::{
+    use crate::proto::openssl::tls_server::{
         read_cert_pem, read_cert_pkcs12, read_key_from_der, read_key_from_pkcs8,
     };
 

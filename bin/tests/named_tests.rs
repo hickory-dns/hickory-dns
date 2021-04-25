@@ -26,7 +26,7 @@ use trust_dns_client::udp::UdpClientStream;
 
 // TODO: Needed for when TLS tests are added back
 // #[cfg(feature = "dns-over-openssl")]
-// use trust_dns_openssl::TlsClientStreamBuilder;
+// use trust_dns_proto::openssl::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
