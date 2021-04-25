@@ -60,6 +60,20 @@ pub fn read_key_from_der(path: &Path) -> ProtoResult<PrivateKey> {
     Ok(PrivateKey(buf))
 }
 
+/// Reads a private key from a pem formatted file
+pub fn read_key_from_pem(path: &Path) -> ProtoResult<PrivateKey> {
+    let file = File::open(path)?;
+    let mut file = BufReader::new(file);
+
+    let mut keys = rustls::internal::pemfile::rsa_private_keys(&mut file)
+        .map_err(|_| format!("Error reading RSA key from: {}", path.display()))?;
+    let key = keys
+        .pop()
+        .ok_or_else(|| format!("No RSA keys in file: {}", path.display()))?;
+
+    Ok(key)
+}
+
 /// Construct the new Acceptor with the associated pkcs12 data
 pub fn new_acceptor(
     cert: Vec<Certificate>,
