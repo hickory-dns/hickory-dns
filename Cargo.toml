@@ -7,7 +7,11 @@ members = ["crates/proto",
            "bin",
            "util",
            "tests/compatibility-tests",
-           "tests/integration-tests"]
+           "tests/integration-tests",
+           "crates/https",
+           "crates/native-tls",
+           "crates/openssl",
+           "crates/rustls"]
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }

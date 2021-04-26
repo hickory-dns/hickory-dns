@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! TLS protocol related components for DNS over TLS
+//! Deprecated and moved to trust_dns_proto::native_tls
 
 // LIBRARY WARNINGS
 #![warn(
@@ -28,7 +28,6 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![deprecated = "moved to trust_dns_proto::native_tls"]
 
-compile_error!(
-    "Deprecated and removed as of 0.21.0, see the dns-over-native-tls feature in `trust-dns-proto`"
-);
+pub use trust_dns_proto::native_tls::*;
