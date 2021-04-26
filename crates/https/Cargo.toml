@@ -47,22 +47,4 @@ name = "trust_dns_https"
 path = "src/lib.rs"
 
 [dependencies]
-cfg-if = "1"
-bytes = "1"
-data-encoding = "2.2.0"
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-h2 = { version = "0.3.0", features = ["stream"] }
-http = "0.2"
-log = "0.4"
-rustls = "0.19"
-thiserror = "1.0.20"
-tokio = { version = "1.0", features = ["io-util", "net", "rt"] }
-tokio-rustls = "0.22.0"
-# disables default features, i.e. openssl...
-trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["tokio-runtime", "dns-over-rustls"], default-features = false }
-webpki-roots = "0.21"
-webpki = "0.21"
-
-[dev-dependencies]
-env_logger = "0.8"
-futures = { version = "0.3.5", default-features = false, features = ["std", "executor"] }
+trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["tokio-runtime", "dns-over-https-rustls"], default-features = false }

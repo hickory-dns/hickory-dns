@@ -18,8 +18,8 @@
     unreachable_pub
 )]
 
-//! TLS protocol related components for DNS over TLS
+//! Deprecated and moved to trust_dns_proto::openssl
 
-compile_error!(
-    "Deprecated and removed as of 0.21.0, see the dns-over-openssl feature in `trust-dns-proto`"
-);
+#![deprecated = "moved to trust_dns_proto::openssl"]
+
+pub use trust_dns_proto::openssl::*;

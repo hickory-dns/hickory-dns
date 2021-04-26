@@ -30,6 +30,6 @@
 
 //! Deprecated and removed as of 0.21.0, see the dns-over-rustls feature in `trust-dns-proto`
 
-compile_error!(
-    "Deprecated and removed as of 0.21.0, see the dns-over-rustls feature in `trust-dns-proto`"
-);
+#![deprecated = "moved to trust_dns_proto::rustls"]
+
+pub use trust_dns_proto::rustls::*;
