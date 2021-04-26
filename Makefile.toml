@@ -378,7 +378,7 @@ run_task = { name = "all", fork = true }
 [tasks.world]
 description = "Run all with every features independently (this will melt your computer)"
 workspace = false
-run_task = { name = ["no-default-features", "default-features", "all-features", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dnssec-openssl", "dnssec-ring", "mdns", "async-std"], fork = false }
+run_task = { name = ["no-default-features", "default-features", "all-features", "dns-over-https-rustls", "dns-over-rustls", "dns-over-native-tls", "dns-over-openssl", "dnssec-openssl", "dnssec-ring", "mdns", "async-std"], fork = false }
 
 ##
 ## Coverage
