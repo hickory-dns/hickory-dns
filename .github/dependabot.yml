@@ -1,0 +1,145 @@
+version: 2
+updates:
+- package-ecosystem: cargo
+  directory: "/"
+  schedule:
+    interval: weekly
+    time: "13:00"
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: async-trait
+    versions:
+    - "> 0.1.48, < 0.2"
+  - dependency-name: backtrace
+    versions:
+    - "> 0.3.56, < 0.4"
+  - dependency-name: futures
+    versions:
+    - "< 0.3, >= 0.2.a"
+  - dependency-name: futures
+    versions:
+    - "> 0.3.13, < 0.4"
+  - dependency-name: futures-channel
+    versions:
+    - "> 0.3.13, < 0.4"
+  - dependency-name: futures-executor
+    versions:
+    - "> 0.3.13, < 0.4"
+  - dependency-name: futures-io
+    versions:
+    - "> 0.3.13, < 0.4"
+  - dependency-name: futures-util
+    versions:
+    - "> 0.3.13, < 0.4"
+  - dependency-name: h2
+    versions:
+    - "> 0.3.1, < 0.4"
+  - dependency-name: http
+    versions:
+    - "> 0.1.19, < 0.2"
+  - dependency-name: http
+    versions:
+    - "> 0.2.3, < 0.3"
+  - dependency-name: js-sys
+    versions:
+    - "> 0.3.48, < 0.4"
+  - dependency-name: rand
+    versions:
+    - "< 0.6.1, >= 0.6.0.a"
+  - dependency-name: rand
+    versions:
+    - "< 0.6.2, >= 0.6.1.a"
+  - dependency-name: regex
+    versions:
+    - "> 1.4.5, < 2"
+  - dependency-name: serde
+    versions:
+    - "> 1.0.124, < 2"
+  - dependency-name: tinyvec
+    versions:
+    - "> 1.1.1, < 2"
+  - dependency-name: tokio
+    versions:
+    - "> 0.3.4, < 0.4"
+  - dependency-name: tokio
+    versions:
+    - "> 1.0.1, < 1.1"
+  - dependency-name: tokio
+    versions:
+    - "> 1.3.0, < 2"
+  - dependency-name: tokio-core
+    versions:
+    - "< 0.2, >= 0.1.0.a"
+  - dependency-name: tokio-rustls
+    versions:
+    - ">= 0.20.a, < 0.21"
+  - dependency-name: tokio-rustls
+    versions:
+    - "> 0.21.0, < 0.22"
+  - dependency-name: tokio-rustls
+    versions:
+    - "< 0.7, >= 0.6.a"
+  - dependency-name: webpki
+    versions:
+    - "> 0.21.4"
+  - dependency-name: webpki-roots
+    versions:
+    - "> 0.21.0"
+  - dependency-name: webpki-roots
+    versions:
+    - "> 0.21.0, < 0.22"
+  - dependency-name: rusqlite
+    versions:
+    - 0.25.0
+  - dependency-name: regex
+    versions:
+    - 1.4.5
+  - dependency-name: console
+    versions:
+    - 0.14.1
+  - dependency-name: openssl
+    versions:
+    - 0.10.33
+  - dependency-name: tokio
+    versions:
+    - 1.3.0
+  - dependency-name: serde
+    versions:
+    - 1.0.124
+  - dependency-name: async-trait
+    versions:
+    - 0.1.47
+  - dependency-name: futures
+    versions:
+    - 0.3.13
+  - dependency-name: futures-channel
+    versions:
+    - 0.3.13
+  - dependency-name: js-sys
+    versions:
+    - 0.3.47
+    - 0.3.48
+  - dependency-name: futures-io
+    versions:
+    - 0.3.13
+  - dependency-name: futures-util
+    versions:
+    - 0.3.13
+  - dependency-name: futures-executor
+    versions:
+    - 0.3.13
+  - dependency-name: h2
+    versions:
+    - 0.3.1
+  - dependency-name: env_logger
+    versions:
+    - 0.8.3
+  - dependency-name: idna
+    versions:
+    - 0.2.1
+  - dependency-name: ring
+    versions:
+    - 0.16.20
+  - dependency-name: data-encoding
+    versions:
+    - 2.3.2
