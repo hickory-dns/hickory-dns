@@ -235,8 +235,7 @@ impl DnsLru {
             let ttl_duration = Duration::from_secs(u64::from(ttl))
                 // Clamp the TTL so that it's between the cache's configured
                 // minimum and maximum TTLs for negative responses.
-                .max(self.negative_min_ttl)
-                .min(self.negative_max_ttl);
+                .clamp(self.negative_min_ttl, self.negative_max_ttl);
             let valid_until = now + ttl_duration;
 
             {

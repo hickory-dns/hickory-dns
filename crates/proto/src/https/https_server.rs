@@ -63,7 +63,7 @@ pub(crate) async fn message_from_post<R>(
 where
     R: Stream<Item = Result<Bytes, h2::Error>> + 'static + Send + Debug + Unpin,
 {
-    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).max(512).min(4096));
+    let mut bytes = BytesMut::with_capacity(length.unwrap_or(0).clamp(512, 4096));
 
     loop {
         match request_stream.next().await {
