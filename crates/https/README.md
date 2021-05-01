@@ -6,7 +6,7 @@ This library allows for HTTPS connections to be established to remote DNS server
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.46`
+The current minimum rustc version for this project is `1.50`
 
 ## Versioning
 
