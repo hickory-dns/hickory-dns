@@ -164,7 +164,7 @@ impl DnsResponse {
             .iter()
             .filter_map(|record| record.rdata().as_soa().map(|soa| (record.ttl(), soa)))
             .next()
-            .map(|(ttl, soa)| (ttl as u32).min(soa.minimum()).max(0))
+            .map(|(ttl, soa)| (ttl as u32).min(soa.minimum()))
     }
 
     /// Does the response contain any records matching the query name and type?
