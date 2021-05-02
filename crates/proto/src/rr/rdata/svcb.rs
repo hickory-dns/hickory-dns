@@ -1153,8 +1153,7 @@ mod tests {
         assert_eq!(u16::from(SvcParamKey::Unknown(65279)), 65279);
     }
 
-    // TODO: add this back after upgrading rustc version to 1.46
-    // #[track_caller]
+    #[track_caller]
     fn test_encode_decode(rdata: SVCB) {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
