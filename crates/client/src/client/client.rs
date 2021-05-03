@@ -16,6 +16,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use futures_util::stream::{Stream, TryStreamExt};
 use tokio::runtime::{self, Runtime};
 use trust_dns_proto::xfer::DnsRequest;
 
@@ -32,7 +33,7 @@ use crate::rr::dnssec::Signer;
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
-use super::ClientResponse;
+use super::ClientStreamingResponse;
 
 #[allow(clippy::type_complexity)]
 pub(crate) type NewFutureObj<H> = Pin<
@@ -64,9 +65,10 @@ pub(crate) type NewFutureObj<H> = Pin<
 /// *note* When upgrading from previous usage, both `SyncClient` and `SyncDnssecClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
+#[allow(unreachable_code)]
 pub trait Client {
     /// The result future that will resolve into a DnsResponse
-    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    type Response: Stream<Item = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The AsyncClient type used
     type Handle: DnsHandle<Response = Self::Response, Error = ProtoError> + 'static + Send + Unpin;
 
@@ -95,9 +97,9 @@ pub trait Client {
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         &self,
         msg: R,
-    ) -> ClientResult<DnsResponse> {
+    ) -> ClientResult<Vec<DnsResponse>> {
         let (mut client, runtime) = self.spawn_client()?;
-        runtime.block_on(ClientResponse(client.send(msg)))
+        runtime.block_on(ClientStreamingResponse(client.send(msg)).try_collect::<Vec<_>>())
     }
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
@@ -488,8 +490,7 @@ impl<CC: ClientConnection> SyncDnssecClient<CC> {
 
 #[cfg(feature = "dnssec")]
 impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
-    type Response =
-        Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
+    type Response = Pin<Box<(dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
     type Handle = AsyncDnssecClient;
 
     #[allow(clippy::type_complexity)]

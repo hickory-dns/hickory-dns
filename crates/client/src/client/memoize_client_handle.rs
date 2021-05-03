@@ -5,17 +5,18 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::collections::HashMap;
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use futures_util::future::FutureExt;
 use futures_util::lock::Mutex;
+use futures_util::stream::Stream;
 use trust_dns_proto::{
     error::ProtoError,
     xfer::{DnsHandle, DnsRequest, DnsResponse},
 };
 
-use crate::client::rc_future::{rc_future, RcFuture};
+use crate::client::rc_stream::{rc_stream, RcStream};
 use crate::client::ClientHandle;
 use crate::op::Query;
 
@@ -29,7 +30,7 @@ use crate::op::Query;
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
-    active_queries: Arc<Mutex<HashMap<Query, RcFuture<<H as DnsHandle>::Response>>>>,
+    active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -46,9 +47,9 @@ where
 
     async fn inner_send(
         request: DnsRequest,
-        active_queries: Arc<Mutex<HashMap<Query, RcFuture<<H as DnsHandle>::Response>>>>,
+        active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
         mut client: H,
-    ) -> Result<DnsResponse, ProtoError> {
+    ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> {
         // TODO: what if we want to support multiple queries (non-standard)?
         let query = request.queries().first().expect("no query!").clone();
 
@@ -57,15 +58,15 @@ where
 
         // TODO: we need to consider TTL on the records here at some point
         // If the query is running, grab that existing one...
-        if let Some(rc_future) = active_queries.get(&query) {
-            return rc_future.clone().await;
+        if let Some(rc_stream) = active_queries.get(&query) {
+            return rc_stream.clone();
         };
 
         // Otherwise issue a new query and store in the map
         active_queries
             .entry(query)
-            .or_insert_with(|| rc_future(client.send(request)))
-            .await
+            .or_insert_with(|| rc_stream(client.send(request)))
+            .clone()
     }
 }
 
@@ -73,17 +74,20 @@ impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
 
-        Box::pin(Self::inner_send(
-            request,
-            Arc::clone(&self.active_queries),
-            self.client.clone(),
-        ))
+        Box::pin(
+            Self::inner_send(
+                request,
+                Arc::clone(&self.active_queries),
+                self.client.clone(),
+            )
+            .flatten_stream(),
+        )
     }
 }
 
@@ -111,7 +115,7 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
         type Error = ProtoError;
 
         fn send<R: Into<DnsRequest> + Send + 'static>(&mut self, request: R) -> Self::Response {
@@ -135,7 +139,7 @@ mod test {
                 Ok(message.into())
             };
 
-            Box::pin(future)
+            Box::pin(stream::once(future))
         }
     }
 
@@ -153,17 +157,23 @@ mod test {
         let mut test2 = Message::new();
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
-        let result = block_on(client.send(test1.clone())).ok().unwrap();
+        let result = block_on(client.send(test1.clone()).next())
+            .unwrap()
+            .ok()
+            .unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2.clone())).ok().unwrap();
+        let result = block_on(client.send(test2.clone()).next())
+            .unwrap()
+            .ok()
+            .unwrap();
         assert_eq!(result.id(), 1);
 
         // should get the same result for each...
-        let result = block_on(client.send(test1)).ok().unwrap();
+        let result = block_on(client.send(test1).next()).unwrap().ok().unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2)).ok().unwrap();
+        let result = block_on(client.send(test2).next()).unwrap().ok().unwrap();
         assert_eq!(result.id(), 1);
     }
 }

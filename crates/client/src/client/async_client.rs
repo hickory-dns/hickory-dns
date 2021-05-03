@@ -11,13 +11,14 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use futures_util::stream::{Stream, StreamExt};
 use futures_util::{ready, FutureExt};
 use log::debug;
 use rand;
 
 use crate::error::*;
 use crate::op::{update_message, Message, MessageType, OpCode, Query};
-use crate::proto::error::ProtoError;
+use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::xfer::{
     BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect,
     DnsExchangeSend, DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest,
@@ -572,19 +573,42 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     }
 }
 
+/// A stream result of a Client Request
+#[must_use = "stream do nothing unless polled"]
+pub struct ClientStreamingResponse<R>(pub(crate) R)
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+
+impl<R> Stream for ClientStreamingResponse<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    type Item = Result<DnsResponse, ClientError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.0.poll_next_unpin(cx).map_err(ClientError::from)
+    }
+}
+
 /// A future result of a Client Request
-#[must_use = "futures do nothing unless polled"]
+#[must_use = "future do nothing unless polled"]
 pub struct ClientResponse<R>(pub(crate) R)
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
 
 impl<R> Future for ClientResponse<R>
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
     type Output = Result<DnsResponse, ClientError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx).map_err(ClientError::from)
+        Poll::Ready(
+            match ready!(self.0.poll_next_unpin(cx)) {
+                Some(r) => r,
+                None => Err(ProtoError::from(ProtoErrorKind::Timeout)),
+            }
+            .map_err(ClientError::from),
+        )
     }
 }
