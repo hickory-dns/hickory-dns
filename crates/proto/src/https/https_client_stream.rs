@@ -33,7 +33,7 @@ use webpki::DNSNameRef;
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::tcp::Connect;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseFuture, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -231,7 +231,7 @@ impl DnsRequestSender for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseFuture {
+    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -535,6 +535,8 @@ mod tests {
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::{Name, RData, RecordType};
 
+    use futures_util::StreamExt;
+
     use super::*;
 
     #[test]
@@ -568,7 +570,8 @@ mod tests {
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request))
+            .block_on(https.send_message(request).next())
+            .unwrap()
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -592,7 +595,8 @@ mod tests {
 
         for _ in 0..3 {
             let response = runtime
-                .block_on(https.send_message(request.clone()))
+                .block_on(https.send_message(request.clone()).next())
+                .unwrap()
                 .expect("send_message failed");
             if response.response_code() == ResponseCode::ServFail {
                 continue;
@@ -645,7 +649,8 @@ mod tests {
         let mut https = runtime.block_on(connect).expect("https connect failed");
 
         let response = runtime
-            .block_on(https.send_message(request))
+            .block_on(https.send_message(request).next())
+            .unwrap()
             .expect("send_message failed");
 
         let record = &response.answers()[0];
@@ -668,7 +673,8 @@ mod tests {
         let request = DnsRequest::new(request, Default::default());
 
         let response = runtime
-            .block_on(https.send_message(request))
+            .block_on(https.send_message(request).next())
+            .unwrap()
             .expect("send_message failed");
 
         let record = &response.answers()[0];
