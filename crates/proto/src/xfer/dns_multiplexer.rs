@@ -28,7 +28,7 @@ use crate::error::*;
 use crate::op::{MessageFinalizer, OpCode};
 use crate::xfer::{
     ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse,
-    DnsResponseFuture, SerialMessage, CHANNEL_BUFFER_SIZE,
+    DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
 };
 use crate::DnsStreamHandle;
 use crate::Time;
@@ -262,7 +262,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    fn send_message(&mut self, request: DnsRequest) -> DnsResponseFuture {
+    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }

@@ -15,21 +15,22 @@ use std::task::{Context, Poll};
 
 use futures_channel::oneshot;
 use futures_util::ready;
+use futures_util::stream::Stream;
 
-use crate::error::{ProtoError, ProtoResult};
+use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 use crate::op::{Message, ResponseCode};
 use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
 
 /// A future returning a DNS response
-pub struct DnsResponseFuture(DnsResponseFutureInner);
+pub struct DnsResponseStream(DnsResponseStreamInner);
 
-impl Future for DnsResponseFuture {
-    type Output = Result<DnsResponse, ProtoError>;
+impl Stream for DnsResponseStream {
+    type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        use DnsResponseFutureInner::*;
-        Poll::Ready(match &mut self.0 {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        use DnsResponseStreamInner::*;
+        let result = match &mut self.0 {
             Timeout(fut) => match ready!(fut.as_mut().poll(cx)) {
                 Ok(x) => x,
                 Err(e) => Err(e.into()),
@@ -40,40 +41,44 @@ impl Future for DnsResponseFuture {
             },
             Error(err) => Err(err.take().expect("cannot poll after complete")),
             Boxed(fut) => ready!(fut.as_mut().poll(cx)),
-        })
+        };
+        match result {
+            Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => Poll::Ready(None),
+            r => Poll::Ready(Some(r)),
+        }
     }
 }
 
-impl From<TimeoutFuture> for DnsResponseFuture {
+impl From<TimeoutFuture> for DnsResponseStream {
     fn from(f: TimeoutFuture) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Timeout(f))
+        DnsResponseStream(DnsResponseStreamInner::Timeout(f))
     }
 }
 
-impl From<oneshot::Receiver<ProtoResult<DnsResponse>>> for DnsResponseFuture {
+impl From<oneshot::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
     fn from(receiver: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Receiver(receiver))
+        DnsResponseStream(DnsResponseStreamInner::Receiver(receiver))
     }
 }
 
-impl From<ProtoError> for DnsResponseFuture {
+impl From<ProtoError> for DnsResponseStream {
     fn from(e: ProtoError) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Error(Some(e)))
+        DnsResponseStream(DnsResponseStreamInner::Error(Some(e)))
     }
 }
 
-impl<F> From<Pin<Box<F>>> for DnsResponseFuture
+impl<F> From<Pin<Box<F>>> for DnsResponseStream
 where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
-        DnsResponseFuture(DnsResponseFutureInner::Boxed(
+        DnsResponseStream(DnsResponseStreamInner::Boxed(
             f as Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
         ))
     }
 }
 
-enum DnsResponseFutureInner {
+enum DnsResponseStreamInner {
     Timeout(TimeoutFuture),
     Receiver(oneshot::Receiver<ProtoResult<DnsResponse>>),
     Error(Option<ProtoError>),
