@@ -107,7 +107,16 @@ fn random_query_id() -> u16 {
 impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
+    fn send_message(
+        &mut self,
+        mut message: DnsRequest,
+        multiple_answer: bool,
+    ) -> DnsResponseStream {
+        if multiple_answer {
+            // unlike tcp, rfc does nothing to allow it
+            warn!("Multiple answer requested, but not supported by UdpClientStream backend")
+        }
+
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }

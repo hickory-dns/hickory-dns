@@ -210,7 +210,7 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
     for i in 0..send_recv_times {
         // test once
         let response_stream =
-            stream.send_message(DnsRequest::new(query.clone(), Default::default()));
+            stream.send_message(DnsRequest::new(query.clone(), Default::default()), false);
         println!("client sending request {}", i);
         let response = match exec.block_on(response_stream.first_answer()) {
             Ok(response) => response,

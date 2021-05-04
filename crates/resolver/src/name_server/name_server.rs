@@ -132,9 +132,13 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
     async fn inner_send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         mut self,
         request: R,
+        multi_answer: bool,
     ) -> Result<DnsResponse, ResolveError> {
+        if multi_answer {
+            warn!("Multiple answer requested, but not supported by the resolver")
+        }
         let mut client = self.connected_mut_client().await?;
-        let response = client.send(request).first_answer().await;
+        let response = client.send(request, false).first_answer().await;
 
         match response {
             Ok(response) => {
@@ -191,10 +195,14 @@ where
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        &mut self,
+        request: R,
+        multi_answer: bool,
+    ) -> Self::Response {
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
-        Box::pin(once(this.inner_send(request)))
+        Box::pin(once(this.inner_send(request, multi_answer)))
     }
 }
 

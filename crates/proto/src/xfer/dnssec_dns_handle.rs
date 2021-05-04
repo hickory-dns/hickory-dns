@@ -113,7 +113,7 @@ where
         true
     }
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R, multi_answer: bool) -> Self::Response {
         let mut request = request.into();
 
         // backstop, this might need to be configurable at some point
@@ -167,7 +167,7 @@ where
 
             return Box::pin(
                 self.handle
-                    .send(request)
+                    .send(request, multi_answer)
                     .and_then(move |message_response| {
                         // group the record sets by name and type
                         //  each rrset type needs to validated independently
@@ -217,7 +217,7 @@ where
             );
         }
 
-        Box::pin(self.handle.send(request))
+        Box::pin(self.handle.send(request, multi_answer))
     }
 }
 

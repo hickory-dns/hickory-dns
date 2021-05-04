@@ -17,7 +17,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures_channel::oneshot;
+use futures_channel::mpsc;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future::Future, ready, FutureExt};
 use log::{debug, warn};
@@ -37,22 +37,25 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 struct ActiveRequest {
     // the completion is the channel for a response to the original request
-    completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
+    completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
+    multi_answer: bool,
 }
 
 impl ActiveRequest {
     fn new(
-        completion: oneshot::Sender<Result<DnsResponse, ProtoError>>,
+        completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
+        multi_answer: bool,
     ) -> Self {
         ActiveRequest {
             completion,
             request_id,
             // request,
             timeout,
+            multi_answer,
         }
     }
 
@@ -63,7 +66,7 @@ impl ActiveRequest {
 
     /// Returns true of the other side canceled the request
     fn is_canceled(&self) -> bool {
-        self.completion.is_canceled()
+        self.completion.is_closed()
     }
 
     /// the request id of the message that was sent
@@ -72,8 +75,8 @@ impl ActiveRequest {
     }
 
     /// Sends an error
-    fn complete_with_error(self, error: ProtoError) {
-        ignore_send(self.completion.send(Err(error)));
+    fn complete_with_error(mut self, error: ProtoError) {
+        ignore_send(self.completion.try_send(Err(error)));
     }
 }
 
@@ -262,7 +265,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, request: DnsRequest, multi_answer: bool) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -300,10 +303,11 @@ where
         // store a Timeout for this message before sending
         let timeout = S::Time::delay_for(self.timeout_duration);
 
-        let (complete, receiver) = oneshot::channel();
+        let (complete, receiver) = mpsc::channel(1000); // max number of message we allow
 
         // send the message
-        let active_request = ActiveRequest::new(complete, request.id(), Box::new(timeout));
+        let active_request =
+            ActiveRequest::new(complete, request.id(), Box::new(timeout), multi_answer);
 
         match request.to_vec() {
             Ok(buffer) => {
@@ -370,10 +374,13 @@ where
                     //   deserialize or log decode_error
                     match buffer.to_message() {
                         Ok(message) => match self.active_requests.entry(message.id()) {
-                            Entry::Occupied(request_entry) => {
+                            Entry::Occupied(mut request_entry) => {
                                 // send the response, complete the request...
-                                let active_request = request_entry.remove();
-                                ignore_send(active_request.completion.send(Ok(message.into())));
+                                let active_request = request_entry.get_mut();
+                                ignore_send(active_request.completion.try_send(Ok(message.into())));
+                                if !active_request.multi_answer {
+                                    request_entry.remove_entry();
+                                }
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
@@ -406,5 +413,287 @@ where
 
         // Finally, return not ready to keep the 'driver task' alive.
         Poll::Pending
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::op::message::NoopMessageFinalizer;
+    use crate::op::{Message, MessageType, Query};
+    use crate::rr::record_type::RecordType;
+    use crate::rr::{DNSClass, Name, RData, Record};
+    use crate::serialize::binary::BinEncodable;
+    use crate::xfer::DnsClientStream;
+    use crate::xfer::StreamReceiver;
+    use futures_util::future;
+    use futures_util::stream::TryStreamExt;
+    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+
+    struct MockClientStream {
+        messages: Vec<Message>,
+        addr: SocketAddr,
+        id: Option<u16>,
+        receiver: Option<StreamReceiver>,
+    }
+
+    impl MockClientStream {
+        fn new(
+            mut messages: Vec<Message>,
+            addr: SocketAddr,
+        ) -> Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>> {
+            messages.reverse(); // so we can pop() and get messages in order
+            Box::pin(future::ok(MockClientStream {
+                messages,
+                addr,
+                id: None,
+                receiver: None,
+            }))
+        }
+    }
+
+    impl fmt::Display for MockClientStream {
+        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+            write!(formatter, "TestClientStream")
+        }
+    }
+
+    impl Stream for MockClientStream {
+        type Item = Result<SerialMessage, ProtoError>;
+
+        fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+            let id = if let Some(id) = self.id {
+                id
+            } else {
+                let serial = ready!(self
+                    .receiver
+                    .as_mut()
+                    .expect("should only be polled after receiver has been set")
+                    .poll_next_unpin(cx));
+                let message = serial.unwrap().to_message().unwrap();
+                self.id = Some(message.id());
+                message.id()
+            };
+
+            if let Some(mut message) = self.messages.pop() {
+                message.set_id(id);
+                Poll::Ready(Some(Ok(SerialMessage::new(
+                    message.to_bytes().unwrap(),
+                    self.addr,
+                ))))
+            } else {
+                Poll::Pending
+            }
+        }
+    }
+
+    impl DnsClientStream for MockClientStream {
+        type Time = crate::TokioTime;
+
+        fn name_server_addr(&self) -> SocketAddr {
+            self.addr
+        }
+    }
+
+    async fn get_mocked_multiplexer(
+        mock_response: Vec<Message>,
+    ) -> DnsMultiplexer<MockClientStream, NoopMessageFinalizer> {
+        let addr = SocketAddr::from(([127, 0, 0, 1], 1234));
+        let mock_response = MockClientStream::new(mock_response, addr);
+        let (handler, receiver) = BufDnsStreamHandle::new(addr);
+        let mut multiplexer =
+            DnsMultiplexer::with_timeout(mock_response, handler, Duration::from_millis(100), None)
+                .await
+                .unwrap();
+
+        multiplexer.stream.receiver = Some(receiver); // so it can get the correct request id
+
+        multiplexer
+    }
+
+    fn a_query_answer() -> (DnsRequest, Vec<Message>) {
+        let name = Name::from_ascii("www.example.com").unwrap();
+
+        let mut msg = Message::new();
+        msg.add_query({
+            let mut query = Query::query(name.clone(), RecordType::A);
+            query.set_query_class(DNSClass::IN);
+            query
+        })
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Query)
+        .set_recursion_desired(true);
+
+        let query = msg.clone();
+        msg.set_message_type(MessageType::Response).add_answer(
+            Record::new()
+                .set_name(name)
+                .set_ttl(86400)
+                .set_rr_type(RecordType::A)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                .clone(),
+        );
+        (DnsRequest::new(query, Default::default()), vec![msg])
+    }
+
+    fn axfr_query() -> Message {
+        let name = Name::from_ascii("example.com").unwrap();
+
+        let mut msg = Message::new();
+        msg.add_query({
+            let mut query = Query::query(name, RecordType::AXFR);
+            query.set_query_class(DNSClass::IN);
+            query
+        })
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Query)
+        .set_recursion_desired(true);
+        msg
+    }
+
+    fn axfr_response() -> Vec<Record> {
+        use crate::rr::rdata::*;
+        let origin = Name::from_ascii("example.com").unwrap();
+        let soa = Record::new()
+            .set_name(origin.clone())
+            .set_ttl(3600)
+            .set_rr_type(RecordType::SOA)
+            .set_dns_class(DNSClass::IN)
+            .set_rdata(RData::SOA(SOA::new(
+                Name::parse("sns.dns.icann.org.", None).unwrap(),
+                Name::parse("noc.dns.icann.org.", None).unwrap(),
+                2015082403,
+                7200,
+                3600,
+                1209600,
+                3600,
+            )))
+            .clone();
+
+        vec![
+            soa.clone(),
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                .clone(),
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                .clone(),
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::A)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                .clone(),
+            Record::new()
+                .set_name(origin)
+                .set_ttl(86400)
+                .set_rr_type(RecordType::AAAA)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::AAAA(Ipv6Addr::new(
+                    0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                )))
+                .clone(),
+            soa,
+        ]
+    }
+
+    fn axfr_query_answer() -> (DnsRequest, Vec<Message>) {
+        let mut msg = axfr_query();
+
+        let query = msg.clone();
+        msg.set_message_type(MessageType::Response)
+            .insert_answers(axfr_response());
+        (DnsRequest::new(query, Default::default()), vec![msg])
+    }
+
+    fn axfr_query_answer_multi() -> (DnsRequest, Vec<Message>) {
+        let base = axfr_query();
+
+        let query = base.clone();
+        let mut rr = axfr_response();
+        let rr2 = rr.split_off(3);
+        let mut msg1 = base.clone();
+        msg1.set_message_type(MessageType::Response)
+            .insert_answers(rr);
+        let mut msg2 = base;
+        msg2.set_message_type(MessageType::Response)
+            .insert_answers(rr2);
+        (DnsRequest::new(query, Default::default()), vec![msg1, msg2])
+    }
+
+    #[tokio::test]
+    async fn test_multiplexer_a() {
+        let (query, answer) = a_query_answer();
+        let mut multiplexer = get_mocked_multiplexer(answer).await;
+        let response = multiplexer.send_message(query, false);
+        let response = tokio::select! {
+            _ = multiplexer.next() => {
+                // polling multiplexer to make it run
+                panic!("should never end")
+            },
+            r = response.try_collect::<Vec<_>>() => r.unwrap(),
+        };
+        assert_eq!(response.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_multiplexer_a_double_resp() {
+        let (query, answer) = a_query_answer();
+        let answer = vec![answer[0].clone(), answer[0].clone()];
+        let mut multiplexer = get_mocked_multiplexer(answer).await;
+        let response = multiplexer.send_message(query, false);
+        let response = tokio::select! {
+            _ = multiplexer.next() => {
+                // polling multiplexer to make it run
+                panic!("should never end")
+            },
+            r = response.try_collect::<Vec<_>>() => r.unwrap(),
+        };
+        assert_eq!(response.len(), 1); // not an xfr query, only the first message is read
+    }
+
+    #[tokio::test]
+    async fn test_multiplexer_axfr() {
+        let (query, answer) = axfr_query_answer();
+        let mut multiplexer = get_mocked_multiplexer(answer).await;
+        let response = multiplexer.send_message(query, true);
+        let response = tokio::select! {
+            _ = multiplexer.next() => {
+                // polling multiplexer to make it run
+                panic!("should never end")
+            },
+            r = response.try_collect::<Vec<_>>() => r.unwrap(),
+        };
+        assert_eq!(response.len(), 1);
+        assert_eq!(response[0].answers().len(), axfr_response().len());
+    }
+
+    #[tokio::test]
+    async fn test_multiplexer_axfr_multi() {
+        let (query, answer) = axfr_query_answer_multi();
+        let mut multiplexer = get_mocked_multiplexer(answer).await;
+        let response = multiplexer.send_message(query, true);
+        let response = tokio::select! {
+            _ = multiplexer.next() => {
+                // polling multiplexer to make it run
+                panic!("should never end")
+            },
+            r = response.try_collect::<Vec<_>>() => r.unwrap(),
+        };
+        assert_eq!(response.len(), 2);
+        assert_eq!(
+            response.iter().map(|m| m.answers().len()).sum::<usize>(),
+            axfr_response().len()
+        );
     }
 }

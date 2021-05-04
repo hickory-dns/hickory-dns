@@ -13,7 +13,7 @@ use std::ops::{Deref, DerefMut};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures_channel::oneshot;
+use futures_channel::mpsc;
 use futures_util::ready;
 use futures_util::stream::Stream;
 
@@ -35,9 +35,9 @@ impl Stream for DnsResponseStream {
                 Ok(x) => x,
                 Err(e) => Err(e.into()),
             },
-            Receiver(ref mut fut) => match ready!(Pin::new(fut).poll(cx)) {
-                Ok(x) => x,
-                Err(_) => Err(ProtoError::from("the completion was canceled")),
+            Receiver(ref mut fut) => match ready!(Pin::new(fut).poll_next(cx)) {
+                Some(x) => x,
+                None => return Poll::Ready(None),
             },
             Error(err) => Err(err.take().expect("cannot poll after complete")),
             Boxed(fut) => ready!(fut.as_mut().poll(cx)),
@@ -55,8 +55,8 @@ impl From<TimeoutFuture> for DnsResponseStream {
     }
 }
 
-impl From<oneshot::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
-    fn from(receiver: oneshot::Receiver<ProtoResult<DnsResponse>>) -> Self {
+impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
+    fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
         DnsResponseStream(DnsResponseStreamInner::Receiver(receiver))
     }
 }
@@ -80,7 +80,7 @@ where
 
 enum DnsResponseStreamInner {
     Timeout(TimeoutFuture),
-    Receiver(oneshot::Receiver<ProtoResult<DnsResponse>>),
+    Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
     Error(Option<ProtoError>),
     Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
