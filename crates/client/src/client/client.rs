@@ -16,7 +16,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_util::stream::{Stream, TryStreamExt};
+use futures_util::stream::{Stream, StreamExt, TryStreamExt};
 use tokio::runtime::{self, Runtime};
 use trust_dns_proto::xfer::DnsRequest;
 
@@ -101,11 +101,13 @@ pub trait Client {
         &self,
         msg: R,
         multi_answer: bool,
-    ) -> ClientResult<Vec<DnsResponse>> {
-        let (mut client, runtime) = self.spawn_client()?;
-        runtime.block_on(
-            ClientStreamingResponse(client.send(msg, multi_answer)).try_collect::<Vec<_>>(),
-        )
+    ) -> Vec<ClientResult<DnsResponse>> {
+        let (mut client, runtime) = match self.spawn_client() {
+            Ok(c_r) => c_r,
+            Err(e) => return vec![Err(e)],
+        };
+        runtime
+            .block_on(ClientStreamingResponse(client.send(msg, multi_answer)).collect::<Vec<_>>())
     }
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations

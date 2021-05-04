@@ -303,7 +303,7 @@ where
         // store a Timeout for this message before sending
         let timeout = S::Time::delay_for(self.timeout_duration);
 
-        let (complete, receiver) = mpsc::channel(1000); // max number of message we allow
+        let (complete, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         // send the message
         let active_request =
