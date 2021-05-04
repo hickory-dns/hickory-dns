@@ -5,6 +5,7 @@ use log::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
+use crate::xfer::FirstAnswer;
 use crate::{Executor, Time};
 
 /// Test next random udpsocket.
@@ -208,10 +209,10 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
 
     for i in 0..send_recv_times {
         // test once
-        let mut response_stream =
+        let response_stream =
             stream.send_message(DnsRequest::new(query.clone(), Default::default()));
         println!("client sending request {}", i);
-        let response = match exec.block_on(response_stream.next()).unwrap() {
+        let response = match exec.block_on(response_stream.first_answer()) {
             Ok(response) => response,
             Err(err) => {
                 println!("failed to get message: {}", err);

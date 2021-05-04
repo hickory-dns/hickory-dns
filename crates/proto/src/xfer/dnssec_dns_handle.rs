@@ -16,7 +16,7 @@ use std::sync::Arc;
 use futures_util::future;
 use futures_util::future::{Future, FutureExt, TryFutureExt};
 use futures_util::stream;
-use futures_util::stream::{Stream, StreamExt, TryStreamExt};
+use futures_util::stream::{Stream, TryStreamExt};
 use log::{debug, trace};
 
 use crate::error::*;
@@ -28,7 +28,7 @@ use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use crate::rr::rdata::opt::EdnsOption;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 use crate::xfer::dns_handle::DnsHandle;
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer};
 
 #[derive(Debug)]
 struct Rrset {
@@ -509,18 +509,13 @@ where
     }
 
     // need to get DS records for each DNSKEY
-    let lookup = handle
+    let ds_message = handle
         .lookup(
             Query::query(rrset.name.clone(), RecordType::DNSSEC(DNSSECRecordType::DS)),
             DnsRequestOptions::default(),
         )
-        .next()
-        .await;
-    let ds_message = match lookup {
-        Some(Ok(ds_message)) => ds_message,
-        Some(e) => e?,
-        None => return Err(ProtoError::from(ProtoErrorKind::Timeout).into()), // probably return timeout error?
-    };
+        .first_answer()
+        .await?;
     let valid_keys = rrset
         .records
         .iter()
@@ -744,8 +739,7 @@ where
                     Query::query(sig.signer_name().clone(), RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
                     DnsRequestOptions::default()
                 )
-                .into_future()
-                .map(|r| if let (Some(next), _stream) = r { next } else { Err(E::from(ProtoError::from(ProtoErrorKind::Timeout))) } )
+                .first_answer()
                 .and_then(move |message|
                     // DNSKEYs are validated by the inner query
                     future::ready(message

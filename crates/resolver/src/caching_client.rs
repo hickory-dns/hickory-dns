@@ -25,7 +25,7 @@ use proto::rr::domain::usage::{
 };
 use proto::rr::rdata::SOA;
 use proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
+use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer};
 
 use crate::dns_lru;
 use crate::dns_lru::DnsLru;
@@ -178,6 +178,7 @@ where
         let response_message = client
             .client
             .lookup(query.clone(), options)
+            .first_answer()
             .await
             .map_err(E::into);
 
