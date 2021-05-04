@@ -558,7 +558,6 @@ pub fn zone_transfert(zone_origin: Name, last_soa: Option<SOA>) -> Message {
         assert_eq!(zone_origin, *soa.mname());
     }
 
-    // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
     zone.set_name(zone_origin).set_query_class(DNSClass::IN);
     if last_soa.is_some() {
@@ -576,6 +575,7 @@ pub fn zone_transfert(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     message.add_zone(zone);
 
     if let Some(soa) = last_soa {
+        // for IXFR, old SOA is put as authority to indicate last known version
         let record = Record::from_rdata(soa.mname().clone(), 0, RData::SOA(soa));
         message.add_name_server(record);
     }
