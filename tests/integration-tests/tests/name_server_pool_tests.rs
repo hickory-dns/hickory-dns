@@ -159,9 +159,9 @@ fn test_datagram() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -192,9 +192,9 @@ fn test_datagram_stream_upgrade() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
 }
 
@@ -222,9 +222,9 @@ fn test_datagram_fails_to_stream() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
 }
 
@@ -298,9 +298,9 @@ fn test_trust_nx_responses_fails_servfail() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query.clone(), vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert!(response.response_code() == ResponseCode::ServFail);
 
     // fail all udp succeed tcp
@@ -310,9 +310,9 @@ fn test_trust_nx_responses_fails_servfail() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
 
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert!(response.response_code() == ResponseCode::ServFail);
 }
 
@@ -343,9 +343,9 @@ fn test_distrust_nx_responses() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], v4_record);
 }
 
@@ -432,13 +432,13 @@ fn test_concurrent_requests_2_conns() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -473,13 +473,13 @@ fn test_concurrent_requests_more_than_conns() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -514,13 +514,13 @@ fn test_concurrent_requests_1_conn() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -555,12 +555,12 @@ fn test_concurrent_requests_0_conn() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
-    let stream = pool.send(request);
+    let future = pool.send(request, false).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
     //   TODO: for some reason this timout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
-    let response = block_on(stream.first_answer()).unwrap();
+    let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }

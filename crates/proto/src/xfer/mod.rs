@@ -126,7 +126,7 @@ pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin
     /// # Return
     ///
     /// A future which will resolve to a SerialMessage response
-    fn send_message(&mut self, message: DnsRequest) -> DnsResponseStream;
+    fn send_message(&mut self, message: DnsRequest, multiple_answer: bool) -> DnsResponseStream;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
@@ -161,11 +161,11 @@ impl DnsHandle for BufDnsRequestStreamHandle {
     type Response = DnsResponseReceiver;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R, multi_answer: bool) -> Self::Response {
         let request: DnsRequest = request.into();
         debug!("enqueueing message: {:?}", request.queries());
 
-        let (request, oneshot) = OneshotDnsRequest::oneshot(request);
+        let (request, oneshot) = OneshotDnsRequest::oneshot(request, multi_answer);
         try_oneshot!(self.sender.try_send(request).map_err(|_| {
             debug!("unable to enqueue message");
             ProtoError::from(ProtoErrorKind::Busy)
@@ -180,11 +180,13 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 pub struct OneshotDnsRequest {
     dns_request: DnsRequest,
     sender_for_response: oneshot::Sender<DnsResponseStream>,
+    multi_answer: bool,
 }
 
 impl OneshotDnsRequest {
     fn oneshot(
         dns_request: DnsRequest,
+        multi_answer: bool,
     ) -> (OneshotDnsRequest, oneshot::Receiver<DnsResponseStream>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
@@ -192,6 +194,7 @@ impl OneshotDnsRequest {
             OneshotDnsRequest {
                 dns_request,
                 sender_for_response,
+                multi_answer,
             },
             receiver,
         )

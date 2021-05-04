@@ -94,12 +94,17 @@ pub trait Client {
     }
 
     /// Sends an arbitrary `DnsRequest` to the client
+    /// Set multi_answer if this request expect multiple answers (like a zone transfert or a mDNS
+    /// query)
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         &self,
         msg: R,
+        multi_answer: bool,
     ) -> ClientResult<Vec<DnsResponse>> {
         let (mut client, runtime) = self.spawn_client()?;
-        runtime.block_on(ClientStreamingResponse(client.send(msg)).try_collect::<Vec<_>>())
+        runtime.block_on(
+            ClientStreamingResponse(client.send(msg, multi_answer)).try_collect::<Vec<_>>(),
+        )
     }
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations

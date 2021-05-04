@@ -125,8 +125,12 @@ impl DnsHandle for AsyncClient {
     type Response = DnsExchangeSend;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        self.exchange.send(request)
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        &mut self,
+        request: R,
+        multi_answer: bool,
+    ) -> Self::Response {
+        self.exchange.send(request, multi_answer)
     }
 }
 
@@ -284,7 +288,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
             message.add_answers(rrset.into());
         }
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -331,7 +335,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let rrset = rrset.into();
         let message = update_message::create(rrset, zone_origin);
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -380,7 +384,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let rrset = rrset.into();
         let message = update_message::append(rrset, zone_origin, must_exist);
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -438,7 +442,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let new = new.into();
 
         let message = update_message::compare_and_swap(current, new, zone_origin);
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -488,7 +492,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let rrset = rrset.into();
         let message = update_message::delete_by_rdata(rrset, zone_origin);
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -533,7 +537,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         assert!(zone_origin.zone_of(record.name()));
         let message = update_message::delete_rrset(record, zone_origin);
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 
     /// Deletes all records at the specified name
@@ -569,7 +573,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         assert!(zone_origin.zone_of(&name_of_records));
         let message = update_message::delete_all(name_of_records, zone_origin, dns_class);
 
-        ClientResponse(self.send(message))
+        ClientResponse(self.send(message, false))
     }
 }
 

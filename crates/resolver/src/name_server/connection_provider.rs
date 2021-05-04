@@ -310,8 +310,12 @@ impl DnsHandle for GenericConnection {
     type Response = ConnectionResponse;
     type Error = ResolveError;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
-        ConnectionResponse(self.0.send(request))
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
+        &mut self,
+        request: R,
+        multi_answer: bool,
+    ) -> Self::Response {
+        ConnectionResponse(self.0.send(request, multi_answer))
     }
 }
 

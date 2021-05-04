@@ -28,7 +28,11 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
         true
     }
 
-    fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin>(
+        &mut self,
+        request: R,
+        multi_answer: bool,
+    ) -> Self::Response {
         let mut request = request.into();
         {
             // mutable block
@@ -41,6 +45,6 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
         }
 
         println!("sending message");
-        self.client.send(request)
+        self.client.send(request, multi_answer)
     }
 }
