@@ -31,6 +31,7 @@ use crate::proto::{
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
+use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 use super::ClientStreamingResponse;
@@ -410,6 +411,19 @@ pub trait Client {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
+    }
+
+    // FIXME document&all like for AsyncClient
+    fn zone_transfert(&self, name: &Name, last_soa: Option<SOA>) -> ClientResult<Vec<DnsResponse>> {
+        let (mut client, runtime) = self.spawn_client()?;
+
+        runtime
+            .block_on(
+                client
+                    .zone_transfert(name.clone(), last_soa)
+                    .try_collect::<Vec<_>>(),
+            )
+            .map_err(ClientError::from)
     }
 }
 
