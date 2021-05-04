@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use crate::client::async_client::MAX_PAYLOAD_LEN;
 use crate::op::{Message, MessageType, OpCode, Query};
-use crate::rr::rdata::NULL;
+use crate::rr::rdata::{NULL, SOA};
 use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -540,6 +540,45 @@ pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass)
     record.set_dns_class(DNSClass::ANY);
 
     message.add_update(record);
+
+    // Extended dns
+    {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+// FIXME comment
+// not an update per-se, but it fits nicely with other functions here
+pub fn zone_transfert(zone_origin: Name, last_soa: Option<SOA>) -> Message {
+    if let Some(ref soa) = last_soa {
+        assert_eq!(zone_origin, *soa.mname());
+    }
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin).set_query_class(DNSClass::IN);
+    if last_soa.is_some() {
+        zone.set_query_type(RecordType::IXFR);
+    } else {
+        zone.set_query_type(RecordType::AXFR);
+    }
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    if let Some(soa) = last_soa {
+        let record = Record::from_rdata(soa.mname().clone(), 0, RData::SOA(soa));
+        message.add_name_server(record);
+    }
 
     // Extended dns
     {

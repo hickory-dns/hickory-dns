@@ -26,6 +26,7 @@ use crate::proto::xfer::{
 };
 use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
+use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
@@ -575,6 +576,21 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
         ClientResponse(self.send(message, false))
     }
+
+    // FIXME add comment
+    // behavior: if last_soa is None, use AXFR, otherwise, use IXFR
+    fn zone_transfert(
+        &mut self,
+        zone_origin: Name,
+        last_soa: Option<SOA>,
+    ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
+        let message = update_message::zone_transfert(zone_origin, last_soa);
+
+        ClientStreamXfr {
+            inner: self.send(message, true),
+            fused: false,
+        }
+    }
 }
 
 /// A stream result of a Client Request
@@ -614,5 +630,37 @@ where
             }
             .map_err(ClientError::from),
         )
+    }
+}
+
+/// A stream result of a Client Request
+#[must_use = "future do nothing unless polled"]
+pub struct ClientStreamXfr<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    pub(crate) inner: R,
+    fused: bool,
+}
+
+impl<R> Stream for ClientStreamXfr<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    type Item = Result<DnsResponse, ClientError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.fused {
+            return Poll::Ready(None);
+        }
+        Poll::Ready(ready!(self.inner.poll_next_unpin(cx)).map(|some| {
+            some.map(|ok| {
+                if let Some(answer) = ok.answers().last() {
+                    self.fused = matches!(answer.rr_type(), RecordType::SOA);
+                };
+                ok
+            })
+            .map_err(ClientError::from)
+        }))
     }
 }
