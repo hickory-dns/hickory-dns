@@ -89,31 +89,34 @@ mod tests {
     use futures::future;
     use futures_util::stream::once;
 
+    use crate::proto::error::{ProtoError, ProtoErrorKind};
+    use crate::proto::xfer::FirstAnswer;
+
     use super::*;
 
     #[test]
     fn test_rc_stream() {
-        let future = future::ok::<usize, usize>(1_usize);
+        let future = future::ok::<usize, ProtoError>(1_usize);
 
-        let mut rc = rc_stream(once(future));
+        let rc = rc_stream(once(future));
 
-        let i = block_on(rc.clone().next()).unwrap().ok().unwrap();
+        let i = block_on(rc.clone().first_answer()).ok().unwrap();
         assert_eq!(i, 1);
 
-        let i = block_on(rc.next()).unwrap().ok().unwrap();
+        let i = block_on(rc.first_answer()).ok().unwrap();
         assert_eq!(i, 1);
     }
 
     #[test]
     fn test_rc_stream_failed() {
-        let future = future::err::<usize, usize>(2);
+        let future = future::err::<usize, ProtoError>(ProtoError::from(ProtoErrorKind::Busy));
 
-        let mut rc = rc_stream(once(future));
+        let rc = rc_stream(once(future));
 
-        let i = block_on(rc.clone().next()).unwrap().err().unwrap();
-        assert_eq!(i, 2);
+        let i = block_on(rc.clone().first_answer()).err().unwrap();
+        assert!(matches!(i.kind(), ProtoErrorKind::Busy));
 
-        let i = block_on(rc.next()).unwrap().err().unwrap();
-        assert_eq!(i, 2);
+        let i = block_on(rc.first_answer()).err().unwrap();
+        assert!(matches!(i.kind(), ProtoErrorKind::Busy));
     }
 }

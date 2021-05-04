@@ -24,7 +24,7 @@ use trust_dns_client::{
 use trust_dns_client::{error::ClientErrorKind, op::Edns, rr::rdata::opt::EdnsCode};
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 #[cfg(feature = "dnssec")]
-use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
+use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer, FirstAnswer};
 use trust_dns_proto::DnsHandle;
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_proto::TokioTime;
@@ -214,6 +214,7 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
 
     client
         .send(msg)
+        .first_answer()
         .map_ok(move |response| {
             println!("response records: {:?}", response);
             assert!(response

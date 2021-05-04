@@ -245,3 +245,47 @@ impl Stream for DnsResponseReceiver {
         }
     }
 }
+
+/// Helper trait to convert a Stream of dns response into a Future
+pub trait FirstAnswer<T, E: From<ProtoError>>: Stream<Item = Result<T, E>> + Unpin + Sized {
+    /// Convert a Stream of dns response into a Future yielding the first answer,
+    /// discarding others if any.
+    fn first_answer(self) -> FirstAnswerFuture<Self> {
+        FirstAnswerFuture { stream: Some(self) }
+    }
+}
+
+impl<E, S, T> FirstAnswer<T, E> for S
+where
+    S: Stream<Item = Result<T, E>> + Unpin + Sized,
+    E: From<ProtoError>,
+{
+}
+
+/// See [FirstAnswer::first_answer]
+#[derive(Debug)]
+#[must_use = "futures do nothing unless you `.await` or poll them"]
+pub struct FirstAnswerFuture<S> {
+    stream: Option<S>,
+}
+
+impl<E, S: Stream<Item = Result<T, E>> + Unpin, T> Future for FirstAnswerFuture<S>
+where
+    S: Stream<Item = Result<T, E>> + Unpin + Sized,
+    E: From<ProtoError>,
+{
+    type Output = S::Item;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let s = self
+            .stream
+            .as_mut()
+            .expect("polling FirstAnswerFuture twice");
+        let item = match ready!(s.poll_next_unpin(cx)) {
+            Some(r) => r,
+            None => Err(ProtoError::from(ProtoErrorKind::Timeout).into()),
+        };
+        self.stream.take();
+        Poll::Ready(item)
+    }
+}

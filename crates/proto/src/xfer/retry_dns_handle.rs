@@ -135,6 +135,7 @@ mod test {
     use super::*;
     use crate::error::*;
     use crate::op::*;
+    use crate::xfer::FirstAnswer;
     use futures_executor::block_on;
     use futures_util::future::*;
     use futures_util::stream::*;
@@ -180,9 +181,7 @@ mod test {
             2,
         );
         let test1 = Message::new();
-        let result = block_on(handle.send(test1).next())
-            .unwrap()
-            .expect("should have succeeded");
+        let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
     }
 
@@ -197,6 +196,6 @@ mod test {
             2,
         );
         let test1 = Message::new();
-        assert!(block_on(client.send(test1).next()).unwrap().is_err());
+        assert!(block_on(client.send(test1).first_answer()).is_err());
     }
 }

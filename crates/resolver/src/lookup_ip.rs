@@ -452,11 +452,13 @@ pub mod tests {
     use std::sync::{Arc, Mutex};
 
     use futures_executor::block_on;
-    use futures_util::{future, future::Future};
+    use futures_util::future;
 
     use proto::op::Message;
     use proto::rr::{Name, RData, Record};
     use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+
+    use futures_util::stream::{once, Stream};
 
     use super::*;
     use crate::error::ResolveError;
@@ -468,13 +470,13 @@ pub mod tests {
 
     impl DnsHandle for MockDnsHandle {
         type Response =
-            Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send + Unpin>>;
+            Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send + Unpin>>;
         type Error = ResolveError;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-            Box::pin(future::ready(
+            Box::pin(once(future::ready(
                 self.messages.lock().unwrap().pop().unwrap_or_else(empty),
-            ))
+            )))
         }
     }
 
