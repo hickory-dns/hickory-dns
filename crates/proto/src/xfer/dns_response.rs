@@ -22,7 +22,7 @@ use crate::op::{Message, ResponseCode};
 use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
 
-/// A future returning a DNS response
+/// A stream returning DNS responses
 pub struct DnsResponseStream(DnsResponseStreamInner);
 
 impl Stream for DnsResponseStream {

@@ -59,26 +59,26 @@ where
 
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
-        let future = self.handle.send(request.clone(), multi_answer);
+        let stream = self.handle.send(request.clone(), multi_answer);
 
         Box::pin(RetrySendStream {
             request,
             handle: self.handle.clone(),
-            future,
+            stream,
             remaining_attempts: self.attempts,
             multi_answer,
         })
     }
 }
 
-/// A future for retrying (on failure, for the remaining number of times specified)
+/// A stream for retrying (on failure, for the remaining number of times specified)
 struct RetrySendStream<H>
 where
     H: DnsHandle,
 {
     request: DnsRequest,
     handle: H,
-    future: <H as DnsHandle>::Response,
+    stream: <H as DnsHandle>::Response,
     remaining_attempts: usize,
     multi_answer: bool,
 }
@@ -90,10 +90,10 @@ where
     type Item = Result<DnsResponse, <H as DnsHandle>::Error>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // loop over the future, on errors, spawn a new future
+        // loop over the stream, on errors, spawn a new stream
         //  on ready and not ready return.
         loop {
-            match self.future.poll_next_unpin(cx) {
+            match self.stream.poll_next_unpin(cx) {
                 Poll::Ready(Some(Err(e))) => {
                     if self.remaining_attempts == 0 || !e.should_retry() {
                         return Poll::Ready(Some(Err(e)));
@@ -107,7 +107,7 @@ where
                     //  then we can just reuse it... and no clone necessary
                     let request = self.request.clone();
                     let multi_answer = self.multi_answer;
-                    self.future = self.handle.send(request, multi_answer);
+                    self.stream = self.handle.send(request, multi_answer);
                 }
                 poll => return poll,
             }

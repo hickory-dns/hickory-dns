@@ -121,11 +121,11 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
 pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static {
-    /// Send a message, and return a future of the response
+    /// Send a message, and return a stream of response
     ///
     /// # Return
     ///
-    /// A future which will resolve to a SerialMessage response
+    /// A stream which will resolve to SerialMessage responses
     fn send_message(&mut self, message: DnsRequest, multiple_answer: bool) -> DnsResponseStream;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
@@ -216,11 +216,11 @@ impl OneshotDnsResponse {
     }
 }
 
-/// A Future that wraps a oneshot::Receiver and resolves to the final value
+/// A Stream that wraps a oneshot::Receiver<Stream> and resolves to items in the inner Stream
 pub enum DnsResponseReceiver {
     /// The receiver
     Receiver(oneshot::Receiver<DnsResponseStream>),
-    /// The future once received
+    /// The stream once received
     Received(DnsResponseStream),
     /// Error during the send operation
     Err(Option<ProtoError>),
@@ -239,9 +239,8 @@ impl Stream for DnsResponseReceiver {
                         .map_err(|_| ProtoError::from("receiver was canceled")))?;
                     DnsResponseReceiver::Received(future)
                 }
-                DnsResponseReceiver::Received(ref mut future) => {
-                    let future = Pin::new(future);
-                    return future.poll_next(cx);
+                DnsResponseReceiver::Received(ref mut stream) => {
+                    return stream.poll_next_unpin(cx);
                 }
                 DnsResponseReceiver::Err(ref mut err) => return Poll::Ready(err.take().map(Err)),
             };

@@ -109,7 +109,7 @@ impl DnsHandle for DnsExchange {
     }
 }
 
-/// A Future that will resolve to a Response after sending the request
+/// A Stream that will resolve to Responses after sending the request
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsExchangeSend {
     result: DnsResponseReceiver,

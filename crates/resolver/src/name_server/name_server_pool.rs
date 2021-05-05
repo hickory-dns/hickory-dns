@@ -396,7 +396,7 @@ impl Local {
         matches!(*self, Local::ResolveStream(..))
     }
 
-    /// Takes the future
+    /// Takes the stream
     ///
     /// # Panics
     ///
@@ -412,7 +412,7 @@ impl Local {
     ///
     /// # Panics
     ///
-    /// Panics if this is in fact a Local::ResolveFuture
+    /// Panics if this is in fact a Local::ResolveStream
     fn take_request(self) -> DnsRequest {
         match self {
             Local::NotMdns(request) => request,
