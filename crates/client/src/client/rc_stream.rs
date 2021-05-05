@@ -20,7 +20,7 @@ where
     S: Stream + Send + Unpin,
     S::Item: Clone + Send,
 {
-    future_and_result: Arc<Mutex<(Fuse<S>, Vec<S::Item>)>>,
+    stream_and_result: Arc<Mutex<(Fuse<S>, Vec<S::Item>)>>,
     pos: usize,
 }
 
@@ -29,10 +29,10 @@ where
     S: Stream + Unpin + Send,
     S::Item: Clone + Send,
 {
-    let future_and_result = Arc::new(Mutex::new((stream.fuse(), vec![])));
+    let stream_and_result = Arc::new(Mutex::new((stream.fuse(), vec![])));
 
     RcStream {
-        future_and_result,
+        stream_and_result,
         pos: 0,
     }
 }
@@ -48,17 +48,17 @@ where
         // try and get a mutable reference to execute the future
         // at least one caller should be able to get a mut reference... others will
         //  wait for it to complete.
-        let mut future_and_result = ready!(self.future_and_result.lock().poll_unpin(cx));
-        let (ref mut future, ref mut stored_result) = *future_and_result;
+        let mut stream_and_result = ready!(self.stream_and_result.lock().poll_unpin(cx));
+        let (ref mut stream, ref mut stored_result) = *stream_and_result;
         if stored_result.len() > self.pos {
             let result = stored_result[self.pos].clone();
-            drop(future_and_result); // release lock early to please borrow checker
+            drop(stream_and_result); // release lock early to please borrow checker
             self.pos += 1;
             return Poll::Ready(Some(result));
         }
 
         // if pending it's either done, or it's actually pending
-        match future.poll_next_unpin(cx) {
+        match stream.poll_next_unpin(cx) {
             Poll::Pending => Poll::Pending,
             Poll::Ready(result) => {
                 if let Some(ref result) = result {
@@ -77,7 +77,7 @@ where
 {
     fn clone(&self) -> Self {
         RcStream {
-            future_and_result: Arc::clone(&self.future_and_result),
+            stream_and_result: Arc::clone(&self.stream_and_result),
             pos: 0, // index is not kept to allow to read first messages
         }
     }

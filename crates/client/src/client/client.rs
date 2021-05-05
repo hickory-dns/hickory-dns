@@ -68,7 +68,7 @@ pub(crate) type NewFutureObj<H> = Pin<
 /// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
 #[allow(unreachable_code)]
 pub trait Client {
-    /// The result future that will resolve into a DnsResponse
+    /// The result stream that will resolve into a DnsResponse
     type Response: Stream<Item = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The AsyncClient type used
     type Handle: DnsHandle<Response = Self::Response, Error = ProtoError> + 'static + Send + Unpin;

@@ -319,7 +319,7 @@ impl DnsHandle for GenericConnection {
     }
 }
 
-/// A future response from a DNS request.
+/// A stream of response to a DNS request.
 #[must_use = "steam do nothing unless polled"]
 pub struct ConnectionResponse(DnsExchangeSend);
 
