@@ -40,7 +40,6 @@ struct ActiveRequest {
     completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
     request_id: u16,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
-    multi_answer: bool,
 }
 
 impl ActiveRequest {
@@ -48,14 +47,12 @@ impl ActiveRequest {
         completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
         request_id: u16,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
-        multi_answer: bool,
     ) -> Self {
         ActiveRequest {
             completion,
             request_id,
             // request,
             timeout,
-            multi_answer,
         }
     }
 
@@ -265,7 +262,7 @@ where
     S: DnsClientStream + Unpin + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
-    fn send_message(&mut self, request: DnsRequest, multi_answer: bool) -> DnsResponseStream {
+    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -306,8 +303,7 @@ where
         let (complete, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
 
         // send the message
-        let active_request =
-            ActiveRequest::new(complete, request.id(), Box::new(timeout), multi_answer);
+        let active_request = ActiveRequest::new(complete, request.id(), Box::new(timeout));
 
         match request.to_vec() {
             Ok(buffer) => {
@@ -378,9 +374,6 @@ where
                                 // send the response, complete the request...
                                 let active_request = request_entry.get_mut();
                                 ignore_send(active_request.completion.try_send(Ok(message.into())));
-                                if !active_request.multi_answer {
-                                    request_entry.remove_entry();
-                                }
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
@@ -635,7 +628,7 @@ mod test {
     async fn test_multiplexer_a() {
         let (query, answer) = a_query_answer();
         let mut multiplexer = get_mocked_multiplexer(answer).await;
-        let response = multiplexer.send_message(query, false);
+        let response = multiplexer.send_message(query);
         let response = tokio::select! {
             _ = multiplexer.next() => {
                 // polling multiplexer to make it run
@@ -647,26 +640,10 @@ mod test {
     }
 
     #[tokio::test]
-    async fn test_multiplexer_a_double_resp() {
-        let (query, answer) = a_query_answer();
-        let answer = vec![answer[0].clone(), answer[0].clone()];
-        let mut multiplexer = get_mocked_multiplexer(answer).await;
-        let response = multiplexer.send_message(query, false);
-        let response = tokio::select! {
-            _ = multiplexer.next() => {
-                // polling multiplexer to make it run
-                panic!("should never end")
-            },
-            r = response.try_collect::<Vec<_>>() => r.unwrap(),
-        };
-        assert_eq!(response.len(), 1); // not an xfr query, only the first message is read
-    }
-
-    #[tokio::test]
     async fn test_multiplexer_axfr() {
         let (query, answer) = axfr_query_answer();
         let mut multiplexer = get_mocked_multiplexer(answer).await;
-        let response = multiplexer.send_message(query, true);
+        let response = multiplexer.send_message(query);
         let response = tokio::select! {
             _ = multiplexer.next() => {
                 // polling multiplexer to make it run
@@ -682,7 +659,7 @@ mod test {
     async fn test_multiplexer_axfr_multi() {
         let (query, answer) = axfr_query_answer_multi();
         let mut multiplexer = get_mocked_multiplexer(answer).await;
-        let response = multiplexer.send_message(query, true);
+        let response = multiplexer.send_message(query);
         let response = tokio::select! {
             _ = multiplexer.next() => {
                 // polling multiplexer to make it run

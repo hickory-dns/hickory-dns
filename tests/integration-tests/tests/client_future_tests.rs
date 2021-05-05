@@ -213,7 +213,7 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
     .set_version(0);
 
     client
-        .send(msg, false)
+        .send(msg)
         .first_answer()
         .map_ok(move |response| {
             println!("response records: {:?}", response);

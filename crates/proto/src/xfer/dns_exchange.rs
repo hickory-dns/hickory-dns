@@ -97,13 +97,9 @@ impl DnsHandle for DnsExchange {
     type Response = DnsExchangeSend;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
-        &mut self,
-        request: R,
-        multi_answer: bool,
-    ) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         DnsExchangeSend {
-            result: self.sender.send(request, multi_answer),
+            result: self.sender.send(request),
             _sender: self.sender.clone(), // TODO: this shouldn't be necessary, currently the presence of Senders is what allows the background to track current users, it generally is dropped right after send, this makes sure that there is at least one active after send
         }
     }
@@ -194,16 +190,13 @@ where
                 // already handled above, here to make sure the poll() pops the next message
                 Poll::Ready(Some(dns_request)) => {
                     // if there is no peer, this connection should die...
-                    let multi_answer = dns_request.multi_answer;
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
 
                     // Try to forward the `DnsResponseStream` to the requesting task. If we fail,
                     // it must be because the requesting task has gone away / is no longer
                     // interested. In that case, we can just log a warning, but there's no need
                     // to take any more serious measures (such as shutting down this task).
-                    match serial_response
-                        .send_response(io_stream.send_message(dns_request, multi_answer))
-                    {
+                    match serial_response.send_response(io_stream.send_message(dns_request)) {
                         Ok(()) => (),
                         Err(_) => {
                             warn!("failed to associate send_message response to the sender");

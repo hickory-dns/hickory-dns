@@ -205,7 +205,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R, multi_answer: bool) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let opts = self.options;
         let request = request.into();
         let datagram_conns = Arc::clone(&self.datagram_conns);
@@ -230,11 +230,6 @@ where
 
         // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
-        if multi_answer {
-            warn!(
-                "Multiple answer requested, but not supported by the resolver for non mdns queries"
-            )
-        }
         Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
 
@@ -328,7 +323,7 @@ where
         let mut requests = par_conns
             .into_iter()
             .map(move |mut conn| {
-                conn.send(request_cont.clone(), false)
+                conn.send(request_cont.clone())
                     .first_answer()
                     .map(|result| result.map_err(|e| (conn, e)))
             })
@@ -544,7 +539,7 @@ mod tests {
             Arc::from([]),
             Arc::clone(&name_servers),
             #[cfg(feature = "mdns")]
-            name_server::mdns_nameserver(opts, conn_provider.clone(), false),
+            name_server::mdns_nameserver(opts, conn_provider.clone()),
             conn_provider,
         );
 
