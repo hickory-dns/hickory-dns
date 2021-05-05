@@ -323,7 +323,7 @@ impl Stream for ConnectionResponse {
     type Item = Result<DnsResponse, ResolveError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.0.poll_next_unpin(cx).map_err(ResolveError::from)
+        Poll::Ready(ready!(self.0.poll_next_unpin(cx)).map(|r| r.map_err(ResolveError::from)))
     }
 }
 
