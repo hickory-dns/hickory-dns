@@ -299,19 +299,17 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
 
     fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
-        if name.is_fqdn() {
-            vec![name]
-        } else if ONION.zone_of(&name)
-            && name
-                .trim_to(2)
-                .iter()
-                .next()
-                .map(|name| name.len() == 56)
-                .unwrap_or(false)
+        if name.is_fqdn()
+            || ONION.zone_of(&name)
+                && name
+                    .trim_to(2)
+                    .iter()
+                    .next()
+                    .map(|name| name.len() == 56) // size of onion v3 address
+                    .unwrap_or(false)
         {
-            // special handling of .onion looking names. Try to not break onion.example.com. and
-            // *.onion.example.com, but reject Tor Onion V3 names. Onion V2 are deprectated and
-            // soon to be removed
+            // if already fully qualified, or if onion address, don't assume it might be a
+            // sub-domain
             vec![name]
         } else {
             // Otherwise we have to build the search list
