@@ -473,7 +473,7 @@ pub mod tests {
             Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send + Unpin>>;
         type Error = ResolveError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R, _: bool) -> Self::Response {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::pin(once(future::ready(
                 self.messages.lock().unwrap().pop().unwrap_or_else(empty),
             )))

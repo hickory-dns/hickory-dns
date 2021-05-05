@@ -54,19 +54,18 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send + Unpin>>;
     type Error = <H as DnsHandle>::Error;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R, multi_answer: bool) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
 
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
-        let stream = self.handle.send(request.clone(), multi_answer);
+        let stream = self.handle.send(request.clone());
 
         Box::pin(RetrySendStream {
             request,
             handle: self.handle.clone(),
             stream,
             remaining_attempts: self.attempts,
-            multi_answer,
         })
     }
 }
@@ -80,7 +79,6 @@ where
     handle: H,
     stream: <H as DnsHandle>::Response,
     remaining_attempts: usize,
-    multi_answer: bool,
 }
 
 impl<H: DnsHandle + Unpin> Stream for RetrySendStream<H>
@@ -106,8 +104,7 @@ where
                     // TODO: if the "sent" Message is part of the error result,
                     //  then we can just reuse it... and no clone necessary
                     let request = self.request.clone();
-                    let multi_answer = self.multi_answer;
-                    self.stream = self.handle.send(request, multi_answer);
+                    self.stream = self.handle.send(request);
                 }
                 poll => return poll,
             }
@@ -159,7 +156,7 @@ mod test {
         type Response = Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin>;
         type Error = ProtoError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R, _: bool) -> Self::Response {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let i = self.attempts.load(Ordering::SeqCst);
 
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
@@ -184,8 +181,7 @@ mod test {
             2,
         );
         let test1 = Message::new();
-        let result =
-            block_on(handle.send(test1, false).first_answer()).expect("should have succeeded");
+        let result = block_on(handle.send(test1).first_answer()).expect("should have succeeded");
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestClient ran
     }
 
@@ -200,6 +196,6 @@ mod test {
             2,
         );
         let test1 = Message::new();
-        assert!(block_on(client.send(test1, false).first_answer()).is_err());
+        assert!(block_on(client.send(test1).first_answer()).is_err());
     }
 }

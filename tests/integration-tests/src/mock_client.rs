@@ -58,7 +58,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, E>> + Send>>;
     type Error = E;
 
-    fn send<R: Into<DnsRequest>>(&mut self, _: R, _: bool) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         let mut messages = self.messages.lock().expect("failed to lock at messages");
         println!("MockClientHandle::send message count: {}", messages.len());
 

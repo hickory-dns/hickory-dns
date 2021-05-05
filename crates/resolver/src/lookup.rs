@@ -199,15 +199,11 @@ impl<C: DnsHandle<Error = ResolveError> + Sync, P: ConnectionProvider<Conn = C>>
         }
     }
 
-    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
-        &mut self,
-        request: R,
-        multi_answer: bool,
-    ) -> Self::Response {
+    fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         match *self {
-            LookupEither::Retry(ref mut c) => c.send(request, multi_answer),
+            LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
-            LookupEither::Secure(ref mut c) => c.send(request, multi_answer),
+            LookupEither::Secure(ref mut c) => c.send(request),
         }
     }
 }
@@ -556,7 +552,7 @@ pub mod tests {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
         type Error = ResolveError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R, _: bool) -> Self::Response {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::pin(once(
                 future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed(),
             ))

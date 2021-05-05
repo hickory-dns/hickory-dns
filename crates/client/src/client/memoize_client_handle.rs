@@ -49,7 +49,6 @@ where
         request: DnsRequest,
         active_queries: Arc<Mutex<HashMap<Query, RcStream<<H as DnsHandle>::Response>>>>,
         mut client: H,
-        multi_answer: bool,
     ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> {
         // TODO: what if we want to support multiple queries (non-standard)?
         let query = request.queries().first().expect("no query!").clone();
@@ -66,7 +65,7 @@ where
         // Otherwise issue a new query and store in the map
         active_queries
             .entry(query)
-            .or_insert_with(|| rc_stream(client.send(request, multi_answer)))
+            .or_insert_with(|| rc_stream(client.send(request)))
             .clone()
     }
 }
@@ -78,7 +77,7 @@ where
     type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
     type Error = ProtoError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R, multi_answer: bool) -> Self::Response {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
 
         Box::pin(
@@ -86,7 +85,6 @@ where
                 request,
                 Arc::clone(&self.active_queries),
                 self.client.clone(),
-                multi_answer,
             )
             .flatten_stream(),
         )
@@ -121,11 +119,7 @@ mod test {
         type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send>>;
         type Error = ProtoError;
 
-        fn send<R: Into<DnsRequest> + Send + 'static>(
-            &mut self,
-            request: R,
-            _: bool,
-        ) -> Self::Response {
+        fn send<R: Into<DnsRequest> + Send + 'static>(&mut self, request: R) -> Self::Response {
             let i = Arc::clone(&self.i);
             let future = async {
                 let i = i;
@@ -164,25 +158,21 @@ mod test {
         let mut test2 = Message::new();
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
-        let result = block_on(client.send(test1.clone(), false).first_answer())
+        let result = block_on(client.send(test1.clone()).first_answer())
             .ok()
             .unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2.clone(), false).first_answer())
+        let result = block_on(client.send(test2.clone()).first_answer())
             .ok()
             .unwrap();
         assert_eq!(result.id(), 1);
 
         // should get the same result for each...
-        let result = block_on(client.send(test1, false).first_answer())
-            .ok()
-            .unwrap();
+        let result = block_on(client.send(test1).first_answer()).ok().unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = block_on(client.send(test2, false).first_answer())
-            .ok()
-            .unwrap();
+        let result = block_on(client.send(test2).first_answer()).ok().unwrap();
         assert_eq!(result.id(), 1);
     }
 }
