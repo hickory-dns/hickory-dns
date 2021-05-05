@@ -112,6 +112,30 @@ lazy_static! {
     pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap());
 }
 
+lazy_static! {
+    /// invalid.
+    ///
+    /// [The ".onion" Special-Use Domain Name](https://tools.ietf.org/html/rfc7686), RFC 7686 October, 2015
+    ///
+    /// ```text
+    /// 1.  Introduction
+    ///
+    ///   The Tor network has the ability to host network
+    ///   services using the ".onion" Special-Use Top-Level Domain Name.  Such
+    ///   names can be used as other domain names would be (e.g., in URLs
+    ///   [RFC3986]), but instead of using the DNS infrastructure, .onion names
+    ///   functionally correspond to the identity of a given service, thereby
+    ///   combining location and authentication.
+    /// ```
+
+    /// onion. name usage
+    pub static ref ONION: ZoneUsage = ZoneUsage {
+        user: UserUsage::Normal, // the domain is special, but this is what seems to match the most
+        app: AppUsage::Normal, // the domain is special, but this is what seems to match the most
+        .. ZoneUsage::invalid(Name::from_ascii("onion.").unwrap())
+    };
+}
+
 /// Users:
 ///
 ///   Are human users expected to recognize these names as special and

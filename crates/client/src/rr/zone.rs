@@ -230,6 +230,7 @@ impl UsageTrie {
             .is_none());
 
         assert!(trie.insert(INVALID.clone().into(), &INVALID).is_none());
+        assert!(trie.insert(ONION.clone().into(), &ONION).is_none());
 
         assert!(trie.insert(EXAMPLE.clone().into(), &EXAMPLE).is_none());
         assert!(trie
@@ -452,6 +453,21 @@ mod tests {
 
         let usage = USAGE.get(&name);
         assert_eq!(usage.name(), INVALID.name());
+    }
+
+    #[test]
+    fn test_onion() {
+        let name = Name::from_ascii("onion.").unwrap();
+
+        let usage = USAGE.get(&name);
+        assert_eq!(usage.name(), ONION.name());
+
+        let name =
+            Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion.")
+                .unwrap(); // torproject.org onion
+
+        let usage = USAGE.get(&name);
+        assert_eq!(usage.name(), ONION.name());
     }
 
     #[test]
