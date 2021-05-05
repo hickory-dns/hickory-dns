@@ -551,8 +551,14 @@ pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass)
     message
 }
 
-// FIXME comment
 // not an update per-se, but it fits nicely with other functions here
+/// Download all records from a zone, or all records modified since given SOA was observed.
+/// The request will either be a AXFR Query (ask for full zone transfert) if a SOA was not
+/// provided, or a IXFR Query (incremental zone transfert) if a SOA was provided.
+///
+/// # Arguments
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
 pub fn zone_transfert(zone_origin: Name, last_soa: Option<SOA>) -> Message {
     if let Some(ref soa) = last_soa {
         assert_eq!(zone_origin, *soa.mname());

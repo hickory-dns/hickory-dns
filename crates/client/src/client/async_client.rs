@@ -577,8 +577,13 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         ClientResponse(self.send(message, false))
     }
 
-    // FIXME add comment
-    // behavior: if last_soa is None, use AXFR, otherwise, use IXFR
+    /// Download all records from a zone, or all records modified since given SOA was observed.
+    /// The request will either be a AXFR Query (ask for full zone transfert) if a SOA was not
+    /// provided, or a IXFR Query (incremental zone transfert) if a SOA was provided.
+    ///
+    /// # Arguments
+    /// * `zone_origin` - the zone name to update, i.e. SOA name
+    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
     fn zone_transfert(
         &mut self,
         zone_origin: Name,
