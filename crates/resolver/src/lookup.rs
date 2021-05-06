@@ -645,7 +645,7 @@ pub mod tests {
         .unwrap_err()
         .kind()
         {
-            assert_eq!(*query, Query::query(Name::root(), RecordType::A));
+            assert_eq!(**query, Query::query(Name::root(), RecordType::A));
             assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error recieved");

@@ -208,8 +208,8 @@ where
                 Err(Self::handle_nxdomain(
                     is_dnssec,
                     false, /*tbd*/
-                    query,
-                    soa,
+                    *query,
+                    soa.map(|v| *v),
                     negative_ttl,
                     response_code,
                     trusted,
@@ -276,8 +276,8 @@ where
         if valid_nsec || !is_dnssec {
             // only trust if there were validated NSEC records
             ResolveErrorKind::NoRecordsFound {
-                query,
-                soa,
+                query: Box::new(query),
+                soa: soa.map(Box::new),
                 negative_ttl,
                 response_code,
                 trusted: true,
@@ -286,8 +286,8 @@ where
         } else {
             // not cacheable, no ttl...
             ResolveErrorKind::NoRecordsFound {
-                query,
-                soa,
+                query: Box::new(query),
+                soa: soa.map(Box::new),
                 negative_ttl: None,
                 response_code,
                 trusted,
@@ -518,7 +518,7 @@ mod tests {
         .unwrap_err()
         .kind()
         {
-            assert_eq!(*query, Query::new());
+            assert_eq!(**query, Query::new());
             assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error received")
