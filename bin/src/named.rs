@@ -267,13 +267,13 @@ impl<'a> From<ArgMatches<'a>> for Args {
             flag_zonedir: matches.value_of(ZONEDIR_ARG).map(ToString::to_string),
             flag_port: matches
                 .value_of(PORT_ARG)
-                .map(|s| u16::from_str_radix(s, 10).expect("bad port argument")),
+                .map(|s| s.parse().expect("bad port argument")),
             flag_tls_port: matches
                 .value_of(TLS_PORT_ARG)
-                .map(|s| u16::from_str_radix(s, 10).expect("bad tls-port argument")),
+                .map(|s| s.parse().expect("bad tls-port argument")),
             flag_https_port: matches
                 .value_of(HTTPS_PORT_ARG)
-                .map(|s| u16::from_str_radix(s, 10).expect("bad https-port argument")),
+                .map(|s| s.parse().expect("bad https-port argument")),
         }
     }
 }
