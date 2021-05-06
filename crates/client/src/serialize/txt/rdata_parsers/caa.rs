@@ -58,7 +58,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
 
     // parse the flags
     let issuer_critical = {
-        let flags = u8::from_str_radix(flags_str, 10)?;
+        let flags = flags_str.parse::<u8>()?;
         if flags & 0b0111_1111 != 0 {
             warn!("unexpected flag values in caa (0 or 128): {}", flags);
         }
