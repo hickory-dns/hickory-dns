@@ -21,7 +21,7 @@ use proto::error::ProtoError;
 use proto::op::{Query, ResponseCode};
 use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
-    LOCALHOST as LOCALHOST_usage,
+    LOCALHOST as LOCALHOST_usage, ONION,
 };
 use proto::rr::rdata::SOA;
 use proto::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -128,6 +128,7 @@ where
                 n if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
                 n if INVALID.zone_of(n) => &*INVALID,
                 n if LOCAL.zone_of(n) => &*LOCAL,
+                n if ONION.zone_of(n) => &*ONION,
                 _ => &*DEFAULT,
             };
 
