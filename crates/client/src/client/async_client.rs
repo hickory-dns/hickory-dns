@@ -630,7 +630,7 @@ where
 }
 
 /// A stream result of a Client Request
-#[must_use = "future do nothing unless polled"]
+#[must_use = "stream do nothing unless polled"]
 pub struct ClientStreamXfr<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,

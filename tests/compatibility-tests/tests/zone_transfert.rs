@@ -5,16 +5,21 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#[cfg(not(feature = "none"))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+#[cfg(not(feature = "none"))]
 use std::str::FromStr;
 
-use trust_dns_client::client::Client;
-use trust_dns_client::client::SyncClient;
-use trust_dns_client::rr::Name;
-use trust_dns_client::rr::RecordType;
+#[cfg(not(feature = "none"))]
+use trust_dns_client::client::{Client, SyncClient};
+#[cfg(not(feature = "none"))]
+use trust_dns_client::rr::{Name, RecordType};
+#[cfg(not(feature = "none"))]
 use trust_dns_client::tcp::TcpClientConnection;
+#[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
 
+#[cfg(not(feature = "none"))]
 #[test]
 #[allow(unused)]
 fn test_zone_transfert() {
