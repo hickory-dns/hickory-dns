@@ -26,7 +26,6 @@ use crate::proto::xfer::{
 };
 use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
-use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
@@ -573,19 +572,15 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         ClientResponse(self.send(message))
     }
 
-    /// Download all records from a zone, or all records modified since given SOA was observed.
-    /// The request will either be a AXFR Query (ask for full zone transfert) if a SOA was not
-    /// provided, or a IXFR Query (incremental zone transfert) if a SOA was provided.
+    /// Download all records from a zone using a AXFR query.
     ///
     /// # Arguments
     /// * `zone_origin` - the zone name to update, i.e. SOA name
-    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
     fn zone_transfert(
         &mut self,
         zone_origin: Name,
-        last_soa: Option<SOA>,
     ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
-        let message = update_message::zone_transfert(zone_origin, last_soa);
+        let message = update_message::zone_transfert(zone_origin);
 
         ClientStreamXfr {
             inner: self.send(message),
