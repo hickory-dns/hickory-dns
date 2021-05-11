@@ -40,9 +40,9 @@ pub enum ResolveErrorKind {
     #[error("no record found for {query}")]
     NoRecordsFound {
         /// The query for which no records were found.
-        query: Query,
+        query: Box<Query>,
         /// If an SOA is present, then this is an authoritative response.
-        soa: Option<SOA>,
+        soa: Option<Box<SOA>>,
         /// negative ttl, as determined from DnsResponse::negative_ttl
         ///  this will only be present if the SOA was also present.
         negative_ttl: Option<u32>,
@@ -111,8 +111,8 @@ impl ResolveError {
         trusted: bool,
     ) -> ResolveError {
         ResolveErrorKind::NoRecordsFound {
-            query,
-            soa,
+            query: Box::new(query),
+            soa: soa.map(Box::new),
             negative_ttl,
             response_code,
             trusted,
@@ -136,8 +136,8 @@ impl ResolveError {
                 let soa = response.soa();
                 let query = response.take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
-                    query,
-                    soa,
+                    query: Box::new(query),
+                    soa: soa.map(Box::new),
                     negative_ttl: None,
                     response_code: ResponseCode::ServFail,
                     trusted: false,
@@ -159,8 +159,8 @@ impl ResolveError {
 
                 let query = response.take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
-                    query,
-                    soa,
+                    query: Box::new(query),
+                    soa: soa.map(Box::new),
                     negative_ttl,
                     response_code: ResponseCode::NXDomain,
                     trusted: trust_nx,
@@ -182,8 +182,8 @@ impl ResolveError {
 
                 let query = response.take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
-                    query,
-                    soa,
+                    query: Box::new(query),
+                    soa: soa.map(Box::new),
                     negative_ttl,
                     response_code: ResponseCode::NoError,
                     trusted: false,
