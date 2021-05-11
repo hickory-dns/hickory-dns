@@ -31,7 +31,6 @@ use crate::proto::{
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
-use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 use super::ClientStreamingResponse;
@@ -411,22 +410,15 @@ pub trait Client {
         runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
     }
 
-    /// Download all records from a zone, or all records modified since given SOA was observed.
-    /// The request will either be a AXFR Query (ask for full zone transfert) if a SOA was not
-    /// provided, or a IXFR Query (incremental zone transfert) if a SOA was provided.
+    /// Download all records from a zone using a AXFR query.
     ///
     /// # Arguments
     /// * `zone_origin` - the zone name to update, i.e. SOA name
-    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
-    fn zone_transfert(&self, name: &Name, last_soa: Option<SOA>) -> ClientResult<Vec<DnsResponse>> {
+    fn zone_transfert(&self, name: &Name) -> ClientResult<Vec<DnsResponse>> {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime
-            .block_on(
-                client
-                    .zone_transfert(name.clone(), last_soa)
-                    .try_collect::<Vec<_>>(),
-            )
+            .block_on(client.zone_transfert(name.clone()).try_collect::<Vec<_>>())
             .map_err(ClientError::from)
     }
 }
