@@ -580,7 +580,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         &mut self,
         zone_origin: Name,
     ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
-        let message = update_message::zone_transfer(zone_origin);
+        let message = update_message::zone_transfer(zone_origin, None);
 
         ClientStreamXfr::new(self.send(message), false)
     }
