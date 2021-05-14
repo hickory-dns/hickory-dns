@@ -45,7 +45,8 @@ script = [
 '''
 mkdir ${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target
 mkdir ${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\\target\OpenSSL
-Invoke-WebRequest -URI "http://slproweb.com/download/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\target\OpenSSL.exe"
+Invoke-WebRequest -URI "https://trinity.fr.eu.org/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\target\OpenSSL.exe"
+#Invoke-WebRequest -URI "http://slproweb.com/download/Win64OpenSSL-${env:OPENSSL_VERSION}.exe" -OutFile "${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\target\OpenSSL.exe"
 Start-Process -FilePath "${env:CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}\target\OpenSSL.exe" -ArgumentList "/SILENT /VERYSILENT /SP- /DIR=${env:OPENSSL_DIR}"
 Invoke-WebRequest "https://curl.haxx.se/ca/cacert.pem" -O "${env:OPENSSL_DIR}\cacert.pem"
 '''
