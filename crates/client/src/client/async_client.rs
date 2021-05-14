@@ -576,13 +576,13 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     ///
     /// # Arguments
     /// * `zone_origin` - the zone name to update, i.e. SOA name
-    fn zone_transfert(
+    fn zone_transfer(
         &mut self,
         zone_origin: Name,
-    ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
-        let message = update_message::zone_transfert(zone_origin);
+    ) -> ClientStreamAxfr<<Self as DnsHandle>::Response> {
+        let message = update_message::zone_transfer(zone_origin);
 
-        ClientStreamXfr {
+        ClientStreamAxfr {
             inner: self.send(message),
             fused: false,
         }
@@ -607,7 +607,7 @@ where
 }
 
 /// A future result of a Client Request
-#[must_use = "future do nothing unless polled"]
+#[must_use = "futures do nothing unless polled"]
 pub struct ClientResponse<R>(pub(crate) R)
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
@@ -629,9 +629,11 @@ where
     }
 }
 
-/// A stream result of a Client Request
+/// A stream result of a zone transfer Client Request
+/// Accept messages until one finish with a SOA record, indicating the end of a zone transfer for
+/// AXFR queries
 #[must_use = "stream do nothing unless polled"]
-pub struct ClientStreamXfr<R>
+pub struct ClientStreamAxfr<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
@@ -639,7 +641,7 @@ where
     fused: bool,
 }
 
-impl<R> Stream for ClientStreamXfr<R>
+impl<R> Stream for ClientStreamAxfr<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
