@@ -556,7 +556,7 @@ pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass)
 ///
 /// # Arguments
 /// * `zone_origin` - the zone name to update, i.e. SOA name
-pub fn zone_transfert(zone_origin: Name) -> Message {
+pub fn zone_transfer(zone_origin: Name) -> Message {
     let mut zone: Query = Query::new();
     zone.set_name(zone_origin)
         .set_query_class(DNSClass::IN)

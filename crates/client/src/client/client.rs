@@ -414,11 +414,11 @@ pub trait Client {
     ///
     /// # Arguments
     /// * `zone_origin` - the zone name to update, i.e. SOA name
-    fn zone_transfert(&self, name: &Name) -> ClientResult<Vec<DnsResponse>> {
+    fn zone_transfer(&self, name: &Name) -> ClientResult<Vec<DnsResponse>> {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime
-            .block_on(client.zone_transfert(name.clone()).try_collect::<Vec<_>>())
+            .block_on(client.zone_transfer(name.clone()).try_collect::<Vec<_>>())
             .map_err(ClientError::from)
     }
 }
