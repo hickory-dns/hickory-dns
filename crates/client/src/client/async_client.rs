@@ -26,7 +26,7 @@ use crate::proto::xfer::{
 };
 use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
-use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
+use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
@@ -579,13 +579,10 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     fn zone_transfer(
         &mut self,
         zone_origin: Name,
-    ) -> ClientStreamAxfr<<Self as DnsHandle>::Response> {
+    ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
         let message = update_message::zone_transfer(zone_origin);
 
-        ClientStreamAxfr {
-            inner: self.send(message),
-            fused: false,
-        }
+        ClientStreamXfr::new(self.send(message), false)
     }
 }
 
@@ -630,35 +627,222 @@ where
 }
 
 /// A stream result of a zone transfer Client Request
-/// Accept messages until one finish with a SOA record, indicating the end of a zone transfer for
-/// AXFR queries
+/// Accept messages until the end of a zone transfer. For AXFR, it search for a starting and an
+/// ending SOA. For IXFR, it do so taking into account there will be other SOA inbetween
 #[must_use = "stream do nothing unless polled"]
-pub struct ClientStreamAxfr<R>
+pub struct ClientStreamXfr<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
-    pub(crate) inner: R,
-    fused: bool,
+    state: ClientStreamXfrState<R>,
 }
 
-impl<R> Stream for ClientStreamAxfr<R>
+impl<R> ClientStreamXfr<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    fn new(inner: R, maybe_incr: bool) -> Self {
+        ClientStreamXfr {
+            state: ClientStreamXfrState::Start { inner, maybe_incr },
+        }
+    }
+}
+
+/// State machine for ClientStreamXfr, implementing almost all logic
+enum ClientStreamXfrState<R> {
+    Start {
+        inner: R,
+        maybe_incr: bool,
+    },
+    Second {
+        inner: R,
+        expected_serial: u32,
+        maybe_incr: bool,
+    },
+    Axfr {
+        inner: R,
+    },
+    Ixfr {
+        inner: R,
+        even: bool,
+        expected_serial: u32,
+    },
+    Ended,
+    Invalid,
+}
+
+impl<R> ClientStreamXfrState<R> {
+    /// Helper to get the stream from the enum
+    fn inner(&mut self) -> &mut R {
+        use ClientStreamXfrState::*;
+        match self {
+            Start { inner, .. } => inner,
+            Second { inner, .. } => inner,
+            Axfr { inner } => inner,
+            Ixfr { inner, .. } => inner,
+            Ended | Invalid => unreachable!(),
+        }
+    }
+
+    /// Helper to ingest answer Records
+    // TODO this is complexe enough it should get its own tests
+    fn process(&mut self, answers: &[Record]) -> Result<(), ClientError> {
+        use ClientStreamXfrState::*;
+        fn get_serial(r: &Record) -> Option<u32> {
+            let rdata = r.rdata();
+            if let RData::SOA(soa) = rdata {
+                Some(soa.serial())
+            } else {
+                None
+            }
+        }
+
+        if answers.is_empty() {
+            return Ok(());
+        }
+        match std::mem::replace(self, Invalid) {
+            Start { inner, maybe_incr } => {
+                if let Some(expected_serial) = get_serial(&answers[0]) {
+                    *self = Second {
+                        inner,
+                        maybe_incr,
+                        expected_serial,
+                    };
+                    self.process(&answers[1..])
+                } else {
+                    *self = Ended;
+                    Ok(())
+                }
+            }
+            Second {
+                inner,
+                maybe_incr,
+                expected_serial,
+            } => {
+                if let Some(serial) = get_serial(&answers[0]) {
+                    // maybe IXFR, or empty AXFR
+                    if serial == expected_serial {
+                        // empty AXFR
+                        *self = Ended;
+                        if answers.len() == 1 {
+                            Ok(())
+                        } else {
+                            // invalid answer : trailing records
+                            Err(ClientErrorKind::Message(
+                                "invalid zone transfer, contains trailing records",
+                            )
+                            .into())
+                        }
+                    } else if maybe_incr {
+                        *self = Ixfr {
+                            inner,
+                            expected_serial,
+                            even: true,
+                        };
+                        self.process(&answers[1..])
+                    } else {
+                        *self = Ended;
+                        Err(ClientErrorKind::Message(
+                            "invalid zone transfer, expected AXFR, got IXFR",
+                        )
+                        .into())
+                    }
+                } else {
+                    // standard AXFR
+                    *self = Axfr { inner };
+                    Ok(())
+                }
+            }
+            Axfr { inner } => {
+                let soa_count = answers
+                    .iter()
+                    .filter(|a| a.rr_type() == RecordType::SOA)
+                    .count();
+                match soa_count {
+                    0 => {
+                        *self = Axfr { inner };
+                        Ok(())
+                    }
+                    1 => {
+                        if answers.last().unwrap(/* answers is not empty */).rr_type()
+                            == RecordType::SOA
+                        {
+                            *self = Ended;
+                            Ok(())
+                        } else {
+                            *self = Ended;
+                            Err(ClientErrorKind::Message(
+                                "invalid zone transfer, contains trailing records",
+                            )
+                            .into())
+                        }
+                    }
+                    _ => {
+                        *self = Ended;
+                        Err(ClientErrorKind::Message(
+                            "invalid zone transfer, contains trailing records",
+                        )
+                        .into())
+                    }
+                }
+            }
+            Ixfr {
+                inner,
+                even,
+                expected_serial,
+            } => {
+                let even = answers
+                    .iter()
+                    .fold(even, |even, a| even ^ (a.rr_type() == RecordType::SOA));
+                if even {
+                    if let Some(serial) = get_serial(&answers.last().unwrap()) {
+                        if serial == expected_serial {
+                            *self = Ended;
+                            return Ok(());
+                        }
+                    }
+                }
+                *self = Ixfr {
+                    inner,
+                    even,
+                    expected_serial,
+                };
+                Ok(())
+            }
+            Ended | Invalid => {
+                unreachable!();
+            }
+        }
+    }
+}
+
+impl<R> Stream for ClientStreamXfr<R>
 where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
     type Item = Result<DnsResponse, ClientError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if self.fused {
+        use ClientStreamXfrState::*;
+
+        if matches!(self.state, Ended) {
             return Poll::Ready(None);
         }
-        Poll::Ready(ready!(self.inner.poll_next_unpin(cx)).map(|some| {
-            some.map(|ok| {
-                if let Some(answer) = ok.answers().last() {
-                    self.fused = matches!(answer.rr_type(), RecordType::SOA);
-                };
-                ok
+
+        let message = if let Some(response) = ready!(self.state.inner().poll_next_unpin(cx)) {
+            Some(match response {
+                Ok(ok) => {
+                    if let Err(e) = self.state.process(ok.answers()) {
+                        Err(e)
+                    } else {
+                        Ok(ok)
+                    }
+                }
+                Err(e) => Err(e.into()),
             })
-            .map_err(ClientError::from)
-        }))
+        } else {
+            None
+        };
+        Poll::Ready(message)
     }
 }
