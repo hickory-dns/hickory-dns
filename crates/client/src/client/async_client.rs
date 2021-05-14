@@ -649,6 +649,7 @@ where
 }
 
 /// State machine for ClientStreamXfr, implementing almost all logic
+#[derive(Debug)]
 enum ClientStreamXfrState<R> {
     Start {
         inner: R,
@@ -661,6 +662,7 @@ enum ClientStreamXfrState<R> {
     },
     Axfr {
         inner: R,
+        expected_serial: u32,
     },
     Ixfr {
         inner: R,
@@ -678,7 +680,7 @@ impl<R> ClientStreamXfrState<R> {
         match self {
             Start { inner, .. } => inner,
             Second { inner, .. } => inner,
-            Axfr { inner } => inner,
+            Axfr { inner, .. } => inner,
             Ixfr { inner, .. } => inner,
             Ended | Invalid => unreachable!(),
         }
@@ -749,18 +751,27 @@ impl<R> ClientStreamXfrState<R> {
                     }
                 } else {
                     // standard AXFR
-                    *self = Axfr { inner };
-                    Ok(())
+                    *self = Axfr {
+                        inner,
+                        expected_serial,
+                    };
+                    self.process(&answers[1..])
                 }
             }
-            Axfr { inner } => {
+            Axfr {
+                inner,
+                expected_serial,
+            } => {
                 let soa_count = answers
                     .iter()
                     .filter(|a| a.rr_type() == RecordType::SOA)
                     .count();
                 match soa_count {
                     0 => {
-                        *self = Axfr { inner };
+                        *self = Axfr {
+                            inner,
+                            expected_serial,
+                        };
                         Ok(())
                     }
                     1 => {
@@ -844,5 +855,228 @@ where
             None
         };
         Poll::Ready(message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::rr::rdata::soa::SOA;
+    use futures_util::stream::iter;
+    use ClientStreamXfrState::*;
+
+    fn soa_record(serial: u32) -> Record {
+        let soa = RData::SOA(SOA::new(
+            Name::from_ascii("example.com.").unwrap(),
+            Name::from_ascii("admin.example.com.").unwrap(),
+            serial,
+            60,
+            60,
+            60,
+            60,
+        ));
+        Record::from_rdata(Name::from_ascii("example.com.").unwrap(), 600, soa)
+    }
+
+    fn a_record(ip: u32) -> Record {
+        let a = RData::A(ip.into());
+        Record::from_rdata(Name::from_ascii("www.example.com.").unwrap(), 600, a)
+    }
+
+    fn get_stream_testcase(
+        records: Vec<Vec<Record>>,
+    ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static {
+        let stream = records.into_iter().map(|r| {
+            Ok({
+                let mut m = Message::new();
+                m.insert_answers(r);
+                m
+            }
+            .into())
+        });
+        iter(stream)
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_axfr() {
+        let stream = get_stream_testcase(vec![vec![
+            soa_record(3),
+            a_record(1),
+            a_record(2),
+            soa_record(3),
+        ]]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 4);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_axfr_multipart() {
+        let stream = get_stream_testcase(vec![
+            vec![soa_record(3)],
+            vec![a_record(1)],
+            vec![soa_record(3)],
+            vec![a_record(2)], // will be ignored as connection is dropped before reading this message
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Axfr { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_empty_axfr() {
+        let stream = get_stream_testcase(vec![vec![soa_record(3)], vec![soa_record(3)]]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_axfr_with_ixfr_reply() {
+        let stream = get_stream_testcase(vec![vec![
+            soa_record(3),
+            soa_record(2),
+            a_record(1),
+            soa_record(3),
+            a_record(2),
+            soa_record(3),
+        ]]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        stream.next().await.unwrap().unwrap_err();
+        assert!(matches!(stream.state, Ended));
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_axfr_with_non_xfr_reply() {
+        let stream = get_stream_testcase(vec![
+            vec![a_record(1)], // assume this is an error response, not a zone transfer
+            vec![a_record(2)],
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_invalid_axfr_multipart() {
+        let stream = get_stream_testcase(vec![
+            vec![soa_record(3)],
+            vec![a_record(1)],
+            vec![soa_record(3), a_record(2)],
+            vec![soa_record(3)],
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Axfr { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        stream.next().await.unwrap().unwrap_err();
+        assert!(matches!(stream.state, Ended));
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_ixfr() {
+        let stream = get_stream_testcase(vec![vec![
+            soa_record(3),
+            soa_record(2),
+            a_record(1),
+            soa_record(3),
+            a_record(2),
+            soa_record(3),
+        ]]);
+        let mut stream = ClientStreamXfr::new(stream, true);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 6);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_ixfr_multipart() {
+        let stream = get_stream_testcase(vec![
+            vec![soa_record(3)],
+            vec![soa_record(2)],
+            vec![a_record(1)],
+            vec![soa_record(3)],
+            vec![a_record(2)],
+            vec![soa_record(3)],
+            vec![a_record(3)], //
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, true);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: true, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: true, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: false, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: false, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
     }
 }
