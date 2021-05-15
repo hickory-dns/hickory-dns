@@ -24,6 +24,12 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (proto) Panic when name exceeds maximal domain name length during display #1447
 
+## 0.20.3
+
+### Fixed
+
+- (resolver) Fix Windows build without system-config feature (@stephank) #1481
+
 ## 0.20.2
 
 ### Fixed
