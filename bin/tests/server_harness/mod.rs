@@ -130,22 +130,35 @@ where
 
         if let Some(udp) = udp_regex.captures(&output) {
             test_udp_port = Some(
-                u16::from_str_radix(udp.get(1).expect("udp missing port").as_str(), 10)
+                udp.get(1)
+                    .expect("udp missing port")
+                    .as_str()
+                    .parse::<u16>()
                     .expect("could not parse udp port"),
             );
         } else if let Some(tcp) = tcp_regex.captures(&output) {
             test_tcp_port = Some(
-                u16::from_str_radix(tcp.get(1).expect("tcp missing port").as_str(), 10)
+                tcp.get(1)
+                    .expect("tcp missing port")
+                    .as_str()
+                    .parse::<u16>()
                     .expect("could not parse tcp port"),
             );
         } else if let Some(tls) = tls_regex.captures(&output) {
             test_tls_port = Some(
-                u16::from_str_radix(tls.get(1).expect("tls missing port").as_str(), 10)
+                tls.get(1)
+                    .expect("tls missing port")
+                    .as_str()
+                    .parse::<u16>()
                     .expect("could not parse tls port"),
             );
         } else if let Some(https) = https_regex.captures(&output) {
             test_https_port = Some(
-                u16::from_str_radix(https.get(1).expect("https missing port").as_str(), 10)
+                https
+                    .get(1)
+                    .expect("https missing port")
+                    .as_str()
+                    .parse::<u16>()
                     .expect("could not parse https port"),
             );
         } else if output.contains("awaiting connections...") {
