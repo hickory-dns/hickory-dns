@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-util"
-version = "0.21.0"
+version = "0.21.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -59,9 +59,9 @@ clap = "2.33.1"
 console = "0.14.0"
 data-encoding = "2.2.0"
 env_logger = { version = "0.8.1", features = ["termcolor", "humantime", "atty"] }
-trust-dns-client= { version = "0.21.0", features = ["dnssec-openssl"], path = "../crates/client" }
-trust-dns-proto = { version = "0.21.0", features = ["dnssec-openssl"], path = "../crates/proto" }
-trust-dns-resolver = { version = "0.21.0", features = ["dnssec-openssl"], path = "../crates/resolver" }
+trust-dns-client= { version = "0.21.0-alpha.1", features = ["dnssec-openssl"], path = "../crates/client" }
+trust-dns-proto = { version = "0.21.0-alpha.1", features = ["dnssec-openssl"], path = "../crates/proto" }
+trust-dns-resolver = { version = "0.21.0-alpha.1", features = ["dnssec-openssl"], path = "../crates/resolver" }
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"] }
 structopt = "0.3"
