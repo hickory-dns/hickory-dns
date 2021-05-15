@@ -13,7 +13,7 @@ use crate::rr::rdata::tlsa::CertUsage;
 use crate::rr::rdata::{sshfp, TLSA};
 
 fn to_u8(data: &str) -> ParseResult<u8> {
-    u8::from_str_radix(data, 10).map_err(ParseError::from)
+    data.parse::<u8>().map_err(ParseError::from)
 }
 
 /// Parse the RData from a set of Tokens

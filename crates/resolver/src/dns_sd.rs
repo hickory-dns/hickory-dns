@@ -143,11 +143,7 @@ impl ServiceInfo {
                 let key = split.next().map(String::from_utf8_lossy);
                 let value = split.next().map(String::from_utf8_lossy);
 
-                if let Some(key) = key {
-                    Some((key, value))
-                } else {
-                    None
-                }
+                key.map(|key| (key, value))
             })
             .collect()
     }
