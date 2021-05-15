@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.20.3
+
+### Fixed
+
+- (resolver) Fix Windows build without system-config feature (@stephank) #1481
+
 ## 0.20.2
 
 ### Fixed
