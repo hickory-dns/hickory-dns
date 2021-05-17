@@ -10,6 +10,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(not(feature = "none"))]
 use std::str::FromStr;
 
+#[cfg(not(feature = "none"))]
 use chrono::Duration;
 
 #[cfg(not(feature = "none"))]
@@ -21,6 +22,7 @@ use trust_dns_client::tcp::TcpClientConnection;
 #[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
 
+#[allow(unused)]
 macro_rules! assert_serial {
     ( $record:expr, $serial:expr  ) => {{
         let rdata = $record.rdata();
