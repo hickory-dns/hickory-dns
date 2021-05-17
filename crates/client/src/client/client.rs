@@ -16,10 +16,11 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures_util::stream::{Stream, StreamExt, TryStreamExt};
+use futures_util::stream::{Stream, StreamExt};
 use tokio::runtime::{self, Runtime};
 use trust_dns_proto::xfer::DnsRequest;
 
+use crate::client::async_client::ClientStreamXfr;
 #[cfg(feature = "dnssec")]
 use crate::client::AsyncDnssecClient;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle};
@@ -414,12 +415,16 @@ pub trait Client {
     ///
     /// # Arguments
     /// * `zone_origin` - the zone name to update, i.e. SOA name
-    fn zone_transfer(&self, name: &Name) -> ClientResult<Vec<DnsResponse>> {
+    fn zone_transfer(
+        &self,
+        name: &Name,
+    ) -> ClientResult<BlockingStream<ClientStreamXfr<<Self as Client>::Response>>> {
         let (mut client, runtime) = self.spawn_client()?;
 
-        runtime
-            .block_on(client.zone_transfer(name.clone()).try_collect::<Vec<_>>())
-            .map_err(ClientError::from)
+        Ok(BlockingStream {
+            inner: client.zone_transfer(name.clone()),
+            runtime,
+        })
     }
 }
 
@@ -474,6 +479,24 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
         };
 
         Box::pin(connect)
+    }
+}
+
+/// An iterator based on a `Stream` of dns response.
+/// Calling `next` on this iterator is a blocking operation.
+pub struct BlockingStream<T> {
+    inner: T,
+    runtime: Runtime,
+}
+
+impl<T, R> Iterator for BlockingStream<T>
+where
+    T: Stream<Item = R> + Unpin,
+    R: Into<ClientResult<DnsResponse>>,
+{
+    type Item = ClientResult<DnsResponse>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.runtime.block_on(self.inner.next()).map(Into::into)
     }
 }
 

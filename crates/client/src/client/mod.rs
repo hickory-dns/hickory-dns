@@ -39,6 +39,6 @@ pub use self::async_secure_client::{
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub use self::client::SyncDnssecClient;
 #[allow(deprecated)]
-pub use self::client::{Client, SyncClient};
+pub use self::client::{BlockingStream, Client, SyncClient};
 pub use self::client_connection::ClientConnection;
 pub use self::memoize_client_handle::MemoizeClientHandle;
