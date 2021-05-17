@@ -553,8 +553,8 @@ pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass)
 
 // not an update per-se, but it fits nicely with other functions here
 /// Download all records from a zone, or all records modified since given SOA was observed.
-/// The request will either be a AXFR Query (ask for full zone transfert) if a SOA was not
-/// provided, or a IXFR Query (incremental zone transfert) if a SOA was provided.
+/// The request will either be a AXFR Query (ask for full zone transfer) if a SOA was not
+/// provided, or a IXFR Query (incremental zone transfer) if a SOA was provided.
 ///
 /// # Arguments
 /// * `zone_origin` - the zone name to update, i.e. SOA name
