@@ -29,7 +29,8 @@ fn test_zone_transfer() {
     let client = SyncClient::new(conn);
 
     let name = Name::from_str("example.net.").unwrap();
-    let result = client.zone_transfer(&name).expect("query failed");
+    let result = client.zone_transfer(&name, None).expect("query failed");
+    let result = result.collect::<Result<Vec<_>, _>>().unwrap();
     assert_ne!(result.len(), 1);
     assert_eq!(
         result.iter().map(|r| r.answers().len()).sum::<usize>(),
