@@ -586,9 +586,10 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         zone_origin: Name,
         last_soa: Option<SOA>,
     ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
+        let ixfr = last_soa.is_some();
         let message = update_message::zone_transfer(zone_origin, last_soa);
 
-        ClientStreamXfr::new(self.send(message), false)
+        ClientStreamXfr::new(self.send(message), ixfr)
     }
 }
 
