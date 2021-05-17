@@ -10,14 +10,27 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 #[cfg(not(feature = "none"))]
 use std::str::FromStr;
 
+use chrono::Duration;
+
 #[cfg(not(feature = "none"))]
 use trust_dns_client::client::{Client, SyncClient};
 #[cfg(not(feature = "none"))]
-use trust_dns_client::rr::{Name, RecordType};
+use trust_dns_client::rr::{Name, RData, Record, RecordType};
 #[cfg(not(feature = "none"))]
 use trust_dns_client::tcp::TcpClientConnection;
 #[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
+
+macro_rules! assert_serial {
+    ( $record:expr, $serial:expr  ) => {{
+        let rdata = $record.rdata();
+        if let RData::SOA(soa) = rdata {
+            assert_eq!(soa.serial(), $serial);
+        } else {
+            assert!(false, "record was not a SOA");
+        }
+    }};
+}
 
 #[cfg(not(feature = "none"))]
 #[test]
@@ -36,9 +49,39 @@ fn test_zone_transfer() {
         result.iter().map(|r| r.answers().len()).sum::<usize>(),
         2000 + 3
     );
+
+    let soa = if let RData::SOA(soa) = result[0].answers()[0].rdata() {
+        soa
+    } else {
+        panic!("First answer was not an SOA record")
+    };
+
     assert_eq!(result[0].answers()[0].rr_type(), RecordType::SOA);
     assert_eq!(
         result.last().unwrap().answers().last().unwrap().rr_type(),
         RecordType::SOA
     );
+
+    let mut record = Record::with(
+        Name::from_str("new.example.net.").unwrap(),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+
+    let result = client.create(record, name.clone()).expect("create failed");
+
+    let result = client
+        .zone_transfer(&name, Some(soa.clone()))
+        .expect("query failed");
+    let result = result.collect::<Result<Vec<_>, _>>().unwrap();
+    assert_eq!(result.len(), 1);
+    let result = &result[0];
+    assert_eq!(result.answers().len(), 3 + 2);
+
+    assert_serial!(result.answers()[0], 20210102);
+    assert_serial!(result.answers()[1], 20210101);
+    assert_serial!(result.answers()[2], 20210102);
+    assert_eq!(result.answers()[3].rr_type(), RecordType::A);
+    assert_serial!(result.answers()[4], 20210102);
 }
