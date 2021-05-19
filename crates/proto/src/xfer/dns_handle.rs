@@ -41,6 +41,11 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
         false
     }
 
+    /// Allow for disabling EDNS
+    fn is_using_edns(&self) -> bool {
+        true
+    }
+
     /// Send a message via the channel in the client
     ///
     /// # Arguments

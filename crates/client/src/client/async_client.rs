@@ -44,6 +44,7 @@ pub type ClientFuture = AsyncClient;
 ///  implementations.
 pub struct AsyncClient {
     exchange: DnsExchange,
+    use_edns: bool,
 }
 
 impl AsyncClient {
@@ -91,6 +92,16 @@ impl AsyncClient {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
         Self::connect(mp)
     }
+
+    /// (Re-)enable usage of EDNS for outgoing messages
+    pub fn enable_edns(&mut self) {
+        self.use_edns = true;
+    }
+
+    /// Disable usage of EDNS for outgoing messages
+    pub fn disable_edns(&mut self) {
+        self.use_edns = false;
+    }
 }
 
 impl AsyncClient {
@@ -116,6 +127,7 @@ impl Clone for AsyncClient {
     fn clone(&self) -> Self {
         AsyncClient {
             exchange: self.exchange.clone(),
+            use_edns: true,
         }
     }
 }
@@ -126,6 +138,10 @@ impl DnsHandle for AsyncClient {
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         self.exchange.send(request)
+    }
+
+    fn is_using_edns(&self) -> bool {
+        self.use_edns
     }
 }
 
@@ -146,7 +162,8 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));
-        let client_background = result.map(|(exchange, bg)| (AsyncClient { exchange }, bg));
+        let use_edns = true;
+        let client_background = result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg));
 
         Poll::Ready(client_background)
     }
@@ -174,7 +191,9 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
-        ClientResponse(self.lookup(query, DnsRequestOptions::default()))
+        let mut options = DnsRequestOptions::default();
+        options.use_edns = self.is_using_edns();
+        ClientResponse(self.lookup(query, options))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -264,7 +283,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
             .set_op_code(OpCode::Notify);
 
         // Extended dns
-        {
+        if self.is_using_edns() {
             let edns = message.edns_mut();
             edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
@@ -328,7 +347,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
-        let message = update_message::create(rrset, zone_origin);
+        let message = update_message::create(rrset, zone_origin, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -377,7 +396,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
-        let message = update_message::append(rrset, zone_origin, must_exist);
+        let message = update_message::append(rrset, zone_origin, must_exist, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -436,7 +455,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let current = current.into();
         let new = new.into();
 
-        let message = update_message::compare_and_swap(current, new, zone_origin);
+        let message = update_message::compare_and_swap(current, new, zone_origin, self.is_using_edns());
         ClientResponse(self.send(message))
     }
 
@@ -485,7 +504,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
-        let message = update_message::delete_by_rdata(rrset, zone_origin);
+        let message = update_message::delete_by_rdata(rrset, zone_origin, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -530,7 +549,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         zone_origin: Name,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         assert!(zone_origin.zone_of(record.name()));
-        let message = update_message::delete_rrset(record, zone_origin);
+        let message = update_message::delete_rrset(record, zone_origin, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -566,7 +585,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         dns_class: DNSClass,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         assert!(zone_origin.zone_of(&name_of_records));
-        let message = update_message::delete_all(name_of_records, zone_origin, dns_class);
+        let message = update_message::delete_all(name_of_records, zone_origin, dns_class, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
