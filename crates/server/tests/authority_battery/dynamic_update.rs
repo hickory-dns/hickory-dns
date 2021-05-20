@@ -39,6 +39,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
@@ -58,7 +59,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
 
         // trying to create again should error
         let mut message =
-            update_message::create(record.into(), Name::from_str("example.com.").unwrap());
+            update_message::create(record.into(), Name::from_str("example.com.").unwrap(), true);
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
             ResponseCode::YXRRSet
@@ -87,7 +88,7 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
         let rrset = rrset;
 
         let message =
-            update_message::create(rrset.clone(), Name::from_str("example.com.").unwrap());
+            update_message::create(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
         let query = Query::query(name, RecordType::A);
@@ -98,7 +99,7 @@ pub fn test_create_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
         assert!(lookup.iter().any(|rr| *rr == record2));
 
         // trying to create again should error
-        let message = update_message::create(rrset, Name::from_str("example.com.").unwrap());
+        let message = update_message::create(rrset, Name::from_str("example.com.").unwrap(), true);
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
             ResponseCode::YXRRSet
@@ -123,6 +124,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
+            true,
         );
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
@@ -134,6 +136,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
             false,
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
@@ -153,6 +156,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
             record2.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("append failed"));
 
@@ -169,6 +173,7 @@ pub fn test_append<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         let message = update_message::append(
             record2.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
             true,
         );
         assert!(!update_authority(message, key, &mut authority).expect("append failed"));
@@ -201,6 +206,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
             false,
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("append failed"));
 
@@ -215,7 +221,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
         rrset.insert(record3.clone(), 0);
 
         let message =
-            update_message::append(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
+            update_message::append(rrset.clone(), Name::from_str("example.com.").unwrap(), true, true);
         assert!(update_authority(message, key, &mut authority).expect("append failed"));
 
         let query = Query::query(name.clone(), RecordType::A);
@@ -231,7 +237,7 @@ pub fn test_append_multi<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
         // show that appending the same thing again is ok, but doesn't add any records
         // TODO: technically this is a test for the Server, not client...
         let message =
-            update_message::append(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
+            update_message::append(rrset.clone(), Name::from_str("example.com.").unwrap(), true, true);
         assert!(!update_authority(message, key, &mut authority).expect("append failed"));
 
         let query = Query::query(name.clone(), RecordType::A);
@@ -262,6 +268,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(mut authority: A
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
@@ -274,6 +281,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(mut authority: A
             current.clone().into(),
             new.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("compare_and_swap failed"));
 
@@ -294,6 +302,7 @@ pub fn test_compare_and_swap<A: Authority<Lookup = AuthLookup>>(mut authority: A
             current.into(),
             not.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
@@ -333,7 +342,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
         let current = current;
 
         let mut message =
-            update_message::create(current.clone(), Name::from_str("example.com.").unwrap());
+            update_message::create(current.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
         let mut new =
@@ -350,6 +359,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
             current.clone(),
             new.clone(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("compare_and_swap failed"));
 
@@ -372,6 +382,7 @@ pub fn test_compare_and_swap_multi<A: Authority<Lookup = AuthLookup>>(
             current.clone(),
             not.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert_eq!(
             update_authority(message, key, &mut authority).unwrap_err(),
@@ -404,6 +415,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(mut authority: A,
         let mut message = update_message::delete_by_rdata(
             record1.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(!update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
@@ -411,6 +423,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(mut authority: A,
         let mut message = update_message::create(
             record1.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
@@ -420,6 +433,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(mut authority: A,
             record2.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("append failed"));
 
@@ -427,6 +441,7 @@ pub fn test_delete_by_rdata<A: Authority<Lookup = AuthLookup>>(mut authority: A,
         let message = update_message::delete_by_rdata(
             record2.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
@@ -469,12 +484,12 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
 
         // first check the must_exist option
         let message =
-            update_message::delete_by_rdata(rrset.clone(), Name::from_str("example.com.").unwrap());
+            update_message::delete_by_rdata(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(!update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
         // next create to a non-existent RRset
         let message =
-            update_message::create(rrset.clone(), Name::from_str("example.com.").unwrap());
+            update_message::create(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
         // append a record
@@ -485,12 +500,12 @@ pub fn test_delete_by_rdata_multi<A: Authority<Lookup = AuthLookup>>(
         let rrset = rrset;
 
         let message =
-            update_message::append(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
+            update_message::append(rrset.clone(), Name::from_str("example.com.").unwrap(), true, true);
         assert!(!update_authority(message, key, &mut authority).expect("append failed"));
 
         // verify record contents
         let message =
-            update_message::delete_by_rdata(rrset.clone(), Name::from_str("example.com.").unwrap());
+            update_message::delete_by_rdata(rrset.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(update_authority(message, key, &mut authority).expect("delete_by_rdata failed"));
 
         let query = Query::query(name.clone(), RecordType::A);
@@ -519,13 +534,14 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
 
         // first check the must_exist option
         let message =
-            update_message::delete_rrset(record.clone(), Name::from_str("example.com.").unwrap());
+            update_message::delete_rrset(record.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(!update_authority(message, key, &mut authority).expect("delete_rrset failed"));
 
         // next create to a non-existent RRset
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
@@ -535,12 +551,13 @@ pub fn test_delete_rrset<A: Authority<Lookup = AuthLookup>>(mut authority: A, ke
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
             true,
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("append failed"));
 
         // verify record contents
         let message =
-            update_message::delete_rrset(record.clone(), Name::from_str("example.com.").unwrap());
+            update_message::delete_rrset(record.clone(), Name::from_str("example.com.").unwrap(), true);
         assert!(update_authority(message, key, &mut authority).expect("delete_rrset failed"));
 
         let query = Query::query(name.clone(), RecordType::A);
@@ -570,6 +587,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             record.name().clone(),
             Name::from_str("example.com.").unwrap(),
             DNSClass::IN,
+            true,
         );
         assert!(!update_authority(message, key, &mut authority).expect("delete_all failed"));
 
@@ -577,6 +595,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
@@ -586,6 +605,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
         let message = update_message::create(
             record.clone().into(),
             Name::from_str("example.com.").unwrap(),
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("create failed"));
 
@@ -594,6 +614,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
             record.name().clone(),
             Name::from_str("example.com.").unwrap(),
             DNSClass::IN,
+            true,
         );
         assert!(update_authority(message, key, &mut authority).expect("delete_all failed"));
 
