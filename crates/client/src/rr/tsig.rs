@@ -88,13 +88,29 @@ impl TSigner {
     }
 
     /// Verify the message is correctly signed
-    /// Current time should be contained in returned range for the signature to still be valid
+    /// This does not perform time verification on its own, instead one should verify current time
+    /// lie in returned Range
+    ///
+    /// # Arguments
+    /// * `previous_hash` - Hash of the last message received before this one, or of the query for
+    /// the first message
+    /// * `message` - byte buffer containing current message
+    /// * `first_message` - is this the first response message
+    ///
+    /// # Returns
+    /// Return Ok(_) on valid signature. Inner tuple contain the following values, in order:
+    /// * a byte buffer containing the hash of this message. Need to be passed back when
+    /// authenticating next message
+    /// * a Range of time that is acceptable
+    /// * the time the signature was emited. It must be greater or equal to the time of previous
+    /// messages, if any
     pub fn verify_message_byte(
         &self,
         previous_hash: Option<&[u8]>,
         message: &[u8],
-    ) -> ProtoResult<Range<u64>> {
-        let (vec, record) = signed_bitmessage_to_buf(previous_hash, message)?;
+        first_message: bool,
+    ) -> ProtoResult<(Vec<u8>, Range<u64>, u64)> {
+        let (vec, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
         let signature = self.sign(&vec)?;
         let tsig = if let RData::TSIG(tsig) = record.rdata() {
             tsig
@@ -125,10 +141,14 @@ impl TSigner {
                 "tsig validation error: truncated signature",
             ));
         }
-        Ok(Range {
-            start: tsig.time() - tsig.fudge() as u64,
-            end: tsig.time() + tsig.fudge() as u64,
-        })
+        Ok((
+            tsig.mac().to_vec(),
+            Range {
+                start: tsig.time() - tsig.fudge() as u64,
+                end: tsig.time() + tsig.fudge() as u64,
+            },
+            tsig.time(),
+        ))
     }
 }
 
@@ -139,6 +159,7 @@ impl MessageFinalizer for TSigner {
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         log::debug!("signing message: {:?}", message);
+        let current_time = current_time as u64;
 
         let pre_tsig = TSIG::new(
             self.0.algorithm.clone(),
@@ -149,19 +170,24 @@ impl MessageFinalizer for TSigner {
             0,
             Vec::new(),
         );
-        let signature: Vec<u8> = self.sign_message(message, &pre_tsig)?;
+        let mut signature: Vec<u8> = self.sign_message(message, &pre_tsig)?;
         let tsig = make_tsig_record(
             self.0.signer_name.clone(),
             pre_tsig.set_mac(signature.clone()),
         );
         let self2 = self.clone();
-
+        let mut remote_time = 0;
         let verifier = move |dns_response: &[u8]| {
-            if self2
-                .verify_message_byte(Some(signature.as_ref()), dns_response)?
-                .contains(&(current_time as u64))
+            let (last_sig, range, rt) = self2.verify_message_byte(
+                Some(signature.as_ref()),
+                dns_response,
+                remote_time == 0,
+            )?;
+            if rt >= remote_time && range.contains(&current_time)
             // this assumes a no-latency answer
             {
+                signature = last_sig;
+                remote_time = rt;
                 Message::from_vec(dns_response).map(DnsResponse::from)
             } else {
                 Err(ProtoError::from("tsig validation error: outdated response"))
@@ -207,8 +233,8 @@ mod tests {
             .expect("should have signed");
         assert!(!question.signature().is_empty());
 
-        let validity_range = signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+        let (_, validity_range, _) = signer
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .unwrap();
         assert!(validity_range.contains(&(time_begin + fudge / 2))); // slightly outdated, but still to be acceptable
         assert!(validity_range.contains(&(time_begin - fudge / 2))); // sooner than our time, but still acceptable
@@ -238,7 +264,7 @@ mod tests {
 
         // this should be ok, it has not been tampered with
         assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .is_ok());
 
         (question, signer)
@@ -254,7 +280,7 @@ mod tests {
         question.add_tsig(signature);
 
         assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .is_err());
     }
 
@@ -268,7 +294,7 @@ mod tests {
         question.add_query(query);
 
         assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .is_err());
     }
 
@@ -290,7 +316,7 @@ mod tests {
 
         // we are longer, there is a problem
         assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .is_err());
         {
             let mut signature = question.take_signature().remove(0);
@@ -306,7 +332,7 @@ mod tests {
 
         // we are at half, it's allowed
         assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .is_ok());
 
         {
@@ -322,7 +348,7 @@ mod tests {
         }
 
         assert!(signer
-            .verify_message_byte(None, &question.to_bytes().unwrap())
+            .verify_message_byte(None, &question.to_bytes().unwrap(), true)
             .is_err());
     }
 }

@@ -22,12 +22,6 @@ use trust_dns_client::tcp::TcpClientConnection;
 #[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
 
-mod tsig_tests;
-
-// needed to perform an update
-#[cfg(not(feature = "none"))]
-use tsig_tests::create_tsig_ready_client;
-
 #[allow(unused)]
 macro_rules! assert_serial {
     ( $record:expr, $serial:expr  ) => {{
@@ -70,19 +64,14 @@ fn test_zone_transfer() {
         RecordType::SOA
     );
 
-    {
-        let conn = TcpClientConnection::new(socket).unwrap();
-        let client = create_tsig_ready_client(conn);
+    let mut record = Record::with(
+        Name::from_str("new.example.net.").unwrap(),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
-        let mut record = Record::with(
-            Name::from_str("new.example.net.").unwrap(),
-            RecordType::A,
-            Duration::minutes(5).num_seconds() as u32,
-        );
-        record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
-
-        client.create(record, name.clone()).expect("create failed");
-    }
+    client.create(record, name.clone()).expect("create failed");
 
     let result = client
         .zone_transfer(&name, Some(soa.clone()))
