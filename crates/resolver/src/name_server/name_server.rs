@@ -11,11 +11,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures_util::{future::Future, lock::Mutex};
+use futures_util::lock::Mutex;
+use futures_util::stream::{once, Stream};
 
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
-use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;
@@ -133,7 +134,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         request: R,
     ) -> Result<DnsResponse, ResolveError> {
         let mut client = self.connected_mut_client().await?;
-        let response = client.send(request).await;
+        let response = client.send(request).first_answer().await;
 
         match response {
             Ok(response) => {
@@ -182,7 +183,7 @@ where
     C: DnsHandle<Error = ResolveError>,
     P: ConnectionProvider<Conn = C>,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -193,7 +194,7 @@ where
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         let this = self.clone();
         // if state is failed, return future::err(), unless retry delay expired..
-        Box::pin(this.inner_send(request))
+        Box::pin(once(this.inner_send(request)))
     }
 }
 
@@ -272,7 +273,7 @@ mod tests {
 
     use proto::op::{Query, ResponseCode};
     use proto::rr::{Name, RecordType};
-    use proto::xfer::{DnsHandle, DnsRequestOptions};
+    use proto::xfer::{DnsHandle, DnsRequestOptions, FirstAnswer};
 
     use super::*;
     use crate::config::Protocol;
@@ -302,10 +303,12 @@ mod tests {
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
             .block_on(name_server.then(|mut name_server| {
-                name_server.lookup(
-                    Query::query(name.clone(), RecordType::A),
-                    DnsRequestOptions::default(),
-                )
+                name_server
+                    .lookup(
+                        Query::query(name.clone(), RecordType::A),
+                        DnsRequestOptions::default(),
+                    )
+                    .first_answer()
             }))
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -333,10 +336,14 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop
-            .block_on(name_server.then(|mut name_server| name_server.lookup(
-                Query::query(name.clone(), RecordType::A),
-                DnsRequestOptions::default()
-            )))
+            .block_on(name_server.then(|mut name_server| {
+                name_server
+                    .lookup(
+                        Query::query(name.clone(), RecordType::A),
+                        DnsRequestOptions::default(),
+                    )
+                    .first_answer()
+            }))
             .is_err());
     }
 }
