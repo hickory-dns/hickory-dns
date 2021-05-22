@@ -278,7 +278,7 @@ description = "Run cargo audit on all crates"
 workspace = false
 dependencies = ["check", "install-audit"]
 command = "cargo"
-args = ["audit", "--deny", "warnings", "--ignore=RUSTSEC-2019-0031", "--ignore=RUSTSEC-2020-0016"]
+args = ["audit", "--deny", "warnings"]
 
 [tasks.bind-compatibility]
 description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND_PATH to another BIND9 installation"
