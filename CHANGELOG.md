@@ -7,6 +7,10 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ## 0.21.0 (unreleased)
 
+### Added
+
+- (client) new `zone_transfer` method for `AXFR` and `IXFR` use cases, client only (@trinity-1686a) #1478
+
 ### Changed
 
 - (all) Most public enum types are now marked `#[non_exaustive]` #1426
@@ -14,6 +18,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) all I/O Streams now use `BufDnsStreamHandle` rather than generic `DnsStreamHandle` #1433
 - (proto) `DnsResponse` response now contains only a single Response #1433
 - (proto) `Name::append_name` and `Name::append_domain` now properly fallible when name is too long #1448
+- (resolver) special handling of the `onion.` TLD added to static resolution with negative responses (@trinity-1686a) #1479
+- (proto) interior Futures converted to Streams to support multiple responses, e.g. `AXFR` (@trinity-1686a) #1478
 
 ### Removed
 
