@@ -382,10 +382,14 @@ where
                                 let active_request = request_entry.get_mut();
                                 if let Some(ref mut verifier) = active_request.verifier {
                                     ignore_send(
-                                        active_request.completion.try_send(verifier(buffer.bytes())),
+                                        active_request
+                                            .completion
+                                            .try_send(verifier(buffer.bytes())),
                                     );
                                 } else {
-                                    ignore_send(active_request.completion.try_send(Ok(message.into())));
+                                    ignore_send(
+                                        active_request.completion.try_send(Ok(message.into())),
+                                    );
                                 }
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
@@ -426,6 +430,7 @@ where
 mod test {
     use super::*;
     use crate::op::message::NoopMessageFinalizer;
+    use crate::op::op_code::OpCode;
     use crate::op::{Message, MessageType, Query};
     use crate::rr::record_type::RecordType;
     use crate::rr::{DNSClass, Name, RData, Record};
