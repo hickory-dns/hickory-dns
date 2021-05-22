@@ -22,6 +22,7 @@ use trust_dns_client::proto::rr::rdata::tsig::Algorithm;
 use trust_dns_client::rr::tsig::TSigner;
 use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{RData, Record, RecordType};
+use trust_dns_client::tcp::TcpClientConnection;
 use trust_dns_client::udp::UdpClientConnection;
 use trust_dns_compatibility::named_process;
 
@@ -91,4 +92,24 @@ fn test_create() {
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
+}
+
+#[cfg(not(feature = "none"))]
+#[test]
+fn test_tsig_zone_transfer() {
+    let (_process, port) = named_process();
+    let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
+    let conn = TcpClientConnection::new(socket).unwrap();
+
+    let client = create_tsig_ready_client(conn);
+    let origin = Name::from_str("example.net.").unwrap();
+
+    let name = Name::from_str("example.net.").unwrap();
+    let result = client.zone_transfer(&name, None).expect("query failed");
+    let result = result.collect::<Result<Vec<_>, _>>().unwrap();
+    assert_ne!(result.len(), 1);
+    assert_eq!(
+        result.iter().map(|r| r.answers().len()).sum::<usize>(),
+        2000 + 3
+    );
 }

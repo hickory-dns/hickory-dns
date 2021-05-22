@@ -559,6 +559,7 @@ pub fn message_tbs<M: BinEncodable>(
 pub fn signed_bitmessage_to_buf(
     previous_hash: Option<&[u8]>,
     message: &[u8],
+    first_message: bool,
 ) -> ProtoResult<(Vec<u8>, Record)> {
     let mut decoder = BinDecoder::new(message);
 
@@ -612,8 +613,15 @@ pub fn signed_bitmessage_to_buf(
     header.emit(&mut encoder)?;
     // copy all records verbatim, without decompressing it
     encoder.emit_vec(&message[start_data..end_data])?;
-    // emit the tsig pseudo-record
-    tsig.emit_tsig_for_mac(&mut encoder, sig.name())?;
+    if first_message {
+        // emit the tsig pseudo-record for first message
+        tsig.emit_tsig_for_mac(&mut encoder, sig.name())?;
+    } else {
+        // emit only time and fudge for followings
+        encoder.emit_u16((tsig.time >> 32) as u16)?;
+        encoder.emit_u32(tsig.time as u32)?;
+        encoder.emit_u16(tsig.fudge)?;
+    }
 
     Ok((buf, sig))
 }
@@ -714,7 +722,9 @@ mod tests {
 
         let message_byte = message.to_bytes().unwrap();
 
-        let tbv = signed_bitmessage_to_buf(None, &message_byte).unwrap().0;
+        let tbv = signed_bitmessage_to_buf(None, &message_byte, true)
+            .unwrap()
+            .0;
 
         assert_eq!(tbs, tbv);
     }
@@ -751,7 +761,9 @@ mod tests {
 
         let message_byte = message.to_bytes().unwrap();
 
-        let tbv = signed_bitmessage_to_buf(None, &message_byte).unwrap().0;
+        let tbv = signed_bitmessage_to_buf(None, &message_byte, true)
+            .unwrap()
+            .0;
 
         assert_eq!(tbs, tbv);
     }
