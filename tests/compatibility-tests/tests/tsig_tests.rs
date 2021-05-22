@@ -26,7 +26,7 @@ use trust_dns_client::udp::UdpClientConnection;
 use trust_dns_compatibility::named_process;
 
 #[allow(dead_code)]
-fn create_tsig_ready_client<CC>(conn: CC) -> SyncClient<CC>
+pub fn create_tsig_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
 {
