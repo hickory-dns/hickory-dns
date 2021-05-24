@@ -10,6 +10,7 @@ use std::net::Ipv4Addr;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 
+use futures::stream::{once, Stream};
 use futures::{future, Future};
 
 use trust_dns_client::op::{Message, Query};
@@ -54,18 +55,20 @@ impl<O: OnSend + Unpin, E> DnsHandle for MockClientHandle<O, E>
 where
     E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, E>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, E>> + Send>>;
     type Error = E;
 
     fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         let mut messages = self.messages.lock().expect("failed to lock at messages");
         println!("MockClientHandle::send message count: {}", messages.len());
 
-        Box::pin(self.on_send.on_send(messages.pop().unwrap_or_else(|| {
-            error(E::from(ProtoError::from(
-                "Messages exhausted in MockClientHandle",
-            )))
-        })))
+        Box::pin(once(self.on_send.on_send(messages.pop().unwrap_or_else(
+            || {
+                error(E::from(ProtoError::from(
+                    "Messages exhausted in MockClientHandle",
+                )))
+            },
+        ))))
     }
 }
 

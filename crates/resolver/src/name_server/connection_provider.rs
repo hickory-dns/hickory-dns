@@ -11,6 +11,7 @@ use std::task::{Context, Poll};
 
 use futures_util::future::{Future, FutureExt};
 use futures_util::ready;
+use futures_util::stream::{Stream, StreamExt};
 #[cfg(feature = "tokio-runtime")]
 use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
@@ -314,15 +315,15 @@ impl DnsHandle for GenericConnection {
     }
 }
 
-/// A future response from a DNS request.
-#[must_use = "futures do nothing unless polled"]
+/// A stream of response to a DNS request.
+#[must_use = "steam do nothing unless polled"]
 pub struct ConnectionResponse(DnsExchangeSend);
 
-impl Future for ConnectionResponse {
-    type Output = Result<DnsResponse, ResolveError>;
+impl Stream for ConnectionResponse {
+    type Item = Result<DnsResponse, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx).map_err(ResolveError::from)
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Poll::Ready(ready!(self.0.poll_next_unpin(cx)).map(|r| r.map_err(ResolveError::from)))
     }
 }
 

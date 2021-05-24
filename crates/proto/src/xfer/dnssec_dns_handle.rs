@@ -15,6 +15,8 @@ use std::sync::Arc;
 
 use futures_util::future;
 use futures_util::future::{Future, FutureExt, TryFutureExt};
+use futures_util::stream;
+use futures_util::stream::{Stream, TryStreamExt};
 use log::{debug, trace};
 
 use crate::error::*;
@@ -26,7 +28,7 @@ use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use crate::rr::rdata::opt::EdnsOption;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 use crate::xfer::dns_handle::DnsHandle;
-use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer};
 
 #[derive(Debug)]
 struct Rrset {
@@ -103,7 +105,7 @@ impl<H> DnsHandle for DnssecDnsHandle<H>
 where
     H: DnsHandle + Sync + Unpin,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, Self::Error>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, Self::Error>> + Send>>;
     type Error = <H as DnsHandle>::Error;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -116,8 +118,8 @@ where
 
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::pin(future::err(Self::Error::from(ProtoError::from(
-                "exceeded max validation depth",
+            return Box::pin(stream::once(future::err(Self::Error::from(
+                ProtoError::from("exceeded max validation depth"),
             ))));
         }
 
@@ -174,7 +176,7 @@ where
                             message_response.id(),
                             handle.trust_anchor.len(),
                         );
-                        verify_rrsets(handle, message_response, dns_class)
+                        verify_rrsets(handle.clone(), message_response, dns_class)
                     })
                     .and_then(move |verified_message| {
                         // at this point all of the message is verified.
@@ -507,68 +509,66 @@ where
     }
 
     // need to get DS records for each DNSKEY
-    let valid_dnskey = handle
+    let ds_message = handle
         .lookup(
             Query::query(rrset.name.clone(), RecordType::DNSSEC(DNSSECRecordType::DS)),
             DnsRequestOptions::default(),
         )
-        .and_then(move |ds_message| {
-            let valid_keys = rrset
-                .records
+        .first_answer()
+        .await?;
+    let valid_keys = rrset
+        .records
+        .iter()
+        .enumerate()
+        .filter(|&(_, rr)| is_dnssec(rr, DNSSECRecordType::DNSKEY))
+        .filter_map(|(i, rr)| {
+            if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
+                Some((i, rdata))
+            } else {
+                None
+            }
+        })
+        .filter(|&(_, key_rdata)| {
+            ds_message
+                .answers()
                 .iter()
-                .enumerate()
-                .filter(|&(_, rr)| is_dnssec(rr, DNSSECRecordType::DNSKEY))
-                .filter_map(|(i, rr)| {
-                    if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
-                        Some((i, rdata))
+                .filter(|ds| is_dnssec(ds, DNSSECRecordType::DS))
+                .filter_map(|ds| {
+                    if let RData::DNSSEC(DNSSECRData::DS(ref ds_rdata)) = *ds.rdata() {
+                        Some((ds.name(), ds_rdata))
                     } else {
                         None
                     }
                 })
-                .filter(|&(_, key_rdata)| {
-                    ds_message
-                        .answers()
-                        .iter()
-                        .filter(|ds| is_dnssec(ds, DNSSECRecordType::DS))
-                        .filter_map(|ds| {
-                            if let RData::DNSSEC(DNSSECRData::DS(ref ds_rdata)) = *ds.rdata() {
-                                Some((ds.name(), ds_rdata))
-                            } else {
-                                None
-                            }
-                        })
-                        // must be covered by at least one DS record
-                        .any(|(ds_name, ds_rdata)| {
-                            if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
-                                if log::log_enabled!(log::Level::Debug) {
-                                    debug!(
-                                        "validated dnskey ({}, {}) with {} {}",
-                                        rrset.name, key_rdata, ds_name, ds_rdata
-                                    );
-                                }
-                                true
-                            } else {
-                                false
-                            }
-                        })
+                // must be covered by at least one DS record
+                .any(|(ds_name, ds_rdata)| {
+                    if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
+                        if log::log_enabled!(log::Level::Debug) {
+                            debug!(
+                                "validated dnskey ({}, {}) with {} {}",
+                                rrset.name, key_rdata, ds_name, ds_rdata
+                            );
+                        }
+                        true
+                    } else {
+                        false
+                    }
                 })
-                .map(|(i, _)| i)
-                .collect::<Vec<usize>>();
+        })
+        .map(|(i, _)| i)
+        .collect::<Vec<usize>>();
 
-            if !valid_keys.is_empty() {
-                let mut rrset = rrset;
-                preserve(&mut rrset.records, valid_keys);
+    if !valid_keys.is_empty() {
+        let mut rrset = rrset;
+        preserve(&mut rrset.records, valid_keys);
 
-                trace!("validated dnskey: {}", rrset.name);
-                future::ok(rrset)
-            } else {
-                future::err(E::from(ProtoError::from(ProtoErrorKind::Message(
-                    "Could not validate all DNSKEYs",
-                ))))
-            }
-        });
-
-    valid_dnskey.await
+        trace!("validated dnskey: {}", rrset.name);
+        Ok(rrset)
+    } else {
+        Err(E::from(ProtoError::from(ProtoErrorKind::Message(
+            "Could not validate all DNSKEYs",
+        ))))
+    }
 }
 
 /// Preserves the specified indexes in vec, all others will be removed
@@ -739,6 +739,7 @@ where
                     Query::query(sig.signer_name().clone(), RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
                     DnsRequestOptions::default()
                 )
+                .first_answer()
                 .and_then(move |message|
                     // DNSKEYs are validated by the inner query
                     future::ready(message

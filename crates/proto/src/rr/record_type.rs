@@ -209,6 +209,7 @@ impl From<u16> for RecordType {
             // TODO: wrong value here, see https://github.com/bluejekyll/trust-dns/issues/723
             65305 => RecordType::ANAME,
             255 => RecordType::ANY,
+            251 => RecordType::IXFR,
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
             5 => RecordType::CNAME,

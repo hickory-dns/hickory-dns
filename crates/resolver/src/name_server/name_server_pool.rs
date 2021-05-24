@@ -11,11 +11,11 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use futures_util::stream::{FuturesUnordered, StreamExt};
-use futures_util::{future::Future, future::FutureExt};
+use futures_util::future::FutureExt;
+use futures_util::stream::{once, FuturesUnordered, Stream, StreamExt};
 use smallvec::SmallVec;
 
-use proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
+use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
 
 use crate::config::{ResolverConfig, ResolverOpts};
@@ -202,7 +202,7 @@ where
     C: DnsHandle<Error = ResolveError> + Sync + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
@@ -223,15 +223,14 @@ where
 
         // local queries are queried through mDNS
         if mdns.is_local() {
-            return mdns.take_future();
+            return mdns.take_stream();
         }
 
         // TODO: should we allow mDNS to be used for standard lookups as well?
 
         // it wasn't a local query, continue with standard lookup path
         let request = mdns.take_request();
-
-        Box::pin(async move {
+        Box::pin(once(async move {
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
@@ -272,7 +271,7 @@ where
                 Ordering::Greater => Err(udp_err),
                 _ => Err(tcp_err),
             }
-        })
+        }))
     }
 }
 
@@ -325,6 +324,7 @@ where
             .into_iter()
             .map(move |mut conn| {
                 conn.send(request_cont.clone())
+                    .first_answer()
                     .map(|result| result.map_err(|e| (conn, e)))
             })
             .collect::<FuturesUnordered<_>>();
@@ -373,7 +373,7 @@ mod mdns {
             .iter()
             .any(|query| usage::LOCAL.name().zone_of(query.name()))
         {
-            Local::ResolveFuture(name_server.send(request))
+            Local::ResolveStream(name_server.send(request))
         } else {
             Local::NotMdns(request)
         }
@@ -382,25 +382,23 @@ mod mdns {
 
 pub(crate) enum Local {
     #[allow(dead_code)]
-    ResolveFuture(Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>),
+    ResolveStream(Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>),
     NotMdns(DnsRequest),
 }
 
 impl Local {
     fn is_local(&self) -> bool {
-        matches!(*self, Local::ResolveFuture(..))
+        matches!(*self, Local::ResolveStream(..))
     }
 
-    /// Takes the future
+    /// Takes the stream
     ///
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(
-        self,
-    ) -> Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>> {
+    fn take_stream(self) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>> {
         match self {
-            Local::ResolveFuture(future) => future,
+            Local::ResolveStream(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
         }
     }
@@ -409,7 +407,7 @@ impl Local {
     ///
     /// # Panics
     ///
-    /// Panics if this is in fact a Local::ResolveFuture
+    /// Panics if this is in fact a Local::ResolveStream
     fn take_request(self) -> DnsRequest {
         match self {
             Local::NotMdns(request) => request,
@@ -418,12 +416,12 @@ impl Local {
     }
 }
 
-impl Future for Local {
-    type Output = Result<DnsResponse, ResolveError>;
+impl Stream for Local {
+    type Item = Result<DnsResponse, ResolveError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match *self {
-            Local::ResolveFuture(ref mut ns) => ns.as_mut().poll(cx),
+            Local::ResolveStream(ref mut ns) => ns.as_mut().poll_next(cx),
             // TODO: making this a panic for now
             Local::NotMdns(..) => panic!("Local queries that are not mDNS should not be polled"), //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
         }
@@ -485,10 +483,13 @@ mod tests {
         for i in 0..2 {
             assert!(
                 io_loop
-                    .block_on(pool.lookup(
-                        Query::query(name.clone(), RecordType::A),
-                        DnsRequestOptions::default()
-                    ))
+                    .block_on(
+                        pool.lookup(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default()
+                        )
+                        .first_answer()
+                    )
                     .is_err(),
                 "iter: {}",
                 i
@@ -498,10 +499,13 @@ mod tests {
         for i in 0..10 {
             assert!(
                 io_loop
-                    .block_on(pool.lookup(
-                        Query::query(name.clone(), RecordType::A),
-                        DnsRequestOptions::default()
-                    ))
+                    .block_on(
+                        pool.lookup(
+                            Query::query(name.clone(), RecordType::A),
+                            DnsRequestOptions::default()
+                        )
+                        .first_answer()
+                    )
                     .is_ok(),
                 "iter: {}",
                 i
@@ -535,7 +539,7 @@ mod tests {
             Arc::from([]),
             Arc::clone(&name_servers),
             #[cfg(feature = "mdns")]
-            name_server::mdns_nameserver(opts, conn_provider.clone(), false),
+            name_server::mdns_nameserver(opts, conn_provider.clone()),
             conn_provider,
         );
 
@@ -543,10 +547,13 @@ mod tests {
 
         // first lookup
         let response = io_loop
-            .block_on(pool.lookup(
-                Query::query(name.clone(), RecordType::A),
-                DnsRequestOptions::default(),
-            ))
+            .block_on(
+                pool.lookup(
+                    Query::query(name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                )
+                .first_answer(),
+            )
             .expect("lookup failed");
 
         assert_eq!(
@@ -564,10 +571,13 @@ mod tests {
 
         // first lookup
         let response = io_loop
-            .block_on(pool.lookup(
-                Query::query(name, RecordType::AAAA),
-                DnsRequestOptions::default(),
-            ))
+            .block_on(
+                pool.lookup(
+                    Query::query(name, RecordType::AAAA),
+                    DnsRequestOptions::default(),
+                )
+                .first_answer(),
+            )
             .expect("lookup failed");
 
         assert_eq!(
