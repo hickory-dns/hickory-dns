@@ -123,6 +123,18 @@ impl Edns {
     pub fn set_option(&mut self, option: EdnsOption) {
         self.options.insert(option);
     }
+
+    pub(crate) fn len(&self) -> u16 {
+        1 //   Name::root
+        + 2 // RecordType::OPT
+        + 2 // DNSClass
+        + 4 // TTL (rcode_high, version and flags)
+        + self.options.options().iter().map(|o| {
+            2 //   Option code
+            + 2 // Len field
+            + o.1.len()
+        }).sum::<u16>()
+    }
 }
 
 impl<'a> From<&'a Record> for Edns {
@@ -208,6 +220,7 @@ impl BinEncodable for Edns {
         opt::emit(encoder, &self.options)?;
         let len = encoder.len_since_place(&place);
         assert!(len <= u16::max_value() as usize);
+        debug_assert_eq!(len, self.len() as usize);
 
         place.replace(encoder, len as u16)?;
         Ok(())
