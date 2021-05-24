@@ -165,7 +165,8 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));
         let use_edns = true;
-        let client_background = result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg));
+        let client_background =
+            result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg));
 
         Poll::Ready(client_background)
     }
@@ -457,7 +458,8 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let current = current.into();
         let new = new.into();
 
-        let message = update_message::compare_and_swap(current, new, zone_origin, self.is_using_edns());
+        let message =
+            update_message::compare_and_swap(current, new, zone_origin, self.is_using_edns());
         ClientResponse(self.send(message))
     }
 
@@ -587,7 +589,12 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         dns_class: DNSClass,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         assert!(zone_origin.zone_of(&name_of_records));
-        let message = update_message::delete_all(name_of_records, zone_origin, dns_class, self.is_using_edns());
+        let message = update_message::delete_all(
+            name_of_records,
+            zone_origin,
+            dns_class,
+            self.is_using_edns(),
+        );
 
         ClientResponse(self.send(message))
     }

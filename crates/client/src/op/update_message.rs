@@ -304,7 +304,12 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-pub fn compare_and_swap(current: RecordSet, new: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
+pub fn compare_and_swap(
+    current: RecordSet,
+    new: RecordSet,
+    zone_origin: Name,
+    use_edns: bool,
+) -> Message {
     assert!(zone_origin.zone_of(current.name()));
     assert!(zone_origin.zone_of(new.name()));
 
@@ -513,7 +518,12 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
 /// operation attempts to delete all resource record sets the specified name regardless of
 /// the record type.
-pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass, use_edns: bool) -> Message {
+pub fn delete_all(
+    name_of_records: Name,
+    zone_origin: Name,
+    dns_class: DNSClass,
+    use_edns: bool,
+) -> Message {
     assert!(zone_origin.zone_of(&name_of_records));
 
     // for updates, the query section is used for the zone
