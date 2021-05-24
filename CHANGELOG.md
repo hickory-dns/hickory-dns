@@ -10,6 +10,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 ### Added
 
 - (client) new `zone_transfer` method for `AXFR` and `IXFR` use cases, client only (@trinity-1686a) #1478
+- (client) Flag for `use_edns` configuration on `AsyncClient` (@astro) #1492
 
 ### Changed
 
@@ -19,7 +20,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) `DnsResponse` response now contains only a single Response #1433
 - (proto) `Name::append_name` and `Name::append_domain` now properly fallible when name is too long #1448
 - (resolver) special handling of the `onion.` TLD added to static resolution with negative responses (@trinity-1686a) #1479
-- (proto) interior Futures converted to Streams to support multiple responses, e.g. `AXFR` (@trinity-1686a) #1478
+- (proto) internal Futures converted to Streams to support multiple responses, e.g. `AXFR` (@trinity-1686a) #1478
 
 ### Removed
 
