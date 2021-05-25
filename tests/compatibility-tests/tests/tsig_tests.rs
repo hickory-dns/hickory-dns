@@ -18,7 +18,7 @@ use chrono::Duration;
 use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
 use trust_dns_client::op::ResponseCode;
-use trust_dns_client::proto::rr::rdata::tsig::Algorithm;
+use trust_dns_client::proto::rr::rdata::tsig::TsigAlgorithm;
 use trust_dns_client::rr::tsig::TSigner;
 use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{RData, Record, RecordType};
@@ -45,7 +45,7 @@ where
         .expect("error reading key file");
 
     let key_name = Name::from_ascii("tsig-key").unwrap();
-    let signer = TSigner::new(key, Algorithm::HmacSha512, key_name, 60).unwrap();
+    let signer = TSigner::new(key, TsigAlgorithm::HmacSha512, key_name, 60).unwrap();
 
     SyncClient::with_tsigner(conn, signer)
 }

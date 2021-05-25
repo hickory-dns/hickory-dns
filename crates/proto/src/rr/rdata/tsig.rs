@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! TSIG for secret key authentication of transaction
+use std::convert::TryInto;
 use std::fmt;
 
 use super::sshfp;
@@ -132,7 +133,7 @@ use crate::serialize::binary::*;
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TSIG {
-    algorithm: Algorithm,
+    algorithm: TsigAlgorithm,
     time: u64,
     fudge: u16,
     mac: Vec<u8>,
@@ -170,7 +171,7 @@ pub struct TSIG {
 ///      +--------------------------+----------------+-----------------+
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum Algorithm {
+pub enum TsigAlgorithm {
     /// HMAC-MD5.SIG-ALG.REG.INT (not supported for cryptographic operations)
     HmacMd5,
     /// gss-tsig (not supported for cryptographic operations)
@@ -215,7 +216,7 @@ impl TSIG {
     ///   discarded once it has been used to authenticate a DNS message.
     /// ```
     pub fn new(
-        algorithm: Algorithm,
+        algorithm: TsigAlgorithm,
         time: u64,
         fudge: u16,
         mac: Vec<u8>,
@@ -223,10 +224,6 @@ impl TSIG {
         error: u16,
         other: Vec<u8>,
     ) -> Self {
-        // Should maybe not be a panic but return a Result::Err, or be ignored?
-        assert!(time < (1 << 48));
-        assert!(mac.len() < (1 << 16));
-        assert!(other.len() < (1 << 16));
         TSIG {
             algorithm,
             time,
@@ -254,7 +251,7 @@ impl TSIG {
     }
 
     /// Returns the algorithm used for the authentication code
-    pub fn algorithm(&self) -> &Algorithm {
+    pub fn algorithm(&self) -> &TsigAlgorithm {
         &self.algorithm
     }
 
@@ -313,7 +310,6 @@ impl TSIG {
     ///
     /// * `mac` - mac to be stored in this record.
     pub fn set_mac(self, mac: Vec<u8>) -> Self {
-        assert!(mac.len() < (1 << 16));
         TSIG { mac, ..self }
     }
 }
@@ -341,20 +337,31 @@ impl TSIG {
 ///  /                                                               /
 ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
-pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<TSIG> {
-    let algorithm = Algorithm::read(decoder)?;
+pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<TSIG> {
+    let end_idx = rdata_length.map(|rdl| rdl as usize)
+        .checked_add(decoder.index())
+        .map_err(|_| ProtoError::from("rdata end position overflow"))? // no legal message is long enough to trigger that
+        .unverified(/*used only as length safely*/);
+
+    let algorithm = TsigAlgorithm::read(decoder)?;
     let time_high = decoder.read_u16()?.unverified(/*valid as any u16*/) as u64;
     let time_low = decoder.read_u32()?.unverified(/*valid as any u32*/) as u64;
-    let time = (time_high << 32) + time_low;
+    let time = (time_high << 32) | time_low;
     let fudge = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let mac_size = decoder.read_u16()?.unverified(/* TODO maybe compare to alg out size, but we don't actually know that value? */);
+    let mac_size = decoder
+        .read_u16()?
+        .verify_unwrap(|&size| decoder.index() + size as usize + 6 /* 3 u16 */ <= end_idx)
+        .map_err(|_| ProtoError::from("invalid mac length in TSIG"))?;
     let mac =
         decoder.read_vec(mac_size as usize)?.unverified(/*valid as any vec of the right size*/);
     let oid = decoder.read_u16()?.unverified(/*valid as any u16*/);
     let error = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let other_len = decoder.read_u16()?.unverified(/*valid as any u16*/);
+    let other_len = decoder
+        .read_u16()?
+        .verify_unwrap(|&size| decoder.index() + size as usize == end_idx)
+        .map_err(|_| ProtoError::from("invalid other length in TSIG"))?;
     let other =
-        decoder.read_vec(other_len as usize)?.unverified(/*valid as any vec ot the right size*/);
+        decoder.read_vec(other_len as usize)?.unverified(/*valid as any vec of the right size*/);
 
     Ok(TSIG {
         algorithm,
@@ -392,14 +399,28 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<TSIG> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder<'_>, tsig: &TSIG) -> ProtoResult<()> {
     tsig.algorithm.emit(encoder)?;
-    encoder.emit_u16((tsig.time >> 32) as u16)?;
-    encoder.emit_u32(tsig.time as u32)?;
+    encoder.emit_u16(
+        (tsig.time >> 32)
+            .try_into()
+            .map_err(|_| ProtoError::from("invalid time, overflow 48 bit counter in TSIG"))?,
+    )?;
+    encoder.emit_u32(tsig.time as u32)?; // this cast is supposed to truncate
     encoder.emit_u16(tsig.fudge)?;
-    encoder.emit_u16(tsig.mac.len() as u16)?;
+    encoder.emit_u16(
+        tsig.mac
+            .len()
+            .try_into()
+            .map_err(|_| ProtoError::from("invalid mac, longer than 65535 B in TSIG"))?,
+    )?;
     encoder.emit_vec(&tsig.mac)?;
     encoder.emit_u16(tsig.oid)?;
     encoder.emit_u16(tsig.error)?;
-    encoder.emit_u16(tsig.other.len() as u16)?;
+    encoder.emit_u16(
+        tsig.other
+            .len()
+            .try_into()
+            .map_err(|_| ProtoError::from("invalid other_buffer, longer than 65535 B in TSIG"))?,
+    )?;
     encoder.emit_vec(&tsig.other)?;
     Ok(())
 }
@@ -421,10 +442,10 @@ impl fmt::Display for TSIG {
     }
 }
 
-impl Algorithm {
+impl TsigAlgorithm {
     /// Return DNS name for the algorithm
     pub fn to_name(&self) -> Name {
-        use Algorithm::*;
+        use TsigAlgorithm::*;
         match self {
             HmacMd5 => Name::from_ascii("HMAC-MD5.SIG-ALG.REG.INT"),
             Gss => Name::from_ascii("gss-tsig"),
@@ -450,12 +471,12 @@ impl Algorithm {
     pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         let mut name = Name::read(decoder)?;
         name.set_fqdn(false);
-        Ok(Algorithm::from_name(name))
+        Ok(TsigAlgorithm::from_name(name))
     }
 
     /// Convert a DNS name to an Algorithm
     pub fn from_name(name: Name) -> Self {
-        use Algorithm::*;
+        use TsigAlgorithm::*;
         match name.to_ascii().as_str() {
             "HMAC-MD5.SIG-ALG.REG.INT" => HmacMd5,
             "gss-tsig" => Gss,
@@ -477,7 +498,7 @@ impl Algorithm {
     /// Other algorithm return an error.
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
         use hmac::{Hmac, Mac, NewMac};
-        use Algorithm::*;
+        use TsigAlgorithm::*;
 
         let res = match self {
             HmacSha256 => {
@@ -508,12 +529,12 @@ impl Algorithm {
     /// Return true if cryptographic operations needed for using this algorithm are supported,
     /// false otherwise
     pub fn supported(&self) -> bool {
-        use Algorithm::*;
+        use TsigAlgorithm::*;
         matches!(self, HmacSha256 | HmacSha384 | HmacSha512 | HmacSha512_256)
     }
 }
 
-impl fmt::Display for Algorithm {
+impl fmt::Display for TsigAlgorithm {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "{}", self.to_name())
     }
@@ -660,14 +681,15 @@ mod tests {
         println!("bytes: {:?}", bytes);
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder).expect("failed to read back");
+        let read_rdata =
+            read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
     #[test]
     fn test_encode_decode_tsig() {
         test_encode_decode(TSIG::new(
-            Algorithm::HmacSha256,
+            TsigAlgorithm::HmacSha256,
             0,
             300,
             vec![0, 1, 2, 3],
@@ -676,7 +698,7 @@ mod tests {
             vec![4, 5, 6, 7],
         ));
         test_encode_decode(TSIG::new(
-            Algorithm::HmacSha384,
+            TsigAlgorithm::HmacSha384,
             123456789,
             60,
             vec![9, 8, 7, 6, 5, 4],
@@ -685,7 +707,7 @@ mod tests {
             vec![],
         ));
         test_encode_decode(TSIG::new(
-            Algorithm::Unknown(Name::from_ascii("unkown_algorithm").unwrap()),
+            TsigAlgorithm::Unknown(Name::from_ascii("unkown_algorithm").unwrap()),
             123456789,
             60,
             vec![],
@@ -703,7 +725,7 @@ mod tests {
         let key_name = Name::from_ascii("some.name").unwrap();
 
         let pre_tsig = TSIG::new(
-            Algorithm::HmacSha256,
+            TsigAlgorithm::HmacSha256,
             12345,
             60,
             vec![],
@@ -737,7 +759,7 @@ mod tests {
         let key_name = Name::from_ascii("some.name").unwrap();
 
         let pre_tsig = TSIG::new(
-            Algorithm::HmacSha256,
+            TsigAlgorithm::HmacSha256,
             12345,
             60,
             vec![],

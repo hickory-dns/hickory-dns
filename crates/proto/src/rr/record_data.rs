@@ -887,7 +887,7 @@ impl RData {
             }
             RecordType::TSIG => {
                 trace!("reading TSIG");
-                rdata::tsig::read(decoder).map(RData::TSIG)
+                rdata::tsig::read(decoder, rdata_length).map(RData::TSIG)
             }
             RecordType::TXT => {
                 trace!("reading TXT");
