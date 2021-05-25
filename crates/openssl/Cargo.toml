@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-openssl"
-version = "0.20.1"
+version = "0.21.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -47,4 +47,4 @@ name = "trust_dns_openssl"
 path = "src/lib.rs"
 
 [dependencies]
-trust-dns-proto = { version = "0.20.1", path = "../proto", features = ["dns-over-openssl"] }
+trust-dns-proto = { version = "0.21.0-alpha.1", path = "../proto", features = ["dns-over-openssl"] }

@@ -18,7 +18,7 @@ use log::{debug, warn};
 
 use crate::error::*;
 use crate::xfer::dns_handle::DnsHandle;
-use crate::xfer::OneshotDnsResponseReceiver;
+use crate::xfer::DnsResponseReceiver;
 use crate::xfer::{
     BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest,
     CHANNEL_BUFFER_SIZE,
@@ -105,19 +105,19 @@ impl DnsHandle for DnsExchange {
     }
 }
 
-/// A Future that will resolve to a Response after sending the request
+/// A Stream that will resolve to Responses after sending the request
 #[must_use = "futures do nothing unless polled"]
 pub struct DnsExchangeSend {
-    result: OneshotDnsResponseReceiver,
+    result: DnsResponseReceiver,
     _sender: BufDnsRequestStreamHandle,
 }
 
-impl Future for DnsExchangeSend {
-    type Output = Result<DnsResponse, ProtoError>;
+impl Stream for DnsExchangeSend {
+    type Item = Result<DnsResponse, ProtoError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // as long as there is no result, poll the exchange
-        self.result.poll_unpin(cx)
+        self.result.poll_next_unpin(cx)
     }
 }
 
@@ -192,7 +192,7 @@ where
                     // if there is no peer, this connection should die...
                     let (dns_request, serial_response): (DnsRequest, _) = dns_request.into_parts();
 
-                    // Try to forward the `DnsResponseFuture` to the requesting task. If we fail,
+                    // Try to forward the `DnsResponseStream` to the requesting task. If we fail,
                     // it must be because the requesting task has gone away / is no longer
                     // interested. In that case, we can just log a warning, but there's no need
                     // to take any more serious measures (such as shutting down this task).

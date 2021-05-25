@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 
+use futures_util::stream::Stream;
 use futures_util::{future, future::Future, FutureExt};
 
 use proto::error::ProtoError;
@@ -187,7 +188,7 @@ pub enum LookupEither<
 impl<C: DnsHandle<Error = ResolveError> + Sync, P: ConnectionProvider<Conn = C>> DnsHandle
     for LookupEither<C, P>
 {
-    type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+    type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
     type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -532,7 +533,8 @@ pub mod tests {
     use std::sync::{Arc, Mutex};
 
     use futures_executor::block_on;
-    use futures_util::{future, future::Future};
+    use futures_util::future;
+    use futures_util::stream::once;
 
     use proto::op::{Message, Query};
     use proto::rr::{Name, RData, Record, RecordType};
@@ -547,11 +549,13 @@ pub mod tests {
     }
 
     impl DnsHandle for MockDnsHandle {
-        type Response = Pin<Box<dyn Future<Output = Result<DnsResponse, ResolveError>> + Send>>;
+        type Response = Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>;
         type Error = ResolveError;
 
         fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
-            future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed()
+            Box::pin(once(
+                future::ready(self.messages.lock().unwrap().pop().unwrap_or_else(empty)).boxed(),
+            ))
         }
     }
 
@@ -645,7 +649,7 @@ pub mod tests {
         .unwrap_err()
         .kind()
         {
-            assert_eq!(*query, Query::query(Name::root(), RecordType::A));
+            assert_eq!(**query, Query::query(Name::root(), RecordType::A));
             assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error recieved");

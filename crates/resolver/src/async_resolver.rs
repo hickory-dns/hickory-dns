@@ -14,6 +14,7 @@ use std::sync::Arc;
 use futures_util::{self, future};
 use proto::error::ProtoResult;
 use proto::op::Query;
+use proto::rr::domain::usage::ONION;
 use proto::rr::domain::TryParseIp;
 use proto::rr::{IntoName, Name, Record, RecordType};
 use proto::xfer::{DnsRequestOptions, RetryDnsHandle};
@@ -298,7 +299,17 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
 
     fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
-        if name.is_fqdn() {
+        if name.is_fqdn()
+            || ONION.zone_of(&name)
+                && name
+                    .trim_to(2)
+                    .iter()
+                    .next()
+                    .map(|name| name.len() == 56) // size of onion v3 address
+                    .unwrap_or(false)
+        {
+            // if already fully qualified, or if onion address, don't assume it might be a
+            // sub-domain
             vec![name]
         } else {
             // Otherwise we have to build the search list
@@ -1282,5 +1293,39 @@ mod tests {
         let io_loop = Runtime::new().expect("failed to create tokio runtime io_loop");
         let handle = TokioHandle;
         search_ipv6_name_parse_fails_test::<Runtime, TokioRuntime>(io_loop, handle);
+    }
+
+    #[test]
+    fn test_build_names_onion() {
+        let handle = TokioHandle;
+        let mut config = ResolverConfig::default();
+        config.add_search(Name::from_ascii("example.com.").unwrap());
+        let resolver =
+            AsyncResolver::<GenericConnection, GenericConnectionProvider<TokioRuntime>>::new(
+                config,
+                ResolverOpts::default(),
+                handle,
+            )
+            .expect("failed to create resolver");
+        let tor_address = [
+            Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion")
+                .unwrap(),
+            Name::from_ascii("www.2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion")
+                .unwrap(), // subdomain are allowed too
+        ];
+        let not_tor_address = [
+            Name::from_ascii("onion").unwrap(),
+            Name::from_ascii("www.onion").unwrap(),
+            Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.www.onion")
+                .unwrap(), // www before key
+            Name::from_ascii("2gzyxa5ihm7nsggfxnu52rck2vv4rvmdlkiu3zzui5du4xyclen53wid.onion.to")
+                .unwrap(), // Tor2web
+        ];
+        for name in &tor_address {
+            assert_eq!(resolver.build_names(name.clone()).len(), 1);
+        }
+        for name in &not_tor_address {
+            assert_eq!(resolver.build_names(name.clone()).len(), 2);
+        }
     }
 }

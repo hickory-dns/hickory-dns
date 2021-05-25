@@ -11,13 +11,14 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use futures_util::stream::{Stream, StreamExt};
 use futures_util::{ready, FutureExt};
 use log::debug;
 use rand;
 
 use crate::error::*;
 use crate::op::{update_message, Message, MessageType, OpCode, Query};
-use crate::proto::error::ProtoError;
+use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::xfer::{
     BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect,
     DnsExchangeSend, DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest,
@@ -25,7 +26,8 @@ use crate::proto::xfer::{
 };
 use crate::proto::TokioTime;
 use crate::rr::dnssec::Signer;
-use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
+use crate::rr::rdata::SOA;
+use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 
 // TODO: this should be configurable
 // > An EDNS buffer size of 1232 bytes will avoid fragmentation on nearly all current networks.
@@ -44,6 +46,7 @@ pub type ClientFuture = AsyncClient;
 ///  implementations.
 pub struct AsyncClient {
     exchange: DnsExchange,
+    use_edns: bool,
 }
 
 impl AsyncClient {
@@ -91,6 +94,16 @@ impl AsyncClient {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
         Self::connect(mp)
     }
+
+    /// (Re-)enable usage of EDNS for outgoing messages
+    pub fn enable_edns(&mut self) {
+        self.use_edns = true;
+    }
+
+    /// Disable usage of EDNS for outgoing messages
+    pub fn disable_edns(&mut self) {
+        self.use_edns = false;
+    }
 }
 
 impl AsyncClient {
@@ -116,6 +129,7 @@ impl Clone for AsyncClient {
     fn clone(&self) -> Self {
         AsyncClient {
             exchange: self.exchange.clone(),
+            use_edns: true,
         }
     }
 }
@@ -126,6 +140,10 @@ impl DnsHandle for AsyncClient {
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         self.exchange.send(request)
+    }
+
+    fn is_using_edns(&self) -> bool {
+        self.use_edns
     }
 }
 
@@ -146,7 +164,9 @@ where
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let result = ready!(self.0.poll_unpin(cx));
-        let client_background = result.map(|(exchange, bg)| (AsyncClient { exchange }, bg));
+        let use_edns = true;
+        let client_background =
+            result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg));
 
         Poll::Ready(client_background)
     }
@@ -174,7 +194,9 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
-        ClientResponse(self.lookup(query, DnsRequestOptions::default()))
+        let mut options = DnsRequestOptions::default();
+        options.use_edns = self.is_using_edns();
+        ClientResponse(self.lookup(query, options))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -264,7 +286,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
             .set_op_code(OpCode::Notify);
 
         // Extended dns
-        {
+        if self.is_using_edns() {
             let edns = message.edns_mut();
             edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
@@ -328,7 +350,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
-        let message = update_message::create(rrset, zone_origin);
+        let message = update_message::create(rrset, zone_origin, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -377,7 +399,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
-        let message = update_message::append(rrset, zone_origin, must_exist);
+        let message = update_message::append(rrset, zone_origin, must_exist, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -436,7 +458,8 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         let current = current.into();
         let new = new.into();
 
-        let message = update_message::compare_and_swap(current, new, zone_origin);
+        let message =
+            update_message::compare_and_swap(current, new, zone_origin, self.is_using_edns());
         ClientResponse(self.send(message))
     }
 
@@ -485,7 +508,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         R: Into<RecordSet>,
     {
         let rrset = rrset.into();
-        let message = update_message::delete_by_rdata(rrset, zone_origin);
+        let message = update_message::delete_by_rdata(rrset, zone_origin, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -530,7 +553,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         zone_origin: Name,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         assert!(zone_origin.zone_of(record.name()));
-        let message = update_message::delete_rrset(record, zone_origin);
+        let message = update_message::delete_rrset(record, zone_origin, self.is_using_edns());
 
         ClientResponse(self.send(message))
     }
@@ -566,9 +589,50 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         dns_class: DNSClass,
     ) -> ClientResponse<<Self as DnsHandle>::Response> {
         assert!(zone_origin.zone_of(&name_of_records));
-        let message = update_message::delete_all(name_of_records, zone_origin, dns_class);
+        let message = update_message::delete_all(
+            name_of_records,
+            zone_origin,
+            dns_class,
+            self.is_using_edns(),
+        );
 
         ClientResponse(self.send(message))
+    }
+
+    /// Download all records from a zone, or all records modified since given SOA was observed.
+    /// The request will either be a AXFR Query (ask for full zone transfer) if a SOA was not
+    /// provided, or a IXFR Query (incremental zone transfer) if a SOA was provided.
+    ///
+    /// # Arguments
+    /// * `zone_origin` - the zone name to update, i.e. SOA name
+    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
+
+    fn zone_transfer(
+        &mut self,
+        zone_origin: Name,
+        last_soa: Option<SOA>,
+    ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
+        let ixfr = last_soa.is_some();
+        let message = update_message::zone_transfer(zone_origin, last_soa);
+
+        ClientStreamXfr::new(self.send(message), ixfr)
+    }
+}
+
+/// A stream result of a Client Request
+#[must_use = "stream do nothing unless polled"]
+pub struct ClientStreamingResponse<R>(pub(crate) R)
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+
+impl<R> Stream for ClientStreamingResponse<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    type Item = Result<DnsResponse, ClientError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        Poll::Ready(ready!(self.0.poll_next_unpin(cx)).map(|r| r.map_err(ClientError::from)))
     }
 }
 
@@ -576,15 +640,476 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientResponse<R>(pub(crate) R)
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
 
 impl<R> Future for ClientResponse<R>
 where
-    R: Future<Output = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
     type Output = Result<DnsResponse, ClientError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.poll_unpin(cx).map_err(ClientError::from)
+        Poll::Ready(
+            match ready!(self.0.poll_next_unpin(cx)) {
+                Some(r) => r,
+                None => Err(ProtoError::from(ProtoErrorKind::Timeout)),
+            }
+            .map_err(ClientError::from),
+        )
+    }
+}
+
+/// A stream result of a zone transfer Client Request
+/// Accept messages until the end of a zone transfer. For AXFR, it search for a starting and an
+/// ending SOA. For IXFR, it do so taking into account there will be other SOA inbetween
+#[must_use = "stream do nothing unless polled"]
+pub struct ClientStreamXfr<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    state: ClientStreamXfrState<R>,
+}
+
+impl<R> ClientStreamXfr<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    fn new(inner: R, maybe_incr: bool) -> Self {
+        ClientStreamXfr {
+            state: ClientStreamXfrState::Start { inner, maybe_incr },
+        }
+    }
+}
+
+/// State machine for ClientStreamXfr, implementing almost all logic
+#[derive(Debug)]
+enum ClientStreamXfrState<R> {
+    Start {
+        inner: R,
+        maybe_incr: bool,
+    },
+    Second {
+        inner: R,
+        expected_serial: u32,
+        maybe_incr: bool,
+    },
+    Axfr {
+        inner: R,
+        expected_serial: u32,
+    },
+    Ixfr {
+        inner: R,
+        even: bool,
+        expected_serial: u32,
+    },
+    Ended,
+    Invalid,
+}
+
+impl<R> ClientStreamXfrState<R> {
+    /// Helper to get the stream from the enum
+    fn inner(&mut self) -> &mut R {
+        use ClientStreamXfrState::*;
+        match self {
+            Start { inner, .. } => inner,
+            Second { inner, .. } => inner,
+            Axfr { inner, .. } => inner,
+            Ixfr { inner, .. } => inner,
+            Ended | Invalid => unreachable!(),
+        }
+    }
+
+    /// Helper to ingest answer Records
+    // TODO this is complexe enough it should get its own tests
+    fn process(&mut self, answers: &[Record]) -> Result<(), ClientError> {
+        use ClientStreamXfrState::*;
+        fn get_serial(r: &Record) -> Option<u32> {
+            let rdata = r.rdata();
+            if let RData::SOA(soa) = rdata {
+                Some(soa.serial())
+            } else {
+                None
+            }
+        }
+
+        if answers.is_empty() {
+            return Ok(());
+        }
+        match std::mem::replace(self, Invalid) {
+            Start { inner, maybe_incr } => {
+                if let Some(expected_serial) = get_serial(&answers[0]) {
+                    *self = Second {
+                        inner,
+                        maybe_incr,
+                        expected_serial,
+                    };
+                    self.process(&answers[1..])
+                } else {
+                    *self = Ended;
+                    Ok(())
+                }
+            }
+            Second {
+                inner,
+                maybe_incr,
+                expected_serial,
+            } => {
+                if let Some(serial) = get_serial(&answers[0]) {
+                    // maybe IXFR, or empty AXFR
+                    if serial == expected_serial {
+                        // empty AXFR
+                        *self = Ended;
+                        if answers.len() == 1 {
+                            Ok(())
+                        } else {
+                            // invalid answer : trailing records
+                            Err(ClientErrorKind::Message(
+                                "invalid zone transfer, contains trailing records",
+                            )
+                            .into())
+                        }
+                    } else if maybe_incr {
+                        *self = Ixfr {
+                            inner,
+                            expected_serial,
+                            even: true,
+                        };
+                        self.process(&answers[1..])
+                    } else {
+                        *self = Ended;
+                        Err(ClientErrorKind::Message(
+                            "invalid zone transfer, expected AXFR, got IXFR",
+                        )
+                        .into())
+                    }
+                } else {
+                    // standard AXFR
+                    *self = Axfr {
+                        inner,
+                        expected_serial,
+                    };
+                    self.process(&answers[1..])
+                }
+            }
+            Axfr {
+                inner,
+                expected_serial,
+            } => {
+                let soa_count = answers
+                    .iter()
+                    .filter(|a| a.rr_type() == RecordType::SOA)
+                    .count();
+                match soa_count {
+                    0 => {
+                        *self = Axfr {
+                            inner,
+                            expected_serial,
+                        };
+                        Ok(())
+                    }
+                    1 => {
+                        if answers.last().unwrap(/* answers is not empty */).rr_type()
+                            == RecordType::SOA
+                        {
+                            *self = Ended;
+                            Ok(())
+                        } else {
+                            *self = Ended;
+                            Err(ClientErrorKind::Message(
+                                "invalid zone transfer, contains trailing records",
+                            )
+                            .into())
+                        }
+                    }
+                    _ => {
+                        *self = Ended;
+                        Err(ClientErrorKind::Message(
+                            "invalid zone transfer, contains trailing records",
+                        )
+                        .into())
+                    }
+                }
+            }
+            Ixfr {
+                inner,
+                even,
+                expected_serial,
+            } => {
+                let even = answers
+                    .iter()
+                    .fold(even, |even, a| even ^ (a.rr_type() == RecordType::SOA));
+                if even {
+                    if let Some(serial) = get_serial(&answers.last().unwrap()) {
+                        if serial == expected_serial {
+                            *self = Ended;
+                            return Ok(());
+                        }
+                    }
+                }
+                *self = Ixfr {
+                    inner,
+                    even,
+                    expected_serial,
+                };
+                Ok(())
+            }
+            Ended | Invalid => {
+                unreachable!();
+            }
+        }
+    }
+}
+
+impl<R> Stream for ClientStreamXfr<R>
+where
+    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+{
+    type Item = Result<DnsResponse, ClientError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        use ClientStreamXfrState::*;
+
+        if matches!(self.state, Ended) {
+            return Poll::Ready(None);
+        }
+
+        let message = if let Some(response) = ready!(self.state.inner().poll_next_unpin(cx)) {
+            Some(match response {
+                Ok(ok) => {
+                    if let Err(e) = self.state.process(ok.answers()) {
+                        Err(e)
+                    } else {
+                        Ok(ok)
+                    }
+                }
+                Err(e) => Err(e.into()),
+            })
+        } else {
+            None
+        };
+        Poll::Ready(message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::rr::rdata::soa::SOA;
+    use futures_util::stream::iter;
+    use ClientStreamXfrState::*;
+
+    fn soa_record(serial: u32) -> Record {
+        let soa = RData::SOA(SOA::new(
+            Name::from_ascii("example.com.").unwrap(),
+            Name::from_ascii("admin.example.com.").unwrap(),
+            serial,
+            60,
+            60,
+            60,
+            60,
+        ));
+        Record::from_rdata(Name::from_ascii("example.com.").unwrap(), 600, soa)
+    }
+
+    fn a_record(ip: u32) -> Record {
+        let a = RData::A(ip.into());
+        Record::from_rdata(Name::from_ascii("www.example.com.").unwrap(), 600, a)
+    }
+
+    fn get_stream_testcase(
+        records: Vec<Vec<Record>>,
+    ) -> impl Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static {
+        let stream = records.into_iter().map(|r| {
+            Ok({
+                let mut m = Message::new();
+                m.insert_answers(r);
+                m
+            }
+            .into())
+        });
+        iter(stream)
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_axfr() {
+        let stream = get_stream_testcase(vec![vec![
+            soa_record(3),
+            a_record(1),
+            a_record(2),
+            soa_record(3),
+        ]]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 4);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_axfr_multipart() {
+        let stream = get_stream_testcase(vec![
+            vec![soa_record(3)],
+            vec![a_record(1)],
+            vec![soa_record(3)],
+            vec![a_record(2)], // will be ignored as connection is dropped before reading this message
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Axfr { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_empty_axfr() {
+        let stream = get_stream_testcase(vec![vec![soa_record(3)], vec![soa_record(3)]]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_axfr_with_ixfr_reply() {
+        let stream = get_stream_testcase(vec![vec![
+            soa_record(3),
+            soa_record(2),
+            a_record(1),
+            soa_record(3),
+            a_record(2),
+            soa_record(3),
+        ]]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        stream.next().await.unwrap().unwrap_err();
+        assert!(matches!(stream.state, Ended));
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_axfr_with_non_xfr_reply() {
+        let stream = get_stream_testcase(vec![
+            vec![a_record(1)], // assume this is an error response, not a zone transfer
+            vec![a_record(2)],
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_invalid_axfr_multipart() {
+        let stream = get_stream_testcase(vec![
+            vec![soa_record(3)],
+            vec![a_record(1)],
+            vec![soa_record(3), a_record(2)],
+            vec![soa_record(3)],
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, false);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Axfr { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        stream.next().await.unwrap().unwrap_err();
+        assert!(matches!(stream.state, Ended));
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_ixfr() {
+        let stream = get_stream_testcase(vec![vec![
+            soa_record(3),
+            soa_record(2),
+            a_record(1),
+            soa_record(3),
+            a_record(2),
+            soa_record(3),
+        ]]);
+        let mut stream = ClientStreamXfr::new(stream, true);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 6);
+
+        assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_stream_xfr_valid_ixfr_multipart() {
+        let stream = get_stream_testcase(vec![
+            vec![soa_record(3)],
+            vec![soa_record(2)],
+            vec![a_record(1)],
+            vec![soa_record(3)],
+            vec![a_record(2)],
+            vec![soa_record(3)],
+            vec![a_record(3)], //
+        ]);
+        let mut stream = ClientStreamXfr::new(stream, true);
+        assert!(matches!(stream.state, Start { .. }));
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Second { .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: true, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: true, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: false, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ixfr { even: false, .. }));
+        assert_eq!(response.answers().len(), 1);
+
+        let response = stream.next().await.unwrap().unwrap();
+        assert!(matches!(stream.state, Ended));
+        assert_eq!(response.answers().len(), 1);
+
+        assert!(stream.next().await.is_none());
     }
 }

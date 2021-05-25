@@ -16,9 +16,11 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use futures_util::stream::{Stream, StreamExt};
 use tokio::runtime::{self, Runtime};
 use trust_dns_proto::xfer::DnsRequest;
 
+use crate::client::async_client::ClientStreamXfr;
 #[cfg(feature = "dnssec")]
 use crate::client::AsyncDnssecClient;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle};
@@ -30,9 +32,10 @@ use crate::proto::{
 use crate::rr::dnssec::Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
+use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
-use super::ClientResponse;
+use super::ClientStreamingResponse;
 
 #[allow(clippy::type_complexity)]
 pub(crate) type NewFutureObj<H> = Pin<
@@ -64,9 +67,10 @@ pub(crate) type NewFutureObj<H> = Pin<
 /// *note* When upgrading from previous usage, both `SyncClient` and `SyncDnssecClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
+#[allow(unreachable_code)]
 pub trait Client {
-    /// The result future that will resolve into a DnsResponse
-    type Response: Future<Output = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    /// The result stream that will resolve into a DnsResponse
+    type Response: Stream<Item = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
     /// The AsyncClient type used
     type Handle: DnsHandle<Response = Self::Response, Error = ProtoError> + 'static + Send + Unpin;
 
@@ -95,9 +99,12 @@ pub trait Client {
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         &self,
         msg: R,
-    ) -> ClientResult<DnsResponse> {
-        let (mut client, runtime) = self.spawn_client()?;
-        runtime.block_on(ClientResponse(client.send(msg)))
+    ) -> Vec<ClientResult<DnsResponse>> {
+        let (mut client, runtime) = match self.spawn_client() {
+            Ok(c_r) => c_r,
+            Err(e) => return vec![Err(e)],
+        };
+        runtime.block_on(ClientStreamingResponse(client.send(msg)).collect::<Vec<_>>())
     }
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
@@ -404,6 +411,26 @@ pub trait Client {
 
         runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
     }
+
+    /// Download all records from a zone, or all records modified since given SOA was observed.
+    /// The request will either be a AXFR Query (ask for full zone transfer) if a SOA was not
+    /// provided, or a IXFR Query (incremental zone transfer) if a SOA was provided.
+    ///
+    /// # Arguments
+    /// * `zone_origin` - the zone name to update, i.e. SOA name
+    /// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
+    fn zone_transfer(
+        &self,
+        name: &Name,
+        last_soa: Option<SOA>,
+    ) -> ClientResult<BlockingStream<ClientStreamXfr<<Self as Client>::Response>>> {
+        let (mut client, runtime) = self.spawn_client()?;
+
+        Ok(BlockingStream {
+            inner: client.zone_transfer(name.clone(), last_soa),
+            runtime,
+        })
+    }
 }
 
 /// The Client is abstracted over either trust_dns_client::tcp::TcpClientConnection or
@@ -460,6 +487,24 @@ impl<CC: ClientConnection> Client for SyncClient<CC> {
     }
 }
 
+/// An iterator based on a `Stream` of dns response.
+/// Calling `next` on this iterator is a blocking operation.
+pub struct BlockingStream<T> {
+    inner: T,
+    runtime: Runtime,
+}
+
+impl<T, R> Iterator for BlockingStream<T>
+where
+    T: Stream<Item = R> + Unpin,
+    R: Into<ClientResult<DnsResponse>>,
+{
+    type Item = ClientResult<DnsResponse>;
+    fn next(&mut self) -> Option<Self::Item> {
+        self.runtime.block_on(self.inner.next()).map(Into::into)
+    }
+}
+
 /// A DNS client which will validate DNSSec records upon receipt
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
@@ -488,8 +533,7 @@ impl<CC: ClientConnection> SyncDnssecClient<CC> {
 
 #[cfg(feature = "dnssec")]
 impl<CC: ClientConnection> Client for SyncDnssecClient<CC> {
-    type Response =
-        Pin<Box<(dyn Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
+    type Response = Pin<Box<(dyn Stream<Item = Result<DnsResponse, ProtoError>> + Send + 'static)>>;
     type Handle = AsyncDnssecClient;
 
     #[allow(clippy::type_complexity)]

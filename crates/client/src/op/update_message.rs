@@ -11,7 +11,7 @@ use std::fmt::Debug;
 
 use crate::client::async_client::MAX_PAYLOAD_LEN;
 use crate::op::{Message, MessageType, OpCode, Query};
-use crate::rr::rdata::NULL;
+use crate::rr::rdata::{NULL, SOA};
 use crate::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -159,7 +159,7 @@ impl UpdateMessage for Message {
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-pub fn create(rrset: RecordSet, zone_origin: Name) -> Message {
+pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     // TODO: assert non-empty rrset?
     assert!(zone_origin.zone_of(rrset.name()));
 
@@ -184,7 +184,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name) -> Message {
     message.add_updates(rrset);
 
     // Extended dns
-    {
+    if use_edns {
         let edns = message.edns_mut();
         edns.set_max_payload(MAX_PAYLOAD_LEN);
         edns.set_version(0);
@@ -227,7 +227,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name) -> Message {
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool) -> Message {
+pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
@@ -254,7 +254,7 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool) -> Message 
     message.add_updates(rrset);
 
     // Extended dns
-    {
+    if use_edns {
         let edns = message.edns_mut();
         edns.set_max_payload(MAX_PAYLOAD_LEN);
         edns.set_version(0);
@@ -304,7 +304,12 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool) -> Message 
 /// * `zone_origin` - the zone name to update, i.e. SOA name
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-pub fn compare_and_swap(current: RecordSet, new: RecordSet, zone_origin: Name) -> Message {
+pub fn compare_and_swap(
+    current: RecordSet,
+    new: RecordSet,
+    zone_origin: Name,
+    use_edns: bool,
+) -> Message {
     assert!(zone_origin.zone_of(current.name()));
     assert!(zone_origin.zone_of(new.name()));
 
@@ -340,7 +345,7 @@ pub fn compare_and_swap(current: RecordSet, new: RecordSet, zone_origin: Name) -
     message.add_updates(new);
 
     // Extended dns
-    {
+    if use_edns {
         let edns = message.edns_mut();
         edns.set_max_payload(MAX_PAYLOAD_LEN);
         edns.set_version(0);
@@ -385,7 +390,7 @@ pub fn compare_and_swap(current: RecordSet, new: RecordSet, zone_origin: Name) -
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name) -> Message {
+pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(rrset.name()));
 
     // for updates, the query section is used for the zone
@@ -410,7 +415,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name) -> Message {
     message.add_updates(rrset);
 
     // Extended dns
-    {
+    if use_edns {
         let edns = message.edns_mut();
         edns.set_max_payload(MAX_PAYLOAD_LEN);
         edns.set_version(0);
@@ -453,7 +458,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name) -> Message {
 ///
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
 /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
+pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Message {
     assert!(zone_origin.zone_of(record.name()));
 
     // for updates, the query section is used for the zone
@@ -480,7 +485,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
     message.add_update(record);
 
     // Extended dns
-    {
+    if use_edns {
         let edns = message.edns_mut();
         edns.set_max_payload(MAX_PAYLOAD_LEN);
         edns.set_version(0);
@@ -513,7 +518,12 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name) -> Message {
 /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
 /// operation attempts to delete all resource record sets the specified name regardless of
 /// the record type.
-pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass) -> Message {
+pub fn delete_all(
+    name_of_records: Name,
+    zone_origin: Name,
+    dns_class: DNSClass,
+    use_edns: bool,
+) -> Message {
     assert!(zone_origin.zone_of(&name_of_records));
 
     // for updates, the query section is used for the zone
@@ -540,6 +550,51 @@ pub fn delete_all(name_of_records: Name, zone_origin: Name, dns_class: DNSClass)
     record.set_dns_class(DNSClass::ANY);
 
     message.add_update(record);
+
+    // Extended dns
+    if use_edns {
+        let edns = message.edns_mut();
+        edns.set_max_payload(MAX_PAYLOAD_LEN);
+        edns.set_version(0);
+    }
+
+    message
+}
+
+// not an update per-se, but it fits nicely with other functions here
+/// Download all records from a zone, or all records modified since given SOA was observed.
+/// The request will either be a AXFR Query (ask for full zone transfer) if a SOA was not
+/// provided, or a IXFR Query (incremental zone transfer) if a SOA was provided.
+///
+/// # Arguments
+/// * `zone_origin` - the zone name to update, i.e. SOA name
+/// * `last_soa` - the last SOA known, if any. If provided, name must match `zone_origin`
+pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
+    if let Some(ref soa) = last_soa {
+        assert_eq!(zone_origin, *soa.mname());
+    }
+
+    let mut zone: Query = Query::new();
+    zone.set_name(zone_origin).set_query_class(DNSClass::IN);
+    if last_soa.is_some() {
+        zone.set_query_type(RecordType::IXFR);
+    } else {
+        zone.set_query_type(RecordType::AXFR);
+    }
+
+    // build the message
+    let mut message: Message = Message::new();
+    message
+        .set_id(rand::random())
+        .set_message_type(MessageType::Query)
+        .set_recursion_desired(false);
+    message.add_zone(zone);
+
+    if let Some(soa) = last_soa {
+        // for IXFR, old SOA is put as authority to indicate last known version
+        let record = Record::from_rdata(soa.mname().clone(), 0, RData::SOA(soa));
+        message.add_name_server(record);
+    }
 
     // Extended dns
     {

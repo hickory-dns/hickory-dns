@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-server"
-version = "0.20.1"
+version = "0.21.0-alpha.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -83,7 +83,7 @@ h2 = { version = "0.3.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-rusqlite = { version = "0.24.0", features = ["bundled", "chrono"], optional = true }
+rusqlite = { version = "0.25.3", features = ["bundled", "chrono"], optional = true }
 rustls = { version = "0.19", optional = true }
 serde = { version = "1.0.114", features = ["derive"] }
 thiserror = "1.0.20"
@@ -91,9 +91,9 @@ tokio = { version = "1.0", features = ["net"] }
 tokio-openssl = { version = "0.6.0", optional = true }
 tokio-rustls = { version = "0.22", optional = true }
 toml = "0.5"
-trust-dns-client= { version = "0.20.1", path = "../client" }
-trust-dns-proto = { version = "0.20.1", path = "../proto" }
-trust-dns-resolver = { version = "0.20.1", path = "../resolver", features = ["serde-config"], optional = true }
+trust-dns-client= { version = "0.21.0-alpha.1", path = "../client" }
+trust-dns-proto = { version = "0.21.0-alpha.1", path = "../proto" }
+trust-dns-resolver = { version = "0.21.0-alpha.1", path = "../resolver", features = ["serde-config"], optional = true }
 
 [package.metadata.docs.rs]
 all-features = true

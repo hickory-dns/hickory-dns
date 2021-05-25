@@ -21,11 +21,11 @@ use proto::error::ProtoError;
 use proto::op::{Query, ResponseCode};
 use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
-    LOCALHOST as LOCALHOST_usage,
+    LOCALHOST as LOCALHOST_usage, ONION,
 };
 use proto::rr::rdata::SOA;
 use proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
+use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer};
 
 use crate::dns_lru;
 use crate::dns_lru::DnsLru;
@@ -128,6 +128,7 @@ where
                 n if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
                 n if INVALID.zone_of(n) => &*INVALID,
                 n if LOCAL.zone_of(n) => &*LOCAL,
+                n if ONION.zone_of(n) => &*ONION,
                 _ => &*DEFAULT,
             };
 
@@ -178,6 +179,7 @@ where
         let response_message = client
             .client
             .lookup(query.clone(), options)
+            .first_answer()
             .await
             .map_err(E::into);
 
@@ -207,8 +209,8 @@ where
                 Err(Self::handle_nxdomain(
                     is_dnssec,
                     false, /*tbd*/
-                    query,
-                    soa,
+                    *query,
+                    soa.map(|v| *v),
                     negative_ttl,
                     response_code,
                     trusted,
@@ -275,8 +277,8 @@ where
         if valid_nsec || !is_dnssec {
             // only trust if there were validated NSEC records
             ResolveErrorKind::NoRecordsFound {
-                query,
-                soa,
+                query: Box::new(query),
+                soa: soa.map(Box::new),
                 negative_ttl,
                 response_code,
                 trusted: true,
@@ -285,8 +287,8 @@ where
         } else {
             // not cacheable, no ttl...
             ResolveErrorKind::NoRecordsFound {
-                query,
-                soa,
+                query: Box::new(query),
+                soa: soa.map(Box::new),
                 negative_ttl: None,
                 response_code,
                 trusted,
@@ -517,7 +519,7 @@ mod tests {
         .unwrap_err()
         .kind()
         {
-            assert_eq!(*query, Query::new());
+            assert_eq!(**query, Query::new());
             assert_eq!(*negative_ttl, None);
         } else {
             panic!("wrong error received")

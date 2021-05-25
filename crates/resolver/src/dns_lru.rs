@@ -373,7 +373,7 @@ mod tests {
 
         // neg response should have TTL of 1 seconds.
         let err = ResolveErrorKind::NoRecordsFound {
-            query: name.clone(),
+            query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(1),
             response_code: ResponseCode::NoError,
@@ -391,7 +391,7 @@ mod tests {
 
         // neg response should have TTL of 3 seconds.
         let err = ResolveErrorKind::NoRecordsFound {
-            query: name.clone(),
+            query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(3),
             response_code: ResponseCode::NoError,
@@ -463,7 +463,7 @@ mod tests {
 
         // neg response should have TTL of 62 seconds.
         let err = ResolveErrorKind::NoRecordsFound {
-            query: name.clone(),
+            query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(62),
             response_code: ResponseCode::NoError,
@@ -481,7 +481,7 @@ mod tests {
 
         // neg response should have TTL of 59 seconds.
         let err = ResolveErrorKind::NoRecordsFound {
-            query: name.clone(),
+            query: Box::new(name.clone()),
             soa: None,
             negative_ttl: Some(59),
             response_code: ResponseCode::NoError,
