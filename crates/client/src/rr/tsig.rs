@@ -8,7 +8,7 @@
 //! tsigner is a structure for computing tsig messasignuthentication code for dns transactions
 use crate::proto::error::{ProtoError, ProtoResult};
 use crate::proto::rr::rdata::tsig::{
-    make_tsig_record, message_tbs, signed_bitmessage_to_buf, Algorithm, TSIG,
+    make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
 };
 use std::ops::Range;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ pub struct TSigner(Arc<TSignerInner>);
 
 struct TSignerInner {
     key: Vec<u8>, // TODO this might want to be some sort of auto-zeroing on drop buffer, as it's cryptographic matterial
-    algorithm: Algorithm,
+    algorithm: TsigAlgorithm,
     signer_name: Name,
     fudge: u16,
 }
@@ -38,7 +38,7 @@ impl TSigner {
     /// * `fudge` - maximum difference between client and server time, in seconds, see [fudge](TSigner::fudge) for details
     pub fn new(
         key: Vec<u8>,
-        algorithm: Algorithm,
+        algorithm: TsigAlgorithm,
         signer_name: Name,
         fudge: u16,
     ) -> ProtoResult<Self> {
@@ -60,7 +60,7 @@ impl TSigner {
     }
 
     /// Return the algorithm used for message authentication
-    pub fn algorithm(&self) -> &Algorithm {
+    pub fn algorithm(&self) -> &TsigAlgorithm {
         &self.0.algorithm
     }
 
@@ -225,7 +225,8 @@ mod tests {
         question.add_query(query);
 
         let sig_key = b"some_key".to_vec();
-        let signer = TSigner::new(sig_key, Algorithm::HmacSha512, key_name, fudge as u16).unwrap();
+        let signer =
+            TSigner::new(sig_key, TsigAlgorithm::HmacSha512, key_name, fudge as u16).unwrap();
 
         assert!(question.signature().is_empty());
         question
@@ -254,7 +255,8 @@ mod tests {
         question.add_query(query);
 
         let sig_key = b"some_key".to_vec();
-        let signer = TSigner::new(sig_key, Algorithm::HmacSha512, key_name, fudge as u16).unwrap();
+        let signer =
+            TSigner::new(sig_key, TsigAlgorithm::HmacSha512, key_name, fudge as u16).unwrap();
 
         assert!(question.signature().is_empty());
         question
