@@ -94,7 +94,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 sha2 = "0.9.5"
 smallvec = "1.6"
 socket2 = { version = "0.4.0", optional = true }
-thiserror = "1.0.20"
+thiserror = "1.0.25"
 tinyvec = { version = "1.1.1", features = ["alloc"] }
 tokio = { version = "1.0", features = ["io-util"], optional = true }
 tokio-native-tls = { version = "0.3.0", optional = true }
