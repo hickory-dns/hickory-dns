@@ -22,6 +22,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 - (proto) `Name::append_name` and `Name::append_domain` now properly fallible when name is too long #1448
 - (resolver) special handling of the `onion.` TLD added to static resolution with negative responses (@trinity-1686a) #1479
 - (proto) internal Futures converted to Streams to support multiple responses, e.g. `AXFR` (@trinity-1686a) #1478
+- (proto) renamed `Signer` to `SigSigner` to differentiate from `TSigner` #1498
 
 ### Removed
 
