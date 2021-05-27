@@ -29,11 +29,12 @@ use crate::proto::{
     error::ProtoError,
     xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
 };
+#[cfg(feature = "dnssec")]
+use crate::rr::dnssec::tsig::TSigner;
 use crate::rr::dnssec::Signer as Sig0Signer;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::rdata::SOA;
-use crate::rr::tsig::TSigner;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
 
 use super::ClientStreamingResponse;
@@ -477,6 +478,8 @@ impl<CC: ClientConnection> SyncClient<CC> {
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn with_tsigner(conn: CC, signer: TSigner) -> Self {
         SyncClient {
             conn,

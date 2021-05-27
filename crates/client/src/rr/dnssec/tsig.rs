@@ -7,9 +7,10 @@
 
 //! tsigner is a structure for computing tsig messasignuthentication code for dns transactions
 use crate::proto::error::{ProtoError, ProtoResult};
-use crate::proto::rr::rdata::tsig::{
+use crate::proto::rr::dnssec::rdata::tsig::{
     make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
 };
+use crate::proto::rr::dnssec::rdata::DNSSECRData;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -112,7 +113,7 @@ impl TSigner {
     ) -> ProtoResult<(Vec<u8>, Range<u64>, u64)> {
         let (vec, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
         let signature = self.sign(&vec)?;
-        let tsig = if let RData::TSIG(tsig) = record.rdata() {
+        let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.rdata() {
             tsig
         } else {
             unreachable!("tsig::signed_message_to_buff always returns a TSIG record")
@@ -306,7 +307,7 @@ mod tests {
 
         {
             let mut signature = question.take_signature().remove(0);
-            if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
+            if let RData::DNSSEC(DNSSECRData::TSIG(ref mut tsig)) = signature.rdata_mut() {
                 let mut mac = tsig.mac().to_vec();
                 mac.push(0); // make one longer than sha512
                 std::mem::swap(tsig, &mut tsig.clone().set_mac(mac));
@@ -322,7 +323,7 @@ mod tests {
             .is_err());
         {
             let mut signature = question.take_signature().remove(0);
-            if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
+            if let RData::DNSSEC(DNSSECRData::TSIG(ref mut tsig)) = signature.rdata_mut() {
                 // sha512 is 512 bits, half of that is 256 bits, /8 for byte
                 let mac = tsig.mac()[..256 / 8].to_vec();
                 std::mem::swap(tsig, &mut tsig.clone().set_mac(mac));
@@ -339,7 +340,7 @@ mod tests {
 
         {
             let mut signature = question.take_signature().remove(0);
-            if let RData::TSIG(ref mut tsig) = signature.rdata_mut() {
+            if let RData::DNSSEC(DNSSECRData::TSIG(ref mut tsig)) = signature.rdata_mut() {
                 // less than half of sha512
                 let mac = tsig.mac()[..240 / 8].to_vec();
                 std::mem::swap(tsig, &mut tsig.clone().set_mac(mac));

@@ -19,7 +19,7 @@ use log::{trace, warn};
 use super::domain::Name;
 use super::rdata;
 use super::rdata::{
-    CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TSIG, TXT,
+    CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
 };
 use super::record_type::RecordType;
 use crate::error::*;
@@ -631,120 +631,6 @@ pub enum RData {
     /// ```
     TLSA(TLSA),
 
-    /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.2)
-    ///
-    /// ```text
-    /// 4.2.  TSIG Record Format
-    ///
-    ///   The fields of the TSIG RR are described below.  All multi-octet
-    ///   integers in the record are sent in network byte order (see
-    ///   Section 2.3.2 of [RFC1035]).
-    ///
-    ///   NAME:  The name of the key used, in domain name syntax.  The name
-    ///      should reflect the names of the hosts and uniquely identify the
-    ///      key among a set of keys these two hosts may share at any given
-    ///      time.  For example, if hosts A.site.example and B.example.net
-    ///      share a key, possibilities for the key name include
-    ///      <id>.A.site.example, <id>.B.example.net, and
-    ///      <id>.A.site.example.B.example.net.  It should be possible for more
-    ///      than one key to be in simultaneous use among a set of interacting
-    ///      hosts.  This allows for periodic key rotation as per best
-    ///      operational practices, as well as algorithm agility as indicated
-    ///      by [RFC7696].
-    ///
-    ///      The name may be used as a local index to the key involved, but it
-    ///      is recommended that it be globally unique.  Where a key is just
-    ///      shared between two hosts, its name actually need only be
-    ///      meaningful to them, but it is recommended that the key name be
-    ///      mnemonic and incorporate the names of participating agents or
-    ///      resources as suggested above.
-    ///
-    ///   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
-    ///
-    ///   CLASS:  This MUST be ANY.
-    ///
-    ///   TTL:  This MUST be 0.
-    ///
-    ///   RDLENGTH:  (variable)
-    ///
-    ///   RDATA:  The RDATA for a TSIG RR consists of a number of fields,
-    ///      described below:
-    ///
-    ///                            1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-    ///        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///       /                         Algorithm Name                        /
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///       |                                                               |
-    ///       |          Time Signed          +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///       |                               |            Fudge              |
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///       |          MAC Size             |                               /
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+             MAC               /
-    ///       /                                                               /
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///       |          Original ID          |            Error              |
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///       |          Other Len            |                               /
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+           Other Data          /
-    ///       /                                                               /
-    ///       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-    ///
-    ///   The contents of the RDATA fields are:
-    ///
-    ///   Algorithm Name:
-    ///      an octet sequence identifying the TSIG algorithm in the domain
-    ///      name syntax.  (Allowed names are listed in Table 3.)  The name is
-    ///      stored in the DNS name wire format as described in [RFC1034].  As
-    ///      per [RFC3597], this name MUST NOT be compressed.
-    ///
-    ///   Time Signed:
-    ///      an unsigned 48-bit integer containing the time the message was
-    ///      signed as seconds since 00:00 on 1970-01-01 UTC, ignoring leap
-    ///      seconds.
-    ///
-    ///   Fudge:
-    ///      an unsigned 16-bit integer specifying the allowed time difference
-    ///      in seconds permitted in the Time Signed field.
-    ///
-    ///   MAC Size:
-    ///      an unsigned 16-bit integer giving the length of the MAC field in
-    ///      octets.  Truncation is indicated by a MAC Size less than the size
-    ///      of the keyed hash produced by the algorithm specified by the
-    ///      Algorithm Name.
-    ///
-    ///   MAC:
-    ///      a sequence of octets whose contents are defined by the TSIG
-    ///      algorithm used, possibly truncated as specified by the MAC Size.
-    ///      The length of this field is given by the MAC Size.  Calculation of
-    ///      the MAC is detailed in Section 4.3.
-    ///
-    ///   Original ID:
-    ///      an unsigned 16-bit integer holding the message ID of the original
-    ///      request message.  For a TSIG RR on a request, it is set equal to
-    ///      the DNS message ID.  In a TSIG attached to a response -- or in
-    ///      cases such as the forwarding of a dynamic update request -- the
-    ///      field contains the ID of the original DNS request.
-    ///
-    ///   Error:
-    ///      in responses, an unsigned 16-bit integer containing the extended
-    ///      RCODE covering TSIG processing.  In requests, this MUST be zero.
-    ///
-    ///   Other Len:
-    ///      an unsigned 16-bit integer specifying the length of the Other Data
-    ///      field in octets.
-    ///
-    ///   Other Data:
-    ///      additional data relevant to the TSIG record.  In responses, this
-    ///      will be empty (i.e., Other Len will be zero) unless the content of
-    ///      the Error field is BADTIME, in which case it will be a 48-bit
-    ///      unsigned integer containing the server's current time as the
-    ///      number of seconds since 00:00 on 1970-01-01 UTC, ignoring leap
-    ///      seconds (see Section 5.2.3).  This document assigns no meaning to
-    ///      its contents in requests.
-    /// ```
-    TSIG(TSIG),
-
     /// ```text
     /// 3.3.14. TXT RDATA format
     ///
@@ -885,10 +771,6 @@ impl RData {
                 trace!("reading TLSA");
                 rdata::tlsa::read(decoder, rdata_length).map(RData::TLSA)
             }
-            RecordType::TSIG => {
-                trace!("reading TSIG");
-                rdata::tsig::read(decoder, rdata_length).map(RData::TSIG)
-            }
             RecordType::TXT => {
                 trace!("reading TXT");
                 rdata::txt::read(decoder, rdata_length).map(RData::TXT)
@@ -1025,7 +907,6 @@ impl RData {
             RData::TLSA(ref tlsa) => {
                 encoder.with_canonical_names(|encoder| rdata::tlsa::emit(encoder, tlsa))
             }
-            RData::TSIG(ref tsig) => rdata::tsig::emit(encoder, tsig),
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
@@ -1055,7 +936,6 @@ impl RData {
             RData::SSHFP(..) => RecordType::SSHFP,
             RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
-            RData::TSIG(..) => RecordType::TSIG,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
@@ -1104,7 +984,6 @@ impl fmt::Display for RData {
             RData::SSHFP(ref sshfp) => w(f, sshfp),
             RData::SVCB(ref svcb) => w(f, svcb),
             RData::TLSA(ref tlsa) => w(f, tlsa),
-            RData::TSIG(ref tsig) => w(f, tsig),
             RData::TXT(ref txt) => w(f, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => w(f, rdata),
@@ -1349,7 +1228,6 @@ mod tests {
             RData::SSHFP(..) => RecordType::SSHFP,
             RData::SVCB(..) => RecordType::SVCB,
             RData::TLSA(..) => RecordType::TLSA,
-            RData::TSIG(..) => RecordType::TSIG,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),

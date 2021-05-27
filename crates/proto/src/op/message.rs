@@ -342,8 +342,10 @@ impl Message {
     /// Add a TSIG record, i.e. authenticate this message
     ///
     /// This must be used only after all records have been associated. Generally this will be handled by the client and not need to be used directly
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_tsig(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::TSIG, record.rr_type());
+        assert_eq!(RecordType::DNSSEC(DNSSECRecordType::TSIG), record.rr_type());
         self.signature.push(record);
         self
     }
@@ -655,7 +657,8 @@ impl Message {
                         saw_sig0 = true;
                         sigs.push(record);
                     }
-                    RecordType::TSIG => {
+                    #[cfg(feature = "dnssec")]
+                    RecordType::DNSSEC(DNSSECRecordType::TSIG) => {
                         if saw_sig0 {
                             return Err("sig0 must be final resource record".into());
                         } // SIG0 must be last
@@ -723,7 +726,8 @@ impl Message {
                 // SIG0's are special, and come at the very end of the message
                 #[cfg(feature = "dnssec")]
                 RecordType::DNSSEC(DNSSECRecordType::SIG) => self.add_sig0(fin),
-                RecordType::TSIG => self.add_tsig(fin),
+                #[cfg(feature = "dnssec")]
+                RecordType::DNSSEC(DNSSECRecordType::TSIG) => self.add_tsig(fin),
                 _ => self.add_additional(fin),
             };
         }

@@ -9,11 +9,12 @@
 use std::convert::TryInto;
 use std::fmt;
 
-use super::sshfp;
+use crate::rr::rdata::sshfp;
 
 use crate::error::*;
 use crate::op::{Header, Message, Query};
 use crate::rr::dns_class::DNSClass;
+use crate::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};
 use crate::rr::record_data::RData;
 use crate::rr::record_type::RecordType;
 use crate::rr::{Name, Record};
@@ -614,7 +615,11 @@ pub fn signed_bitmessage_to_buf(
 
     // parse a tsig record
     let sig = Record::read(&mut decoder)?;
-    let tsig = if let (RecordType::TSIG, RData::TSIG(tsig_data)) = (sig.rr_type(), sig.rdata()) {
+    let tsig = if let (
+        RecordType::DNSSEC(DNSSECRecordType::TSIG),
+        RData::DNSSEC(DNSSECRData::TSIG(tsig_data)),
+    ) = (sig.rr_type(), sig.rdata())
+    {
         tsig_data
     } else {
         return Err(ProtoError::from("signature is not tsig"));
@@ -656,12 +661,12 @@ pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
     //   NAME:  The name of the key used, in domain name syntax
     tsig.set_name(name)
         //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
-        .set_record_type(RecordType::TSIG)
+        .set_record_type(DNSSECRecordType::TSIG.into())
         //   CLASS:  This MUST be ANY.
         .set_dns_class(DNSClass::ANY)
         //   TTL:  This MUST be 0.
         .set_ttl(0)
-        .set_rdata(RData::TSIG(rdata));
+        .set_rdata(DNSSECRData::TSIG(rdata).into());
     tsig
 }
 
