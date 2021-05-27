@@ -90,8 +90,6 @@ pub enum RecordType {
     //  TKEY,       // 249 RFC 2930 Secret key record
     /// [RFC 6698](https://tools.ietf.org/html/rfc6698) TLSA certificate association
     TLSA,
-    /// [RFC 8945](https://tools.ietf.org/html/rfc8945) Transaction Signature
-    TSIG,
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Text record
     TXT,
 
@@ -182,14 +180,12 @@ impl FromStr for RecordType {
             "SSHFP" => Ok(RecordType::SSHFP),
             "SVCB" => Ok(RecordType::SVCB),
             "TLSA" => Ok(RecordType::TLSA),
-            "TSIG" => Ok(RecordType::TSIG),
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
             #[cfg(feature = "dnssec")]
-            "DNSKEY" | "DS" | "KEY" | "NSEC" | "NSEC3" | "NSEC3PARAM" | "RRSIG" | "SIG" => {
-                Ok(RecordType::DNSSEC(str.parse()?))
-            }
+            "DNSKEY" | "DS" | "KEY" | "NSEC" | "NSEC3" | "NSEC3PARAM" | "RRSIG" | "SIG"
+            | "TSIG" => Ok(RecordType::DNSSEC(str.parse()?)),
             _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
         }
     }
@@ -229,7 +225,6 @@ impl From<u16> for RecordType {
             44 => RecordType::SSHFP,
             64 => RecordType::SVCB,
             52 => RecordType::TLSA,
-            250 => RecordType::TSIG,
             16 => RecordType::TXT,
             0 => RecordType::ZERO,
             #[cfg(feature = "dnssec")]
@@ -240,7 +235,8 @@ impl From<u16> for RecordType {
             50/*NSEC3*/|
             51/*NSEC3PARAM*/|
             46/*RRSIG*/|
-            24/*SIG*/ => RecordType::DNSSEC(DNSSECRecordType::from(value)),
+            24/*SIG*/|
+            250/*TSIG*/ => RecordType::DNSSEC(DNSSECRecordType::from(value)),
             // all unknown record types
             _ => RecordType::Unknown(value),
         }
@@ -304,7 +300,6 @@ impl From<RecordType> for &'static str {
             RecordType::SSHFP => "SSHFP",
             RecordType::SVCB => "SVCB",
             RecordType::TLSA => "TLSA",
-            RecordType::TSIG => "TSIG",
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
@@ -349,7 +344,6 @@ impl From<RecordType> for u16 {
             RecordType::SSHFP => 44,
             RecordType::SVCB => 64,
             RecordType::TLSA => 52,
-            RecordType::TSIG => 250,
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
@@ -448,7 +442,6 @@ mod tests {
             "SRV",
             "SSHFP",
             "TLSA",
-            "TSIG",
             "TXT",
             "ANY",
             "AXFR",
@@ -464,6 +457,7 @@ mod tests {
             "NSEC3PARAM",
             "RRSIG",
             "SIG",
+            "TSIG",
         ];
         #[cfg(not(feature = "dnssec"))]
         let dnssec_record_names = &[];

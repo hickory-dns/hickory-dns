@@ -19,8 +19,10 @@ use std::sync::Arc;
 use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
 
 use crate::op::{MessageFinalizer, MessageVerifier};
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+use crate::rr::dnssec::tsig::TSigner;
 use crate::rr::dnssec::Signer as Sig0Signer;
-use crate::rr::tsig::TSigner;
 
 use crate::proto::error::ProtoResult;
 use crate::proto::op::Message;
@@ -31,6 +33,8 @@ pub enum Signer {
     /// A Sig0 based signer
     Sig0(Sig0Signer),
     /// A TSIG based signer
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     TSIG(TSigner),
 }
 
@@ -40,6 +44,8 @@ impl From<Sig0Signer> for Signer {
     }
 }
 
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl From<TSigner> for Signer {
     fn from(s: TSigner) -> Self {
         Signer::TSIG(s)
@@ -54,6 +60,8 @@ impl MessageFinalizer for Signer {
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         match self {
             Signer::Sig0(s0) => s0.finalize_message(message, time),
+            #[cfg(feature = "dnssec")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
             Signer::TSIG(tsig) => tsig.finalize_message(message, time),
         }
     }
