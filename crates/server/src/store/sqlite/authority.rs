@@ -16,7 +16,7 @@ use std::sync::Arc;
 use log::{error, info, warn};
 
 use crate::client::op::LowerQuery;
-use crate::client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::{LowerName, RrKey};
 use crate::proto::op::ResponseCode;
 use crate::proto::rr::dnssec::rdata::key::KEY;
@@ -984,7 +984,7 @@ impl Authority for SqliteAuthority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         self.in_memory.add_zone_signing_key(signer)
     }
 

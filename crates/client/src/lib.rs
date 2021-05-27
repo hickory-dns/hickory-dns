@@ -151,7 +151,7 @@
 //! # use trust_dns_client::udp::UdpClientConnection;
 //! use trust_dns_client::client::SyncClient;
 //! use trust_dns_client::rr::{Name, RData, Record, RecordType};
-//! use trust_dns_client::rr::dnssec::{Algorithm, Signer, KeyPair};
+//! use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, KeyPair};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
 //!
@@ -184,7 +184,7 @@
 //!
 //! // Create the Trust-DNS SIG(0) signing facility. Generally the signer_name is the label
 //! //  associated with KEY record in the server.
-//! let signer = Signer::sig0(sig0key,
+//! let signer = SigSigner::sig0(sig0key,
 //!                           key,
 //!                           Name::from_str("update.example.com.").unwrap());
 //!

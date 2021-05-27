@@ -17,7 +17,7 @@ use log::debug;
 
 use crate::client::op::LowerQuery;
 use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::{LowerName, Name, Record, RecordType};
 
 use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
@@ -140,7 +140,7 @@ pub trait AuthorityObject: Send + Sync {
     }
 
     /// Add Signer
-    fn add_zone_signing_key(&self, _signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&self, _signer: SigSigner) -> DnsSecResult<()> {
         Err(DnsSecError::from(
             "zone signing not supported by this Authority type",
         ))
@@ -259,7 +259,7 @@ where
         Authority::add_update_auth_key(&mut *self.write().expect("poisoned"), name, key)
     }
 
-    fn add_zone_signing_key(&self, signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
         Authority::add_zone_signing_key(&mut *self.write().expect("poisoned"), signer)
     }
 

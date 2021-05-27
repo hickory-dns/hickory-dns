@@ -22,7 +22,9 @@ use crate::op::{MessageFinalizer, MessageVerifier};
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use crate::rr::dnssec::tsig::TSigner;
-use crate::rr::dnssec::Signer as Sig0Signer;
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+use crate::rr::dnssec::SigSigner;
 
 use crate::proto::error::ProtoResult;
 use crate::proto::op::Message;
@@ -31,15 +33,17 @@ use crate::proto::rr::Record;
 /// List of currently supported signers
 pub enum Signer {
     /// A Sig0 based signer
-    Sig0(Sig0Signer),
+    Sig0(SigSigner),
     /// A TSIG based signer
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     TSIG(TSigner),
 }
 
-impl From<Sig0Signer> for Signer {
-    fn from(s: Sig0Signer) -> Self {
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+impl From<SigSigner> for Signer {
+    fn from(s: SigSigner) -> Self {
         Signer::Sig0(s)
     }
 }
@@ -59,6 +63,8 @@ impl MessageFinalizer for Signer {
         time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
         match self {
+            #[cfg(feature = "dnssec")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
             Signer::Sig0(s0) => s0.finalize_message(message, time),
             #[cfg(feature = "dnssec")]
             #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]

@@ -11,7 +11,7 @@ use std::pin::Pin;
 
 use crate::client::op::LowerQuery;
 use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::{LowerName, Name, RecordType};
 
 use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
@@ -140,7 +140,7 @@ pub trait Authority: Send {
     }
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, _signer: SigSigner) -> DnsSecResult<()> {
         Err(DnsSecError::from(
             "zone signing not supported by this Authority type",
         ))

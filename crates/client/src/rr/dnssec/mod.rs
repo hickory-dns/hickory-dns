@@ -41,7 +41,7 @@ pub use self::dnssec::TBS;
 #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
-pub use self::signer::Signer;
+pub use self::signer::SigSigner;
 
 pub use crate::error::DnsSecError;
 pub use crate::error::DnsSecErrorKind;

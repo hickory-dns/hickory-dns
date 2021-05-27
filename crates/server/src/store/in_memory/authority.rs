@@ -17,7 +17,7 @@ use futures_util::future::{self, TryFutureExt};
 use log::{debug, error};
 
 use crate::client::op::{LowerQuery, ResponseCode};
-use crate::client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::rdata::key::KEY;
 #[cfg(feature = "dnssec")]
 use crate::client::rr::rdata::DNSSECRData;
@@ -45,7 +45,7 @@ pub struct InMemoryAuthority {
     //   server instance, but that requires requesting updates from the parent zone, which may or
     //   may not support dynamic updates to register the new key... Trust-DNS will provide support
     //   for this, in some form, perhaps alternate root zones...
-    secure_keys: Vec<Signer>,
+    secure_keys: Vec<SigSigner>,
 }
 
 impl InMemoryAuthority {
@@ -133,7 +133,7 @@ impl InMemoryAuthority {
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
-    pub fn secure_keys(&self) -> &[Signer] {
+    pub fn secure_keys(&self) -> &[SigSigner] {
         &self.secure_keys
     }
 
@@ -1162,7 +1162,7 @@ impl Authority for InMemoryAuthority {
 
     /// This will fail, the dnssec feature must be enabled
     #[cfg(not(feature = "dnssec"))]
-    fn add_zone_signing_key(&mut self, _signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, _signer: SigSigner) -> DnsSecResult<()> {
         Err("DNSSEC was not enabled during compilation.".into())
     }
 

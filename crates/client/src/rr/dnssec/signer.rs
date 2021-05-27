@@ -34,7 +34,7 @@ use crate::rr::{DNSClass, Name, RecordType};
 #[cfg(feature = "dnssec")]
 use crate::serialize::binary::BinEncoder;
 
-/// Use for performing signing and validation of DNSSec based components.
+/// Use for performing signing and validation of DNSSec based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
 ///
@@ -237,7 +237,7 @@ use crate::serialize::binary::BinEncoder;
 /// ```
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
-pub struct Signer {
+pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
     key: KeyPair<Private>,
@@ -250,11 +250,11 @@ pub struct Signer {
 /// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
 #[derive(Clone, Copy)]
-pub struct Signer;
+pub struct SigSigner;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
-impl Signer {
+impl SigSigner {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     ///
     /// # Arguments
@@ -273,7 +273,7 @@ impl Signer {
         let algorithm = key_rdata.algorithm();
         let is_zone_signing_key = key_rdata.zone_key();
 
-        Signer {
+        Self {
             key_rdata: key_rdata.into(),
             key,
             algorithm,
@@ -294,7 +294,7 @@ impl Signer {
     pub fn sig0(key_rdata: KEY, key: KeyPair<Private>, signer_name: Name) -> Self {
         let algorithm = key_rdata.algorithm();
 
-        Signer {
+        Self {
             key_rdata: key_rdata.into(),
             key,
             algorithm,
@@ -318,7 +318,7 @@ impl Signer {
             .to_dnskey(algorithm)
             .expect("something went wrong, use one of the SIG0 or DNSSec constructors");
 
-        Signer {
+        Self {
             key_rdata: dnskey.into(),
             key,
             algorithm,
@@ -517,7 +517,7 @@ impl Signer {
     }
 }
 
-impl MessageFinalizer for Signer {
+impl MessageFinalizer for SigSigner {
     #[cfg(any(feature = "openssl", feature = "ring"))]
     fn finalize_message(
         &self,
@@ -603,10 +603,10 @@ mod tests {
 
     #[test]
     fn test_send_and_sync() {
-        assert_send_and_sync::<Signer>();
+        assert_send_and_sync::<SigSigner>();
     }
 
-    fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
+    fn pre_sig0(signer: &SigSigner, inception_time: u32, expiration_time: u32) -> SIG {
         SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::ZERO,
@@ -637,7 +637,7 @@ mod tests {
         let rsa = Rsa::generate(2048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-        let signer = Signer::sig0(sig0key.clone(), key, Name::root());
+        let signer = SigSigner::sig0(sig0key.clone(), key, Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
@@ -668,7 +668,7 @@ mod tests {
         let sig0key = key
             .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
             .unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root());
+        let signer = SigSigner::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let rrsig = Record::new()
@@ -752,7 +752,7 @@ mod tests {
             let sig0key = key
                 .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
                 .unwrap();
-            let signer = Signer::sig0(sig0key, key, Name::root());
+            let signer = SigSigner::sig0(sig0key, key, Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
 
             assert_eq!(key_tag, exp_result);
@@ -775,7 +775,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         let sig0key = key
             .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
             .unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root());
+        let signer = SigSigner::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
         assert_eq!(key_tag, 28551);
@@ -798,7 +798,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
             let rsa = Rsa::generate(2048).unwrap();
             let key = KeyPair::from_rsa(rsa).unwrap();
             let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-            let signer = Signer::sig0(sig0key, key, Name::root());
+            let signer = SigSigner::sig0(sig0key, key, Name::root());
 
             let origin: Name = Name::parse("example.com.", None).unwrap();
             let rrsig = Record::new()
