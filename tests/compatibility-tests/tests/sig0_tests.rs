@@ -21,7 +21,7 @@ use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
 #[cfg(not(feature = "none"))]
 use trust_dns_client::op::ResponseCode;
-use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, SigSigner};
 use trust_dns_client::rr::rdata::key::{KeyUsage, KEY};
 use trust_dns_client::rr::Name;
 #[cfg(not(feature = "none"))]
@@ -82,7 +82,7 @@ where
         key.to_public_bytes().unwrap(),
     );
 
-    let signer = Signer::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());
+    let signer = SigSigner::sig0(sig0key, key, Name::from_str("update.example.com").unwrap());
 
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
 

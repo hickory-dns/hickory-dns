@@ -20,7 +20,7 @@ use log::{debug, info};
 use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
 use crate::client::op::LowerQuery;
 use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecResult, Signer, SupportedAlgorithms};
+use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
 use crate::client::serialize::txt::{Lexer, Parser, Token};
 use crate::store::file::FileConfig;
@@ -343,7 +343,7 @@ impl Authority for FileAuthority {
     }
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         self.0.add_zone_signing_key(signer)
     }
 

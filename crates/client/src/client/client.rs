@@ -31,7 +31,7 @@ use crate::proto::{
 };
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::tsig::TSigner;
-use crate::rr::dnssec::Signer as Sig0Signer;
+use crate::rr::dnssec::SigSigner;
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::TrustAnchor;
 use crate::rr::rdata::SOA;
@@ -463,7 +463,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
-    pub fn with_signer(conn: CC, signer: Sig0Signer) -> Self {
+    pub fn with_signer(conn: CC, signer: SigSigner) -> Self {
         SyncClient {
             conn,
             signer: Some(Arc::new(signer.into())),
