@@ -252,6 +252,10 @@ pub struct SigSigner {
 #[derive(Clone, Copy)]
 pub struct SigSigner;
 
+/// See [`SigSigner`](crate::rr::dnssec::SigSigner)
+#[deprecated(note = "renamed to SigSigner")]
+pub type Signer = SigSigner;
+
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
 impl SigSigner {
