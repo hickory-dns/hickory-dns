@@ -11,6 +11,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (client) new `zone_transfer` method for `AXFR` and `IXFR` use cases, client only (@trinity-1686a) #1478
 - (client) Flag for `use_edns` configuration on `AsyncClient` (@astro) #1492
+- (client) support for `TSIG` authentication (@trinity-1686a) #1459
 
 ### Changed
 
