@@ -532,7 +532,7 @@ impl InMemoryAuthority {
     #[cfg(feature = "dnssec")]
     fn sign_rrset(
         rr_set: &mut RecordSet,
-        secure_keys: &[Signer],
+        secure_keys: &[SigSigner],
         zone_ttl: u32,
         zone_class: DNSClass,
     ) -> DnsSecResult<()> {
@@ -1143,7 +1143,7 @@ impl Authority for InMemoryAuthority {
     ///
     /// * `signer` - Signer with associated private key
     #[cfg(feature = "dnssec")]
-    fn add_zone_signing_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = self.minimum_ttl();
         let dnskey = signer.key().to_dnskey(signer.algorithm())?;

@@ -199,7 +199,7 @@ pub fn create_secure_example() -> InMemoryAuthority {
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();
-    let signer = Signer::dnssec(
+    let signer = SigSigner::dnssec(
         dnskey,
         key,
         authority.origin().clone().into(),
