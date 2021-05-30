@@ -6,33 +6,21 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use chrono::Duration;
 
-use crate::proto::error::{ProtoErrorKind, ProtoResult};
-#[cfg(feature = "dnssec")]
-use crate::proto::rr::dnssec::{tbs, TBS};
-
-#[cfg(feature = "dnssec")]
-use crate::error::DnsSecResult;
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
-#[cfg(feature = "dnssec")]
-use crate::rr::dnssec::Private;
-#[cfg(feature = "dnssec")]
-use crate::rr::dnssec::{Algorithm, KeyPair};
-#[cfg(feature = "dnssec")]
-use crate::rr::rdata::DNSSECRData;
-#[cfg(feature = "dnssec")]
-use crate::rr::rdata::SIG;
-#[cfg(feature = "dnssec")]
-use crate::rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
-#[cfg(feature = "dnssec")]
-use crate::rr::RData;
+use crate::proto::error::{ProtoErrorKind, ProtoResult};
 use crate::rr::Record;
 #[cfg(feature = "dnssec")]
-use crate::rr::{DNSClass, Name, RecordType};
-#[cfg(feature = "dnssec")]
-use crate::serialize::binary::BinEncoder;
+use {
+    crate::error::DnsSecResult,
+    crate::proto::rr::dnssec::{tbs, TBS},
+    crate::rr::dnssec::{Algorithm, KeyPair, Private},
+    crate::rr::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, KEY, SIG},
+    crate::rr::{DNSClass, Name, RData, RecordType},
+    crate::serialize::binary::BinEncoder,
+};
 
 /// Use for performing signing and validation of DNSSec based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
 ///
@@ -235,8 +223,8 @@ use crate::serialize::binary::BinEncoder;
 ///    Note that the response received by the resolver should include all
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
-#[cfg(any(feature = "openssl", feature = "ring"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub struct SigSigner {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -248,16 +236,16 @@ pub struct SigSigner {
 }
 
 /// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
-#[cfg(not(any(feature = "openssl", feature = "ring")))]
-#[derive(Clone, Copy)]
+#[cfg(not(feature = "dnssec"))]
+#[allow(missing_copy_implementations)]
 pub struct SigSigner;
 
 /// See [`SigSigner`](crate::rr::dnssec::SigSigner)
 #[deprecated(note = "renamed to SigSigner")]
 pub type Signer = SigSigner;
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
-#[cfg_attr(docsrs, doc(cfg(any(feature = "openssl", feature = "ring"))))]
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl SigSigner {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     ///
@@ -522,7 +510,7 @@ impl SigSigner {
 }
 
 impl MessageFinalizer for SigSigner {
-    #[cfg(any(feature = "openssl", feature = "ring"))]
+    #[cfg(feature = "dnssec")]
     fn finalize_message(
         &self,
         message: &Message,
@@ -573,7 +561,7 @@ impl MessageFinalizer for SigSigner {
         Ok((vec![sig0], None))
     }
 
-    #[cfg(not(any(feature = "openssl", feature = "ring")))]
+    #[cfg(not(feature = "dnssec"))]
     fn finalize_message(
         &self,
         _: &Message,

@@ -31,8 +31,11 @@ use crate::proto::op::Message;
 use crate::proto::rr::Record;
 
 /// List of currently supported signers
+#[allow(missing_copy_implementations)]
 pub enum Signer {
     /// A Sig0 based signer
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     Sig0(SigSigner),
     /// A TSIG based signer
     #[cfg(feature = "dnssec")]
@@ -57,7 +60,7 @@ impl From<TSigner> for Signer {
 }
 
 impl MessageFinalizer for Signer {
-    #[allow(unreachable_patterns)]
+    #[allow(unreachable_patterns, unused_variables)]
     fn finalize_message(
         &self,
         message: &Message,

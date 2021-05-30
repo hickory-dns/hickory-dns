@@ -1040,7 +1040,6 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - library documentation examples
 - test coverage for resolver
 
-
 ## 0.2.0 (Client/Server 2015-09-07)
 
 ### Added

@@ -148,6 +148,7 @@ where
 
     #[cfg(test)]
     #[cfg(not(feature = "mdns"))]
+    #[allow(dead_code)]
     fn from_nameservers_test(
         options: &ResolverOpts,
         datagram_conns: Arc<[NameServer<C, P>]>,
