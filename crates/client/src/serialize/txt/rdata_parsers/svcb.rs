@@ -237,6 +237,9 @@ fn parse_ipv4_hint(value: Option<&str>) -> Result<SvcParamValue, ParseError> {
     Ok(SvcParamValue::Ipv4Hint(IpHint(hints)))
 }
 
+/// As the documentation states, the presentation format (what this function reads) must be a BASE64 encoded string.
+///   trust-dns will decode the BASE64 during parsing and stores the internal data as the raw bytes.
+///
 /// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-9)
 /// ```text
 /// In presentation format, the value is a
