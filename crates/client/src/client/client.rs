@@ -21,21 +21,19 @@ use tokio::runtime::{self, Runtime};
 use trust_dns_proto::xfer::DnsRequest;
 
 use crate::client::async_client::ClientStreamXfr;
-#[cfg(feature = "dnssec")]
-use crate::client::AsyncDnssecClient;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle, Signer};
 use crate::error::*;
 use crate::proto::{
     error::ProtoError,
     xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
 };
-#[cfg(feature = "dnssec")]
-use crate::rr::dnssec::tsig::TSigner;
-use crate::rr::dnssec::SigSigner;
-#[cfg(feature = "dnssec")]
-use crate::rr::dnssec::TrustAnchor;
 use crate::rr::rdata::SOA;
 use crate::rr::{DNSClass, Name, Record, RecordSet, RecordType};
+#[cfg(feature = "dnssec")]
+use {
+    crate::client::AsyncDnssecClient,
+    crate::rr::dnssec::{tsig::TSigner, SigSigner, TrustAnchor},
+};
 
 use super::ClientStreamingResponse;
 
@@ -463,6 +461,8 @@ impl<CC: ClientConnection> SyncClient<CC> {
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn with_signer(conn: CC, signer: SigSigner) -> Self {
         SyncClient {
             conn,

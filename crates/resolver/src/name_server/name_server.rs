@@ -90,6 +90,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
     }
 
     #[cfg(test)]
+    #[allow(dead_code)]
     pub(crate) fn is_connected(&self) -> bool {
         !self.state.is_failed()
             && if let Some(client) = self.client.try_lock() {
