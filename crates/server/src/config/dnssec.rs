@@ -18,7 +18,7 @@ use serde::Deserialize;
 use crate::client::error::ParseResult;
 use crate::client::rr::dnssec::Algorithm;
 #[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
-use crate::client::rr::dnssec::{KeyFormat, KeyPair, Private, Signer};
+use crate::client::rr::dnssec::{KeyFormat, KeyPair, Private, SigSigner};
 #[cfg(feature = "dnssec")]
 use crate::client::rr::domain::IntoName;
 use crate::client::rr::domain::Name;
@@ -148,7 +148,7 @@ impl KeyConfig {
     /// Tries to read the defined key into a Signer
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<Signer, String> {
+    pub fn try_into_signer<N: IntoName>(&self, signer_name: N) -> Result<SigSigner, String> {
         let signer_name = signer_name
             .into_name()
             .map_err(|e| format!("error loading signer name: {}", e))?;
@@ -254,7 +254,7 @@ impl TlsCertConfig {
 /// same directory has the zone $file:
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 #[cfg(feature = "dnssec")]
-fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
+fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
     use log::info;
 
     use chrono::Duration;
@@ -295,7 +295,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let dnskey = key
         .to_dnskey(algorithm)
         .map_err(|e| format!("error converting to dnskey: {}", e))?;
-    Ok(Signer::dnssec(dnskey, key, name, Duration::weeks(52)))
+    Ok(SigSigner::dnssec(dnskey, key, name, Duration::weeks(52)))
 }
 
 /// Load a Certificate from the path (with openssl)

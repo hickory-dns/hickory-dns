@@ -57,6 +57,7 @@ impl From<TSigner> for Signer {
 }
 
 impl MessageFinalizer for Signer {
+    #[allow(unreachable_patterns)]
     fn finalize_message(
         &self,
         message: &Message,
@@ -69,6 +70,7 @@ impl MessageFinalizer for Signer {
             #[cfg(feature = "dnssec")]
             #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
             Signer::TSIG(tsig) => tsig.finalize_message(message, time),
+            _ => unreachable!("the feature `dnssec` is required for Message signing"),
         }
     }
 }

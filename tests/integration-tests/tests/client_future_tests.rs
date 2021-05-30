@@ -13,7 +13,7 @@ use tokio::runtime::Runtime;
 use trust_dns_client::client::Signer;
 use trust_dns_client::op::{Message, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::dnssec::Signer as SigSigner;
+use trust_dns_client::rr::dnssec::SigSigner;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::rr::Record;
 use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
