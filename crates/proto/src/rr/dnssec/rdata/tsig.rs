@@ -503,22 +503,22 @@ impl TsigAlgorithm {
 
         let res = match self {
             HmacSha256 => {
-                let mut mac = Hmac::<sha2::Sha256>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                let mut mac = Hmac::<sha2::Sha256>::new_from_slice(key).unwrap(/* all keysize are allowed for Hmac */);
                 mac.update(message);
                 mac.finalize().into_bytes().to_vec()
             }
             HmacSha384 => {
-                let mut mac = Hmac::<sha2::Sha384>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                let mut mac = Hmac::<sha2::Sha384>::new_from_slice(key).unwrap(/* all keysize are allowed for Hmac */);
                 mac.update(message);
                 mac.finalize().into_bytes().to_vec()
             }
             HmacSha512 => {
-                let mut mac = Hmac::<sha2::Sha512>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                let mut mac = Hmac::<sha2::Sha512>::new_from_slice(key).unwrap(/* all keysize are allowed for Hmac */);
                 mac.update(message);
                 mac.finalize().into_bytes().to_vec()
             }
             HmacSha512_256 => {
-                let mut mac = Hmac::<sha2::Sha512Trunc256>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
+                let mut mac = Hmac::<sha2::Sha512Trunc256>::new_from_slice(key).unwrap(/* all keysize are allowed for Hmac */);
                 mac.update(message);
                 mac.finalize().into_bytes().to_vec()
             }
