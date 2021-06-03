@@ -107,6 +107,10 @@ pub enum ProtoErrorKind {
     #[error("edns resource record label must be the root label (.): {0}")]
     EdnsNameNotRoot(crate::rr::Name),
 
+    /// An HMAC failed to verify
+    #[error("hmac validation failure")]
+    HmacInvalid(),
+
     /// The length of rdata read was not as expected
     #[error("incorrect rdata length read: {read} expected: {len}")]
     IncorrectRDataLengthRead {
@@ -439,6 +443,7 @@ impl Clone for ProtoErrorKind {
             DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
             DomainNameTooLong(len) => DomainNameTooLong(len),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
+            HmacInvalid() => HmacInvalid(),
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),
             PointerNotPriorToLabel { idx, ptr } => PointerNotPriorToLabel { idx, ptr },

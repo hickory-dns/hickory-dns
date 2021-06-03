@@ -88,6 +88,11 @@ impl TSigner {
         message_tbs(None, message, pre_tsig, &self.0.signer_name).and_then(|tbs| self.sign(&tbs))
     }
 
+    /// Verify hmac in constant time to prevent timing attacks
+    pub fn verify(&self, tbv: &[u8], tag: &[u8]) -> ProtoResult<()> {
+        self.0.algorithm.verify_mac(&self.0.key, tbv, tag)
+    }
+
     /// Verify the message is correctly signed
     /// This does not perform time verification on its own, instead one should verify current time
     /// lie in returned Range
@@ -111,8 +116,7 @@ impl TSigner {
         message: &[u8],
         first_message: bool,
     ) -> ProtoResult<(Vec<u8>, Range<u64>, u64)> {
-        let (vec, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
-        let signature = self.sign(&vec)?;
+        let (tbv, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
         let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.rdata() {
             tsig
         } else {
@@ -126,22 +130,22 @@ impl TSigner {
         }
         // 2.  Check MAC
         let mac = tsig.mac();
-        if signature.len() < mac.len() || mac != &signature[..mac.len()] {
-            // tsig might be shorter if truncated, so we check if it is a prefix of the
-            // actual signature
-            return Err(ProtoError::from("tsig validation error: invalid signature"));
-        }
+        self.verify(&tbv, mac)
+            .map_err(|_e| ProtoError::from("tsig validation error: invalid signature"))?;
+
         // 3.  Check time values
         // we don't actually have time here so we will let upper level decide
         // this is technically in violation of the RFC, in case both time and
         // truncation policy are bad, time should be reported and this code will report
         // truncation issue instead
+
         // 4.  Check truncation policy
-        if tsig.mac().len() < std::cmp::max(10, signature.len() / 2) {
+        if tsig.mac().len() < std::cmp::max(10, self.0.algorithm.output_len()? / 2) {
             return Err(ProtoError::from(
                 "tsig validation error: truncated signature",
             ));
         }
+
         Ok((
             tsig.mac().to_vec(),
             Range {
