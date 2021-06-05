@@ -128,7 +128,16 @@ impl TSigner {
         if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
             return Err(ProtoError::from("tsig validation error: wrong key"));
         }
+
         // 2.  Check MAC
+        //  note: that this verification does not allow for truncation of the HMAC, which technically the RFC suggests.
+        //    this is to be pedantic about constant time HMAC validation (prevent timing attacks) as well as any security
+        //    concerns about MAC truncation and collisions.
+        if tsig.mac().len() < tsig.algorithm().output_len()? {
+            return Err(ProtoError::from("Please file an issue with https://github.com/bluejekyll/trust-dns to support truncated HMACs with TSIG"));
+        }
+
+        // verify the MAC
         let mac = tsig.mac();
         self.verify(&tbv, mac)
             .map_err(|_e| ProtoError::from("tsig validation error: invalid signature"))?;
@@ -140,11 +149,12 @@ impl TSigner {
         // truncation issue instead
 
         // 4.  Check truncation policy
-        if tsig.mac().len() < std::cmp::max(10, self.0.algorithm.output_len()? / 2) {
-            return Err(ProtoError::from(
-                "tsig validation error: truncated signature",
-            ));
-        }
+        //   see not above in regards to not supporting verification of truncated HMACs.
+        // if tsig.mac().len() < std::cmp::max(10, self.0.algorithm.output_len()? / 2) {
+        //     return Err(ProtoError::from(
+        //         "tsig validation error: truncated signature",
+        //     ));
+        // }
 
         Ok((
             tsig.mac().to_vec(),
@@ -219,6 +229,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn test_sign_and_verify_message_tsig() {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
@@ -249,6 +260,7 @@ mod tests {
     }
 
     // make rejection tests shorter by centralizing common setup code
+    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn get_message_and_signer() -> (Message, TSigner) {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
@@ -278,6 +290,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn test_sign_and_verify_message_tsig_reject_keyname() {
         let (mut question, signer) = get_message_and_signer();
 
@@ -292,6 +305,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn test_sign_and_verify_message_tsig_reject_invalid_mac() {
         let (mut question, signer) = get_message_and_signer();
 
@@ -306,6 +320,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
+    #[cfg(feature = "hmac_truncation")] // not currently supported for security reasons
     fn test_sign_and_verify_message_tsig_truncation() {
         let (mut question, signer) = get_message_and_signer();
 
