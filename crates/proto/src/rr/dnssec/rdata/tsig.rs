@@ -493,6 +493,14 @@ impl TsigAlgorithm {
         }
     }
 
+    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[doc(hidden)]
+    #[allow(clippy::unimplemented)]
+    pub fn mac_data(&self, _key: &[u8], _message: &[u8]) -> ProtoResult<Vec<u8>> {
+        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
+    }
+
     /// Compute the Message Authentication Code using key and algorithm
     ///
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
@@ -539,6 +547,14 @@ impl TsigAlgorithm {
         signer.sign_to_vec().map_err(|e| e.into())
     }
 
+    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[doc(hidden)]
+    #[allow(clippy::unimplemented)]
+    pub fn verify_mac(&self, _key: &[u8], _message: &[u8], _tag: &[u8]) -> ProtoResult<()> {
+        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
+    }
+
     /// Verifies the hmac tag against the given key and this algorithm.
     ///
     /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
@@ -572,6 +588,14 @@ impl TsigAlgorithm {
         } else {
             Err(ProtoErrorKind::HmacInvalid().into())
         }
+    }
+
+    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[doc(hidden)]
+    #[allow(clippy::unimplemented)]
+    pub fn output_len(&self) -> ProtoResult<usize> {
+        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
     }
 
     /// Return length in bytes of the algorithms output
