@@ -288,7 +288,7 @@ async fn create_sig0_ready_client() -> (
 ) {
     use openssl::rsa::Rsa;
     use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
-    use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+    use trust_dns_client::rr::rdata::{DNSSECRData, RecordType};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
@@ -306,7 +306,7 @@ async fn create_sig0_ready_client() -> (
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(
         trusted_name,
-        RecordType::DNSSEC(DNSSECRecordType::KEY),
+        RecordType::KEY,
         Duration::minutes(5).num_seconds() as u32,
     );
     auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(sig0_key)));

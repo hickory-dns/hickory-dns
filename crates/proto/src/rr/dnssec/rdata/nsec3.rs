@@ -563,7 +563,7 @@ mod tests {
 
     #[test]
     fn test() {
-        use crate::rr::dnssec::rdata::DNSSECRecordType;
+        use crate::rr::dnssec::rdata::RecordType;
 
         let rdata = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
@@ -574,8 +574,8 @@ mod tests {
             vec![
                 RecordType::A,
                 RecordType::AAAA,
-                RecordType::DNSSEC(DNSSECRecordType::DS),
-                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+                RecordType::DS,
+                RecordType::RRSIG,
             ],
         );
 
@@ -594,7 +594,7 @@ mod tests {
 
     #[test]
     fn test_dups() {
-        use crate::rr::dnssec::rdata::DNSSECRecordType;
+        use crate::rr::dnssec::rdata::RecordType;
 
         let rdata_with_dups = NSEC3::new(
             Nsec3HashAlgorithm::SHA1,
@@ -605,9 +605,9 @@ mod tests {
             vec![
                 RecordType::A,
                 RecordType::AAAA,
-                RecordType::DNSSEC(DNSSECRecordType::DS),
+                RecordType::DS,
                 RecordType::AAAA,
-                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+                RecordType::RRSIG,
             ],
         );
 
@@ -620,8 +620,8 @@ mod tests {
             vec![
                 RecordType::A,
                 RecordType::AAAA,
-                RecordType::DNSSEC(DNSSECRecordType::DS),
-                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+                RecordType::DS,
+                RecordType::RRSIG,
             ],
         );
 

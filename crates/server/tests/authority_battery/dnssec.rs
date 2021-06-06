@@ -8,7 +8,7 @@ use futures_executor::block_on;
 use trust_dns_client::op::Query;
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns_client::rr::{DNSClass, Name, Record, RecordType};
-use trust_dns_proto::rr::dnssec::rdata::{DNSSECRecordType, DNSKEY};
+use trust_dns_proto::rr::dnssec::rdata::{RecordType, DNSKEY};
 use trust_dns_proto::xfer;
 use trust_dns_server::authority::{AuthLookup, Authority};
 
@@ -25,7 +25,7 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
 
     let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+        .partition(|r| r.record_type() == RecordType::RRSIG);
 
     assert!(!rrsig_records.is_empty());
     verify(&a_records, &rrsig_records, keys);
@@ -54,7 +54,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
 
     let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+        .partition(|r| r.record_type() == RecordType::RRSIG);
 
     assert!(!rrsig_records.is_empty());
     verify(&soa_records, &rrsig_records, keys);
@@ -75,7 +75,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
 
     let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+        .partition(|r| r.record_type() == RecordType::RRSIG);
 
     assert!(!rrsig_records.is_empty());
     verify(&ns_records, &rrsig_records, keys);
@@ -97,7 +97,7 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
 
     let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+        .partition(|r| r.record_type() == RecordType::RRSIG);
 
     assert!(!rrsig_records.is_empty());
     verify(&a_records, &rrsig_records, keys);
@@ -123,7 +123,7 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
 
     let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
         .into_iter()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+        .partition(|r| r.record_type() == RecordType::RRSIG);
 
     assert!(!rrsig_records.is_empty());
     verify(&cname_records, &rrsig_records, keys);
@@ -142,7 +142,7 @@ pub fn test_nsec_nodata<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        .partition(|r| r.record_type() == RecordType::NSEC);
 
     println!("nsec_records: {:?}", nsec_records);
 
@@ -173,7 +173,7 @@ pub fn test_nsec_nxdomain_start<A: Authority<Lookup = AuthLookup>>(authority: A,
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        .partition(|r| r.record_type() == RecordType::NSEC);
 
     println!("nsec_records: {:?}", nsec_records);
 
@@ -206,7 +206,7 @@ pub fn test_nsec_nxdomain_middle<A: Authority<Lookup = AuthLookup>>(authority: A
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        .partition(|r| r.record_type() == RecordType::NSEC);
 
     println!("nsec_records: {:?}", nsec_records);
 
@@ -241,7 +241,7 @@ pub fn test_nsec_nxdomain_wraps_end<A: Authority<Lookup = AuthLookup>>(
     let (nsec_records, _other_records): (Vec<_>, Vec<_>) = lookup
         .into_iter()
         .cloned()
-        .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        .partition(|r| r.record_type() == RecordType::NSEC);
 
     println!("nsec_records: {:?}", nsec_records);
 
@@ -284,7 +284,7 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
 
         let (rrsig_records, _other_records): (Vec<_>, Vec<_>) = other_records
             .into_iter()
-            .partition(|r| r.record_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+            .partition(|r| r.record_type() == RecordType::RRSIG);
 
         assert!(!rrsig_records.is_empty());
         verify(&a_records, &rrsig_records, &[key.clone()]);

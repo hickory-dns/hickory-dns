@@ -21,7 +21,7 @@ use log::{debug, trace};
 
 use crate::error::*;
 use crate::op::{OpCode, Query};
-use crate::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
+use crate::rr::dnssec::rdata::{DNSSECRData, DNSKEY, SIG};
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::Verifier;
 use crate::rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
@@ -201,7 +201,7 @@ where
                             let nsecs = verified_message
                                 .name_servers()
                                 .iter()
-                                .filter(|rr| is_dnssec(rr, DNSSECRecordType::NSEC))
+                                .filter(|rr| is_dnssec(rr, RecordType::NSEC))
                                 .collect::<Vec<_>>();
 
                             if !verify_nsec(&query, soa_name, nsecs.as_slice()) {
@@ -239,14 +239,14 @@ where
         .iter()
         .chain(message_result.name_servers())
         .filter(|rr| {
-            !is_dnssec(rr, DNSSECRecordType::RRSIG) &&
+            !is_dnssec(rr, RecordType::RRSIG) &&
                              // if we are at a depth greater than 1, we are only interested in proving evaluation chains
                              //   this means that only DNSKEY and DS are interesting at that point.
                              //   this protects against looping over things like NS records and DNSKEYs in responses.
                              // TODO: is there a cleaner way to prevent cycles in the evaluations?
                                           (handle.request_depth <= 1 ||
-                                           is_dnssec(rr, DNSSECRecordType::DNSKEY) ||
-                                           is_dnssec(rr, DNSSECRecordType::DS))
+                                           is_dnssec(rr, RecordType::DNSKEY) ||
+                                           is_dnssec(rr, RecordType::DS))
         })
         .map(|rr| (rr.name().clone(), rr.rr_type()))
     {
@@ -286,7 +286,7 @@ where
             .iter()
             .chain(message_result.name_servers())
             .chain(message_result.additionals())
-            .filter(|rr| is_dnssec(rr, DNSSECRecordType::RRSIG))
+            .filter(|rr| is_dnssec(rr, RecordType::RRSIG))
             .filter(|rr| {
                 if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *rr.rdata() {
                     rrsig.type_covered() == record_type
@@ -320,8 +320,8 @@ where
     verify_all_rrsets(message_result, rrsets_to_verify).await
 }
 
-fn is_dnssec(rr: &Record, dnssec_type: DNSSECRecordType) -> bool {
-    rr.rr_type() == RecordType::DNSSEC(dnssec_type)
+fn is_dnssec(rr: &Record, dnssec_type: RecordType) -> bool {
+    rr.rr_type().is_dnssec() && dnssec_type.is_dnssec() && rr.record_type() == dnssec_type
 }
 
 async fn verify_all_rrsets<F, E>(
@@ -435,7 +435,7 @@ where
     // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
     //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
     //  for self-signed KEYS they will drop through to the standard validation logic.
-    if let RecordType::DNSSEC(DNSSECRecordType::DNSKEY) = rrset.record_type {
+    if let RecordType::DNSKEY = rrset.record_type {
         if rrsigs.is_empty() {
             debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
             // TODO: validate that this DNSKEY is stronger than the one lower in the chain,
@@ -449,7 +449,7 @@ where
 
     // validation of DNSKEY records
     match rrset.record_type {
-        RecordType::DNSSEC(DNSSECRecordType::DNSKEY) => verify_dnskey_rrset(handle, rrset).await,
+        RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset).await,
         _ => Ok(rrset),
     }
 }
@@ -476,7 +476,7 @@ where
             .records
             .iter()
             .enumerate()
-            .filter(|&(_, rr)| is_dnssec(rr, DNSSECRecordType::DNSKEY))
+            .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
             .filter_map(|(i, rr)| {
                 if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
                     Some((i, rdata))
@@ -511,7 +511,7 @@ where
     // need to get DS records for each DNSKEY
     let ds_message = handle
         .lookup(
-            Query::query(rrset.name.clone(), RecordType::DNSSEC(DNSSECRecordType::DS)),
+            Query::query(rrset.name.clone(), RecordType::DS),
             DnsRequestOptions::default(),
         )
         .first_answer()
@@ -520,7 +520,7 @@ where
         .records
         .iter()
         .enumerate()
-        .filter(|&(_, rr)| is_dnssec(rr, DNSSECRecordType::DNSKEY))
+        .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
         .filter_map(|(i, rr)| {
             if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
                 Some((i, rdata))
@@ -532,7 +532,7 @@ where
             ds_message
                 .answers()
                 .iter()
-                .filter(|ds| is_dnssec(ds, DNSSECRecordType::DS))
+                .filter(|ds| is_dnssec(ds, RecordType::DS))
                 .filter_map(|ds| {
                     if let RData::DNSSEC(DNSSECRData::DS(ref ds_rdata)) = *ds.rdata() {
                         Some((ds.name(), ds_rdata))
@@ -656,11 +656,10 @@ where
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs
         .iter()
-        .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
+        .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
         .any(|rrsig| {
             if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
-                RecordType::DNSSEC(DNSSECRecordType::DNSKEY) == rrset.record_type
-                    && sig.signer_name() == &rrset.name
+                RecordType::DNSKEY == rrset.record_type && sig.signer_name() == &rrset.name
             } else {
                 panic!("expected a SIG here");
             }
@@ -674,7 +673,7 @@ where
             rrsigs
                 .into_iter()
                 // this filter is technically unnecessary, can probably remove it...
-                .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
+                .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
                 .map(|rrsig| {
                     if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.into_data() {
                         // setting up the context explicitly.
@@ -721,7 +720,7 @@ where
     //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
     let verifications = rrsigs.into_iter()
         // this filter is technically unnecessary, can probably remove it...
-        .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
+        .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
         .map(|rrsig|
             if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.into_data() {
                 // setting up the context explicitly.
@@ -736,7 +735,7 @@ where
 
             handle
                 .lookup(
-                    Query::query(sig.signer_name().clone(), RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
+                    Query::query(sig.signer_name().clone(), RecordType::DNSKEY),
                     DnsRequestOptions::default()
                 )
                 .first_answer()
@@ -745,7 +744,7 @@ where
                     future::ready(message
                         .answers()
                         .iter()
-                        .filter(|r| is_dnssec(r, DNSSECRecordType::DNSKEY))
+                        .filter(|r| is_dnssec(r, RecordType::DNSKEY))
                         .find(|r|
                             if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
                                 let dnskey_name = r.name();
