@@ -13,11 +13,14 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
+use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
 use log::{debug, error};
 
 use crate::client::op::{LowerQuery, ResponseCode};
-use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
+#[cfg(feature = "dnssec")]
+use crate::client::rr::dnssec::SupportedAlgorithms;
+use crate::client::rr::dnssec::{DnsSecResult, SigSigner};
 use crate::client::rr::rdata::key::KEY;
 #[cfg(feature = "dnssec")]
 use crate::client::rr::rdata::DNSSECRData;
@@ -25,8 +28,8 @@ use crate::client::rr::rdata::SOA;
 use crate::client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
 use crate::authority::{
-    AnyRecords, AuthLookup, Authority, LookupError, LookupRecords, LookupResult, MessageRequest,
-    UpdateResult, ZoneType,
+    AnyRecords, AuthLookup, Authority, LookupError, LookupOptions, LookupRecords, LookupResult,
+    MessageRequest, UpdateResult, ZoneType,
 };
 
 /// InMemoryAuthority is responsible for storing the resource records for a particular zone.
@@ -189,8 +192,7 @@ impl InMemoryAuthority {
         &self,
         name: &LowerName,
         record_type: RecordType,
-        and_rrsigs: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
         // this range covers all the records for any of the RecordTypes at a given label.
         let start_range_key = RrKey::new(name.clone(), RecordType::Unknown(u16::min_value()));
@@ -214,7 +216,7 @@ impl InMemoryAuthority {
 
         // TODO: maybe unwrap this recursion.
         match lookup {
-            None => self.inner_lookup_wildcard(name, record_type, and_rrsigs, supported_algorithms),
+            None => self.inner_lookup_wildcard(name, record_type, lookup_options),
             l => l.cloned(),
         }
     }
@@ -223,8 +225,7 @@ impl InMemoryAuthority {
         &self,
         name: &LowerName,
         record_type: RecordType,
-        and_rrsigs: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Option<Arc<RecordSet>> {
         // if this is a wildcard or a root, both should break continued lookups
         let wildcard = if name.is_wildcard() || name.is_root() {
@@ -233,15 +234,27 @@ impl InMemoryAuthority {
             name.clone().into_wildcard()
         };
 
-        self.inner_lookup(&wildcard, record_type, and_rrsigs, supported_algorithms)
+        self.inner_lookup(&wildcard, record_type, lookup_options)
             // we need to change the name to the query name in the result set since this was a wildcard
             .map(|rrset| {
                 let mut new_answer =
                     RecordSet::new(name.borrow(), rrset.record_type(), rrset.ttl());
 
-                let (records, _rrsigs): (Vec<&Record>, Vec<&Record>) = rrset
-                    .records(and_rrsigs, supported_algorithms)
-                    .partition(|r| r.record_type() != RecordType::RRSIG);
+                let records;
+                let _rrsigs: Vec<&Record>;
+                cfg_if! {
+                    if #[cfg(feature = "dnssec")] {
+                        let (records_tmp, rrsigs_tmp) = rrset
+                            .records(lookup_options.is_dnssec(), lookup_options.supported_algorithms())
+                            .partition(|r| r.record_type() != RecordType::RRSIG);
+                        records = records_tmp;
+                        _rrsigs = rrsigs_tmp;
+                    } else {
+                        let (records_tmp, rrsigs_tmp) = (rrset.records_without_rrsigs(), Vec::with_capacity(0));
+                        records = records_tmp;
+                        _rrsigs = rrsigs_tmp;
+                    }
+                };
 
                 for record in records {
                     new_answer.add_rdata(record.rdata().clone());
@@ -268,8 +281,7 @@ impl InMemoryAuthority {
         query_type: RecordType,
         next_name: LowerName,
         _search_type: RecordType,
-        and_rrsigs: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Option<Vec<Arc<RecordSet>>> {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
@@ -287,8 +299,7 @@ impl InMemoryAuthority {
             // loop and collect any additional records to send
             let mut next_name = Some(next_name.clone());
             while let Some(search) = next_name.take() {
-                let additional =
-                    self.inner_lookup(&search, *query_type, and_rrsigs, supported_algorithms);
+                let additional = self.inner_lookup(&search, *query_type, lookup_options);
                 let mut continue_name = None;
 
                 if let Some(additional) = additional {
@@ -786,16 +797,14 @@ impl Authority for InMemoryAuthority {
         &self,
         name: &LowerName,
         query_type: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         // Collect the records from each rr_set
         let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
             match query_type {
                 RecordType::AXFR | RecordType::ANY => {
                     let result = AnyRecords::new(
-                        is_secure,
-                        supported_algorithms,
+                        lookup_options,
                         self.records.values().cloned().collect(),
                         query_type,
                         name.clone(),
@@ -804,8 +813,7 @@ impl Authority for InMemoryAuthority {
                 }
                 _ => {
                     // perform the lookup
-                    let answer =
-                        self.inner_lookup(name, query_type, is_secure, supported_algorithms);
+                    let answer = self.inner_lookup(name, query_type, lookup_options);
 
                     // evaluate any cnames for additional inclusion
                     let additionals_root_chain_type: Option<(_, _)> = answer
@@ -816,8 +824,7 @@ impl Authority for InMemoryAuthority {
                                 query_type,
                                 search_name,
                                 search_type,
-                                is_secure,
-                                supported_algorithms,
+                                lookup_options,
                             )
                             .map(|adds| (adds, search_type))
                         });
@@ -877,7 +884,7 @@ impl Authority for InMemoryAuthority {
                                     use log::warn;
 
                                     // ANAME's are constructed on demand, so need to be signed before return
-                                    if is_secure {
+                                    if lookup_options.is_dnssec() {
                                         Self::sign_rrset(
                                             &mut new_answer,
                                             self.secure_keys(),
@@ -906,11 +913,10 @@ impl Authority for InMemoryAuthority {
                     // map the answer to a result
                     let answer = answer
                         .map_or(Err(LookupError::from(ResponseCode::NXDomain)), |rr_set| {
-                            Ok(LookupRecords::new(is_secure, supported_algorithms, rr_set))
+                            Ok(LookupRecords::new(lookup_options, rr_set))
                         });
 
-                    let additionals = additionals
-                        .map(|a| LookupRecords::many(is_secure, supported_algorithms, a));
+                    let additionals = additionals.map(|a| LookupRecords::many(lookup_options, a));
 
                     (answer, additionals)
                 }
@@ -950,8 +956,7 @@ impl Authority for InMemoryAuthority {
     fn search(
         &self,
         query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         debug!("searching InMemoryAuthority for: {}", query);
 
@@ -976,16 +981,14 @@ impl Authority for InMemoryAuthority {
 
         // perform the actual lookup
         match record_type {
-            RecordType::SOA => {
-                Box::pin(self.lookup(self.origin(), record_type, is_secure, supported_algorithms))
-            }
+            RecordType::SOA => Box::pin(self.lookup(self.origin(), record_type, lookup_options)),
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
                 let lookup = future::try_join3(
                     // TODO: maybe switch this to be an soa_inner type call?
-                    self.soa_secure(is_secure, supported_algorithms),
+                    self.soa_secure(lookup_options),
                     self.soa(),
-                    self.lookup(lookup_name, record_type, is_secure, supported_algorithms),
+                    self.lookup(lookup_name, record_type, lookup_options),
                 )
                 .map_ok(|(start_soa, end_soa, records)| match start_soa {
                     l @ AuthLookup::Empty => l,
@@ -999,7 +1002,7 @@ impl Authority for InMemoryAuthority {
                 Box::pin(lookup)
             }
             // A standard Lookup path
-            _ => Box::pin(self.lookup(lookup_name, record_type, is_secure, supported_algorithms)),
+            _ => Box::pin(self.lookup(lookup_name, record_type, lookup_options)),
         }
     }
 
@@ -1014,8 +1017,7 @@ impl Authority for InMemoryAuthority {
     fn get_nsec_records(
         &self,
         name: &LowerName,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
@@ -1026,7 +1028,7 @@ impl Authority for InMemoryAuthority {
         let no_data = self
             .records
             .get(&rr_key)
-            .map(|rr_set| LookupRecords::new(is_secure, supported_algorithms, rr_set.clone()));
+            .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
 
         if let Some(no_data) = no_data {
             return Box::pin(future::ready(Ok(no_data.into())));
@@ -1088,8 +1090,7 @@ impl Authority for InMemoryAuthority {
         };
 
         Box::pin(future::ready(Ok(LookupRecords::many(
-            is_secure,
-            supported_algorithms,
+            lookup_options,
             proofs,
         )
         .into())))
@@ -1099,8 +1100,7 @@ impl Authority for InMemoryAuthority {
     fn get_nsec_records(
         &self,
         _name: &LowerName,
-        _is_secure: bool,
-        _supported_algorithms: SupportedAlgorithms,
+        _lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         Box::pin(future::ok(AuthLookup::default()))
     }

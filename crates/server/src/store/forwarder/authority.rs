@@ -15,7 +15,6 @@ use log::info;
 
 use crate::client::op::LowerQuery;
 use crate::client::op::ResponseCode;
-use crate::client::rr::dnssec::SupportedAlgorithms;
 use crate::client::rr::{LowerName, Name, Record, RecordType};
 use crate::resolver::config::ResolverConfig;
 use crate::resolver::error::ResolveError;
@@ -23,7 +22,7 @@ use crate::resolver::lookup::Lookup as ResolverLookup;
 use crate::resolver::{TokioAsyncResolver, TokioHandle};
 
 use crate::authority::{
-    Authority, LookupError, LookupObject, MessageRequest, UpdateResult, ZoneType,
+    Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
 };
 use crate::store::forwarder::ForwardConfig;
 
@@ -106,8 +105,7 @@ impl Authority for ForwardAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        _is_secure: bool,
-        _supported_algorithms: SupportedAlgorithms,
+        _lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         // TODO: make this an error?
         assert!(self.origin.zone_of(name));
@@ -124,22 +122,15 @@ impl Authority for ForwardAuthority {
     fn search(
         &self,
         query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(self.lookup(
-            query.name(),
-            query.query_type(),
-            is_secure,
-            supported_algorithms,
-        ))
+        Box::pin(self.lookup(query.name(), query.query_type(), lookup_options))
     }
 
     fn get_nsec_records(
         &self,
         _name: &LowerName,
-        _is_secure: bool,
-        _supported_algorithms: SupportedAlgorithms,
+        _lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         Box::pin(future::err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,

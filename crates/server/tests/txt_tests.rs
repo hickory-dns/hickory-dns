@@ -4,10 +4,9 @@ use std::str::FromStr;
 use futures_executor::block_on;
 
 use trust_dns_client::proto::rr::rdata::tlsa::*;
-use trust_dns_client::rr::dnssec::*;
 use trust_dns_client::rr::*;
 use trust_dns_client::serialize::txt::*;
-use trust_dns_server::authority::{Authority, ZoneType};
+use trust_dns_server::authority::{Authority, LookupOptions, ZoneType};
 use trust_dns_server::store::in_memory::InMemoryAuthority;
 
 // TODO: split this test up to test each thing separately
@@ -100,8 +99,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let lowercase_record = block_on(authority.lookup(
         &Name::from_str("tech.").unwrap().into(),
         RecordType::SOA,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -132,8 +130,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let mut ns_records: Vec<Record> = block_on(authority.lookup(
         &Name::from_str("isi.edu").unwrap().into(),
         RecordType::NS,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -166,8 +163,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let mut mx_records: Vec<Record> = block_on(authority.lookup(
         &Name::from_str("isi.edu").unwrap().into(),
         RecordType::MX,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -199,8 +195,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let a_record: Record = block_on(authority.lookup(
         &Name::from_str("a.isi.edu").unwrap().into(),
         RecordType::A,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -221,8 +216,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let aaaa_record: Record = block_on(authority.lookup(
         &Name::from_str("aaaa.isi.edu").unwrap().into(),
         RecordType::AAAA,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -243,8 +237,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let short_record: Record = block_on(authority.lookup(
         &Name::from_str("short.isi.edu").unwrap().into(),
         RecordType::A,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -266,8 +259,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let mut txt_records: Vec<Record> = block_on(authority.lookup(
         &Name::from_str("a.isi.edu").unwrap().into(),
         RecordType::TXT,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -311,8 +303,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let ptr_record: Record = block_on(authority.lookup(
         &Name::from_str("103.0.3.26.in-addr.arpa").unwrap().into(),
         RecordType::PTR,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -329,8 +320,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let srv_record: Record = block_on(authority.lookup(
         &Name::from_str("_ldap._tcp.service.isi.edu").unwrap().into(),
         RecordType::SRV,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -350,8 +340,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let idna_record: Record = block_on(authority.lookup(
         &Name::from_str("rust-❤️-🦀.isi.edu").unwrap().into(),
         RecordType::A,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -372,8 +361,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let caa_record: Record = block_on(authority.lookup(
         &Name::parse("nocerts.isi.edu.", None).unwrap().into(),
         RecordType::CAA,
-        false,
-        SupportedAlgorithms::new(),
+        LookupOptions::default(),
     ))
     .unwrap()
     .iter()
@@ -395,8 +383,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
                 .unwrap()
                 .into(),
             RecordType::TLSA,
-            false,
-            SupportedAlgorithms::new(),
+            LookupOptions::default(),
         ),
     )
     .unwrap()

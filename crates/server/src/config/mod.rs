@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
+use cfg_if::cfg_if;
 use log;
 use serde::{self, Deserialize};
 use toml;
@@ -139,7 +140,13 @@ impl Config {
 
     /// the tls certificate to use for accepting tls connections
     pub fn get_tls_cert(&self) -> Option<&dnssec::TlsCertConfig> {
-        self.tls_cert.as_ref()
+        cfg_if! {
+            if #[cfg(feature = "dnssec")] {
+                self.tls_cert.as_ref()
+            } else {
+                None
+            }
+        }
     }
 }
 
@@ -239,10 +246,18 @@ impl ZoneConfig {
 
     /// declare that this zone should be signed, see keys for configuration of the keys for signing
     pub fn is_dnssec_enabled(&self) -> bool {
-        self.enable_dnssec.unwrap_or(false)
+        cfg_if! {
+            if #[cfg(feature = "dnssec")] {
+                self.enable_dnssec.unwrap_or(false)
+            } else {
+                false
+            }
+        }
     }
 
     /// the configuration for the keys used for auth and/or dnssec zone signing.
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn get_keys(&self) -> &[dnssec::KeyConfig] {
         &self.keys
     }
