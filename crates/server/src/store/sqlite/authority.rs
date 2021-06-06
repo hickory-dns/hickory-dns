@@ -445,7 +445,7 @@ impl SqliteAuthority {
         use futures_executor::block_on;
         use log::debug;
 
-        use crate::client::rr::rdata::{DNSSECRData, RecordType};
+        use crate::client::rr::rdata::DNSSECRData;
         use crate::proto::rr::dnssec::Verifier;
 
         // 3.3.3 - Pseudocode for Permission Checking

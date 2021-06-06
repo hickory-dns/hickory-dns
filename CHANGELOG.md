@@ -26,7 +26,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Removed
 
-- (proto) removed `RecordType::DNSSEC` and moved all variants of `DNSSECRecordType` into `RecordType`
+- (proto) removed `RecordType::DNSSEC` and moved all variants of `DNSSECRecordType` into `RecordType` #1506
 - (proto) removed `BufStreamHandle` and `StreamHandle` #1433
 - (response) disabled `mdns` to work on a new solution #1433
 
