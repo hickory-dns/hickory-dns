@@ -24,7 +24,6 @@ fn test_lookup() {
         .block_on(forwarder.lookup(
             &Name::from_str("www.example.com.").unwrap().into(),
             RecordType::A,
-            false,
             Default::default(),
         ))
         .unwrap();

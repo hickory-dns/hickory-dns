@@ -1,18 +1,10 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 // TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
@@ -22,17 +14,21 @@ use std::future::Future;
 use std::io;
 use std::pin::Pin;
 
+use cfg_if::cfg_if;
 use log::{debug, error, info, trace, warn};
 
 use crate::authority::{
     AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
 };
 use crate::authority::{
-    AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupError, LookupObject,
+    AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupError, LookupObject, LookupOptions,
 };
 use crate::client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
-use crate::client::rr::dnssec::{Algorithm, SupportedAlgorithms};
-use crate::client::rr::rdata::opt::{EdnsCode, EdnsOption};
+#[cfg(feature = "dnssec")]
+use crate::client::rr::{
+    dnssec::{Algorithm, SupportedAlgorithms},
+    rdata::opt::{EdnsCode, EdnsOption},
+};
 use crate::client::rr::{LowerName, RecordType};
 use crate::server::{Request, RequestHandler, ResponseHandler};
 
@@ -47,10 +43,11 @@ fn send_response<R: ResponseHandler>(
     mut response: MessageResponse<'_, '_>,
     mut response_handle: R,
 ) -> io::Result<()> {
+    #[cfg(feature = "dnssec")]
     if let Some(mut resp_edns) = response_edns {
         // set edns DAU and DHU
         // send along the algorithms which are supported by this authority
-        let mut algorithms = SupportedAlgorithms::new();
+        let mut algorithms = SupportedAlgorithms::default();
         algorithms.set(Algorithm::RSASHA256);
         algorithms.set(Algorithm::ECDSAP256SHA256);
         algorithms.set(Algorithm::ECDSAP384SHA384);
@@ -428,30 +425,42 @@ async fn lookup<R: ResponseHandler + Unpin>(
     }
 }
 
+fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
+    let edns = match edns {
+        Some(edns) => edns,
+        None => return LookupOptions::default(),
+    };
+
+    cfg_if! {
+        if #[cfg(feature = "dnssec")] {
+            let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU)
+            {
+               algs
+            } else {
+               debug!("no DAU in request, used default SupportAlgorithms");
+               Default::default()
+            };
+
+            LookupOptions::for_dnssec(edns.dnssec_ok(), supported_algorithms)
+        } else {
+            LookupOptions::default()
+        }
+    }
+}
+
 async fn build_response(
     authority: &dyn AuthorityObject,
     request_id: u16,
     query: &LowerQuery,
     edns: Option<&Edns>,
 ) -> (Header, LookupSections) {
-    let (is_dnssec, supported_algorithms) =
-        edns.map_or((false, SupportedAlgorithms::new()), |edns| {
-            let supported_algorithms =
-                if let Some(&EdnsOption::DAU(algs)) = edns.option(EdnsCode::DAU) {
-                    algs
-                } else {
-                    debug!("no DAU in request, used default SupportAlgorithms");
-                    Default::default()
-                };
-
-            (edns.dnssec_ok(), supported_algorithms)
-        });
+    let lookup_options = lookup_options_for_edns(edns);
 
     // log algorithms being requested
-    if is_dnssec {
+    if lookup_options.is_dnssec() {
         info!(
-            "request: {} supported_algs: {}",
-            request_id, supported_algorithms
+            "request: {} lookup_options: {:?}",
+            request_id, lookup_options
         );
     }
 
@@ -462,7 +471,7 @@ async fn build_response(
     response_header.set_authoritative(authority.zone_type().is_authoritative());
 
     debug!("performing {} on {}", query, authority.origin());
-    let future = authority.search(query, is_dnssec, supported_algorithms);
+    let future = authority.search(query, lookup_options);
 
     #[allow(deprecated)]
     let sections = match authority.zone_type() {
@@ -471,8 +480,7 @@ async fn build_response(
                 future,
                 authority,
                 &mut response_header,
-                is_dnssec,
-                supported_algorithms,
+                lookup_options,
                 request_id,
                 &query,
             )
@@ -490,8 +498,7 @@ async fn send_authoritative_response(
     future: BoxedLookupFuture,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
-    is_dnssec: bool,
-    supported_algorithms: SupportedAlgorithms,
+    lookup_options: LookupOptions,
     request_id: u16,
     query: &LowerQuery,
 ) -> LookupSections {
@@ -529,7 +536,7 @@ async fn send_authoritative_response(
     let (ns, soa) = if answers.is_some() {
         // This was a successful authoritative lookup:
         //   get the NS records
-        match authority.ns(is_dnssec, supported_algorithms).await {
+        match authority.ns(lookup_options).await {
             Ok(ns) => (Some(ns), None),
             Err(e) => {
                 warn!("ns_lookup errored: {}", e);
@@ -537,11 +544,11 @@ async fn send_authoritative_response(
             }
         }
     } else {
-        let nsecs = if is_dnssec {
+        let nsecs = if lookup_options.is_dnssec() {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
             debug!("request: {} non-existent adding nsecs", request_id);
             // run the nsec lookup future, and then transition to get soa
-            let future = authority.get_nsec_records(query.name(), true, supported_algorithms);
+            let future = authority.get_nsec_records(query.name(), lookup_options);
             match future.await {
                 // run the soa lookup
                 Ok(nsecs) => Some(nsecs),
@@ -554,7 +561,7 @@ async fn send_authoritative_response(
             None
         };
 
-        match authority.soa_secure(is_dnssec, supported_algorithms).await {
+        match authority.soa_secure(lookup_options).await {
             Ok(soa) => (nsecs, Some(soa)),
             Err(e) => {
                 warn!("failed to lookup soa: {}", e);

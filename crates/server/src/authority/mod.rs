@@ -25,7 +25,7 @@ mod zone_type;
 pub use self::auth_lookup::{
     AnyRecords, AuthLookup, AuthLookupIter, LookupRecords, LookupRecordsIter,
 };
-pub use self::authority::Authority;
+pub use self::authority::{Authority, LookupOptions};
 pub use self::authority_object::{AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupObject};
 pub use self::catalog::Catalog;
 pub use self::error::{LookupError, LookupResult};
