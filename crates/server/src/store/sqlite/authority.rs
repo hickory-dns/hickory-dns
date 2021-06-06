@@ -445,7 +445,7 @@ impl SqliteAuthority {
         use futures_executor::block_on;
         use log::debug;
 
-        use crate::client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use crate::client::rr::rdata::{DNSSECRData, RecordType};
         use crate::proto::rr::dnssec::Verifier;
 
         // 3.3.3 - Pseudocode for Permission Checking
@@ -484,7 +484,7 @@ impl SqliteAuthority {
                     // TODO: updates should be async as well.
                     let keys = block_on(self.lookup(
                         &name,
-                        RecordType::DNSSEC(DNSSECRecordType::KEY),
+                        RecordType::KEY,
                         false,
                         SupportedAlgorithms::new(),
                     ));

@@ -27,10 +27,6 @@ use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 use crate::error::*;
 use crate::rr::{Record, RecordType};
 use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
-
-#[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-use crate::rr::dnssec::rdata::DNSSECRecordType;
 use crate::xfer::DnsResponse;
 
 /// The basic request and response datastructure, used for all DNS protocols.
@@ -334,7 +330,7 @@ impl Message {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::DNSSEC(DNSSECRecordType::SIG), record.rr_type());
+        assert_eq!(RecordType::SIG, record.rr_type());
         self.signature.push(record);
         self
     }
@@ -345,7 +341,7 @@ impl Message {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_tsig(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::DNSSEC(DNSSECRecordType::TSIG), record.rr_type());
+        assert_eq!(RecordType::TSIG, record.rr_type());
         self.signature.push(record);
         self
     }
@@ -653,12 +649,12 @@ impl Message {
             } else {
                 match record.rr_type() {
                     #[cfg(feature = "dnssec")]
-                    RecordType::DNSSEC(DNSSECRecordType::SIG) => {
+                    RecordType::SIG => {
                         saw_sig0 = true;
                         sigs.push(record);
                     }
                     #[cfg(feature = "dnssec")]
-                    RecordType::DNSSEC(DNSSECRecordType::TSIG) => {
+                    RecordType::TSIG => {
                         if saw_sig0 {
                             return Err("sig0 must be final resource record".into());
                         } // SIG0 must be last
@@ -725,9 +721,9 @@ impl Message {
             match fin.rr_type() {
                 // SIG0's are special, and come at the very end of the message
                 #[cfg(feature = "dnssec")]
-                RecordType::DNSSEC(DNSSECRecordType::SIG) => self.add_sig0(fin),
+                RecordType::SIG => self.add_sig0(fin),
                 #[cfg(feature = "dnssec")]
-                RecordType::DNSSEC(DNSSECRecordType::TSIG) => self.add_tsig(fin),
+                RecordType::TSIG => self.add_tsig(fin),
                 _ => self.add_additional(fin),
             };
         }

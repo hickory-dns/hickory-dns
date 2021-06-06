@@ -21,7 +21,6 @@ use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::rdata::key::KEY;
 #[cfg(feature = "dnssec")]
 use crate::client::rr::rdata::DNSSECRData;
-use crate::client::rr::rdata::DNSSECRecordType;
 use crate::client::rr::rdata::SOA;
 use crate::client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 
@@ -242,7 +241,7 @@ impl InMemoryAuthority {
 
                 let (records, _rrsigs): (Vec<&Record>, Vec<&Record>) = rrset
                     .records(and_rrsigs, supported_algorithms)
-                    .partition(|r| r.record_type() != RecordType::DNSSEC(DNSSECRecordType::RRSIG));
+                    .partition(|r| r.record_type() != RecordType::RRSIG);
 
                 for record in records {
                     new_answer.add_rdata(record.rdata().clone());
@@ -359,10 +358,10 @@ impl InMemoryAuthority {
         #[cfg(feature = "dnssec")]
         fn is_nsec(upsert_type: RecordType, occupied_type: RecordType) -> bool {
             // NSEC is always allowed
-            upsert_type == RecordType::DNSSEC(DNSSECRecordType::NSEC)
-                || upsert_type == RecordType::DNSSEC(DNSSECRecordType::NSEC3)
-                || occupied_type == RecordType::DNSSEC(DNSSECRecordType::NSEC)
-                || occupied_type == RecordType::DNSSEC(DNSSECRecordType::NSEC3)
+            upsert_type == RecordType::NSEC
+                || upsert_type == RecordType::NSEC3
+                || occupied_type == RecordType::NSEC
+                || occupied_type == RecordType::NSEC3
         }
 
         #[cfg(not(feature = "dnssec"))]
@@ -460,7 +459,7 @@ impl InMemoryAuthority {
         let delete_keys: Vec<RrKey> = self
             .records
             .keys()
-            .filter(|k| k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC))
+            .filter(|k| k.record_type == RecordType::NSEC)
             .cloned()
             .collect();
 
@@ -483,11 +482,7 @@ impl InMemoryAuthority {
                     }
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
-                        let mut record = Record::with(
-                            name.clone(),
-                            RecordType::DNSSEC(DNSSECRecordType::NSEC),
-                            ttl,
-                        );
+                        let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
                         let rdata = NSEC::new_cover_self(key.name.clone().into(), vec);
                         record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                         records.push(record);
@@ -501,11 +496,7 @@ impl InMemoryAuthority {
             // the last record
             if let Some((name, vec)) = nsec_info {
                 // names aren't equal, create the NSEC record
-                let mut record = Record::with(
-                    name.clone(),
-                    RecordType::DNSSEC(DNSSECRecordType::NSEC),
-                    ttl,
-                );
+                let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
                 let rdata = NSEC::new_cover_self(Authority::origin(self).clone().into(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
@@ -544,11 +535,7 @@ impl InMemoryAuthority {
 
         rr_set.clear_rrsigs();
 
-        let rrsig_temp = Record::with(
-            rr_set.name().clone(),
-            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-            zone_ttl,
-        );
+        let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
 
         for signer in secure_keys {
             debug!(
@@ -1031,11 +1018,11 @@ impl Authority for InMemoryAuthority {
         supported_algorithms: SupportedAlgorithms,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
-            rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC)
+            rr_set.record_type() == RecordType::NSEC
         }
 
         // TODO: need a BorrowdRrKey
-        let rr_key = RrKey::new(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        let rr_key = RrKey::new(name.clone(), RecordType::NSEC);
         let no_data = self
             .records
             .get(&rr_key)

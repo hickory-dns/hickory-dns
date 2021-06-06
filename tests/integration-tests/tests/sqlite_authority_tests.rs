@@ -821,9 +821,7 @@ fn test_zone_signing() {
     .unwrap();
 
     assert!(
-        results
-            .iter()
-            .any(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
+        results.iter().any(|r| r.rr_type() == RecordType::DNSKEY),
         "must contain a DNSKEY"
     );
 
@@ -836,10 +834,10 @@ fn test_zone_signing() {
     .unwrap();
 
     for record in &results {
-        if record.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG) {
+        if record.rr_type() == RecordType::RRSIG {
             continue;
         }
-        if record.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY) {
+        if record.rr_type() == RecordType::DNSKEY {
             continue;
         }
 
@@ -853,14 +851,15 @@ fn test_zone_signing() {
 
         // validate all records have associated RRSIGs after signing
         assert!(
-            inner_results.iter().any(|r| r.rr_type()
-                == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
-                && r.name() == record.name()
-                && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
-                    rrsig.type_covered() == record.rr_type()
-                } else {
-                    false
-                }),
+            inner_results
+                .iter()
+                .any(|r| r.rr_type() == RecordType::RRSIG
+                    && r.name() == record.name()
+                    && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
+                        rrsig.type_covered() == record.rr_type()
+                    } else {
+                        false
+                    }),
             "record type not covered: {:?}",
             record
         );

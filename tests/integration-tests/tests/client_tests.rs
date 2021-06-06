@@ -310,7 +310,7 @@ fn test_timeout_query_tcp() {
 //     c.secure_query(
 //         &Name::parse("rollernet.us.", None).unwrap(),
 //         DNSClass::IN,
-//         RecordType::DNSSEC(DNSSECRecordType::DS),
+//         RecordType::DS),
 //     ).unwrap();
 // }
 
@@ -324,7 +324,7 @@ fn test_timeout_query_tcp() {
 //     c.secure_query(
 //         &Name::parse("rollernet.us.", None).unwrap(),
 //         DNSClass::IN,
-//         RecordType::DNSSEC(DNSSECRecordType::DS),
+//         RecordType::DS),
 //     ).unwrap();
 // }
 
@@ -338,7 +338,7 @@ fn test_timeout_query_tcp() {
 //     c.secure_query(
 //         &Name::parse("RollErnet.Us.", None).unwrap(),
 //         DNSClass::IN,
-//         RecordType::DNSSEC(DNSSECRecordType::DS),
+//         RecordType::DS),
 //     ).unwrap();
 // }
 
@@ -437,7 +437,7 @@ fn test_nsec_query_type() {
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     use openssl::rsa::Rsa;
     use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
-    use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, KEY};
+    use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, RecordType, KEY};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
@@ -460,7 +460,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(
         Name::from_str("trusted.example.com").unwrap(),
-        RecordType::DNSSEC(DNSSECRecordType::KEY),
+        RecordType::KEY,
         Duration::minutes(5).num_seconds() as u32,
     );
     auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(KEY::new(

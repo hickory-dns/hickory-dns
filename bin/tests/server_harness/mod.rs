@@ -17,7 +17,7 @@ use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::DnsResponse;
 use trust_dns_client::rr::dnssec::*;
-use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+use trust_dns_client::rr::rdata::DNSSECRData;
 use trust_dns_client::rr::*;
 
 use self::mut_message_client::MutMessageHandle;
@@ -251,17 +251,12 @@ pub fn query_all_dnssec(
         client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
     }
 
-    let response = query_message(
-        io_loop,
-        &mut client,
-        name.clone(),
-        RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
-    );
+    let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY);
 
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
+        .filter(|r| r.rr_type() == RecordType::DNSKEY)
         .map(|r| {
             if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
                 dnskey.clone()
@@ -272,17 +267,12 @@ pub fn query_all_dnssec(
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
-    let response = query_message(
-        io_loop,
-        &mut client,
-        name,
-        RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
-    );
+    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY);
 
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+        .filter(|r| r.rr_type() == RecordType::RRSIG)
         .map(|r| {
             if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
                 rrsig.clone()
@@ -291,7 +281,7 @@ pub fn query_all_dnssec(
             }
         })
         .filter(|rrsig| rrsig.algorithm() == algorithm)
-        .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
+        .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
 

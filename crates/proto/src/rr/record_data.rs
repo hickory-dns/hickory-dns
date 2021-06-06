@@ -776,12 +776,15 @@ impl RData {
                 rdata::txt::read(decoder, rdata_length).map(RData::TXT)
             }
             #[cfg(feature = "dnssec")]
-            RecordType::DNSSEC(record_type) => {
+            r if r.is_dnssec() => {
                 DNSSECRData::read(decoder, record_type, rdata_length).map(RData::DNSSEC)
             }
-            RecordType::Unknown(code) => {
-                trace!("reading Unknown");
-                rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown { code, rdata })
+            record_type => {
+                trace!("reading Unknown record: {}", record_type);
+                rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown {
+                    code: record_type.into(),
+                    rdata,
+                })
             }
         };
 
@@ -938,7 +941,7 @@ impl RData {
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
+            RData::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
             RData::Unknown { code, .. } => RecordType::Unknown(code),
             RData::ZERO => RecordType::ZERO,
         }
@@ -1230,7 +1233,7 @@ mod tests {
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),
+            RData::DNSSEC(ref rdata) => rdata.to_record_type(),
             RData::Unknown { code, .. } => RecordType::Unknown(code),
             RData::ZERO => RecordType::ZERO,
         }

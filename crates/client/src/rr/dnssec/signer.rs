@@ -17,7 +17,7 @@ use {
     crate::error::DnsSecResult,
     crate::proto::rr::dnssec::{tbs, TBS},
     crate::rr::dnssec::{Algorithm, KeyPair, Private},
-    crate::rr::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, KEY, SIG},
+    crate::rr::rdata::{DNSSECRData, DNSKEY, KEY, SIG},
     crate::rr::{DNSClass, Name, RData, RecordType},
     crate::serialize::binary::BinEncoder,
 };
@@ -537,7 +537,7 @@ impl MessageFinalizer for SigSigner {
 
         let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.set_rr_type(RecordType::DNSSEC(DNSSECRecordType::SIG));
+        sig0.set_rr_type(RecordType::SIG);
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::ZERO,

@@ -156,7 +156,7 @@ where
 //         .block_on(client.query(
 //             name.clone(),
 //             DNSClass::IN,
-//             RecordType::DNSSEC(DNSSECRecordType::DS),
+//             RecordType::DS),
 //         ))
 //         .expect("query failed");
 
@@ -176,7 +176,7 @@ where
 //         .block_on(client.query(
 //             name.clone(),
 //             DNSClass::IN,
-//             RecordType::DNSSEC(DNSSECRecordType::DS),
+//             RecordType::DS),
 //         ))
 //         .expect("query failed");
 
