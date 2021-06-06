@@ -288,7 +288,7 @@ async fn create_sig0_ready_client() -> (
 ) {
     use openssl::rsa::Rsa;
     use trust_dns_client::rr::dnssec::{Algorithm, KeyPair};
-    use trust_dns_client::rr::rdata::{DNSSECRData, RecordType};
+    use trust_dns_client::rr::rdata::DNSSECRData;
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();

@@ -764,7 +764,7 @@ pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
     //   NAME:  The name of the key used, in domain name syntax
     tsig.set_name(name)
         //   TYPE:  This MUST be TSIG (250: Transaction SIGnature).
-        .set_record_type(RecordType::TSIG.into())
+        .set_record_type(RecordType::TSIG)
         //   CLASS:  This MUST be ANY.
         .set_dns_class(DNSClass::ANY)
         //   TTL:  This MUST be 0.

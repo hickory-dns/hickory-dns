@@ -8,7 +8,7 @@ use futures_executor::block_on;
 use trust_dns_client::op::Query;
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns_client::rr::{DNSClass, Name, Record, RecordType};
-use trust_dns_proto::rr::dnssec::rdata::{RecordType, DNSKEY};
+use trust_dns_proto::rr::dnssec::rdata::DNSKEY;
 use trust_dns_proto::xfer;
 use trust_dns_server::authority::{AuthLookup, Authority};
 

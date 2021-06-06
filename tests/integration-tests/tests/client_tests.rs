@@ -437,7 +437,7 @@ fn test_nsec_query_type() {
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     use openssl::rsa::Rsa;
     use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, Signer as SigSigner};
-    use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, RecordType, KEY};
+    use trust_dns_proto::rr::dnssec::rdata::{DNSSECRData, KEY};
     use trust_dns_server::store::sqlite::SqliteAuthority;
 
     let authority = create_example();
