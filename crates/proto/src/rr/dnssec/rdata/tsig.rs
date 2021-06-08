@@ -191,7 +191,7 @@ pub enum TsigAlgorithm {
     HmacSha384_192,
     /// hmac-sha512
     HmacSha512,
-    /// hmac-sha512-256
+    /// hmac-sha512-256 (not supported for cryptographic operations)
     HmacSha512_256,
     /// Unkown algorithm
     Unknown(Name),
@@ -493,45 +493,150 @@ impl TsigAlgorithm {
         }
     }
 
+    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[doc(hidden)]
+    #[allow(clippy::unimplemented)]
+    pub fn mac_data(&self, _key: &[u8], _message: &[u8]) -> ProtoResult<Vec<u8>> {
+        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
+    }
+
     /// Compute the Message Authentication Code using key and algorithm
     ///
     /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
     /// Other algorithm return an error.
+    #[cfg(feature = "ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
-        use hmac::{Hmac, Mac, NewMac};
+        use ring::hmac;
         use TsigAlgorithm::*;
 
-        let res = match self {
-            HmacSha256 => {
-                let mut mac = Hmac::<sha2::Sha256>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
-                mac.update(message);
-                mac.finalize().into_bytes().to_vec()
-            }
-            HmacSha384 => {
-                let mut mac = Hmac::<sha2::Sha384>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
-                mac.update(message);
-                mac.finalize().into_bytes().to_vec()
-            }
-            HmacSha512 => {
-                let mut mac = Hmac::<sha2::Sha512>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
-                mac.update(message);
-                mac.finalize().into_bytes().to_vec()
-            }
-            HmacSha512_256 => {
-                let mut mac = Hmac::<sha2::Sha512Trunc256>::new_varkey(key).unwrap(/* all keysize are allowed for Hmac */);
-                mac.update(message);
-                mac.finalize().into_bytes().to_vec()
-            }
+        let key = match self {
+            HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
+            HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
+            HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
             _ => return Err(ProtoError::from("unsupported mac algorithm")),
         };
+
+        let mac = hmac::sign(&key, message);
+        let res = mac.as_ref().to_vec();
+
         Ok(res)
+    }
+
+    /// Compute the Message Authentication Code using key and algorithm
+    ///
+    /// Supported algorithm are HmacSha256, HmacSha384, HmacSha512 and HmacSha512_256
+    /// Other algorithm return an error.
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    #[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+    pub fn mac_data(&self, key: &[u8], message: &[u8]) -> ProtoResult<Vec<u8>> {
+        use openssl::{hash::MessageDigest, pkey::PKey, sign::Signer};
+        use TsigAlgorithm::*;
+
+        let key = PKey::hmac(key)?;
+
+        let mut signer = match self {
+            HmacSha256 => Signer::new(MessageDigest::sha256(), &key)?,
+            HmacSha384 => Signer::new(MessageDigest::sha384(), &key)?,
+            HmacSha512 => Signer::new(MessageDigest::sha512(), &key)?,
+            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+        };
+
+        signer.update(message)?;
+        signer.sign_to_vec().map_err(|e| e.into())
+    }
+
+    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[doc(hidden)]
+    #[allow(clippy::unimplemented)]
+    pub fn verify_mac(&self, _key: &[u8], _message: &[u8], _tag: &[u8]) -> ProtoResult<()> {
+        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
+    }
+
+    /// Verifies the hmac tag against the given key and this algorithm.
+    ///
+    /// This is both faster than independently creating the MAC and also constant time preventing timing attacks
+    #[cfg(feature = "ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+    pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> ProtoResult<()> {
+        use ring::hmac;
+        use TsigAlgorithm::*;
+
+        let key = match self {
+            HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
+            HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
+            HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
+            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+        };
+
+        hmac::verify(&key, message, tag).map_err(|_| ProtoErrorKind::HmacInvalid().into())
+    }
+
+    /// Verifies the hmac tag against the given key and this algorithm.
+    ///
+    /// This is constant time preventing timing attacks
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    #[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+    pub fn verify_mac(&self, key: &[u8], message: &[u8], tag: &[u8]) -> ProtoResult<()> {
+        use openssl::memcmp;
+
+        let hmac = self.mac_data(key, message)?;
+        if memcmp::eq(&hmac, tag) {
+            Ok(())
+        } else {
+            Err(ProtoErrorKind::HmacInvalid().into())
+        }
+    }
+
+    // TODO: remove this once trust-dns-client no longer has dnssec feature enabled by default
+    #[cfg(not(any(feature = "ring", feature = "openssl")))]
+    #[doc(hidden)]
+    #[allow(clippy::unimplemented)]
+    pub fn output_len(&self) -> ProtoResult<usize> {
+        unimplemented!("one of dnssec-ring or dnssec-openssl features must be enabled")
+    }
+
+    /// Return length in bytes of the algorithms output
+    #[cfg(feature = "ring")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
+    pub fn output_len(&self) -> ProtoResult<usize> {
+        use ring::hmac;
+        use TsigAlgorithm::*;
+
+        let len = match self {
+            HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len,
+            HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len,
+            HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len,
+            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+        };
+
+        Ok(len)
+    }
+
+    /// Return length in bytes of the algorithms output
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
+    #[cfg_attr(docsrs, doc(cfg(all(not(feature = "ring"), feature = "openssl"))))]
+    pub fn output_len(&self) -> ProtoResult<usize> {
+        use openssl::hash::MessageDigest;
+        use TsigAlgorithm::*;
+
+        let len = match self {
+            HmacSha256 => MessageDigest::sha256().size(),
+            HmacSha384 => MessageDigest::sha384().size(),
+            HmacSha512 => MessageDigest::sha512().size(),
+            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+        };
+
+        Ok(len)
     }
 
     /// Return true if cryptographic operations needed for using this algorithm are supported,
     /// false otherwise
     pub fn supported(&self) -> bool {
         use TsigAlgorithm::*;
-        matches!(self, HmacSha256 | HmacSha384 | HmacSha512 | HmacSha512_256)
+        matches!(self, HmacSha256 | HmacSha384 | HmacSha512)
     }
 }
 
@@ -793,5 +898,14 @@ mod tests {
             .0;
 
         assert_eq!(tbs, tbv);
+
+        // sign and verify
+        let key = &[0, 1, 2, 3, 4];
+
+        let tag = TsigAlgorithm::HmacSha256.mac_data(key, &tbv).unwrap();
+
+        TsigAlgorithm::HmacSha256
+            .verify_mac(key, &tbv, &tag)
+            .expect("did not verify")
     }
 }

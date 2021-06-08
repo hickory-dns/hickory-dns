@@ -24,7 +24,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use tinyvec::TinyVec;
 
 /// A domain name
-#[derive(Clone, Default, Debug, Eq)]
+#[derive(Clone, Default, Eq)]
 pub struct Name {
     is_fqdn: bool,
     label_data: TinyVec<[u8; 32]>,
@@ -885,6 +885,14 @@ impl Name {
             label_ends,
             is_fqdn: self.is_fqdn,
         }
+    }
+}
+
+impl std::fmt::Debug for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Name(\"")?;
+        self.write_labels::<_, LabelEncUtf8>(f)?;
+        f.write_str("\")")
     }
 }
 
