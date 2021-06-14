@@ -805,7 +805,7 @@ impl fmt::Display for Alpn {
 ///   apply only to the inner ClientHello.  Similarly, it is the inner
 ///   ClientHello whose Server Name Indication identifies the desired
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
 pub struct EchConfig(pub Vec<u8>);
 
@@ -846,15 +846,33 @@ impl BinEncodable for EchConfig {
 }
 
 impl fmt::Display for EchConfig {
+    /// As the documentation states, the presentation format (what this function outputs) must be a BASE64 encoded string.
+    ///   trust-dns will encode to BASE64 during formatting of the internal data, and output the BASE64 value.
+    ///
+    /// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-9)
+    /// ```text
     /// In presentation format, the value is a
-    ///   single ECHConfigs encoded in Base64 (base64).  Base64 is used here to
+    ///   single ECHConfigs encoded in Base64 [base64].  Base64 is used here to
     ///   simplify integration with TLS server software.  To enable simpler
     ///   parsing, this SvcParam MUST NOT contain escape sequences.
+    /// ```
     ///
     /// *note* while the on the wire the EchConfig has a redundant length,
-    ///   the RFC is not explicit about including it in the base64
+    ///   the RFC is not explicit about including it in the BASE64 encoded value,
+    ///   trust-dns will encode the data as it is stored, i.e. without the length encoding.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "\"{}\"", data_encoding::BASE64.encode(&self.0))
+    }
+}
+
+impl fmt::Debug for EchConfig {
+    /// The debug format for EchConfig will output the value in BASE64 like Display, but will the addition of the type-name.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "\"EchConfig ({})\"",
+            data_encoding::BASE64.encode(&self.0)
+        )
     }
 }
 
