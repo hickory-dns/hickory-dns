@@ -808,13 +808,12 @@ impl<R> ClientStreamXfrState<R> {
                         Ok(())
                     }
                     1 => {
+                        *self = Ended;
                         if answers.last().unwrap(/* answers is not empty */).rr_type()
                             == RecordType::SOA
                         {
-                            *self = Ended;
                             Ok(())
                         } else {
-                            *self = Ended;
                             Err(ClientErrorKind::Message(
                                 "invalid zone transfer, contains trailing records",
                             )

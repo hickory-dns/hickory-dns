@@ -425,7 +425,7 @@ impl Message {
 
     /// Removes all the answers from the Message
     pub fn take_queries(&mut self) -> Vec<Query> {
-        mem::replace(&mut self.queries, vec![])
+        mem::take(&mut self.queries)
     }
 
     /// ```text
@@ -442,7 +442,7 @@ impl Message {
 
     /// Removes all the answers from the Message
     pub fn take_answers(&mut self) -> Vec<Record> {
-        mem::replace(&mut self.answers, vec![])
+        mem::take(&mut self.answers)
     }
 
     /// ```text
@@ -461,7 +461,7 @@ impl Message {
 
     /// Remove the name servers from the Message
     pub fn take_name_servers(&mut self) -> Vec<Record> {
-        mem::replace(&mut self.name_servers, vec![])
+        mem::take(&mut self.name_servers)
     }
 
     /// ```text
@@ -479,7 +479,7 @@ impl Message {
 
     /// Remove the additional Records from the Message
     pub fn take_additionals(&mut self) -> Vec<Record> {
-        mem::replace(&mut self.additionals, vec![])
+        mem::take(&mut self.additionals)
     }
 
     /// All sections chained
@@ -591,7 +591,7 @@ impl Message {
 
     /// Remove signatures from the Message
     pub fn take_signature(&mut self) -> Vec<Record> {
-        mem::replace(&mut self.signature, vec![])
+        mem::take(&mut self.signature)
     }
 
     // TODO: only necessary in tests, should it be removed?

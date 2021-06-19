@@ -392,7 +392,7 @@ impl SqliteAuthority {
                 // zone     rrset    rr       RRset exists (value dependent)
                 {
                     /*TODO: this works because the future here is always complete*/
-                    if block_on(self.lookup(
+                    if !block_on(self.lookup(
                         &required_name,
                         require.rr_type(),
                         false,
@@ -400,8 +400,7 @@ impl SqliteAuthority {
                     ))
                     .unwrap_or_default()
                     .iter()
-                    .find(|rr| *rr == require)
-                    .is_none()
+                    .any(|rr| rr == require)
                     {
                         return Err(ResponseCode::NXRRSet);
                     } else {
