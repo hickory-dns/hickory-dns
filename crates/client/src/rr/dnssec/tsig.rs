@@ -213,6 +213,8 @@ impl MessageFinalizer for TSigner {
 }
 
 #[cfg(test)]
+#[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
+
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
@@ -229,7 +231,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn test_sign_and_verify_message_tsig() {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
@@ -260,7 +261,6 @@ mod tests {
     }
 
     // make rejection tests shorter by centralizing common setup code
-    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn get_message_and_signer() -> (Message, TSigner) {
         let time_begin = 1609459200u64;
         let fudge = 300u64;
@@ -290,7 +290,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn test_sign_and_verify_message_tsig_reject_keyname() {
         let (mut question, signer) = get_message_and_signer();
 
@@ -305,7 +304,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     fn test_sign_and_verify_message_tsig_reject_invalid_mac() {
         let (mut question, signer) = get_message_and_signer();
 
@@ -320,7 +318,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(any(feature = "dnssec-ring", feature = "dnssec-openssl"))]
     #[cfg(feature = "hmac_truncation")] // not currently supported for security reasons
     fn test_sign_and_verify_message_tsig_truncation() {
         let (mut question, signer) = get_message_and_signer();

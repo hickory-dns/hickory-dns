@@ -17,14 +17,19 @@ use std::pin::Pin;
 
 use log::{debug, info};
 
+#[cfg(feature = "dnssec")]
+use crate::authority::DnssecAuthority;
 use crate::authority::{
     Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
 };
 use crate::client::op::LowerQuery;
-use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecResult, SigSigner};
 use crate::client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
 use crate::client::serialize::txt::{Lexer, Parser, Token};
+#[cfg(feature = "dnssec")]
+use crate::client::{
+    proto::rr::dnssec::rdata::key::KEY,
+    rr::dnssec::{DnsSecResult, SigSigner},
+};
 use crate::store::file::FileConfig;
 use crate::store::in_memory::InMemoryAuthority;
 
@@ -332,7 +337,11 @@ impl Authority for FileAuthority {
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.0.soa_secure(lookup_options)
     }
+}
 
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+impl DnssecAuthority for FileAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.0.add_update_auth_key(name, key)
@@ -345,7 +354,7 @@ impl Authority for FileAuthority {
 
     /// Sign the zone for DNSSEC
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Authority::secure_zone(&mut self.0)
+        DnssecAuthority::secure_zone(&mut self.0)
     }
 }
 

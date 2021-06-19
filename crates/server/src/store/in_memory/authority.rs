@@ -17,19 +17,26 @@ use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
 use log::{debug, error};
 
-use crate::client::op::{LowerQuery, ResponseCode};
 #[cfg(feature = "dnssec")]
-use crate::client::rr::dnssec::SupportedAlgorithms;
-use crate::client::rr::dnssec::{DnsSecResult, SigSigner};
-use crate::client::rr::rdata::key::KEY;
-#[cfg(feature = "dnssec")]
-use crate::client::rr::rdata::DNSSECRData;
-use crate::client::rr::rdata::SOA;
-use crate::client::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-
-use crate::authority::{
-    AnyRecords, AuthLookup, Authority, LookupError, LookupOptions, LookupRecords, LookupResult,
-    MessageRequest, UpdateResult, ZoneType,
+use crate::{
+    authority::DnssecAuthority,
+    client::rr::{
+        dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
+        rdata::{key::KEY, DNSSECRData},
+    },
+};
+use crate::{
+    authority::{
+        AnyRecords, AuthLookup, Authority, LookupError, LookupOptions, LookupRecords, LookupResult,
+        MessageRequest, UpdateResult, ZoneType,
+    },
+    client::{
+        op::{LowerQuery, ResponseCode},
+        rr::{
+            rdata::SOA,
+            {DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
+        },
+    },
 };
 
 /// InMemoryAuthority is responsible for storing the resource records for a particular zone.
@@ -47,6 +54,7 @@ pub struct InMemoryAuthority {
     //   server instance, but that requires requesting updates from the parent zone, which may or
     //   may not support dynamic updates to register the new key... Trust-DNS will provide support
     //   for this, in some form, perhaps alternate root zones...
+    #[cfg(feature = "dnssec")]
     secure_keys: Vec<SigSigner>,
 }
 
@@ -115,6 +123,7 @@ impl InMemoryAuthority {
             records: BTreeMap::new(),
             zone_type,
             allow_axfr,
+            #[cfg(feature = "dnssec")]
             secure_keys: Vec::new(),
         }
     }
@@ -135,6 +144,7 @@ impl InMemoryAuthority {
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
+    #[cfg(feature = "dnssec")]
     pub fn secure_keys(&self) -> &[SigSigner] {
         &self.secure_keys
     }
@@ -1104,8 +1114,12 @@ impl Authority for InMemoryAuthority {
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         Box::pin(future::ok(AuthLookup::default()))
     }
+}
 
-    #[cfg(feature = "dnssec")]
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+impl DnssecAuthority for InMemoryAuthority {
+    /// Add a (Sig0) key that is authorized to perform updates against this authority
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
         // TODO: what TTL?
@@ -1119,17 +1133,11 @@ impl Authority for InMemoryAuthority {
         }
     }
 
-    #[cfg(not(feature = "dnssec"))]
-    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err("DNSSEC was not enabled during compilation.".into())
-    }
-
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
     ///
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    #[cfg(feature = "dnssec")]
     fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = self.minimum_ttl();
@@ -1147,14 +1155,7 @@ impl Authority for InMemoryAuthority {
         Ok(())
     }
 
-    /// This will fail, the dnssec feature must be enabled
-    #[cfg(not(feature = "dnssec"))]
-    fn add_zone_signing_key(&mut self, _signer: SigSigner) -> DnsSecResult<()> {
-        Err("DNSSEC was not enabled during compilation.".into())
-    }
-
-    /// (Re)generates the nsec records, increments the serial number and signs the zone
-    #[cfg(feature = "dnssec")]
+    /// Sign the zone for DNSSEC
     fn secure_zone(&mut self) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
@@ -1166,11 +1167,5 @@ impl Authority for InMemoryAuthority {
 
         // TODO: should we auto sign here? or maybe up a level...
         self.sign_zone()
-    }
-
-    /// (Re)generates the nsec records, increments the serial number and signs the zone
-    #[cfg(not(feature = "dnssec"))]
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err("DNSSEC was not enabled during compilation.".into())
     }
 }

@@ -32,3 +32,7 @@ pub use self::error::{LookupError, LookupResult};
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 pub use self::zone_type::ZoneType;
+
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+pub use self::authority::DnssecAuthority;

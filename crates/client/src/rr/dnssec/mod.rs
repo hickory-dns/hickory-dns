@@ -20,8 +20,6 @@
 mod key_format;
 mod keypair;
 mod signer;
-#[cfg(feature = "dnssec")]
-#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub mod tsig;
 
 use crate::proto::rr::dnssec;
