@@ -65,6 +65,7 @@ impl Digest {
     }
 
     /// This is an empty type, enable Ring or OpenSSL for this feature
+    #[allow(clippy::wrong_self_convention)]
     pub fn to_owned(&self) -> Vec<u8> {
         vec![]
     }

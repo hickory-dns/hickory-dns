@@ -140,11 +140,9 @@ impl<K: HasPublic> KeyPair<K> {
                 if e.len() > 255 {
                     bytes.push(0);
                     bytes.push((e.len() >> 8) as u8);
-                    bytes.push(e.len() as u8);
-                } else {
-                    bytes.push(e.len() as u8);
                 }
 
+                bytes.push(e.len() as u8);
                 bytes.extend_from_slice(&e);
                 bytes.extend_from_slice(&n);
 

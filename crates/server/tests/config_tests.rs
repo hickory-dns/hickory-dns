@@ -192,14 +192,8 @@ signer_name = \"ns.example.com.\"
             .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert_eq!(
-        config.get_zones()[0].get_keys()[0].is_zone_signing_key(),
-        false
-    );
-    assert_eq!(
-        config.get_zones()[0].get_keys()[0].is_zone_update_auth(),
-        true
-    );
+    assert!(!config.get_zones()[0].get_keys()[0].is_zone_signing_key(),);
+    assert!(config.get_zones()[0].get_keys()[0].is_zone_update_auth(),);
 
     assert_eq!(
         config.get_zones()[0].get_keys()[1].key_path(),
@@ -216,14 +210,8 @@ signer_name = \"ns.example.com.\"
             .unwrap(),
         Name::parse("ns.example.com.", None).unwrap()
     );
-    assert_eq!(
-        config.get_zones()[0].get_keys()[1].is_zone_signing_key(),
-        false
-    );
-    assert_eq!(
-        config.get_zones()[0].get_keys()[1].is_zone_update_auth(),
-        false
-    );
+    assert!(!config.get_zones()[0].get_keys()[1].is_zone_signing_key(),);
+    assert!(!config.get_zones()[0].get_keys()[1].is_zone_update_auth(),);
 }
 
 #[test]

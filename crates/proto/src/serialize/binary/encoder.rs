@@ -336,13 +336,12 @@ impl<'a> BinEncoder<'a> {
                     offset += 1;
                 }
             })?;
-
-            self.offset += data.len();
         } else {
             self.buffer
                 .enforced_write(data.len(), |buffer| buffer.extend_from_slice(data))?;
-            self.offset += data.len();
         }
+
+        self.offset += data.len();
 
         Ok(())
     }

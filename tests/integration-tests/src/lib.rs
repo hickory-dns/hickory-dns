@@ -79,7 +79,7 @@ impl TestResponseHandler {
                 .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
                 .is_ok()
             {
-                let bytes: Vec<u8> = mem::replace(&mut self.buf.lock().unwrap(), vec![]);
+                let bytes: Vec<u8> = mem::take(&mut self.buf.lock().unwrap());
                 Poll::Ready(bytes)
             } else {
                 Poll::Pending
