@@ -12,7 +12,8 @@ use trust_dns_client::proto::rr::{DNSClass, Name, RData, Record, RecordSet, Reco
 use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier};
 use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable, BinSerializable};
 use trust_dns_server::authority::{
-    AuthLookup, Authority, LookupError, LookupOptions, MessageRequest, UpdateResult,
+    AuthLookup, Authority, DnssecAuthority, LookupError, LookupOptions, MessageRequest,
+    UpdateResult,
 };
 
 fn update_authority<A: Authority<Lookup = AuthLookup>>(
@@ -654,7 +655,7 @@ pub fn test_delete_all<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys
     }
 }
 
-pub fn add_auth<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<SigSigner> {
+pub fn add_auth<A: DnssecAuthority>(authority: &mut A) -> Vec<SigSigner> {
     use trust_dns_client::rr::rdata::key::KeyUsage;
     use trust_dns_server::config::dnssec::*;
 

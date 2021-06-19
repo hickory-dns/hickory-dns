@@ -19,9 +19,7 @@ use crate::authority::{
     Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
 };
 use crate::client::op::LowerQuery;
-use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, SigSigner};
-use crate::client::rr::{LowerName, Name, Record, RecordType};
+use crate::client::rr::{LowerName, Record, RecordType};
 
 /// An Object safe Authority
 pub trait AuthorityObject: Send + Sync {
@@ -104,28 +102,6 @@ pub trait AuthorityObject: Send + Sync {
     /// Returns the SOA record for the zone
     fn soa_secure(&self, lookup_options: LookupOptions) -> BoxedLookupFuture {
         self.lookup(&self.origin(), RecordType::SOA, lookup_options)
-    }
-
-    // TODO: this should probably be a general purpose higher level component?
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "dynamic update not supported by this Authority type",
-        ))
-    }
-
-    /// Add Signer
-    fn add_zone_signing_key(&self, _signer: SigSigner) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
-    }
-
-    /// Sign the zone for DNSSEC
-    fn secure_zone(&self) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
     }
 }
 
@@ -217,18 +193,6 @@ where
         let lookup =
             Authority::get_nsec_records(&*self.read().expect("poisoned"), name, lookup_options);
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
-    }
-
-    fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
-        Authority::add_update_auth_key(&mut *self.write().expect("poisoned"), name, key)
-    }
-
-    fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
-        Authority::add_zone_signing_key(&mut *self.write().expect("poisoned"), signer)
-    }
-
-    fn secure_zone(&self) -> DnsSecResult<()> {
-        Authority::secure_zone(&mut *self.write().expect("poisoned"))
     }
 }
 

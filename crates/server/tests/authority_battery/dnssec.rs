@@ -10,7 +10,7 @@ use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns_client::rr::{DNSClass, Name, Record, RecordType};
 use trust_dns_proto::rr::dnssec::rdata::DNSKEY;
 use trust_dns_proto::xfer;
-use trust_dns_server::authority::{AuthLookup, Authority, LookupOptions};
+use trust_dns_server::authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions};
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -328,7 +328,7 @@ pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
             .is_ok())));
 }
 
-pub fn add_signers<A: Authority<Lookup = AuthLookup>>(authority: &mut A) -> Vec<DNSKEY> {
+pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
     use trust_dns_server::config::dnssec::*;
     let signer_name = Name::from(authority.origin().to_owned());
 

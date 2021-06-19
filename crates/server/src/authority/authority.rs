@@ -10,11 +10,12 @@ use std::future::Future;
 use std::pin::Pin;
 
 use crate::client::op::LowerQuery;
-use crate::client::proto::rr::dnssec::rdata::key::KEY;
-#[cfg(feature = "dnssec")]
-use crate::client::rr::dnssec::SupportedAlgorithms;
-use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, SigSigner};
 use crate::client::rr::{LowerName, Name, RecordType};
+#[cfg(feature = "dnssec")]
+use crate::client::{
+    proto::rr::dnssec::rdata::key::KEY,
+    rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
+};
 
 use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
 
@@ -177,25 +178,18 @@ pub trait Authority: Send {
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
     }
+}
 
+/// Extension to Authority to allow for DNSSEC features
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+pub trait DnssecAuthority: Authority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "dynamic update not supported by this Authority type",
-        ))
-    }
+    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()>;
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, _signer: SigSigner) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
-    }
+    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()>;
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
-    }
+    fn secure_zone(&mut self) -> DnsSecResult<()>;
 }

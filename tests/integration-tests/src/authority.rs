@@ -193,7 +193,7 @@ pub fn create_secure_example() -> InMemoryAuthority {
     use chrono::Duration;
     use openssl::rsa::Rsa;
     use trust_dns_client::rr::dnssec::*;
-    use trust_dns_server::authority::Authority;
+    use trust_dns_server::authority::{Authority, DnssecAuthority};
 
     let mut authority = create_example();
     let rsa = Rsa::generate(2048).unwrap();

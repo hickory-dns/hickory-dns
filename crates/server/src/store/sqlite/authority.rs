@@ -22,11 +22,11 @@ use crate::proto::op::ResponseCode;
 use crate::proto::rr::dnssec::rdata::key::KEY;
 use crate::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 
-#[cfg(feature = "dnssec")]
-use crate::authority::UpdateRequest;
 use crate::authority::{
     Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
 };
+#[cfg(feature = "dnssec")]
+use crate::authority::{DnssecAuthority, UpdateRequest};
 use crate::error::{PersistenceErrorKind, PersistenceResult};
 use crate::store::in_memory::InMemoryAuthority;
 use crate::store::sqlite::{Journal, SqliteConfig};
@@ -960,7 +960,11 @@ impl Authority for SqliteAuthority {
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         self.in_memory.get_nsec_records(name, lookup_options)
     }
+}
 
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+impl DnssecAuthority for SqliteAuthority {
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key)
     }
@@ -976,6 +980,6 @@ impl Authority for SqliteAuthority {
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Authority::secure_zone(&mut self.in_memory)
+        DnssecAuthority::secure_zone(&mut self.in_memory)
     }
 }
