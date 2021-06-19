@@ -10,11 +10,12 @@ use std::future::Future;
 use std::pin::Pin;
 
 use crate::client::op::LowerQuery;
-use crate::client::rr::{LowerName, Name, RecordType};
+use crate::client::rr::{LowerName, RecordType};
 #[cfg(feature = "dnssec")]
 use crate::client::{
     proto::rr::dnssec::rdata::key::KEY,
     rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
+    rr::Name,
 };
 
 use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
@@ -54,6 +55,7 @@ impl LookupOptions {
     }
 
     /// Specify that this lookup should return DNSSEC related records as well, e.g. RRSIG
+    #[allow(clippy::needless_update)]
     pub fn set_is_dnssec(self, val: bool) -> Self {
         Self {
             is_dnssec: val,

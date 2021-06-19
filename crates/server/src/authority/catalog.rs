@@ -25,8 +25,10 @@ use crate::authority::{
 };
 use crate::client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 #[cfg(feature = "dnssec")]
-use crate::client::rr::dnssec::{Algorithm, SupportedAlgorithms};
-use crate::client::rr::rdata::opt::{EdnsCode, EdnsOption};
+use crate::client::rr::{
+    dnssec::{Algorithm, SupportedAlgorithms},
+    rdata::opt::{EdnsCode, EdnsOption},
+};
 use crate::client::rr::{LowerName, RecordType};
 use crate::server::{Request, RequestHandler, ResponseHandler};
 
@@ -36,7 +38,7 @@ pub struct Catalog {
     authorities: HashMap<LowerName, Box<dyn AuthorityObject>>,
 }
 
-#[allow(unused_mut)]
+#[allow(unused_mut, unused_variables)]
 fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse<'_, '_>,
@@ -424,6 +426,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
     }
 }
 
+#[allow(unused_variables)]
 fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
     let edns = match edns {
         Some(edns) => edns,

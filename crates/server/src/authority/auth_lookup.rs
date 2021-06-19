@@ -351,6 +351,7 @@ impl<'a> IntoIterator for &'a LookupRecords {
     type Item = &'a Record;
     type IntoIter = LookupRecordsIter<'a>;
 
+    #[allow(unused_variables)]
     fn into_iter(self) -> Self::IntoIter {
         match self {
             LookupRecords::Empty => LookupRecordsIter::Empty,
