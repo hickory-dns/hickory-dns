@@ -1,21 +1,21 @@
 use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::{DnsHandle, DnsRequest};
-use trust_dns_client::rr::dnssec::*;
+#[cfg(feature = "dnssec")]
 use trust_dns_client::rr::rdata::opt::EdnsOption;
+use trust_dns_server::authority::LookupOptions;
 
 #[derive(Clone)]
 pub struct MutMessageHandle<C: ClientHandle + Unpin> {
     client: C,
-    pub dnssec_ok: bool,
-    pub support_algorithms: Option<SupportedAlgorithms>,
+    pub lookup_options: LookupOptions,
 }
 
 impl<C: ClientHandle + Unpin> MutMessageHandle<C> {
+    #[allow(dead_code)]
     pub fn new(client: C) -> Self {
         MutMessageHandle {
             client,
-            dnssec_ok: false,
-            support_algorithms: None,
+            lookup_options: Default::default(),
         }
     }
 }
@@ -28,16 +28,17 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
         true
     }
 
+    #[allow(unused_mut)]
     fn send<R: Into<DnsRequest> + Unpin>(&mut self, request: R) -> Self::Response {
         let mut request = request.into();
+
+        #[cfg(feature = "dnssec")]
         {
             // mutable block
             let edns = request.edns_mut();
             edns.set_dnssec_ok(true);
-
-            if let Some(supported_algs) = self.support_algorithms {
-                edns.options_mut().insert(EdnsOption::DAU(supported_algs));
-            }
+            edns.options_mut()
+                .insert(EdnsOption::DAU(self.lookup_options.supported_algorithms()));
         }
 
         println!("sending message");

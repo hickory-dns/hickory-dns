@@ -40,6 +40,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 
+#[cfg(feature = "dnssec")]
 use std::future::Future;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};

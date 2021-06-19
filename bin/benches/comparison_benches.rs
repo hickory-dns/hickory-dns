@@ -21,12 +21,12 @@ use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::op::*;
-use trust_dns_client::rr::dnssec::Signer;
 use trust_dns_client::rr::*;
 use trust_dns_client::tcp::*;
 use trust_dns_client::udp::*;
 use trust_dns_proto::error::*;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
+use trust_dns_proto::op::NoopMessageFinalizer;
 use trust_dns_proto::xfer::*;
 
 fn find_test_port() -> u16 {
@@ -184,7 +184,7 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
-    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
+    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
     bench(b, mp);
 
     // cleaning up the named process
@@ -259,7 +259,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
-    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<Signer>>);
+    let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
     bench(b, mp);
 
     // cleaning up the named process

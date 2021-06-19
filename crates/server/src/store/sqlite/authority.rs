@@ -15,26 +15,28 @@ use std::sync::Arc;
 
 use log::{error, info, warn};
 
-use crate::client::op::LowerQuery;
-use crate::client::rr::dnssec::{DnsSecResult, SigSigner};
-use crate::client::rr::{LowerName, RrKey};
-use crate::proto::op::ResponseCode;
-use crate::proto::rr::dnssec::rdata::key::KEY;
-use crate::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
-
 use crate::authority::{
     Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
 };
-#[cfg(feature = "dnssec")]
-use crate::authority::{DnssecAuthority, UpdateRequest};
+use crate::client::op::LowerQuery;
+use crate::client::rr::{LowerName, RrKey};
 use crate::error::{PersistenceErrorKind, PersistenceResult};
+use crate::proto::op::ResponseCode;
+use crate::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 use crate::store::in_memory::InMemoryAuthority;
 use crate::store::sqlite::{Journal, SqliteConfig};
+#[cfg(feature = "dnssec")]
+use crate::{
+    authority::{DnssecAuthority, UpdateRequest},
+    client::rr::dnssec::{DnsSecResult, SigSigner},
+    proto::rr::dnssec::rdata::key::KEY,
+};
 
 /// SqliteAuthority is responsible for storing the resource records for a particular zone.
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
+#[allow(dead_code)]
 pub struct SqliteAuthority {
     in_memory: InMemoryAuthority,
     journal: Option<Journal>,

@@ -7,7 +7,6 @@ use std::str::FromStr;
 use futures_executor::block_on;
 
 use trust_dns_client::op::{Message, Query, ResponseCode};
-use trust_dns_client::rr::dnssec::SupportedAlgorithms;
 use trust_dns_client::rr::{Name, RData, Record, RecordType};
 use trust_dns_server::authority::{
     AuthLookup, Authority, LookupError, LookupOptions, MessageRequest,
