@@ -80,7 +80,7 @@ futures-util = { version = "0.3.5", default-features = false, features = ["std"]
 h2 = { version = "0.3.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 idna = "0.2.3"
-ipnet = "2.3.0"
+ipnet = "2.3.1"
 js-sys = { version = "0.3.44", optional = true }
 lazy_static = "1.0"
 log = "0.4"
