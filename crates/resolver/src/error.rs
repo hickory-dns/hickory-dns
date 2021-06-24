@@ -128,9 +128,8 @@ impl ResolveError {
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
         match response.response_code() {
-            ResponseCode::ServFail => {
-                let note = "Nameserver responded with SERVFAIL";
-                debug!("{}", note);
+            response_code @ ResponseCode::ServFail | response_code @ ResponseCode::Refused => {
+                debug!("Nameserver responded with {}", response_code);
 
                 let mut response = response;
                 let soa = response.soa();
@@ -139,24 +138,7 @@ impl ResolveError {
                     query: Box::new(query),
                     soa: soa.map(Box::new),
                     negative_ttl: None,
-                    response_code: ResponseCode::ServFail,
-                    trusted: false,
-                };
-
-                Err(ResolveError::from(error_kind))
-            }
-            ResponseCode::Refused => {
-                let note = "Nameserver responded with REFUSED";
-                debug!("{}", note);
-
-                let mut response = response;
-                let soa = response.soa();
-                let query = response.take_queries().drain(..).next().unwrap_or_default();
-                let error_kind = ResolveErrorKind::NoRecordsFound {
-                    query: Box::new(query),
-                    soa: soa.map(Box::new),
-                    negative_ttl: None,
-                    response_code: ResponseCode::Refused,
+                    response_code,
                     trusted: false,
                 };
 
