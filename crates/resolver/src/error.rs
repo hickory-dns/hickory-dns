@@ -145,6 +145,23 @@ impl ResolveError {
 
                 Err(ResolveError::from(error_kind))
             }
+            ResponseCode::Refused => {
+                let note = "Nameserver responded with REFUSED";
+                debug!("{}", note);
+
+                let mut response = response;
+                let soa = response.soa();
+                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let error_kind = ResolveErrorKind::NoRecordsFound {
+                    query: Box::new(query),
+                    soa: soa.map(Box::new),
+                    negative_ttl: None,
+                    response_code: ResponseCode::Refused,
+                    trusted: false,
+                };
+
+                Err(ResolveError::from(error_kind))
+            }
             // Some NXDOMAIN responses contain CNAME referals, that will not be an error
             ResponseCode::NXDomain if !response.contains_answer() => {
                 let note = "Nameserver responded with NXDomain";
