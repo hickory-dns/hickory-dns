@@ -256,15 +256,38 @@ description = "Touch all Rust files (for clippy)"
 script_runner = "@shell"
 script = [
 '''
-find . -name '*.rs' -exec touch {} \;
+find ${PWD} -name '*.rs' -exec touch {} \;
 '''
 ]
 
-[tasks.clippy]
+[tasks.clippy-inner]
 description = "Run the clippy linter on all crates"
-dependencies = ["touch_all_rs"]
 command = "cargo"
-args = ["clippy", "--lib", "--examples", "--tests", "--bins", "--all-features", "--", "-D", "warnings"]
+args = ["clippy", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)", "--", "-D", "warnings"]
+
+[tasks.clippy-default-features]
+description = "Run the clippy linter with default features"
+workspace = false
+env = { FEATURES = "" }
+run_task = { name = "clippy-inner" }
+
+[tasks.clippy-no-default-features]
+description = "Run the clippy linter with no-default-features"
+workspace = false
+env = { FEATURES = "--no-default-features" }
+run_task = { name = "clippy-inner" }
+
+[tasks.clippy-all-features]
+description = "Run the clippy linter with all-features"
+workspace = false
+env = { FEATURES = "--all-features" }
+run_task = { name = "clippy-inner" }
+
+[tasks.clippy]
+description = "Run the clippy linter with default features, no-default-features, and all-features"
+workspace = false
+dependencies = ["touch_all_rs"]
+run_task = { name = ["clippy-all-features", "clippy-default-features", "clippy-no-default-features"] }
 
 [tasks.build-bench]
 description = "Check that all benchmarks compile"
@@ -278,6 +301,11 @@ workspace = false
 dependencies = ["check", "install-audit"]
 command = "cargo"
 args = ["audit", "--deny", "warnings"]
+
+[tasks.cleanliness]
+description = "Runs clippy, fmt, and audit"
+workspace = false
+dependencies = ["clippy", "fmt", "audit"]
 
 [tasks.bind-compatibility]
 description = "Run compatibility tests, currently the BIND9 installation has issues, set TDNS_BIND_PATH to another BIND9 installation"

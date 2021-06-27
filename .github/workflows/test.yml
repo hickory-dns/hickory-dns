@@ -13,7 +13,7 @@ on:
     - cron:  '0 3 * * 4'
 
 env:
-  CARGO_MAKE_VERSION: '0.27.0'
+  CARGO_MAKE_VERSION: '0.34.0'
 
 jobs:
   ## Run all default oriented feature sets across all platforms.
