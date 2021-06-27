@@ -358,36 +358,15 @@ impl<'a> IntoIterator for &'a LookupRecords {
             LookupRecords::Records {
                 lookup_options,
                 records,
-            } => {
-                cfg_if! {
-                    if #[cfg(feature = "dnssec")] {
-                        LookupRecordsIter::RecordsIter(records.records(
-                            lookup_options.is_dnssec(),
-                            lookup_options.supported_algorithms(),
-                        ))
-                    } else {
-                        LookupRecordsIter::RecordsIter(records.records_without_rrsigs())
-                    }
-                }
-            }
-            LookupRecords::ManyRecords(lookup_options, r) => {
-                cfg_if! {
-                    if #[cfg(feature = "dnssec")] {
-                        LookupRecordsIter::ManyRecordsIter(
-                            r.iter().map(|r| r.records(
-                                lookup_options.is_dnssec(),
-                                lookup_options.supported_algorithms(),
-                            )).collect(),
-                            None,
-                        )
-                    } else {
-                        LookupRecordsIter::ManyRecordsIter(
-                            r.iter().map(|r| r.records_without_rrsigs()).collect(),
-                            None,
-                        )
-                    }
-                }
-            }
+            } => LookupRecordsIter::RecordsIter(
+                lookup_options.rrset_with_supported_algorithms(records),
+            ),
+            LookupRecords::ManyRecords(lookup_options, r) => LookupRecordsIter::ManyRecordsIter(
+                r.iter()
+                    .map(|r| lookup_options.rrset_with_supported_algorithms(r))
+                    .collect(),
+                None,
+            ),
             LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
         }
     }
@@ -432,15 +411,6 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
         }
     }
 }
-
-// impl From<Arc<RecordSet>> for LookupRecords {
-//     fn from(rrset_records: Arc<RecordSet>) -> Self {
-//         match *rrset_records {
-//             RrsetRecords::Empty => LookupRecords::NxDomain,
-//             rrset_records => LookupRecords::RecordsIter(rrset_records),
-//         }
-//     }
-// }
 
 impl From<AnyRecords> for LookupRecords {
     fn from(rrset_records: AnyRecords) -> Self {

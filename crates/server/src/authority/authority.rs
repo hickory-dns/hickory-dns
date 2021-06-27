@@ -9,37 +9,28 @@
 use std::future::Future;
 use std::pin::Pin;
 
+use cfg_if::cfg_if;
+
+use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
 use crate::client::op::LowerQuery;
-use crate::client::rr::{LowerName, RecordType};
+use crate::client::rr::{LowerName, RecordSet, RecordType};
 #[cfg(feature = "dnssec")]
 use crate::client::{
     proto::rr::dnssec::rdata::key::KEY,
     rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
     rr::Name,
 };
-
-use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::proto::rr::RrsetRecords;
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
 ///
 /// For example, `is_dnssec` will include `RRSIG` in the response, `supported_algorithms` will only include a subset of
 ///    `RRSIG` based on the algorithms supported by the request.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct LookupOptions {
     is_dnssec: bool,
     #[cfg(feature = "dnssec")]
     supported_algorithms: SupportedAlgorithms,
-}
-
-impl Default for LookupOptions {
-    /// Returns a LookupOptions with all default values, i.e. DNSSEC will be disabled.
-    fn default() -> Self {
-        LookupOptions {
-            is_dnssec: false,
-            #[cfg(feature = "dnssec")]
-            supported_algorithms: SupportedAlgorithms::default(),
-        }
-    }
 }
 
 /// Lookup Options for the request to the authority
@@ -83,6 +74,23 @@ impl LookupOptions {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn supported_algorithms(&self) -> SupportedAlgorithms {
         self.supported_algorithms
+    }
+
+    /// Returns the subset of the rrset limited to the supported_algorithms
+    pub fn rrset_with_supported_algorithms<'r>(
+        &self,
+        record_set: &'r RecordSet,
+    ) -> RrsetRecords<'r> {
+        cfg_if! {
+            if #[cfg(feature = "dnssec")] {
+                record_set.records(
+                    self.is_dnssec(),
+                    self.supported_algorithms(),
+                )
+            } else {
+                record_set.records_without_rrsigs()
+            }
+        }
     }
 }
 
