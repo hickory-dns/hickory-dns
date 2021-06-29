@@ -145,60 +145,33 @@ impl ResolveError {
                 Err(ResolveError::from(error_kind))
             }
             // Some NXDOMAIN responses contain CNAME referals, that will not be an error
-            ResponseCode::NXDomain => {
-                if !response.contains_answer() {
-                    let note = "Nameserver responded with NXDomain";
-                    debug!("{}", note);
-
-                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                    // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
-
-                    let mut response = response;
-                    let soa = response.soa();
-                    let negative_ttl = response.negative_ttl();
-
-                    let query = response.take_queries().drain(..).next().unwrap_or_default();
-                    let error_kind = ResolveErrorKind::NoRecordsFound {
-                        query: Box::new(query),
-                        soa: soa.map(Box::new),
-                        negative_ttl,
-                        response_code: ResponseCode::NXDomain,
-                        trusted: trust_nx,
-                    };
-
-                    Err(ResolveError::from(error_kind))
-                } else {
-                    Ok(response)
-                }
-            }
+            response_code @ ResponseCode::NXDomain |
             // No answers are available, CNAME referals are not failures
-            ResponseCode::NoError => {
-                if !response.contains_answer() {
-                    let note = "Nameserver responded with NoError and no records";
-                    debug!("{}", note);
+            response_code @ ResponseCode::NoError
+            if !response.contains_answer() => {
+                debug!("Nameserver responded with {} and no records", response_code);
 
-                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                    // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
+                // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 
-                    let mut response = response;
-                    let soa = response.soa();
-                    let negative_ttl = response.negative_ttl();
+                let mut response = response;
+                let soa = response.soa();
+                let negative_ttl = response.negative_ttl();
+                let trusted = if response_code == ResponseCode::NoError { false } else { trust_nx };
+                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let error_kind = ResolveErrorKind::NoRecordsFound {
+                    query: Box::new(query),
+                    soa: soa.map(Box::new),
+                    negative_ttl,
+                    response_code,
+                    trusted,
+                };
 
-                    let query = response.take_queries().drain(..).next().unwrap_or_default();
-                    let error_kind = ResolveErrorKind::NoRecordsFound {
-                        query: Box::new(query),
-                        soa: soa.map(Box::new),
-                        negative_ttl,
-                        response_code: ResponseCode::NoError,
-                        trusted: false,
-                    };
-
-                    Err(ResolveError::from(error_kind))
-                } else {
-                    Ok(response)
-                }
+                Err(ResolveError::from(error_kind))
             }
-            ResponseCode::FormErr
+            ResponseCode::NXDomain
+            | ResponseCode::NoError
+            | ResponseCode::FormErr
             | ResponseCode::NotImp
             | ResponseCode::YXDomain
             | ResponseCode::YXRRSet
