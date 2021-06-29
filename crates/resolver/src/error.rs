@@ -145,52 +145,76 @@ impl ResolveError {
                 Err(ResolveError::from(error_kind))
             }
             // Some NXDOMAIN responses contain CNAME referals, that will not be an error
-            ResponseCode::NXDomain if !response.contains_answer() => {
-                let note = "Nameserver responded with NXDomain";
-                debug!("{}", note);
+            ResponseCode::NXDomain => {
+                if !response.contains_answer() {
+                    let note = "Nameserver responded with NXDomain";
+                    debug!("{}", note);
 
-                // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
+                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                    // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 
-                let mut response = response;
-                let soa = response.soa();
-                let negative_ttl = response.negative_ttl();
+                    let mut response = response;
+                    let soa = response.soa();
+                    let negative_ttl = response.negative_ttl();
 
-                let query = response.take_queries().drain(..).next().unwrap_or_default();
-                let error_kind = ResolveErrorKind::NoRecordsFound {
-                    query: Box::new(query),
-                    soa: soa.map(Box::new),
-                    negative_ttl,
-                    response_code: ResponseCode::NXDomain,
-                    trusted: trust_nx,
-                };
+                    let query = response.take_queries().drain(..).next().unwrap_or_default();
+                    let error_kind = ResolveErrorKind::NoRecordsFound {
+                        query: Box::new(query),
+                        soa: soa.map(Box::new),
+                        negative_ttl,
+                        response_code: ResponseCode::NXDomain,
+                        trusted: trust_nx,
+                    };
 
-                Err(ResolveError::from(error_kind))
+                    Err(ResolveError::from(error_kind))
+                } else {
+                    Ok(response)
+                }
             }
             // No answers are available, CNAME referals are not failures
-            ResponseCode::NoError if !response.contains_answer() => {
-                let note = "Nameserver responded with NoError and no records";
-                debug!("{}", note);
+            ResponseCode::NoError => {
+                if !response.contains_answer() {
+                    let note = "Nameserver responded with NoError and no records";
+                    debug!("{}", note);
 
-                // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
+                    // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
+                    // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 
-                let mut response = response;
-                let soa = response.soa();
-                let negative_ttl = response.negative_ttl();
+                    let mut response = response;
+                    let soa = response.soa();
+                    let negative_ttl = response.negative_ttl();
 
-                let query = response.take_queries().drain(..).next().unwrap_or_default();
-                let error_kind = ResolveErrorKind::NoRecordsFound {
-                    query: Box::new(query),
-                    soa: soa.map(Box::new),
-                    negative_ttl,
-                    response_code: ResponseCode::NoError,
-                    trusted: false,
-                };
+                    let query = response.take_queries().drain(..).next().unwrap_or_default();
+                    let error_kind = ResolveErrorKind::NoRecordsFound {
+                        query: Box::new(query),
+                        soa: soa.map(Box::new),
+                        negative_ttl,
+                        response_code: ResponseCode::NoError,
+                        trusted: false,
+                    };
 
-                Err(ResolveError::from(error_kind))
+                    Err(ResolveError::from(error_kind))
+                } else {
+                    Ok(response)
+                }
             }
-            _ => Ok(response),
+            ResponseCode::FormErr
+            | ResponseCode::NotImp
+            | ResponseCode::YXDomain
+            | ResponseCode::YXRRSet
+            | ResponseCode::NXRRSet
+            | ResponseCode::NotAuth
+            | ResponseCode::NotZone
+            | ResponseCode::BADVERS
+            | ResponseCode::BADSIG
+            | ResponseCode::BADKEY
+            | ResponseCode::BADTIME
+            | ResponseCode::BADMODE
+            | ResponseCode::BADNAME
+            | ResponseCode::BADALG
+            | ResponseCode::BADTRUNC
+            | ResponseCode::BADCOOKIE
+            | ResponseCode::Unknown(_) => Ok(response),
         }
     }
 
