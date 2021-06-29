@@ -378,7 +378,7 @@ pub struct NameServerConfig {
     pub tls_dns_name: Option<String>,
     /// Default to not trust negative responses from upstream nameservers
     ///
-    /// When a SERVFAIL, NXDOMAIN and NoError/Empty response is received, the query will be
+    /// When a SERVFAIL, NXDOMAIN, REFUSED, or NoError/Empty response is received, the query will be
     /// retried against other configured name servers.
     #[cfg_attr(feature = "serde-config", serde(default))]
     pub trust_nx_responses: bool,

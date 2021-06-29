@@ -349,6 +349,41 @@ fn test_distrust_nx_responses() {
     assert_eq!(response.answers()[0], v4_record);
 }
 
+#[test]
+fn test_retry_on_refused_response() {
+    use trust_dns_proto::op::ResponseCode;
+
+    let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
+    let refused_message = {
+        let mut refused_message = message(query.clone(), vec![], vec![], vec![]);
+        refused_message.set_response_code(ResponseCode::Refused);
+        refused_message
+    };
+    let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
+
+    // return `REFUSED` on the first request, and have the client trust that response
+    let refusing_nameserver = mock_nameserver_trust_nx(
+        vec![Ok(refused_message.into())],
+        ResolverOpts::default(),
+        true,
+    );
+    // return a successful response on the fallback request
+    let fallback_nameserver =
+        mock_nameserver(vec![Ok(success_message.into())], ResolverOpts::default());
+    let mut pool = mock_nameserver_pool(
+        vec![refusing_nameserver, fallback_nameserver],
+        vec![],
+        None,
+        ResolverOpts::default(),
+    );
+
+    let request = message(query, vec![], vec![], vec![]);
+    let fut = pool.send(request).first_answer();
+    let response = block_on(fut).unwrap();
+    assert_eq!(response.answers(), [v4_record]);
+}
+
 // === Concurrent requests ===
 
 #[derive(Clone)]
