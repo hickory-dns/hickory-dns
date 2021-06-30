@@ -102,7 +102,6 @@ fn test_tsig_zone_transfer() {
     let conn = TcpClientConnection::new(socket).unwrap();
 
     let client = create_tsig_ready_client(conn);
-    let origin = Name::from_str("example.net.").unwrap();
 
     let name = Name::from_str("example.net.").unwrap();
     let result = client.zone_transfer(&name, None).expect("query failed");
