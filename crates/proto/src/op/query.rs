@@ -290,6 +290,7 @@ impl Display for Query {
 }
 
 #[test]
+#[allow(clippy::needless_update)]
 fn test_read_and_emit() {
     let expect = Query {
         name: Name::from_ascii("WWW.example.com").unwrap(),

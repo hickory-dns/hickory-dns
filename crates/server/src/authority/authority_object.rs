@@ -15,12 +15,11 @@ use std::task::{Context, Poll};
 use futures_util::{future, TryFutureExt};
 use log::debug;
 
+use crate::authority::{
+    Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+};
 use crate::client::op::LowerQuery;
-use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, SigSigner, SupportedAlgorithms};
-use crate::client::rr::{LowerName, Name, Record, RecordType};
-
-use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::client::rr::{LowerName, Record, RecordType};
 
 /// An Object safe Authority
 pub trait AuthorityObject: Send + Sync {
@@ -57,8 +56,7 @@ pub trait AuthorityObject: Send + Sync {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> BoxedLookupFuture;
 
     /// Using the specified query, perform a lookup against this zone.
@@ -72,21 +70,11 @@ pub trait AuthorityObject: Send + Sync {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(
-        &self,
-        query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> BoxedLookupFuture;
+    fn search(&self, query: &LowerQuery, lookup_options: LookupOptions) -> BoxedLookupFuture;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> BoxedLookupFuture {
-        self.lookup(
-            &self.origin(),
-            RecordType::NS,
-            is_secure,
-            supported_algorithms,
-        )
+    fn ns(&self, lookup_options: LookupOptions) -> BoxedLookupFuture {
+        self.lookup(&self.origin(), RecordType::NS, lookup_options)
     }
 
     /// Return the NSEC records based on the given name
@@ -99,8 +87,7 @@ pub trait AuthorityObject: Send + Sync {
     fn get_nsec_records(
         &self,
         name: &LowerName,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> BoxedLookupFuture;
 
     /// Returns the SOA of the authority.
@@ -109,48 +96,12 @@ pub trait AuthorityObject: Send + Sync {
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
     fn soa(&self) -> BoxedLookupFuture {
         // SOA should be origin|SOA
-        self.lookup(
-            &self.origin(),
-            RecordType::SOA,
-            false,
-            SupportedAlgorithms::new(),
-        )
+        self.lookup(&self.origin(), RecordType::SOA, LookupOptions::default())
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(
-        &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> BoxedLookupFuture {
-        self.lookup(
-            &self.origin(),
-            RecordType::SOA,
-            is_secure,
-            supported_algorithms,
-        )
-    }
-
-    // TODO: this should probably be a general purpose higher level component?
-    /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "dynamic update not supported by this Authority type",
-        ))
-    }
-
-    /// Add Signer
-    fn add_zone_signing_key(&self, _signer: SigSigner) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
-    }
-
-    /// Sign the zone for DNSSEC
-    fn secure_zone(&self) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
+    fn soa_secure(&self, lookup_options: LookupOptions) -> BoxedLookupFuture {
+        self.lookup(&self.origin(), RecordType::SOA, lookup_options)
     }
 }
 
@@ -202,11 +153,10 @@ where
         &self,
         name: &LowerName,
         rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> BoxedLookupFuture {
         let this = self.read().expect("poisoned");
-        let lookup = Authority::lookup(&*this, name, rtype, is_secure, supported_algorithms);
+        let lookup = Authority::lookup(&*this, name, rtype, lookup_options);
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
@@ -221,15 +171,10 @@ where
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(
-        &self,
-        query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-    ) -> BoxedLookupFuture {
+    fn search(&self, query: &LowerQuery, lookup_options: LookupOptions) -> BoxedLookupFuture {
         let this = self.read().expect("poisoned");
         debug!("performing {} on {}", query, this.origin());
-        let lookup = Authority::search(&*this, query, is_secure, supported_algorithms);
+        let lookup = Authority::search(&*this, query, lookup_options);
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
     }
 
@@ -243,28 +188,11 @@ where
     fn get_nsec_records(
         &self,
         name: &LowerName,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> BoxedLookupFuture {
-        let lookup = Authority::get_nsec_records(
-            &*self.read().expect("poisoned"),
-            name,
-            is_secure,
-            supported_algorithms,
-        );
+        let lookup =
+            Authority::get_nsec_records(&*self.read().expect("poisoned"), name, lookup_options);
         BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
-    }
-
-    fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
-        Authority::add_update_auth_key(&mut *self.write().expect("poisoned"), name, key)
-    }
-
-    fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
-        Authority::add_zone_signing_key(&mut *self.write().expect("poisoned"), signer)
-    }
-
-    fn secure_zone(&self) -> DnsSecResult<()> {
-        Authority::secure_zone(&mut *self.write().expect("poisoned"))
     }
 }
 

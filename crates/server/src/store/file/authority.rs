@@ -17,12 +17,19 @@ use std::pin::Pin;
 
 use log::{debug, info};
 
-use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
+#[cfg(feature = "dnssec")]
+use crate::authority::DnssecAuthority;
+use crate::authority::{
+    Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+};
 use crate::client::op::LowerQuery;
-use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
 use crate::client::serialize::txt::{Lexer, Parser, Token};
+#[cfg(feature = "dnssec")]
+use crate::client::{
+    proto::rr::dnssec::rdata::key::KEY,
+    rr::dnssec::{DnsSecResult, SigSigner},
+};
 use crate::store::file::FileConfig;
 use crate::store::in_memory::InMemoryAuthority;
 
@@ -268,10 +275,9 @@ impl Authority for FileAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(self.0.lookup(name, rtype, is_secure, supported_algorithms))
+        Box::pin(self.0.lookup(name, rtype, lookup_options))
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -288,19 +294,17 @@ impl Authority for FileAuthority {
     fn search(
         &self,
         query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(self.0.search(query, is_secure, supported_algorithms))
+        Box::pin(self.0.search(query, lookup_options))
     }
 
     /// Get the NS, NameServer, record for the zone
     fn ns(
         &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0.ns(is_secure, supported_algorithms)
+        self.0.ns(lookup_options)
     }
 
     /// Return the NSEC records based on the given name
@@ -313,11 +317,9 @@ impl Authority for FileAuthority {
     fn get_nsec_records(
         &self,
         name: &LowerName,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0
-            .get_nsec_records(name, is_secure, supported_algorithms)
+        self.0.get_nsec_records(name, lookup_options)
     }
 
     /// Returns the SOA of the authority.
@@ -331,12 +333,15 @@ impl Authority for FileAuthority {
     /// Returns the SOA record for the zone
     fn soa_secure(
         &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0.soa_secure(is_secure, supported_algorithms)
+        self.0.soa_secure(lookup_options)
     }
+}
 
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+impl DnssecAuthority for FileAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.0.add_update_auth_key(name, key)
@@ -349,7 +354,7 @@ impl Authority for FileAuthority {
 
     /// Sign the zone for DNSSEC
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Authority::secure_zone(&mut self.0)
+        DnssecAuthority::secure_zone(&mut self.0)
     }
 }
 
@@ -382,8 +387,7 @@ mod tests {
             &authority,
             &LowerName::from_str("www.example.com.").unwrap(),
             RecordType::A,
-            false,
-            SupportedAlgorithms::new(),
+            LookupOptions::default(),
         ))
         .expect("lookup failed");
 
@@ -401,8 +405,7 @@ mod tests {
             &authority,
             &LowerName::from_str("include.alias.example.com.").unwrap(),
             RecordType::A,
-            false,
-            SupportedAlgorithms::new(),
+            LookupOptions::default(),
         ))
         .expect("INCLUDE lookup failed");
 

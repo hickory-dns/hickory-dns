@@ -9,9 +9,10 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use crate::authority::LookupObject;
+use cfg_if::cfg_if;
+
+use crate::authority::{LookupObject, LookupOptions};
 use crate::client::rr::LowerName;
-use crate::proto::rr::dnssec::SupportedAlgorithms;
 use crate::proto::rr::{Record, RecordSet, RecordType, RrsetRecords};
 
 /// The result of a lookup on an Authority
@@ -185,8 +186,7 @@ impl From<LookupRecords> for AuthLookup {
 /// * `'q` - the lifetime of the query/request
 #[derive(Debug)]
 pub struct AnyRecords {
-    is_secure: bool,
-    supported_algorithms: SupportedAlgorithms,
+    lookup_options: LookupOptions,
     rrsets: Vec<Arc<RecordSet>>,
     rrset: Option<Arc<RecordSet>>,
     records: Option<Arc<RecordSet>>,
@@ -197,16 +197,14 @@ pub struct AnyRecords {
 impl AnyRecords {
     /// construct a new lookup of any set of records
     pub fn new(
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
         // TODO: potentially very expensive
         rrsets: Vec<Arc<RecordSet>>,
         query_type: RecordType,
         query_name: LowerName,
     ) -> Self {
         AnyRecords {
-            is_secure,
-            supported_algorithms,
+            lookup_options,
             rrsets,
             rrset: None,
             records: None,
@@ -226,8 +224,7 @@ impl<'r> IntoIterator for &'r AnyRecords {
 
     fn into_iter(self) -> Self::IntoIter {
         AnyRecordsIter {
-            is_secure: self.is_secure,
-            supported_algorithms: self.supported_algorithms,
+            lookup_options: self.lookup_options,
             // TODO: potentially very expensive
             rrsets: self.rrsets.iter(),
             rrset: None,
@@ -239,9 +236,9 @@ impl<'r> IntoIterator for &'r AnyRecords {
 }
 
 /// An iteration over a lookup for any Records
+#[allow(unused)]
 pub struct AnyRecordsIter<'r> {
-    is_secure: bool,
-    supported_algorithms: SupportedAlgorithms,
+    lookup_options: LookupOptions,
     rrsets: Iter<'r, Arc<RecordSet>>,
     rrset: Option<&'r RecordSet>,
     records: Option<RrsetRecords<'r>>,
@@ -281,11 +278,17 @@ impl<'r> Iterator for AnyRecordsIter<'r> {
             self.rrset?;
 
             // getting here, we must have exhausted our records from the rrset
-            self.records = Some(
-                self.rrset
-                    .expect("rrset should not be None at this point")
-                    .records(self.is_secure, self.supported_algorithms),
-            );
+            cfg_if! {
+                if #[cfg(feature = "dnssec")] {
+                    self.records = Some(
+                        self.rrset
+                            .expect("rrset should not be None at this point")
+                            .records(self.lookup_options.is_dnssec(), self.lookup_options.supported_algorithms()),
+                    );
+                } else {
+                    self.records = Some(self.rrset.expect("rrset should not be None at this point").records_without_rrsigs());
+                }
+            }
         }
     }
 }
@@ -297,15 +300,13 @@ pub enum LookupRecords {
     Empty,
     /// The associate records
     Records {
-        /// was the search a secure search
-        is_secure: bool,
-        /// what are the requests supported algorithms
-        supported_algorithms: SupportedAlgorithms,
+        /// LookupOptions for the request, e.g. dnssec and supported algorithms
+        lookup_options: LookupOptions,
         /// the records found based on the query
         records: Arc<RecordSet>,
     },
     /// Vec of disjoint record sets
-    ManyRecords(bool, SupportedAlgorithms, Vec<Arc<RecordSet>>),
+    ManyRecords(LookupOptions, Vec<Arc<RecordSet>>),
     // TODO: need a better option for very large zone xfrs...
     /// A generic lookup response where anything is desired
     AnyRecords(AnyRecords),
@@ -313,27 +314,18 @@ pub enum LookupRecords {
 
 impl LookupRecords {
     /// Construct a new LookupRecords
-    pub fn new(
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-        records: Arc<RecordSet>,
-    ) -> Self {
+    pub fn new(lookup_options: LookupOptions, records: Arc<RecordSet>) -> Self {
         LookupRecords::Records {
-            is_secure,
-            supported_algorithms,
+            lookup_options,
             records,
         }
     }
 
     /// Construct a new LookupRecords over a set of ResordSets
-    pub fn many(
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
-        mut records: Vec<Arc<RecordSet>>,
-    ) -> Self {
+    pub fn many(lookup_options: LookupOptions, mut records: Vec<Arc<RecordSet>>) -> Self {
         // we're reversing the records because they are output in reverse order, via pop()
         records.reverse();
-        LookupRecords::ManyRecords(is_secure, supported_algorithms, records)
+        LookupRecords::ManyRecords(lookup_options, records)
     }
 
     /// This is an NxDomain or NameExists, and has no associated records
@@ -359,22 +351,22 @@ impl<'a> IntoIterator for &'a LookupRecords {
     type Item = &'a Record;
     type IntoIter = LookupRecordsIter<'a>;
 
+    #[allow(unused_variables)]
     fn into_iter(self) -> Self::IntoIter {
         match self {
             LookupRecords::Empty => LookupRecordsIter::Empty,
             LookupRecords::Records {
-                is_secure,
-                supported_algorithms,
+                lookup_options,
                 records,
-            } => LookupRecordsIter::RecordsIter(records.records(*is_secure, *supported_algorithms)),
-            LookupRecords::ManyRecords(is_secure, supported_algorithms, r) => {
-                LookupRecordsIter::ManyRecordsIter(
-                    r.iter()
-                        .map(|r| r.records(*is_secure, *supported_algorithms))
-                        .collect(),
-                    None,
-                )
-            }
+            } => LookupRecordsIter::RecordsIter(
+                lookup_options.rrset_with_supported_algorithms(records),
+            ),
+            LookupRecords::ManyRecords(lookup_options, r) => LookupRecordsIter::ManyRecordsIter(
+                r.iter()
+                    .map(|r| lookup_options.rrset_with_supported_algorithms(r))
+                    .collect(),
+                None,
+            ),
             LookupRecords::AnyRecords(r) => LookupRecordsIter::AnyRecordsIter(r.iter()),
         }
     }
@@ -419,15 +411,6 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
         }
     }
 }
-
-// impl From<Arc<RecordSet>> for LookupRecords {
-//     fn from(rrset_records: Arc<RecordSet>) -> Self {
-//         match *rrset_records {
-//             RrsetRecords::Empty => LookupRecords::NxDomain,
-//             rrset_records => LookupRecords::RecordsIter(rrset_records),
-//         }
-//     }
-// }
 
 impl From<AnyRecords> for LookupRecords {
     fn from(rrset_records: AnyRecords) -> Self {

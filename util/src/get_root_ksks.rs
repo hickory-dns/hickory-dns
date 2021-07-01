@@ -30,7 +30,6 @@ use clap::{
 
 use trust_dns_client::rr::dnssec::Algorithm;
 use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
-use trust_dns_proto::rr::dnssec::rdata::DNSSECRecordType;
 use trust_dns_proto::rr::record_data::RData;
 use trust_dns_proto::rr::record_type::RecordType;
 use trust_dns_resolver::Resolver;
@@ -47,7 +46,7 @@ pub fn main() {
     println!("querying for root key-signing-keys, ie dnskeys");
     let resolver = Resolver::default().expect("could not create resolver");
     let lookup = resolver
-        .lookup(".", RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
+        .lookup(".", RecordType::DNSKEY)
         .expect("query failed");
 
     for r in lookup.iter() {

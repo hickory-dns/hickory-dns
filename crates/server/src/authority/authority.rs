@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -9,12 +9,90 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use crate::client::op::LowerQuery;
-use crate::client::proto::rr::dnssec::rdata::key::KEY;
-use crate::client::rr::dnssec::{DnsSecError, DnsSecResult, SigSigner, SupportedAlgorithms};
-use crate::client::rr::{LowerName, Name, RecordType};
+use cfg_if::cfg_if;
 
 use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
+use crate::client::op::LowerQuery;
+use crate::client::rr::{LowerName, RecordSet, RecordType};
+#[cfg(feature = "dnssec")]
+use crate::client::{
+    proto::rr::dnssec::rdata::key::KEY,
+    rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
+    rr::Name,
+};
+use crate::proto::rr::RrsetRecords;
+
+/// LookupOptions that specify different options from the client to include or exclude various records in the response.
+///
+/// For example, `is_dnssec` will include `RRSIG` in the response, `supported_algorithms` will only include a subset of
+///    `RRSIG` based on the algorithms supported by the request.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LookupOptions {
+    is_dnssec: bool,
+    #[cfg(feature = "dnssec")]
+    supported_algorithms: SupportedAlgorithms,
+}
+
+/// Lookup Options for the request to the authority
+impl LookupOptions {
+    /// Return a new LookupOptions
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn for_dnssec(is_dnssec: bool, supported_algorithms: SupportedAlgorithms) -> Self {
+        LookupOptions {
+            is_dnssec,
+            supported_algorithms,
+        }
+    }
+
+    /// Specify that this lookup should return DNSSEC related records as well, e.g. RRSIG
+    #[allow(clippy::needless_update)]
+    pub fn set_is_dnssec(self, val: bool) -> Self {
+        Self {
+            is_dnssec: val,
+            ..self
+        }
+    }
+
+    /// If true this lookup should return DNSSEC related records as well, e.g. RRSIG
+    pub fn is_dnssec(&self) -> bool {
+        self.is_dnssec
+    }
+
+    /// Specify the algorithms for which DNSSEC records should be returned
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn set_supported_algorithms(self, val: SupportedAlgorithms) -> Self {
+        Self {
+            supported_algorithms: val,
+            ..self
+        }
+    }
+
+    /// The algorithms for which DNSSEC records should be returned
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn supported_algorithms(&self) -> SupportedAlgorithms {
+        self.supported_algorithms
+    }
+
+    /// Returns the subset of the rrset limited to the supported_algorithms
+    pub fn rrset_with_supported_algorithms<'r>(
+        &self,
+        record_set: &'r RecordSet,
+    ) -> RrsetRecords<'r> {
+        cfg_if! {
+            if #[cfg(feature = "dnssec")] {
+                record_set.records(
+                    self.is_dnssec(),
+                    self.supported_algorithms(),
+                )
+            } else {
+                record_set.records_without_rrsigs()
+            }
+        }
+    }
+}
 
 /// Authority implementations can be used with a `Catalog`
 pub trait Authority: Send {
@@ -53,8 +131,7 @@ pub trait Authority: Send {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Using the specified query, perform a lookup against this zone.
@@ -71,22 +148,15 @@ pub trait Authority: Send {
     fn search(
         &self,
         query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Get the NS, NameServer, record for the zone
     fn ns(
         &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.lookup(
-            self.origin(),
-            RecordType::NS,
-            is_secure,
-            supported_algorithms,
-        )
+        self.lookup(self.origin(), RecordType::NS, lookup_options)
     }
 
     /// Return the NSEC records based on the given name
@@ -99,8 +169,7 @@ pub trait Authority: Send {
     fn get_nsec_records(
         &self,
         name: &LowerName,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Returns the SOA of the authority.
@@ -109,47 +178,28 @@ pub trait Authority: Send {
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
     fn soa(&self) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
         // SOA should be origin|SOA
-        self.lookup(
-            self.origin(),
-            RecordType::SOA,
-            false,
-            SupportedAlgorithms::new(),
-        )
+        self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
     }
 
     /// Returns the SOA record for the zone
     fn soa_secure(
         &self,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.lookup(
-            self.origin(),
-            RecordType::SOA,
-            is_secure,
-            supported_algorithms,
-        )
+        self.lookup(self.origin(), RecordType::SOA, lookup_options)
     }
+}
 
-    // TODO: this should probably be a general purpose higher level component?
+/// Extension to Authority to allow for DNSSEC features
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+pub trait DnssecAuthority: Authority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, _name: Name, _key: KEY) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "dynamic update not supported by this Authority type",
-        ))
-    }
+    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()>;
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, _signer: SigSigner) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
-    }
+    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()>;
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Err(DnsSecError::from(
-            "zone signing not supported by this Authority type",
-        ))
-    }
+    fn secure_zone(&mut self) -> DnsSecResult<()>;
 }

@@ -16,10 +16,11 @@ use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::DnsResponse;
-use trust_dns_client::rr::dnssec::*;
-use trust_dns_client::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns_client::rr::*;
+#[cfg(feature = "dnssec")]
+use trust_dns_client::rr::{dnssec::*, rdata::DNSSECRData};
 
+#[cfg(feature = "dnssec")]
 use self::mut_message_client::MutMessageHandle;
 
 fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
@@ -238,6 +239,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper functionality
 #[allow(dead_code)]
+#[cfg(feature = "dnssec")]
 pub fn query_all_dnssec(
     io_loop: &mut Runtime,
     client: AsyncClient,
@@ -246,22 +248,19 @@ pub fn query_all_dnssec(
 ) {
     let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageHandle::new(client);
-    client.dnssec_ok = true;
+    client.lookup_options.set_is_dnssec(true);
     if with_rfc6975 {
-        client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
+        client
+            .lookup_options
+            .set_supported_algorithms(SupportedAlgorithms::from_vec(&[algorithm]));
     }
 
-    let response = query_message(
-        io_loop,
-        &mut client,
-        name.clone(),
-        RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
-    );
+    let response = query_message(io_loop, &mut client, name.clone(), RecordType::DNSKEY);
 
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
+        .filter(|r| r.rr_type() == RecordType::DNSKEY)
         .map(|r| {
             if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
                 dnskey.clone()
@@ -272,17 +271,12 @@ pub fn query_all_dnssec(
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
-    let response = query_message(
-        io_loop,
-        &mut client,
-        name,
-        RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
-    );
+    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY);
 
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+        .filter(|r| r.rr_type() == RecordType::RRSIG)
         .map(|r| {
             if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
                 rrsig.clone()
@@ -291,11 +285,12 @@ pub fn query_all_dnssec(
             }
         })
         .filter(|rrsig| rrsig.algorithm() == algorithm)
-        .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
+        .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "dnssec")]
 pub fn query_all_dnssec_with_rfc6975(
     io_loop: &mut Runtime,
     client: AsyncClient,
@@ -305,6 +300,7 @@ pub fn query_all_dnssec_with_rfc6975(
 }
 
 #[allow(dead_code)]
+#[cfg(feature = "dnssec")]
 pub fn query_all_dnssec_wo_rfc6975(
     io_loop: &mut Runtime,
     client: AsyncClient,

@@ -15,6 +15,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (client) the feature `dnssec` is no longer enabled by default, use `dnssec-ring` or `dnssec-openssl` #1506
+- (server) dnssec functions of `Authority` moved into `DnsSecAuthority` #1506
 - (all) Most public enum types are now marked `#[non_exaustive]` #1426
 - (resolver) DnsRequestOptions and ResolverOpts now `#[non_exaustive]` #1426
 - (proto) all I/O Streams now use `BufDnsStreamHandle` rather than generic `DnsStreamHandle` #1433
@@ -26,6 +28,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Removed
 
+- (proto) removed `RecordType::DNSSEC` and moved all variants of `DNSSECRecordType` into `RecordType` #1506
 - (proto) removed `BufStreamHandle` and `StreamHandle` #1433
 - (response) disabled `mdns` to work on a new solution #1433
 

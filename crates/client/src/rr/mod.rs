@@ -16,6 +16,8 @@
 
 //! Resource record related components, e.g. `Name` aka label, `Record`, `RData`, ...
 
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub mod dnssec;
 mod lower_name;
 mod rr_key;
@@ -41,6 +43,8 @@ pub use self::rr_key::RrKey;
 
 /// All record data structures and related serialization methods
 pub mod rdata {
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub use crate::proto::rr::dnssec::rdata::*;
     pub use crate::proto::rr::rdata::*;
 }

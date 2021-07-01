@@ -11,9 +11,12 @@
 use std::{fmt, io};
 
 use thiserror::Error;
-use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
 use super::LexerError;
+use crate::proto::{
+    error::{ProtoError, ProtoErrorKind},
+    rr::RecordType,
+};
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 use crate::serialize::txt::Token;
@@ -78,6 +81,10 @@ pub enum ErrorKind {
     #[error("unknown RecordType: {0}")]
     UnknownRecordType(u16),
 
+    /// Unknown RecordType
+    #[error("unsupported RecordType: {0}")]
+    UnsupportedRecordType(RecordType),
+
     /// A request timed out
     #[error("request timed out")]
     Timeout,
@@ -100,6 +107,7 @@ impl Clone for ErrorKind {
             Lexer(e) => Lexer(e.clone()),
             ParseInt(e) => ParseInt(e.clone()),
             Proto(e) => Proto(e.clone()),
+            UnsupportedRecordType(ty) => UnsupportedRecordType(*ty),
             UnknownRecordType(ty) => UnknownRecordType(*ty),
             Timeout => Timeout,
         }

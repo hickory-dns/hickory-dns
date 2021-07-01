@@ -16,12 +16,12 @@ use rustls::{Certificate, PrivateKey};
 use serde::Deserialize;
 
 use crate::client::error::ParseResult;
-use crate::client::rr::dnssec::Algorithm;
-#[cfg(any(feature = "dns-over-tls", feature = "dnssec"))]
-use crate::client::rr::dnssec::{KeyFormat, KeyPair, Private, SigSigner};
-#[cfg(feature = "dnssec")]
-use crate::client::rr::domain::IntoName;
 use crate::client::rr::domain::Name;
+#[cfg(feature = "dnssec")]
+use crate::client::rr::{
+    dnssec::{Algorithm, KeyFormat, KeyPair, Private, SigSigner},
+    domain::IntoName,
+};
 
 /// Key pair configuration for DNSSec keys for signing a zone
 #[derive(Deserialize, PartialEq, Debug)]
@@ -51,6 +51,8 @@ impl KeyConfig {
     /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn new(
         key_path: String,
         password: Option<String>,
@@ -107,6 +109,8 @@ impl KeyConfig {
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
         match self.algorithm.as_str() {
             "RSASHA1" => Ok(Algorithm::RSASHA1),

@@ -15,24 +15,28 @@ use std::sync::Arc;
 
 use log::{error, info, warn};
 
+use crate::authority::{
+    Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+};
 use crate::client::op::LowerQuery;
-use crate::client::rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms};
 use crate::client::rr::{LowerName, RrKey};
-use crate::proto::op::ResponseCode;
-use crate::proto::rr::dnssec::rdata::key::KEY;
-use crate::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
-
-#[cfg(feature = "dnssec")]
-use crate::authority::UpdateRequest;
-use crate::authority::{Authority, LookupError, MessageRequest, UpdateResult, ZoneType};
 use crate::error::{PersistenceErrorKind, PersistenceResult};
+use crate::proto::op::ResponseCode;
+use crate::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
 use crate::store::in_memory::InMemoryAuthority;
 use crate::store::sqlite::{Journal, SqliteConfig};
+#[cfg(feature = "dnssec")]
+use crate::{
+    authority::{DnssecAuthority, UpdateRequest},
+    client::rr::dnssec::{DnsSecResult, SigSigner},
+    proto::rr::dnssec::rdata::key::KEY,
+};
 
 /// SqliteAuthority is responsible for storing the resource records for a particular zone.
 ///
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a Secondary, or a cached zone.
+#[allow(dead_code)]
 pub struct SqliteAuthority {
     in_memory: InMemoryAuthority,
     journal: Option<Journal>,
@@ -313,8 +317,7 @@ impl SqliteAuthority {
                                 if block_on(self.lookup(
                                     &required_name,
                                     RecordType::ANY,
-                                    false,
-                                    SupportedAlgorithms::new(),
+                                    LookupOptions::default(),
                                 ))
                                 .unwrap_or_default()
                                 .was_empty()
@@ -330,8 +333,7 @@ impl SqliteAuthority {
                                 if block_on(self.lookup(
                                     &required_name,
                                     rrset,
-                                    false,
-                                    SupportedAlgorithms::new(),
+                                    LookupOptions::default(),
                                 ))
                                 .unwrap_or_default()
                                 .was_empty()
@@ -355,8 +357,7 @@ impl SqliteAuthority {
                                 if !block_on(self.lookup(
                                     &required_name,
                                     RecordType::ANY,
-                                    false,
-                                    SupportedAlgorithms::new(),
+                                    LookupOptions::default(),
                                 ))
                                 .unwrap_or_default()
                                 .was_empty()
@@ -372,8 +373,7 @@ impl SqliteAuthority {
                                 if !block_on(self.lookup(
                                     &required_name,
                                     rrset,
-                                    false,
-                                    SupportedAlgorithms::new(),
+                                    LookupOptions::default(),
                                 ))
                                 .unwrap_or_default()
                                 .was_empty()
@@ -395,8 +395,7 @@ impl SqliteAuthority {
                     if !block_on(self.lookup(
                         &required_name,
                         require.rr_type(),
-                        false,
-                        SupportedAlgorithms::new(),
+                        LookupOptions::default(),
                     ))
                     .unwrap_or_default()
                     .iter()
@@ -445,7 +444,7 @@ impl SqliteAuthority {
         use futures_executor::block_on;
         use log::debug;
 
-        use crate::client::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use crate::client::rr::rdata::DNSSECRData;
         use crate::proto::rr::dnssec::Verifier;
 
         // 3.3.3 - Pseudocode for Permission Checking
@@ -482,12 +481,8 @@ impl SqliteAuthority {
                 .any(|sig| {
                     let name = LowerName::from(sig.signer_name());
                     // TODO: updates should be async as well.
-                    let keys = block_on(self.lookup(
-                        &name,
-                        RecordType::DNSSEC(DNSSECRecordType::KEY),
-                        false,
-                        SupportedAlgorithms::new(),
-                    ));
+                    let keys =
+                        block_on(self.lookup(&name, RecordType::KEY, LookupOptions::default()));
 
                     let keys = match keys {
                         Ok(keys) => keys,
@@ -940,21 +935,17 @@ impl Authority for SqliteAuthority {
         &self,
         name: &LowerName,
         rtype: RecordType,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.in_memory
-            .lookup(name, rtype, is_secure, supported_algorithms)
+        self.in_memory.lookup(name, rtype, lookup_options)
     }
 
     fn search(
         &self,
         query: &LowerQuery,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.in_memory
-            .search(query, is_secure, supported_algorithms)
+        self.in_memory.search(query, lookup_options)
     }
 
     /// Return the NSEC records based on the given name
@@ -967,13 +958,15 @@ impl Authority for SqliteAuthority {
     fn get_nsec_records(
         &self,
         name: &LowerName,
-        is_secure: bool,
-        supported_algorithms: SupportedAlgorithms,
+        lookup_options: LookupOptions,
     ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.in_memory
-            .get_nsec_records(name, is_secure, supported_algorithms)
+        self.in_memory.get_nsec_records(name, lookup_options)
     }
+}
 
+#[cfg(feature = "dnssec")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+impl DnssecAuthority for SqliteAuthority {
     fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
         self.in_memory.add_update_auth_key(name, key)
     }
@@ -989,6 +982,6 @@ impl Authority for SqliteAuthority {
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     fn secure_zone(&mut self) -> DnsSecResult<()> {
-        Authority::secure_zone(&mut self.in_memory)
+        DnssecAuthority::secure_zone(&mut self.in_memory)
     }
 }

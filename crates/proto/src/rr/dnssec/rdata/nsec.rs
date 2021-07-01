@@ -19,7 +19,6 @@ use std::fmt;
 
 use super::nsec3;
 use crate::error::*;
-use crate::rr::dnssec::rdata::DNSSECRecordType;
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::*;
 
@@ -84,7 +83,7 @@ impl NSEC {
     ///
     /// An NSEC RData for use in a Resource Record
     pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: Vec<RecordType>) -> NSEC {
-        type_bit_maps.push(RecordType::DNSSEC(DNSSECRecordType::NSEC));
+        type_bit_maps.push(RecordType::NSEC);
 
         Self::new(next_domain_name, type_bit_maps)
     }
@@ -215,7 +214,6 @@ mod tests {
 
     #[test]
     fn test() {
-        use crate::rr::dnssec::rdata::DNSSECRecordType;
         use crate::rr::RecordType;
         use std::str::FromStr;
 
@@ -224,8 +222,8 @@ mod tests {
             vec![
                 RecordType::A,
                 RecordType::AAAA,
-                RecordType::DNSSEC(DNSSECRecordType::DS),
-                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+                RecordType::DS,
+                RecordType::RRSIG,
             ],
         );
 

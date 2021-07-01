@@ -859,8 +859,8 @@ mod test {
     #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
     #[allow(clippy::blocks_in_if_conditions)]
     fn test_get_filter() {
+        use crate::rr::dnssec::rdata::DNSSECRData;
         use crate::rr::dnssec::rdata::SIG;
-        use crate::rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};
         use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
 
         let name = Name::root();
@@ -912,28 +912,28 @@ mod test {
         let rrsig_rsa = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+            .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::DNSSEC(DNSSECRData::SIG(rsasha256)))
             .clone();
         let rrsig_ecp256 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+            .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::DNSSEC(DNSSECRData::SIG(ecp256)))
             .clone();
         let rrsig_ecp384 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+            .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::DNSSEC(DNSSECRData::SIG(ecp384)))
             .clone();
         let rrsig_ed25519 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+            .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::DNSSEC(DNSSECRData::SIG(ed25519)))
             .clone();

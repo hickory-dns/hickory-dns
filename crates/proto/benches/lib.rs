@@ -139,6 +139,6 @@ fn bench_parse_real_message(b: &mut Bencher) {
     ];
     b.iter(|| {
         let mut decoder = BinDecoder::new(&bytes[..]);
-        Message::read(&mut decoder);
+        assert!(Message::read(&mut decoder).is_ok());
     })
 }

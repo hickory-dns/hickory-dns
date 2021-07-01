@@ -30,12 +30,8 @@ pub mod nsec3param;
 pub mod sig;
 pub mod tsig;
 
-use std::str::FromStr;
-
 use enum_as_inner::EnumAsInner;
 use log::trace;
-#[cfg(feature = "serde-config")]
-use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::rdata::null;
@@ -53,108 +49,8 @@ pub use self::sig::SIG;
 pub use self::tsig::TSIG;
 
 /// The type of the resource record, for DNSSEC-specific records.
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-#[non_exhaustive]
-pub enum DNSSECRecordType {
-    //  CDS,        //	59	RFC 7344	Child DS
-    //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
-    //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
-    /// [RFC 4034](https://tools.ietf.org/html/rfc4034) DNS Key record: RSASHA256 and RSASHA512, RFC5702
-    DNSKEY,
-    /// [RFC 4034](https://tools.ietf.org/html/rfc4034) Delegation signer: RSASHA256 and RSASHA512, RFC5702
-    DS,
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535) and [RFC 2930](https://tools.ietf.org/html/rfc2930) Key record
-    KEY,
-    /// [RFC 4034](https://tools.ietf.org/html/rfc4034) Next-Secure record
-    NSEC,
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155) NSEC record version 3
-    NSEC3,
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155) NSEC3 parameters
-    NSEC3PARAM,
-    /// [RFC 4034](https://tools.ietf.org/html/rfc4034) DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
-    RRSIG,
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535) (and [RFC 2931](https://tools.ietf.org/html/rfc2931)) Signature, to support [RFC 2137](https://tools.ietf.org/html/rfc2137) Update.
-    ///
-    /// This isn't really a DNSSEC record type, but it is here because, at least
-    /// for now, we enable/disable SIG(0) in exactly the same circumstances that
-    /// we enable/disable DNSSEC. This may change in the future.
-    SIG,
-    /// [RFC 8945](https://tools.ietf.org/html/rfc8945) Transaction Signature
-    TSIG,
-    /// Unknown or not yet supported DNSSec record type
-    Unknown(u16),
-}
-
-impl FromStr for DNSSECRecordType {
-    type Err = ProtoError;
-
-    fn from_str(str: &str) -> ProtoResult<Self> {
-        match str {
-            "DNSKEY" => Ok(DNSSECRecordType::DNSKEY),
-            "DS" => Ok(DNSSECRecordType::DS),
-            "KEY" => Ok(DNSSECRecordType::KEY),
-            "NSEC" => Ok(DNSSECRecordType::NSEC),
-            "NSEC3" => Ok(DNSSECRecordType::NSEC3),
-            "NSEC3PARAM" => Ok(DNSSECRecordType::NSEC3PARAM),
-            "RRSIG" => Ok(DNSSECRecordType::RRSIG),
-            "SIG" => Ok(DNSSECRecordType::SIG),
-            "TSIG" => Ok(DNSSECRecordType::TSIG),
-            _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
-        }
-    }
-}
-
-impl From<u16> for DNSSECRecordType {
-    fn from(value: u16) -> Self {
-        match value {
-            48 => DNSSECRecordType::DNSKEY,
-            43 => DNSSECRecordType::DS,
-            25 => DNSSECRecordType::KEY,
-            47 => DNSSECRecordType::NSEC,
-            50 => DNSSECRecordType::NSEC3,
-            51 => DNSSECRecordType::NSEC3PARAM,
-            46 => DNSSECRecordType::RRSIG,
-            24 => DNSSECRecordType::SIG,
-            250 => DNSSECRecordType::TSIG,
-            _ => DNSSECRecordType::Unknown(value),
-        }
-    }
-}
-
-impl From<DNSSECRecordType> for &'static str {
-    fn from(rt: DNSSECRecordType) -> &'static str {
-        match rt {
-            DNSSECRecordType::DNSKEY => "DNSKEY",
-            DNSSECRecordType::DS => "DS",
-            DNSSECRecordType::KEY => "KEY",
-            DNSSECRecordType::NSEC => "NSEC",
-            DNSSECRecordType::NSEC3 => "NSEC3",
-            DNSSECRecordType::NSEC3PARAM => "NSEC3PARAM",
-            DNSSECRecordType::RRSIG => "RRSIG",
-            DNSSECRecordType::SIG => "SIG",
-            DNSSECRecordType::TSIG => "TSIG",
-            DNSSECRecordType::Unknown(..) => "DnsSecUnknown",
-        }
-    }
-}
-
-impl From<DNSSECRecordType> for u16 {
-    fn from(rt: DNSSECRecordType) -> Self {
-        match rt {
-            DNSSECRecordType::KEY => 25,
-            DNSSECRecordType::DNSKEY => 48,
-            DNSSECRecordType::DS => 43,
-            DNSSECRecordType::NSEC => 47,
-            DNSSECRecordType::NSEC3 => 50,
-            DNSSECRecordType::NSEC3PARAM => 51,
-            DNSSECRecordType::RRSIG => 46,
-            DNSSECRecordType::SIG => 24,
-            DNSSECRecordType::TSIG => 250,
-            DNSSECRecordType::Unknown(value) => value,
-        }
-    }
-}
+#[deprecated(note = "All RecordType definitions have been moved into RecordType")]
+pub type DNSSECRecordType = RecordType;
 
 /// Record data enum variants for DNSSEC-specific records.
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
@@ -611,49 +507,48 @@ pub enum DNSSECRData {
 impl DNSSECRData {
     pub(crate) fn read(
         decoder: &mut BinDecoder<'_>,
-        record_type: DNSSECRecordType,
+        record_type: RecordType,
         rdata_length: Restrict<u16>,
     ) -> ProtoResult<Self> {
         match record_type {
-            DNSSECRecordType::DNSKEY => {
+            RecordType::DNSKEY => {
                 trace!("reading DNSKEY");
                 dnskey::read(decoder, rdata_length).map(DNSSECRData::DNSKEY)
             }
-            DNSSECRecordType::DS => {
+            RecordType::DS => {
                 trace!("reading DS");
                 ds::read(decoder, rdata_length).map(DNSSECRData::DS)
             }
-            DNSSECRecordType::KEY => {
+            RecordType::KEY => {
                 trace!("reading KEY");
                 key::read(decoder, rdata_length).map(DNSSECRData::KEY)
             }
-            DNSSECRecordType::NSEC => {
+            RecordType::NSEC => {
                 trace!("reading NSEC");
                 nsec::read(decoder, rdata_length).map(DNSSECRData::NSEC)
             }
-            DNSSECRecordType::NSEC3 => {
+            RecordType::NSEC3 => {
                 trace!("reading NSEC3");
                 nsec3::read(decoder, rdata_length).map(DNSSECRData::NSEC3)
             }
-            DNSSECRecordType::NSEC3PARAM => {
+            RecordType::NSEC3PARAM => {
                 trace!("reading NSEC3PARAM");
                 nsec3param::read(decoder).map(DNSSECRData::NSEC3PARAM)
             }
-            DNSSECRecordType::RRSIG => {
+            RecordType::RRSIG => {
                 trace!("reading RRSIG");
                 sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
             }
-            DNSSECRecordType::SIG => {
+            RecordType::SIG => {
                 trace!("reading SIG");
                 sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
             }
-            DNSSECRecordType::TSIG => {
+            RecordType::TSIG => {
                 trace!("reading TSIG");
                 tsig::read(decoder, rdata_length).map(DNSSECRData::TSIG)
             }
-            DNSSECRecordType::Unknown(code) => {
-                trace!("reading unknown dnssec: {}", code);
-                null::read(decoder, rdata_length).map(|rdata| DNSSECRData::Unknown { code, rdata })
+            r => {
+                panic!("not a dnssec RecordType: {}", r);
             }
         }
     }
@@ -688,17 +583,17 @@ impl DNSSECRData {
         }
     }
 
-    pub(crate) fn to_record_type(&self) -> DNSSECRecordType {
+    pub(crate) fn to_record_type(&self) -> RecordType {
         match *self {
-            DNSSECRData::DS(..) => DNSSECRecordType::DS,
-            DNSSECRData::KEY(..) => DNSSECRecordType::KEY,
-            DNSSECRData::DNSKEY(..) => DNSSECRecordType::DNSKEY,
-            DNSSECRData::NSEC(..) => DNSSECRecordType::NSEC,
-            DNSSECRData::NSEC3(..) => DNSSECRecordType::NSEC3,
-            DNSSECRData::NSEC3PARAM(..) => DNSSECRecordType::NSEC3PARAM,
-            DNSSECRData::SIG(..) => DNSSECRecordType::SIG,
-            DNSSECRData::TSIG(..) => DNSSECRecordType::TSIG,
-            DNSSECRData::Unknown { code, .. } => DNSSECRecordType::Unknown(code),
+            DNSSECRData::DS(..) => RecordType::DS,
+            DNSSECRData::KEY(..) => RecordType::KEY,
+            DNSSECRData::DNSKEY(..) => RecordType::DNSKEY,
+            DNSSECRData::NSEC(..) => RecordType::NSEC,
+            DNSSECRData::NSEC3(..) => RecordType::NSEC3,
+            DNSSECRData::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
+            DNSSECRData::SIG(..) => RecordType::SIG,
+            DNSSECRData::TSIG(..) => RecordType::TSIG,
+            DNSSECRData::Unknown { code, .. } => RecordType::Unknown(code),
         }
     }
 }
@@ -720,12 +615,6 @@ impl fmt::Display for DNSSECRData {
             DNSSECRData::TSIG(ref tsig) => w(f, tsig),
             DNSSECRData::Unknown { rdata, .. } => w(f, rdata),
         }
-    }
-}
-
-impl From<DNSSECRecordType> for RecordType {
-    fn from(record_type: DNSSECRecordType) -> RecordType {
-        RecordType::DNSSEC(record_type)
     }
 }
 

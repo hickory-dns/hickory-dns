@@ -17,7 +17,6 @@
 //! record data enum variants
 
 use crate::error::*;
-use crate::rr::rdata::DNSSECRecordType;
 use crate::rr::{Name, RData, RecordType};
 use crate::serialize::txt::rdata_parsers::*;
 
@@ -61,44 +60,31 @@ impl RDataParser for RData {
             RecordType::SVCB => svcb::parse(tokens).map(RData::SVCB)?,
             RecordType::TLSA => RData::TLSA(tlsa::parse(tokens)?),
             RecordType::TXT => RData::TXT(txt::parse(tokens)?),
-            RecordType::DNSSEC(DNSSECRecordType::SIG) => {
-                return Err(ParseError::from("parsing SIG doesn't make sense"))
-            }
-            RecordType::DNSSEC(DNSSECRecordType::DNSKEY) => {
+            RecordType::SIG => return Err(ParseError::from("parsing SIG doesn't make sense")),
+            RecordType::DNSKEY => {
                 return Err(ParseError::from("DNSKEY should be dynamically generated"))
             }
-            RecordType::DNSSEC(DNSSECRecordType::KEY) => {
-                return Err(ParseError::from("KEY should be dynamically generated"))
-            }
-            RecordType::DNSSEC(DNSSECRecordType::DS) => {
-                return Err(ParseError::from("DS should be dynamically generated"))
-            }
-            RecordType::DNSSEC(DNSSECRecordType::NSEC) => {
+            RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
+            RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
+            RecordType::NSEC => {
                 return Err(ParseError::from("NSEC should be dynamically generated"))
             }
-            RecordType::DNSSEC(DNSSECRecordType::NSEC3) => {
+            RecordType::NSEC3 => {
                 return Err(ParseError::from("NSEC3 should be dynamically generated"))
             }
-            RecordType::DNSSEC(DNSSECRecordType::NSEC3PARAM) => {
+            RecordType::NSEC3PARAM => {
                 return Err(ParseError::from(
                     "NSEC3PARAM should be dynamically generated",
                 ))
             }
-            RecordType::DNSSEC(DNSSECRecordType::RRSIG) => {
+            RecordType::RRSIG => {
                 return Err(ParseError::from("RRSIG should be dynamically generated"))
             }
-            RecordType::DNSSEC(DNSSECRecordType::Unknown(code)) => {
-                return Err(ParseError::from(ParseErrorKind::UnknownRecordType(code)))
-            }
-            RecordType::Unknown(code) => {
-                // TODO: add a way to associate generic record types to the zone
-                return Err(ParseError::from(ParseErrorKind::UnknownRecordType(code)));
-            }
+            RecordType::TSIG => return Err(ParseError::from("TSIG is only used during AXFR")),
             RecordType::ZERO => RData::ZERO,
-            r @ trust_dns_proto::rr::RecordType::DNSSEC(..) | r => {
-                return Err(ParseError::from(ParseErrorKind::UnknownRecordType(
-                    u16::from(r),
-                )))
+            r @ RecordType::Unknown(..) | r => {
+                // TODO: add a way to associate generic record types to the zone
+                return Err(ParseError::from(ParseErrorKind::UnsupportedRecordType(r)));
             }
         };
 
