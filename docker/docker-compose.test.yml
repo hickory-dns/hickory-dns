@@ -1,0 +1,18 @@
+version: "3.3"
+
+services:
+    # Docker hub auto test service name
+    sut:
+        image: alpine:3.14
+        dns:
+          - 1.1.1.1
+          - 1.0.0.1
+        command: "/tests/dns-tests.sh"
+        volumes:
+          - ./tests:/tests:ro
+        working_dir: /tests
+    dns-server:
+        image: ${BUILT_IMAGE:-trust-dns}
+        volumes:
+          - ./tests/named.toml:/etc/named.toml:ro
+          - ./tests/custom.zone:/var/named/custom.zone:ro

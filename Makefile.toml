@@ -506,3 +506,19 @@ description = "publish next release"
 workspace = false
 env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "tests/*"}
 run_task = { name = "inner_publish", fork = true }
+
+##
+## Docker
+##
+
+[tasks.build-docker-alpine]
+description = "Build docker alpine"
+workspace = false
+command = "docker"
+args = ["build", "-f", "./docker/alpine/Dockerfile", ".", "-t", "trust-dns"]
+
+[tasks.test-docker-alpine]
+description = "Test docker alpine"
+workspace = false
+command = "docker-compose"
+args = ["-f", "./docker/docker-compose.test.yml", "up", "--exit-code-from", "sut", "--abort-on-container-exit"]

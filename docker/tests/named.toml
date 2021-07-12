@@ -1,0 +1,20 @@
+[[zones]]
+zone = "custom"
+zone_type = "Primary"
+file = "custom.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+##  specifying something other than '.' here, will restrict this forwarder to only queries
+##  where the search name is a subzone of the name, e.g. if zone is "example.com.", then
+##  queries for "www.example.com" or "example.com" would be forwarded.
+zone = "."
+
+## zone_type: Primary, Secondary, Hint, Forward
+zone_type = "Forward"
+
+## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.
+##   Tls and/or Https require features dns-over-tls and/or dns-over-https
+stores = {type = "forward", name_servers = [
+        { socket_addr = "1.1.1.1:53", protocol = "udp", trust_nx_responses = false },
+        { socket_addr = "1.0.0.1:53", protocol = "tcp", trust_nx_responses = false }]}

@@ -1,0 +1,10 @@
+; The test zone for test-domain.custom
+@  86400  IN  SOA custom.  root.custom. (
+                  1999010100 ; serial
+                       10800 ; refresh (3 hours)
+                         900 ; retry (15 minutes)
+                      604800 ; expire (1 week)
+                       86400 ; minimum (1 day)
+                    )
+test-domain.custom.		300	IN	A	127.1.2.123
+dns-server.custom.		300	IN	A	127.0.0.53

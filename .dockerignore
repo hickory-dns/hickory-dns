@@ -1,0 +1,15 @@
+/*
+# Be specific to avoid wasting space but also to avoid sending a Rust target folder
+!/bin/src
+!/bin/tests
+!/bin/Cargo.toml
+!/tests/compatibility-tests/src
+!/tests/compatibility-tests/Cargo.toml
+!/tests/integration-tests/src
+!/tests/integration-tests/Cargo.toml
+!/util
+!/crates
+!/Cargo.lock
+!/Cargo.toml
+!/LICENSE-APACHE
+!/LICENSE-MIT
