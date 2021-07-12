@@ -24,7 +24,7 @@ Low-level crates supporting the above high-level crates:
 
 Binaries:
 
-- **[trust-dns](bin/)** - server binary, `named`, for hosting authorites, zones, and/or setting up a forwarder
+- **[trust-dns](bin/)** - server binary, `named`, for hosting authorities, zones, and/or setting up a forwarder
 - **[trust-dns-util](util/)** - helpful utilities, e.g. `resolve` for a CLI resolver, as well as some DNSSEC utilities
 
 ## TBD

@@ -93,7 +93,7 @@ This utility can be used to output raw bytes in the DNSKEY RDATA format. This is
 $ cargo run --bin pem-to-public-dnskey -- --help
 Trust-DNS pem-to-public-dnskey 0.11.3
 Benjamin Fry <benjaminfry@me.com>
-Converts a PEM formatted pubblic key into a raw public dnskey (this is not the inverse of bind_dnskey_to_pem). This can be used to create a dnskey in the TrustAnchor internal
+Converts a PEM formatted public key into a raw public dnskey (this is not the inverse of bind_dnskey_to_pem). This can be used to create a dnskey in the TrustAnchor internal
 format.
 
 USAGE:
