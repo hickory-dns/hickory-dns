@@ -128,7 +128,24 @@ impl ResolveError {
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
         match response.response_code() {
-            response_code @ ResponseCode::ServFail | response_code @ ResponseCode::Refused => {
+            response_code @ ResponseCode::ServFail
+            | response_code @ ResponseCode::Refused 
+            | response_code @ ResponseCode::FormErr
+            | response_code @ ResponseCode::NotImp
+            | response_code @ ResponseCode::YXDomain
+            | response_code @ ResponseCode::YXRRSet
+            | response_code @ ResponseCode::NXRRSet
+            | response_code @ ResponseCode::NotAuth
+            | response_code @ ResponseCode::NotZone
+            | response_code @ ResponseCode::BADVERS
+            | response_code @ ResponseCode::BADSIG
+            | response_code @ ResponseCode::BADKEY
+            | response_code @ ResponseCode::BADTIME
+            | response_code @ ResponseCode::BADMODE
+            | response_code @ ResponseCode::BADNAME
+            | response_code @ ResponseCode::BADALG
+            | response_code @ ResponseCode::BADTRUNC
+            | response_code @ ResponseCode::BADCOOKIE => {
                 debug!("Nameserver responded with {}", response_code);
 
                 let mut response = response;
@@ -144,9 +161,9 @@ impl ResolveError {
 
                 Err(ResolveError::from(error_kind))
             }
-            // Some NXDOMAIN responses contain CNAME referals, that will not be an error
+            // Some NXDOMAIN responses contain CNAME referrals, that will not be an error
             response_code @ ResponseCode::NXDomain |
-            // No answers are available, CNAME referals are not failures
+            // No answers are available, CNAME referrals are not failures
             response_code @ ResponseCode::NoError
             if !response.contains_answer() => {
                 debug!("Nameserver responded with {} and no records", response_code);
@@ -171,22 +188,6 @@ impl ResolveError {
             }
             ResponseCode::NXDomain
             | ResponseCode::NoError
-            | ResponseCode::FormErr
-            | ResponseCode::NotImp
-            | ResponseCode::YXDomain
-            | ResponseCode::YXRRSet
-            | ResponseCode::NXRRSet
-            | ResponseCode::NotAuth
-            | ResponseCode::NotZone
-            | ResponseCode::BADVERS
-            | ResponseCode::BADSIG
-            | ResponseCode::BADKEY
-            | ResponseCode::BADTIME
-            | ResponseCode::BADMODE
-            | ResponseCode::BADNAME
-            | ResponseCode::BADALG
-            | ResponseCode::BADTRUNC
-            | ResponseCode::BADCOOKIE
             | ResponseCode::Unknown(_) => Ok(response),
         }
     }
