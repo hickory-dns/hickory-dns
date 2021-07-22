@@ -350,38 +350,69 @@ fn test_distrust_nx_responses() {
 }
 
 #[test]
-fn test_retry_on_refused_response() {
+fn test_retry_on_error_response() {
     use trust_dns_proto::op::ResponseCode;
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
-    let refused_message = {
-        let mut refused_message = message(query.clone(), vec![], vec![], vec![]);
-        refused_message.set_response_code(ResponseCode::Refused);
-        refused_message
-    };
-    let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
 
-    // return `REFUSED` on the first request, and have the client trust that response
-    let refusing_nameserver = mock_nameserver_trust_nx(
-        vec![Ok(refused_message.into())],
+    const RETRYABLE_ERRORS: [ResponseCode; 17] = [
+        ResponseCode::ServFail,
+        ResponseCode::Refused,
+        ResponseCode::FormErr,
+        ResponseCode::NotImp,
+        ResponseCode::YXDomain,
+        ResponseCode::YXRRSet,
+        ResponseCode::NXRRSet,
+        ResponseCode::NotAuth,
+        ResponseCode::NotZone,
+        ResponseCode::BADVERS,
+        ResponseCode::BADSIG,
+        ResponseCode::BADKEY,
+        ResponseCode::BADTIME,
+        // TODO: ResponseCode::BADMODE,
+        ResponseCode::BADNAME,
+        ResponseCode::BADALG,
+        ResponseCode::BADTRUNC,
+        ResponseCode::BADCOOKIE,
+    ];
+    // Return an error response code, and have the client trust that response.
+    let error_nameserver = mock_nameserver_trust_nx(
+        std::array::IntoIter::new(RETRYABLE_ERRORS)
+            .map(|response_code| {
+                let mut error_message = message(query.clone(), vec![], vec![], vec![]);
+                error_message.set_response_code(response_code);
+                Ok(error_message.into())
+            })
+            .collect(),
         ResolverOpts::default(),
         true,
     );
-    // return a successful response on the fallback request
-    let fallback_nameserver =
-        mock_nameserver(vec![Ok(success_message.into())], ResolverOpts::default());
+
+    // Return a successful response on the fallback request.
+    let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
+    let fallback_nameserver = mock_nameserver(
+        vec![Ok(success_message.into()); RETRYABLE_ERRORS.len()],
+        ResolverOpts::default(),
+    );
+
     let mut pool = mock_nameserver_pool(
-        vec![refusing_nameserver, fallback_nameserver],
+        vec![error_nameserver, fallback_nameserver],
         vec![],
         None,
         ResolverOpts::default(),
     );
-
-    let request = message(query, vec![], vec![], vec![]);
-    let fut = pool.send(request).first_answer();
-    let response = block_on(fut).unwrap();
-    assert_eq!(response.answers(), [v4_record]);
+    for response_code in std::array::IntoIter::new(RETRYABLE_ERRORS) {
+        let request = message(query.clone(), vec![], vec![], vec![]);
+        let fut = pool.send(request).first_answer();
+        let response = block_on(fut).unwrap();
+        assert_eq!(
+            response.answers(),
+            [v4_record.clone()],
+            "did not see expected fallback behavior on response code `{}`",
+            response_code
+        );
+    }
 }
 
 // === Concurrent requests ===
