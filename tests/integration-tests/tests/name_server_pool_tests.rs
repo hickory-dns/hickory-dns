@@ -355,32 +355,24 @@ fn test_retry_on_error_response() {
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
-    const RETRYABLE_ERRORS: [ResponseCode; 17] = [
-        ResponseCode::ServFail,
-        ResponseCode::Refused,
+    const RETRYABLE_ERRORS: [ResponseCode; 9] = [
         ResponseCode::FormErr,
+        ResponseCode::ServFail,
         ResponseCode::NotImp,
+        ResponseCode::Refused,
         ResponseCode::YXDomain,
         ResponseCode::YXRRSet,
         ResponseCode::NXRRSet,
         ResponseCode::NotAuth,
         ResponseCode::NotZone,
-        ResponseCode::BADVERS,
-        ResponseCode::BADSIG,
-        ResponseCode::BADKEY,
-        ResponseCode::BADTIME,
-        // TODO: ResponseCode::BADMODE,
-        ResponseCode::BADNAME,
-        ResponseCode::BADALG,
-        ResponseCode::BADTRUNC,
-        ResponseCode::BADCOOKIE,
     ];
     // Return an error response code, and have the client trust that response.
     let error_nameserver = mock_nameserver_trust_nx(
-        std::array::IntoIter::new(RETRYABLE_ERRORS)
+        RETRYABLE_ERRORS
+            .iter()
             .map(|response_code| {
                 let mut error_message = message(query.clone(), vec![], vec![], vec![]);
-                error_message.set_response_code(response_code);
+                error_message.set_response_code(*response_code);
                 Ok(error_message.into())
             })
             .collect(),
@@ -402,16 +394,58 @@ fn test_retry_on_error_response() {
         None,
         ResolverOpts::default(),
     );
-    for response_code in std::array::IntoIter::new(RETRYABLE_ERRORS) {
+    for response_code in RETRYABLE_ERRORS.iter() {
         let request = message(query.clone(), vec![], vec![], vec![]);
         let fut = pool.send(request).first_answer();
-        let response = block_on(fut).unwrap();
+        let response = block_on(fut).expect("query did not eventually succeed");
         assert_eq!(
             response.answers(),
             [v4_record.clone()],
             "did not see expected fallback behavior on response code `{}`",
             response_code
         );
+    }
+}
+
+#[test]
+fn test_return_error_from_highest_priority_nameserver() {
+    use trust_dns_proto::op::ResponseCode;
+    use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
+
+    let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
+
+    const ERROR_RESPONSE_CODES: [ResponseCode; 4] = [
+        ResponseCode::ServFail,
+        ResponseCode::Refused,
+        ResponseCode::FormErr,
+        ResponseCode::NotImp,
+    ];
+    let name_servers = ERROR_RESPONSE_CODES
+        .iter()
+        .map(|response_code| {
+            let mut error_message = message(query.clone(), vec![], vec![], vec![]);
+            error_message.set_response_code(*response_code);
+            let response = ResolveError::from_response(error_message.into(), true)
+                .expect_err("error code should result in resolve error");
+            mock_nameserver(vec![Err(response)], ResolverOpts::default())
+        })
+        .collect();
+    let mut pool = mock_nameserver_pool(name_servers, vec![], None, ResolverOpts::default());
+
+    let request = message(query, vec![], vec![], vec![]);
+    let future = pool.send(request).first_answer();
+    let response = block_on(future).expect_err(
+        "DNS query should result in a `ResolveError` since all name servers return error responses",
+    );
+    let expected_response_code = ERROR_RESPONSE_CODES.first().unwrap();
+    match response.kind() {
+        ResolveErrorKind::NoRecordsFound { response_code, .. }
+            if response_code == expected_response_code => {}
+        kind => panic!(
+            "got unexpected kind of resolve error; expected `NoRecordsFound` error with response \
+            code `{:?}`, got {:#?}",
+            expected_response_code, kind,
+        ),
     }
 }
 
