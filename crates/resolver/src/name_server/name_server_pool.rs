@@ -343,7 +343,7 @@ where
                 ResolveErrorKind::Proto(e) if e.is_busy() => {
                     busy.push(conn);
                 }
-                _ if err.cmp_specificity(&e) != Ordering::Greater => {
+                _ if err.cmp_specificity(&e) == Ordering::Less => {
                     err = e;
                 }
                 _ => {}

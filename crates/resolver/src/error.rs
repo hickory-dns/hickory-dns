@@ -129,7 +129,7 @@ impl ResolveError {
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
         match response.response_code() {
             response_code @ ResponseCode::ServFail
-            | response_code @ ResponseCode::Refused 
+            | response_code @ ResponseCode::Refused
             | response_code @ ResponseCode::FormErr
             | response_code @ ResponseCode::NotImp
             | response_code @ ResponseCode::YXDomain
