@@ -795,7 +795,7 @@ fn test_zone_signing() {
     let authority = create_secure_example();
 
     let results = block_on(authority.lookup(
-        &authority.origin(),
+        authority.origin(),
         RecordType::AXFR,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
     ))
@@ -807,7 +807,7 @@ fn test_zone_signing() {
     );
 
     let results = block_on(authority.lookup(
-        &authority.origin(),
+        authority.origin(),
         RecordType::AXFR,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
     ))
@@ -822,7 +822,7 @@ fn test_zone_signing() {
         }
 
         let inner_results = block_on(authority.lookup(
-            &authority.origin(),
+            authority.origin(),
             RecordType::AXFR,
             LookupOptions::for_dnssec(true, SupportedAlgorithms::all()),
         ))
