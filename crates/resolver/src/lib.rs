@@ -138,11 +138,33 @@
 //! to a server, for example:
 //!
 //! ```rust,no_run
-//! let result = io_loop.block_on(lookup_future.and_then(|ips| {
-//!                                  let ip = ips.next().unwrap();
-//!                                  TcpStream::connect()
-//!                              }).and_then(|conn| /* do something with the connection... */)
-//!                          ).unwrap();
+//! # fn main() {
+//! # #[cfg(feature = "tokio-runtime")]
+//! # {
+//! # use std::net::*;
+//! # use tokio::runtime::Runtime;
+//! # use trust_dns_resolver::TokioAsyncResolver;
+//! # use trust_dns_resolver::config::*;
+//! # use futures_util::TryFutureExt;
+//! #
+//! # let mut io_loop = Runtime::new().unwrap();
+//! #
+//! # let resolver = io_loop.block_on(async {
+//! #    TokioAsyncResolver::tokio(
+//! #        ResolverConfig::default(),
+//! #        ResolverOpts::default())
+//! # }).expect("failed to connect resolver");
+//! #
+//! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
+//!
+//! let result = io_loop.block_on(async {
+//!     let ip = ips.iter().next().unwrap();
+//!     TcpStream::connect((ip, 443))
+//! })
+//! .and_then(|conn| Ok(conn) /* do something with the connection... */)
+//! .unwrap();
+//! # }
+//! # }
 //! ```
 //!
 //! It's beyond the scope of these examples to show how to deal with connection failures and

@@ -78,15 +78,17 @@
 //! ```
 //! use std::net::*;
 //! use async_std::prelude::*;
+//! # #[cfg(feature = "system-config")]
 //! use async_std_resolver::{resolver_from_system_conf, config};
 //!
 //! #[async_std::main]
 //! async fn main() {
+//! # #[cfg(feature = "system-config")]
+//! # {
 //!   // Use the host OS'es `/etc/resolv.conf`
-//!   # #[cfg(unix)]
 //!   let resolver = resolver_from_system_conf().await.unwrap();
-//!   # #[cfg(unix)]
 //!   let response = resolver.lookup_ip("www.example.com.").await.unwrap();
+//! # }
 //! }
 //! ```
 
