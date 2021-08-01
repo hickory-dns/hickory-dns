@@ -509,7 +509,7 @@ impl InMemoryAuthority {
                         records.push(record);
 
                         // new record...
-                        nsec_info = Some((&key.name.borrow(), vec![key.record_type]))
+                        nsec_info = Some((key.name.borrow(), vec![key.record_type]))
                     }
                 }
             }

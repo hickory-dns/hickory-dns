@@ -48,7 +48,7 @@ impl<S: Connect> TlsClientStreamBuilder<S> {
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca_der(&mut self, ca_der: &[u8]) -> io::Result<()> {
-        let ca = X509::from_der(&ca_der)
+        let ca = X509::from_der(ca_der)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.to_string()))?;
         self.add_ca(ca);
         Ok(())

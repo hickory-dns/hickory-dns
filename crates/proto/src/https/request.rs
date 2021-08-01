@@ -44,7 +44,7 @@ pub fn new(name_server_name: &str, message_len: usize) -> HttpsResult<Request<()
     parts.path_and_query = Some(uri::PathAndQuery::from_static(crate::https::DNS_QUERY_PATH));
     parts.scheme = Some(uri::Scheme::HTTPS);
     parts.authority = Some(
-        uri::Authority::from_str(&name_server_name)
+        uri::Authority::from_str(name_server_name)
             .map_err(|e| ProtoError::from(format!("invalid authority: {}", e)))?,
     );
 

@@ -1069,7 +1069,7 @@ mod tests {
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
         emit(&mut encoder, &rdata).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
-        assert_eq!(&bytes as &[u8], encoded);
+        assert_eq!(bytes as &[u8], encoded);
     }
 
     #[test]
