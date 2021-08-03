@@ -127,7 +127,7 @@ impl<'a> Iterator for LookupIter<'a> {
     }
 }
 
-/// Borrowed view of set of [`RData`]s returned from a Lookup
+/// Borrowed view of set of [`Record`]s returned from a Lookup
 pub struct LookupRecordIter<'a>(Iter<'a, Record>);
 
 impl<'a> Iterator for LookupRecordIter<'a> {

@@ -139,6 +139,10 @@
 
 //!
 //! ```rust,no_run
+//!
+//! #[cfg(all(feature = "openssl", feature = "dnssec"))]
+//! # fn main() {
+//!
 //! use std::fs::File;
 //! use std::io::Read;
 //! use std::net::Ipv4Addr;
@@ -147,16 +151,13 @@
 //! use chrono::Duration;
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
-//! # use trust_dns_client::client::Client;
-//! # use trust_dns_client::udp::UdpClientConnection;
-//! use trust_dns_client::client::SyncClient;
+//! use trust_dns_client::client::{Client, SyncClient};
+//! use trust_dns_client::udp::UdpClientConnection;
 //! use trust_dns_client::rr::{Name, RData, Record, RecordType};
 //! use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, KeyPair};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
 //!
-//! # #[cfg(feature = "openssl")]
-//! # fn main() {
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
 //!
@@ -206,7 +207,7 @@
 //! let result = client.create(record, origin).unwrap();
 //! assert_eq!(result.response_code(), ResponseCode::NoError);
 //! # }
-//! # #[cfg(not(feature = "openssl"))]
+//! # #[cfg(not(all(feature = "openssl", feature = "dnssec")))]
 //! # fn main() {
 //! # }
 //! ```
@@ -228,7 +229,6 @@
 //! use trust_dns_client::client::{Client, AsyncClient, ClientHandle};
 //! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 //! use trust_dns_client::op::ResponseCode;
-//! use trust_dns_client::rr::rdata::key::KEY;
 //!
 //! // We'll be using the current threads Tokio Runtime
 //! let mut runtime = Runtime::new().unwrap();

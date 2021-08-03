@@ -25,6 +25,7 @@ args = ["build", "--bins",  "@@remove-empty(FEATURES)"]
 
 [tasks.test]
 command = "cargo"
+dependencies = []
 args = ["test", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
 
 [tasks.clippy]

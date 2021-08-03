@@ -7,13 +7,22 @@
 
 //! The Resolver is responsible for performing recursive queries to lookup domain names.
 //!
-//! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is desired is to use the Host OS' resolver, generally in the system's libc, then the `std::net::ToSocketAddrs` variant over `&str` should be used.
+//! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is
+//! desired is to use the Host OS' resolver, generally in the system's libc, then the
+//! `std::net::ToSocketAddrs` variant over `&str` should be used.
 //!
-//! Unlike the `trust-dns-client`, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `trust-dns-client` crate must be used instead. The Resolver library is capable of searching multiple domains (this can be disabled by using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups, and features connection metric tracking for attempting to pick the best upstream DNS resolver.
+//! Unlike the `trust-dns-client`, this tries to provide a simpler interface to perform DNS
+//! queries. For update options, i.e. Dynamic DNS, the `trust-dns-client` crate must be used
+//! instead. The Resolver library is capable of searching multiple domains (this can be disabled by
+//! using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups,
+//! and features connection metric tracking for attempting to pick the best upstream DNS resolver.
 //!
-//! There are two types for performing DNS queries, [`Resolver`] and [`AsyncResolver`]. `Resolver` is the easiest to work with, it is a wrapper around [`AsyncResolver`]. `AsyncResolver` is a `Tokio` based async resolver, and can be used inside any `Tokio` based system.
+//! There are two types for performing DNS queries, [`Resolver`] and [`AsyncResolver`]. `Resolver`
+//! is the easiest to work with, it is a wrapper around [`AsyncResolver`]. `AsyncResolver` is a
+//! `Tokio` based async resolver, and can be used inside any `Tokio` based system.
 //!
-//! This as best as possible attempts to abide by the DNS RFCs, please file issues at <https://github.com/bluejekyll/trust-dns>.
+//! This as best as possible attempts to abide by the DNS RFCs, please file issues at
+//! <https://github.com/bluejekyll/trust-dns>.
 //!
 //! # Usage
 //!
@@ -26,7 +35,10 @@
 //!
 //! ## Using the Synchronous Resolver
 //!
-//! This uses the default configuration, which sets the [Google Public DNS](https://developers.google.com/speed/public-dns/) as the upstream resolvers. Please see their [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS.
+//! This uses the default configuration, which sets the [Google Public
+//! DNS](https://developers.google.com/speed/public-dns/) as the upstream resolvers. Please see
+//! their [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important
+//! information about what they track, many ISP's track similar information in DNS.
 //!
 //! ```rust
 //! # fn main() {
@@ -58,7 +70,9 @@
 //!
 //! ## Using the host system config
 //!
-//! On Unix systems, the `/etc/resolv.conf` can be used for configuration. Not all options specified in the host systems `resolv.conf` are applicable or compatible with this software. In addition there may be additional options supported which the host system does not. Example:
+//! On Unix systems, the `/etc/resolv.conf` can be used for configuration. Not all options
+//! specified in the host systems `resolv.conf` are applicable or compatible with this software. In
+//! addition there may be additional options supported which the host system does not. Example:
 //!
 //! ```rust,no_run
 //! # fn main() {
@@ -77,7 +91,8 @@
 //!
 //! ## Using the Tokio/Async Resolver
 //!
-//! For more advanced asynchronous usage, the `AsyncResolver`] is integrated with Tokio. In fact, the [`AsyncResolver`] is used by the synchronous Resolver for all lookups.
+//! For more advanced asynchronous usage, the `AsyncResolver`] is integrated with Tokio. In fact,
+//! the [`AsyncResolver`] is used by the synchronous Resolver for all lookups.
 //!
 //! ```rust
 //! # fn main() {
@@ -119,23 +134,64 @@
 //! # }
 //! ```
 //!
-//! Generally after a lookup in an asynchronous context, there would probably be a connection made to a server, for example:
+//! Generally after a lookup in an asynchronous context, there would probably be a connection made
+//! to a server, for example:
 //!
-//! ```c
-//! let result = io_loop.block_on(lookup_future.and_then(|ips| {
-//!                                  let ip = ips.next().unwrap();
-//!                                  TcpStream::connect()
-//!                              }).and_then(|conn| /* do something with the connection... */)
-//!                          ).unwrap();
+//! ```rust,no_run
+//! # fn main() {
+//! # #[cfg(feature = "tokio-runtime")]
+//! # {
+//! # use std::net::*;
+//! # use tokio::runtime::Runtime;
+//! # use trust_dns_resolver::TokioAsyncResolver;
+//! # use trust_dns_resolver::config::*;
+//! # use futures_util::TryFutureExt;
+//! #
+//! # let mut io_loop = Runtime::new().unwrap();
+//! #
+//! # let resolver = io_loop.block_on(async {
+//! #    TokioAsyncResolver::tokio(
+//! #        ResolverConfig::default(),
+//! #        ResolverOpts::default())
+//! # }).expect("failed to connect resolver");
+//! #
+//! let ips = io_loop.block_on(resolver.lookup_ip("www.example.com.")).unwrap();
+//!
+//! let result = io_loop.block_on(async {
+//!     let ip = ips.iter().next().unwrap();
+//!     TcpStream::connect((ip, 443))
+//! })
+//! .and_then(|conn| Ok(conn) /* do something with the connection... */)
+//! .unwrap();
+//! # }
+//! # }
 //! ```
 //!
-//! It's beyond the scope of these examples to show how to deal with connection failures and looping etc. But if you wanted to say try a different address from the result set after a connection failure, it will be necessary to create a type that implements the `Future` trait. Inside the `Future::poll` method would be the place to implement a loop over the different IP addresses.
+//! It's beyond the scope of these examples to show how to deal with connection failures and
+//! looping etc. But if you wanted to say try a different address from the result set after a
+//! connection failure, it will be necessary to create a type that implements the `Future` trait.
+//! Inside the `Future::poll` method would be the place to implement a loop over the different IP
+//! addresses.
 //!
 //! ## DNS-over-TLS and DNS-over-HTTPS
 //!
-//! DNS-over-TLS and DNS-over-HTTPS are supported in the Trust-DNS Resolver library. The underlying implementations are available as addon libraries. *WARNING* The trust-dns developers make no claims on the security and/or privacy guarantees of this implementation.
+//! DNS-over-TLS and DNS-over-HTTPS are supported in the Trust-DNS Resolver library. The underlying
+//! implementations are available as addon libraries. *WARNING* The trust-dns developers make no
+//! claims on the security and/or privacy guarantees of this implementation.
 //!
-//! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. For DNS-over-HTTPS only rustls is supported with the `dns-over-https-rustls`, this implicitly enables support for DNS-over-TLS as well. The reason for each is to make the Trust-DNS libraries flexible for different deployments, and/or security concerns. The easiest to use will generally be `dns-over-rustls` which utilizes the `*ring*` Rust cryptography library (a rework of the `boringssl` project), this should compile and be usable on most ARM and x86 platforms. `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used (which is a perfectly fine option if required). If more than one is specified, the precedence will be in this order (i.e. only one can be used at a time) `dns-over-rustls`, `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the trust-dns developers are not responsible for any choice of library that does not meet required security requirements.
+//! To use DNS-over-TLS one of the `dns-over-tls` features must be enabled at compile time. There
+//! are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. For DNS-over-HTTPS
+//! only rustls is supported with the `dns-over-https-rustls`, this implicitly enables support for
+//! DNS-over-TLS as well. The reason for each is to make the Trust-DNS libraries flexible for
+//! different deployments, and/or security concerns. The easiest to use will generally be
+//! `dns-over-rustls` which utilizes the `*ring*` Rust cryptography library (a rework of the
+//! `boringssl` project), this should compile and be usable on most ARM and x86 platforms.
+//! `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to
+//! `openssl` where not supported. `dns-over-openssl` will specify that `openssl` should be used
+//! (which is a perfectly fine option if required). If more than one is specified, the precedence
+//! will be in this order (i.e. only one can be used at a time) `dns-over-rustls`,
+//! `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the trust-dns developers are not
+//! responsible for any choice of library that does not meet required security requirements.
 //!
 //! ### Example
 //!
@@ -145,7 +201,8 @@
 //! trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
 //! ```
 //!
-//! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as well):
+//! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as
+//! well):
 //!
 //! ```rust,no_run
 //! # fn main() {
@@ -165,7 +222,10 @@
 //!
 //! ## mDNS (multicast DNS)
 //!
-//! Multicast DNS is an experimental feature in Trust-DNS at the moment. It's support on different platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be added to the `Resolver` and used for any lookups performed in the `.local.` zone.
+//! Multicast DNS is an experimental feature in Trust-DNS at the moment. Its support on different
+//! platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some
+//! complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be
+//! added to the `Resolver` and used for any lookups performed in the `.local.` zone.
 
 // LIBRARY WARNINGS
 #![warn(

@@ -838,7 +838,7 @@ impl<R> ClientStreamXfrState<R> {
                     .iter()
                     .fold(even, |even, a| even ^ (a.rr_type() == RecordType::SOA));
                 if even {
-                    if let Some(serial) = get_serial(&answers.last().unwrap()) {
+                    if let Some(serial) = get_serial(answers.last().unwrap()) {
                         if serial == expected_serial {
                             *self = Ended;
                             return Ok(());

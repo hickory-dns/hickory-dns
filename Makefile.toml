@@ -246,10 +246,22 @@ description = "Build all the crates"
 command = "cargo"
 args = ["build", "--lib", "--bins",  "@@remove-empty(FEATURES)"]
 
-[tasks.test]
-description = "Run tests all the crates"
+[tasks.test-all]
+description = "Run tests in all crates"
 command = "cargo"
-args = ["test", "--lib", "--examples", "--tests", "--bins", "@@remove-empty(FEATURES)"]
+args = ["test", "--lib", "--bins", "--examples", "--tests", "@@remove-empty(FEATURES)"]
+
+[tasks.test-examples]
+description = "A place-holder for crates to override with examples to run"
+
+[tasks.test-docs]
+description = "Run doc tests in all crates"
+command = "cargo"
+args = ["test", "--doc", "@@remove-empty(FEATURES)"]
+
+[tasks.test]
+description = "Run tests in all crates"
+dependencies = ["test-all", "test-docs", "test-examples"]
 
 [tasks.touch_all_rs]
 description = "Touch all Rust files (for clippy)"

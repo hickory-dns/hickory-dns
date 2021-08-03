@@ -466,7 +466,7 @@ where
 
                     let handshake = handshake.handshake(tls);
                     HttpsClientConnectState::H2Handshake {
-                        name_server_name: Arc::clone(&name_server_name),
+                        name_server_name: Arc::clone(name_server_name),
                         name_server,
                         handshake: Box::pin(handshake),
                     }
@@ -489,7 +489,7 @@ where
                     );
 
                     HttpsClientConnectState::Connected(Some(HttpsClientStream {
-                        name_server_name: Arc::clone(&name_server_name),
+                        name_server_name: Arc::clone(name_server_name),
                         name_server,
                         h2: send_request,
                         is_shutdown: false,

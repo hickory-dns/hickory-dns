@@ -22,6 +22,5 @@ args = ["run", "--example=global_resolver"]
 command = "cargo"
 args = ["run", "--example=multithreaded_runtime"]
 
-# Also test that the examples run
-[tasks.test]
+[tasks.test-examples]
 dependencies = ["example-global_resolver", "example-multithreaded_runtime"]

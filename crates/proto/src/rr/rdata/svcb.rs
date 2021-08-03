@@ -1243,6 +1243,6 @@ mod tests {
             255, 121, 0, 0, 0, 0, 40, 255, 255, 160, 160, 0, 0, 0, 64, 0, 1, 255, 158, 0, 0, 0, 8,
             0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0,
         ];
-        assert!(crate::op::Message::from_vec(&BUF).is_err());
+        assert!(crate::op::Message::from_vec(BUF).is_err());
     }
 }

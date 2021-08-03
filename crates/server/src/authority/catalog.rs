@@ -484,7 +484,7 @@ async fn build_response(
                 &mut response_header,
                 lookup_options,
                 request_id,
-                &query,
+                query,
             )
             .await
         }

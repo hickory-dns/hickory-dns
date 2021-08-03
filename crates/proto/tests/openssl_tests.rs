@@ -332,7 +332,7 @@ fn cert(
     x509_build
         .set_not_after(&Asn1Time::days_from_now(256).unwrap())
         .unwrap();
-    x509_build.set_issuer_name(&ca_name).unwrap();
+    x509_build.set_issuer_name(ca_name).unwrap();
     x509_build.set_subject_name(&x509_name).unwrap();
     x509_build.set_pubkey(&pkey).unwrap();
     x509_build.set_serial_number(&serial).unwrap();
@@ -357,7 +357,7 @@ fn cert(
     let basic_constraints = BasicConstraints::new().critical().build().unwrap();
     x509_build.append_extension(basic_constraints).unwrap();
 
-    x509_build.sign(&ca_pkey, MessageDigest::sha256()).unwrap();
+    x509_build.sign(ca_pkey, MessageDigest::sha256()).unwrap();
     let cert = x509_build.build();
 
     let pkcs12_builder = Pkcs12::builder();

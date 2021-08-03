@@ -504,7 +504,7 @@ mod tests {
         ];
 
         for &(ref input_data, exp_result) in test_vectors.iter() {
-            let result = DNSKEY::calculate_key_tag_internal(&input_data);
+            let result = DNSKEY::calculate_key_tag_internal(input_data);
             assert_eq!(result, exp_result);
         }
     }
