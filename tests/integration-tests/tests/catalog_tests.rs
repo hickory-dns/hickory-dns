@@ -149,20 +149,20 @@ fn test_catalog_lookup() {
         &RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 
-    let mut ns: Vec<Record> = result.name_servers().to_vec();
-    ns.sort();
+    // let mut ns: Vec<Record> = result.name_servers().to_vec();
+    // ns.sort();
 
-    assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
-    assert_eq!(
-        ns.first().unwrap().rdata(),
-        &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
-    );
-    assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
-    assert_eq!(
-        ns.last().unwrap().rdata(),
-        &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
-    );
+    // assert_eq!(ns.len(), 2);
+    // assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
+    // assert_eq!(
+    //     ns.first().unwrap().rdata(),
+    //     &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
+    // );
+    // assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
+    // assert_eq!(
+    //     ns.last().unwrap().rdata(),
+    //     &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
+    // );
 
     // other zone
     let mut question: Message = Message::new();

@@ -536,15 +536,16 @@ async fn send_authoritative_response(
     };
 
     let (ns, soa) = if answers.is_some() {
-        // This was a successful authoritative lookup:
-        //   get the NS records
-        match authority.ns(lookup_options).await {
-            Ok(ns) => (Some(ns), None),
-            Err(e) => {
-                warn!("ns_lookup errored: {}", e);
-                (None, None)
-            }
-        }
+        (None, None)
+        // // This was a successful authoritative lookup:
+        // //   get the NS records
+        // match authority.ns(lookup_options).await {
+        //     Ok(ns) => (Some(ns), None),
+        //     Err(e) => {
+        //         warn!("ns_lookup errored: {}", e);
+        //         (None, None)
+        //     }
+        // }
     } else {
         let nsecs = if lookup_options.is_dnssec() {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
