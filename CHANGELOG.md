@@ -15,6 +15,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) on `REFUSED` (and other negative) response(s), fall back to other nameservers (@peterthejohnston) #1513 #1526
 - (client) the feature `dnssec` is no longer enabled by default, use `dnssec-ring` or `dnssec-openssl` #1506
 - (server) dnssec functions of `Authority` moved into `DnsSecAuthority` #1506
 - (all) Most public enum types are now marked `#[non_exaustive]` #1426
