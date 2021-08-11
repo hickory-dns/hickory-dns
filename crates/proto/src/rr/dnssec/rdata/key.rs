@@ -17,6 +17,9 @@
 //! public key record data for signing zone records
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
 use crate::rr::record_data::RData;
@@ -160,6 +163,7 @@ use crate::serialize::binary::*;
 ///               the zone regardless of the value of the signatory field.
 /// ```
 #[allow(deprecated)]
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KEY {
     key_trust: KeyTrust,
@@ -171,6 +175,7 @@ pub struct KEY {
 }
 
 /// Specifies in what contexts this key may be trusted for use
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum KeyTrust {
     /// Use of the key is prohibited for authentication
@@ -244,6 +249,7 @@ fn test_key_trust() {
 /// Declares what this key is for
 #[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 pub enum KeyUsage {
     /// key associated with a "user" or "account" at an end entity, usually a host
     Host,
@@ -404,6 +410,7 @@ fn test_key_usage() {
 ///    SHOULD be set to 0 in KEY records, and MUST be ignored.
 ///
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[deprecated = "Deprecated by RFC3007"]
 #[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -577,6 +584,7 @@ fn test_update_scope() {
 /// ```text
 /// All Protocol Octet values except DNSSEC (3) are eliminated
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Protocol {

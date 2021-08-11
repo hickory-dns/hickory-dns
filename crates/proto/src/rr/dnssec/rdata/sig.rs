@@ -17,6 +17,9 @@
 //! signature record for signing queries, updates, and responses
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
 use crate::rr::{Name, RecordType};
@@ -180,6 +183,7 @@ use crate::serialize::binary::*;
 ///    networks, this time bracket should not normally extend further than 5
 ///    minutes into the past and 5 minutes into the future.
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SIG {
     type_covered: RecordType,

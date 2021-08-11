@@ -19,6 +19,9 @@ use openssl::hash;
 #[cfg(feature = "ring")]
 use ring::digest;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;
 
@@ -36,6 +39,7 @@ use super::Digest;
 /// 5 ED25519 [RFC draft-ietf-curdle-dnskey-eddsa-03]
 /// 5-255 Unassigned -
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[non_exhaustive]
 pub enum DigestType {

@@ -8,6 +8,9 @@
 //! SSHFP records for SSH public key fingerprints
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use data_encoding::{Encoding, Specification};
 use lazy_static::lazy_static;
 
@@ -52,6 +55,7 @@ lazy_static! {
 ///    The message-digest algorithm is presumed to produce an opaque octet
 ///    string output, which is placed as-is in the RDATA fingerprint field.
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SSHFP {
     algorithm: Algorithm,
@@ -113,6 +117,7 @@ impl SSHFP {
 /// The algorithm values have been updated in
 /// [RFC 6594](https://tools.ietf.org/html/rfc6594) and
 /// [RFC 7479](https://tools.ietf.org/html/rfc7479).
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Algorithm {
     /// Reserved value
@@ -181,6 +186,7 @@ impl From<Algorithm> for u8 {
 ///
 /// The fingerprint type values have been updated in
 /// [RFC 6594](https://tools.ietf.org/html/rfc6594).
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum FingerprintType {
     /// Reserved value
