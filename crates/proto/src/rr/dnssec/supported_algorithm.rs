@@ -20,6 +20,9 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use log::warn;
 
 use crate::error::*;
@@ -27,6 +30,7 @@ use crate::rr::dnssec::Algorithm;
 use crate::serialize::binary::{BinEncodable, BinEncoder};
 
 /// Used to specify the set of SupportedAlgorithms between a client and server
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SupportedAlgorithms {
     // right now the number of Algorithms supported are fewer than 16..

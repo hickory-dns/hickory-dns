@@ -18,6 +18,9 @@
 use std::fmt;
 use std::slice::Iter;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::serialize::binary::*;
 
@@ -34,6 +37,7 @@ use crate::serialize::binary::*;
 /// TXT RRs are used to hold descriptive text.  The semantics of the text
 /// depends on the domain where it is found.
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TXT {
     txt_data: Box<[Box<[u8]>]>,

@@ -18,6 +18,9 @@
 
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, Digest, DigestType};
 use crate::rr::record_data::RData;
@@ -72,6 +75,7 @@ use crate::serialize::binary::{
 ///    backward compatibility with early versions of the KEY record.
 ///
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct DNSKEY {
     zone_key: bool,

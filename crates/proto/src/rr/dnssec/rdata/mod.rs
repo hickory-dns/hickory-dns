@@ -18,6 +18,9 @@
 
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
@@ -53,6 +56,7 @@ pub use self::tsig::TSIG;
 pub type DNSSECRecordType = RecordType;
 
 /// Record data enum variants for DNSSEC-specific records.
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, EnumAsInner, PartialEq, Clone, Eq)]
 #[non_exhaustive]
 pub enum DNSSECRData {

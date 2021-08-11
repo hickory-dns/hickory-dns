@@ -18,6 +18,9 @@
 
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::dnssec::Nsec3HashAlgorithm;
 use crate::serialize::binary::*;
@@ -78,6 +81,7 @@ use crate::serialize::binary::*;
 ///  length of this field is determined by the preceding Salt Length
 ///  field.
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NSEC3PARAM {
     hash_algorithm: Nsec3HashAlgorithm,

@@ -23,6 +23,9 @@
 use std::fmt;
 use std::str;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
@@ -127,6 +130,7 @@ use url::Url;
 /// domain will change between the time a certificate was issued and
 /// validation by a relying party.
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
     #[doc(hidden)]
@@ -214,6 +218,7 @@ impl CAA {
 }
 
 /// Specifies in what contexts this key may be trusted for use
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Property {
     /// The issue property
@@ -294,6 +299,7 @@ impl From<String> for Property {
 /// `Issue` and `IssueWild` => `Issuer`,
 /// `Iodef` => `Url`,
 /// `Unknown` => `Unknown`,
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
     /// Issuer authorized to issue certs for this zone, and any associated parameters
@@ -623,6 +629,7 @@ pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
 ///
 /// See [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.2)
 /// for more explanation.
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KeyValue {
     key: String,

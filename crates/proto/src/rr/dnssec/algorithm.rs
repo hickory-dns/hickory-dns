@@ -8,6 +8,9 @@
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::serialize::binary::*;
 
@@ -92,6 +95,7 @@ use crate::serialize::binary::*;
 ///    This document cannot be updated, only made obsolete and replaced by a
 ///    successor document.
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[non_exhaustive]
 pub enum Algorithm {

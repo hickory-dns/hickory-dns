@@ -19,6 +19,9 @@
 use std::cmp::Ordering;
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;
 use crate::rr::rdata::NULL;
@@ -74,6 +77,7 @@ const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Eq, Debug, Clone)]
 pub struct Record {
     name_labels: Name,

@@ -17,6 +17,9 @@
 //! service records for identify port mapping for specific services on a host
 use std::fmt;
 
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
@@ -81,6 +84,7 @@ use crate::serialize::binary::*;
 /// Class.
 ///
 /// ```
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SRV {
     priority: u16,
