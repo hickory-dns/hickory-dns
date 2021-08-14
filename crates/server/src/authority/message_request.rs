@@ -25,6 +25,11 @@ pub struct MessageRequest {
 }
 
 impl MessageRequest {
+    /// Return the request header
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
         self.header.id()
