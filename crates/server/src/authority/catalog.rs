@@ -88,8 +88,7 @@ impl RequestHandler for Catalog {
         // check if it's edns
         if let Some(req_edns) = request_message.edns() {
             let mut response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-            let mut response_header = Header::default();
-            response_header.set_id(request_message.id());
+            let mut response_header = Header::response_from_request(request_message.header());
 
             let mut resp_edns: Edns = Edns::new();
 
@@ -343,6 +342,7 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> impl Future<Output = ()> + 'static {
+        // find matching authorities for the request
         let queries_and_authorities = request
             .queries()
             .iter()
@@ -353,8 +353,10 @@ impl Catalog {
             })
             .collect::<Vec<_>>();
 
+        // if this is empty then the there are no authorities registered that can handle the request
         if queries_and_authorities.is_empty() {
             let response = MessageResponseBuilder::new(Some(request.raw_queries()));
+
             send_response(
                 response_edns
                     .as_ref()
@@ -408,8 +410,14 @@ async fn lookup<R: ResponseHandler + Unpin>(
             authority.origin()
         );
 
-        let (response_header, sections) =
-            build_response(&*authority, request.id(), query, request.edns()).await;
+        let (response_header, sections) = build_response(
+            &*authority,
+            request.id(),
+            request.header(),
+            query,
+            request.edns(),
+        )
+        .await;
 
         let response = MessageResponseBuilder::new(Some(request.raw_queries())).build(
             response_header,
@@ -453,6 +461,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
 async fn build_response(
     authority: &dyn AuthorityObject,
     request_id: u16,
+    request_header: &Header,
     query: &LowerQuery,
     edns: Option<&Edns>,
 ) -> (Header, LookupSections) {
@@ -466,10 +475,7 @@ async fn build_response(
         );
     }
 
-    let mut response_header = Header::new();
-    response_header.set_id(request_id);
-    response_header.set_op_code(OpCode::Query);
-    response_header.set_message_type(MessageType::Response);
+    let mut response_header = Header::response_from_request(request_header);
     response_header.set_authoritative(authority.zone_type().is_authoritative());
 
     debug!("performing {} on {}", query, authority.origin());
@@ -489,7 +495,7 @@ async fn build_response(
             .await
         }
         ZoneType::Forward | ZoneType::Hint => {
-            send_forwarded_response(future, &mut response_header).await
+            send_forwarded_response(future, request_header, &mut response_header).await
         }
     };
 
@@ -598,20 +604,37 @@ async fn send_authoritative_response(
 
 async fn send_forwarded_response(
     future: BoxedLookupFuture,
+    request_header: &Header,
     response_header: &mut Header,
 ) -> LookupSections {
-    let answers = match future.await {
-        Ok(rsp) => rsp,
-        Err(e) => {
-            if e.is_nx_domain() {
-                response_header.set_response_code(ResponseCode::NXDomain);
+    response_header.set_recursion_available(true);
+    response_header.set_authoritative(false);
+
+    // Don't perform the recursive query if this is disabled...
+    let answers = if request_header.recursion_desired() {
+        // cancel the future??
+        // future.cancel();
+        drop(future);
+
+        info!(
+            "request disabled recursion, returning no records: {}",
+            request_header.id()
+        );
+
+        Box::new(EmptyLookup)
+    } else {
+        match future.await {
+            Ok(rsp) => rsp,
+            Err(e) => {
+                if e.is_nx_domain() {
+                    response_header.set_response_code(ResponseCode::NXDomain);
+                }
+                error!("error resolving: {}", e);
+                Box::new(EmptyLookup)
             }
-            error!("error resolving: {}", e);
-            Box::new(EmptyLookup)
         }
     };
 
-    response_header.set_authoritative(false);
     LookupSections {
         answers,
         ns: Box::new(AuthLookup::default()) as Box<dyn LookupObject>,

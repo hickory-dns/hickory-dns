@@ -110,6 +110,43 @@ impl Header {
         Default::default()
     }
 
+    /// Construct a new header based off the request header. This copies over the RD (recursion-desired)
+    ///   and CD (checking-disabled), as well as the op_code and id of the request.
+    ///
+    /// See https://datatracker.ietf.org/doc/html/rfc6895#section-2
+    ///
+    /// ```text
+    /// The AA, TC, RD, RA, and CD bits are each theoretically meaningful
+    ///    only in queries or only in responses, depending on the bit.  The AD
+    ///    bit was only meaningful in responses but is expected to have a
+    ///    separate but related meaning in queries (see Section 5.7 of
+    ///    [RFC6840]).  Only the RD and CD bits are expected to be copied from
+    ///    the query to the response; however, some DNS implementations copy all
+    ///    the query header as the initial value of the response header.  Thus,
+    ///    any attempt to use a "query" bit with a different meaning in a
+    ///    response or to define a query meaning for a "response" bit may be
+    ///    dangerous, given the existing implementation.  Meanings for these
+    ///    bits may only be assigned by a Standards Action.
+    /// ```
+    pub fn response_from_request(header: &Header) -> Self {
+        Header {
+            id: header.id,
+            message_type: MessageType::Response,
+            op_code: header.op_code,
+            authoritative: false,
+            truncation: false,
+            recursion_desired: header.recursion_desired,
+            recursion_available: false,
+            authentic_data: false,
+            checking_disabled: header.checking_disabled,
+            response_code: ResponseCode::default(),
+            query_count: 0,
+            answer_count: 0,
+            name_server_count: 0,
+            additional_count: 0,
+        }
+    }
+
     /// Length of the header, always 12 bytes
     #[inline(always)]
     pub fn len() -> usize {
