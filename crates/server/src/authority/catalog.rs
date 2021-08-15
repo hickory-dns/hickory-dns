@@ -138,11 +138,9 @@ impl RequestHandler for Catalog {
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    response_handle.send_response(response.error_msg(
-                        request_message.id(),
-                        request_message.op_code(),
-                        ResponseCode::NotImp,
-                    ))
+                    response_handle.send_response(
+                        response.error_msg(request_message.header(), ResponseCode::NotImp),
+                    )
                 }
             },
             MessageType::Response => {
@@ -151,11 +149,9 @@ impl RequestHandler for Catalog {
                     request_message.id()
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                response_handle.send_response(response.error_msg(
-                    request_message.id(),
-                    request_message.op_code(),
-                    ResponseCode::FormErr,
-                ))
+                response_handle.send_response(
+                    response.error_msg(request_message.header(), ResponseCode::FormErr),
+                )
             }
         };
 
@@ -361,7 +357,7 @@ impl Catalog {
                 response_edns
                     .as_ref()
                     .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-                response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),
+                response.error_msg(request.header(), ResponseCode::Refused),
                 response_handle.clone(),
             )
             .map_err(|e| error!("failed to send response: {}", e))

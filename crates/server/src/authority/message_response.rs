@@ -9,7 +9,7 @@ use crate::authority::message_request::QueriesEmitAndCount;
 use crate::authority::Queries;
 use crate::proto::error::*;
 use crate::proto::op::message::EmitAndCount;
-use crate::proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
+use crate::proto::op::{message, Edns, Header, ResponseCode};
 use crate::proto::rr::Record;
 use crate::proto::serialize::binary::BinEncoder;
 
@@ -181,15 +181,11 @@ impl<'q> MessageResponseBuilder<'q> {
     /// * `response_code` - the type of error
     pub fn error_msg(
         self,
-        id: u16,
-        op_code: OpCode,
+        request_header: &Header,
         response_code: ResponseCode,
     ) -> MessageResponse<'q, 'static> {
-        let mut header = Header::default();
-        header.set_message_type(MessageType::Response);
-        header.set_id(id);
+        let mut header = Header::response_from_request(request_header);
         header.set_response_code(response_code);
-        header.set_op_code(op_code);
 
         MessageResponse {
             header,
