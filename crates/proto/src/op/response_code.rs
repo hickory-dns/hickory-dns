@@ -141,6 +141,14 @@ impl ResponseCode {
         ((u16::from(self) & 0x0FF0) >> 4) as u8
     }
 
+    /// DNS can not store the entire space of ResponseCodes in 4 bit space of the Header, this function
+    ///   allows for a initial value of the first 4 bits to be set.
+    ///
+    /// After the EDNS is read, the entire ResponseCode (12 bits) can be reconstructed for the full ResponseCode.
+    pub fn from_low(low: u8) -> Self {
+        ((u16::from(low)) & 0x000F).into()
+    }
+
     /// Combines the EDNS high and low from the Header to produce the Extended ResponseCode
     pub fn from(high: u8, low: u8) -> ResponseCode {
         ((u16::from(high) << 4) | ((u16::from(low)) & 0x000F)).into()
@@ -171,6 +179,12 @@ impl ResponseCode {
             ResponseCode::BADCOOKIE => "Bad server cookie", // 23    BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)    Bad/missing server cookie    [draft-ietf-dnsop-cookies]
             ResponseCode::Unknown(_) => "Unknown response code",
         }
+    }
+}
+
+impl Default for ResponseCode {
+    fn default() -> Self {
+        Self::NoError
     }
 }
 
