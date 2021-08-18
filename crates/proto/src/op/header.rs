@@ -178,7 +178,12 @@ impl Header {
         self
     }
 
-    /// This combines the high and low response code values to form the complete ResponseCode from the EDNS record
+    /// This combines the high and low response code values to form the complete ResponseCode from the EDNS record.
+    ///   The existing high order bits will be overwritten (if set), and `high_response_code` will be merge with
+    ///   the existing low order bits.
+    ///
+    /// This is intended for use during decoding.
+    #[doc(hidden)]
     pub fn merge_response_code(&mut self, high_response_code: u8) {
         self.response_code = ResponseCode::from(high_response_code, self.response_code.low());
     }
