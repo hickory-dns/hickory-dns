@@ -231,7 +231,7 @@
 //!
 //! #[tokio::main]
 //! async fn main() {
-//!     // Establishing a TCP connection
+//!     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
 //!     let (stream, sender) =
 //!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
 //!
