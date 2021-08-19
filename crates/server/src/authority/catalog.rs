@@ -538,16 +538,20 @@ async fn send_authoritative_response(
     };
 
     let (ns, soa) = if answers.is_some() {
-        (None, None)
-        // // This was a successful authoritative lookup:
-        // //   get the NS records
-        // match authority.ns(lookup_options).await {
-        //     Ok(ns) => (Some(ns), None),
-        //     Err(e) => {
-        //         warn!("ns_lookup errored: {}", e);
-        //         (None, None)
-        //     }
-        // }
+        // SOA queries should return the NS records as well.
+        if query.query_type().is_soa() {
+            // This was a successful authoritative lookup for SOA:
+            //   get the NS records as well.
+            match authority.ns(lookup_options).await {
+                Ok(ns) => (Some(ns), None),
+                Err(e) => {
+                    warn!("ns_lookup errored: {}", e);
+                    (None, None)
+                }
+            }
+        } else {
+            (None, None)
+        }
     } else {
         let nsecs = if lookup_options.is_dnssec() {
             // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
