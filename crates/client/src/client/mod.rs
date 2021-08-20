@@ -27,14 +27,10 @@ mod memoize_client_handle;
 mod rc_stream;
 
 #[allow(deprecated)]
-pub use self::async_client::{
-    AsyncClient, AsyncClientConnect, ClientFuture, ClientHandle, ClientStreamingResponse,
-};
+pub use self::async_client::{AsyncClient, ClientFuture, ClientHandle, ClientStreamingResponse};
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-pub use self::async_secure_client::{
-    AsyncDnssecClient, AsyncSecureClientBuilder, AsyncSecureClientConnect,
-};
+pub use self::async_secure_client::{AsyncDnssecClient, AsyncSecureClientBuilder};
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 pub use self::client::SyncDnssecClient;

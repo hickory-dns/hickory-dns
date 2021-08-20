@@ -11,8 +11,8 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
+use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-use futures_util::{ready, FutureExt};
 use log::debug;
 use rand;
 
@@ -21,9 +21,8 @@ use crate::error::*;
 use crate::op::{update_message, Message, MessageType, OpCode, Query};
 use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::xfer::{
-    BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeConnect,
-    DnsExchangeSend, DnsHandle, DnsMultiplexer, DnsMultiplexerConnect, DnsRequest,
-    DnsRequestOptions, DnsRequestSender, DnsResponse,
+    BufDnsStreamHandle, DnsClientStream, DnsExchange, DnsExchangeBackground, DnsExchangeSend,
+    DnsHandle, DnsMultiplexer, DnsRequest, DnsRequestOptions, DnsRequestSender, DnsResponse,
 };
 use crate::proto::TokioTime;
 use crate::rr::rdata::SOA;
@@ -59,16 +58,22 @@ impl AsyncClient {
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<F, S>(
+    pub async fn new<F, S>(
         stream: F,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<Signer>>,
-    ) -> AsyncClientConnect<DnsMultiplexerConnect<F, S, Signer>, DnsMultiplexer<S, Signer>>
+    ) -> Result<
+        (
+            AsyncClient,
+            DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
+        ),
+        ProtoError,
+    >
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
-        S: DnsClientStream + Unpin + 'static,
+        S: DnsClientStream + 'static + Unpin,
     {
-        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer).await
     }
 
     /// Spawns a new AsyncClient Stream.
@@ -81,18 +86,46 @@ impl AsyncClient {
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
-    pub fn with_timeout<F, S>(
+    pub async fn with_timeout<F, S>(
         stream: F,
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<Signer>>,
-    ) -> AsyncClientConnect<DnsMultiplexerConnect<F, S, Signer>, DnsMultiplexer<S, Signer>>
+    ) -> Result<
+        (
+            AsyncClient,
+            DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
+        ),
+        ProtoError,
+    >
     where
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-        S: DnsClientStream + Unpin + 'static,
+        S: DnsClientStream + 'static + Unpin,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        Self::connect(mp)
+        let a = Self::connect(mp).await;
+        a
+    }
+
+    /// Returns a future, which itself wraps a future which is awaiting connection.
+    ///
+    /// The connect_future should be lazy.
+    ///
+    /// # Returns
+    ///
+    /// This returns a tuple of Self a handle to send dns messages and an optional background.
+    ///  The background task must be run on an executor before handle is used, if it is Some.
+    ///  If it is None, then another thread has already run the background.
+    pub async fn connect<F, S>(
+        connect_future: F,
+    ) -> Result<(AsyncClient, DnsExchangeBackground<S, TokioTime>), ProtoError>
+    where
+        S: DnsRequestSender,
+        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
+    {
+        let result = DnsExchange::connect(connect_future).await;
+        let use_edns = true;
+        result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg))
     }
 
     /// (Re-)enable usage of EDNS for outgoing messages
@@ -103,25 +136,6 @@ impl AsyncClient {
     /// Disable usage of EDNS for outgoing messages
     pub fn disable_edns(&mut self) {
         self.use_edns = false;
-    }
-}
-
-impl AsyncClient {
-    /// Returns a future, which itself wraps a future which is awaiting connection.
-    ///
-    /// The connect_future should be lazy.
-    ///
-    /// # Returns
-    ///
-    /// This returns a tuple of Self a handle to send dns messages and an optional background.
-    ///  The background task must be run on an executor before handle is used, if it is Some.
-    ///  If it is None, then another thread has already run the background.
-    pub fn connect<F, S>(connect_future: F) -> AsyncClientConnect<F, S>
-    where
-        S: DnsRequestSender,
-        F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    {
-        AsyncClientConnect(DnsExchange::connect(connect_future))
     }
 }
 
@@ -144,31 +158,6 @@ impl DnsHandle for AsyncClient {
 
     fn is_using_edns(&self) -> bool {
         self.use_edns
-    }
-}
-
-/// A future that resolves to an AsyncClient
-#[must_use = "futures do nothing unless polled"]
-pub struct AsyncClientConnect<F, S>(DnsExchangeConnect<F, S, TokioTime>)
-where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static;
-
-#[allow(clippy::type_complexity)]
-impl<F, S> Future for AsyncClientConnect<F, S>
-where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static + Send + Unpin,
-{
-    type Output = Result<(AsyncClient, DnsExchangeBackground<S, TokioTime>), ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let result = ready!(self.0.poll_unpin(cx));
-        let use_edns = true;
-        let client_background =
-            result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg));
-
-        Poll::Ready(client_background)
     }
 }
 
