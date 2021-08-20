@@ -282,7 +282,6 @@ fn test_server_continues_on_bad_data_tcp() {
 
 #[test]
 #[cfg(feature = "resolver")]
-#[ignore] // FIXME: the client needs to be updated to specify that recursion is desired on the request... before commit
 fn test_forward() {
     use server_harness::query_message;
 
@@ -332,5 +331,6 @@ fn test_forward() {
             *response.answers()[0].rdata().as_a().unwrap(),
             Ipv4Addr::new(93, 184, 216, 34)
         );
+        assert!(!response.header().authoritative());
     })
 }

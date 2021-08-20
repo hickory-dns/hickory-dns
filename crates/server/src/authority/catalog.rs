@@ -611,7 +611,7 @@ async fn send_forwarded_response(
     response_header.set_authoritative(false);
 
     // Don't perform the recursive query if this is disabled...
-    let answers = if request_header.recursion_desired() {
+    let answers = if !request_header.recursion_desired() {
         // cancel the future??
         // future.cancel();
         drop(future);
@@ -624,7 +624,6 @@ async fn send_forwarded_response(
         Box::new(EmptyLookup)
     } else {
         match future.await {
-            Ok(rsp) => rsp,
             Err(e) => {
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
@@ -632,6 +631,7 @@ async fn send_forwarded_response(
                 error!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }
+            Ok(rsp) => rsp,
         }
     };
 
