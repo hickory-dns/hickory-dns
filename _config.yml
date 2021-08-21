@@ -1,4 +1,4 @@
-baseurl = /bluejekyll/trust-dns
+# baseurl = /bluejekyll/trust-dns
 
 title: Trust-dns
 description: "A Rust based DNS server "
