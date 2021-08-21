@@ -1,1 +1,7 @@
 baseurl = /bluejekyll/trust-dns
+
+title: Trust-dns
+description: "A Rust based DNS server "
+google_analytics: 
+show_downloads: true
+theme: jekyll-theme-minimal
