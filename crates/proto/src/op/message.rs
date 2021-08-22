@@ -21,7 +21,7 @@ use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use log::debug;
+use log::{debug, warn};
 
 use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 use crate::error::*;
@@ -401,10 +401,7 @@ impl Message {
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
-        ResponseCode::from(
-            self.edns.as_ref().map_or(0, Edns::rcode_high),
-            self.header.response_code(),
-        )
+        self.header.response_code()
     }
 
     /// ```text
@@ -910,11 +907,19 @@ where
     let nameserver_count = count_was_truncated(name_servers.emit(encoder))?;
     let mut additional_count = count_was_truncated(additionals.emit(encoder))?;
 
-    if let Some(edns) = edns {
+    if let Some(mut edns) = edns.cloned() {
         // need to commit the error code
-        let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(edns))))?;
+        edns.set_rcode_high(header.response_code().high());
+
+        let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(&edns))))?;
         additional_count.0 += count.0;
         additional_count.1 |= count.1;
+    } else if header.response_code().high() > 0 {
+        warn!(
+            "response code: {} for request: {} requires EDNS but none available",
+            header.response_code(),
+            header.id()
+        );
     }
 
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
@@ -956,7 +961,7 @@ impl BinEncodable for Message {
 
 impl<'r> BinDecodable<'r> for Message {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let header = Header::read(decoder)?;
+        let mut header = Header::read(decoder)?;
 
         // TODO: return just header, and in the case of the rest of message getting an error.
         //  this could improve error detection while decoding.
@@ -976,6 +981,12 @@ impl<'r> BinDecodable<'r> for Message {
         let (answers, _, _) = Self::read_records(decoder, answer_count, false)?;
         let (name_servers, _, _) = Self::read_records(decoder, name_server_count, false)?;
         let (additionals, edns, signature) = Self::read_records(decoder, additional_count, true)?;
+
+        // need to grab error code from EDNS (which might have a higher value)
+        if let Some(edns) = &edns {
+            let high_response_code = edns.rcode_high();
+            header.merge_response_code(high_response_code);
+        }
 
         Ok(Message {
             header,
