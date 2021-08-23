@@ -139,6 +139,7 @@ fn test_catalog_lookup() {
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
+    assert!(result.header().authoritative());
 
     let answers: &[Record] = result.answers();
 
@@ -149,20 +150,8 @@ fn test_catalog_lookup() {
         &RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
 
-    let mut ns: Vec<Record> = result.name_servers().to_vec();
-    ns.sort();
-
-    assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
-    assert_eq!(
-        ns.first().unwrap().rdata(),
-        &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
-    );
-    assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
-    assert_eq!(
-        ns.last().unwrap().rdata(),
-        &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
-    );
+    let ns = result.name_servers();
+    assert!(ns.is_empty());
 
     // other zone
     let mut question: Message = Message::new();
@@ -181,6 +170,7 @@ fn test_catalog_lookup() {
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
+    assert!(result.header().authoritative());
 
     let answers: &[Record] = result.answers();
 
@@ -189,6 +179,71 @@ fn test_catalog_lookup() {
     assert_eq!(
         answers.first().unwrap().rdata(),
         &RData::A(Ipv4Addr::new(94, 184, 216, 34))
+    );
+}
+
+#[test]
+fn test_catalog_lookup_soa() {
+    let example = create_example();
+    let test = create_test();
+    let origin = example.origin().clone();
+    let test_origin = test.origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), Box::new(Arc::new(RwLock::new(example))));
+    catalog.upsert(test_origin, Box::new(Arc::new(RwLock::new(test))));
+
+    let mut question: Message = Message::new();
+
+    let mut query: Query = Query::new();
+    query.set_name(origin.into());
+    query.set_query_type(RecordType::SOA);
+
+    question.add_query(query);
+
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
+
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.message_type(), MessageType::Response);
+    assert!(result.header().authoritative());
+
+    let answers: &[Record] = result.answers();
+
+    assert!(!answers.is_empty());
+    assert_eq!(answers.first().unwrap().rr_type(), RecordType::SOA);
+    assert_eq!(
+        answers.first().unwrap().rdata(),
+        &RData::SOA(SOA::new(
+            Name::parse("sns.dns.icann.org.", None).unwrap(),
+            Name::parse("noc.dns.icann.org.", None).unwrap(),
+            2015082403,
+            7200,
+            3600,
+            1209600,
+            3600,
+        ))
+    );
+
+    // assert SOA requests get NS records
+    let mut ns: Vec<Record> = result.name_servers().to_vec();
+    ns.sort();
+
+    assert_eq!(ns.len(), 2);
+    assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(
+        ns.first().unwrap().rdata(),
+        &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
+    );
+    assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(
+        ns.last().unwrap().rdata(),
+        &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
     );
 }
 
@@ -218,6 +273,7 @@ fn test_catalog_nx_soa() {
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
+    assert!(result.header().authoritative());
 
     let ns: &[Record] = result.name_servers();
 
@@ -235,6 +291,39 @@ fn test_catalog_nx_soa() {
             3600,
         ))
     );
+}
+
+#[test]
+fn test_non_authoritive_nx_refused() {
+    let example = create_example();
+    let origin = example.origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin, Box::new(Arc::new(RwLock::new(example))));
+
+    let mut question: Message = Message::new();
+
+    let mut query: Query = Query::new();
+    query.set_name(Name::parse("com.", None).unwrap());
+    query.set_query_type(RecordType::SOA);
+
+    question.add_query(query);
+
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
+    let response_handler = TestResponseHandler::new();
+    block_on(catalog.lookup(question_req, None, response_handler.clone()));
+    let result = block_on(response_handler.into_message());
+
+    assert_eq!(result.response_code(), ResponseCode::Refused);
+    assert_eq!(result.message_type(), MessageType::Response);
+    assert!(!result.header().authoritative());
+
+    assert_eq!(result.name_servers().len(), 0);
+    assert_eq!(result.answers().len(), 0);
+    assert_eq!(result.additionals().len(), 0);
 }
 
 #[test]
