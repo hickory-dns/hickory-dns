@@ -26,6 +26,7 @@ use serde::{Deserialize, Serialize};
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
 pub mod dnskey;
 pub mod ds;
+#[allow(deprecated)]
 pub mod key;
 pub mod nsec;
 pub mod nsec3;
