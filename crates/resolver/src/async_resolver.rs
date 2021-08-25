@@ -646,8 +646,7 @@ pub mod testing {
         .expect("failed to create resolver");
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
-        let name = Name::from_str("www.trust-dns.org.").unwrap();
-        let response = exec.block_on(resolver.lookup_ip("www.trust-dns.org."));
+        let response = exec.block_on(resolver.lookup_ip("trust-dns.org."));
 
         assert!(response.is_err());
         let error = response.unwrap_err();
@@ -655,6 +654,7 @@ pub mod testing {
         use proto::error::{ProtoError, ProtoErrorKind};
 
         let error_str = format!("{}", error);
+        let name = Name::from_str("trust-dns.org.").unwrap();
         let expected_str = format!(
             "{}",
             ResolveError::from(ProtoError::from(ProtoErrorKind::RrsigsNotPresent {

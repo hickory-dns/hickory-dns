@@ -215,50 +215,53 @@
 //! *Note*: The dynamic DNS functions defined by Trust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
 //!
 //!
-//! ## Async usage
+//! ## Async client usage
 //!
-//! The below example uses a single threaded tokio runtime example for the client. Tokio can get much more complex with multiple runtimes on many threads. This example is meant to show basic usage, the Tokio documentation should be reviewed for more advanced usage.
+//! This example is meant to show basic usage, using the #[tokio::main] macro to setup a simple runtime.
+//! The Tokio documentation should be reviewed for more advanced usage.
 //!
 //! ```rust
-//! use std::net::{Ipv4Addr, SocketAddr};
+//! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
-//! use tokio::net::UdpSocket;
-//! use tokio::runtime::Runtime;
+//! use tokio::net::TcpStream as TokioTcpStream;
+//! use trust_dns_client::client::{AsyncClient, ClientHandle};
+//! use trust_dns_client::proto::iocompat::AsyncIoTokioAsStd;
+//! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
+//! use trust_dns_client::tcp::TcpClientStream;
 //!
-//! use trust_dns_client::udp::UdpClientStream;
-//! use trust_dns_client::client::{Client, AsyncClient, ClientHandle};
-//! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
-//! use trust_dns_client::op::ResponseCode;
+//! #[tokio::main]
+//! async fn main() {
+//!     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
+//!     let (stream, sender) =
+//!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
 //!
-//! // We'll be using the current threads Tokio Runtime
-//! let mut runtime = Runtime::new().unwrap();
+//!     // Create a new client, the bg is a background future which handles
+//!     //   the multiplexing of the DNS requests to the server.
+//!     //   the client is a handle to an unbounded queue for sending requests via the
+//!     //   background. The background must be scheduled to run before the client can
+//!     //   send any dns requests
+//!     let client = AsyncClient::new(stream, sender, None);
 //!
-//! // We need a connection, TCP and UDP are supported by DNS servers
-//! //   (tcp construction is slightly different as it needs a multiplexer)
-//! let stream = UdpClientStream::<UdpSocket>::new(([8,8,8,8], 53).into());
+//!     // await the connection to be established
+//!     let (mut client, bg) = client.await.expect("connection failed");
 //!
-//! // Create a new client, the bg is a background future which handles
-//! //   the multiplexing of the DNS requests to the server.
-//! //   the client is a handle to an unbounded queue for sending requests via the
-//! //   background. The background must be scheduled to run before the client can
-//! //   send any dns requests
-//! let client = AsyncClient::connect(stream);
+//!     // make sure to run the background task
+//!     tokio::spawn(bg);
 //!
-//! // await the connection to be established
-//! let (mut client, bg) = runtime.block_on(client).expect("connection failed");
+//!     // Create a query future
+//!     let query = client.query(
+//!         Name::from_str("www.example.com.").unwrap(),
+//!         DNSClass::IN,
+//!         RecordType::A,
+//!    );
 //!
-//! // make sure to run the background task
-//! runtime.spawn(bg);
+//!     // wait for its response
+//!     let response = query.await.unwrap();
 //!
-//! // Create a query future
-//! let query = client.query(Name::from_str("www.example.com.").unwrap(), DNSClass::IN, RecordType::A);
-//!
-//! // wait for its response
-//! let response = runtime.block_on(query).unwrap();
-//!
-//! // validate it's what we expected
-//! if let &RData::A(addr) = response.answers()[0].rdata() {
-//!     assert_eq!(addr, Ipv4Addr::new(93, 184, 216, 34));
+//!     // validate it's what we expected
+//!     if let RData::A(addr) = response.answers()[0].rdata() {
+//!         assert_eq!(*addr, Ipv4Addr::new(93, 184, 216, 34));
+//!     }
 //! }
 //! ```
 

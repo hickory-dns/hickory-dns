@@ -7,9 +7,8 @@
 
 use std::fmt::{self, Display};
 
-use crate::proto::error::*;
-
 use crate::op::Query;
+use crate::proto::error::*;
 use crate::rr::{DNSClass, LowerName, RecordType};
 use crate::serialize::binary::*;
 

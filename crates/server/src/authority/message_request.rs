@@ -25,6 +25,11 @@ pub struct MessageRequest {
 }
 
 impl MessageRequest {
+    /// Return the request header
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
         self.header.id()
@@ -75,10 +80,7 @@ impl MessageRequest {
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
-        ResponseCode::from(
-            self.edns.as_ref().map_or(0, Edns::rcode_high),
-            self.header.response_code(),
-        )
+        self.header.response_code()
     }
 
     /// ```text
@@ -179,7 +181,7 @@ impl<'q> BinDecodable<'q> for MessageRequest {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
     fn read(decoder: &mut BinDecoder<'q>) -> ProtoResult<Self> {
-        let header = Header::read(decoder)?;
+        let mut header = Header::read(decoder)?;
 
         // TODO: return just header, and in the case of the rest of message getting an error.
         //  this could improve error detection while decoding.
@@ -196,6 +198,12 @@ impl<'q> BinDecodable<'q> for MessageRequest {
         let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
         let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
         let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
+
+        // need to grab error code from EDNS (which might have a higher value)
+        if let Some(edns) = &edns {
+            let high_response_code = edns.rcode_high();
+            header.merge_response_code(high_response_code);
+        }
 
         Ok(MessageRequest {
             header,

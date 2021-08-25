@@ -331,5 +331,6 @@ fn test_forward() {
             *response.answers()[0].rdata().as_a().unwrap(),
             Ipv4Addr::new(93, 184, 216, 34)
         );
+        assert!(!response.header().authoritative());
     })
 }

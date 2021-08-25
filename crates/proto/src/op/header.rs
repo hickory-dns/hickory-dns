@@ -66,7 +66,7 @@ pub struct Header {
     recursion_available: bool,
     authentic_data: bool,
     checking_disabled: bool,
-    response_code: u8, /* ideally u4 */
+    response_code: ResponseCode,
     query_count: u16,
     answer_count: u16,
     name_server_count: u16,
@@ -94,7 +94,7 @@ impl Default for Header {
             recursion_available: false,
             authentic_data: false,
             checking_disabled: false,
-            response_code: 0,
+            response_code: ResponseCode::default(),
             query_count: 0,
             answer_count: 0,
             name_server_count: 0,
@@ -108,6 +108,43 @@ impl Header {
     /// A default Header, not very useful.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Construct a new header based off the request header. This copies over the RD (recursion-desired)
+    ///   and CD (checking-disabled), as well as the op_code and id of the request.
+    ///
+    /// See https://datatracker.ietf.org/doc/html/rfc6895#section-2
+    ///
+    /// ```text
+    /// The AA, TC, RD, RA, and CD bits are each theoretically meaningful
+    ///    only in queries or only in responses, depending on the bit.  The AD
+    ///    bit was only meaningful in responses but is expected to have a
+    ///    separate but related meaning in queries (see Section 5.7 of
+    ///    [RFC6840]).  Only the RD and CD bits are expected to be copied from
+    ///    the query to the response; however, some DNS implementations copy all
+    ///    the query header as the initial value of the response header.  Thus,
+    ///    any attempt to use a "query" bit with a different meaning in a
+    ///    response or to define a query meaning for a "response" bit may be
+    ///    dangerous, given the existing implementation.  Meanings for these
+    ///    bits may only be assigned by a Standards Action.
+    /// ```
+    pub fn response_from_request(header: &Header) -> Self {
+        Header {
+            id: header.id,
+            message_type: MessageType::Response,
+            op_code: header.op_code,
+            authoritative: false,
+            truncation: false,
+            recursion_desired: header.recursion_desired,
+            recursion_available: false,
+            authentic_data: false,
+            checking_disabled: header.checking_disabled,
+            response_code: ResponseCode::default(),
+            query_count: 0,
+            answer_count: 0,
+            name_server_count: 0,
+            additional_count: 0,
+        }
     }
 
     /// Length of the header, always 12 bytes
@@ -174,8 +211,18 @@ impl Header {
 
     /// The low response code (original response codes before EDNS extensions)
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
-        self.response_code = response_code.low();
+        self.response_code = response_code;
         self
+    }
+
+    /// This combines the high and low response code values to form the complete ResponseCode from the EDNS record.
+    ///   The existing high order bits will be overwritten (if set), and `high_response_code` will be merge with
+    ///   the existing low order bits.
+    ///
+    /// This is intended for use during decoding.
+    #[doc(hidden)]
+    pub fn merge_response_code(&mut self, high_response_code: u8) {
+        self.response_code = ResponseCode::from(high_response_code, self.response_code.low());
     }
 
     /// Number or query records in the message
@@ -315,7 +362,7 @@ impl Header {
     ///                 responses.  The values have the following
     ///                 interpretation: <see super::response_code>
     /// ```
-    pub fn response_code(&self) -> u8 {
+    pub fn response_code(&self) -> ResponseCode {
         self.response_code
     }
 
@@ -409,7 +456,7 @@ impl BinEncodable for Header {
         } else {
             0b0000_0000
         };
-        r_z_ad_cd_rcod |= self.response_code;
+        r_z_ad_cd_rcod |= self.response_code.low();
         encoder.emit(r_z_ad_cd_rcod)?;
 
         encoder.emit_u16(self.query_count)?;
@@ -444,6 +491,7 @@ impl<'r> BinDecodable<'r> for Header {
         let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
         let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
         let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
+        let response_code = ResponseCode::from_low(response_code);
 
         // TODO: We should pass these restrictions on, they can't be trusted, but that would seriously complicate the Header type..
         // TODO: perhaps the read methods for BinDecodable should return Restrict?
@@ -496,7 +544,7 @@ fn test_parse() {
         recursion_available: true,
         authentic_data: false,
         checking_disabled: false,
-        response_code: ResponseCode::NXDomain.low(),
+        response_code: ResponseCode::NXDomain,
         query_count: 0x8877,
         answer_count: 0x6655,
         name_server_count: 0x4433,
@@ -520,7 +568,7 @@ fn test_write() {
         recursion_available: true,
         authentic_data: false,
         checking_disabled: false,
-        response_code: ResponseCode::NXDomain.low(),
+        response_code: ResponseCode::NXDomain,
         query_count: 0x8877,
         answer_count: 0x6655,
         name_server_count: 0x4433,

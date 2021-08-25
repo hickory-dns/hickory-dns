@@ -8,12 +8,10 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use futures_util::stream::Stream;
-use futures_util::{ready, FutureExt};
 
-use crate::client::{AsyncClient, AsyncClientConnect};
+use crate::client::AsyncClient;
 use crate::proto::error::ProtoError;
 use crate::proto::rr::dnssec::TrustAnchor;
 use crate::proto::xfer::{
@@ -37,20 +35,21 @@ impl AsyncDnssecClient {
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
         S: DnsRequestSender + 'static,
     {
-        let client_connect = AsyncClient::connect(connect_future);
         AsyncSecureClientBuilder {
-            client_connect,
+            connect_future,
             trust_anchor: None,
         }
     }
 
     /// Returns a DNSSEC verifying client with the default TrustAnchor
-    pub fn connect<F, S>(connect_future: F) -> AsyncSecureClientConnect<F, S>
+    pub async fn connect<F, S>(
+        connect_future: F,
+    ) -> Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError>
     where
+        S: DnsRequestSender,
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-        S: DnsRequestSender + 'static,
     {
-        Self::builder(connect_future).build()
+        Self::builder(connect_future).build().await
     }
 
     fn from_client(client: AsyncClient, trust_anchor: TrustAnchor) -> Self {
@@ -85,7 +84,7 @@ where
     F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     S: DnsRequestSender + 'static,
 {
-    client_connect: AsyncClientConnect<F, S>,
+    connect_future: F,
     trust_anchor: Option<TrustAnchor>,
 }
 
@@ -106,49 +105,17 @@ where
         self
     }
 
-    /// Construct the new client connect
-    pub fn build(mut self) -> AsyncSecureClientConnect<F, S> {
+    /// Construct the new client
+    pub async fn build(
+        mut self,
+    ) -> Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError> {
         let trust_anchor = if let Some(trust_anchor) = self.trust_anchor.take() {
             trust_anchor
         } else {
             TrustAnchor::default()
         };
+        let result = AsyncClient::connect(self.connect_future).await;
 
-        AsyncSecureClientConnect {
-            client_connect: self.client_connect,
-            trust_anchor: Some(trust_anchor),
-        }
-    }
-}
-
-/// A future which will resolve to a AsyncDnssecClient
-#[must_use = "futures do nothing unless polled"]
-pub struct AsyncSecureClientConnect<F, S>
-where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static,
-{
-    client_connect: AsyncClientConnect<F, S>,
-    trust_anchor: Option<TrustAnchor>,
-}
-
-#[allow(clippy::type_complexity)]
-impl<F, S> Future for AsyncSecureClientConnect<F, S>
-where
-    F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
-    S: DnsRequestSender + 'static + Send + Unpin,
-{
-    type Output = Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let result = ready!(self.client_connect.poll_unpin(cx));
-        let trust_anchor = self
-            .trust_anchor
-            .take()
-            .expect("TrustAnchor is None, was the future already complete?");
-
-        let client_background =
-            result.map(|(client, bg)| (AsyncDnssecClient::from_client(client, trust_anchor), bg));
-        Poll::Ready(client_background)
+        result.map(|(client, bg)| (AsyncDnssecClient::from_client(client, trust_anchor), bg))
     }
 }
