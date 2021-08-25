@@ -5,7 +5,7 @@
 [![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=bluejekyll/trust-dns)](https://dependabot.com)
 [![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discord.gg/89nxE4n)
 
-![Trust-DNS](logo.svg)
+![Trust-DNS](https://raw.githubusercontent.com/bluejekyll/trust-dns/main/logo.svg)
 
 # Trust-DNS
 
