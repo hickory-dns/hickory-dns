@@ -162,7 +162,6 @@ use crate::serialize::binary::*;
 ///               6 and 7 above) always have authority to sign any RRs in
 ///               the zone regardless of the value of the signatory field.
 /// ```
-#[allow(deprecated)]
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KEY {
@@ -247,7 +246,6 @@ fn test_key_trust() {
 }
 
 /// Declares what this key is for
-#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 pub enum KeyUsage {
@@ -269,7 +267,6 @@ impl Default for KeyUsage {
 }
 
 impl From<u16> for KeyUsage {
-    #[allow(deprecated)]
     fn from(flags: u16) -> Self {
         // we only care about the 6&7 two bits, zero out the rest
         match flags & 0b0000_0011_0000_0000 {
@@ -287,7 +284,6 @@ impl From<u16> for KeyUsage {
 }
 
 impl From<KeyUsage> for u16 {
-    #[allow(deprecated)]
     fn from(key_usage: KeyUsage) -> Self {
         match key_usage {
             // 00: indicates that this is a key associated with a "user" or
@@ -303,7 +299,7 @@ impl From<KeyUsage> for u16 {
 }
 
 #[test]
-#[allow(deprecated)]
+
 fn test_key_usage() {
     assert_eq!(KeyUsage::Host, KeyUsage::from(u16::from(KeyUsage::Host)));
     assert_eq!(KeyUsage::Zone, KeyUsage::from(u16::from(KeyUsage::Zone)));
@@ -412,7 +408,6 @@ fn test_key_usage() {
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[deprecated = "Deprecated by RFC3007"]
-#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
@@ -430,7 +425,6 @@ pub struct UpdateScope {
     pub general: bool,
 }
 
-#[allow(deprecated)]
 impl Default for UpdateScope {
     fn default() -> Self {
         UpdateScope {
@@ -442,7 +436,6 @@ impl Default for UpdateScope {
     }
 }
 
-#[allow(deprecated)]
 impl From<u16> for UpdateScope {
     fn from(flags: u16) -> Self {
         // we only care about the final four bits, zero out the rest
@@ -459,7 +452,6 @@ impl From<u16> for UpdateScope {
     }
 }
 
-#[allow(deprecated)]
 impl From<UpdateScope> for u16 {
     fn from(update_scope: UpdateScope) -> Self {
         let mut flags = 0_u16;
@@ -485,7 +477,6 @@ impl From<UpdateScope> for u16 {
 }
 
 #[test]
-#[allow(deprecated)]
 fn test_update_scope() {
     assert_eq!(
         UpdateScope::default(),
@@ -585,7 +576,6 @@ fn test_update_scope() {
 /// All Protocol Octet values except DNSSEC (3) are eliminated
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
-#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Protocol {
     /// Not in use
@@ -617,7 +607,6 @@ impl Default for Protocol {
 }
 
 impl From<u8> for Protocol {
-    #[allow(deprecated)]
     fn from(field: u8) -> Self {
         match field {
             0 => Protocol::Reserved,
@@ -632,7 +621,6 @@ impl From<u8> for Protocol {
 }
 
 impl From<Protocol> for u8 {
-    #[allow(deprecated)]
     fn from(protocol: Protocol) -> Self {
         match protocol {
             Protocol::Reserved => 0,
@@ -660,7 +648,6 @@ impl KEY {
     /// # Return
     ///
     /// A new KEY RData for use in a Resource Record
-    #[allow(deprecated)]
     pub fn new(
         key_trust: KeyTrust,
         key_usage: KeyUsage,
@@ -690,7 +677,6 @@ impl KEY {
     }
 
     /// Returns the signatory information of the KEY
-    #[allow(deprecated)]
     pub fn signatory(&self) -> UpdateScope {
         self.signatory
     }
@@ -791,7 +777,6 @@ impl From<KEY> for RData {
 }
 
 /// Read the RData from the given Decoder
-#[allow(deprecated)]
 pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<KEY> {
     //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
