@@ -9,12 +9,15 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (proto) trust_dns_proto::rr::Record now serializable (@mvforell) #1536
 - (client) new `zone_transfer` method for `AXFR` and `IXFR` use cases, client only (@trinity-1686a) #1478
 - (client) Flag for `use_edns` configuration on `AsyncClient` (@astro) #1492
 - (client) support for `TSIG` authentication (@trinity-1686a) #1459
 
 ### Changed
 
+- (proto) Header now stores ResponseCode instead of just u8 #1537
+- (client) improved async client example documentation (@ErwanDL) #1539
 - (resolver) on `REFUSED` (and other negative) response(s), fall back to other nameservers (@peterthejohnston) #1513 #1526
 - (client) the feature `dnssec` is no longer enabled by default, use `dnssec-ring` or `dnssec-openssl` #1506
 - (server) dnssec functions of `Authority` moved into `DnsSecAuthority` #1506
@@ -29,6 +32,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Removed
 
+- (client) Remove AsyncClientConnect and AsyncSecureClientConnect (future impls) in favor of async constructors (@ErwanDL) #1541
 - (proto) removed `RecordType::DNSSEC` and moved all variants of `DNSSECRecordType` into `RecordType` #1506
 - (proto) removed `BufStreamHandle` and `StreamHandle` #1433
 - (response) disabled `mdns` to work on a new solution #1433

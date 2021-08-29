@@ -164,7 +164,7 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "async-std",
  "async-trait",
@@ -1610,7 +1610,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "chrono",
  "clap",
@@ -1630,7 +1630,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-client"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "cfg-if",
  "chrono",
@@ -1654,7 +1654,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-compatibility"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "chrono",
  "data-encoding",
@@ -1667,14 +1667,14 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-https"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-integration"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "chrono",
  "env_logger",
@@ -1695,21 +1695,21 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-native-tls"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-openssl"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "async-trait",
  "backtrace",
@@ -1751,7 +1751,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "cfg-if",
  "env_logger",
@@ -1777,14 +1777,14 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-rustls"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-server"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1813,7 +1813,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-util"
-version = "0.21.0-alpha.1"
+version = "0.21.0-alpha.2"
 dependencies = [
  "clap",
  "console",
