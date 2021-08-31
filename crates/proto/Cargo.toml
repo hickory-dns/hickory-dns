@@ -113,4 +113,4 @@ tokio = { version = "1.0", features = ["rt", "time", "macros"] }
 all-features = true
 default-target = "x86_64-unknown-linux-gnu"
 targets = ["x86_64-apple-darwin", "x86_64-pc-windows-msvc"]
-rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
