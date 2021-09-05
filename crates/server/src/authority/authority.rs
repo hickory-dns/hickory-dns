@@ -6,21 +6,23 @@
 // copied, modified, or distributed except according to those terms.
 
 //! All authority related types
-use std::future::Future;
-use std::pin::Pin;
 
 use cfg_if::cfg_if;
 
-use crate::authority::{LookupError, MessageRequest, UpdateResult, ZoneType};
-use crate::client::op::LowerQuery;
-use crate::client::rr::{LowerName, RecordSet, RecordType};
 #[cfg(feature = "dnssec")]
 use crate::client::{
     proto::rr::dnssec::rdata::key::KEY,
     rr::dnssec::{DnsSecResult, SigSigner, SupportedAlgorithms},
     rr::Name,
 };
-use crate::proto::rr::RrsetRecords;
+use crate::{
+    authority::{LookupError, MessageRequest, UpdateResult, ZoneType},
+    client::{
+        op::LowerQuery,
+        rr::{LowerName, RecordSet, RecordType},
+    },
+    proto::rr::RrsetRecords,
+};
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
 ///
@@ -95,11 +97,10 @@ impl LookupOptions {
 }
 
 /// Authority implementations can be used with a `Catalog`
-pub trait Authority: Send {
+#[async_trait::async_trait]
+pub trait Authority: Send + Sync {
     /// Result of a lookup
-    type Lookup: Send + Sized + 'static;
-    /// The future type that will resolve to a Lookup
-    type LookupFuture: Future<Output = Result<Self::Lookup, LookupError>> + Send;
+    type Lookup: Send + Sync + Sized + 'static;
 
     /// What type is this zone
     fn zone_type(&self) -> ZoneType;
@@ -108,7 +109,7 @@ pub trait Authority: Send {
     fn is_axfr_allowed(&self) -> bool;
 
     /// Perform a dynamic update of a zone
-    fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool>;
+    async fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
@@ -127,12 +128,12 @@ pub trait Authority: Send {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    fn lookup(
+    async fn lookup(
         &self,
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
+    ) -> Result<Self::Lookup, LookupError>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -145,18 +146,16 @@ pub trait Authority: Send {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(
+    async fn search(
         &self,
         query: &LowerQuery,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
+    ) -> Result<Self::Lookup, LookupError>;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(
-        &self,
-        lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    async fn ns(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
         self.lookup(self.origin(), RecordType::NS, lookup_options)
+            .await
     }
 
     /// Return the NSEC records based on the given name
@@ -166,27 +165,26 @@ pub trait Authority: Send {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
+    ) -> Result<Self::Lookup, LookupError>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    async fn soa(&self) -> Result<Self::Lookup, LookupError> {
         // SOA should be origin|SOA
         self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
+            .await
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(
-        &self,
-        lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
         self.lookup(self.origin(), RecordType::SOA, lookup_options)
+            .await
     }
 }
 

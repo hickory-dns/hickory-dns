@@ -2,12 +2,13 @@ use std::net::*;
 use std::pin::Pin;
 #[cfg(feature = "dnssec")]
 use std::str::FromStr;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex as StdMutex};
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
 use futures::Future;
 
+use futures::lock::Mutex;
 use trust_dns_client::client::Signer;
 #[cfg(feature = "dnssec")]
 use trust_dns_client::client::SyncDnssecClient;
@@ -30,13 +31,13 @@ use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 use trust_dns_server::authority::{Authority, Catalog};
 
 pub struct TestClientConnection {
-    catalog: Arc<Mutex<Catalog>>,
+    catalog: Arc<StdMutex<Catalog>>,
 }
 
 impl TestClientConnection {
     pub fn new(catalog: Catalog) -> TestClientConnection {
         TestClientConnection {
-            catalog: Arc::new(Mutex::new(catalog)),
+            catalog: Arc::new(StdMutex::new(catalog)),
         }
     }
 }
@@ -64,7 +65,7 @@ fn test_query_nonet() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let client = SyncClient::new(TestClientConnection::new(catalog));
@@ -475,7 +476,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
 
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
     let client = SyncClient::with_signer(TestClientConnection::new(catalog), signer);
 

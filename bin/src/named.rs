@@ -40,46 +40,48 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 
-#[cfg(feature = "dnssec")]
-use std::future::Future;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use clap::{Arg, ArgMatches};
-use tokio::net::TcpListener;
-use tokio::net::UdpSocket;
-use tokio::runtime::{self, Runtime};
+use futures::lock::Mutex;
+use tokio::{
+    net::{TcpListener, UdpSocket},
+    runtime::{self, Runtime},
+};
 
 use trust_dns_client::rr::Name;
-use trust_dns_server::authority::{AuthorityObject, Catalog, ZoneType};
 #[cfg(feature = "dns-over-tls")]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
-use trust_dns_server::config::{Config, ZoneConfig};
-use trust_dns_server::logger;
-use trust_dns_server::server::ServerFuture;
-use trust_dns_server::store::file::{FileAuthority, FileConfig};
 #[cfg(feature = "resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "sqlite")]
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
-use trust_dns_server::store::StoreConfig;
-#[cfg(feature = "dnssec")]
-use {
-    trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority,
-    trust_dns_server::authority::LookupError,
+use trust_dns_server::{
+    authority::{AuthorityObject, Catalog, ZoneType},
+    config::{Config, ZoneConfig},
+    store::{
+        file::{FileAuthority, FileConfig},
+        StoreConfig,
+    },
 };
+use trust_dns_server::{logger, server::ServerFuture};
 
 #[cfg(feature = "dnssec")]
-fn load_keys<A, L, LF>(
+use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
+
+#[cfg(feature = "dnssec")]
+fn load_keys<A, L>(
     authority: &mut A,
     zone_name: Name,
     zone_config: &ZoneConfig,
 ) -> Result<(), String>
 where
-    A: DnssecAuthority<Lookup = L, LookupFuture = LF>,
+    A: DnssecAuthority<Lookup = L>,
     L: Send + Sized + 'static,
-    LF: Future<Output = Result<L, LookupError>> + Send,
 {
     if zone_config.is_dnssec_enabled() {
         for key_config in zone_config.get_keys() {
@@ -168,7 +170,7 @@ fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(RwLock::new(authority)))
+            Box::new(Arc::new(Mutex::new(authority)))
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
@@ -185,14 +187,14 @@ fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(RwLock::new(authority)))
+            Box::new(Arc::new(Mutex::new(authority)))
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
             let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
             let authority = runtime.block_on(forwarder)?;
 
-            Box::new(Arc::new(RwLock::new(authority)))
+            Box::new(Arc::new(Mutex::new(authority)))
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
@@ -223,7 +225,7 @@ fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(RwLock::new(authority)))
+            Box::new(Arc::new(Mutex::new(authority)))
         }
         None => {
             let config = FileConfig {
@@ -240,7 +242,7 @@ fn load_zone(
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
             load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(RwLock::new(authority)))
+            Box::new(Arc::new(Mutex::new(authority)))
         }
         Some(_) => {
             panic!("unrecognized authority type, check enabled features");

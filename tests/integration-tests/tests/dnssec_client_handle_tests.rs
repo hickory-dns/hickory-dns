@@ -2,8 +2,9 @@
 
 use std::net::*;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex as StdMutex};
 
+use futures::lock::Mutex;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
@@ -228,11 +229,11 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
 
     let (client, bg) = io_loop

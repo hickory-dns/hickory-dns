@@ -186,7 +186,10 @@ fn test_authorize() {
     let bytes = message.to_bytes().unwrap();
     let message = MessageRequest::from_bytes(&bytes).unwrap();
 
-    assert_eq!(authority.authorize(&message), Err(ResponseCode::Refused));
+    assert_eq!(
+        block_on(authority.authorize(&message)),
+        Err(ResponseCode::Refused)
+    );
 
     // TODO: this will nee to be more complex as additional policies are added
     // authority.set_allow_update(true);
@@ -203,151 +206,174 @@ fn test_prerequisites() {
 
     // first check the initial negatives, ttl = 0, and the zone is the same
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(not_in_zone.clone())
-            .set_ttl(86400)
-            .set_rr_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::NULL(NULL::new()))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(not_in_zone.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::A)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NULL(NULL::new()))
+                .clone()],)
+        ),
         Err(ResponseCode::FormErr)
     );
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(not_zone)
-            .set_ttl(0)
-            .set_rr_type(RecordType::A)
-            .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::NULL(NULL::new()))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(not_zone)
+                .set_ttl(0)
+                .set_rr_type(RecordType::A)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NULL(NULL::new()))
+                .clone()],)
+        ),
         Err(ResponseCode::NotZone)
     );
 
     // *   ANY      ANY      empty    Name is in use
-    assert!(authority
-        .verify_prerequisites(&[Record::new()
+    assert!(block_on(
+        authority.verify_prerequisites(&[Record::new()
             .set_name(authority.origin().clone().into())
             .set_ttl(0)
             .set_dns_class(DNSClass::ANY)
             .set_rr_type(RecordType::ANY)
             .set_rdata(RData::NULL(NULL::new()))
             .clone()])
-        .is_ok());
+    )
+    .is_ok());
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(not_in_zone.clone())
-            .set_ttl(0)
-            .set_dns_class(DNSClass::ANY)
-            .set_rr_type(RecordType::ANY)
-            .set_rdata(RData::NULL(NULL::new()))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(not_in_zone.clone())
+                .set_ttl(0)
+                .set_dns_class(DNSClass::ANY)
+                .set_rr_type(RecordType::ANY)
+                .set_rdata(RData::NULL(NULL::new()))
+                .clone()],)
+        ),
         Err(ResponseCode::NXDomain)
     );
 
     // *   ANY      rrset    empty    RRset exists (value independent)
-    assert!(authority
-        .verify_prerequisites(&[Record::new()
+    assert!(block_on(
+        authority.verify_prerequisites(&[Record::new()
             .set_name(authority.origin().clone().into())
             .set_ttl(0)
             .set_dns_class(DNSClass::ANY)
             .set_rr_type(RecordType::A)
             .set_rdata(RData::NULL(NULL::new()))
             .clone()])
-        .is_ok());
+    )
+    .is_ok());
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(not_in_zone.clone())
-            .set_ttl(0)
-            .set_dns_class(DNSClass::ANY)
-            .set_rr_type(RecordType::A)
-            .set_rdata(RData::NULL(NULL::new()))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(not_in_zone.clone())
+                .set_ttl(0)
+                .set_dns_class(DNSClass::ANY)
+                .set_rr_type(RecordType::A)
+                .set_rdata(RData::NULL(NULL::new()))
+                .clone()],)
+        ),
         Err(ResponseCode::NXRRSet)
     );
 
     // *   NONE     ANY      empty    Name is not in use
-    assert!(authority
-        .verify_prerequisites(&[Record::new()
+    assert!(block_on(
+        authority.verify_prerequisites(&[Record::new()
             .set_name(not_in_zone.clone())
             .set_ttl(0)
             .set_dns_class(DNSClass::NONE)
             .set_rr_type(RecordType::ANY)
             .set_rdata(RData::NULL(NULL::new()))
             .clone()])
-        .is_ok());
+    )
+    .is_ok());
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(authority.origin().clone().into())
-            .set_ttl(0)
-            .set_dns_class(DNSClass::NONE)
-            .set_rr_type(RecordType::ANY)
-            .set_rdata(RData::NULL(NULL::new()))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(authority.origin().clone().into())
+                .set_ttl(0)
+                .set_dns_class(DNSClass::NONE)
+                .set_rr_type(RecordType::ANY)
+                .set_rdata(RData::NULL(NULL::new()))
+                .clone()],)
+        ),
         Err(ResponseCode::YXDomain)
     );
 
     // *   NONE     rrset    empty    RRset does not exist
-    assert!(authority
-        .verify_prerequisites(&[Record::new()
+    assert!(block_on(
+        authority.verify_prerequisites(&[Record::new()
             .set_name(not_in_zone.clone())
             .set_ttl(0)
             .set_dns_class(DNSClass::NONE)
             .set_rr_type(RecordType::A)
             .set_rdata(RData::NULL(NULL::new()))
             .clone()])
-        .is_ok());
+    )
+    .is_ok());
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(authority.origin().clone().into())
-            .set_ttl(0)
-            .set_dns_class(DNSClass::NONE)
-            .set_rr_type(RecordType::A)
-            .set_rdata(RData::NULL(NULL::new()))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(authority.origin().clone().into())
+                .set_ttl(0)
+                .set_dns_class(DNSClass::NONE)
+                .set_rr_type(RecordType::A)
+                .set_rdata(RData::NULL(NULL::new()))
+                .clone()],)
+        ),
         Err(ResponseCode::YXRRSet)
     );
 
     // *   zone     rrset    rr       RRset exists (value dependent)
-    assert!(authority
-        .verify_prerequisites(&[Record::new()
+    assert!(block_on(
+        authority.verify_prerequisites(&[Record::new()
             .set_name(authority.origin().clone().into())
             .set_ttl(0)
             .set_dns_class(DNSClass::IN)
             .set_rr_type(RecordType::A)
             .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
             .clone()])
-        .is_ok());
+    )
+    .is_ok());
     // wrong class
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(authority.origin().clone().into())
-            .set_ttl(0)
-            .set_dns_class(DNSClass::CH)
-            .set_rr_type(RecordType::A)
-            .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(authority.origin().clone().into())
+                .set_ttl(0)
+                .set_dns_class(DNSClass::CH)
+                .set_rr_type(RecordType::A)
+                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                .clone()],)
+        ),
         Err(ResponseCode::FormErr)
     );
     // wrong Name
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(not_in_zone)
-            .set_ttl(0)
-            .set_dns_class(DNSClass::IN)
-            .set_rr_type(RecordType::A)
-            .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(not_in_zone)
+                .set_ttl(0)
+                .set_dns_class(DNSClass::IN)
+                .set_rr_type(RecordType::A)
+                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
+                .clone()],)
+        ),
         Err(ResponseCode::NXRRSet)
     );
     // wrong IP
     assert_eq!(
-        authority.verify_prerequisites(&[Record::new()
-            .set_name(authority.origin().clone().into())
-            .set_ttl(0)
-            .set_dns_class(DNSClass::IN)
-            .set_rr_type(RecordType::A)
-            .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
-            .clone()],),
+        block_on(
+            authority.verify_prerequisites(&[Record::new()
+                .set_name(authority.origin().clone().into())
+                .set_ttl(0)
+                .set_dns_class(DNSClass::IN)
+                .set_rr_type(RecordType::A)
+                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
+                .clone()],)
+        ),
         Err(ResponseCode::NXRRSet)
     );
 }

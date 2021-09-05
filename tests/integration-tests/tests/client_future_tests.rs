@@ -1,41 +1,43 @@
-use std::net::*;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex, RwLock};
+use std::{
+    net::*,
+    str::FromStr,
+    sync::{Arc, Mutex as StdMutex},
+};
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
-use futures::{Future, FutureExt, TryFutureExt};
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio::net::UdpSocket as TokioUdpSocket;
-use tokio::runtime::Runtime;
+use futures::{lock::Mutex, Future, FutureExt, TryFutureExt};
+use tokio::{
+    net::{TcpStream as TokioTcpStream, UdpSocket as TokioUdpSocket},
+    runtime::Runtime,
+};
 
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_client::client::Signer;
-use trust_dns_client::op::{Message, MessageType, OpCode, Query, ResponseCode};
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::dnssec::SigSigner;
-#[cfg(feature = "dnssec")]
-use trust_dns_client::rr::Record;
-use trust_dns_client::rr::{DNSClass, Name, RData, RecordSet, RecordType};
-use trust_dns_client::tcp::TcpClientStream;
-use trust_dns_client::udp::UdpClientStream;
+use trust_dns_client::rr::{dnssec::SigSigner, Record};
 use trust_dns_client::{
     client::{AsyncClient, ClientHandle},
-    rr::rdata::opt::EdnsOption,
+    error::ClientErrorKind,
+    op::{Edns, Message, MessageType, OpCode, Query, ResponseCode},
+    rr::{
+        rdata::opt::{EdnsCode, EdnsOption},
+        DNSClass, Name, RData, RecordSet, RecordType,
+    },
+    tcp::TcpClientStream,
+    udp::UdpClientStream,
 };
-use trust_dns_client::{error::ClientErrorKind, op::Edns, rr::rdata::opt::EdnsCode};
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::xfer::FirstAnswer;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
-use trust_dns_proto::DnsHandle;
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_proto::TokioTime;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, xfer::FirstAnswer, DnsHandle};
 
 use trust_dns_server::authority::{Authority, Catalog};
 
-use trust_dns_integration::authority::create_example;
-use trust_dns_integration::{NeverReturnsClientStream, TestClientStream};
+use trust_dns_integration::{
+    authority::create_example, NeverReturnsClientStream, TestClientStream,
+};
 
 #[test]
 fn test_query_nonet() {
@@ -45,11 +47,11 @@ fn test_query_nonet() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -251,11 +253,11 @@ fn test_notify() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -316,11 +318,11 @@ async fn create_sig0_ready_client() -> (
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let signer = Arc::new(signer.into());
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, Some(signer))
         .await
         .expect("failed to get new AsyncClient");

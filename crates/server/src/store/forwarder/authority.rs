@@ -1,30 +1,27 @@
-// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::future::Future;
 use std::io;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 
-use futures_util::{future, FutureExt};
 use log::info;
 
-use crate::client::op::LowerQuery;
-use crate::client::op::ResponseCode;
-use crate::client::rr::{LowerName, Name, Record, RecordType};
-use crate::resolver::config::ResolverConfig;
-use crate::resolver::error::ResolveError;
-use crate::resolver::lookup::Lookup as ResolverLookup;
-use crate::resolver::{TokioAsyncResolver, TokioHandle};
-
-use crate::authority::{
-    Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+use crate::{
+    authority::{
+        Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+    },
+    client::{
+        op::{LowerQuery, ResponseCode},
+        rr::{LowerName, Name, Record, RecordType},
+    },
+    resolver::{
+        config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver, TokioHandle,
+    },
+    store::forwarder::ForwardConfig,
 };
-use crate::store::forwarder::ForwardConfig;
 
 /// An authority that will forward resolutions to upstream resolvers.
 ///
@@ -73,9 +70,9 @@ impl ForwardAuthority {
     }
 }
 
+#[async_trait::async_trait]
 impl Authority for ForwardAuthority {
     type Lookup = ForwardLookup;
-    type LookupFuture = Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>>;
 
     /// Always Forward
     fn zone_type(&self) -> ZoneType {
@@ -87,7 +84,7 @@ impl Authority for ForwardAuthority {
         false
     }
 
-    fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 
@@ -101,41 +98,40 @@ impl Authority for ForwardAuthority {
     }
 
     /// Forwards a lookup given the resolver configuration for this Forwarded zone
-    fn lookup(
+    async fn lookup(
         &self,
         name: &LowerName,
         rtype: RecordType,
         _lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    ) -> Result<Self::Lookup, LookupError> {
         // TODO: make this an error?
         assert!(self.origin.zone_of(name));
 
         info!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
-        Box::pin(ForwardLookupFuture(self.resolver.lookup(
-            name,
-            rtype,
-            Default::default(),
-        )))
+        let resolve = self.resolver.lookup(name, rtype, Default::default()).await;
+
+        resolve.map(ForwardLookup).map_err(LookupError::from)
     }
 
-    fn search(
+    async fn search(
         &self,
         query: &LowerQuery,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(self.lookup(query.name(), query.query_type(), lookup_options))
+    ) -> Result<Self::Lookup, LookupError> {
+        self.lookup(query.name(), query.query_type(), lookup_options)
+            .await
     }
 
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(future::err(LookupError::from(io::Error::new(
+    ) -> Result<Self::Lookup, LookupError> {
+        Err(LookupError::from(io::Error::new(
             io::ErrorKind::Other,
             "Getting NSEC records is unimplemented for the forwarder",
-        ))))
+        )))
     }
 }
 
@@ -152,23 +148,5 @@ impl LookupObject for ForwardLookup {
 
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
-    }
-}
-
-pub(crate) struct ForwardLookupFuture<
-    F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin + 'static,
->(F);
-
-impl<F: Future<Output = Result<ResolverLookup, ResolveError>> + Send + Unpin> Future
-    for ForwardLookupFuture<F>
-{
-    type Output = Result<ForwardLookup, LookupError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match self.0.poll_unpin(cx) {
-            Poll::Ready(Ok(f)) => Poll::Ready(Ok(ForwardLookup(f))),
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Err(e.into())),
-        }
     }
 }

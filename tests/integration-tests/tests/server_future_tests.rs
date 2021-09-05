@@ -1,10 +1,11 @@
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
+use futures::lock::Mutex;
 use futures::{future, Future, FutureExt};
 use tokio::net::TcpListener;
 use tokio::net::UdpSocket;
@@ -264,7 +265,7 @@ fn new_catalog() -> Catalog {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(RwLock::new(example))));
+    catalog.upsert(origin, Box::new(Arc::new(Mutex::new(example))));
     catalog
 }
 

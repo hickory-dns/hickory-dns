@@ -391,7 +391,7 @@ pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
     let update = MessageRequest::from_bytes(&bytes).unwrap();
 
     // this is expected to fail, i.e. updates are not allowed
-    assert!(authority.update(&update).is_err());
+    assert!(block_on(authority.update(&update)).is_err());
 }
 
 pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {

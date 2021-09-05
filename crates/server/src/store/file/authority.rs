@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,31 +7,33 @@
 
 //! All authority related types
 
-use std::collections::BTreeMap;
-use std::fs::File;
-use std::future::Future;
-use std::io::{BufRead, BufReader};
-use std::ops::{Deref, DerefMut};
-use std::path::{Path, PathBuf};
-use std::pin::Pin;
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    io::{BufRead, BufReader},
+    ops::{Deref, DerefMut},
+    path::{Path, PathBuf},
+};
 
 use log::{debug, info};
 
 #[cfg(feature = "dnssec")]
-use crate::authority::DnssecAuthority;
-use crate::authority::{
-    Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+use crate::{
+    authority::DnssecAuthority,
+    client::{
+        proto::rr::dnssec::rdata::key::KEY,
+        rr::dnssec::{DnsSecResult, SigSigner},
+    },
 };
-use crate::client::op::LowerQuery;
-use crate::client::rr::{LowerName, Name, RecordSet, RecordType, RrKey};
-use crate::client::serialize::txt::{Lexer, Parser, Token};
-#[cfg(feature = "dnssec")]
-use crate::client::{
-    proto::rr::dnssec::rdata::key::KEY,
-    rr::dnssec::{DnsSecResult, SigSigner},
+use crate::{
+    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    client::{
+        op::LowerQuery,
+        rr::{LowerName, Name, RecordSet, RecordType, RrKey},
+        serialize::txt::{Lexer, Parser, Token},
+    },
+    store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
-use crate::store::file::FileConfig;
-use crate::store::in_memory::InMemoryAuthority;
 
 /// FileAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -232,9 +234,9 @@ impl DerefMut for FileAuthority {
     }
 }
 
+#[async_trait::async_trait]
 impl Authority for FileAuthority {
     type Lookup = <InMemoryAuthority as Authority>::Lookup;
-    type LookupFuture = <InMemoryAuthority as Authority>::LookupFuture;
 
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
@@ -247,7 +249,7 @@ impl Authority for FileAuthority {
     }
 
     /// Perform a dynamic update of a zone
-    fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
         use crate::proto::op::ResponseCode;
         Err(ResponseCode::NotImp)
     }
@@ -271,13 +273,13 @@ impl Authority for FileAuthority {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    fn lookup(
+    async fn lookup(
         &self,
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(self.0.lookup(name, rtype, lookup_options))
+    ) -> Result<Self::Lookup, LookupError> {
+        self.0.lookup(name, rtype, lookup_options).await
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -291,20 +293,17 @@ impl Authority for FileAuthority {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(
+    async fn search(
         &self,
         query: &LowerQuery,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(self.0.search(query, lookup_options))
+    ) -> Result<Self::Lookup, LookupError> {
+        self.0.search(query, lookup_options).await
     }
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(
-        &self,
-        lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0.ns(lookup_options)
+    async fn ns(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
+        self.0.ns(lookup_options).await
     }
 
     /// Return the NSEC records based on the given name
@@ -314,28 +313,25 @@ impl Authority for FileAuthority {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0.get_nsec_records(name, lookup_options)
+    ) -> Result<Self::Lookup, LookupError> {
+        self.0.get_nsec_records(name, lookup_options).await
     }
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0.soa()
+    async fn soa(&self) -> Result<Self::Lookup, LookupError> {
+        self.0.soa().await
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(
-        &self,
-        lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        self.0.soa_secure(lookup_options)
+    async fn soa_secure(&self, lookup_options: LookupOptions) -> Result<Self::Lookup, LookupError> {
+        self.0.soa_secure(lookup_options).await
     }
 }
 

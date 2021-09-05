@@ -68,7 +68,7 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.36"
+async-trait = "0.1.42"
 backtrace = { version = "0.3.50", optional = true }
 bytes = { version = "1", optional = true }
 cfg-if = "1"

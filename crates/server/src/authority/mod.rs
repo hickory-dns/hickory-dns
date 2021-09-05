@@ -26,7 +26,7 @@ pub use self::auth_lookup::{
     AnyRecords, AuthLookup, AuthLookupIter, LookupRecords, LookupRecordsIter,
 };
 pub use self::authority::{Authority, LookupOptions};
-pub use self::authority_object::{AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupObject};
+pub use self::authority_object::{AuthorityObject, EmptyLookup, LookupObject};
 pub use self::catalog::Catalog;
 pub use self::error::{LookupError, LookupResult};
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
