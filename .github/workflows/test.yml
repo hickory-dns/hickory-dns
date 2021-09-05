@@ -35,6 +35,9 @@ jobs:
       with:
         version: ${{ env.CARGO_MAKE_VERSION }}
 
+    - name: Cache Dependencies
+      uses: Swatinem/rust-cache@v1.2.0
+
     - name: cargo make all-features
       run: cargo make all-features
 
@@ -78,6 +81,9 @@ jobs:
       with:
         version: ${{ env.CARGO_MAKE_VERSION }}
 
+    - name: Cache Dependencies
+      uses: Swatinem/rust-cache@v1.2.0
+
     - name: cargo make
       run: cargo make ${{ matrix.feature }}
 
@@ -120,6 +126,9 @@ jobs:
       with:
         version: ${{ env.CARGO_MAKE_VERSION }}
 
+    - name: Cache Dependencies
+      uses: Swatinem/rust-cache@v1.2.0
+
     - name: cargo make all-features
       run: cargo make all-features
 
@@ -133,6 +142,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
+    - name: Cache Dependencies
+      uses: Swatinem/rust-cache@v1.2.0
 
     # not using the cargo cache here, since this differs significantly
     - name: cargo-all cache
@@ -182,6 +194,9 @@ jobs:
     - uses: davidB/rust-cargo-make@v1
       with:
         version: ${{ env.CARGO_MAKE_VERSION }}
+
+    - name: Cache Dependencies
+      uses: Swatinem/rust-cache@v1.2.0
 
     - name: target/bind cache
       uses: actions/cache@v2
