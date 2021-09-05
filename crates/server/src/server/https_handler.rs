@@ -5,21 +5,19 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::{io, net::SocketAddr, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
+use futures_util::lock::Mutex;
 use h2::server;
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::authority::{MessageRequest, MessageResponse};
-use crate::proto::https::https_server;
-use crate::proto::serialize::binary::BinDecodable;
-use crate::server::request_handler::RequestHandler;
-use crate::server::response_handler::ResponseHandler;
-use crate::server::server_future;
+use crate::{
+    authority::{MessageRequest, MessageResponse},
+    proto::{https::https_server, serialize::binary::BinDecodable},
+    server::{request_handler::RequestHandler, response_handler::ResponseHandler, server_future},
+};
 
 pub(crate) async fn h2_handler<T, I>(
     handler: Arc<Mutex<T>>,
@@ -90,8 +88,9 @@ async fn handle_request<T>(
 #[derive(Clone)]
 struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
+#[async_trait::async_trait]
 impl ResponseHandler for HttpsResponseHandle {
-    fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
+    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
         use crate::proto::https::response;
         use crate::proto::https::HttpsError;
         use crate::proto::serialize::binary::BinEncoder;
@@ -109,7 +108,7 @@ impl ResponseHandler for HttpsResponseHandle {
         let mut stream = self
             .0
             .lock()
-            .expect("https poisoned")
+            .await
             .send_response(response, false)
             .map_err(HttpsError::from)?;
         stream.send_data(bytes, true).map_err(HttpsError::from)?;

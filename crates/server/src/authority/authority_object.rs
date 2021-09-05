@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,36 +7,36 @@
 
 //! All authority related types
 
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::{Arc, RwLock};
-use std::task::{Context, Poll};
+use std::sync::Arc;
 
-use futures_util::{future, TryFutureExt};
+use futures_util::lock::Mutex;
 use log::debug;
 
-use crate::authority::{
-    Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType,
+use crate::{
+    authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
+    client::{
+        op::LowerQuery,
+        rr::{LowerName, Record, RecordType},
+    },
 };
-use crate::client::op::LowerQuery;
-use crate::client::rr::{LowerName, Record, RecordType};
 
 /// An Object safe Authority
+#[async_trait::async_trait]
 pub trait AuthorityObject: Send + Sync {
     /// Clone the object
     fn box_clone(&self) -> Box<dyn AuthorityObject>;
 
     /// What type is this zone
-    fn zone_type(&self) -> ZoneType;
+    async fn zone_type(&self) -> ZoneType;
 
     /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool;
+    async fn is_axfr_allowed(&self) -> bool;
 
     /// Perform a dynamic update of a zone
-    fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
+    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> LowerName;
+    async fn origin(&self) -> LowerName;
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
     ///
@@ -52,12 +52,12 @@ pub trait AuthorityObject: Send + Sync {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    fn lookup(
+    async fn lookup(
         &self,
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> BoxedLookupFuture;
+    ) -> Result<Box<dyn LookupObject>, LookupError>;
 
     /// Using the specified query, perform a lookup against this zone.
     ///
@@ -70,11 +70,19 @@ pub trait AuthorityObject: Send + Sync {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(&self, query: &LowerQuery, lookup_options: LookupOptions) -> BoxedLookupFuture;
+    async fn search(
+        &self,
+        query: &LowerQuery,
+        lookup_options: LookupOptions,
+    ) -> Result<Box<dyn LookupObject>, LookupError>;
 
     /// Get the NS, NameServer, record for the zone
-    fn ns(&self, lookup_options: LookupOptions) -> BoxedLookupFuture {
-        self.lookup(&self.origin(), RecordType::NS, lookup_options)
+    async fn ns(
+        &self,
+        lookup_options: LookupOptions,
+    ) -> Result<Box<dyn LookupObject>, LookupError> {
+        self.lookup(&self.origin().await, RecordType::NS, lookup_options)
+            .await
     }
 
     /// Return the NSEC records based on the given name
@@ -84,55 +92,64 @@ pub trait AuthorityObject: Send + Sync {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> BoxedLookupFuture;
+    ) -> Result<Box<dyn LookupObject>, LookupError>;
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fulfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    fn soa(&self) -> BoxedLookupFuture {
+    async fn soa(&self) -> Result<Box<dyn LookupObject>, LookupError> {
         // SOA should be origin|SOA
-        self.lookup(&self.origin(), RecordType::SOA, LookupOptions::default())
+        self.lookup(
+            &self.origin().await,
+            RecordType::SOA,
+            LookupOptions::default(),
+        )
+        .await
     }
 
     /// Returns the SOA record for the zone
-    fn soa_secure(&self, lookup_options: LookupOptions) -> BoxedLookupFuture {
-        self.lookup(&self.origin(), RecordType::SOA, lookup_options)
+    async fn soa_secure(
+        &self,
+        lookup_options: LookupOptions,
+    ) -> Result<Box<dyn LookupObject>, LookupError> {
+        self.lookup(&self.origin().await, RecordType::SOA, lookup_options)
+            .await
     }
 }
 
-impl<A, L> AuthorityObject for Arc<RwLock<A>>
+#[async_trait::async_trait]
+impl<A, L> AuthorityObject for Arc<Mutex<A>>
 where
     A: Authority<Lookup = L> + Send + Sync + 'static,
-    A::LookupFuture: Send + 'static,
-    L: LookupObject + Send + 'static,
+    L: LookupObject + Send + Sync + 'static,
 {
     fn box_clone(&self) -> Box<dyn AuthorityObject> {
         Box::new(self.clone())
     }
 
     /// What type is this zone
-    fn zone_type(&self) -> ZoneType {
-        Authority::zone_type(&*self.read().expect("poisoned"))
+    async fn zone_type(&self) -> ZoneType {
+        Authority::zone_type(&*self.lock().await)
     }
 
     /// Return true if AXFR is allowed
-    fn is_axfr_allowed(&self) -> bool {
-        Authority::is_axfr_allowed(&*self.read().expect("poisoned"))
+    async fn is_axfr_allowed(&self) -> bool {
+        Authority::is_axfr_allowed(&*self.lock().await)
     }
 
     /// Perform a dynamic update of a zone
-    fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
-        Authority::update(&mut *self.write().expect("poisoned"), update)
+    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
+        Authority::update(&mut *self.lock().await, update).await
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    fn origin(&self) -> LowerName {
-        Authority::origin(&*self.read().expect("poisoned")).clone()
+    async fn origin(&self) -> LowerName {
+        Authority::origin(&*self.lock().await).clone()
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -149,15 +166,15 @@ where
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    fn lookup(
+    async fn lookup(
         &self,
         name: &LowerName,
         rtype: RecordType,
         lookup_options: LookupOptions,
-    ) -> BoxedLookupFuture {
-        let this = self.read().expect("poisoned");
-        let lookup = Authority::lookup(&*this, name, rtype, lookup_options);
-        BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
+    ) -> Result<Box<dyn LookupObject>, LookupError> {
+        let this = self.lock().await;
+        let lookup = Authority::lookup(&*this, name, rtype, lookup_options).await;
+        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -171,11 +188,15 @@ where
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    fn search(&self, query: &LowerQuery, lookup_options: LookupOptions) -> BoxedLookupFuture {
-        let this = self.read().expect("poisoned");
+    async fn search(
+        &self,
+        query: &LowerQuery,
+        lookup_options: LookupOptions,
+    ) -> Result<Box<dyn LookupObject>, LookupError> {
+        let this = self.lock().await;
         debug!("performing {} on {}", query, this.origin());
-        let lookup = Authority::search(&*this, query, lookup_options);
-        BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
+        let lookup = Authority::search(&*this, query, lookup_options).await;
+        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 
     /// Return the NSEC records based on the given name
@@ -185,14 +206,13 @@ where
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> BoxedLookupFuture {
-        let lookup =
-            Authority::get_nsec_records(&*self.read().expect("poisoned"), name, lookup_options);
-        BoxedLookupFuture::from(lookup.map_ok(|l| Box::new(l) as Box<dyn LookupObject>))
+    ) -> Result<Box<dyn LookupObject>, LookupError> {
+        let lookup = Authority::get_nsec_records(&*self.lock().await, name, lookup_options).await;
+        lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 }
 
@@ -225,36 +245,5 @@ impl LookupObject for EmptyLookup {
 
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
         None
-    }
-}
-
-/// A boxed lookup future
-#[allow(clippy::type_complexity)]
-pub struct BoxedLookupFuture(
-    Pin<Box<dyn Future<Output = Result<Box<dyn LookupObject>, LookupError>> + Send>>,
-);
-
-impl BoxedLookupFuture {
-    /// Performs a conversion (boxes) into the future
-    pub fn from<T>(future: T) -> Self
-    where
-        T: Future<Output = Result<Box<dyn LookupObject>, LookupError>> + Send + Sized + 'static,
-    {
-        BoxedLookupFuture(Box::pin(future))
-    }
-
-    /// Creates an empty (i.e. no records) lookup future
-    pub fn empty() -> Self {
-        BoxedLookupFuture(Box::pin(future::ok(
-            Box::new(EmptyLookup) as Box<dyn LookupObject>
-        )))
-    }
-}
-
-impl Future for BoxedLookupFuture {
-    type Output = Result<Box<dyn LookupObject>, LookupError>;
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        self.0.as_mut().poll(cx)
     }
 }

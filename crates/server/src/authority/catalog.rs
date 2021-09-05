@@ -8,29 +8,27 @@
 // TODO, I've implemented this as a separate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
-use std::borrow::Borrow;
-use std::collections::HashMap;
-use std::future::Future;
-use std::io;
-use std::pin::Pin;
+use std::{borrow::Borrow, collections::HashMap, future::Future, io};
 
 use cfg_if::cfg_if;
 use log::{debug, error, info, trace, warn};
 
-use crate::authority::{
-    AuthLookup, MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
-};
-use crate::authority::{
-    AuthorityObject, BoxedLookupFuture, EmptyLookup, LookupError, LookupObject, LookupOptions,
-};
-use crate::client::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 #[cfg(feature = "dnssec")]
 use crate::client::rr::{
     dnssec::{Algorithm, SupportedAlgorithms},
     rdata::opt::{EdnsCode, EdnsOption},
 };
-use crate::client::rr::{LowerName, RecordType};
-use crate::server::{Request, RequestHandler, ResponseHandler};
+use crate::{
+    authority::{
+        AuthLookup, AuthorityObject, EmptyLookup, LookupError, LookupObject, LookupOptions,
+        MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
+    },
+    client::{
+        op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
+        rr::{LowerName, RecordType},
+    },
+    server::{Request, RequestHandler, ResponseHandler},
+};
 
 /// Set of authorities, zones, available to this server.
 #[derive(Default)]
@@ -39,7 +37,7 @@ pub struct Catalog {
 }
 
 #[allow(unused_mut, unused_variables)]
-fn send_response<R: ResponseHandler>(
+async fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse<'_, '_>,
     mut response_handle: R,
@@ -63,23 +61,18 @@ fn send_response<R: ResponseHandler>(
         response.set_edns(resp_edns);
     }
 
-    response_handle.send_response(response)
+    response_handle.send_response(response).await
 }
 
+#[async_trait::async_trait]
 impl RequestHandler for Catalog {
-    type ResponseFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - sink for the response message to be sent
-    fn handle_request<R: ResponseHandler>(
-        &self,
-        request: Request,
-        mut response_handle: R,
-    ) -> Self::ResponseFuture {
+    async fn handle_request<R: ResponseHandler>(&self, request: Request, mut response_handle: R) {
         let request_message = request.message;
         trace!("request: {:?}", request_message);
 
@@ -109,12 +102,13 @@ impl RequestHandler for Catalog {
                 response.edns(resp_edns);
 
                 // TODO: should ResponseHandle consume self?
-                let result =
-                    response_handle.send_response(response.build_no_records(response_header));
+                let result = response_handle
+                    .send_response(response.build_no_records(response_header))
+                    .await;
                 if let Err(e) = result {
                     error!("request error: {}", e);
                 }
-                return Box::pin(async {});
+                return;
             }
 
             response_edns = Some(resp_edns);
@@ -128,19 +122,24 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
-                    return Box::pin(self.lookup(request_message, response_edns, response_handle));
+                    self.lookup(request_message, response_edns, response_handle)
+                        .await;
+
+                    Ok(())
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
-                    // TODO: this should be a future
                     self.update(&request_message, response_edns, response_handle)
+                        .await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
                     let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                    response_handle.send_response(
-                        response.error_msg(request_message.header(), ResponseCode::NotImp),
-                    )
+                    response_handle
+                        .send_response(
+                            response.error_msg(request_message.header(), ResponseCode::NotImp),
+                        )
+                        .await
                 }
             },
             MessageType::Response => {
@@ -149,16 +148,17 @@ impl RequestHandler for Catalog {
                     request_message.id()
                 );
                 let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-                response_handle.send_response(
-                    response.error_msg(request_message.header(), ResponseCode::FormErr),
-                )
+                response_handle
+                    .send_response(
+                        response.error_msg(request_message.header(), ResponseCode::FormErr),
+                    )
+                    .await
             }
         };
 
         if let Err(e) = result {
             error!("request failed: {}", e);
         }
-        Box::pin(async {})
     }
 }
 
@@ -234,7 +234,7 @@ impl Catalog {
     ///
     /// * `request` - an update message
     /// * `response_handle` - sink for the response message to be sent
-    pub fn update<R: ResponseHandler + 'static>(
+    pub async fn update<R: ResponseHandler + 'static>(
         &self,
         update: &MessageRequest,
         response_edns: Option<Edns>,
@@ -270,23 +270,14 @@ impl Catalog {
 
         let response_code = match result {
             Ok(authority) => {
-                // Ask for Master/Slave terms to be replaced
                 #[allow(deprecated)]
-                match authority.zone_type() {
-                    ZoneType::Slave | ZoneType::Master => {
-                        warn!("Consider replacing the usage of master/slave with primary/secondary, see Juneteenth.");
-                    }
-                    _ => (),
-                }
-
-                #[allow(deprecated)]
-                match authority.zone_type() {
+                match authority.zone_type().await {
                     ZoneType::Secondary | ZoneType::Slave => {
                         error!("secondary forwarding for update not yet implemented");
                         ResponseCode::NotImp
                     }
                     ZoneType::Primary | ZoneType::Master => {
-                        let update_result = authority.update(update);
+                        let update_result = authority.update(update).await;
                         match update_result {
                             // successful update
                             Ok(..) => ResponseCode::NoError,
@@ -311,6 +302,7 @@ impl Catalog {
             response.build_no_records(response_header),
             response_handle,
         )
+        .await
     }
 
     /// Checks whether the `Catalog` contains DNS records for `name`
@@ -332,12 +324,12 @@ impl Catalog {
     ///
     /// * `request` - the query message.
     /// * `response_handle` - sink for the response message to be sent
-    pub fn lookup<R: ResponseHandler>(
+    pub async fn lookup<R: ResponseHandler>(
         &self,
         request: MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> impl Future<Output = ()> + 'static {
+    ) {
         // find matching authorities for the request
         let queries_and_authorities = request
             .queries()
@@ -360,6 +352,7 @@ impl Catalog {
                 response.error_msg(request.header(), ResponseCode::Refused),
                 response_handle.clone(),
             )
+            .await
             .map_err(|e| error!("failed to send response: {}", e))
             .ok();
         }
@@ -370,6 +363,7 @@ impl Catalog {
             response_edns,
             response_handle,
         )
+        .await
     }
 
     /// Recursively searches the catalog for a matching authority
@@ -403,7 +397,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         info!(
             "request: {} found authority: {}",
             request.id(),
-            authority.origin()
+            authority.origin().await
         );
 
         let (response_header, sections) = build_response(
@@ -423,7 +417,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
             sections.additionals.iter(),
         );
 
-        let result = send_response(response_edns.clone(), response, response_handle.clone());
+        let result = send_response(response_edns.clone(), response, response_handle.clone()).await;
         if let Err(e) = result {
             error!("error sending response: {}", e);
         }
@@ -472,13 +466,13 @@ async fn build_response(
     }
 
     let mut response_header = Header::response_from_request(request_header);
-    response_header.set_authoritative(authority.zone_type().is_authoritative());
+    response_header.set_authoritative(authority.zone_type().await.is_authoritative());
 
-    debug!("performing {} on {}", query, authority.origin());
+    debug!("performing {} on {}", query, authority.origin().await);
     let future = authority.search(query, lookup_options);
 
     #[allow(deprecated)]
-    let sections = match authority.zone_type() {
+    let sections = match authority.zone_type().await {
         ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
             send_authoritative_response(
                 future,
@@ -499,7 +493,7 @@ async fn build_response(
 }
 
 async fn send_authoritative_response(
-    future: BoxedLookupFuture,
+    future: impl Future<Output = Result<Box<dyn LookupObject>, LookupError>>,
     authority: &dyn AuthorityObject,
     response_header: &mut Header,
     lookup_options: LookupOptions,
@@ -603,7 +597,7 @@ async fn send_authoritative_response(
 }
 
 async fn send_forwarded_response(
-    future: BoxedLookupFuture,
+    future: impl Future<Output = Result<Box<dyn LookupObject>, LookupError>>,
     request_header: &Header,
     response_header: &mut Header,
 ) -> LookupSections {

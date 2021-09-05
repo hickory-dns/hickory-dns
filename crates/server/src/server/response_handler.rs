@@ -16,14 +16,15 @@ use crate::proto::xfer::SerialMessage;
 use crate::proto::{BufDnsStreamHandle, DnsStreamHandle};
 
 /// A handler for send a response to a client
-pub trait ResponseHandler: Clone + Send + Unpin + 'static {
+#[async_trait::async_trait]
+pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
     // TODO: add associated error type
     //type Error;
 
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()>;
+    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()>;
 }
 
 /// A handler for wrapping a BufStreamHandle, which will properly serialize the message and add the
@@ -41,11 +42,12 @@ impl ResponseHandle {
     }
 }
 
+#[async_trait::async_trait]
 impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
+    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
         info!(
             "response: {} response_code: {}",
             response.header().id(),

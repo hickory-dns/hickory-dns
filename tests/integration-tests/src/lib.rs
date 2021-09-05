@@ -96,8 +96,9 @@ impl TestResponseHandler {
     }
 }
 
+#[async_trait::async_trait]
 impl ResponseHandler for TestResponseHandler {
-    fn send_response(&mut self, response: MessageResponse) -> io::Result<()> {
+    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
         let buf = &mut self.buf.lock().unwrap();
         buf.clear();
         let mut encoder = BinEncoder::new(buf);

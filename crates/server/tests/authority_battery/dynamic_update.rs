@@ -1,16 +1,19 @@
 #![cfg(feature = "dnssec")]
 
-use std::future::Future;
-use std::net::{Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
+use std::{
+    future::Future,
+    net::{Ipv4Addr, Ipv6Addr},
+    str::FromStr,
+};
 
 use futures_executor::block_on;
 
-use trust_dns_client::op::update_message;
-use trust_dns_client::op::{Message, Query, ResponseCode};
-use trust_dns_client::proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType};
-use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier};
-use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable, BinSerializable};
+use trust_dns_client::{
+    op::{update_message, Message, Query, ResponseCode},
+    proto::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
+    rr::dnssec::{Algorithm, SigSigner, SupportedAlgorithms, Verifier},
+    serialize::binary::{BinDecodable, BinEncodable, BinSerializable},
+};
 use trust_dns_server::authority::{
     AuthLookup, Authority, DnssecAuthority, LookupError, LookupOptions, MessageRequest,
     UpdateResult,
@@ -25,7 +28,7 @@ fn update_authority<A: Authority<Lookup = AuthLookup>>(
     let message = message.to_bytes().unwrap();
     let request = MessageRequest::from_bytes(&message).unwrap();
 
-    authority.update(&request)
+    block_on(authority.update(&request))
 }
 
 pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[SigSigner]) {

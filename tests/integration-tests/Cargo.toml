@@ -69,6 +69,7 @@ dns-over-tls = []
 sqlite = ["trust-dns-server/sqlite"]
 
 [dependencies]
+async-trait = "0.1.42"
 chrono = "0.4"
 env_logger = "0.9"
 lazy_static = "1.0"

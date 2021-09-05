@@ -1676,6 +1676,7 @@ dependencies = [
 name = "trust-dns-integration"
 version = "0.21.0-alpha.2"
 dependencies = [
+ "async-trait",
  "chrono",
  "env_logger",
  "futures",

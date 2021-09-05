@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,11 +7,9 @@
 
 //! Request Handler for incoming requests
 
-use std::future::Future;
 use std::net::SocketAddr;
 
-use crate::authority::MessageRequest;
-use crate::server::ResponseHandler;
+use crate::{authority::MessageRequest, server::ResponseHandler};
 
 /// An incoming request to the DNS catalog
 pub struct Request {
@@ -22,19 +20,13 @@ pub struct Request {
 }
 
 /// Trait for handling incoming requests, and providing a message response.
-pub trait RequestHandler: Send + Unpin + 'static {
-    /// A future for execution of the request
-    type ResponseFuture: Future<Output = ()> + Send + Unpin + 'static;
-
+#[async_trait::async_trait]
+pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// Determines what needs to happen given the type of request, i.e. Query or Update.
     ///
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - handle to which a return message should be sent
-    fn handle_request<R: ResponseHandler>(
-        &self,
-        request: Request,
-        response_handle: R,
-    ) -> Self::ResponseFuture;
+    async fn handle_request<R: ResponseHandler>(&self, request: Request, response_handle: R);
 }

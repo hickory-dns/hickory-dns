@@ -1,4 +1,4 @@
-// Copyright 2015-2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,11 +7,7 @@
 
 //! All authority related types
 
-use std::borrow::Borrow;
-use std::collections::BTreeMap;
-use std::future::Future;
-use std::pin::Pin;
-use std::sync::Arc;
+use std::{borrow::Borrow, collections::BTreeMap, sync::Arc};
 
 use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
@@ -709,9 +705,9 @@ fn maybe_next_name(
     }
 }
 
+#[async_trait::async_trait]
 impl Authority for InMemoryAuthority {
     type Lookup = AuthLookup;
-    type LookupFuture = future::Ready<Result<Self::Lookup, LookupError>>;
 
     /// What type is this zone
     fn zone_type(&self) -> ZoneType {
@@ -780,7 +776,7 @@ impl Authority for InMemoryAuthority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
-    fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 
@@ -803,12 +799,12 @@ impl Authority for InMemoryAuthority {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    fn lookup(
+    async fn lookup(
         &self,
         name: &LowerName,
         query_type: RecordType,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    ) -> Result<Self::Lookup, LookupError> {
         // Collect the records from each rr_set
         let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
             match query_type {
@@ -944,30 +940,28 @@ impl Authority for InMemoryAuthority {
                     .keys()
                     .any(|key| key.name() == name || name.zone_of(key.name()))
                 {
-                    return Box::pin(future::err(LookupError::NameExists));
+                    return Err(LookupError::NameExists);
                 } else {
                     let code = if self.origin().zone_of(name) {
                         ResponseCode::NXDomain
                     } else {
                         ResponseCode::Refused
                     };
-                    return Box::pin(future::err(LookupError::from(code)));
+                    return Err(LookupError::from(code));
                 }
             }
-            Err(e) => return Box::pin(future::err(e)),
+            Err(e) => return Err(e),
             o => o,
         };
 
-        Box::pin(future::ready(
-            result.map(|answers| AuthLookup::answers(answers, additionals)),
-        ))
+        result.map(|answers| AuthLookup::answers(answers, additionals))
     }
 
-    fn search(
+    async fn search(
         &self,
         query: &LowerQuery,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    ) -> Result<Self::Lookup, LookupError> {
         debug!("searching InMemoryAuthority for: {}", query);
 
         let lookup_name = query.name();
@@ -978,20 +972,23 @@ impl Authority for InMemoryAuthority {
         if RecordType::AXFR == record_type {
             // TODO: support more advanced AXFR options
             if !self.is_axfr_allowed() {
-                return Box::pin(future::err(LookupError::from(ResponseCode::Refused)));
+                return Err(LookupError::from(ResponseCode::Refused));
             }
 
             #[allow(deprecated)]
             match self.zone_type() {
                 ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
-                _ => return Box::pin(future::err(LookupError::from(ResponseCode::NXDomain))),
+                _ => return Err(LookupError::from(ResponseCode::NXDomain)),
             }
         }
 
         // perform the actual lookup
         match record_type {
-            RecordType::SOA => Box::pin(self.lookup(self.origin(), record_type, lookup_options)),
+            RecordType::SOA => {
+                self.lookup(self.origin(), record_type, lookup_options)
+                    .await
+            }
             RecordType::AXFR => {
                 // TODO: shouldn't these SOA's be secure? at least the first, perhaps not the last?
                 let lookup = future::try_join3(
@@ -1009,10 +1006,10 @@ impl Authority for InMemoryAuthority {
                     },
                 });
 
-                Box::pin(lookup)
+                lookup.await
             }
             // A standard Lookup path
-            _ => Box::pin(self.lookup(lookup_name, record_type, lookup_options)),
+            _ => self.lookup(lookup_name, record_type, lookup_options).await,
         }
     }
 
@@ -1024,11 +1021,11 @@ impl Authority for InMemoryAuthority {
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
     #[cfg(feature = "dnssec")]
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         name: &LowerName,
         lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
+    ) -> Result<Self::Lookup, LookupError> {
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
         }
@@ -1041,7 +1038,7 @@ impl Authority for InMemoryAuthority {
             .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
 
         if let Some(no_data) = no_data {
-            return Box::pin(future::ready(Ok(no_data.into())));
+            return Ok(no_data.into());
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
@@ -1099,20 +1096,16 @@ impl Authority for InMemoryAuthority {
             (None, None) => vec![],
         };
 
-        Box::pin(future::ready(Ok(LookupRecords::many(
-            lookup_options,
-            proofs,
-        )
-        .into())))
+        Ok(LookupRecords::many(lookup_options, proofs).into())
     }
 
     #[cfg(not(feature = "dnssec"))]
-    fn get_nsec_records(
+    async fn get_nsec_records(
         &self,
         _name: &LowerName,
         _lookup_options: LookupOptions,
-    ) -> Pin<Box<dyn Future<Output = Result<Self::Lookup, LookupError>> + Send>> {
-        Box::pin(future::ok(AuthLookup::default()))
+    ) -> Result<Self::Lookup, LookupError> {
+        Ok(AuthLookup::default())
     }
 }
 

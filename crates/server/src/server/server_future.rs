@@ -1,23 +1,16 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::future::Future;
-use std::io;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
-use std::time::Duration;
+use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 
-use futures_util::{future, FutureExt, StreamExt};
+use futures_util::{future, lock::Mutex, StreamExt};
 use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
-use tokio::net;
-use tokio::task::JoinHandle;
+use tokio::{net, task::JoinHandle};
 
 use crate::authority::MessageRequest;
 use crate::proto::error::ProtoError;
@@ -78,7 +71,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let stream_handle = stream_handle.with_remote_addr(src_addr);
 
                     tokio::spawn(async move {
-                        self::handle_raw_request(message, handler, stream_handle).await;
+                        self::handle_raw_request(message, handler, stream_handle).await
                     });
                 }
 
@@ -557,11 +550,11 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 }
 
-pub(crate) fn handle_raw_request<T: RequestHandler>(
+pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     request_handler: Arc<Mutex<T>>,
     response_handler: BufDnsStreamHandle,
-) -> HandleRawRequest<T::ResponseFuture> {
+) {
     let src_addr = message.addr();
     let response_handler = ResponseHandle::new(message.addr(), response_handler);
 
@@ -572,20 +565,19 @@ pub(crate) fn handle_raw_request<T: RequestHandler>(
     let mut decoder = BinDecoder::new(message.bytes());
     match MessageRequest::read(&mut decoder) {
         Ok(message) => {
-            let handle_request =
-                self::handle_request(message, src_addr, request_handler, response_handler);
-            HandleRawRequest::HandleRequest(handle_request)
+            self::handle_request(message, src_addr, request_handler, response_handler).await
         }
-        Err(e) => HandleRawRequest::Result(e.into()),
+        // FIXME: return the error and properly log it in handle_request?
+        Err(e) => warn!("failed to handle message: {}", e),
     }
 }
 
-pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
+pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message: MessageRequest,
     src_addr: SocketAddr,
     request_handler: Arc<Mutex<T>>,
     response_handler: R,
-) -> T::ResponseFuture {
+) {
     let request = Request {
         message,
         src: src_addr,
@@ -607,26 +599,7 @@ pub(crate) fn handle_request<R: ResponseHandler, T: RequestHandler>(
 
     request_handler
         .lock()
-        .expect("poisoned lock")
+        .await
         .handle_request(request, response_handler)
-}
-
-#[must_use = "futures do nothing unless polled"]
-pub(crate) enum HandleRawRequest<F: Future<Output = ()>> {
-    HandleRequest(F),
-    Result(io::Error),
-}
-
-impl<F: Future<Output = ()> + Unpin> Future for HandleRawRequest<F> {
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match *self {
-            HandleRawRequest::HandleRequest(ref mut f) => f.poll_unpin(cx),
-            HandleRawRequest::Result(ref res) => {
-                warn!("failed to handle message: {}", res);
-                Poll::Ready(())
-            }
-        }
-    }
+        .await
 }

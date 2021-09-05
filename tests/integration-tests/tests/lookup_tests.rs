@@ -1,25 +1,32 @@
-use std::net::*;
-use std::str::FromStr;
-use std::sync::{Arc, Mutex, RwLock};
+use std::{
+    net::*,
+    str::FromStr,
+    sync::{Arc, Mutex as StdMutex},
+};
 
+use futures::lock::Mutex;
 use tokio::runtime::Runtime;
 
-use trust_dns_proto::op::{NoopMessageFinalizer, Query};
-use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
-use trust_dns_proto::xfer::{DnsExchange, DnsMultiplexer};
-use trust_dns_proto::TokioTime;
-use trust_dns_resolver::caching_client::CachingClient;
-use trust_dns_resolver::config::LookupIpStrategy;
-use trust_dns_resolver::error::ResolveError;
-use trust_dns_resolver::lookup::{Lookup, LookupFuture};
-use trust_dns_resolver::lookup_ip::LookupIpFuture;
-use trust_dns_resolver::Hosts;
-use trust_dns_server::authority::{Authority, Catalog};
-use trust_dns_server::store::in_memory::InMemoryAuthority;
+use trust_dns_proto::{
+    op::{NoopMessageFinalizer, Query},
+    rr::{DNSClass, Name, RData, Record, RecordType},
+    xfer::{DnsExchange, DnsMultiplexer},
+    TokioTime,
+};
+use trust_dns_resolver::{
+    caching_client::CachingClient,
+    config::LookupIpStrategy,
+    error::ResolveError,
+    lookup::{Lookup, LookupFuture},
+    lookup_ip::LookupIpFuture,
+    Hosts,
+};
+use trust_dns_server::{
+    authority::{Authority, Catalog},
+    store::in_memory::InMemoryAuthority,
+};
 
-use trust_dns_integration::authority::create_example;
-use trust_dns_integration::mock_client::*;
-use trust_dns_integration::TestClientStream;
+use trust_dns_integration::{authority::create_example, mock_client::*, TestClientStream};
 
 #[test]
 fn test_lookup() {
@@ -27,11 +34,11 @@ fn test_lookup() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
 
@@ -58,11 +65,11 @@ fn test_lookup_hosts() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
@@ -119,11 +126,11 @@ fn test_lookup_ipv4_like() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
@@ -152,11 +159,11 @@ fn test_lookup_ipv4_like_fall_through() {
     let mut catalog = Catalog::new();
     catalog.upsert(
         authority.origin().clone(),
-        Box::new(Arc::new(RwLock::new(authority))),
+        Box::new(Arc::new(Mutex::new(authority))),
     );
 
     let io_loop = Runtime::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let dns_conn = DnsMultiplexer::new(stream, sender, NoopMessageFinalizer::new());
 
     let client = DnsExchange::connect::<_, _, TokioTime>(dns_conn);
