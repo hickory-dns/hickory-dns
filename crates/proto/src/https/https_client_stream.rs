@@ -15,16 +15,14 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use bytes::{Bytes, BytesMut};
+use bytes::{Buf, Bytes, BytesMut};
 use futures_util::future::{FutureExt, TryFutureExt};
 use futures_util::ready;
 use futures_util::stream::Stream;
-use h2;
 use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
 use log::{debug, warn};
 use rustls::ClientConfig;
-use tokio;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
 };
@@ -61,7 +59,7 @@ impl Display for HttpsClientStream {
 impl HttpsClientStream {
     async fn inner_send(
         h2: SendRequest<Bytes>,
-        message: SerialMessage,
+        message: Bytes,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
     ) -> Result<DnsResponse, ProtoError> {
@@ -74,9 +72,7 @@ impl HttpsClientStream {
         };
 
         // build up the http request
-
-        let bytes = BytesMut::from(message.bytes());
-        let request = crate::https::request::new(&name_server_name, bytes.len());
+        let request = crate::https::request::new(&name_server_name, message.remaining());
 
         let request =
             request.map_err(|err| ProtoError::from(format!("bad http request: {}", err)))?;
@@ -89,7 +85,7 @@ impl HttpsClientStream {
             .map_err(|err| ProtoError::from(format!("h2 send_request error: {}", err)))?;
 
         send_stream
-            .send_data(bytes.freeze(), true)
+            .send_data(message, true)
             .map_err(|e| ProtoError::from(format!("h2 send_data error: {}", e)))?;
 
         let mut response_stream = response_future
@@ -243,11 +239,10 @@ impl DnsRequestSender for HttpsClientStream {
             Ok(bytes) => bytes,
             Err(err) => return err.into(),
         };
-        let message = SerialMessage::new(bytes, self.name_server);
 
         Box::pin(Self::inner_send(
             self.h2.clone(),
-            message,
+            Bytes::from(bytes),
             Arc::clone(&self.name_server_name),
             self.name_server,
         ))
@@ -311,7 +306,6 @@ impl HttpsClientStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    /// * `loop_handle` - The reactor Core handle
     pub fn build<S: Connect>(
         self,
         name_server: SocketAddr,
