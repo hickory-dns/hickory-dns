@@ -16,6 +16,10 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (server) `ResponseHandler` trait is now `async_trait`, requires all impls to be annotated with `#[async_trait]` #1550
+- (server) `Authority` impls required to be internally modifiable and `Send + Sync` #1550
+- (server) Most `Authority` methods changes to `async fn` rather than returning custom `Future` impls #1550
+- (server) `Authority` trait is now `async_trait`, requires all impls to be annotated with `#[async_trait]` #1550
 - (proto) Header now stores ResponseCode instead of just u8 #1537
 - (client) improved async client example documentation (@ErwanDL) #1539
 - (resolver) on `REFUSED` (and other negative) response(s), fall back to other nameservers (@peterthejohnston) #1513 #1526

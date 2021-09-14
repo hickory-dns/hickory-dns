@@ -4,7 +4,7 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
-use futures::lock::Mutex;
+use futures::executor::block_on;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
@@ -212,7 +212,7 @@ where
     let authority = create_secure_example();
 
     let trust_anchor = {
-        let signers = authority.secure_keys();
+        let signers = block_on(authority.secure_keys());
         let public_key = signers
             .first()
             .expect("expected a key in the authority")
@@ -227,10 +227,7 @@ where
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));

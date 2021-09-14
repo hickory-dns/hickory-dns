@@ -351,10 +351,8 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
             .try_into_signer(signer_name.clone())
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        authority
-            .add_zone_signing_key(signer)
-            .expect("failed to add signer to zone");
-        authority.secure_zone().expect("failed to sign zone");
+        block_on(authority.add_zone_signing_key(signer)).expect("failed to add signer to zone");
+        block_on(authority.secure_zone()).expect("failed to sign zone");
     }
 
     // // TODO: why are ecdsa tests failing in this context?
@@ -408,10 +406,8 @@ pub fn add_signers<A: DnssecAuthority>(authority: &mut A) -> Vec<DNSKEY> {
             .try_into_signer(signer_name)
             .expect("failed to read key_config");
         keys.push(signer.to_dnskey().expect("failed to create DNSKEY"));
-        authority
-            .add_zone_signing_key(signer)
-            .expect("failed to add signer to zone");
-        authority.secure_zone().expect("failed to sign zone");
+        block_on(authority.add_zone_signing_key(signer)).expect("failed to add signer to zone");
+        block_on(authority.secure_zone()).expect("failed to sign zone");
     }
 
     keys

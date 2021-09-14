@@ -207,6 +207,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         use crate::proto::openssl::{tls_server, TlsStream};
         use openssl::ssl::Ssl;
+        use std::pin::Pin;
         use tokio_openssl::SslStream as TokioSslStream;
 
         let ((cert, chain), key) = certificate_and_key;

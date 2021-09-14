@@ -66,6 +66,8 @@ tls = ["dns-over-openssl"]
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["trust-dns-client/mtls"]
 
+testing = []
+
 [lib]
 name = "trust_dns_server"
 path = "src/lib.rs"
@@ -94,6 +96,9 @@ toml = "0.5"
 trust-dns-client= { version = "0.21.0-alpha.2", path = "../client" }
 trust-dns-proto = { version = "0.21.0-alpha.2", path = "../proto" }
 trust-dns-resolver = { version = "0.21.0-alpha.2", path = "../resolver", features = ["serde-config"], optional = true }
+
+[dev-dependencies]
+tokio = { version="1.0", features = ["macros", "rt"] }
 
 [package.metadata.docs.rs]
 all-features = true

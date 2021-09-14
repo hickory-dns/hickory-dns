@@ -109,7 +109,7 @@ pub trait Authority: Send + Sync {
     fn is_axfr_allowed(&self) -> bool;
 
     /// Perform a dynamic update of a zone
-    async fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool>;
+    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
     fn origin(&self) -> &LowerName;
@@ -191,13 +191,14 @@ pub trait Authority: Send + Sync {
 /// Extension to Authority to allow for DNSSEC features
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+#[async_trait::async_trait]
 pub trait DnssecAuthority: Authority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()>;
+    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()>;
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()>;
+    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()>;
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()>;
+    async fn secure_zone(&self) -> DnsSecResult<()>;
 }

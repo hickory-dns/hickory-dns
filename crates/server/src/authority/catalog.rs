@@ -271,7 +271,7 @@ impl Catalog {
         let response_code = match result {
             Ok(authority) => {
                 #[allow(deprecated)]
-                match authority.zone_type().await {
+                match authority.zone_type() {
                     ZoneType::Secondary | ZoneType::Slave => {
                         error!("secondary forwarding for update not yet implemented");
                         ResponseCode::NotImp
@@ -397,7 +397,7 @@ async fn lookup<R: ResponseHandler + Unpin>(
         info!(
             "request: {} found authority: {}",
             request.id(),
-            authority.origin().await
+            authority.origin()
         );
 
         let (response_header, sections) = build_response(
@@ -466,13 +466,13 @@ async fn build_response(
     }
 
     let mut response_header = Header::response_from_request(request_header);
-    response_header.set_authoritative(authority.zone_type().await.is_authoritative());
+    response_header.set_authoritative(authority.zone_type().is_authoritative());
 
-    debug!("performing {} on {}", query, authority.origin().await);
+    debug!("performing {} on {}", query, authority.origin());
     let future = authority.search(query, lookup_options);
 
     #[allow(deprecated)]
-    let sections = match authority.zone_type().await {
+    let sections = match authority.zone_type() {
         ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave => {
             send_authoritative_response(
                 future,
