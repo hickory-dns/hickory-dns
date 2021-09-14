@@ -47,10 +47,9 @@ use std::{
 };
 
 use clap::{Arg, ArgMatches};
-use futures::lock::Mutex;
 use tokio::{
     net::{TcpListener, UdpSocket},
-    runtime::{self, Runtime},
+    runtime,
 };
 
 use trust_dns_client::rr::Name;
@@ -74,14 +73,14 @@ use trust_dns_server::{logger, server::ServerFuture};
 use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
 
 #[cfg(feature = "dnssec")]
-fn load_keys<A, L>(
+async fn load_keys<A, L>(
     authority: &mut A,
     zone_name: Name,
     zone_config: &ZoneConfig,
 ) -> Result<(), String>
 where
     A: DnssecAuthority<Lookup = L>,
-    L: Send + Sized + 'static,
+    L: Send + Sync + Sized + 'static,
 {
     if zone_config.is_dnssec_enabled() {
         for key_config in zone_config.get_keys() {
@@ -97,6 +96,7 @@ where
                 })?;
                 authority
                     .add_zone_signing_key(zone_signer)
+                    .await
                     .expect("failed to add zone signing key to authority");
             }
             if key_config.is_zone_update_auth() {
@@ -110,19 +110,20 @@ where
                     .expect("failed to get sig0 key");
                 authority
                     .add_update_auth_key(zone_name.clone(), public_key)
+                    .await
                     .expect("failed to add update auth key to authority");
             }
         }
 
         info!("signing zone: {}", zone_config.get_zone().unwrap());
-        authority.secure_zone().expect("failed to sign zone");
+        authority.secure_zone().await.expect("failed to sign zone");
     }
     Ok(())
 }
 
 #[cfg(not(feature = "dnssec"))]
 #[allow(clippy::unnecessary_wraps)]
-fn load_keys<T>(
+async fn load_keys<T>(
     _authority: &mut T,
     _zone_name: Name,
     _zone_config: &ZoneConfig,
@@ -132,10 +133,9 @@ fn load_keys<T>(
 
 #[cfg_attr(not(feature = "dnssec"), allow(unused_mut, unused))]
 #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled despite of non_exhaustive
-fn load_zone(
+async fn load_zone(
     zone_dir: &Path,
     zone_config: &ZoneConfig,
-    runtime: &mut Runtime,
 ) -> Result<Box<dyn AuthorityObject>, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
@@ -166,11 +166,12 @@ fn load_zone(
                 is_dnssec_enabled,
                 Some(zone_dir),
                 config,
-            )?;
+            )
+            .await?;
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(Mutex::new(authority)))
+            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
+            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
@@ -186,15 +187,15 @@ fn load_zone(
             )?;
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(Mutex::new(authority)))
+            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
+            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
             let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
-            let authority = runtime.block_on(forwarder)?;
+            let authority = forwarder.await?;
 
-            Box::new(Arc::new(Mutex::new(authority)))
+            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
@@ -221,11 +222,12 @@ fn load_zone(
                 is_dnssec_enabled,
                 Some(zone_dir),
                 &config,
-            )?;
+            )
+            .await?;
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(Mutex::new(authority)))
+            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
+            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         None => {
             let config = FileConfig {
@@ -241,8 +243,8 @@ fn load_zone(
             )?;
 
             // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-            load_keys(&mut authority, zone_name_for_signer, zone_config)?;
-            Box::new(Arc::new(Mutex::new(authority)))
+            load_keys(&mut authority, zone_name_for_signer, zone_config).await?;
+            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         Some(_) => {
             panic!("unrecognized authority type, check enabled features");
@@ -303,6 +305,7 @@ impl<'a> From<ArgMatches<'a>> for Args {
 /// Main method for running the named server.
 ///
 /// `Note`: Tries to avoid panics, in favor of always starting.
+#[allow(unused_mut)]
 fn main() {
     let args = app_from_crate!()
         .arg(
@@ -397,7 +400,7 @@ fn main() {
             .get_zone()
             .unwrap_or_else(|_| panic!("bad zone name in {:?}", config_path));
 
-        match load_zone(&zone_dir, zone, &mut runtime) {
+        match runtime.block_on(load_zone(&zone_dir, zone)) {
             Ok(authority) => catalog.upsert(zone_name.into(), authority),
             Err(error) => panic!("could not load zone {}: {}", zone_name, error),
         }
@@ -527,7 +530,7 @@ fn config_tls(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &mut Runtime,
+    runtime: &mut runtime::Runtime,
 ) {
     use futures::TryFutureExt;
 
@@ -580,7 +583,7 @@ fn config_https(
     tls_cert_config: &TlsCertConfig,
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
-    runtime: &mut Runtime,
+    runtime: &mut runtime::Runtime,
 ) {
     use futures::TryFutureExt;
 

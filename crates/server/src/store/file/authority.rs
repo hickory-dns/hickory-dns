@@ -249,7 +249,7 @@ impl Authority for FileAuthority {
     }
 
     /// Perform a dynamic update of a zone
-    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         use crate::proto::op::ResponseCode;
         Err(ResponseCode::NotImp)
     }
@@ -337,20 +337,21 @@ impl Authority for FileAuthority {
 
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+#[async_trait::async_trait]
 impl DnssecAuthority for FileAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        self.0.add_update_auth_key(name, key)
+    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
+        self.0.add_update_auth_key(name, key).await
     }
 
     /// Add Signer
-    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
-        self.0.add_zone_signing_key(signer)
+    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
+        self.0.add_zone_signing_key(signer).await
     }
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        DnssecAuthority::secure_zone(&mut self.0)
+    async fn secure_zone(&self) -> DnsSecResult<()> {
+        DnssecAuthority::secure_zone(&self.0).await
     }
 }
 

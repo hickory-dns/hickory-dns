@@ -84,7 +84,7 @@ impl Authority for ForwardAuthority {
         false
     }
 
-    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 

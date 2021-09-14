@@ -4,7 +4,6 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
 };
 
-use futures::lock::Mutex;
 use tokio::runtime::Runtime;
 
 use trust_dns_proto::{
@@ -32,10 +31,7 @@ use trust_dns_integration::{authority::create_example, mock_client::*, TestClien
 fn test_lookup() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
@@ -63,10 +59,7 @@ fn test_lookup() {
 fn test_lookup_hosts() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
@@ -106,7 +99,7 @@ fn test_lookup_hosts() {
 
 fn create_ip_like_example() -> InMemoryAuthority {
     let mut authority = create_example();
-    authority.upsert(
+    authority.upsert_mut(
         Record::new()
             .set_name(Name::from_str("1.2.3.4.example.com.").unwrap())
             .set_ttl(86400)
@@ -124,10 +117,7 @@ fn create_ip_like_example() -> InMemoryAuthority {
 fn test_lookup_ipv4_like() {
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
@@ -157,10 +147,7 @@ fn test_lookup_ipv4_like() {
 fn test_lookup_ipv4_like_fall_through() {
     let authority = create_ip_like_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));

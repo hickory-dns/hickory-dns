@@ -15,7 +15,7 @@ pub fn create_example() -> InMemoryAuthority {
     let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
 
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(3600)
@@ -34,7 +34,7 @@ pub fn create_example() -> InMemoryAuthority {
         0,
     );
 
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
@@ -44,7 +44,7 @@ pub fn create_example() -> InMemoryAuthority {
             .clone(),
         0,
     );
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
@@ -58,7 +58,7 @@ pub fn create_example() -> InMemoryAuthority {
     // example.com.		60	IN	TXT	"v=spf1 -all"
     //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(60)
@@ -74,7 +74,7 @@ pub fn create_example() -> InMemoryAuthority {
     );
 
     // example.com.		86400	IN	A	93.184.216.34
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
@@ -86,7 +86,7 @@ pub fn create_example() -> InMemoryAuthority {
     );
 
     // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin)
             .set_ttl(86400)
@@ -117,7 +117,7 @@ pub fn create_example() -> InMemoryAuthority {
     let www_name: Name = Name::parse("www.example.com.", None).unwrap();
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -129,7 +129,7 @@ pub fn create_example() -> InMemoryAuthority {
     );
 
     // www.example.com.	86400	IN	A	93.184.216.34
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -141,7 +141,7 @@ pub fn create_example() -> InMemoryAuthority {
     );
 
     // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -155,7 +155,7 @@ pub fn create_example() -> InMemoryAuthority {
     );
 
     // alias 86400 IN www
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(Name::from_str("alias.example.com.").unwrap())
             .set_ttl(86400)
@@ -167,7 +167,7 @@ pub fn create_example() -> InMemoryAuthority {
     );
 
     // alias2 86400 IN www, multiple cname chains
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(Name::from_str("alias2.example.com.").unwrap())
             .set_ttl(86400)
@@ -206,8 +206,8 @@ pub fn create_secure_example() -> InMemoryAuthority {
         Duration::weeks(1),
     );
 
-    authority.add_zone_signing_key(signer);
-    authority.secure_zone();
+    authority.add_zone_signing_key_mut(signer);
+    authority.secure_zone_mut();
 
     authority
 }

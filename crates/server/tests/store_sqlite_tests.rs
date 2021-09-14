@@ -4,9 +4,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use futures_executor::block_on;
+
 use trust_dns_client::rr::Name;
-use trust_dns_server::authority::ZoneType;
-use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
+use trust_dns_server::{
+    authority::ZoneType,
+    store::sqlite::{SqliteAuthority, SqliteConfig},
+};
 
 #[macro_use]
 mod authority_battery;
@@ -27,14 +31,14 @@ fn sqlite(master_file_path: &str, module: &str, test_name: &str) -> SqliteAuthor
         allow_update: true,
     };
 
-    SqliteAuthority::try_from_config(
+    block_on(SqliteAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         false,
         true,
         None,
         &config,
-    )
+    ))
     .expect("failed to load file")
 }
 
@@ -55,14 +59,14 @@ fn sqlite_update(master_file_path: &str, module: &str, test_name: &str) -> Sqlit
         allow_update: true,
     };
 
-    SqliteAuthority::try_from_config(
+    block_on(SqliteAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         false,
         true,
         None,
         &config,
-    )
+    ))
     .expect("failed to load file")
 }
 

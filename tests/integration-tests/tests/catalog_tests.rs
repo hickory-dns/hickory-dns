@@ -1,20 +1,17 @@
-use std::net::*;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{net::*, str::FromStr, sync::Arc};
 
-use futures::executor::block_on;
+use trust_dns_client::{
+    op::*,
+    rr::{rdata::*, *},
+    serialize::binary::{BinDecodable, BinEncodable},
+};
 
-use futures::lock::Mutex;
-use trust_dns_client::op::*;
-use trust_dns_client::rr::rdata::*;
-use trust_dns_client::rr::*;
-use trust_dns_client::serialize::binary::{BinDecodable, BinEncodable};
+use trust_dns_server::{
+    authority::{Authority, Catalog, MessageRequest, ZoneType},
+    store::in_memory::InMemoryAuthority,
+};
 
-use trust_dns_server::authority::{Authority, Catalog, MessageRequest, ZoneType};
-use trust_dns_server::store::in_memory::InMemoryAuthority;
-
-use trust_dns_integration::authority::create_example;
-use trust_dns_integration::*;
+use trust_dns_integration::{authority::create_example, *};
 
 #[allow(clippy::unreadable_literal)]
 pub fn create_test() -> InMemoryAuthority {
@@ -22,7 +19,7 @@ pub fn create_test() -> InMemoryAuthority {
 
     let mut records = InMemoryAuthority::empty(origin.clone(), ZoneType::Primary, false);
 
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(3600)
@@ -41,7 +38,7 @@ pub fn create_test() -> InMemoryAuthority {
         0,
     );
 
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
@@ -51,7 +48,7 @@ pub fn create_test() -> InMemoryAuthority {
             .clone(),
         0,
     );
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
@@ -62,7 +59,7 @@ pub fn create_test() -> InMemoryAuthority {
         0,
     );
 
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin.clone())
             .set_ttl(86400)
@@ -72,7 +69,7 @@ pub fn create_test() -> InMemoryAuthority {
             .clone(),
         0,
     );
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(origin)
             .set_ttl(86400)
@@ -86,7 +83,7 @@ pub fn create_test() -> InMemoryAuthority {
     );
 
     let www_name: Name = Name::parse("www.test.com.", None).unwrap();
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(www_name.clone())
             .set_ttl(86400)
@@ -96,7 +93,7 @@ pub fn create_test() -> InMemoryAuthority {
             .clone(),
         0,
     );
-    records.upsert(
+    records.upsert_mut(
         Record::new()
             .set_name(www_name)
             .set_ttl(86400)
@@ -112,16 +109,16 @@ pub fn create_test() -> InMemoryAuthority {
     records
 }
 
-#[test]
-fn test_catalog_lookup() {
+#[tokio::test]
+async fn test_catalog_lookup() {
     let example = create_example();
     let test = create_test();
     let origin = example.origin().clone();
     let test_origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(Mutex::new(example))));
-    catalog.upsert(test_origin.clone(), Box::new(Arc::new(Mutex::new(test))));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(example)));
+    catalog.upsert(test_origin.clone(), Box::new(Arc::new(test)));
 
     let mut question: Message = Message::new();
 
@@ -135,8 +132,10 @@ fn test_catalog_lookup() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -166,8 +165,10 @@ fn test_catalog_lookup() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -183,16 +184,16 @@ fn test_catalog_lookup() {
     );
 }
 
-#[test]
-fn test_catalog_lookup_soa() {
+#[tokio::test]
+async fn test_catalog_lookup_soa() {
     let example = create_example();
     let test = create_test();
     let origin = example.origin().clone();
     let test_origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(Mutex::new(example))));
-    catalog.upsert(test_origin, Box::new(Arc::new(Mutex::new(test))));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(example)));
+    catalog.upsert(test_origin, Box::new(Arc::new(test)));
 
     let mut question: Message = Message::new();
 
@@ -207,8 +208,10 @@ fn test_catalog_lookup_soa() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -248,14 +251,14 @@ fn test_catalog_lookup_soa() {
     );
 }
 
-#[test]
+#[tokio::test]
 #[allow(clippy::unreadable_literal)]
-fn test_catalog_nx_soa() {
+async fn test_catalog_nx_soa() {
     let example = create_example();
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(Mutex::new(example))));
+    catalog.upsert(origin, Box::new(Arc::new(example)));
 
     let mut question: Message = Message::new();
 
@@ -269,8 +272,10 @@ fn test_catalog_nx_soa() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -294,13 +299,13 @@ fn test_catalog_nx_soa() {
     );
 }
 
-#[test]
-fn test_non_authoritive_nx_refused() {
+#[tokio::test]
+async fn test_non_authoritive_nx_refused() {
     let example = create_example();
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(Mutex::new(example))));
+    catalog.upsert(origin, Box::new(Arc::new(example)));
 
     let mut question: Message = Message::new();
 
@@ -315,8 +320,10 @@ fn test_non_authoritive_nx_refused() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -327,9 +334,9 @@ fn test_non_authoritive_nx_refused() {
     assert_eq!(result.additionals().len(), 0);
 }
 
-#[test]
+#[tokio::test]
 #[allow(clippy::unreadable_literal)]
-fn test_axfr() {
+async fn test_axfr() {
     let mut test = create_test();
     test.set_allow_axfr(true);
 
@@ -351,7 +358,7 @@ fn test_axfr() {
         .clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(Mutex::new(test))));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(test)));
 
     let mut query: Query = Query::new();
     query.set_name(origin.clone().into());
@@ -365,8 +372,10 @@ fn test_axfr() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     let mut answers: Vec<Record> = result.answers().to_vec();
 
@@ -460,15 +469,15 @@ fn test_axfr() {
     assert_eq!(expected_set, answers);
 }
 
-#[test]
-fn test_axfr_refused() {
+#[tokio::test]
+async fn test_axfr_refused() {
     let mut test = create_test();
     test.set_allow_axfr(false);
 
     let origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), Box::new(Arc::new(Mutex::new(test))));
+    catalog.upsert(origin.clone(), Box::new(Arc::new(test)));
 
     let mut query: Query = Query::new();
     query.set_name(origin.into());
@@ -482,8 +491,10 @@ fn test_axfr_refused() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.response_code(), ResponseCode::Refused);
     assert!(result.answers().is_empty());
@@ -498,13 +509,13 @@ fn test_axfr_refused() {
 // }
 
 // TODO: these should be moved to the battery tests
-#[test]
-fn test_cname_additionals() {
+#[tokio::test]
+async fn test_cname_additionals() {
     let example = create_example();
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(Mutex::new(example))));
+    catalog.upsert(origin, Box::new(Arc::new(example)));
 
     let mut question: Message = Message::new();
 
@@ -519,8 +530,10 @@ fn test_cname_additionals() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.message_type(), MessageType::Response);
     assert_eq!(result.response_code(), ResponseCode::NoError);
@@ -542,13 +555,13 @@ fn test_cname_additionals() {
     );
 }
 
-#[test]
-fn test_multiple_cname_additionals() {
+#[tokio::test]
+async fn test_multiple_cname_additionals() {
     let example = create_example();
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin, Box::new(Arc::new(Mutex::new(example))));
+    catalog.upsert(origin, Box::new(Arc::new(example)));
 
     let mut question: Message = Message::new();
 
@@ -563,8 +576,10 @@ fn test_multiple_cname_additionals() {
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
 
     let response_handler = TestResponseHandler::new();
-    block_on(catalog.lookup(question_req, None, response_handler.clone()));
-    let result = block_on(response_handler.into_message());
+    catalog
+        .lookup(question_req, None, response_handler.clone())
+        .await;
+    let result = response_handler.into_message().await;
 
     assert_eq!(result.message_type(), MessageType::Response);
     assert_eq!(result.response_code(), ResponseCode::NoError);

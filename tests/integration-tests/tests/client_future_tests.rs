@@ -6,7 +6,7 @@ use std::{
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
-use futures::{lock::Mutex, Future, FutureExt, TryFutureExt};
+use futures::{Future, FutureExt, TryFutureExt};
 use tokio::{
     net::{TcpStream as TokioTcpStream, UdpSocket as TokioUdpSocket},
     runtime::Runtime,
@@ -45,10 +45,7 @@ fn test_query_nonet() {
 
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
@@ -249,14 +246,11 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
 
 #[test]
 fn test_notify() {
+    let io_loop = Runtime::new().unwrap();
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
-    let io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -312,14 +306,11 @@ async fn create_sig0_ready_client() -> (
         Duration::minutes(5).num_seconds() as u32,
     );
     auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(sig0_key)));
-    authority.upsert(auth_key, 0);
+    authority.upsert_mut(auth_key, 0);
 
     // setup the catalog
     let mut catalog = Catalog::new();
-    catalog.upsert(
-        authority.origin().clone(),
-        Box::new(Arc::new(Mutex::new(authority))),
-    );
+    catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let signer = Arc::new(signer.into());
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));

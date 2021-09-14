@@ -13,6 +13,7 @@ use std::{
     sync::Arc,
 };
 
+use futures_util::lock::Mutex;
 use log::{error, info, warn};
 
 use crate::{
@@ -45,7 +46,7 @@ use crate::{
 #[allow(dead_code)]
 pub struct SqliteAuthority {
     in_memory: InMemoryAuthority,
-    journal: Option<Journal>,
+    journal: Mutex<Option<Journal>>,
     allow_update: bool,
     is_dnssec_enabled: bool,
 }
@@ -66,14 +67,14 @@ impl SqliteAuthority {
     pub fn new(in_memory: InMemoryAuthority, allow_update: bool, is_dnssec_enabled: bool) -> Self {
         Self {
             in_memory,
-            journal: None,
+            journal: Mutex::new(None),
             allow_update,
             is_dnssec_enabled,
         }
     }
 
     /// load the authority from the configuration
-    pub fn try_from_config(
+    pub async fn try_from_config(
         origin: Name,
         zone_type: ZoneType,
         allow_axfr: bool,
@@ -99,11 +100,13 @@ impl SqliteAuthority {
 
             let in_memory = InMemoryAuthority::empty(zone_name.clone(), zone_type, allow_axfr);
             let mut authority = SqliteAuthority::new(in_memory, config.allow_update, enable_dnssec);
+
             authority
                 .recover_with_journal(&journal)
+                .await
                 .map_err(|e| format!("error recovering from journal: {}", e))?;
 
-            authority.set_journal(journal);
+            authority.set_journal(journal).await;
             info!("recovered zone: {}", zone_name);
 
             Ok(authority)
@@ -131,11 +134,12 @@ impl SqliteAuthority {
             let journal = Journal::from_file(&journal_path)
                 .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e))?;
 
-            authority.set_journal(journal);
+            authority.set_journal(journal).await;
 
             // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
             authority
                 .persist_to_journal()
+                .await
                 .map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e))?;
 
             info!("zone file loaded: {}", zone_name);
@@ -153,9 +157,9 @@ impl SqliteAuthority {
     /// # Arguments
     ///
     /// * `journal` - the journal from which to load the persisted zone.
-    pub fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
+    pub async fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
         assert!(
-            self.in_memory.records().is_empty(),
+            self.in_memory.records_get_mut().is_empty(),
             "records should be empty during a recovery"
         );
 
@@ -166,7 +170,7 @@ impl SqliteAuthority {
             //  authority.
             if record.rr_type() == RecordType::AXFR {
                 self.in_memory.clear();
-            } else if let Err(error) = self.update_records(&[record], false) {
+            } else if let Err(error) = self.update_records(&[record], false).await {
                 return Err(PersistenceErrorKind::Recovery(error.to_str()).into());
             }
         }
@@ -178,16 +182,16 @@ impl SqliteAuthority {
     ///  Journal.
     ///
     /// Returns an error if there was an issue writing to the persistence layer.
-    pub fn persist_to_journal(&self) -> PersistenceResult<()> {
-        if let Some(journal) = self.journal.as_ref() {
-            let serial = self.serial();
+    pub async fn persist_to_journal(&self) -> PersistenceResult<()> {
+        if let Some(journal) = self.journal.lock().await.as_ref() {
+            let serial = self.in_memory.serial().await;
 
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
             journal.insert_record(serial, Record::new().set_rr_type(RecordType::AXFR))?;
 
-            for rr_set in self.in_memory.records().values() {
+            for rr_set in self.in_memory.records().await.values() {
                 // TODO: should we preserve rr_sets or not?
                 for record in rr_set.records_without_rrsigs() {
                     journal.insert_record(serial, record)?;
@@ -201,18 +205,27 @@ impl SqliteAuthority {
     }
 
     /// Associate a backing Journal with this Authority for Updatable zones
-    pub fn set_journal(&mut self, journal: Journal) {
-        self.journal = Some(journal);
+    pub async fn set_journal(&mut self, journal: Journal) {
+        *self.journal.lock().await = Some(journal);
     }
 
     /// Returns the associated Journal
-    pub fn journal(&self) -> Option<&Journal> {
-        self.journal.as_ref()
+    #[cfg(any(test, feature = "testing"))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
+    pub async fn journal(&self) -> impl Deref<Target = Option<Journal>> + '_ {
+        self.journal.lock().await
     }
 
     /// Enables the zone for dynamic DNS updates
     pub fn set_allow_update(&mut self, allow_update: bool) {
         self.allow_update = allow_update;
+    }
+
+    /// Get serial
+    #[cfg(any(test, feature = "testing"))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
+    pub async fn serial(&self) -> u32 {
+        self.in_memory.serial().await
     }
 
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -306,8 +319,9 @@ impl SqliteAuthority {
                 return Err(ResponseCode::FormErr);
             }
 
-            if !self.origin().zone_of(&require.name().into()) {
-                warn!("{} is not a zone_of {}", require.name(), self.origin());
+            let origin = self.origin();
+            if !origin.zone_of(&require.name().into()) {
+                warn!("{} is not a zone_of {}", require.name(), origin);
                 return Err(ResponseCode::NotZone);
             }
 
@@ -388,7 +402,7 @@ impl SqliteAuthority {
                         return Err(ResponseCode::FormErr);
                     }
                 }
-                class if class == self.class() =>
+                class if class == self.in_memory.class() =>
                 // zone     rrset    rr       RRset exists (value dependent)
                 {
                     if !self
@@ -553,7 +567,7 @@ impl SqliteAuthority {
     ///   type, else signal FORMERR to the requestor.
     /// ```
     #[allow(clippy::unused_unit)]
-    pub fn pre_scan(&self, records: &[Record]) -> UpdateResult<()> {
+    pub async fn pre_scan(&self, records: &[Record]) -> UpdateResult<()> {
         // 3.4.1.3 - Pseudocode For Update Section Prescan
         //
         //      [rr] for rr in updates
@@ -577,7 +591,7 @@ impl SqliteAuthority {
             }
 
             let class: DNSClass = rr.dns_class();
-            if class == self.class() {
+            if class == self.in_memory.class() {
                 match rr.rr_type() {
                     RecordType::ANY | RecordType::AXFR | RecordType::IXFR => {
                         return Err(ResponseCode::FormErr);
@@ -642,17 +656,17 @@ impl SqliteAuthority {
     /// * `records` - set of record instructions for update following above rules
     /// * `auto_signing_and_increment` - if true, the zone will sign and increment the SOA, this
     ///                                  should be disabled during recovery.
-    pub fn update_records(
-        &mut self,
+    pub async fn update_records(
+        &self,
         records: &[Record],
         auto_signing_and_increment: bool,
     ) -> UpdateResult<bool> {
         let mut updated = false;
-        let serial: u32 = self.serial();
+        let serial: u32 = self.in_memory.serial().await;
 
         // the persistence act as a write-ahead log. The WAL will also be used for recovery of a zone
         //  subsequent to a failure of the server.
-        if let Some(ref journal) = self.journal {
+        if let Some(ref journal) = *self.journal.lock().await {
             if let Err(error) = journal.insert_records(serial, records) {
                 error!("could not persist update records: {}", error);
                 return Err(ResponseCode::ServFail);
@@ -703,7 +717,7 @@ impl SqliteAuthority {
             let rr_key = RrKey::new(rr_name.clone(), rr.rr_type());
 
             match rr.dns_class() {
-                class if class == self.class() => {
+                class if class == self.in_memory.class() => {
                     // RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
                     //  the zone.  In case of duplicate RDATAs (which for SOA RRs is always
                     //  the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
@@ -717,7 +731,7 @@ impl SqliteAuthority {
 
                     // zone     rrset    rr       Add to an RRset
                     info!("upserting record: {:?}", rr);
-                    updated = self.upsert(rr.clone(), serial) || updated;
+                    updated = self.in_memory.upsert(rr.clone(), serial).await || updated;
                 }
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
@@ -738,19 +752,22 @@ impl SqliteAuthority {
                                 "deleting all records at name (not SOA or NS at origin): {:?}",
                                 rr_name
                             );
+                            let origin = self.origin();
                             let to_delete = self
+                                .in_memory
                                 .records()
+                                .await
                                 .keys()
                                 .filter(|k| {
                                     !((k.record_type == RecordType::SOA
                                         || k.record_type == RecordType::NS)
-                                        && k.name != *self.origin())
+                                        && k.name != *origin)
                                 })
                                 .filter(|k| k.name == rr_name)
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
                             for delete in to_delete {
-                                self.records_mut().remove(&delete);
+                                self.in_memory.records_mut().await.remove(&delete);
                                 updated = true;
                             }
                         }
@@ -762,7 +779,7 @@ impl SqliteAuthority {
 
                             // ANY      rrset    empty    Delete an RRset
                             if let RData::NULL(..) = *rr.rdata() {
-                                let deleted = self.records_mut().remove(&rr_key);
+                                let deleted = self.in_memory.records_mut().await.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
                             } else {
@@ -775,7 +792,7 @@ impl SqliteAuthority {
                 DNSClass::NONE => {
                     info!("deleting specific record: {:?}", rr);
                     // NONE     rrset    rr       Delete an RR from an RRset
-                    if let Some(rrset) = self.records_mut().get_mut(&rr_key) {
+                    if let Some(rrset) = self.in_memory.records_mut().await.get_mut(&rr_key) {
                         // b/c this is an Arc, we need to clone, then remove, and replace the node.
                         let mut rrset_clone: RecordSet = RecordSet::clone(&*rrset);
                         let deleted = rrset_clone.remove(rr, serial);
@@ -797,14 +814,21 @@ impl SqliteAuthority {
         // update the serial...
         if updated && auto_signing_and_increment {
             if self.is_dnssec_enabled {
-                self.secure_zone().map_err(|e| {
-                    error!("failure securing zone: {}", e);
-                    ResponseCode::ServFail
-                })?
+                cfg_if::cfg_if! {
+                    if #[cfg(feature = "dnssec")] {
+                        self.secure_zone().await.map_err(|e| {
+                            error!("failure securing zone: {}", e);
+                            ResponseCode::ServFail
+                        })?
+                    } else {
+                        error!("failure securing zone, dnssec feature not enabled");
+                        return Err(ResponseCode::ServFail)
+                    }
+                }
             } else {
                 // the secure_zone() function increments the SOA during it's operation, if we're not
                 //  dnssec, then we need to do it here...
-                self.increment_soa_serial();
+                self.in_memory.increment_soa_serial().await;
             }
         }
 
@@ -898,18 +922,19 @@ impl Authority for SqliteAuthority {
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
     #[cfg(feature = "dnssec")]
-    async fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
+        //let this = &mut self.in_memory.lock().await;
         // the spec says to authorize after prereqs, seems better to auth first.
         self.authorize(update).await?;
         self.verify_prerequisites(update.prerequisites()).await?;
-        self.pre_scan(update.updates())?;
+        self.pre_scan(update.updates()).await?;
 
-        self.update_records(update.updates(), true)
+        self.update_records(update.updates(), true).await
     }
 
     /// Always fail when DNSSEC is disabled.
     #[cfg(not(feature = "dnssec"))]
-    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 
@@ -967,9 +992,10 @@ impl Authority for SqliteAuthority {
 
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+#[async_trait::async_trait]
 impl DnssecAuthority for SqliteAuthority {
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        self.in_memory.add_update_auth_key(name, key)
+    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
+        self.in_memory.add_update_auth_key(name, key).await
     }
 
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
@@ -977,12 +1003,26 @@ impl DnssecAuthority for SqliteAuthority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
-        self.in_memory.add_zone_signing_key(signer)
+    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
+        self.in_memory.add_zone_signing_key(signer).await
     }
 
     /// (Re)generates the nsec records, increments the serial number and signs the zone
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        DnssecAuthority::secure_zone(&mut self.in_memory)
+    async fn secure_zone(&self) -> DnsSecResult<()> {
+        self.in_memory.secure_zone().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::store::sqlite::SqliteAuthority;
+
+    #[test]
+    fn test_is_send_sync() {
+        fn send_sync<T: Send + Sync>() -> bool {
+            true
+        }
+
+        assert!(send_sync::<SqliteAuthority>());
     }
 }

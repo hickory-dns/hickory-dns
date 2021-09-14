@@ -7,11 +7,19 @@
 
 //! All authority related types
 
-use std::{borrow::Borrow, collections::BTreeMap, sync::Arc};
+use std::{
+    borrow::Borrow,
+    collections::BTreeMap,
+    ops::{Deref, DerefMut},
+    sync::Arc,
+};
 
 use cfg_if::cfg_if;
-use futures_util::future::{self, TryFutureExt};
-use log::{debug, error};
+use futures_util::{
+    future::{self, TryFutureExt},
+    lock::{Mutex, MutexGuard},
+};
+use log::{debug, error, warn};
 
 #[cfg(feature = "dnssec")]
 use crate::{
@@ -42,16 +50,9 @@ use crate::{
 pub struct InMemoryAuthority {
     origin: LowerName,
     class: DNSClass,
-    records: BTreeMap<RrKey, Arc<RecordSet>>,
     zone_type: ZoneType,
     allow_axfr: bool,
-    // Private key mapped to the Record of the DNSKey
-    //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
-    //   server instance, but that requires requesting updates from the parent zone, which may or
-    //   may not support dynamic updates to register the new key... Trust-DNS will provide support
-    //   for this, in some form, perhaps alternate root zones...
-    #[cfg(feature = "dnssec")]
-    secure_keys: Vec<SigSigner>,
+    inner: Mutex<InnerInMemory>,
 }
 
 impl InMemoryAuthority {
@@ -77,6 +78,7 @@ impl InMemoryAuthority {
         allow_axfr: bool,
     ) -> Result<Self, String> {
         let mut this = Self::empty(origin.clone(), zone_type, allow_axfr);
+        let inner = this.inner.get_mut();
 
         // SOA must be present
         let serial = records
@@ -95,7 +97,7 @@ impl InMemoryAuthority {
             let rr_type = rrset.record_type();
 
             for record in rrset.records_without_rrsigs() {
-                if !this.upsert(record.clone(), serial) {
+                if !inner.upsert(record.clone(), serial, this.class) {
                     return Err(format!(
                         "Failed to insert {} {} to zone: {}",
                         name, rr_type, origin
@@ -116,47 +118,231 @@ impl InMemoryAuthority {
         Self {
             origin: LowerName::new(&origin),
             class: DNSClass::IN,
-            records: BTreeMap::new(),
             zone_type,
             allow_axfr,
-            #[cfg(feature = "dnssec")]
-            secure_keys: Vec::new(),
+            inner: Mutex::new(InnerInMemory::default()),
         }
     }
 
-    /// Clears all records (including SOA, etc)
-    pub fn clear(&mut self) {
-        self.records.clear()
-    }
-
-    /// Get the DNSClass of the zone
+    /// The DNSClass of this zone
     pub fn class(&self) -> DNSClass {
         self.class
     }
 
-    /// Enables AXFRs of all the zones records
+    /// Allow AXFR's (zone transfers)
+    #[cfg(any(test, feature = "testing"))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "testing")))]
     pub fn set_allow_axfr(&mut self, allow_axfr: bool) {
         self.allow_axfr = allow_axfr;
     }
 
+    /// Clears all records (including SOA, etc)
+    pub fn clear(&mut self) {
+        self.inner.get_mut().records.clear()
+    }
+
     /// Retrieve the Signer, which contains the private keys, for this zone
-    #[cfg(feature = "dnssec")]
-    pub fn secure_keys(&self) -> &[SigSigner] {
-        &self.secure_keys
+    #[cfg(all(feature = "dnssec", feature = "testing"))]
+    pub async fn secure_keys(&self) -> impl Deref<Target = [SigSigner]> + '_ {
+        MutexGuard::map(self.inner.lock().await, |i| i.secure_keys.as_mut_slice())
     }
 
     /// Get all the records
-    pub fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
-        &self.records
+    pub async fn records(&self) -> impl Deref<Target = BTreeMap<RrKey, Arc<RecordSet>>> + '_ {
+        MutexGuard::map(self.inner.lock().await, |i| &mut i.records)
     }
 
     /// Get a mutable reference to the records
-    pub fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
-        &mut self.records
+    pub async fn records_mut(
+        &self,
+    ) -> impl DerefMut<Target = BTreeMap<RrKey, Arc<RecordSet>>> + '_ {
+        MutexGuard::map(self.inner.lock().await, |i| &mut i.records)
     }
 
-    fn inner_soa(&self) -> Option<&SOA> {
-        let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);
+    /// Get a mutable reference to the records
+    pub fn records_get_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
+        &mut self.inner.get_mut().records
+    }
+
+    /// Returns the minimum ttl (as used in the SOA record)
+    pub async fn minimum_ttl(&self) -> u32 {
+        self.inner.lock().await.minimum_ttl(self.origin())
+    }
+
+    /// get the current serial number for the zone.
+    pub async fn serial(&self) -> u32 {
+        self.inner.lock().await.serial(self.origin())
+    }
+
+    #[cfg(any(feature = "dnssec", feature = "sqlite"))]
+    #[allow(unused)]
+    pub(crate) async fn increment_soa_serial(&self) -> u32 {
+        self.inner
+            .lock()
+            .await
+            .increment_soa_serial(self.origin(), self.class)
+    }
+
+    /// Inserts or updates a `Record` depending on it's existence in the authority.
+    ///
+    /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
+    ///
+    /// # Arguments
+    ///
+    /// * `record` - The `Record` to be inserted or updated.
+    /// * `serial` - Current serial number to be recorded against updates.
+    ///
+    /// # Return value
+    ///
+    /// true if the value was inserted, false otherwise
+    pub async fn upsert(&self, record: Record, serial: u32) -> bool {
+        self.inner.lock().await.upsert(record, serial, self.class)
+    }
+
+    /// Non-async version of upsert when behind a mutable reference.
+    pub fn upsert_mut(&mut self, record: Record, serial: u32) -> bool {
+        self.inner.get_mut().upsert(record, serial, self.class)
+    }
+
+    /// Add a (Sig0) key that is authorized to perform updates against this authority
+    #[cfg(feature = "dnssec")]
+    fn inner_add_update_auth_key(
+        inner: &mut InnerInMemory,
+
+        name: Name,
+        key: KEY,
+        origin: &LowerName,
+        dns_class: DNSClass,
+    ) -> DnsSecResult<()> {
+        let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
+        // TODO: what TTL?
+        let record = Record::from_rdata(name, 86400, rdata);
+
+        let serial = inner.serial(origin);
+        if inner.upsert(record, serial, dns_class) {
+            Ok(())
+        } else {
+            Err("failed to add auth key".into())
+        }
+    }
+
+    /// Non-async method of add_update_auth_key when behind a mutable reference
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn add_update_auth_key_mut(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
+        let Self {
+            ref origin,
+            ref mut inner,
+            class,
+            ..
+        } = self;
+
+        Self::inner_add_update_auth_key(inner.get_mut(), name, key, origin, *class)
+    }
+
+    /// By adding a secure key, this will implicitly enable dnssec for the zone.
+    ///
+    /// # Arguments
+    ///
+    /// * `signer` - Signer with associated private key
+    #[cfg(feature = "dnssec")]
+    fn inner_add_zone_signing_key(
+        inner: &mut InnerInMemory,
+        signer: SigSigner,
+        origin: &LowerName,
+        dns_class: DNSClass,
+    ) -> DnsSecResult<()> {
+        // also add the key to the zone
+        let zone_ttl = inner.minimum_ttl(origin);
+        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
+        let dnskey = Record::from_rdata(
+            origin.clone().into(),
+            zone_ttl,
+            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
+        );
+
+        // TODO: also generate the CDS and CDNSKEY
+        let serial = inner.serial(origin);
+        inner.upsert(dnskey, serial, dns_class);
+        inner.secure_keys.push(signer);
+        Ok(())
+    }
+
+    /// Non-async method of add_zone_signing_key when behind a mutable reference
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn add_zone_signing_key_mut(&mut self, signer: SigSigner) -> DnsSecResult<()> {
+        let Self {
+            ref origin,
+            ref mut inner,
+            class,
+            ..
+        } = self;
+
+        Self::inner_add_zone_signing_key(inner.get_mut(), signer, origin, *class)
+    }
+
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
+    #[cfg(feature = "dnssec")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn secure_zone_mut(&mut self) -> DnsSecResult<()> {
+        let Self {
+            ref origin,
+            ref mut inner,
+            ..
+        } = self;
+        inner.get_mut().secure_zone_mut(origin, self.class)
+    }
+
+    /// (Re)generates the nsec records, increments the serial number and signs the zone
+    #[cfg(not(feature = "dnssec"))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    pub fn secure_zone_mut(&mut self) -> Result<(), &str> {
+        Err("DNSSEC was not enabled during compilation.")
+    }
+}
+
+struct InnerInMemory {
+    records: BTreeMap<RrKey, Arc<RecordSet>>,
+    // Private key mapped to the Record of the DNSKey
+    //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
+    //   server instance, but that requires requesting updates from the parent zone, which may or
+    //   may not support dynamic updates to register the new key... Trust-DNS will provide support
+    //   for this, in some form, perhaps alternate root zones...
+    #[cfg(feature = "dnssec")]
+    secure_keys: Vec<SigSigner>,
+}
+
+impl Default for InnerInMemory {
+    fn default() -> Self {
+        Self {
+            records: BTreeMap::new(),
+            #[cfg(feature = "dnssec")]
+            secure_keys: Vec::new(),
+        }
+    }
+}
+
+impl InnerInMemory {
+    /// Retrieve the Signer, which contains the private keys, for this zone
+    #[cfg(feature = "dnssec")]
+    fn secure_keys(&self) -> &[SigSigner] {
+        &self.secure_keys
+    }
+
+    // /// Get all the records
+    // fn records(&self) -> &BTreeMap<RrKey, Arc<RecordSet>> {
+    //     &self.records
+    // }
+
+    // /// Get a mutable reference to the records
+    // fn records_mut(&mut self) -> &mut BTreeMap<RrKey, Arc<RecordSet>> {
+    //     &mut self.records
+    // }
+
+    fn inner_soa(&self, origin: &LowerName) -> Option<&SOA> {
+        // FIXME: can't there be an RrKeyRef?
+        let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
 
         self.records
             .get(&rr_key)
@@ -165,13 +351,13 @@ impl InMemoryAuthority {
     }
 
     /// Returns the minimum ttl (as used in the SOA record)
-    pub fn minimum_ttl(&self) -> u32 {
-        let soa = self.inner_soa();
+    fn minimum_ttl(&self, origin: &LowerName) -> u32 {
+        let soa = self.inner_soa(origin);
 
         let soa = match soa {
             Some(soa) => soa,
             None => {
-                error!("could not lookup SOA for authority: {}", self.origin);
+                error!("could not lookup SOA for authority: {}", origin);
                 return 0;
             }
         };
@@ -180,13 +366,13 @@ impl InMemoryAuthority {
     }
 
     /// get the current serial number for the zone.
-    pub fn serial(&self) -> u32 {
-        let soa = self.inner_soa();
+    fn serial(&self, origin: &LowerName) -> u32 {
+        let soa = self.inner_soa(origin);
 
         let soa = match soa {
             Some(soa) => soa,
             None => {
-                error!("could not lookup SOA for authority: {}", self.origin);
+                error!("could not lookup SOA for authority: {}", origin);
                 return 0;
             }
         };
@@ -330,9 +516,9 @@ impl InMemoryAuthority {
     }
 
     #[cfg(any(feature = "dnssec", feature = "sqlite"))]
-    pub(crate) fn increment_soa_serial(&mut self) -> u32 {
+    fn increment_soa_serial(&mut self, origin: &LowerName, dns_class: DNSClass) -> u32 {
         // we'll remove the SOA and then replace it
-        let rr_key = RrKey::new(self.origin.clone(), RecordType::SOA);
+        let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
         let record = self
             .records
             .remove(&rr_key)
@@ -342,7 +528,7 @@ impl InMemoryAuthority {
         let mut record = if let Some(record) = record {
             record
         } else {
-            error!("could not lookup SOA for authority: {}", self.origin);
+            error!("could not lookup SOA for authority: {}", origin);
             return 0;
         };
 
@@ -353,7 +539,7 @@ impl InMemoryAuthority {
             panic!("This was not an SOA record"); // valid panic, never should happen
         };
 
-        self.upsert(record, serial);
+        self.upsert(record, serial, dns_class);
         serial
     }
 
@@ -369,8 +555,15 @@ impl InMemoryAuthority {
     /// # Return value
     ///
     /// true if the value was inserted, false otherwise
-    pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
-        assert_eq!(self.class, record.dns_class());
+    fn upsert(&mut self, record: Record, serial: u32, dns_class: DNSClass) -> bool {
+        if dns_class != record.dns_class() {
+            warn!(
+                "mismatched dns_class on record insert, zone: {} record: {}",
+                dns_class,
+                record.dns_class()
+            );
+            return false;
+        }
 
         #[cfg(feature = "dnssec")]
         fn is_nsec(upsert_type: RecordType, occupied_type: RecordType) -> bool {
@@ -442,35 +635,29 @@ impl InMemoryAuthority {
     /// (Re)generates the nsec records, increments the serial number and signs the zone
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-    pub fn secure_zone(&mut self) -> DnsSecResult<()> {
+    fn secure_zone_mut(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sure IXFR works properly
-        self.nsec_zone();
+        self.nsec_zone(origin, dns_class);
 
         // need to resign any records at the current serial number and bump the number.
         // first bump the serial number on the SOA, so that it is resigned with the new serial.
-        self.increment_soa_serial();
+        self.increment_soa_serial(origin, dns_class);
 
         // TODO: should we auto sign here? or maybe up a level...
-        self.sign_zone()
-    }
-
-    /// (Re)generates the nsec records, increments the serial number and signs the zone
-    #[cfg(not(feature = "dnssec"))]
-    pub fn secure_zone(&mut self) -> Result<(), &str> {
-        Err("DNSSEC was not enabled during compilation.")
+        self.sign_zone(origin, dns_class)
     }
 
     /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
-    fn nsec_zone(&mut self) {
+    fn nsec_zone(&mut self, origin: &LowerName, dns_class: DNSClass) {
         use crate::client::rr::rdata::NSEC;
 
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
             return;
         }
-        debug!("generating nsec records: {}", self.origin);
+        debug!("generating nsec records: {}", origin);
 
         // first remove all existing nsec records
         let delete_keys: Vec<RrKey> = self
@@ -485,8 +672,8 @@ impl InMemoryAuthority {
         }
 
         // now go through and generate the nsec records
-        let ttl = self.minimum_ttl();
-        let serial = self.serial();
+        let ttl = self.minimum_ttl(origin);
+        let serial = self.serial(origin);
         let mut records: Vec<Record> = vec![];
 
         {
@@ -514,7 +701,7 @@ impl InMemoryAuthority {
             if let Some((name, vec)) = nsec_info {
                 // names aren't equal, create the NSEC record
                 let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
-                let rdata = NSEC::new_cover_self(Authority::origin(self).clone().into(), vec);
+                let rdata = NSEC::new_cover_self(origin.clone().into(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
             }
@@ -522,7 +709,7 @@ impl InMemoryAuthority {
 
         // insert all the nsec records
         for record in records {
-            let upserted = self.upsert(record, serial);
+            let upserted = self.upsert(record, serial, dns_class);
             debug_assert!(upserted);
         }
     }
@@ -631,25 +818,26 @@ impl InMemoryAuthority {
 
     /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
     #[cfg(feature = "dnssec")]
-    fn sign_zone(&mut self) -> DnsSecResult<()> {
-        use log::warn;
+    fn sign_zone(&mut self, origin: &LowerName, dns_class: DNSClass) -> DnsSecResult<()> {
+        debug!("signing zone: {}", origin);
 
-        debug!("signing zone: {}", self.origin);
-
-        let minimum_ttl = self.minimum_ttl();
+        let minimum_ttl = self.minimum_ttl(origin);
         let secure_keys = &self.secure_keys;
         let records = &mut self.records;
 
         // TODO: should this be an error?
         if secure_keys.is_empty() {
-            warn!("attempt to sign_zone for dnssec, but no keys available!")
+            warn!(
+                "attempt to sign_zone {} for dnssec, but no keys available!",
+                origin
+            )
         }
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
         for rr_set_orig in records.values_mut() {
             // because the rrset is an Arc, it must be cloned before mutated
             let rr_set = Arc::make_mut(rr_set_orig);
-            Self::sign_rrset(rr_set, secure_keys, minimum_ttl, self.class)?;
+            Self::sign_rrset(rr_set, secure_keys, minimum_ttl, dns_class)?;
         }
 
         Ok(())
@@ -776,7 +964,7 @@ impl Authority for InMemoryAuthority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
-    async fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
+    async fn update(&self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 
@@ -805,13 +993,15 @@ impl Authority for InMemoryAuthority {
         query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
+        let inner = self.inner.lock().await;
+
         // Collect the records from each rr_set
         let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
             match query_type {
                 RecordType::AXFR | RecordType::ANY => {
                     let result = AnyRecords::new(
                         lookup_options,
-                        self.records.values().cloned().collect(),
+                        inner.records.values().cloned().collect(),
                         query_type,
                         name.clone(),
                     );
@@ -819,20 +1009,21 @@ impl Authority for InMemoryAuthority {
                 }
                 _ => {
                     // perform the lookup
-                    let answer = self.inner_lookup(name, query_type, lookup_options);
+                    let answer = inner.inner_lookup(name, query_type, lookup_options);
 
                     // evaluate any cnames for additional inclusion
                     let additionals_root_chain_type: Option<(_, _)> = answer
                         .as_ref()
                         .and_then(|a| maybe_next_name(&*a, query_type))
                         .and_then(|(search_name, search_type)| {
-                            self.additional_search(
-                                query_type,
-                                search_name,
-                                search_type,
-                                lookup_options,
-                            )
-                            .map(|adds| (adds, search_type))
+                            inner
+                                .additional_search(
+                                    query_type,
+                                    search_name,
+                                    search_type,
+                                    lookup_options,
+                                )
+                                .map(|adds| (adds, search_type))
                         });
 
                     // if the chain started with an ANAME, take the A or AAAA record from the list
@@ -891,10 +1082,10 @@ impl Authority for InMemoryAuthority {
 
                                     // ANAME's are constructed on demand, so need to be signed before return
                                     if lookup_options.is_dnssec() {
-                                        Self::sign_rrset(
+                                        InnerInMemory::sign_rrset(
                                             &mut new_answer,
-                                            self.secure_keys(),
-                                            self.minimum_ttl(),
+                                            inner.secure_keys(),
+                                            inner.minimum_ttl(self.origin()),
                                             self.class(),
                                         )
                                         // rather than failing the request, we'll just warn
@@ -935,7 +1126,7 @@ impl Authority for InMemoryAuthority {
         // TODO: can we get rid of this?
         let result = match result {
             Err(LookupError::ResponseCode(ResponseCode::NXDomain)) => {
-                if self
+                if inner
                     .records
                     .keys()
                     .any(|key| key.name() == name || name.zone_of(key.name()))
@@ -1026,13 +1217,14 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
+        let inner = self.inner.lock().await;
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
         }
 
         // TODO: need a BorrowdRrKey
         let rr_key = RrKey::new(name.clone(), RecordType::NSEC);
-        let no_data = self
+        let no_data = inner
             .records
             .get(&rr_key)
             .map(|rr_set| LookupRecords::new(lookup_options, rr_set.clone()));
@@ -1042,7 +1234,8 @@ impl Authority for InMemoryAuthority {
         }
 
         let get_closest_nsec = |name: &LowerName| -> Option<Arc<RecordSet>> {
-            self.records
+            inner
+                .records
                 .values()
                 .rev()
                 .filter(|rr_set| is_nsec_rrset(rr_set))
@@ -1070,10 +1263,11 @@ impl Authority for InMemoryAuthority {
 
         // we need the wildcard proof, but make sure that it's still part of the zone.
         let wildcard = name.base_name();
-        let wildcard = if self.origin().zone_of(&wildcard) {
+        let origin = self.origin();
+        let wildcard = if origin.zone_of(&wildcard) {
             wildcard
         } else {
-            self.origin().clone()
+            origin.clone()
         };
 
         // don't duplicate the record...
@@ -1111,19 +1305,13 @@ impl Authority for InMemoryAuthority {
 
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+#[async_trait::async_trait]
 impl DnssecAuthority for InMemoryAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
-    fn add_update_auth_key(&mut self, name: Name, key: KEY) -> DnsSecResult<()> {
-        let rdata = RData::DNSSEC(DNSSECRData::KEY(key));
-        // TODO: what TTL?
-        let record = Record::from_rdata(name, 86400, rdata);
+    async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
+        let mut inner = self.inner.lock().await;
 
-        let serial = self.serial();
-        if self.upsert(record, serial) {
-            Ok(())
-        } else {
-            Err("failed to add auth key".into())
-        }
+        Self::inner_add_update_auth_key(&mut inner, name, key, self.origin(), self.class)
     }
 
     /// By adding a secure key, this will implicitly enable dnssec for the zone.
@@ -1131,34 +1319,16 @@ impl DnssecAuthority for InMemoryAuthority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
-    fn add_zone_signing_key(&mut self, signer: SigSigner) -> DnsSecResult<()> {
-        // also add the key to the zone
-        let zone_ttl = self.minimum_ttl();
-        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
-        let dnskey = Record::from_rdata(
-            self.origin.clone().into(),
-            zone_ttl,
-            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
-        );
+    async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
+        let mut inner = self.inner.lock().await;
 
-        // TODO: also generate the CDS and CDNSKEY
-        let serial = self.serial();
-        self.upsert(dnskey, serial);
-        self.secure_keys.push(signer);
-        Ok(())
+        Self::inner_add_zone_signing_key(&mut inner, signer, self.origin(), self.class)
     }
 
     /// Sign the zone for DNSSEC
-    fn secure_zone(&mut self) -> DnsSecResult<()> {
-        // TODO: only call nsec_zone after adds/deletes
-        // needs to be called before incrementing the soa serial, to make sure IXFR works properly
-        self.nsec_zone();
+    async fn secure_zone(&self) -> DnsSecResult<()> {
+        let mut inner = self.inner.lock().await;
 
-        // need to resign any records at the current serial number and bump the number.
-        // first bump the serial number on the SOA, so that it is resigned with the new serial.
-        self.increment_soa_serial();
-
-        // TODO: should we auto sign here? or maybe up a level...
-        self.sign_zone()
+        inner.secure_zone_mut(self.origin(), self.class)
     }
 }

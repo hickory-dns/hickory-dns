@@ -34,7 +34,7 @@ fn test_all_lines_are_loaded() {
             .to_string(),
     };
 
-    let authority = FileAuthority::try_from_config(
+    let mut authority = FileAuthority::try_from_config(
         Name::from_str("example.com.").unwrap(),
         ZoneType::Primary,
         false,
@@ -46,5 +46,5 @@ fn test_all_lines_are_loaded() {
         record_type: RecordType::A,
         name: LowerName::from(Name::from_ascii("ensure.nonewline.").unwrap()),
     };
-    assert!(authority.records().get(&rrkey).is_some())
+    assert!(authority.records_get_mut().get(&rrkey).is_some())
 }

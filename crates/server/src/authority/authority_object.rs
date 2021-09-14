@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use futures_util::lock::Mutex;
 use log::debug;
 
 use crate::{
@@ -27,16 +26,16 @@ pub trait AuthorityObject: Send + Sync {
     fn box_clone(&self) -> Box<dyn AuthorityObject>;
 
     /// What type is this zone
-    async fn zone_type(&self) -> ZoneType;
+    fn zone_type(&self) -> ZoneType;
 
     /// Return true if AXFR is allowed
-    async fn is_axfr_allowed(&self) -> bool;
+    fn is_axfr_allowed(&self) -> bool;
 
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool>;
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    async fn origin(&self) -> LowerName;
+    fn origin(&self) -> &LowerName;
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
     ///
@@ -81,7 +80,7 @@ pub trait AuthorityObject: Send + Sync {
         &self,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
-        self.lookup(&self.origin().await, RecordType::NS, lookup_options)
+        self.lookup(self.origin(), RecordType::NS, lookup_options)
             .await
     }
 
@@ -104,12 +103,8 @@ pub trait AuthorityObject: Send + Sync {
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
     async fn soa(&self) -> Result<Box<dyn LookupObject>, LookupError> {
         // SOA should be origin|SOA
-        self.lookup(
-            &self.origin().await,
-            RecordType::SOA,
-            LookupOptions::default(),
-        )
-        .await
+        self.lookup(self.origin(), RecordType::SOA, LookupOptions::default())
+            .await
     }
 
     /// Returns the SOA record for the zone
@@ -117,13 +112,13 @@ pub trait AuthorityObject: Send + Sync {
         &self,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
-        self.lookup(&self.origin().await, RecordType::SOA, lookup_options)
+        self.lookup(self.origin(), RecordType::SOA, lookup_options)
             .await
     }
 }
 
 #[async_trait::async_trait]
-impl<A, L> AuthorityObject for Arc<Mutex<A>>
+impl<A, L> AuthorityObject for Arc<A>
 where
     A: Authority<Lookup = L> + Send + Sync + 'static,
     L: LookupObject + Send + Sync + 'static,
@@ -133,23 +128,23 @@ where
     }
 
     /// What type is this zone
-    async fn zone_type(&self) -> ZoneType {
-        Authority::zone_type(&*self.lock().await)
+    fn zone_type(&self) -> ZoneType {
+        Authority::zone_type(self.as_ref())
     }
 
     /// Return true if AXFR is allowed
-    async fn is_axfr_allowed(&self) -> bool {
-        Authority::is_axfr_allowed(&*self.lock().await)
+    fn is_axfr_allowed(&self) -> bool {
+        Authority::is_axfr_allowed(self.as_ref())
     }
 
     /// Perform a dynamic update of a zone
     async fn update(&self, update: &MessageRequest) -> UpdateResult<bool> {
-        Authority::update(&mut *self.lock().await, update).await
+        Authority::update(self.as_ref(), update).await
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    async fn origin(&self) -> LowerName {
-        Authority::origin(&*self.lock().await).clone()
+    fn origin(&self) -> &LowerName {
+        Authority::origin(self.as_ref())
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -172,7 +167,7 @@ where
         rtype: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
-        let this = self.lock().await;
+        let this = self.as_ref();
         let lookup = Authority::lookup(&*this, name, rtype, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
@@ -193,7 +188,7 @@ where
         query: &LowerQuery,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
-        let this = self.lock().await;
+        let this = self.as_ref();
         debug!("performing {} on {}", query, this.origin());
         let lookup = Authority::search(&*this, query, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
@@ -211,7 +206,7 @@ where
         name: &LowerName,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
-        let lookup = Authority::get_nsec_records(&*self.lock().await, name, lookup_options).await;
+        let lookup = Authority::get_nsec_records(self.as_ref(), name, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 }
