@@ -87,6 +87,7 @@ impl Query {
     }
 
     /// Create a new query from name and type, class defaults to IN
+    #[allow(clippy::self_named_constructors)]
     pub fn query(name: Name, query_type: RecordType) -> Self {
         Query {
             name,
