@@ -7,7 +7,7 @@
 
 use std::io;
 
-use log::info;
+use log::{debug, info};
 
 use crate::{
     authority::{
@@ -105,9 +105,9 @@ impl Authority for ForwardAuthority {
         _lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
         // TODO: make this an error?
-        assert!(self.origin.zone_of(name));
+        debug_assert!(self.origin.zone_of(name));
 
-        info!("forwarding lookup: {} {}", name, rtype);
+        debug!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
         let resolve = self.resolver.lookup(name, rtype, Default::default()).await;
 

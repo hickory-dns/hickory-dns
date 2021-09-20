@@ -11,19 +11,24 @@ use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::{net, task::JoinHandle};
+use trust_dns_client::op::{LowerQuery, Query};
 
-use crate::authority::MessageRequest;
-use crate::proto::error::ProtoError;
-use crate::proto::iocompat::AsyncIoTokioAsStd;
-use crate::proto::op::Edns;
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
-use crate::proto::serialize::binary::{BinDecodable, BinDecoder};
-use crate::proto::tcp::TcpStream;
-use crate::proto::udp::UdpStream;
-use crate::proto::xfer::SerialMessage;
-use crate::proto::BufDnsStreamHandle;
-use crate::server::{Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream};
+use crate::{
+    authority::MessageRequest,
+    proto::{
+        error::ProtoError,
+        iocompat::AsyncIoTokioAsStd,
+        op::Edns,
+        serialize::binary::{BinDecodable, BinDecoder},
+        tcp::TcpStream,
+        udp::UdpStream,
+        xfer::SerialMessage,
+        BufDnsStreamHandle,
+    },
+    server::{Protocol, Request, RequestHandler, ResponseHandle, ResponseHandler, TimeoutStream},
+};
 
 // TODO, would be nice to have a Slab for buffers here...
 
@@ -71,7 +76,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let stream_handle = stream_handle.with_remote_addr(src_addr);
 
                     tokio::spawn(async move {
-                        self::handle_raw_request(message, handler, stream_handle).await
+                        self::handle_raw_request(message, Protocol::Udp, handler, stream_handle)
+                            .await;
                     });
                 }
 
@@ -147,6 +153,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                             // we don't spawn here to limit clients from getting too many resources
                             self::handle_raw_request(
                                 message,
+                                Protocol::Tcp,
                                 handler.clone(),
                                 stream_handle.clone(),
                             )
@@ -408,6 +415,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                             self::handle_raw_request(
                                 message,
+                                Protocol::Tls,
                                 handler.clone(),
                                 stream_handle.clone(),
                             )
@@ -553,6 +561,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
 pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
+    protocol: Protocol,
     request_handler: Arc<Mutex<T>>,
     response_handler: BufDnsStreamHandle,
 ) {
@@ -566,7 +575,14 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
     let mut decoder = BinDecoder::new(message.bytes());
     match MessageRequest::read(&mut decoder) {
         Ok(message) => {
-            self::handle_request(message, src_addr, request_handler, response_handler).await
+            self::handle_request(
+                message,
+                src_addr,
+                protocol,
+                request_handler,
+                response_handler,
+            )
+            .await;
         }
         // FIXME: return the error and properly log it in handle_request?
         Err(e) => warn!("failed to handle message: {}", e),
@@ -576,31 +592,62 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
 pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message: MessageRequest,
     src_addr: SocketAddr,
+    protocol: Protocol,
     request_handler: Arc<Mutex<T>>,
     response_handler: R,
 ) {
-    let request = Request {
-        message,
-        src: src_addr,
-    };
+    let request = Request::new(message, src_addr, protocol);
 
-    info!(
-        "request: {} type: {:?} op_code: {:?} dnssec: {} {}",
-        request.message.id(),
-        request.message.message_type(),
-        request.message.op_code(),
-        request.message.edns().map_or(false, Edns::dnssec_ok),
-        request
-            .message
-            .queries()
-            .first()
-            .map(|q| q.original().to_string())
-            .unwrap_or_else(|| "empty_queries".to_string()),
+    let id = request.message.id();
+    let query = request.message.queries().first().map(LowerQuery::original);
+    let query_name: String = query
+        .map(Query::name)
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    let query_type = query
+        .map(Query::query_type)
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    let query_class = query
+        .map(Query::query_class)
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_default();
+    let qflags = request.message.header().flags();
+    let qop_code = request.message.op_code();
+
+    debug!(
+        "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
+        id = request.message.id(),
+        proto = protocol, addr = src_addr.ip(), port = src_addr.port(),
+        message_type= request.message.message_type(),
+        is_dnssec = request.message.edns().map_or(false, Edns::dnssec_ok),
+        op = qop_code,
+        query = query_name,
+        qtype = query_type,
+        class = query_class,
+        qflags = qflags,
     );
 
-    request_handler
+    let response_info = request_handler
         .lock()
         .await
         .handle_request(request, response_handler)
-        .await
+        .await;
+
+    let rid = response_info.id();
+    if id != rid {
+        warn!("request id:{} does not match response id:{}", id, rid);
+        debug_assert_eq!(id, rid, "request id and response id should match");
+    }
+
+    let rflags = response_info.flags();
+    let answer_count = response_info.answer_count();
+    let authority_count = response_info.name_server_count();
+    let additional_count = response_info.additional_count();
+    let response_code = response_info.response_code();
+
+    info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code} rr:{answers}/{authorities}/{additionals} rflags: {rflags}",
+        id = rid, proto = protocol, addr = src_addr.ip(), port = src_addr.port(), op = qop_code, query = query_name, qtype = query_type, class = query_class, qflags = qflags, code = response_code, answers = answer_count, authorities = authority_count, additionals = additional_count, rflags = rflags);
 }

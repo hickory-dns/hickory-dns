@@ -27,7 +27,7 @@ use crate::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
         rr::{LowerName, RecordType},
     },
-    server::{Request, RequestHandler, ResponseHandler},
+    server::{Request, RequestHandler, ResponseHandler, ResponseInfo},
 };
 
 /// Set of authorities, zones, available to this server.
@@ -41,7 +41,7 @@ async fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse<'_, '_>,
     mut response_handle: R,
-) -> io::Result<()> {
+) -> io::Result<ResponseInfo> {
     #[cfg(feature = "dnssec")]
     if let Some(mut resp_edns) = response_edns {
         // set edns DAU and DHU
@@ -72,7 +72,11 @@ impl RequestHandler for Catalog {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - sink for the response message to be sent
-    async fn handle_request<R: ResponseHandler>(&self, request: Request, mut response_handle: R) {
+    async fn handle_request<R: ResponseHandler>(
+        &self,
+        request: Request,
+        mut response_handle: R,
+    ) -> ResponseInfo {
         let request_message = request.message;
         trace!("request: {:?}", request_message);
 
@@ -105,10 +109,14 @@ impl RequestHandler for Catalog {
                 let result = response_handle
                     .send_response(response.build_no_records(response_header))
                     .await;
-                if let Err(e) = result {
-                    error!("request error: {}", e);
+
+                match result {
+                    Err(e) => {
+                        error!("request error: {}", e);
+                        return ResponseInfo::serve_failed();
+                    }
+                    Ok(info) => return info,
                 }
-                return;
             }
 
             response_edns = Some(resp_edns);
@@ -122,10 +130,11 @@ impl RequestHandler for Catalog {
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
                     debug!("query received: {}", request_message.id());
-                    self.lookup(request_message, response_edns, response_handle)
+                    let info = self
+                        .lookup(request_message, response_edns, response_handle)
                         .await;
 
-                    Ok(())
+                    Ok(info)
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request_message.id());
@@ -156,8 +165,12 @@ impl RequestHandler for Catalog {
             }
         };
 
-        if let Err(e) = result {
-            error!("request failed: {}", e);
+        match result {
+            Err(e) => {
+                error!("request failed: {}", e);
+                ResponseInfo::serve_failed()
+            }
+            Ok(info) => info,
         }
     }
 }
@@ -239,7 +252,7 @@ impl Catalog {
         update: &MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> io::Result<()> {
+    ) -> io::Result<ResponseInfo> {
         let zones: &[LowerQuery] = update.queries();
 
         // 2.3 - Zone Section
@@ -329,7 +342,7 @@ impl Catalog {
         request: MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) {
+    ) -> ResponseInfo {
         // find matching authorities for the request
         let queries_and_authorities = request
             .queries()
@@ -388,13 +401,18 @@ async fn lookup<R: ResponseHandler + Unpin>(
     request: MessageRequest,
     response_edns: Option<Edns>,
     response_handle: R,
-) {
+) -> ResponseInfo {
     // TODO: the spec is very unclear on what to do with multiple queries
     //  we will search for each, in the future, maybe make this threaded to respond even faster.
     //  the current impl will return on the first query result
+
+    // This will return the most recent response...
+    // FIXME: maybe we should move the response reporting into the ResponseHandler in some way?
+    let mut info: ResponseInfo = ResponseInfo::serve_failed();
+
     for (query_idx, authority) in queries_and_authorities {
         let query = &request.queries()[query_idx];
-        info!(
+        debug!(
             "request: {} found authority: {}",
             request.id(),
             authority.origin()
@@ -418,10 +436,17 @@ async fn lookup<R: ResponseHandler + Unpin>(
         );
 
         let result = send_response(response_edns.clone(), response, response_handle.clone()).await;
-        if let Err(e) = result {
-            error!("error sending response: {}", e);
+
+        match result {
+            Err(e) => {
+                error!("error sending response: {}", e);
+                info = ResponseInfo::serve_failed()
+            }
+            Ok(i) => info = i,
         }
     }
+
+    info
 }
 
 #[allow(unused_variables)]
