@@ -27,6 +27,16 @@ file = "default/0.zone"
 
 [[zones]]
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+zone = "example.com"
+
+## zone_type: Primary, Secondary, Hint, Forward
+zone_type = "Primary"
+
+## file: this is relative to the directory above
+file = "example.com.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
 ##  specifying something other than '.' here, will restrict this forwarder to only queries
 ##  where the search name is a subzone of the name, e.g. if zone is "example.com.", then
 ##  queries for "www.example.com" or "example.com" would be forwarded.

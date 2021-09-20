@@ -18,6 +18,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (server) Multiple queries in a message will always result in a FormError now #1554
 - (server) `ServerFuture` and other `Catalog` related API changes #1554
+- (server) By default, the server will now only log a single log line based for a given request (debug will be needed for more details) #1554
 - (server) `ResponseHandler` now must return a `ResponseInfo` to allow for more consistent logging #1554
 - (resolver) Correct behavior around trust_nx_responses (@peterthejohnston) #1556
 - (server) `ResponseHandler` trait is now `async_trait`, requires all impls to be annotated with `#[async_trait]` #1550
