@@ -16,7 +16,10 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use crate::{
     authority::{MessageRequest, MessageResponse},
     proto::{https::https_server, serialize::binary::BinDecodable},
-    server::{request_handler::RequestHandler, response_handler::ResponseHandler, server_future},
+    server::{
+        request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
+        Protocol, ResponseInfo,
+    },
 };
 
 pub(crate) async fn h2_handler<T, I>(
@@ -82,7 +85,7 @@ async fn handle_request<T>(
 
     debug!("received message: {:?}", message);
 
-    server_future::handle_request(message, src_addr, handler, responder).await
+    server_future::handle_request(message, src_addr, Protocol::Https, handler, responder).await
 }
 
 #[derive(Clone)]
@@ -90,16 +93,19 @@ struct HttpsResponseHandle(Arc<Mutex<::h2::server::SendResponse<Bytes>>>);
 
 #[async_trait::async_trait]
 impl ResponseHandler for HttpsResponseHandle {
-    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
+    async fn send_response(
+        &mut self,
+        response: MessageResponse<'_, '_>,
+    ) -> io::Result<ResponseInfo> {
         use crate::proto::https::response;
         use crate::proto::https::HttpsError;
         use crate::proto::serialize::binary::BinEncoder;
 
         let mut bytes = Vec::with_capacity(512);
         // mut block
-        {
+        let info = {
             let mut encoder = BinEncoder::new(&mut bytes);
-            response.destructive_emit(&mut encoder)?;
+            response.destructive_emit(&mut encoder)?
         };
         let bytes = Bytes::from(bytes);
         let response = response::new(bytes.len())?;
@@ -113,6 +119,6 @@ impl ResponseHandler for HttpsResponseHandle {
             .map_err(HttpsError::from)?;
         stream.send_data(bytes, true).map_err(HttpsError::from)?;
 
-        Ok(())
+        Ok(info)
     }
 }

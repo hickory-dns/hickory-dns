@@ -880,6 +880,10 @@ impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
 }
 
 /// Emits the different sections of a message properly
+///
+/// # Return
+///
+/// In the case of a successful emit, the final header (updated counts, etc) is returned for help with logging, etc.
 #[allow(clippy::too_many_arguments)]
 pub fn emit_message_parts<Q, A, N, D>(
     header: &Header,
@@ -890,7 +894,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     edns: Option<&Edns>,
     signature: &[Record],
     encoder: &mut BinEncoder<'_>,
-) -> ProtoResult<()>
+) -> ProtoResult<Header>
 where
     Q: EmitAndCount,
     A: EmitAndCount,
@@ -940,8 +944,9 @@ where
     let was_truncated =
         header.truncated() || answer_count.1 || nameserver_count.1 || additional_count.1;
 
-    place.replace(encoder, update_header_counts(header, was_truncated, counts))?;
-    Ok(())
+    let final_header = update_header_counts(header, was_truncated, counts);
+    place.replace(encoder, final_header)?;
+    Ok(final_header)
 }
 
 impl BinEncodable for Message {
@@ -955,7 +960,9 @@ impl BinEncodable for Message {
             self.edns.as_ref(),
             &self.signature,
             encoder,
-        )
+        )?;
+
+        Ok(())
     }
 }
 

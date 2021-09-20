@@ -293,7 +293,9 @@ impl BinEncodable for MessageRequest {
             self.edns.as_ref(),
             &self.sig0,
             encoder,
-        )
+        )?;
+
+        Ok(())
     }
 }
 

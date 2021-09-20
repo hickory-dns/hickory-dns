@@ -16,7 +16,7 @@
 
 //! Operation code for queries, updates, and responses
 
-use std::convert::From;
+use std::{convert::From, fmt};
 
 use crate::error::*;
 
@@ -51,6 +51,19 @@ pub enum OpCode {
 
     /// Update message [RFC 2136](https://tools.ietf.org/html/rfc2136)
     Update,
+}
+
+impl fmt::Display for OpCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let s = match self {
+            OpCode::Query => "QUERY",
+            OpCode::Status => "STATUS",
+            OpCode::Notify => "NOTIFY",
+            OpCode::Update => "UPDATE",
+        };
+
+        write!(f, "{}", s)
+    }
 }
 
 /// Convert from `OpCode` to `u8`

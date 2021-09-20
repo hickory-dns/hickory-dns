@@ -26,6 +26,8 @@ use trust_dns_proto::TokioTime;
 use trust_dns_proto::{error::ProtoError, BufDnsStreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
+use trust_dns_server::server::Protocol;
+use trust_dns_server::server::ResponseInfo;
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
 
 pub mod authority;
@@ -98,15 +100,18 @@ impl TestResponseHandler {
 
 #[async_trait::async_trait]
 impl ResponseHandler for TestResponseHandler {
-    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
+    async fn send_response(
+        &mut self,
+        response: MessageResponse<'_, '_>,
+    ) -> io::Result<ResponseInfo> {
         let buf = &mut self.buf.lock().unwrap();
         buf.clear();
         let mut encoder = BinEncoder::new(buf);
-        response
+        let info = response
             .destructive_emit(&mut encoder)
             .expect("could not encode");
         self.message_ready.store(true, Ordering::Release);
-        Ok(())
+        Ok(info)
     }
 }
 
@@ -137,10 +142,7 @@ impl Stream for TestClientStream {
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
-                let request = Request {
-                    message,
-                    src: src_addr,
-                };
+                let request = Request::new(message, src_addr, Protocol::Udp);
 
                 let response_handler = TestResponseHandler::new();
                 block_on(

@@ -12,6 +12,7 @@ use crate::proto::op::message::EmitAndCount;
 use crate::proto::op::{message, Edns, Header, ResponseCode};
 use crate::proto::rr::Record;
 use crate::proto::serialize::binary::BinEncoder;
+use crate::server::ResponseInfo;
 
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
@@ -79,7 +80,7 @@ where
     }
 
     /// Consumes self, and emits to the encoder.
-    pub fn destructive_emit(mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+    pub fn destructive_emit(mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<ResponseInfo> {
         // soa records are part of the nameserver section
         let mut name_servers = self.name_servers.chain(self.soa);
 
@@ -93,6 +94,7 @@ where
             &self.sig0,
             encoder,
         )
+        .map(Into::into)
     }
 }
 
