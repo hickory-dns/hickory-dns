@@ -1,33 +1,23 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Basic protocol message for DNS
 
-use std::iter;
-use std::mem;
-use std::ops::Deref;
-use std::sync::Arc;
+use std::{iter, mem, ops::Deref, sync::Arc};
 
 use log::{debug, warn};
 
-use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
-use crate::error::*;
-use crate::rr::{Record, RecordType};
-use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
-use crate::xfer::DnsResponse;
+use crate::{
+    error::*,
+    op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
+    rr::{Record, RecordType},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
+    xfer::DnsResponse,
+};
 
 /// The basic request and response datastructure, used for all DNS protocols.
 ///

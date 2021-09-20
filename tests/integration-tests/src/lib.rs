@@ -1,34 +1,39 @@
 #![allow(dead_code)]
 #![allow(clippy::dbg_macro)]
 
-use std::fmt;
-use std::io;
-use std::mem;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
+use std::{
+    fmt, io, mem,
+    net::SocketAddr,
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    task::{Context, Poll},
+};
 
-use futures::stream::{Stream, StreamExt};
-use futures::{future, Future, FutureExt};
+use futures::{
+    future,
+    stream::{Stream, StreamExt},
+    Future, FutureExt,
+};
 use tokio::time::{Duration, Instant, Sleep};
 
-use trust_dns_client::client::ClientConnection;
-use trust_dns_client::client::Signer;
-use trust_dns_client::error::ClientResult;
-use trust_dns_client::op::*;
-use trust_dns_client::serialize::binary::*;
-use trust_dns_proto::xfer::{
-    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver,
+use trust_dns_client::{
+    client::{ClientConnection, Signer},
+    error::ClientResult,
+    op::*,
+    serialize::binary::*,
 };
-use trust_dns_proto::TokioTime;
-use trust_dns_proto::{error::ProtoError, BufDnsStreamHandle};
-
-use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
-use trust_dns_server::server::Protocol;
-use trust_dns_server::server::ResponseInfo;
-use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
+use trust_dns_proto::{
+    error::ProtoError,
+    xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
+    BufDnsStreamHandle, TokioTime,
+};
+use trust_dns_server::{
+    authority::{Catalog, MessageRequest, MessageResponse},
+    server::{Protocol, Request, RequestHandler, ResponseHandler, ResponseInfo},
+};
 
 pub mod authority;
 pub mod mock_client;
