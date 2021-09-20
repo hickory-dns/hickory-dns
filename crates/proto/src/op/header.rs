@@ -9,10 +9,11 @@
 
 use std::{convert::From, fmt};
 
-use super::op_code::OpCode;
-use super::response_code::ResponseCode;
-use crate::error::*;
-use crate::serialize::binary::*;
+use crate::{
+    error::*,
+    op::{op_code::OpCode, response_code::ResponseCode},
+    serialize::binary::*,
+};
 
 /// Metadata for the `Message` struct.
 ///

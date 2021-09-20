@@ -1,20 +1,20 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
-use std::net::SocketAddr;
+use std::{io, net::SocketAddr};
 
 use log::debug;
 
-use crate::authority::MessageResponse;
-use crate::client::serialize::binary::BinEncoder;
-use crate::proto::xfer::SerialMessage;
-use crate::proto::{BufDnsStreamHandle, DnsStreamHandle};
-use crate::server::ResponseInfo;
+use crate::{
+    authority::MessageResponse,
+    client::serialize::binary::BinEncoder,
+    proto::{xfer::SerialMessage, BufDnsStreamHandle, DnsStreamHandle},
+    server::ResponseInfo,
+};
 
 /// A handler for send a response to a client
 #[async_trait::async_trait]
