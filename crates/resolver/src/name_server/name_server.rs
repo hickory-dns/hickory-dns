@@ -139,15 +139,9 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
 
         match response {
             Ok(response) => {
-                // first we'll evaluate if the message succeeded
-                //   see https://github.com/bluejekyll/trust-dns/issues/606
-                //   TODO: there are probably other return codes from the server we may want to
-                //    retry on. We may also want to evaluate NoError responses that lack records as errors as well
-                let response = if self.config.trust_nx_responses {
-                    ResolveError::from_response(response, self.config.trust_nx_responses)?
-                } else {
-                    response
-                };
+                // First evaluate if the message succeeded.
+                let response =
+                    ResolveError::from_response(response, self.config.trust_nx_responses)?;
 
                 // TODO: consider making message::take_edns...
                 let remote_edns = response.edns().cloned();
