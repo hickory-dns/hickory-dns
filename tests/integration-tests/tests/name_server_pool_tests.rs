@@ -262,95 +262,53 @@ fn test_local_mdns() {
 }
 
 #[test]
-fn test_trust_nx_responses_fails_servfail() {
+fn test_trust_nx_responses_fails() {
     use trust_dns_proto::op::ResponseCode;
-
-    let options = ResolverOpts::default();
+    use trust_dns_resolver::error::ResolveErrorKind;
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
-    let mut servfail_message = message(query.clone(), vec![], vec![], vec![]);
-    servfail_message.set_response_code(ResponseCode::ServFail);
-    let servfail_message = Ok(servfail_message);
+    let mut nx_message = message(query.clone(), vec![], vec![], vec![]);
+    nx_message.set_response_code(ResponseCode::NXDomain);
 
-    let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let success_msg = message(query.clone(), vec![v4_record], vec![], vec![]);
-
-    let tcp_message = success_msg.clone();
-    let udp_message = success_msg;
-
-    // fail the first udp request
-    let udp_nameserver = mock_nameserver_trust_nx(
-        vec![
-            Ok(udp_message.into()),
-            servfail_message.clone().map(Into::into),
-        ],
-        options,
-        false,
-    );
-    let tcp_nameserver = mock_nameserver_trust_nx(
-        vec![Err(ResolveError::from("Forced Testing Error"))],
-        options,
-        false,
+    let success_msg = message(
+        query.clone(),
+        vec![v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2))],
+        vec![],
+        vec![],
     );
 
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
+    // Fail the first UDP request.
+    let fail_nameserver =
+        mock_nameserver_trust_nx(vec![Ok(nx_message.into())], ResolverOpts::default(), true);
+    let succeed_nameserver =
+        mock_nameserver_trust_nx(vec![Ok(success_msg.into())], ResolverOpts::default(), true);
 
-    // lookup on UDP succeeds, any other would fail
-    let request = message(query.clone(), vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
+    let mut pool = mock_nameserver_pool(
+        vec![fail_nameserver, succeed_nameserver],
+        vec![],
+        None,
+        ResolverOpts::default(),
+    );
 
-    let response = block_on(future).unwrap();
-    assert!(response.response_code() == ResponseCode::ServFail);
-
-    // fail all udp succeed tcp
-    let udp_nameserver = mock_nameserver(vec![servfail_message.map(Into::into)], options);
-    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], options);
-
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
-
+    // Lookup on UDP should fail, since we trust nx responses.
+    // (If we retried the query with the second name server, we'd see a successful response.)
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
-
-    let response = block_on(future).unwrap();
-    assert!(response.response_code() == ResponseCode::ServFail);
+    let response = block_on(future).expect_err("lookup request should fail with NXDOMAIN");
+    match response.kind() {
+        ResolveErrorKind::NoRecordsFound { response_code, .. }
+            if *response_code == ResponseCode::NXDomain => {}
+        kind => panic!(
+            "got unexpected kind of resolve error; expected `NoRecordsFound` error with NXDOMAIN,
+            got {:#?}",
+            kind,
+        ),
+    }
 }
 
 #[test]
 fn test_distrust_nx_responses() {
-    use trust_dns_proto::op::ResponseCode;
-
-    let options = ResolverOpts::default();
-
-    let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
-
-    let mut servfail_message = message(query.clone(), vec![], vec![], vec![]);
-    servfail_message.set_response_code(ResponseCode::ServFail);
-    let servfail_message = Ok(servfail_message);
-
-    let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let success_msg = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
-
-    let tcp_message = success_msg;
-    //let udp_message = success_msg;
-
-    // fail the first udp request
-    let udp_nameserver =
-        mock_nameserver_trust_nx(vec![servfail_message.map(Into::into)], options, true);
-    let tcp_nameserver = mock_nameserver_trust_nx(vec![Ok(tcp_message.into())], options, true);
-
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
-
-    // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]);
-    let future = pool.send(request).first_answer();
-
-    let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], v4_record);
-}
-
-#[test]
-fn test_retry_on_error_response() {
     use trust_dns_proto::op::ResponseCode;
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
@@ -366,7 +324,7 @@ fn test_retry_on_error_response() {
         ResponseCode::NotAuth,
         ResponseCode::NotZone,
     ];
-    // Return an error response code, and have the client trust that response.
+    // Return an error response code, but have the client not trust that response.
     let error_nameserver = mock_nameserver_trust_nx(
         RETRYABLE_ERRORS
             .iter()
@@ -377,15 +335,16 @@ fn test_retry_on_error_response() {
             })
             .collect(),
         ResolverOpts::default(),
-        true,
+        false,
     );
 
     // Return a successful response on the fallback request.
     let v4_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let success_message = message(query.clone(), vec![v4_record.clone()], vec![], vec![]);
-    let fallback_nameserver = mock_nameserver(
+    let fallback_nameserver = mock_nameserver_trust_nx(
         vec![Ok(success_message.into()); RETRYABLE_ERRORS.len()],
         ResolverOpts::default(),
+        false,
     );
 
     let mut pool = mock_nameserver_pool(

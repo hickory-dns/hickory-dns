@@ -25,7 +25,8 @@ pub struct MockClientHandle<O: OnSend, E> {
 }
 
 impl<E> MockClientHandle<DefaultOnSend, E> {
-    /// constructs a new MockClient which returns each Message one after the other
+    /// constructs a new MockClient which returns each Message one after the other (messages are
+    /// popped off the back of `messages`, so they are sent in reverse order).
     pub fn mock(messages: Vec<Result<DnsResponse, E>>) -> Self {
         println!("MockClientHandle::mock message count: {}", messages.len());
 
@@ -37,7 +38,8 @@ impl<E> MockClientHandle<DefaultOnSend, E> {
 }
 
 impl<O: OnSend, E> MockClientHandle<O, E> {
-    /// constructs a new MockClient which returns each Message one after the other
+    /// constructs a new MockClient which returns each Message one after the other (messages are
+    /// popped off the back of `messages`, so they are sent in reverse order).
     pub fn mock_on_send(messages: Vec<Result<DnsResponse, E>>, on_send: O) -> Self {
         println!(
             "MockClientHandle::mock_on_send message count: {}",
