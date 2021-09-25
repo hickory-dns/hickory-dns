@@ -127,7 +127,7 @@ impl fmt::Display for Flags {
             write!(f, "{}AD", insert_separator)?
         }
 
-        write!(f, ";")
+        Ok(())
     }
 }
 
