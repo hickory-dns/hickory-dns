@@ -648,6 +648,6 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     let additional_count = response_info.additional_count();
     let response_code = response_info.response_code();
 
-    info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code} rr:{answers}/{authorities}/{additionals} rflags: {rflags}",
+    info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
         id = rid, proto = protocol, addr = src_addr.ip(), port = src_addr.port(), op = qop_code, query = query_name, qtype = query_type, class = query_class, qflags = qflags, code = response_code, answers = answer_count, authorities = authority_count, additionals = additional_count, rflags = rflags);
 }
