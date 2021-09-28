@@ -1738,6 +1738,7 @@ dependencies = [
 name = "trust-dns-resolver"
 version = "0.21.0-alpha.4"
 dependencies = [
+ "async-trait",
  "cfg-if",
  "env_logger",
  "futures-executor",

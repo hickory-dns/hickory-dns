@@ -6,20 +6,34 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::io;
-use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use async_trait::async_trait;
-use futures_util::stream::Stream;
-use futures_util::{future::Future, ready, TryFutureExt};
+use futures_util::{future::Future, ready, stream::Stream, TryFutureExt};
 use log::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
+
+/// Trait for binding client UDP sockets.
+#[async_trait]
+pub trait UdpSocketBinder
+where
+    Self: Send + Sync + Sized + Clone + Unpin,
+{
+    /// Time implementation used for this type
+    type Time: Time;
+    /// Type of socket that would be bound by the trait implementation. E.g. for tokio, it would be
+    /// `tokio::net::UdpSocket`.
+    type Socket: UdpSocket + Send + 'static;
+
+    /// Bind an UDP socket to the given socket address.
+    async fn bind(&self, addr: SocketAddr) -> io::Result<Self::Socket>;
+}
 
 /// Trait for UdpSocket
 #[async_trait]
@@ -29,9 +43,6 @@ where
 {
     /// Time implementation used for this type
     type Time: Time;
-
-    /// UdpSocket
-    async fn bind(addr: SocketAddr) -> io::Result<Self>;
 
     /// Poll once Receive data from the socket and returns the number of bytes read and the address from
     /// where the data came on success.
@@ -77,6 +88,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     /// # Arguments
     ///
     /// * `remote_addr` - socket address for the remote connection (used to determine IPv4 or IPv6)
+    /// * `socket` - underlying UDP socket
     ///
     /// # Return
     ///
@@ -85,15 +97,52 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     #[allow(clippy::type_complexity)]
     pub fn new(
         remote_addr: SocketAddr,
+        socket: S,
     ) -> (
         Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
 
+        (
+            Box::new(Box::pin(async move {
+                Ok(UdpStream {
+                    outbound_messages,
+                    socket,
+                })
+            })),
+            message_sender,
+        )
+    }
+
+    /// Create a new UDP socket for client connections trying to reach the specified remote address
+    /// with the supplied binder.
+    ///
+    /// # Arguments
+    ///
+    /// * `remote_addr` - socket address for the remote connection (used to determine IPv4 or IPv6)
+    /// * `binder` - socket binder for creating the UDP socket.
+    ///
+    /// # Return
+    ///
+    /// a tuple of a Future Stream which will handle sending and receiving messages, and a
+    ///  handle which can be used to send messages into the stream.
+    #[allow(clippy::type_complexity)]
+    pub fn with_binder<B>(
+        remote_addr: SocketAddr,
+        binder: B,
+    ) -> (
+        Box<dyn Future<Output = Result<UdpStream<B::Socket>, io::Error>> + Send + Unpin>,
+        BufDnsStreamHandle,
+    )
+    where
+        B: UdpSocketBinder<Socket = S> + Send + 'static,
+    {
+        let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
+
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
-        let next_socket = NextRandomUdpSocket::new(&remote_addr);
+        let next_socket = NextRandomUdpSocket::new(&remote_addr, binder);
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
@@ -182,14 +231,14 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
 }
 
 #[must_use = "futures do nothing unless polled"]
-pub(crate) struct NextRandomUdpSocket<S> {
+pub(crate) struct NextRandomUdpSocket<S: UdpSocketBinder> {
     bind_address: IpAddr,
-    marker: PhantomData<S>,
+    binder: S,
 }
 
-impl<S: UdpSocket> NextRandomUdpSocket<S> {
+impl<S: UdpSocketBinder> NextRandomUdpSocket<S> {
     /// Creates a future for randomly binding to a local socket address for client connections.
-    pub(crate) fn new(name_server: &SocketAddr) -> NextRandomUdpSocket<S> {
+    pub(crate) fn new(name_server: &SocketAddr, binder: S) -> NextRandomUdpSocket<S> {
         let zero_addr: IpAddr = match *name_server {
             SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
             SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
@@ -197,17 +246,17 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
 
         NextRandomUdpSocket {
             bind_address: zero_addr,
-            marker: PhantomData,
+            binder,
         }
     }
 
-    async fn bind(zero_addr: SocketAddr) -> Result<S, io::Error> {
-        S::bind(zero_addr).await
+    async fn bind(&self, addr: SocketAddr) -> Result<S::Socket, io::Error> {
+        self.binder.bind(addr).await
     }
 }
 
-impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
-    type Output = Result<S, io::Error>;
+impl<S: UdpSocketBinder> Future for NextRandomUdpSocket<S> {
+    type Output = Result<S::Socket, io::Error>;
 
     /// polls until there is an available next random UDP port.
     ///
@@ -226,7 +275,7 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 
             // TODO: allow TTL to be adjusted...
             // TODO: this immediate poll might be wrong in some cases...
-            match Box::pin(Self::bind(zero_addr)).as_mut().poll(cx) {
+            match Box::pin(self.bind(zero_addr)).as_mut().poll(cx) {
                 Poll::Ready(Ok(socket)) => {
                     debug!("created socket successfully");
                     return Poll::Ready(Ok(socket));
@@ -248,14 +297,26 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
     }
 }
 
+/// A socket binder for the tokio runtime.
+#[cfg(feature = "tokio-runtime")]
+#[derive(Clone, Copy, Default)]
+pub struct TokioUdpBinder;
+
+#[cfg(feature = "tokio-runtime")]
+#[async_trait]
+impl UdpSocketBinder for TokioUdpBinder {
+    type Time = crate::TokioTime;
+    type Socket = tokio::net::UdpSocket;
+
+    async fn bind(&self, addr: SocketAddr) -> io::Result<Self::Socket> {
+        tokio::net::UdpSocket::bind(addr).await
+    }
+}
+
 #[cfg(feature = "tokio-runtime")]
 #[async_trait]
 impl UdpSocket for tokio::net::UdpSocket {
     type Time = crate::TokioTime;
-
-    async fn bind(addr: SocketAddr) -> io::Result<Self> {
-        tokio::net::UdpSocket::bind(addr).await
-    }
 
     fn poll_recv_from(
         &self,
@@ -282,23 +343,24 @@ impl UdpSocket for tokio::net::UdpSocket {
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
+    use super::TokioUdpBinder;
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
-    use tokio::{net::UdpSocket as TokioUdpSocket, runtime::Runtime};
+    use tokio::runtime::Runtime;
 
     #[test]
     fn test_next_random_socket() {
         use crate::tests::next_random_socket_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        next_random_socket_test::<TokioUdpSocket, Runtime>(io_loop)
+        next_random_socket_test::<TokioUdpBinder, Runtime>(io_loop)
     }
 
     #[test]
     fn test_udp_stream_ipv4() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        io_loop.block_on(udp_stream_test::<TokioUdpSocket>(IpAddr::V4(
+        io_loop.block_on(udp_stream_test::<TokioUdpBinder>(IpAddr::V4(
             Ipv4Addr::new(127, 0, 0, 1),
         )));
     }
@@ -308,7 +370,7 @@ mod tests {
     fn test_udp_stream_ipv6() {
         use crate::tests::udp_stream_test;
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        io_loop.block_on(udp_stream_test::<TokioUdpSocket>(IpAddr::V6(
+        io_loop.block_on(udp_stream_test::<TokioUdpBinder>(IpAddr::V6(
             Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
         )));
     }

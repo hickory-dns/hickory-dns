@@ -78,12 +78,12 @@
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns_proto::DnsStreamHandle;
+//! use trust_dns_client::proto::{DnsStreamHandle, udp::TokioUdpBinder};
 //! use trust_dns_client::client::{Client, ClientConnection, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
-//! let conn = UdpClientConnection::new(address).unwrap();
+//! let conn = UdpClientConnection::new(address, TokioUdpBinder).unwrap();
 //!
 //! // and then create the Client
 //! let client = SyncClient::new(conn);
@@ -100,11 +100,12 @@
 //! use std::str::FromStr;
 //! # use trust_dns_client::client::{Client, SyncClient};
 //! # use trust_dns_client::udp::UdpClientConnection;
+//! # use trust_dns_client::proto::udp::TokioUdpBinder;
 //! use trust_dns_client::op::DnsResponse;
 //! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
-//! # let conn = UdpClientConnection::new(address).unwrap();
+//! # let conn = UdpClientConnection::new(address, TokioUdpBinder).unwrap();
 //! # let client = SyncClient::new(conn);
 //!
 //! // Specify the name, note the final '.' which specifies it's an FQDN
@@ -154,13 +155,14 @@
 //! use openssl::rsa::Rsa;
 //! use trust_dns_client::client::{Client, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
+//! use trust_dns_client::proto::udp::TokioUdpBinder;
 //! use trust_dns_client::rr::{Name, RData, Record, RecordType};
 //! use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, KeyPair};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
 //!
 //! # let address = "0.0.0.0:53".parse().unwrap();
-//! # let conn = UdpClientConnection::new(address).unwrap();
+//! # let conn = UdpClientConnection::new(address, TokioUdpBinder).unwrap();
 //!
 //! // The format of the key is dependent on the KeyPair type, in this example we're using RSA
 //! //  if the key was generated with BIND, the binary in Trust-DNS client lib `dnskey-to-pem`

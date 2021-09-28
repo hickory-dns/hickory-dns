@@ -19,17 +19,11 @@ use trust_dns_resolver::proto::udp::UdpSocket;
 
 use crate::time::AsyncStdTime;
 
-pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
+pub struct AsyncStdUdpSocket(pub(crate) async_std::net::UdpSocket);
 
 #[async_trait]
 impl UdpSocket for AsyncStdUdpSocket {
     type Time = AsyncStdTime;
-
-    async fn bind(addr: SocketAddr) -> io::Result<Self> {
-        async_std::net::UdpSocket::bind(addr)
-            .await
-            .map(AsyncStdUdpSocket)
-    }
 
     fn poll_recv_from(
         &self,

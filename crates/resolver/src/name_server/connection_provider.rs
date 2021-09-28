@@ -36,8 +36,9 @@ use proto::{
     tcp::Connect,
     tcp::TcpClientConnect,
     tcp::TcpClientStream,
+    tcp::TcpConnector,
     udp::UdpClientConnect,
-    udp::{UdpClientStream, UdpSocket},
+    udp::{UdpClientStream, UdpSocket, UdpSocketBinder},
     xfer::{
         DnsExchange, DnsExchangeConnect, DnsExchangeSend, DnsHandle, DnsMultiplexer,
         DnsMultiplexerConnect, DnsRequest, DnsResponse,
@@ -72,7 +73,12 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync + Unpin {
 /// RuntimeProvider defines which async runtime that handles IO and timers.
 pub trait RuntimeProvider: Clone + 'static {
     /// Handle to the executor;
-    type Handle: Clone + Send + Spawn + Sync + Unpin;
+    type Handle: Clone
+        + Send
+        + Spawn
+        + Sync
+        + Unpin
+        + UdpSocketBinder<Time = Self::Timer, Socket = Self::Udp>;
 
     /// Timer
     type Timer: Time + Send + Unpin;
@@ -119,8 +125,11 @@ where
     ) -> Self::FutureConn {
         let dns_connect = match config.protocol {
             Protocol::Udp => {
-                let stream =
-                    UdpClientStream::<R::Udp>::with_timeout(config.socket_addr, options.timeout);
+                let stream = UdpClientStream::<R::Handle>::with_timeout(
+                    config.socket_addr,
+                    options.timeout,
+                    self.0.clone(),
+                );
                 let exchange = DnsExchange::connect(stream);
                 ConnectionConnect::Udp(exchange)
             }
@@ -212,7 +221,7 @@ type TlsClientStream<S> =
 /// The variants of all supported connections for the Resolver
 #[allow(clippy::large_enum_variant, clippy::type_complexity)]
 pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
-    Udp(DnsExchangeConnect<UdpClientConnect<R::Udp>, UdpClientStream<R::Udp>, R::Timer>),
+    Udp(DnsExchangeConnect<UdpClientConnect<R::Handle>, UdpClientStream<R::Handle>, R::Timer>),
     Tcp(
         DnsExchangeConnect<
             DnsMultiplexerConnect<
@@ -342,6 +351,16 @@ pub mod tokio_runtime {
             F: Future<Output = Result<(), ProtoError>> + Send + 'static,
         {
             let _join = tokio::spawn(future);
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl UdpSocketBinder for TokioHandle {
+        type Time = TokioTime;
+        type Socket = TokioUdpSocket;
+
+        async fn bind(&self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
+            TokioUdpSocket::bind(addr).await
         }
     }
 

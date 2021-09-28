@@ -3,15 +3,19 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use futures_util::stream::StreamExt;
 use log::debug;
 
-use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
+use crate::udp::{UdpClientStream, UdpSocketBinder, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::FirstAnswer;
 use crate::{Executor, Time};
 
 /// Test next random udpsocket.
-pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut exec: E) {
-    let (stream, _) =
-        UdpStream::<S>::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
+pub fn next_random_socket_test<S: UdpSocketBinder + Default + Send + 'static, E: Executor>(
+    mut exec: E,
+) {
+    let (stream, _) = UdpStream::<S::Socket>::with_binder::<S>(
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52),
+        Default::default(),
+    );
     drop(
         exec.block_on(stream)
             .expect("failed to get next socket address"),
@@ -19,7 +23,7 @@ pub fn next_random_socket_test<S: UdpSocket + Send + 'static, E: Executor>(mut e
 }
 
 /// Test udp_stream.
-pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr) {
+pub async fn udp_stream_test<B: UdpSocketBinder + Default + Send + 'static>(server_addr: IpAddr) {
     use crate::xfer::SerialMessage;
     use std::net::ToSocketAddrs;
 
@@ -85,13 +89,15 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
+    let binder: B = Default::default();
     println!("binding client socket");
-    let socket = S::bind(client_addr.to_socket_addrs().unwrap().next().unwrap())
+    let socket = binder
+        .bind(client_addr.to_socket_addrs().unwrap().next().unwrap())
         .await
         .expect("could not create socket"); // some random address...
     println!("bound client socket");
 
-    let (mut stream, mut sender) = UdpStream::<S>::with_bound(socket, server_addr);
+    let (mut stream, mut sender) = UdpStream::<B::Socket>::with_bound(socket, server_addr);
 
     for _i in 0..send_recv_times {
         // test once
@@ -112,9 +118,10 @@ pub async fn udp_stream_test<S: UdpSocket + Send + 'static>(server_addr: IpAddr)
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Time>(
+pub fn udp_client_stream_test<S: UdpSocketBinder + Send + 'static, E: Executor, TE: Time>(
     server_addr: IpAddr,
     mut exec: E,
+    binder: S,
 ) {
     use crate::op::{Message, Query};
     use crate::rr::rdata::NULL;
@@ -203,7 +210,7 @@ pub fn udp_client_stream_test<S: UdpSocket + Send + 'static, E: Executor, TE: Ti
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
-    let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500));
+    let stream = UdpClientStream::with_timeout(server_addr, Duration::from_millis(500), binder);
     let mut stream: UdpClientStream<S> = exec.block_on(stream).ok().unwrap();
     let mut worked_once = false;
 
