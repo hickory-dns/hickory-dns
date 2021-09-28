@@ -16,6 +16,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) Correct behavior around trust_nx_responses (@peterthejohnston) #1556
 - (server) `ResponseHandler` trait is now `async_trait`, requires all impls to be annotated with `#[async_trait]` #1550
 - (server) `Authority` impls required to be internally modifiable and `Send + Sync` #1550
 - (server) Most `Authority` methods changes to `async fn` rather than returning custom `Future` impls #1550
