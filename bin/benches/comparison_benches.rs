@@ -15,8 +15,6 @@ use std::time::Duration;
 
 use futures::Future;
 use test::Bencher;
-use tokio::net::TcpStream;
-use tokio::net::UdpSocket;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
@@ -25,8 +23,9 @@ use trust_dns_client::rr::*;
 use trust_dns_client::tcp::*;
 use trust_dns_client::udp::*;
 use trust_dns_proto::error::*;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::op::NoopMessageFinalizer;
+use trust_dns_proto::tcp::TokioTcpConnector;
+use trust_dns_proto::udp::TokioUdpBinder;
 use trust_dns_proto::xfer::*;
 
 fn find_test_port() -> u16 {
@@ -56,7 +55,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             .unwrap()
             .next()
             .unwrap();
-        let stream = UdpClientStream::<UdpSocket>::new(addr);
+        let stream = UdpClientStream::new(addr, TokioUdpBinder);
         let client = AsyncClient::connect(stream);
         let (mut client, bg) = io_loop.block_on(client).expect("failed to create client");
         io_loop.spawn(bg);
@@ -153,7 +152,7 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::<UdpSocket>::new(addr);
+    let stream = UdpClientStream::new(addr, TokioUdpBinder);
     bench(b, stream);
 
     // cleaning up the named process
@@ -170,7 +169,7 @@ fn trust_dns_udp_bench_prof(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::<UdpSocket>::new(addr);
+    let stream = UdpClientStream::new(addr, TokioUdpBinder);
     bench(b, stream);
 }
 
@@ -183,7 +182,7 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, TokioTcpConnector);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
     bench(b, mp);
 
@@ -241,7 +240,7 @@ fn bind_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::<UdpSocket>::new(addr);
+    let stream = UdpClientStream::new(addr, TokioUdpBinder);
     bench(b, stream);
 
     // cleaning up the named process
@@ -258,7 +257,7 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, TokioTcpConnector);
     let mp = DnsMultiplexer::new(stream, sender, None::<Arc<NoopMessageFinalizer>>);
     bench(b, mp);
 

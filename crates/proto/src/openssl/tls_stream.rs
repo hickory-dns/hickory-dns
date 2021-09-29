@@ -5,10 +5,10 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::{future::Future, marker::PhantomData};
 
 use futures_util::{future, TryFutureExt};
 use openssl::pkcs12::ParsedPkcs12;
@@ -20,8 +20,7 @@ use openssl::x509::{X509Ref, X509};
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::Connect;
-use crate::tcp::TcpStream;
+use crate::tcp::{DnsTcpStream, TcpConnector, TcpStream};
 use crate::xfer::BufDnsStreamHandle;
 
 pub(crate) trait TlsIdentityExt {
@@ -116,7 +115,7 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_stream_from_existing_tls_stream<S: Connect>(
+pub fn tls_stream_from_existing_tls_stream<S: DnsTcpStream>(
     stream: AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>,
     peer_addr: SocketAddr,
 ) -> (CompatTlsStream<S>, BufDnsStreamHandle) {
@@ -125,12 +124,13 @@ pub fn tls_stream_from_existing_tls_stream<S: Connect>(
     (stream, message_sender)
 }
 
-async fn connect_tls<S: Connect>(
+async fn connect_tls<S: TcpConnector>(
     tls_config: ConnectConfiguration,
     dns_name: String,
     name_server: SocketAddr,
-) -> Result<TokioTlsStream<AsyncIoStdAsTokio<S>>, io::Error> {
-    let tcp = S::connect(name_server).await.map_err(|e| {
+    connector: S,
+) -> Result<TokioTlsStream<AsyncIoStdAsTokio<S::Socket>>, io::Error> {
+    let tcp = connector.connect(name_server).await.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
@@ -154,16 +154,16 @@ async fn connect_tls<S: Connect>(
 pub struct TlsStreamBuilder<S> {
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12>,
-    marker: PhantomData<S>,
+    connector: S,
 }
 
-impl<S: Connect> TlsStreamBuilder<S> {
+impl<S: TcpConnector> TlsStreamBuilder<S> {
     /// A builder for associating trust information to the `TlsStream`.
-    pub fn new() -> Self {
+    pub fn new(connector: S) -> Self {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
-            marker: PhantomData,
+            connector,
         }
     }
 
@@ -211,7 +211,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<CompatTlsStream<S>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<CompatTlsStream<S::Socket>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -248,7 +248,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream = Box::pin(
-            connect_tls(tls_config, dns_name, name_server).map_ok(move |s| {
+            connect_tls(tls_config, dns_name, name_server, self.connector).map_ok(move |s| {
                 TcpStream::from_stream_with_receiver(
                     AsyncIoTokioAsStd(s),
                     name_server,

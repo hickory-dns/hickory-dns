@@ -19,7 +19,9 @@ mod tcp_client_stream;
 mod tcp_stream;
 
 pub use self::tcp_client_stream::{TcpClientConnect, TcpClientStream};
-pub use self::tcp_stream::{Connect, DnsTcpStream, TcpStream};
+#[cfg(feature = "tokio-runtime")]
+pub use self::tcp_stream::TokioTcpConnector;
+pub use self::tcp_stream::{DnsTcpStream, TcpConnector, TcpStream};
 
 #[cfg(feature = "tokio-runtime")]
 #[doc(hidden)]

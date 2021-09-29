@@ -12,7 +12,7 @@ use crate::{Executor, Time};
 pub fn next_random_socket_test<S: UdpSocketBinder + Default + Send + 'static, E: Executor>(
     mut exec: E,
 ) {
-    let (stream, _) = UdpStream::<S::Socket>::with_binder::<S>(
+    let (stream, _) = UdpStream::with_binder::<S>(
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52),
         Default::default(),
     );

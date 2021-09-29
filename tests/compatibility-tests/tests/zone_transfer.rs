@@ -40,7 +40,8 @@ macro_rules! assert_serial {
 fn test_zone_transfer() {
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = TcpClientConnection::new(socket).unwrap();
+    let conn =
+        TcpClientConnection::new(socket, trust_dns_client::proto::tcp::TokioTcpConnector).unwrap();
     let client = SyncClient::new(conn);
 
     let name = Name::from_str("example.net.").unwrap();

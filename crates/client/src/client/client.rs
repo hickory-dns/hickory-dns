@@ -624,8 +624,10 @@ fn assert_send_and_sync<T: Send + Sync>() {}
 fn test_sync_client_send_and_sync() {
     use crate::tcp::TcpClientConnection;
     use crate::udp::UdpClientConnection;
-    assert_send_and_sync::<SyncClient<UdpClientConnection>>();
-    assert_send_and_sync::<SyncClient<TcpClientConnection>>();
+    use trust_dns_proto::tcp::TokioTcpConnector;
+    use trust_dns_proto::udp::TokioUdpBinder;
+    assert_send_and_sync::<SyncClient<UdpClientConnection<TokioUdpBinder>>>();
+    assert_send_and_sync::<SyncClient<TcpClientConnection<TokioTcpConnector>>>();
 }
 
 #[test]
@@ -633,6 +635,8 @@ fn test_sync_client_send_and_sync() {
 fn test_secure_client_send_and_sync() {
     use crate::tcp::TcpClientConnection;
     use crate::udp::UdpClientConnection;
-    assert_send_and_sync::<SyncDnssecClient<UdpClientConnection>>();
-    assert_send_and_sync::<SyncDnssecClient<TcpClientConnection>>();
+    use trust_dns_proto::tcp::TokioTcpConnector;
+    use trust_dns_proto::udp::TokioUdpBinder;
+    assert_send_and_sync::<SyncDnssecClient<UdpClientConnection<TokioUdpBinder>>>();
+    assert_send_and_sync::<SyncDnssecClient<TcpClientConnection<TokioTcpConnector>>>();
 }

@@ -23,10 +23,11 @@ use crate::name_server::RuntimeProvider;
 pub(crate) fn new_tls_stream<R: RuntimeProvider>(
     socket_addr: SocketAddr,
     dns_name: String,
+    connector: R::Handle,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
-    let tls_builder = TlsClientStreamBuilder::new();
+    let tls_builder = TlsClientStreamBuilder::new(connector);
     tls_builder.build(socket_addr, dns_name)
 }

@@ -31,11 +31,14 @@ pub trait DnsTcpStream: AsyncRead + AsyncWrite + Unpin + Send + Sync + Sized + '
     type Time: Time;
 }
 
-/// Trait for TCP connection
+/// Trait for creating TCP connections
 #[async_trait]
-pub trait Connect: DnsTcpStream {
-    /// connect to tcp
-    async fn connect(addr: SocketAddr) -> io::Result<Self>;
+pub trait TcpConnector: Clone + Send + Sync + Unpin + 'static {
+    /// Socket type that is returned after a successful connection.
+    type Socket: DnsTcpStream;
+
+    /// Create a socket and connect to the specified socket address.
+    async fn connect(self, addr: SocketAddr) -> io::Result<Self::Socket>;
 }
 
 /// Current state while writing to the remote of the TCP connection
@@ -88,7 +91,7 @@ pub struct TcpStream<S: DnsTcpStream> {
     peer_addr: SocketAddr,
 }
 
-impl<S: Connect> TcpStream<S> {
+impl<S: DnsTcpStream> TcpStream<S> {
     /// Creates a new future of the eventually establish a IO stream connection or fail trying.
     ///
     /// Defaults to a 5 second timeout
@@ -96,9 +99,11 @@ impl<S: Connect> TcpStream<S> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `connector` - connector for creating and connecting TCP sockets
     #[allow(clippy::new_ret_no_self, clippy::type_complexity)]
-    pub fn new<E>(
+    pub fn new<C: TcpConnector<Socket = S> + 'static, E>(
         name_server: SocketAddr,
+        connector: C,
     ) -> (
         impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
         BufDnsStreamHandle,
@@ -106,7 +111,7 @@ impl<S: Connect> TcpStream<S> {
     where
         E: FromProtoError,
     {
-        Self::with_timeout(name_server, Duration::from_secs(5))
+        Self::with_timeout(name_server, Duration::from_secs(5), connector)
     }
 
     /// Creates a new future of the eventually establish a IO stream connection or fail trying
@@ -115,10 +120,12 @@ impl<S: Connect> TcpStream<S> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
+    /// * `connector` - connector for creating and connecting TCP sockets
     #[allow(clippy::type_complexity)]
-    pub fn with_timeout(
+    pub fn with_timeout<C: TcpConnector<Socket = S> + 'static>(
         name_server: SocketAddr,
         timeout: Duration,
+        connector: C,
     ) -> (
         impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
         BufDnsStreamHandle,
@@ -127,17 +134,18 @@ impl<S: Connect> TcpStream<S> {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream_fut = Self::connect(name_server, timeout, outbound_messages);
+        let stream_fut = Self::connect(name_server, timeout, outbound_messages, connector);
 
         (stream_fut, message_sender)
     }
 
-    async fn connect(
+    async fn connect<C: TcpConnector<Socket = S> + 'static>(
         name_server: SocketAddr,
         timeout: Duration,
         outbound_messages: StreamReceiver,
+        connector: C,
     ) -> Result<TcpStream<S>, io::Error> {
-        let tcp = S::connect(name_server);
+        let tcp = connector.connect(name_server);
         S::Time::timeout(timeout, tcp)
             .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
                 tcp_stream
@@ -429,25 +437,41 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
     }
 }
 
+/// A tokio TCP connector, intended to be used for testing.
+#[cfg(feature = "tokio-runtime")]
+#[derive(Clone, Copy, Default)]
+pub struct TokioTcpConnector;
+
+#[cfg(feature = "tokio-runtime")]
+#[async_trait::async_trait]
+impl TcpConnector for TokioTcpConnector {
+    type Socket = crate::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>;
+    async fn connect(self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
+        tokio::net::TcpStream::connect(addr)
+            .await
+            .map(crate::iocompat::AsyncIoTokioAsStd)
+    }
+}
+
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 mod tests {
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
-    use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
 
-    use crate::iocompat::AsyncIoTokioAsStd;
     use crate::TokioTime;
 
+    use super::TokioTcpConnector;
     use crate::tests::tcp_stream_test;
     #[test]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime, TokioTime>(
+        tcp_stream_test::<TokioTcpConnector, Runtime, TokioTime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
+            TokioTcpConnector,
         )
     }
 
@@ -455,9 +479,10 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_stream_test::<AsyncIoTokioAsStd<TokioTcpStream>, Runtime, TokioTime>(
+        tcp_stream_test::<TokioTcpConnector, Runtime, TokioTime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
+            TokioTcpConnector,
         )
     }
 }

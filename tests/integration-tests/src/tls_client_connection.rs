@@ -8,9 +8,9 @@
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::{marker::PhantomData, net::SocketAddr};
 
 use futures::Future;
 use rustls::ClientConfig;
@@ -19,7 +19,7 @@ use trust_dns_client::client::ClientConnection;
 use trust_dns_client::client::Signer;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::rustls::{tls_client_connect, TlsClientStream};
-use trust_dns_proto::tcp::Connect;
+use trust_dns_proto::tcp::TcpConnector;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
 
 /// Tls client connection
@@ -29,7 +29,7 @@ pub struct TlsClientConnection<T> {
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
-    marker: PhantomData<T>,
+    connector: T,
 }
 
 impl<T> TlsClientConnection<T> {
@@ -37,22 +37,23 @@ impl<T> TlsClientConnection<T> {
         name_server: SocketAddr,
         dns_name: String,
         client_config: Arc<ClientConfig>,
+        connector: T,
     ) -> Self {
         TlsClientConnection {
             name_server,
             dns_name,
             client_config,
-            marker: PhantomData,
+            connector,
         }
     }
 }
 
 #[allow(clippy::type_complexity)]
-impl<T: Connect> ClientConnection for TlsClientConnection<T> {
-    type Sender = DnsMultiplexer<TlsClientStream<T>, Signer>;
+impl<T: TcpConnector> ClientConnection for TlsClientConnection<T> {
+    type Sender = DnsMultiplexer<TlsClientStream<T::Socket>, Signer>;
     type SenderFuture = DnsMultiplexerConnect<
-        Pin<Box<dyn Future<Output = Result<TlsClientStream<T>, ProtoError>> + Send>>,
-        TlsClientStream<T>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<T::Socket>, ProtoError>> + Send>>,
+        TlsClientStream<T::Socket>,
         Signer,
     >;
 
@@ -61,6 +62,7 @@ impl<T: Connect> ClientConnection for TlsClientConnection<T> {
             self.name_server,
             self.dns_name.clone(),
             self.client_config.clone(),
+            self.connector.clone(),
         );
 
         DnsMultiplexer::new(Box::pin(tls_client_stream), handle, signer)

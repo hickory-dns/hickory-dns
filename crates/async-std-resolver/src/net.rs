@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::future::FutureExt;
 use pin_utils::pin_mut;
-use trust_dns_resolver::proto::tcp::{Connect, DnsTcpStream};
+use trust_dns_resolver::proto::tcp::DnsTcpStream;
 use trust_dns_resolver::proto::udp::UdpSocket;
 
 use crate::time::AsyncStdTime;
@@ -57,19 +57,10 @@ impl UdpSocket for AsyncStdUdpSocket {
     }
 }
 
-pub struct AsyncStdTcpStream(async_std::net::TcpStream);
+pub struct AsyncStdTcpStream(pub(crate) async_std::net::TcpStream);
 
 impl DnsTcpStream for AsyncStdTcpStream {
     type Time = AsyncStdTime;
-}
-
-#[async_trait]
-impl Connect for AsyncStdTcpStream {
-    async fn connect(addr: SocketAddr) -> io::Result<Self> {
-        let stream = async_std::net::TcpStream::connect(addr).await?;
-        stream.set_nodelay(true)?;
-        Ok(AsyncStdTcpStream(stream))
-    }
 }
 
 impl AsyncWrite for AsyncStdTcpStream {

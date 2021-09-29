@@ -12,8 +12,6 @@ use std::task::{Context, Poll};
 use futures_util::future::{Future, FutureExt};
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-#[cfg(feature = "tokio-runtime")]
-use tokio::net::TcpStream as TokioTcpStream;
 #[cfg(all(feature = "dns-over-native-tls", not(feature = "dns-over-rustls")))]
 use tokio_native_tls::TlsStream as TokioTlsStream;
 #[cfg(all(
@@ -33,7 +31,7 @@ use proto::{
     self,
     error::ProtoError,
     op::NoopMessageFinalizer,
-    tcp::Connect,
+    tcp::DnsTcpStream,
     tcp::TcpClientConnect,
     tcp::TcpClientStream,
     tcp::TcpConnector,
@@ -78,7 +76,8 @@ pub trait RuntimeProvider: Clone + 'static {
         + Spawn
         + Sync
         + Unpin
-        + UdpSocketBinder<Time = Self::Timer, Socket = Self::Udp>;
+        + UdpSocketBinder<Time = Self::Timer, Socket = Self::Udp>
+        + TcpConnector<Socket = Self::Tcp>;
 
     /// Timer
     type Timer: Time + Send + Unpin;
@@ -87,7 +86,7 @@ pub trait RuntimeProvider: Clone + 'static {
     type Udp: UdpSocket + Send;
 
     /// TcpStream
-    type Tcp: Connect;
+    type Tcp: DnsTcpStream;
 }
 
 /// A type defines the Handle which can spawn future.
@@ -110,7 +109,6 @@ impl<R: RuntimeProvider> GenericConnectionProvider<R> {
 impl<R> ConnectionProvider for GenericConnectionProvider<R>
 where
     R: RuntimeProvider,
-    <R as RuntimeProvider>::Tcp: Connect,
 {
     type Conn = GenericConnection;
     type FutureConn = ConnectionFuture<R>;
@@ -138,7 +136,7 @@ where
                 let timeout = options.timeout;
 
                 let (stream, handle) =
-                    TcpClientStream::<R::Tcp>::with_timeout(socket_addr, timeout);
+                    TcpClientStream::<R::Tcp>::with_timeout(socket_addr, timeout, self.0.clone());
                 // TODO: need config for Signer...
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
@@ -159,11 +157,17 @@ where
                 let client_config = config.tls_config.clone();
 
                 #[cfg(feature = "dns-over-rustls")]
-                let (stream, handle) =
-                    { crate::tls::new_tls_stream::<R>(socket_addr, tls_dns_name, client_config) };
+                let (stream, handle) = {
+                    crate::tls::new_tls_stream::<R>(
+                        socket_addr,
+                        tls_dns_name,
+                        client_config,
+                        self.0.clone(),
+                    )
+                };
                 #[cfg(not(feature = "dns-over-rustls"))]
                 let (stream, handle) =
-                    { crate::tls::new_tls_stream::<R>(socket_addr, tls_dns_name) };
+                    { crate::tls::new_tls_stream::<R>(socket_addr, tls_dns_name, self.0.clone()) };
 
                 let dns_conn = DnsMultiplexer::with_timeout(
                     stream,
@@ -182,8 +186,12 @@ where
                 #[cfg(feature = "dns-over-rustls")]
                 let client_config = config.tls_config.clone();
 
-                let exchange =
-                    crate::https::new_https_stream::<R>(socket_addr, tls_dns_name, client_config);
+                let exchange = crate::https::new_https_stream::<R>(
+                    socket_addr,
+                    tls_dns_name,
+                    client_config,
+                    self.0.clone(),
+                );
                 ConnectionConnect::Https(exchange)
             }
             #[cfg(feature = "mdns")]
@@ -256,7 +264,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
         >,
     ),
     #[cfg(feature = "dns-over-https")]
-    Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
+    Https(DnsExchangeConnect<HttpsClientConnect<R::Handle>, HttpsClientStream, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(
         DnsExchangeConnect<
@@ -341,6 +349,7 @@ impl Stream for ConnectionResponse {
 #[allow(unreachable_pub)]
 pub mod tokio_runtime {
     use super::*;
+    use tokio::net::TcpStream as TokioTcpStream;
     use tokio::net::UdpSocket as TokioUdpSocket;
 
     #[derive(Clone, Copy)]
@@ -361,6 +370,15 @@ pub mod tokio_runtime {
 
         async fn bind(&self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
             TokioUdpSocket::bind(addr).await
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl TcpConnector for TokioHandle {
+        type Socket = AsyncIoTokioAsStd<TokioTcpStream>;
+
+        async fn connect(self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
+            TokioTcpStream::connect(addr).await.map(AsyncIoTokioAsStd)
         }
     }
 

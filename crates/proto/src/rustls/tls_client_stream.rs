@@ -19,7 +19,7 @@ use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
 use crate::rustls::tls_stream::tls_connect;
-use crate::tcp::{Connect, TcpClientStream};
+use crate::tcp::{TcpClientStream, TcpConnector};
 use crate::xfer::BufDnsStreamHandle;
 
 /// Type of TlsClientStream used with Rustls
@@ -32,16 +32,19 @@ pub type TlsClientStream<S> =
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+/// * `client_config` - TLS client configuration
+/// * `connector` - connector for creating and connecting TCP sockets.
 #[allow(clippy::type_complexity)]
-pub fn tls_client_connect<S: Connect>(
+pub fn tls_client_connect<S: TcpConnector>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
+    connector: S,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S>, ProtoError>> + Send + Unpin>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<S::Socket>, ProtoError>> + Send + Unpin>>,
     BufDnsStreamHandle,
 ) {
-    let (stream_future, sender) = tls_connect(name_server, dns_name, client_config);
+    let (stream_future, sender) = tls_connect(name_server, dns_name, client_config, connector);
 
     let new_future = Box::pin(
         stream_future

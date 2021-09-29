@@ -5,8 +5,6 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex as StdMutex};
 
 use futures::executor::block_on;
-use tokio::net::TcpStream as TokioTcpStream;
-use tokio::net::UdpSocket as TokioUdpSocket;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::{AsyncClient, ClientHandle, MemoizeClientHandle};
@@ -16,8 +14,8 @@ use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{DNSClass, RData, RecordType};
 use trust_dns_client::tcp::TcpClientStream;
 
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
-use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
+use trust_dns_proto::tcp::TokioTcpConnector;
+use trust_dns_proto::udp::{TokioUdpBinder, UdpClientStream};
 use trust_dns_proto::DnssecDnsHandle;
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -270,7 +268,7 @@ where
 
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream: UdpClientConnect<TokioUdpSocket> = UdpClientStream::new(addr);
+    let stream = UdpClientStream::new(addr, TokioUdpBinder);
     let client = AsyncClient::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -307,7 +305,7 @@ where
 
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
+    let (stream, sender) = TcpClientStream::new(addr, TokioTcpConnector);
     let client = AsyncClient::new(Box::new(stream), sender, None);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);

@@ -32,6 +32,7 @@ use tokio::runtime::Runtime;
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
 use crate::native_tls::{TlsStream, TlsStreamBuilder};
+use crate::tcp::TokioTcpConnector;
 use crate::xfer::SerialMessage;
 use crate::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
@@ -194,7 +195,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::<AsyncIoTokioAsStd<TokioTcpStream>>::new();
+    let mut builder = TlsStreamBuilder::<TokioTcpConnector>::new(Default::default());
     builder.add_ca(trust_chain);
 
     // fix MTLS

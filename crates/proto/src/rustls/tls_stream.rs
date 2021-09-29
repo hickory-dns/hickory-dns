@@ -21,7 +21,7 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::Connect;
+use crate::tcp::TcpConnector;
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
 
@@ -71,17 +71,20 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 ///
 /// * `name_server` - IP and Port for the remote DNS resolver
 /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
+/// * `client_config` - TLS client configuration
+/// * `connector` - connector for creating and connecting TCP sockets.
 #[allow(clippy::type_complexity)]
-pub fn tls_connect<S: Connect>(
+pub fn tls_connect<S: TcpConnector>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
+    connector: S,
 ) -> (
     Pin<
         Box<
             dyn Future<
                     Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>,
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S::Socket>>>,
                         io::Error,
                     >,
                 > + Send,
@@ -100,18 +103,20 @@ pub fn tls_connect<S: Connect>(
         name_server,
         dns_name,
         outbound_messages,
+        connector,
     ));
 
     (stream, message_sender)
 }
 
-async fn connect_tls<S: Connect>(
+async fn connect_tls<S: TcpConnector>(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
     dns_name: String,
     outbound_messages: StreamReceiver,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
-    let tcp = S::connect(name_server).await?;
+    connector: S,
+) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S::Socket>>>> {
+    let tcp = connector.connect(name_server).await?;
 
     let dns_name = match dns_name.as_str().try_into() {
         Ok(name) => name,

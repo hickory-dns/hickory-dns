@@ -21,6 +21,8 @@ use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
 #[cfg(not(feature = "none"))]
 use trust_dns_client::op::ResponseCode;
+#[cfg(not(feature = "none"))]
+use trust_dns_client::proto::udp::TokioUdpBinder;
 use trust_dns_client::rr::dnssec::{Algorithm, KeyPair, SigSigner};
 use trust_dns_client::rr::rdata::key::{KeyUsage, KEY};
 use trust_dns_client::rr::Name;
@@ -37,7 +39,7 @@ use trust_dns_compatibility::named_process;
 fn test_get() {
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
+    let conn = UdpClientConnection::new(socket, TokioUdpBinder).unwrap();
     let client = SyncClient::new(conn);
 
     let name = Name::from_str("www.example.com.").unwrap();
@@ -95,7 +97,7 @@ where
 fn test_create() {
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
+    let conn = UdpClientConnection::new(socket, TokioUdpBinder).unwrap();
 
     let client = create_sig0_ready_client(conn);
     let origin = Name::from_str("example.com.").unwrap();

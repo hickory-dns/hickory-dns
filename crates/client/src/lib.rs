@@ -228,7 +228,7 @@
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
 //! use trust_dns_client::client::{AsyncClient, ClientHandle};
-//! use trust_dns_client::proto::iocompat::AsyncIoTokioAsStd;
+//! use trust_dns_client::proto::{iocompat::AsyncIoTokioAsStd, tcp::TokioTcpConnector};
 //! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 //! use trust_dns_client::tcp::TcpClientStream;
 //!
@@ -236,7 +236,7 @@
 //! async fn main() {
 //!     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
 //!     let (stream, sender) =
-//!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
+//!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into(), TokioTcpConnector);
 //!
 //!     // Create a new client, the bg is a background future which handles
 //!     //   the multiplexing of the DNS requests to the server.

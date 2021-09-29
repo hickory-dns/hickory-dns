@@ -22,12 +22,11 @@ use std::sync::Arc;
 use rustls::Certificate;
 use rustls::ClientConfig;
 use rustls::RootCertStore;
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::rustls::tls_client_connect;
+use trust_dns_proto::tcp::TokioTcpConnector;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -66,10 +65,11 @@ fn test_example_tls_toml_startup() {
 
             let config = Arc::new(config);
 
-            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+            let (stream, sender) = tls_client_connect(
                 addr,
                 "ns.example.com".to_string(),
                 config.clone(),
+                TokioTcpConnector,
             );
             let client = AsyncClient::new(stream, sender, None);
 
@@ -84,10 +84,11 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+            let (stream, sender) = tls_client_connect(
                 addr,
                 "ns.example.com".to_string(),
                 config,
+                TokioTcpConnector,
             );
             let client = AsyncClient::new(stream, sender, None);
 

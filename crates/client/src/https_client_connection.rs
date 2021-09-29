@@ -7,13 +7,12 @@
 
 //! UDP based DNS client connection for Client impls
 
-use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use rustls::ClientConfig;
 use trust_dns_proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use trust_dns_proto::tcp::Connect;
+use trust_dns_proto::tcp::TcpConnector;
 
 use crate::client::{ClientConnection, Signer};
 
@@ -25,10 +24,10 @@ pub struct HttpsClientConnection<T> {
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
-    marker: PhantomData<T>,
+    connector: T,
 }
 
-impl<T> HttpsClientConnection<T> {
+impl<T: TcpConnector> HttpsClientConnection<T> {
     /// Creates a new client connection.
     ///
     /// *Note* this has side affects of starting the listening event_loop. Expect this to change in
@@ -44,19 +43,20 @@ impl<T> HttpsClientConnection<T> {
         name_server: SocketAddr,
         dns_name: String,
         client_config: Arc<ClientConfig>,
+        connector: T,
     ) -> Self {
         Self {
             name_server,
             dns_name,
             client_config,
-            marker: PhantomData,
+            connector,
         }
     }
 }
 
 impl<T> ClientConnection for HttpsClientConnection<T>
 where
-    T: Connect,
+    T: TcpConnector,
 {
     type Sender = HttpsClientStream;
     type SenderFuture = HttpsClientConnect<T>;
@@ -67,8 +67,10 @@ where
         _signer: Option<Arc<Signer>>,
     ) -> Self::SenderFuture {
         // TODO: maybe signer needs to be applied in https...
-        let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::clone(&self.client_config));
+        let https_builder = HttpsClientStreamBuilder::with_client_config(
+            self.connector.clone(),
+            Arc::clone(&self.client_config),
+        );
         https_builder.build(self.name_server, self.dns_name.clone())
     }
 }

@@ -8,6 +8,7 @@
 use std::future::Future;
 
 use trust_dns_resolver::proto::error::ProtoError;
+use trust_dns_resolver::proto::tcp::TcpConnector;
 use trust_dns_resolver::proto::udp::UdpSocketBinder;
 use trust_dns_resolver::proto::Executor;
 
@@ -77,6 +78,16 @@ impl UdpSocketBinder for AsyncStdRuntimeHandle {
         async_std::net::UdpSocket::bind(addr)
             .await
             .map(AsyncStdUdpSocket)
+    }
+}
+
+#[async_trait::async_trait]
+impl TcpConnector for AsyncStdRuntimeHandle {
+    type Socket = AsyncStdTcpStream;
+    async fn connect(self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
+        let stream = async_std::net::TcpStream::connect(addr).await?;
+        stream.set_nodelay(true)?;
+        Ok(AsyncStdTcpStream(stream))
     }
 }
 

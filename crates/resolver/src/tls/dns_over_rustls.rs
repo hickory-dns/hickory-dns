@@ -55,6 +55,7 @@ pub(crate) fn new_tls_stream<R: RuntimeProvider>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
+    connector: R::Handle,
 ) -> (
     Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
@@ -63,6 +64,6 @@ pub(crate) fn new_tls_stream<R: RuntimeProvider>(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
-    let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config);
+    let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config, connector);
     (Box::pin(stream), handle)
 }

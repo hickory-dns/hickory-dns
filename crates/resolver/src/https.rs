@@ -14,7 +14,8 @@ pub(crate) fn new_https_stream<R>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-) -> DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>
+    handle: R::Handle,
+) -> DnsExchangeConnect<HttpsClientConnect<R::Handle>, HttpsClientStream, TokioTime>
 where
     R: RuntimeProvider,
 {
@@ -23,8 +24,8 @@ where
         |TlsClientConfig(client_config)| client_config,
     );
 
-    let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-    DnsExchange::connect(https_builder.build::<R::Tcp>(socket_addr, dns_name))
+    let https_builder = HttpsClientStreamBuilder::with_client_config(handle, client_config);
+    DnsExchange::connect(https_builder.build(socket_addr, dns_name))
 }
 
 #[cfg(test)]

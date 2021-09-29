@@ -19,6 +19,8 @@ use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
 use trust_dns_client::op::ResponseCode;
 use trust_dns_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
+#[cfg(feature = "tokio-runtime")]
+use trust_dns_client::proto::{tcp::TokioTcpConnector, udp::TokioUdpBinder};
 use trust_dns_client::rr::dnssec::tsig::TSigner;
 use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{RData, Record, RecordType};
@@ -50,12 +52,12 @@ where
     SyncClient::with_tsigner(conn, signer)
 }
 
-#[cfg(not(feature = "none"))]
+#[cfg(feature = "tokio-runtime")]
 #[test]
 fn test_create() {
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket).unwrap();
+    let conn = UdpClientConnection::new(socket, TokioUdpBinder).unwrap();
 
     let client = create_tsig_ready_client(conn);
     let origin = Name::from_str("example.net.").unwrap();
@@ -94,12 +96,12 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[cfg(not(feature = "none"))]
+#[cfg(feature = "tokio-runtime")]
 #[test]
 fn test_tsig_zone_transfer() {
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = TcpClientConnection::new(socket).unwrap();
+    let conn = TcpClientConnection::new(socket, TcpClientConnection).unwrap();
 
     let client = create_tsig_ready_client(conn);
 
