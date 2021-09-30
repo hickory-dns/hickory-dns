@@ -142,6 +142,31 @@ pub mod iocompat {
         }
     }
 
+    impl<W: TokioAsyncRead + TokioAsyncWrite + Unpin> TokioAsyncWrite for AsyncIoTokioAsStd<W> {
+        fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.0).poll_shutdown(cx)
+        }
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.0).poll_flush(cx)
+        }
+        fn poll_write(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Pin::new(&mut self.0).poll_write(cx, buf)
+        }
+    }
+    impl<W: TokioAsyncRead + TokioAsyncWrite + Unpin> TokioAsyncRead for AsyncIoTokioAsStd<W> {
+        fn poll_read(
+            mut self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.0).poll_read(cx, buf)
+        }
+    }
+
     /// Conversion from `std::io::{AsyncRead, AsyncWrite}` to `tokio::io::{AsyncRead, AsyncWrite}`
     pub struct AsyncIoStdAsTokio<T: AsyncRead + AsyncWrite>(pub T);
 
