@@ -378,11 +378,16 @@ impl Future for NextRandomUdpSocket {
         } else {
             // TODO: this is basically identical to UdpStream from here... share some code? (except for the port restriction)
             // one-shot queries look very similar to UDP socket, but can't listen on 5353
-            let rand_port_range = Uniform::new_inclusive(1025_u16, u16::max_value());
+
+            // Per RFC 6056 Section 2.1:
+            //
+            //    The dynamic port range defined by IANA consists of the 49152-65535
+            //    range, and is meant for the selection of ephemeral ports.
+            let rand_port_range = Uniform::new_inclusive(49152_u16, u16::max_value());
             let mut rand = rand::thread_rng();
 
             for attempt in 0..10 {
-                let port = rand_port_range.sample(&mut rand); // the range is [0 ... u16::max]
+                let port = rand_port_range.sample(&mut rand);
 
                 // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
                 //  the MDNS_PORT is used to signal to remote processes that this is capable of receiving multicast packets
