@@ -16,7 +16,7 @@ mod server_future;
 mod timeout_stream;
 
 pub use self::protocol::Protocol;
-pub use self::request_handler::{Request, RequestHandler, ResponseInfo};
+pub use self::request_handler::{Request, RequestHandler, RequestInfo, ResponseInfo};
 pub use self::response_handler::{ResponseHandle, ResponseHandler};
 pub use self::server_future::ServerFuture;
 pub use self::timeout_stream::TimeoutStream;

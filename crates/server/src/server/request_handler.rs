@@ -11,30 +11,92 @@ use std::net::SocketAddr;
 
 use crate::{
     authority::MessageRequest,
+    client::op::LowerQuery,
+    error::{ServerError, ServerErrorKind},
     proto::op::{Header, ResponseCode},
     server::{Protocol, ResponseHandler},
 };
 
 /// An incoming request to the DNS catalog
-#[non_exhaustive]
+#[derive(Debug)]
 pub struct Request {
     /// Message with the associated query or update data
-    pub message: MessageRequest,
+    message: MessageRequest,
     /// Source address of the Client
-    pub src: SocketAddr,
+    src: SocketAddr,
     /// Protocol of the request
-    pub protocol: Protocol,
+    protocol: Protocol,
 }
 
 impl Request {
     /// Build a new requests with the inbound message, source address, and protocol.
-    pub fn new(message: MessageRequest, src: SocketAddr, protocol: Protocol) -> Self {
-        Self {
+    ///
+    /// This will return an error on bad verification.
+    pub fn new(
+        message: MessageRequest,
+        src: SocketAddr,
+        protocol: Protocol,
+    ) -> Result<Self, ServerError> {
+        // Assert that there is one and only one query
+        if message.queries().len() != 1 {
+            return Err(ServerErrorKind::OneQueryExpected {
+                count: message.queries().len(),
+            }
+            .into());
+        }
+
+        Ok(Self {
             message,
             src,
             protocol,
+        })
+    }
+
+    /// Return just the header and request information from the Request Message
+    pub fn request_info(&self) -> RequestInfo<'_> {
+        let query = self
+            .queries()
+            .first()
+            .expect("invalid state, Request must be created with a single Query");
+
+        RequestInfo {
+            src: self.src,
+            protocol: self.protocol,
+            header: self.message.header(),
+            query,
         }
     }
+
+    /// The IP address from which the request originated.
+    pub fn src(&self) -> SocketAddr {
+        self.src
+    }
+
+    /// The protocol that was used for the request
+    pub fn protocol(&self) -> Protocol {
+        self.protocol
+    }
+}
+
+impl std::ops::Deref for Request {
+    type Target = MessageRequest;
+
+    fn deref(&self) -> &Self::Target {
+        &self.message
+    }
+}
+
+/// A narrow view of the Request, specifically a verified single query for the request
+#[non_exhaustive]
+pub struct RequestInfo<'a> {
+    /// The source address from which the request came
+    pub src: SocketAddr,
+    /// The protocol used for the request
+    pub protocol: Protocol,
+    /// The header from the original request
+    pub header: &'a Header,
+    /// The query from the request
+    pub query: &'a LowerQuery,
 }
 
 /// Information about the response sent for a request
@@ -75,6 +137,7 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// * `response_handle` - handle to which a return message should be sent
     async fn handle_request<R: ResponseHandler>(
         &self,
+        // FIXME: can this be borrowed?
         request: Request,
         response_handle: R,
     ) -> ResponseInfo;
