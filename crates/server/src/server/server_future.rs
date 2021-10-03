@@ -11,7 +11,6 @@ use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::{net, task::JoinHandle};
-use trust_dns_client::op::{LowerQuery, Query};
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
@@ -584,7 +583,7 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
             )
             .await;
         }
-        // FIXME: return the error and properly log it in handle_request?
+        // TODO: return the error and properly log it in handle_request?
         Err(e) => warn!("failed to handle message: {}", e),
     }
 }
@@ -596,58 +595,74 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     request_handler: Arc<Mutex<T>>,
     response_handler: R,
 ) {
+    let id = message.id();
+    let qflags = message.header().flags();
+    let qop_code = message.op_code();
+    let message_type = message.message_type();
+    let is_dnssec = message.edns().map_or(false, Edns::dnssec_ok);
+
+    // FIXME: need to send a FormErr response here
     let request = Request::new(message, src_addr, protocol);
 
-    let id = request.message.id();
-    let query = request.message.queries().first().map(LowerQuery::original);
-    let query_name: String = query
-        .map(Query::name)
-        .map(ToString::to_string)
-        .unwrap_or_default();
-    let query_type = query
-        .map(Query::query_type)
-        .as_ref()
-        .map(ToString::to_string)
-        .unwrap_or_default();
-    let query_class = query
-        .map(Query::query_class)
-        .as_ref()
-        .map(ToString::to_string)
-        .unwrap_or_default();
-    let qflags = request.message.header().flags();
-    let qop_code = request.message.op_code();
+    match request {
+        Ok(request) => {
+            let info = request.request_info();
+            let query_name = info.query.name().clone();
+            let query_type = info.query.query_type();
+            let query_class = info.query.query_class();
 
-    debug!(
-        "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
-        id = request.message.id(),
-        proto = protocol, addr = src_addr.ip(), port = src_addr.port(),
-        message_type= request.message.message_type(),
-        is_dnssec = request.message.edns().map_or(false, Edns::dnssec_ok),
-        op = qop_code,
-        query = query_name,
-        qtype = query_type,
-        class = query_class,
-        qflags = qflags,
-    );
+            debug!(
+                "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
+                id = id,
+                proto = protocol,
+                addr = src_addr.ip(),
+                port = src_addr.port(),
+                message_type= message_type,
+                is_dnssec = is_dnssec,
+                op = qop_code,
+                query = query_name,
+                qtype = query_type,
+                class = query_class,
+                qflags = qflags,
+            );
 
-    let response_info = request_handler
-        .lock()
-        .await
-        .handle_request(request, response_handler)
-        .await;
+            let response_info = request_handler
+                .lock()
+                .await
+                .handle_request(request, response_handler)
+                .await;
 
-    let rid = response_info.id();
-    if id != rid {
-        warn!("request id:{} does not match response id:{}", id, rid);
-        debug_assert_eq!(id, rid, "request id and response id should match");
-    }
+            let rid = response_info.id();
+            if id != rid {
+                warn!("request id:{} does not match response id:{}", id, rid);
+                debug_assert_eq!(id, rid, "request id and response id should match");
+            }
 
-    let rflags = response_info.flags();
-    let answer_count = response_info.answer_count();
-    let authority_count = response_info.name_server_count();
-    let additional_count = response_info.additional_count();
-    let response_code = response_info.response_code();
+            let rflags = response_info.flags();
+            let answer_count = response_info.answer_count();
+            let authority_count = response_info.name_server_count();
+            let additional_count = response_info.additional_count();
+            let response_code = response_info.response_code();
 
-    info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
-        id = rid, proto = protocol, addr = src_addr.ip(), port = src_addr.port(), op = qop_code, query = query_name, qtype = query_type, class = query_class, qflags = qflags, code = response_code, answers = answer_count, authorities = authority_count, additionals = additional_count, rflags = rflags);
+            info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
+                    id = rid,
+                    proto = protocol,
+                    addr = src_addr.ip(),
+                    port = src_addr.port(),
+                    op = qop_code,
+                    query = query_name,
+                    qtype = query_type,
+                    class = query_class,
+                    qflags = qflags,
+                    code = response_code,
+                    answers = answer_count,
+                    authorities = authority_count,
+                    additionals = additional_count,
+                    rflags = rflags
+                );
+        }
+        Err(_e) => {
+            unimplemented!("FIXME: time to refact Request parsing and error handling");
+        }
+    };
 }

@@ -147,7 +147,8 @@ impl Stream for TestClientStream {
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
-                let request = Request::new(message, src_addr, Protocol::Udp);
+                let request = Request::new(message, src_addr, Protocol::Udp)
+                    .expect("bad request construction");
 
                 let response_handler = TestResponseHandler::new();
                 block_on(
