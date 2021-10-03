@@ -102,29 +102,24 @@ pub struct Flags {
 impl fmt::Display for Flags {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         const SEPARATOR: &str = ",";
-        let mut insert_separator = ""; // initially empty
-        if self.recursion_desired {
-            write!(f, "RD")?;
-            insert_separator = SEPARATOR;
-        }
-        if self.checking_disabled {
-            write!(f, "{}CD", insert_separator)?;
-            insert_separator = SEPARATOR;
-        }
-        if self.truncation {
-            write!(f, "{}TC", insert_separator)?;
-            insert_separator = SEPARATOR;
-        }
-        if self.authoritative {
-            write!(f, "{}AA", insert_separator)?;
-            insert_separator = SEPARATOR;
-        }
-        if self.recursion_available {
-            write!(f, "{}RA", insert_separator)?;
-            insert_separator = SEPARATOR;
-        }
-        if self.authentic_data {
-            write!(f, "{}AD", insert_separator)?
+
+        let flags = [
+            (self.recursion_desired, "RD"),
+            (self.checking_disabled, "CD"),
+            (self.truncation, "TC"),
+            (self.authoritative, "AA"),
+            (self.recursion_available, "RA"),
+            (self.authentic_data, "AD"),
+        ];
+
+        let mut iter = flags
+            .iter()
+            .filter_map(|(flag, s)| if *flag { Some(*s) } else { None });
+
+        iter.next().map_or(Ok(()), |s| f.write_str(s))?;
+        for s in iter {
+            f.write_str(SEPARATOR)?;
+            f.write_str(s)?;
         }
 
         Ok(())
