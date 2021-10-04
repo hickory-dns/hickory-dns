@@ -53,7 +53,7 @@ impl fmt::Display for OpCode {
             OpCode::Update => "UPDATE",
         };
 
-        write!(f, "{}", s)
+        f.write_str(s)
     }
 }
 

@@ -294,7 +294,7 @@ impl fmt::Display for Protocol {
             Protocol::Mdns => "mdns",
         };
 
-        write!(f, "{}", protocol)
+        f.write_str(protocol)
     }
 }
 

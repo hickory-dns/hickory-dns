@@ -270,7 +270,7 @@ impl BinEncodable for SvcParamKey {
 
 impl fmt::Display for SvcParamKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        let mut write_key = |name| write!(f, "{}", name);
+        let mut write_key = |name| f.write_str(name);
 
         match *self {
             SvcParamKey::Mandatory => write_key("mandatory")?,

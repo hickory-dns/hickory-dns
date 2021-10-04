@@ -81,7 +81,7 @@ impl fmt::Display for MessageType {
             MessageType::Response => "RESPONSE",
         };
 
-        write!(f, "{}", s)
+        f.write_str(s)
     }
 }
 

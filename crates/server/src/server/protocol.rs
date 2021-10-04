@@ -26,7 +26,7 @@ impl fmt::Display for Protocol {
             Protocol::Https => "HTTPS",
         };
 
-        write!(f, "{}", s)
+        f.write_str(s)
     }
 }
 
