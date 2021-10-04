@@ -19,7 +19,7 @@ use crate::{trace, ExtBacktrace};
 /// An alias for results returned by functions of this crate
 pub type Result<T> = ::std::result::Result<T, Error>;
 
-// FIXME: remove this and put in ProtoError
+// TODO: remove this and put in ProtoError
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum ErrorKind {

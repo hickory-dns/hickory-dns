@@ -341,7 +341,7 @@ impl InnerInMemory {
     // }
 
     fn inner_soa(&self, origin: &LowerName) -> Option<&SOA> {
-        // FIXME: can't there be an RrKeyRef?
+        // TODO: can't there be an RrKeyRef?
         let rr_key = RrKey::new(origin.clone(), RecordType::SOA);
 
         self.records

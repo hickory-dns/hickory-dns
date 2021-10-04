@@ -19,6 +19,8 @@ use crate::{
     server::ResponseInfo,
 };
 
+use super::message_request::WireQuery;
+
 /// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
 pub struct MessageResponse<
@@ -35,7 +37,7 @@ pub struct MessageResponse<
     D: Iterator<Item = &'a Record> + Send + 'a,
 {
     header: Header,
-    queries: Option<&'q Queries>,
+    query: Option<&'q WireQuery>,
     answers: A,
     name_servers: N,
     soa: S,
@@ -51,6 +53,14 @@ enum EmptyOrQueries<'q> {
 
 impl<'q> From<Option<&'q Queries>> for EmptyOrQueries<'q> {
     fn from(option: Option<&'q Queries>) -> Self {
+        option.map_or(EmptyOrQueries::Empty, |q| {
+            EmptyOrQueries::Queries(q.as_emit_and_count())
+        })
+    }
+}
+
+impl<'q> From<Option<&'q WireQuery>> for EmptyOrQueries<'q> {
+    fn from(option: Option<&'q WireQuery>) -> Self {
         option.map_or(EmptyOrQueries::Empty, |q| {
             EmptyOrQueries::Queries(q.as_emit_and_count())
         })
@@ -91,7 +101,7 @@ where
 
         message::emit_message_parts(
             &self.header,
-            &mut EmptyOrQueries::from(self.queries),
+            &mut EmptyOrQueries::from(self.query),
             &mut self.answers,
             &mut name_servers,
             &mut self.additionals,
@@ -105,7 +115,7 @@ where
 
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q> {
-    queries: Option<&'q Queries>,
+    query: Option<&'q WireQuery>,
     sig0: Option<Vec<Record>>,
     edns: Option<Edns>,
 }
@@ -115,10 +125,10 @@ impl<'q> MessageResponseBuilder<'q> {
     ///
     /// # Arguments
     ///
-    /// * `queries` - any optional set of Queries to associate with the Response
-    pub fn new(queries: Option<&'q Queries>) -> MessageResponseBuilder<'q> {
+    /// * `query` - any optional query (from the Request) to associate with the Response
+    pub(crate) fn new(query: Option<&'q WireQuery>) -> MessageResponseBuilder<'q> {
         MessageResponseBuilder {
-            queries,
+            query,
             sig0: None,
             edns: None,
         }
@@ -155,7 +165,7 @@ impl<'q> MessageResponseBuilder<'q> {
     {
         MessageResponse {
             header,
-            queries: self.queries,
+            query: self.query,
             answers: answers.into_iter(),
             name_servers: name_servers.into_iter(),
             soa: soa.into_iter(),
@@ -169,7 +179,7 @@ impl<'q> MessageResponseBuilder<'q> {
     pub fn build_no_records(self, header: Header) -> MessageResponse<'q, 'static> {
         MessageResponse {
             header,
-            queries: self.queries,
+            query: self.query,
             answers: Box::new(None.into_iter()),
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
@@ -196,7 +206,7 @@ impl<'q> MessageResponseBuilder<'q> {
 
         MessageResponse {
             header,
-            queries: self.queries,
+            query: self.query,
             answers: Box::new(None.into_iter()),
             name_servers: Box::new(None.into_iter()),
             soa: Box::new(None.into_iter()),
@@ -234,7 +244,7 @@ mod tests {
 
             let message = MessageResponse {
                 header: Header::new(),
-                queries: None,
+                query: None,
                 answers: iter::repeat(&answer),
                 name_servers: iter::once(&answer),
                 soa: iter::once(&answer),
@@ -270,7 +280,7 @@ mod tests {
 
             let message = MessageResponse {
                 header: Header::new(),
-                queries: None,
+                query: None,
                 answers: iter::empty(),
                 name_servers: iter::repeat(&answer),
                 soa: iter::repeat(&answer),

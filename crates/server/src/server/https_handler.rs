@@ -14,8 +14,8 @@ use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::{
-    authority::{MessageRequest, MessageResponse},
-    proto::{https::https_server, serialize::binary::BinDecodable},
+    authority::MessageResponse,
+    proto::https::https_server,
     server::{
         request_handler::RequestHandler, response_handler::ResponseHandler, server_future,
         Protocol, ResponseInfo,
@@ -75,17 +75,7 @@ async fn handle_request<T>(
 ) where
     T: RequestHandler,
 {
-    let message: MessageRequest = match BinDecodable::from_bytes(&bytes) {
-        Ok(message) => message,
-        Err(e) => {
-            warn!("could not decode message: {}", e);
-            return;
-        }
-    };
-
-    debug!("received message: {:?}", message);
-
-    server_future::handle_request(message, src_addr, Protocol::Https, handler, responder).await
+    server_future::handle_request(&bytes, src_addr, Protocol::Https, handler, responder).await
 }
 
 #[derive(Clone)]
