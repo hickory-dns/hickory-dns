@@ -15,11 +15,12 @@ use tokio::{net, task::JoinHandle};
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
 use crate::{
-    authority::MessageRequest,
+    authority::{MessageRequest, MessageResponseBuilder},
+    client::op::LowerQuery,
     proto::{
         error::ProtoError,
         iocompat::AsyncIoTokioAsStd,
-        op::Edns,
+        op::{Edns, Header, Query, ResponseCode},
         serialize::binary::{BinDecodable, BinDecoder},
         tcp::TcpStream,
         udp::UdpStream,
@@ -567,102 +568,165 @@ pub(crate) async fn handle_raw_request<T: RequestHandler>(
     let src_addr = message.addr();
     let response_handler = ResponseHandle::new(message.addr(), response_handler);
 
-    // TODO: rather than decoding the message here, this RequestStream should instead
-    //       forward the request to another sender such that we could pull serialization off
-    //       the IO thread.
-    // decode any messages that are ready
-    let mut decoder = BinDecoder::new(message.bytes());
-    match MessageRequest::read(&mut decoder) {
-        Ok(message) => {
-            self::handle_request(
-                message,
-                src_addr,
-                protocol,
-                request_handler,
-                response_handler,
-            )
-            .await;
+    self::handle_request(
+        message.bytes(),
+        src_addr,
+        protocol,
+        request_handler,
+        response_handler,
+    )
+    .await;
+}
+
+#[derive(Clone)]
+struct ReportingResponseHandler<R: ResponseHandler> {
+    request_header: Header,
+    query: LowerQuery,
+    protocol: Protocol,
+    src_addr: SocketAddr,
+    handler: R,
+}
+
+#[async_trait::async_trait]
+impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
+    async fn send_response(
+        &mut self,
+        response: crate::authority::MessageResponse<'_, '_>,
+    ) -> io::Result<super::ResponseInfo> {
+        let response_info = self.handler.send_response(response).await?;
+
+        let id = self.request_header.id();
+        let rid = response_info.id();
+        if id != rid {
+            warn!("request id:{} does not match response id:{}", id, rid);
+            debug_assert_eq!(id, rid, "request id and response id should match");
         }
-        // TODO: return the error and properly log it in handle_request?
-        Err(e) => warn!("failed to handle message: {}", e),
+
+        let rflags = response_info.flags();
+        let answer_count = response_info.answer_count();
+        let authority_count = response_info.name_server_count();
+        let additional_count = response_info.additional_count();
+        let response_code = response_info.response_code();
+
+        info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
+            id = rid,
+            proto = self.protocol,
+            addr = self.src_addr.ip(),
+            port = self.src_addr.port(),
+            op = self.request_header.op_code(),
+            query = self.query.name(),
+            qtype = self.query.query_type(),
+            class = self.query.query_class(),
+            qflags = self.request_header.flags(),
+            code = response_code,
+            answers = answer_count,
+            authorities = authority_count,
+            additionals = additional_count,
+            rflags = rflags
+        );
+
+        Ok(response_info)
     }
 }
 
 pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
-    message: MessageRequest,
+    message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
     request_handler: Arc<Mutex<T>>,
     response_handler: R,
 ) {
-    let id = message.id();
-    let qflags = message.header().flags();
-    let qop_code = message.op_code();
-    let message_type = message.message_type();
-    let is_dnssec = message.edns().map_or(false, Edns::dnssec_ok);
+    let mut decoder = BinDecoder::new(message_bytes);
 
-    // FIXME: need to send a FormErr response here
-    let request = Request::new(message, src_addr, protocol);
+    // method to handle the request
+    let inner_handle_request = |message: MessageRequest, response_handler: R| async move {
+        let id = message.id();
+        let qflags = message.header().flags();
+        let qop_code = message.op_code();
+        let message_type = message.message_type();
+        let is_dnssec = message.edns().map_or(false, Edns::dnssec_ok);
 
-    match request {
-        Ok(request) => {
-            let info = request.request_info();
-            let query_name = info.query.name().clone();
-            let query_type = info.query.query_type();
-            let query_class = info.query.query_class();
+        let request = Request::new(message, src_addr, protocol);
 
+        let info = request.request_info();
+        let query = info.query.clone();
+        let query_name = info.query.name();
+        let query_type = info.query.query_type();
+        let query_class = info.query.query_class();
+
+        debug!(
+            "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
+            id = id,
+            proto = protocol,
+            addr = src_addr.ip(),
+            port = src_addr.port(),
+            message_type= message_type,
+            is_dnssec = is_dnssec,
+            op = qop_code,
+            query = query_name,
+            qtype = query_type,
+            class = query_class,
+            qflags = qflags,
+        );
+
+        // The reporter will handle making sure to log the result of the request
+        let reporter = ReportingResponseHandler {
+            request_header: *request.header(),
+            query,
+            protocol,
+            src_addr,
+            handler: response_handler,
+        };
+
+        request_handler
+            .lock()
+            .await
+            .handle_request(request, reporter)
+            .await;
+    };
+
+    // Attempt to decode the message
+    match MessageRequest::read(&mut decoder) {
+        Ok(message) => {
+            inner_handle_request(message, response_handler).await;
+        }
+        Err(ProtoError { kind, .. }) if kind.as_form_error().is_some() => {
+            // We failed to parse the request due to some issue in the message, but the header is available, so we can respond
+            let (header, error) = kind
+                .into_form_error()
+                .expect("as form_error already confirmed this is a FormError");
+            let query = LowerQuery::query(Query::default());
+
+            // debug for more info on why the message parsing failed
             debug!(
-                "request:{id} src:{proto}://{addr}#{port} type:{message_type} dnssec:{is_dnssec} {op}:{query}:{qtype}:{class} qflags:{qflags}",
-                id = id,
+                "request:{id} src:{proto}://{addr}#{port} type:{message_type} {op}:FormError:{error}",
+                id = header.id(),
                 proto = protocol,
                 addr = src_addr.ip(),
                 port = src_addr.port(),
-                message_type= message_type,
-                is_dnssec = is_dnssec,
-                op = qop_code,
-                query = query_name,
-                qtype = query_type,
-                class = query_class,
-                qflags = qflags,
+                message_type= header.message_type(),
+                op = header.op_code(),
+                error = error,
             );
 
-            let response_info = request_handler
-                .lock()
-                .await
-                .handle_request(request, response_handler)
+            // The reporter will handle making sure to log the result of the request
+            let mut reporter = ReportingResponseHandler {
+                request_header: header,
+                query,
+                protocol,
+                src_addr,
+                handler: response_handler,
+            };
+
+            let response = MessageResponseBuilder::new(None);
+            let result = reporter
+                .send_response(response.error_msg(&header, ResponseCode::FormErr))
                 .await;
 
-            let rid = response_info.id();
-            if id != rid {
-                warn!("request id:{} does not match response id:{}", id, rid);
-                debug_assert_eq!(id, rid, "request id and response id should match");
+            if let Err(e) = result {
+                warn!("failed to return FormError to client: {}", e);
             }
-
-            let rflags = response_info.flags();
-            let answer_count = response_info.answer_count();
-            let authority_count = response_info.name_server_count();
-            let additional_count = response_info.additional_count();
-            let response_code = response_info.response_code();
-
-            info!("request:{id} src:{proto}://{addr}#{port} {op}:{query}:{qtype}:{class} qflags:{qflags} response:{code:?} rr:{answers}/{authorities}/{additionals} rflags:{rflags}",
-                    id = rid,
-                    proto = protocol,
-                    addr = src_addr.ip(),
-                    port = src_addr.port(),
-                    op = qop_code,
-                    query = query_name,
-                    qtype = query_type,
-                    class = query_class,
-                    qflags = qflags,
-                    code = response_code,
-                    answers = answer_count,
-                    authorities = authority_count,
-                    additionals = additional_count,
-                    rflags = rflags
-                );
         }
-        Err(_e) => {
-            unimplemented!("FIXME: time to refact Request parsing and error handling");
-        }
-    };
+        Err(e) => warn!("failed to read message: {}", e),
+    }
 }

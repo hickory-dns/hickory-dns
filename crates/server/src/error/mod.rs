@@ -18,11 +18,9 @@
 
 mod config_error;
 mod persistence_error;
-mod server_error;
 
 pub use self::config_error::Error as ConfigError;
 pub use self::persistence_error::Error as PersistenceError;
-pub use self::server_error::{Error as ServerError, ErrorKind as ServerErrorKind};
 
 pub use self::config_error::ErrorKind as ConfigErrorKind;
 pub use self::persistence_error::ErrorKind as PersistenceErrorKind;

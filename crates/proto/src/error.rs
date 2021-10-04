@@ -18,6 +18,7 @@ use self::not_ring::Unspecified;
 #[cfg(feature = "backtrace")]
 #[cfg_attr(docsrs, doc(cfg(feature = "backtrace")))]
 pub use backtrace::Backtrace as ExtBacktrace;
+use enum_as_inner::EnumAsInner;
 #[cfg(feature = "backtrace")]
 use lazy_static::lazy_static;
 #[cfg(feature = "openssl")]
@@ -26,6 +27,7 @@ use openssl::error::ErrorStack as SslErrorStack;
 use ring::error::Unspecified;
 use thiserror::Error;
 
+use crate::op::Header;
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::DecodeError;
 
@@ -62,9 +64,13 @@ macro_rules! trace {
 pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 
 /// The error kind for errors that get returned in the crate
-#[derive(Debug, Error)]
+#[derive(Debug, EnumAsInner, Error)]
 #[non_exhaustive]
 pub enum ProtoErrorKind {
+    /// Query count is not one
+    #[error("there should only be one query per request, got: {0}")]
+    BadQueryCount(usize),
+
     /// The underlying resource is too busy
     ///
     /// This is a signal that an internal resource is too busy. The intended action should be tried
@@ -106,6 +112,15 @@ pub enum ProtoErrorKind {
     /// EDNS resource record label is not the root label, although required
     #[error("edns resource record label must be the root label (.): {0}")]
     EdnsNameNotRoot(crate::rr::Name),
+
+    /// Format error in Message Parsing
+    #[error("message format error: {error}")]
+    FormError {
+        /// Header of the bad Message
+        header: Header,
+        /// Error that occured while parsing the Message
+        error: Box<ProtoError>,
+    },
 
     /// An HMAC failed to verify
     #[error("hmac validation failure")]
@@ -237,10 +252,13 @@ pub enum ProtoErrorKind {
 
 /// The error type for errors that get returned in the crate
 #[derive(Error, Clone, Debug)]
+#[non_exhaustive]
 pub struct ProtoError {
-    kind: Box<ProtoErrorKind>,
+    /// Kind of error that ocurred
+    pub kind: Box<ProtoErrorKind>,
+    /// Backtrace to the source of the error
     #[cfg(feature = "backtrace")]
-    backtrack: Option<ExtBacktrace>,
+    pub backtrack: Option<ExtBacktrace>,
 }
 
 impl ProtoError {
@@ -436,6 +454,7 @@ impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
         use self::ProtoErrorKind::*;
         match *self {
+            BadQueryCount(count) => BadQueryCount(count),
             Busy => Busy,
             Canceled(ref c) => Canceled(*c),
             CharacterDataTooLong { max, len } => CharacterDataTooLong { max, len },
@@ -443,6 +462,10 @@ impl Clone for ProtoErrorKind {
             DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
             DomainNameTooLong(len) => DomainNameTooLong(len),
             EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
+            FormError { header, ref error } => FormError {
+                header,
+                error: error.clone(),
+            },
             HmacInvalid() => HmacInvalid(),
             IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
             LabelBytesTooLong(len) => LabelBytesTooLong(len),

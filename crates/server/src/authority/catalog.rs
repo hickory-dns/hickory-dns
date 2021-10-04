@@ -27,7 +27,7 @@ use crate::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
         rr::{LowerName, RecordType},
     },
-    server::{self, Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
+    server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 
 /// Set of authorities, zones, available to this server.
@@ -83,7 +83,7 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         if let Some(req_edns) = request.edns() {
-            let mut response = MessageResponseBuilder::new(Some(request.raw_queries()));
+            let mut response = MessageResponseBuilder::new(Some(request.raw_query()));
             let mut response_header = Header::response_from_request(request.header());
 
             let mut resp_edns: Edns = Edns::new();
@@ -142,7 +142,7 @@ impl RequestHandler for Catalog {
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponseBuilder::new(Some(request.raw_queries()));
+                    let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
                     response_handle
                         .send_response(response.error_msg(request.header(), ResponseCode::NotImp))
@@ -151,7 +151,7 @@ impl RequestHandler for Catalog {
             },
             MessageType::Response => {
                 warn!("got a response as a request from id: {}", request.id());
-                let response = MessageResponseBuilder::new(Some(request.raw_queries()));
+                let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
                 response_handle
                     .send_response(response.error_msg(request.header(), ResponseCode::FormErr))
@@ -300,7 +300,7 @@ impl Catalog {
             Err(response_code) => response_code,
         };
 
-        let response = MessageResponseBuilder::new(Some(update.raw_queries()));
+        let response = MessageResponseBuilder::new(Some(update.raw_query()));
         let mut response_header = Header::default();
         response_header.set_id(update.id());
         response_header.set_op_code(OpCode::Update);
@@ -356,7 +356,7 @@ impl Catalog {
             .await
         } else {
             // if this is empty then the there are no authorities registered that can handle the request
-            let response = MessageResponseBuilder::new(Some(request.raw_queries()));
+            let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
             let result = send_response(
                 response_edns,
@@ -415,7 +415,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
     )
     .await;
 
-    let response = MessageResponseBuilder::new(Some(request.raw_queries())).build(
+    let response = MessageResponseBuilder::new(Some(request.raw_query())).build(
         response_header,
         sections.answers.iter(),
         sections.ns.iter(),

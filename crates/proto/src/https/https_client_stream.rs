@@ -372,7 +372,7 @@ where
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
-        // FIXME: also abstract away Tokio TLS in RuntimeProvider.
+        // TODO: also abstract away Tokio TLS in RuntimeProvider.
         tls: TokioTlsConnect<AsyncIoStdAsTokio<S>>,
         name_server_name: Arc<str>,
         name_server: SocketAddr,

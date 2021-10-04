@@ -386,7 +386,8 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
 pub fn test_update_errors<A: Authority<Lookup = AuthLookup>>(mut authority: A) {
     use trust_dns_client::serialize::binary::BinDecodable;
 
-    let message = Message::default();
+    let mut message = Message::default();
+    message.add_query(Query::default());
     let bytes = message.to_vec().unwrap();
     let update = MessageRequest::from_bytes(&bytes).unwrap();
 
