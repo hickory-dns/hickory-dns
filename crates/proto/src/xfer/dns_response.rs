@@ -23,25 +23,58 @@ use crate::rr::rdata::SOA;
 use crate::rr::RecordType;
 
 /// A stream returning DNS responses
-pub struct DnsResponseStream(DnsResponseStreamInner);
+pub struct DnsResponseStream {
+    inner: DnsResponseStreamInner,
+    done: bool,
+}
+
+impl DnsResponseStream {
+    fn new(inner: DnsResponseStreamInner) -> Self {
+        Self { inner, done: false }
+    }
+}
 
 impl Stream for DnsResponseStream {
     type Item = Result<DnsResponse, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use DnsResponseStreamInner::*;
-        let result = match &mut self.0 {
-            Timeout(fut) => match ready!(fut.as_mut().poll(cx)) {
-                Ok(x) => x,
-                Err(e) => Err(e.into()),
-            },
+
+        // if the standard futures are done, don't poll again
+        if self.done {
+            return Poll::Ready(None);
+        }
+
+        // split mutable refs to Self
+        let Self {
+            ref mut inner,
+            ref mut done,
+        } = *self.as_mut();
+
+        let result = match inner {
+            Timeout(fut) => {
+                let x = match ready!(fut.as_mut().poll(cx)) {
+                    Ok(x) => x,
+                    Err(e) => Err(e.into()),
+                };
+                *done = true;
+                x
+            }
             Receiver(ref mut fut) => match ready!(Pin::new(fut).poll_next(cx)) {
                 Some(x) => x,
                 None => return Poll::Ready(None),
             },
-            Error(err) => Err(err.take().expect("cannot poll after complete")),
-            Boxed(fut) => ready!(fut.as_mut().poll(cx)),
+            Error(err) => {
+                *done = true;
+                Err(err.take().expect("cannot poll after complete"))
+            }
+            Boxed(fut) => {
+                let x = ready!(fut.as_mut().poll(cx));
+                *done = true;
+                x
+            }
         };
+
         match result {
             Err(e) if matches!(e.kind(), ProtoErrorKind::Timeout) => Poll::Ready(None),
             r => Poll::Ready(Some(r)),
@@ -51,19 +84,19 @@ impl Stream for DnsResponseStream {
 
 impl From<TimeoutFuture> for DnsResponseStream {
     fn from(f: TimeoutFuture) -> Self {
-        DnsResponseStream(DnsResponseStreamInner::Timeout(f))
+        DnsResponseStream::new(DnsResponseStreamInner::Timeout(f))
     }
 }
 
 impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
     fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsResponseStream(DnsResponseStreamInner::Receiver(receiver))
+        DnsResponseStream::new(DnsResponseStreamInner::Receiver(receiver))
     }
 }
 
 impl From<ProtoError> for DnsResponseStream {
     fn from(e: ProtoError) -> Self {
-        DnsResponseStream(DnsResponseStreamInner::Error(Some(e)))
+        DnsResponseStream::new(DnsResponseStreamInner::Error(Some(e)))
     }
 }
 
@@ -72,7 +105,7 @@ where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
-        DnsResponseStream(DnsResponseStreamInner::Boxed(
+        DnsResponseStream::new(DnsResponseStreamInner::Boxed(
             f as Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
         ))
     }
