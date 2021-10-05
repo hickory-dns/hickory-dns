@@ -114,9 +114,13 @@ impl fmt::Display for Flags {
 
         let mut iter = flags
             .iter()
-            .filter_map(|(flag, s)| if *flag { Some(*s) } else { None });
+            .cloned()
+            .filter_map(|(flag, s)| if flag { Some(s) } else { None });
 
-        iter.next().map_or(Ok(()), |s| f.write_str(s))?;
+        // print first without a separator, then print the rest.
+        if let Some(s) = iter.next() {
+            f.write_str(s)?
+        }
         for s in iter {
             f.write_str(SEPARATOR)?;
             f.write_str(s)?;
