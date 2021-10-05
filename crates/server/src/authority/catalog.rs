@@ -109,16 +109,14 @@ impl RequestHandler for Catalog {
                     .send_response(response.build_no_records(response_header))
                     .await;
 
-                let info = match result {
+                // couldn't handle the request
+                return match result {
                     Err(e) => {
                         error!("request error: {}", e);
                         ResponseInfo::serve_failed()
                     }
                     Ok(info) => info,
                 };
-
-                // couldn't handle the request
-                return info;
             }
 
             response_edns = Some(resp_edns);
