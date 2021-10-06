@@ -681,7 +681,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
         request_handler
             .lock()
             .await
-            .handle_request(request, reporter)
+            .handle_request(&request, reporter)
             .await;
     };
 

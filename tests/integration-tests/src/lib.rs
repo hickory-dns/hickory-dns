@@ -154,7 +154,7 @@ impl Stream for TestClientStream {
                     self.catalog
                         .lock()
                         .unwrap()
-                        .handle_request(request, response_handler.clone()),
+                        .handle_request(&request, response_handler.clone()),
                 );
 
                 let buf = block_on(response_handler.into_inner());

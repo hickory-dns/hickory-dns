@@ -119,8 +119,7 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
     /// * `response_handle` - handle to which a return message should be sent
     async fn handle_request<R: ResponseHandler>(
         &self,
-        // TODO: can this be borrowed? probably need to also remove 'static on RequestHandler for that.
-        request: Request,
+        request: &Request,
         response_handle: R,
     ) -> ResponseInfo;
 }
