@@ -135,7 +135,7 @@ async fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -169,7 +169,7 @@ async fn test_catalog_lookup() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -213,7 +213,7 @@ async fn test_catalog_lookup_soa() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -278,7 +278,7 @@ async fn test_catalog_nx_soa() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -327,7 +327,7 @@ async fn test_non_authoritive_nx_refused() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -380,7 +380,7 @@ async fn test_axfr() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -500,7 +500,7 @@ async fn test_axfr_refused() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -540,7 +540,7 @@ async fn test_cname_additionals() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -587,7 +587,7 @@ async fn test_multiple_cname_additionals() {
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 

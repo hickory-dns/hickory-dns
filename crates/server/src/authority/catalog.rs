@@ -74,7 +74,7 @@ impl RequestHandler for Catalog {
     /// * `response_handle` - sink for the response message to be sent
     async fn handle_request<R: ResponseHandler>(
         &self,
-        request: Request,
+        request: &Request,
         mut response_handle: R,
     ) -> ResponseInfo {
         trace!("request: {:?}", request);
@@ -136,7 +136,7 @@ impl RequestHandler for Catalog {
                 }
                 OpCode::Update => {
                     debug!("update received: {}", request.id());
-                    self.update(&request, response_edns, response_handle).await
+                    self.update(request, response_edns, response_handle).await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
@@ -239,7 +239,7 @@ impl Catalog {
     ///
     /// * `request` - an update message
     /// * `response_handle` - sink for the response message to be sent
-    pub async fn update<R: ResponseHandler + 'static>(
+    pub async fn update<R: ResponseHandler>(
         &self,
         update: &Request,
         response_edns: Option<Edns>,
@@ -334,7 +334,7 @@ impl Catalog {
     /// * `response_handle` - sink for the response message to be sent
     pub async fn lookup<R: ResponseHandler>(
         &self,
-        request: Request,
+        request: &Request,
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> ResponseInfo {
@@ -345,7 +345,7 @@ impl Catalog {
             lookup(
                 request_info,
                 authority,
-                &request,
+                request,
                 response_edns
                     .as_ref()
                     .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
