@@ -167,8 +167,8 @@ fn test_datagram() {
 
 #[test]
 fn test_datagram_stream_upgrade() {
-    // lookup to UDP should return truncated message
-    // then lookup on TCP
+    // Lookup to UDP should return a truncated message, then we expect lookup on TCP.
+    // This should occur even though `try_tcp_on_error` is set to false.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -200,8 +200,8 @@ fn test_datagram_stream_upgrade() {
 
 #[test]
 fn test_datagram_fails_to_stream() {
-    // lookup to UDP should fail
-    // then lookup on TCP
+    // Lookup to UDP should fail, and then the query should be retried on TCP because
+    // `try_tcp_on_error` is set to true.
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -213,6 +213,37 @@ fn test_datagram_fails_to_stream() {
     let udp_nameserver = mock_nameserver(vec![udp_message], Default::default());
     let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], Default::default());
 
+    let mut options = ResolverOpts::default();
+    options.try_tcp_on_error = true;
+    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, options);
+
+    let request = message(query, vec![], vec![], vec![]);
+    let future = pool.send(request).first_answer();
+    let response = block_on(future).unwrap();
+    assert_eq!(response.answers()[0], tcp_record);
+}
+
+#[test]
+fn test_tcp_fallback_only_on_truncated() {
+    use trust_dns_proto::op::ResponseCode;
+    use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
+
+    // Lookup to UDP should fail with an error, and the resolver should not then try the query over
+    // TCP, because the default behavior is only to retry if the response was truncated.
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+    let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
+    udp_message.set_response_code(ResponseCode::ServFail);
+    let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
+
+    let udp_nameserver = mock_nameserver(
+        vec![ResolveError::from_response(udp_message.into(), false)],
+        Default::default(),
+    );
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], Default::default());
+
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
         vec![tcp_nameserver],
@@ -220,12 +251,18 @@ fn test_datagram_fails_to_stream() {
         Default::default(),
     );
 
-    // lookup on UDP succeeds, any other would fail
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
-
-    let response = block_on(future).unwrap();
-    assert_eq!(response.answers()[0], tcp_record);
+    let error = block_on(future).expect_err("lookup request should fail with SERVFAIL");
+    match error.kind() {
+        ResolveErrorKind::NoRecordsFound { response_code, .. }
+            if *response_code == ResponseCode::ServFail => {}
+        kind => panic!(
+            "got unexpected kind of resolve error; expected `NoRecordsFound` error with SERVFAIL,
+            got {:#?}",
+            kind,
+        ),
+    }
 }
 
 #[test]
@@ -369,7 +406,7 @@ fn test_distrust_nx_responses() {
 #[test]
 fn test_return_error_from_highest_priority_nameserver() {
     use trust_dns_proto::op::ResponseCode;
-    use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
+    use trust_dns_resolver::error::ResolveErrorKind;
 
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
@@ -393,11 +430,11 @@ fn test_return_error_from_highest_priority_nameserver() {
 
     let request = message(query, vec![], vec![], vec![]);
     let future = pool.send(request).first_answer();
-    let response = block_on(future).expect_err(
+    let error = block_on(future).expect_err(
         "DNS query should result in a `ResolveError` since all name servers return error responses",
     );
     let expected_response_code = ERROR_RESPONSE_CODES.first().unwrap();
-    match response.kind() {
+    match error.kind() {
         ResolveErrorKind::NoRecordsFound { response_code, .. }
             if response_code == expected_response_code => {}
         kind => panic!(

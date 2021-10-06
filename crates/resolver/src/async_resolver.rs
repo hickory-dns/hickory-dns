@@ -598,6 +598,7 @@ pub mod testing {
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
+                try_tcp_on_error: true,
                 ..ResolverOpts::default()
             },
             handle,

@@ -759,6 +759,8 @@ pub struct ResolverOpts {
     pub num_concurrent_reqs: usize,
     /// Preserve all intermediate records in the lookup response, suchas CNAME records
     pub preserve_intermediates: bool,
+    /// Try queries over TCP if they fail over UDP.
+    pub try_tcp_on_error: bool,
 }
 
 impl Default for ResolverOpts {
@@ -783,6 +785,7 @@ impl Default for ResolverOpts {
             negative_max_ttl: None,
             num_concurrent_reqs: 2,
             preserve_intermediates: false,
+            try_tcp_on_error: false,
         }
     }
 }
