@@ -238,23 +238,24 @@ where
             let udp_res = Self::try_send(opts, datagram_conns, request).await;
 
             let udp_res = match udp_res {
-                // handling promotion from datagram to stream base on truncation in message
-                Ok(response) if !response.truncated() => {
-                    return Ok(response);
-                }
-                Ok(response) => {
-                    debug!("truncated response received, continuing to TCP");
+                Ok(response) if response.truncated() => {
+                    debug!("truncated response received, retrying over TCP");
                     Ok(response)
                 }
-                Err(e) => Err(e),
+                Err(e) if opts.try_tcp_on_error => {
+                    debug!("error received, retrying over TCP");
+                    Err(e)
+                }
+                result => return result,
             };
 
-            // no TCP connections available
             if stream_conns.is_empty() {
+                debug!("no TCP connections available");
                 return udp_res;
             }
 
-            // UDP failed trying TCP connections
+            // Try query over TCP, as response to query over UDP was either truncated or was an
+            // error.
             let tcp_res = Self::try_send(opts, stream_conns, tcp_message).await;
 
             let tcp_err = match tcp_res {
@@ -530,7 +531,10 @@ mod tests {
             tls_config: None,
         };
 
-        let opts = ResolverOpts::default();
+        let opts = ResolverOpts {
+            try_tcp_on_error: true,
+            ..Default::default()
+        };
         let ns_config = { tcp };
         let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider.clone());
         let name_servers: Arc<[_]> = Arc::from([name_server]);
