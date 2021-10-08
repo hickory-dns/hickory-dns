@@ -1,22 +1,13 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Operation code for queries, updates, and responses
 
-use std::convert::From;
+use std::{convert::From, fmt};
 
 use crate::error::*;
 
@@ -51,6 +42,19 @@ pub enum OpCode {
 
     /// Update message [RFC 2136](https://tools.ietf.org/html/rfc2136)
     Update,
+}
+
+impl fmt::Display for OpCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let s = match self {
+            OpCode::Query => "QUERY",
+            OpCode::Status => "STATUS",
+            OpCode::Notify => "NOTIFY",
+            OpCode::Update => "UPDATE",
+        };
+
+        f.write_str(s)
+    }
 }
 
 /// Convert from `OpCode` to `u8`

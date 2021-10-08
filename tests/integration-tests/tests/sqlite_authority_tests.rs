@@ -194,6 +194,7 @@ async fn test_authorize() {
         .set_id(10)
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update);
+    message.add_query(Query::default());
 
     let bytes = message.to_bytes().unwrap();
     let message = MessageRequest::from_bytes(&bytes).unwrap();

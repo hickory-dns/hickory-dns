@@ -270,18 +270,16 @@ impl BinEncodable for SvcParamKey {
 
 impl fmt::Display for SvcParamKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        let mut write_key = |name| write!(f, "{}", name);
-
         match *self {
-            SvcParamKey::Mandatory => write_key("mandatory")?,
-            SvcParamKey::Alpn => write_key("alpn")?,
-            SvcParamKey::NoDefaultAlpn => write_key("no-default-alpn")?,
-            SvcParamKey::Port => write_key("port")?,
-            SvcParamKey::Ipv4Hint => write_key("ipv4hint")?,
-            SvcParamKey::EchConfig => write_key("echconfig")?,
-            SvcParamKey::Ipv6Hint => write_key("ipv6hint")?,
+            SvcParamKey::Mandatory => f.write_str("mandatory")?,
+            SvcParamKey::Alpn => f.write_str("alpn")?,
+            SvcParamKey::NoDefaultAlpn => f.write_str("no-default-alpn")?,
+            SvcParamKey::Port => f.write_str("port")?,
+            SvcParamKey::Ipv4Hint => f.write_str("ipv4hint")?,
+            SvcParamKey::EchConfig => f.write_str("echconfig")?,
+            SvcParamKey::Ipv6Hint => f.write_str("ipv6hint")?,
             SvcParamKey::Key(val) => write!(f, "key{}", val)?,
-            SvcParamKey::Key65535 => write_key("key65535")?,
+            SvcParamKey::Key65535 => f.write_str("key65535")?,
             SvcParamKey::Unknown(val) => write!(f, "unknown{}", val)?,
         }
 

@@ -1,33 +1,23 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Basic protocol message for DNS
 
-use std::iter;
-use std::mem;
-use std::ops::Deref;
-use std::sync::Arc;
+use std::{iter, mem, ops::Deref, sync::Arc};
 
 use log::{debug, warn};
 
-use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
-use crate::error::*;
-use crate::rr::{Record, RecordType};
-use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
-use crate::xfer::DnsResponse;
+use crate::{
+    error::*,
+    op::{Edns, Header, MessageType, OpCode, Query, ResponseCode},
+    rr::{Record, RecordType},
+    serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode},
+    xfer::DnsResponse,
+};
 
 /// The basic request and response datastructure, used for all DNS protocols.
 ///
@@ -880,6 +870,10 @@ impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
 }
 
 /// Emits the different sections of a message properly
+///
+/// # Return
+///
+/// In the case of a successful emit, the final header (updated counts, etc) is returned for help with logging, etc.
 #[allow(clippy::too_many_arguments)]
 pub fn emit_message_parts<Q, A, N, D>(
     header: &Header,
@@ -890,7 +884,7 @@ pub fn emit_message_parts<Q, A, N, D>(
     edns: Option<&Edns>,
     signature: &[Record],
     encoder: &mut BinEncoder<'_>,
-) -> ProtoResult<()>
+) -> ProtoResult<Header>
 where
     Q: EmitAndCount,
     A: EmitAndCount,
@@ -940,8 +934,9 @@ where
     let was_truncated =
         header.truncated() || answer_count.1 || nameserver_count.1 || additional_count.1;
 
-    place.replace(encoder, update_header_counts(header, was_truncated, counts))?;
-    Ok(())
+    let final_header = update_header_counts(header, was_truncated, counts);
+    place.replace(encoder, final_header)?;
+    Ok(final_header)
 }
 
 impl BinEncodable for Message {
@@ -955,7 +950,9 @@ impl BinEncodable for Message {
             self.edns.as_ref(),
             &self.signature,
             encoder,
-        )
+        )?;
+
+        Ok(())
     }
 }
 

@@ -1,27 +1,19 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Message metadata
 
-use std::convert::From;
+use std::{convert::From, fmt};
 
-use super::op_code::OpCode;
-use super::response_code::ResponseCode;
-use crate::error::*;
-use crate::serialize::binary::*;
+use crate::{
+    error::*,
+    op::{op_code::OpCode, response_code::ResponseCode},
+    serialize::binary::*,
+};
 
 /// Metadata for the `Message` struct.
 ///
@@ -80,6 +72,62 @@ pub enum MessageType {
     Query,
     /// Response message from the Server or upstream Resolver
     Response,
+}
+
+impl fmt::Display for MessageType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let s = match self {
+            MessageType::Query => "QUERY",
+            MessageType::Response => "RESPONSE",
+        };
+
+        f.write_str(s)
+    }
+}
+
+/// All the flags of the request/response header
+#[derive(Clone, Copy)]
+pub struct Flags {
+    authoritative: bool,
+    truncation: bool,
+    recursion_desired: bool,
+    recursion_available: bool,
+    authentic_data: bool,
+    checking_disabled: bool,
+}
+
+/// We are following the `dig` commands display format for the header flags
+///
+/// Example: "RD,AA,RA;" is Recursion-Desired, Authoritative-Answer, Recursion-Available.
+impl fmt::Display for Flags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        const SEPARATOR: &str = ",";
+
+        let flags = [
+            (self.recursion_desired, "RD"),
+            (self.checking_disabled, "CD"),
+            (self.truncation, "TC"),
+            (self.authoritative, "AA"),
+            (self.recursion_available, "RA"),
+            (self.authentic_data, "AD"),
+        ];
+
+        let mut iter = flags
+            .iter()
+            .cloned()
+            .filter_map(|(flag, s)| if flag { Some(s) } else { None });
+
+        // print first without a separator, then print the rest.
+        if let Some(s) = iter.next() {
+            f.write_str(s)?
+        }
+        for s in iter {
+            f.write_str(SEPARATOR)?;
+            f.write_str(s)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for Header {
@@ -207,6 +255,18 @@ impl Header {
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.checking_disabled = checking_disabled;
         self
+    }
+
+    /// A method to get all header flags (useful for Display purposes)
+    pub fn flags(&self) -> Flags {
+        Flags {
+            authoritative: self.authoritative,
+            authentic_data: self.authentic_data,
+            checking_disabled: self.checking_disabled,
+            recursion_available: self.recursion_available,
+            recursion_desired: self.recursion_desired,
+            truncation: self.truncation,
+        }
     }
 
     /// The low response code (original response codes before EDNS extensions)

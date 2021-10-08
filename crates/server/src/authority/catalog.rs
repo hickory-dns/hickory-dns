@@ -21,13 +21,13 @@ use crate::client::rr::{
 use crate::{
     authority::{
         AuthLookup, AuthorityObject, EmptyLookup, LookupError, LookupObject, LookupOptions,
-        MessageRequest, MessageResponse, MessageResponseBuilder, ZoneType,
+        MessageResponse, MessageResponseBuilder, ZoneType,
     },
     client::{
         op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode},
         rr::{LowerName, RecordType},
     },
-    server::{Request, RequestHandler, ResponseHandler},
+    server::{Request, RequestHandler, RequestInfo, ResponseHandler, ResponseInfo},
 };
 
 /// Set of authorities, zones, available to this server.
@@ -41,7 +41,7 @@ async fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse<'_, '_>,
     mut response_handle: R,
-) -> io::Result<()> {
+) -> io::Result<ResponseInfo> {
     #[cfg(feature = "dnssec")]
     if let Some(mut resp_edns) = response_edns {
         // set edns DAU and DHU
@@ -72,16 +72,19 @@ impl RequestHandler for Catalog {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - sink for the response message to be sent
-    async fn handle_request<R: ResponseHandler>(&self, request: Request, mut response_handle: R) {
-        let request_message = request.message;
-        trace!("request: {:?}", request_message);
+    async fn handle_request<R: ResponseHandler>(
+        &self,
+        request: &Request,
+        mut response_handle: R,
+    ) -> ResponseInfo {
+        trace!("request: {:?}", request);
 
         let response_edns: Option<Edns>;
 
         // check if it's edns
-        if let Some(req_edns) = request_message.edns() {
-            let mut response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
-            let mut response_header = Header::response_from_request(request_message.header());
+        if let Some(req_edns) = request.edns() {
+            let mut response = MessageResponseBuilder::new(Some(request.raw_query()));
+            let mut response_header = Header::response_from_request(request.header());
 
             let mut resp_edns: Edns = Edns::new();
 
@@ -105,10 +108,15 @@ impl RequestHandler for Catalog {
                 let result = response_handle
                     .send_response(response.build_no_records(response_header))
                     .await;
-                if let Err(e) = result {
-                    error!("request error: {}", e);
-                }
-                return;
+
+                // couldn't handle the request
+                return match result {
+                    Err(e) => {
+                        error!("request error: {}", e);
+                        ResponseInfo::serve_failed()
+                    }
+                    Ok(info) => info,
+                };
             }
 
             response_edns = Some(resp_edns);
@@ -116,48 +124,45 @@ impl RequestHandler for Catalog {
             response_edns = None;
         }
 
-        let result = match request_message.message_type() {
+        let result = match request.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
-            MessageType::Query => match request_message.op_code() {
+            MessageType::Query => match request.op_code() {
                 OpCode::Query => {
-                    debug!("query received: {}", request_message.id());
-                    self.lookup(request_message, response_edns, response_handle)
-                        .await;
+                    debug!("query received: {}", request.id());
+                    let info = self.lookup(request, response_edns, response_handle).await;
 
-                    Ok(())
+                    Ok(info)
                 }
                 OpCode::Update => {
-                    debug!("update received: {}", request_message.id());
-                    self.update(&request_message, response_edns, response_handle)
-                        .await
+                    debug!("update received: {}", request.id());
+                    self.update(request, response_edns, response_handle).await
                 }
                 c => {
                     warn!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
+                    let response = MessageResponseBuilder::new(Some(request.raw_query()));
+
                     response_handle
-                        .send_response(
-                            response.error_msg(request_message.header(), ResponseCode::NotImp),
-                        )
+                        .send_response(response.error_msg(request.header(), ResponseCode::NotImp))
                         .await
                 }
             },
             MessageType::Response => {
-                warn!(
-                    "got a response as a request from id: {}",
-                    request_message.id()
-                );
-                let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
+                warn!("got a response as a request from id: {}", request.id());
+                let response = MessageResponseBuilder::new(Some(request.raw_query()));
+
                 response_handle
-                    .send_response(
-                        response.error_msg(request_message.header(), ResponseCode::FormErr),
-                    )
+                    .send_response(response.error_msg(request.header(), ResponseCode::FormErr))
                     .await
             }
         };
 
-        if let Err(e) = result {
-            error!("request failed: {}", e);
+        match result {
+            Err(e) => {
+                error!("request failed: {}", e);
+                ResponseInfo::serve_failed()
+            }
+            Ok(info) => info,
         }
     }
 }
@@ -234,41 +239,44 @@ impl Catalog {
     ///
     /// * `request` - an update message
     /// * `response_handle` - sink for the response message to be sent
-    pub async fn update<R: ResponseHandler + 'static>(
+    pub async fn update<R: ResponseHandler>(
         &self,
-        update: &MessageRequest,
+        update: &Request,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> io::Result<()> {
-        let zones: &[LowerQuery] = update.queries();
+    ) -> io::Result<ResponseInfo> {
+        let request_info = update.request_info();
 
-        // 2.3 - Zone Section
-        //
-        //  All records to be updated must be in the same zone, and
-        //  therefore the Zone Section is allowed to contain exactly one record.
-        //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
-        //  the zone's class.
-        let ztype = zones
-            .first()
-            .map(LowerQuery::query_type)
-            .unwrap_or(RecordType::Unknown(0));
+        let verify_request = move || -> Result<RequestInfo<'_>, ResponseCode> {
+            // 2.3 - Zone Section
+            //
+            //  All records to be updated must be in the same zone, and
+            //  therefore the Zone Section is allowed to contain exactly one record.
+            //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
+            //  the zone's class.
 
-        let result = if zones.len() != 1 || ztype != RecordType::SOA {
-            warn!(
-                "invalid update request zones must be 1 and not SOA records, zones: {} ztype: {}",
-                zones.len(),
-                ztype
-            );
-            Err(ResponseCode::FormErr)
-        } else {
-            zones
-                .first()
-                .map(LowerQuery::name)
-                .and_then(|name| self.find(name).map(|a| a.box_clone()))
-                .ok_or(ResponseCode::Refused)
+            let ztype = request_info.query.query_type();
+
+            if ztype != RecordType::SOA {
+                warn!(
+                    "invalid update request zone type must be SOA, ztype: {}",
+                    ztype
+                );
+                return Err(ResponseCode::FormErr);
+            }
+
+            Ok(request_info)
         };
 
-        let response_code = match result {
+        // verify the zone type and number of zones in request, then find the zone to update
+        let request_info = verify_request();
+        let authority = request_info.as_ref().map_err(|e| *e).and_then(|info| {
+            self.find(info.query.name())
+                .map(|a| a.box_clone())
+                .ok_or(ResponseCode::Refused)
+        });
+
+        let response_code = match authority {
             Ok(authority) => {
                 #[allow(deprecated)]
                 match authority.zone_type() {
@@ -290,7 +298,7 @@ impl Catalog {
             Err(response_code) => response_code,
         };
 
-        let response = MessageResponseBuilder::new(None);
+        let response = MessageResponseBuilder::new(Some(update.raw_query()));
         let mut response_header = Header::default();
         response_header.set_id(update.id());
         response_header.set_op_code(OpCode::Update);
@@ -326,44 +334,43 @@ impl Catalog {
     /// * `response_handle` - sink for the response message to be sent
     pub async fn lookup<R: ResponseHandler>(
         &self,
-        request: MessageRequest,
+        request: &Request,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) {
-        // find matching authorities for the request
-        let queries_and_authorities = request
-            .queries()
-            .iter()
-            .enumerate()
-            .filter_map(|(i, q)| {
-                self.find(q.name())
-                    .map(|authority| (i, authority.box_clone()))
-            })
-            .collect::<Vec<_>>();
+    ) -> ResponseInfo {
+        let request_info = request.request_info();
+        let authority = self.find(request_info.query.name());
 
-        // if this is empty then the there are no authorities registered that can handle the request
-        if queries_and_authorities.is_empty() {
-            let response = MessageResponseBuilder::new(Some(request.raw_queries()));
-
-            send_response(
+        if let Some(authority) = authority {
+            lookup(
+                request_info,
+                authority,
+                request,
                 response_edns
                     .as_ref()
                     .map(|arc| Borrow::<Edns>::borrow(arc).clone()),
-                response.error_msg(request.header(), ResponseCode::Refused),
                 response_handle.clone(),
             )
             .await
-            .map_err(|e| error!("failed to send response: {}", e))
-            .ok();
-        }
+        } else {
+            // if this is empty then the there are no authorities registered that can handle the request
+            let response = MessageResponseBuilder::new(Some(request.raw_query()));
 
-        lookup(
-            queries_and_authorities,
-            request,
-            response_edns,
-            response_handle,
-        )
-        .await
+            let result = send_response(
+                response_edns,
+                response.error_msg(request.header(), ResponseCode::Refused),
+                response_handle,
+            )
+            .await;
+
+            match result {
+                Err(e) => {
+                    error!("failed to send response: {}", e);
+                    ResponseInfo::serve_failed()
+                }
+                Ok(r) => r,
+            }
+        }
     }
 
     /// Recursively searches the catalog for a matching authority
@@ -383,44 +390,45 @@ impl Catalog {
     }
 }
 
-async fn lookup<R: ResponseHandler + Unpin>(
-    queries_and_authorities: Vec<(usize, Box<dyn AuthorityObject>)>,
-    request: MessageRequest,
+async fn lookup<'a, R: ResponseHandler + Unpin>(
+    request_info: RequestInfo<'_>,
+    authority: &dyn AuthorityObject,
+    request: &Request,
     response_edns: Option<Edns>,
     response_handle: R,
-) {
-    // TODO: the spec is very unclear on what to do with multiple queries
-    //  we will search for each, in the future, maybe make this threaded to respond even faster.
-    //  the current impl will return on the first query result
-    for (query_idx, authority) in queries_and_authorities {
-        let query = &request.queries()[query_idx];
-        info!(
-            "request: {} found authority: {}",
-            request.id(),
-            authority.origin()
-        );
+) -> ResponseInfo {
+    let query = request_info.query;
+    debug!(
+        "request: {} found authority: {}",
+        request.id(),
+        authority.origin()
+    );
 
-        let (response_header, sections) = build_response(
-            &*authority,
-            request.id(),
-            request.header(),
-            query,
-            request.edns(),
-        )
-        .await;
+    let (response_header, sections) = build_response(
+        &*authority,
+        request.id(),
+        request.header(),
+        query,
+        request.edns(),
+    )
+    .await;
 
-        let response = MessageResponseBuilder::new(Some(request.raw_queries())).build(
-            response_header,
-            sections.answers.iter(),
-            sections.ns.iter(),
-            sections.soa.iter(),
-            sections.additionals.iter(),
-        );
+    let response = MessageResponseBuilder::new(Some(request.raw_query())).build(
+        response_header,
+        sections.answers.iter(),
+        sections.ns.iter(),
+        sections.soa.iter(),
+        sections.additionals.iter(),
+    );
 
-        let result = send_response(response_edns.clone(), response, response_handle.clone()).await;
-        if let Err(e) = result {
+    let result = send_response(response_edns.clone(), response, response_handle.clone()).await;
+
+    match result {
+        Err(e) => {
             error!("error sending response: {}", e);
+            ResponseInfo::serve_failed()
         }
+        Ok(i) => i,
     }
 }
 
@@ -622,7 +630,7 @@ async fn send_forwarded_response(
                 if e.is_nx_domain() {
                     response_header.set_response_code(ResponseCode::NXDomain);
                 }
-                error!("error resolving: {}", e);
+                debug!("error resolving: {}", e);
                 Box::new(EmptyLookup)
             }
             Ok(rsp) => rsp,

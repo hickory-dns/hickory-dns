@@ -8,6 +8,7 @@ use trust_dns_client::{
 
 use trust_dns_server::{
     authority::{Authority, Catalog, MessageRequest, ZoneType},
+    server::{Protocol, Request},
     store::in_memory::InMemoryAuthority,
 };
 
@@ -130,10 +131,11 @@ async fn test_catalog_lookup() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -163,10 +165,11 @@ async fn test_catalog_lookup() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -206,10 +209,11 @@ async fn test_catalog_lookup_soa() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -270,10 +274,11 @@ async fn test_catalog_nx_soa() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -318,10 +323,11 @@ async fn test_non_authoritive_nx_refused() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -370,10 +376,11 @@ async fn test_axfr() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -489,10 +496,11 @@ async fn test_axfr_refused() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -528,10 +536,11 @@ async fn test_cname_additionals() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 
@@ -574,10 +583,11 @@ async fn test_multiple_cname_additionals() {
     // temp request
     let question_bytes = question.to_bytes().unwrap();
     let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+    let question_req = Request::new(question_req, ([127, 0, 0, 1], 5553).into(), Protocol::Udp);
 
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(question_req, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .await;
     let result = response_handler.into_message().await;
 

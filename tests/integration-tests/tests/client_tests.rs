@@ -81,7 +81,6 @@ fn test_query_udp() {
 }
 
 #[test]
-#[ignore]
 #[allow(deprecated)]
 fn test_query_udp_edns() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();

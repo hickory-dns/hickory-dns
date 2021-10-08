@@ -1,32 +1,39 @@
 #![allow(dead_code)]
 #![allow(clippy::dbg_macro)]
 
-use std::fmt;
-use std::io;
-use std::mem;
-use std::net::SocketAddr;
-use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll};
+use std::{
+    fmt, io, mem,
+    net::SocketAddr,
+    pin::Pin,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    task::{Context, Poll},
+};
 
-use futures::stream::{Stream, StreamExt};
-use futures::{future, Future, FutureExt};
+use futures::{
+    future,
+    stream::{Stream, StreamExt},
+    Future, FutureExt,
+};
 use tokio::time::{Duration, Instant, Sleep};
 
-use trust_dns_client::client::ClientConnection;
-use trust_dns_client::client::Signer;
-use trust_dns_client::error::ClientResult;
-use trust_dns_client::op::*;
-use trust_dns_client::serialize::binary::*;
-use trust_dns_proto::xfer::{
-    DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver,
+use trust_dns_client::{
+    client::{ClientConnection, Signer},
+    error::ClientResult,
+    op::*,
+    serialize::binary::*,
 };
-use trust_dns_proto::TokioTime;
-use trust_dns_proto::{error::ProtoError, BufDnsStreamHandle};
-
-use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
-use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
+use trust_dns_proto::{
+    error::ProtoError,
+    xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
+    BufDnsStreamHandle, TokioTime,
+};
+use trust_dns_server::{
+    authority::{Catalog, MessageRequest, MessageResponse},
+    server::{Protocol, Request, RequestHandler, ResponseHandler, ResponseInfo},
+};
 
 pub mod authority;
 pub mod mock_client;
@@ -98,15 +105,18 @@ impl TestResponseHandler {
 
 #[async_trait::async_trait]
 impl ResponseHandler for TestResponseHandler {
-    async fn send_response(&mut self, response: MessageResponse<'_, '_>) -> io::Result<()> {
+    async fn send_response(
+        &mut self,
+        response: MessageResponse<'_, '_>,
+    ) -> io::Result<ResponseInfo> {
         let buf = &mut self.buf.lock().unwrap();
         buf.clear();
         let mut encoder = BinEncoder::new(buf);
-        response
+        let info = response
             .destructive_emit(&mut encoder)
             .expect("could not encode");
         self.message_ready.store(true, Ordering::Release);
-        Ok(())
+        Ok(info)
     }
 }
 
@@ -137,17 +147,14 @@ impl Stream for TestClientStream {
                 let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
-                let request = Request {
-                    message,
-                    src: src_addr,
-                };
+                let request = Request::new(message, src_addr, Protocol::Udp);
 
                 let response_handler = TestResponseHandler::new();
                 block_on(
                     self.catalog
                         .lock()
                         .unwrap()
-                        .handle_request(request, response_handler.clone()),
+                        .handle_request(&request, response_handler.clone()),
                 );
 
                 let buf = block_on(response_handler.into_inner());

@@ -129,6 +129,53 @@ fn test_server_unknown_type() {
     server_thread.join().unwrap();
 }
 
+#[test]
+fn test_server_form_error_on_multiple_queries() {
+    let runtime = Runtime::new().expect("failed to create Tokio Runtime");
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let udp_socket = runtime.block_on(UdpSocket::bind(&addr)).unwrap();
+
+    let ipaddr = udp_socket.local_addr().unwrap();
+    println!("udp_socket on port: {}", ipaddr);
+    let server_continue = Arc::new(AtomicBool::new(true));
+    let server_continue2 = server_continue.clone();
+
+    let server_thread = thread::Builder::new()
+        .name("test_server:udp:server".to_string())
+        .spawn(move || server_thread_udp(runtime, udp_socket, server_continue2))
+        .unwrap();
+
+    let conn = UdpClientConnection::new(ipaddr).unwrap();
+    let client = SyncClient::new(conn);
+
+    // build the message
+    let query_a = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let query_aaaa = Query::query(
+        Name::from_str("www.example.com.").unwrap(),
+        RecordType::AAAA,
+    );
+    let mut message: Message = Message::new();
+    message
+        .add_query(query_a)
+        .add_query(query_aaaa)
+        .set_message_type(MessageType::Query)
+        .set_op_code(OpCode::Query)
+        .set_recursion_desired(true);
+
+    let mut client_result = client.send(message);
+
+    assert_eq!(client_result.len(), 1);
+    let client_result = client_result
+        .pop()
+        .expect("there should be one response")
+        .expect("should have been a successful network request");
+
+    assert_eq!(client_result.response_code(), ResponseCode::FormErr);
+
+    server_continue.store(false, Ordering::Relaxed);
+    server_thread.join().unwrap();
+}
+
 #[cfg(feature = "dns-over-rustls")]
 #[allow(unused)]
 fn read_file(path: &str) -> Vec<u8> {

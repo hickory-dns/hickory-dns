@@ -1,22 +1,30 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use crate::client::op::LowerQuery;
-use crate::proto::error::*;
-use crate::proto::op::message::EmitAndCount;
-use crate::proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
-use crate::proto::rr::Record;
-use crate::proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
+use std::iter::once;
+
+use crate::{
+    client::op::LowerQuery,
+    proto::{
+        error::*,
+        op::{
+            message::{self, EmitAndCount},
+            Edns, Header, Message, MessageType, OpCode, ResponseCode,
+        },
+        rr::Record,
+        serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder},
+    },
+};
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
 pub struct MessageRequest {
     header: Header,
-    queries: Queries,
+    query: WireQuery,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
@@ -86,8 +94,8 @@ impl MessageRequest {
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```
-    pub fn queries(&self) -> &[LowerQuery] {
-        &self.queries.queries
+    pub fn query(&self) -> &LowerQuery {
+        &self.query.query
     }
 
     /// ```text
@@ -171,9 +179,9 @@ impl MessageRequest {
         self.edns.as_ref().map_or(0, Edns::version)
     }
 
-    /// Returns the queries passed received from the client
-    pub fn raw_queries(&self) -> &Queries {
-        &self.queries
+    /// Returns the original query received from the client
+    pub(crate) fn raw_query(&self) -> &WireQuery {
+        &self.query
     }
 }
 
@@ -183,37 +191,44 @@ impl<'q> BinDecodable<'q> for MessageRequest {
     fn read(decoder: &mut BinDecoder<'q>) -> ProtoResult<Self> {
         let mut header = Header::read(decoder)?;
 
-        // TODO: return just header, and in the case of the rest of message getting an error.
-        //  this could improve error detection while decoding.
+        let mut try_parse_rest = move || {
+            // get all counts before header moves
+            let query_count = header.query_count() as usize;
+            let answer_count = header.answer_count() as usize;
+            let name_server_count = header.name_server_count() as usize;
+            let additional_count = header.additional_count() as usize;
 
-        // get the questions
+            let queries = Queries::read(decoder, query_count)?;
+            let query = queries.try_into_query()?;
+            let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
+            let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
+            let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
 
-        // get all counts before header moves
-        let query_count = header.query_count() as usize;
-        let answer_count = header.answer_count() as usize;
-        let name_server_count = header.name_server_count() as usize;
-        let additional_count = header.additional_count() as usize;
+            // need to grab error code from EDNS (which might have a higher value)
+            if let Some(edns) = &edns {
+                let high_response_code = edns.rcode_high();
+                header.merge_response_code(high_response_code);
+            }
 
-        let queries = Queries::read(decoder, query_count)?;
-        let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
-        let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
-        let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
+            Ok(MessageRequest {
+                header,
+                query,
+                answers,
+                name_servers,
+                additionals,
+                sig0,
+                edns,
+            })
+        };
 
-        // need to grab error code from EDNS (which might have a higher value)
-        if let Some(edns) = &edns {
-            let high_response_code = edns.rcode_high();
-            header.merge_response_code(high_response_code);
+        match try_parse_rest() {
+            Ok(message) => Ok(message),
+            Err(e) => Err(ProtoErrorKind::FormError {
+                header,
+                error: Box::new(e),
+            }
+            .into()),
         }
-
-        Ok(MessageRequest {
-            header,
-            queries,
-            answers,
-            name_servers,
-            additionals,
-            sig0,
-            edns,
-        })
     }
 }
 
@@ -266,6 +281,37 @@ impl Queries {
             original: self.original.as_ref(),
         }
     }
+
+    /// Performs a validation that this set of Queries is one and only one Query
+    pub(crate) fn try_into_query(mut self) -> Result<WireQuery, ProtoError> {
+        let count = self.queries.len();
+        if count == 1 {
+            let query = self.queries.pop().expect("should have been at least one");
+
+            Ok(WireQuery {
+                query,
+                original: self.original,
+            })
+        } else {
+            Err(ProtoErrorKind::BadQueryCount(count).into())
+        }
+    }
+}
+
+/// A query with the original bytes stored from the query
+#[derive(Debug, PartialEq)]
+pub(crate) struct WireQuery {
+    query: LowerQuery,
+    original: Box<[u8]>,
+}
+
+impl WireQuery {
+    pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
+        QueriesEmitAndCount {
+            length: 1,
+            original: self.original.as_ref(),
+        }
+    }
 }
 
 pub(crate) struct QueriesEmitAndCount<'q> {
@@ -286,14 +332,16 @@ impl BinEncodable for MessageRequest {
             &self.header,
             // we emit the queries, not the raw bytes, in order to guarantee canonical form
             //   in cases where that's necessary, like SIG0 validation
-            &mut self.queries.queries.iter(),
+            &mut once(&self.query.query),
             &mut self.answers.iter(),
             &mut self.name_servers.iter(),
             &mut self.additionals.iter(),
             self.edns.as_ref(),
             &self.sig0,
             encoder,
-        )
+        )?;
+
+        Ok(())
     }
 }
 
@@ -302,8 +350,8 @@ pub trait UpdateRequest {
     /// Id of the Message
     fn id(&self) -> u16;
 
-    /// Zones being updated, this should be the queries of a Message
-    fn zones(&self) -> &[LowerQuery];
+    /// Zone being updated, this should be the query of a Message
+    fn zone(&self) -> &LowerQuery;
 
     /// Prerequisites map to the answers of a Message
     fn prerequisites(&self) -> &[Record];
@@ -323,8 +371,8 @@ impl UpdateRequest for MessageRequest {
         MessageRequest::id(self)
     }
 
-    fn zones(&self) -> &[LowerQuery] {
-        self.queries()
+    fn zone(&self) -> &LowerQuery {
+        self.query()
     }
 
     fn prerequisites(&self) -> &[Record] {
