@@ -18,7 +18,7 @@ use crate::{
         rr::{LowerName, Name, Record, RecordType},
     },
     resolver::{
-        config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver, TokioHandle,
+        config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver, TokioRuntime,
     },
     store::forwarder::ForwardConfig,
 };
@@ -35,7 +35,7 @@ impl ForwardAuthority {
     /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub async fn new(runtime: TokioHandle) -> Result<Self, String> {
+    pub async fn new(runtime: TokioRuntime) -> Result<Self, String> {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
@@ -57,7 +57,7 @@ impl ForwardAuthority {
         let options = config.options.unwrap_or_default();
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = TokioAsyncResolver::new(config, options, TokioHandle)
+        let resolver = TokioAsyncResolver::new(config, options, TokioRuntime)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         info!("forward resolver configured: {}: ", origin);

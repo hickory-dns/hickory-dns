@@ -288,7 +288,7 @@ pub use hosts::Hosts;
 pub use name_server::ConnectionProvider;
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-pub use name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
+pub use name_server::{TokioConnection, TokioConnectionProvider, TokioRuntime};
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 pub use resolver::Resolver;

@@ -18,9 +18,9 @@ use native_tls::{Certificate, Identity, TlsConnector};
 use tokio_native_tls::{TlsConnector as TokioTlsConnector, TlsStream as TokioTlsStream};
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::TcpConnector;
 use crate::tcp::TcpStream;
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
+use crate::RuntimeProvider;
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream<S> = TcpStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
@@ -47,10 +47,10 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Identity>) -> io::Result<TlsC
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream<S: TcpConnector>(
-    stream: TokioTlsStream<AsyncIoStdAsTokio<S::Socket>>,
+pub fn tls_from_stream<R: RuntimeProvider>(
+    stream: TokioTlsStream<AsyncIoStdAsTokio<R::TcpConnection>>,
     peer_addr: SocketAddr,
-) -> (TlsStream<S::Socket>, BufDnsStreamHandle) {
+) -> (TlsStream<R::TcpConnection>, BufDnsStreamHandle) {
     let (message_sender, outbound_messages) = BufDnsStreamHandle::new(peer_addr);
 
     let stream = TcpStream::from_stream_with_receiver(
@@ -64,19 +64,19 @@ pub fn tls_from_stream<S: TcpConnector>(
 
 /// A builder for the TlsStream
 #[derive(Default)]
-pub struct TlsStreamBuilder<S> {
+pub struct TlsStreamBuilder<R> {
     ca_chain: Vec<Certificate>,
     identity: Option<Identity>,
-    connector: S,
+    runtime: R,
 }
 
-impl<S: TcpConnector> TlsStreamBuilder<S> {
+impl<R: RuntimeProvider> TlsStreamBuilder<R> {
     /// Constructs a new TlsStreamBuilder
-    pub fn new(connector: S) -> TlsStreamBuilder<S> {
+    pub fn new(runtime: R) -> Self {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
-            connector,
+            runtime,
         }
     }
 
@@ -125,7 +125,7 @@ impl<S: TcpConnector> TlsStreamBuilder<S> {
         dns_name: String,
     ) -> (
         // TODO: change to impl?
-        Pin<Box<dyn Future<Output = Result<TlsStream<S::Socket>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsStream<R::TcpConnection>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -139,13 +139,13 @@ impl<S: TcpConnector> TlsStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
         outbound_messages: StreamReceiver,
-    ) -> Result<TlsStream<S::Socket>, io::Error> {
+    ) -> Result<TlsStream<R::TcpConnection>, io::Error> {
         use crate::native_tls::tls_stream;
 
         let ca_chain = self.ca_chain.clone();
         let identity = self.identity;
 
-        let tcp_stream = self.connector.connect(name_server).await;
+        let tcp_stream = self.runtime.connect_tcp(name_server).await;
 
         // TODO: for some reason the above wouldn't accept a ?
         let tcp_stream = match tcp_stream {

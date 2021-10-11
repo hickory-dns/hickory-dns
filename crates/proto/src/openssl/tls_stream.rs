@@ -20,8 +20,9 @@ use openssl::x509::{X509Ref, X509};
 use tokio_openssl::{self, SslStream as TokioTlsStream};
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::{DnsTcpStream, TcpConnector, TcpStream};
+use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::BufDnsStreamHandle;
+use crate::RuntimeProvider;
 
 pub(crate) trait TlsIdentityExt {
     fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {
@@ -124,13 +125,13 @@ pub fn tls_stream_from_existing_tls_stream<S: DnsTcpStream>(
     (stream, message_sender)
 }
 
-async fn connect_tls<S: TcpConnector>(
+async fn connect_tls<R: RuntimeProvider>(
     tls_config: ConnectConfiguration,
     dns_name: String,
     name_server: SocketAddr,
-    connector: S,
-) -> Result<TokioTlsStream<AsyncIoStdAsTokio<S::Socket>>, io::Error> {
-    let tcp = connector.connect(name_server).await.map_err(|e| {
+    runtime: R,
+) -> Result<TokioTlsStream<AsyncIoStdAsTokio<R::TcpConnection>>, io::Error> {
+    let tcp = runtime.connect_tcp(name_server).await.map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
@@ -151,19 +152,19 @@ async fn connect_tls<S: TcpConnector>(
 
 /// A builder for the TlsStream
 #[derive(Default)]
-pub struct TlsStreamBuilder<S> {
+pub struct TlsStreamBuilder<R> {
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12>,
-    connector: S,
+    runtime: R,
 }
 
-impl<S: TcpConnector> TlsStreamBuilder<S> {
+impl<R: RuntimeProvider> TlsStreamBuilder<R> {
     /// A builder for associating trust information to the `TlsStream`.
-    pub fn new(connector: S) -> Self {
+    pub fn new(runtime: R) -> Self {
         TlsStreamBuilder {
             ca_chain: vec![],
             identity: None,
-            connector,
+            runtime,
         }
     }
 
@@ -211,7 +212,7 @@ impl<S: TcpConnector> TlsStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<CompatTlsStream<S::Socket>, io::Error>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<CompatTlsStream<R::TcpConnection>, io::Error>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -248,7 +249,7 @@ impl<S: TcpConnector> TlsStreamBuilder<S> {
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream = Box::pin(
-            connect_tls(tls_config, dns_name, name_server, self.connector).map_ok(move |s| {
+            connect_tls(tls_config, dns_name, name_server, self.runtime).map_ok(move |s| {
                 TcpStream::from_stream_with_receiver(
                     AsyncIoTokioAsStd(s),
                     name_server,

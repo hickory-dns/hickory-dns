@@ -19,8 +19,9 @@ use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
 use crate::rustls::tls_stream::tls_connect;
-use crate::tcp::{TcpClientStream, TcpConnector};
+use crate::tcp::TcpClientStream;
 use crate::xfer::BufDnsStreamHandle;
+use crate::RuntimeProvider;
 
 /// Type of TlsClientStream used with Rustls
 pub type TlsClientStream<S> =
@@ -35,13 +36,19 @@ pub type TlsClientStream<S> =
 /// * `client_config` - TLS client configuration
 /// * `connector` - connector for creating and connecting TCP sockets.
 #[allow(clippy::type_complexity)]
-pub fn tls_client_connect<S: TcpConnector>(
+pub fn tls_client_connect<R: RuntimeProvider>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
-    connector: S,
+    connector: R,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<S::Socket>, ProtoError>> + Send + Unpin>>,
+    Pin<
+        Box<
+            dyn Future<Output = Result<TlsClientStream<R::TcpConnection>, ProtoError>>
+                + Send
+                + Unpin,
+        >,
+    >,
     BufDnsStreamHandle,
 ) {
     let (stream_future, sender) = tls_connect(name_server, dns_name, client_config, connector);

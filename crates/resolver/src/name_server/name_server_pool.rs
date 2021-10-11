@@ -25,7 +25,7 @@ use crate::name_server;
 use crate::name_server::{ConnectionProvider, NameServer};
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
-use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
+use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioRuntime};
 
 /// A pool of NameServers
 ///
@@ -49,7 +49,7 @@ impl NameServerPool<TokioConnection, TokioConnectionProvider> {
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
-        runtime: TokioHandle,
+        runtime: TokioRuntime,
     ) -> Self {
         Self::from_config_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
@@ -467,7 +467,7 @@ mod tests {
         let mut pool = NameServerPool::<_, TokioConnectionProvider>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
-            TokioHandle,
+            TokioRuntime,
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -511,7 +511,7 @@ mod tests {
         env_logger::try_init().ok();
 
         let io_loop = Runtime::new().unwrap();
-        let conn_provider = TokioConnectionProvider::new(TokioHandle);
+        let conn_provider = TokioConnectionProvider::new(TokioRuntime);
 
         let tcp = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),

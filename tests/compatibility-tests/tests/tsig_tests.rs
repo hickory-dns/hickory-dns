@@ -20,7 +20,7 @@ use trust_dns_client::client::{ClientConnection, SyncClient};
 use trust_dns_client::op::ResponseCode;
 use trust_dns_client::proto::rr::dnssec::rdata::tsig::TsigAlgorithm;
 #[cfg(feature = "tokio-runtime")]
-use trust_dns_client::proto::{tcp::TokioTcpConnector, udp::TokioUdpBinder};
+use trust_dns_client::proto::TokioRuntime;
 use trust_dns_client::rr::dnssec::tsig::TSigner;
 use trust_dns_client::rr::Name;
 use trust_dns_client::rr::{RData, Record, RecordType};
@@ -57,7 +57,7 @@ where
 fn test_create() {
     let (_process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);
-    let conn = UdpClientConnection::new(socket, TokioUdpBinder).unwrap();
+    let conn = UdpClientConnection::new(socket, TokioRuntime).unwrap();
 
     let client = create_tsig_ready_client(conn);
     let origin = Name::from_str("example.net.").unwrap();

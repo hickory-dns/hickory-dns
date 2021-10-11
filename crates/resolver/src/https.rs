@@ -14,8 +14,8 @@ pub(crate) fn new_https_stream<R>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-    handle: R::Handle,
-) -> DnsExchangeConnect<HttpsClientConnect<R::Handle>, HttpsClientStream, TokioTime>
+    handle: R,
+) -> DnsExchangeConnect<HttpsClientConnect<R>, HttpsClientStream, TokioTime>
 where
     R: RuntimeProvider,
 {
@@ -35,7 +35,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
-    use crate::{TokioAsyncResolver, TokioHandle};
+    use crate::{TokioAsyncResolver, TokioRuntime};
 
     fn https_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
@@ -46,7 +46,7 @@ mod tests {
                 try_tcp_on_error: true,
                 ..Default::default()
             },
-            TokioHandle,
+            TokioRuntime,
         )
         .expect("failed to create resolver");
 

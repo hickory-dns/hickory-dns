@@ -26,14 +26,13 @@ use std::{thread, time};
 use futures_util::stream::StreamExt;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
 #[allow(clippy::useless_attribute)]
 #[allow(unused)]
 use crate::native_tls::{TlsStream, TlsStreamBuilder};
-use crate::tcp::TokioTcpConnector;
 use crate::xfer::SerialMessage;
+use crate::TokioRuntime;
 use crate::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -195,7 +194,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::<TokioTcpConnector>::new(Default::default());
+    let mut builder = TlsStreamBuilder::<TokioRuntime>::new(Default::default());
     builder.add_ca(trust_chain);
 
     // fix MTLS

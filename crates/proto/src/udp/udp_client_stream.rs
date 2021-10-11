@@ -19,9 +19,9 @@ use log::{debug, warn};
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
 use crate::op::{MessageFinalizer, MessageVerifier};
-use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket, UdpSocketBinder};
+use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
-use crate::Time;
+use crate::{RuntimeProvider, Time};
 
 /// A UDP client stream of DNS binary packets
 ///
@@ -113,7 +113,7 @@ fn random_query_id() -> u16 {
     Standard.sample(&mut rand)
 }
 
-impl<S: UdpSocketBinder + Send + 'static, MF: MessageFinalizer> DnsRequestSender
+impl<S: RuntimeProvider + Send + 'static, MF: MessageFinalizer> DnsRequestSender
     for UdpClientStream<S, MF>
 {
     fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
@@ -221,14 +221,14 @@ impl<S: Clone + Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<
     }
 }
 
-async fn send_serial_message<S: UdpSocketBinder + Send>(
+async fn send_serial_message<S: RuntimeProvider + Send>(
     msg: SerialMessage,
     msg_id: u16,
     verifier: Option<MessageVerifier>,
     binder: S,
 ) -> Result<DnsResponse, ProtoError> {
     let name_server = msg.addr();
-    let socket: S::Socket = NextRandomUdpSocket::new(&name_server, binder).await?;
+    let socket: S::UdpSocket = NextRandomUdpSocket::new(&name_server, binder).await?;
     let bytes = msg.bytes();
     let addr = msg.addr();
     let len_sent: usize = socket.send_to(bytes, addr).await?;
@@ -303,8 +303,7 @@ async fn send_serial_message<S: UdpSocketBinder + Send>(
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
     use crate::tests::udp_client_stream_test;
-    use crate::udp::TokioUdpBinder;
-    use crate::TokioTime;
+    use crate::{TokioRuntime, TokioTime};
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
     use std::net::{IpAddr, Ipv4Addr};
@@ -313,10 +312,10 @@ mod tests {
     #[test]
     fn test_udp_client_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpBinder, Runtime, TokioTime>(
+        udp_client_stream_test::<TokioRuntime, Runtime, TokioTime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
-            TokioUdpBinder,
+            TokioRuntime,
         )
     }
 
@@ -324,10 +323,10 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_udp_client_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        udp_client_stream_test::<TokioUdpBinder, Runtime, TokioTime>(
+        udp_client_stream_test::<TokioRuntime, Runtime, TokioTime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
-            TokioUdpBinder,
+            TokioRuntime,
         )
     }
 }

@@ -26,7 +26,7 @@ use tokio::runtime::Runtime;
 
 use trust_dns_client::client::*;
 use trust_dns_proto::rustls::tls_client_connect;
-use trust_dns_proto::tcp::TokioTcpConnector;
+use trust_dns_proto::TokioRuntime;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -69,7 +69,7 @@ fn test_example_tls_toml_startup() {
                 addr,
                 "ns.example.com".to_string(),
                 config.clone(),
-                TokioTcpConnector,
+                TokioRuntime,
             );
             let client = AsyncClient::new(stream, sender, None);
 
@@ -84,12 +84,8 @@ fn test_example_tls_toml_startup() {
                 .unwrap()
                 .next()
                 .unwrap();
-            let (stream, sender) = tls_client_connect(
-                addr,
-                "ns.example.com".to_string(),
-                config,
-                TokioTcpConnector,
-            );
+            let (stream, sender) =
+                tls_client_connect(addr, "ns.example.com".to_string(), config, TokioRuntime);
             let client = AsyncClient::new(stream, sender, None);
 
             let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");

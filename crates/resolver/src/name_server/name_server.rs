@@ -24,7 +24,7 @@ use crate::config::{NameServerConfig, ResolverOpts};
 use crate::error::ResolveError;
 use crate::name_server::{ConnectionProvider, NameServerState, NameServerStats};
 #[cfg(feature = "tokio-runtime")]
-use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioHandle};
+use crate::name_server::{TokioConnection, TokioConnectionProvider, TokioRuntime};
 
 /// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
@@ -51,7 +51,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 impl NameServer<TokioConnection, TokioConnectionProvider> {
-    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioHandle) -> Self {
+    pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioRuntime) -> Self {
         Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
 }
@@ -286,7 +286,7 @@ mod tests {
             tls_config: None,
         };
         let io_loop = Runtime::new().unwrap();
-        let runtime_handle = TokioHandle;
+        let runtime_handle = TokioRuntime;
         let name_server = future::lazy(|_| {
             NameServer::<_, TokioConnectionProvider>::new(
                 config,
@@ -324,7 +324,7 @@ mod tests {
             tls_config: None,
         };
         let io_loop = Runtime::new().unwrap();
-        let runtime_handle = TokioHandle;
+        let runtime_handle = TokioRuntime;
         let name_server = future::lazy(|_| {
             NameServer::<_, TokioConnectionProvider>::new(config, options, runtime_handle)
         });

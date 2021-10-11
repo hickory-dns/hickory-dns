@@ -3,16 +3,16 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use futures_util::stream::StreamExt;
 use log::debug;
 
-use crate::udp::{UdpClientStream, UdpSocketBinder, UdpStream};
+use crate::udp::{UdpClientStream, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;
 use crate::xfer::FirstAnswer;
-use crate::{Executor, Time};
+use crate::{Executor, RuntimeProvider, Time};
 
 /// Test next random udpsocket.
-pub fn next_random_socket_test<S: UdpSocketBinder + Default + Send + 'static, E: Executor>(
+pub fn next_random_socket_test<R: RuntimeProvider + Default + Send + 'static, E: Executor>(
     mut exec: E,
 ) {
-    let (stream, _) = UdpStream::with_binder::<S>(
+    let (stream, _) = UdpStream::with_runtime::<R>(
         SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52),
         Default::default(),
     );
@@ -23,7 +23,7 @@ pub fn next_random_socket_test<S: UdpSocketBinder + Default + Send + 'static, E:
 }
 
 /// Test udp_stream.
-pub async fn udp_stream_test<B: UdpSocketBinder + Default + Send + 'static>(server_addr: IpAddr) {
+pub async fn udp_stream_test<R: RuntimeProvider + Default + Send + 'static>(server_addr: IpAddr) {
     use crate::xfer::SerialMessage;
     use std::net::ToSocketAddrs;
 
@@ -89,15 +89,15 @@ pub async fn udp_stream_test<B: UdpSocketBinder + Default + Send + 'static>(serv
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
-    let binder: B = Default::default();
+    let runtime: R = Default::default();
     println!("binding client socket");
-    let socket = binder
-        .bind(client_addr.to_socket_addrs().unwrap().next().unwrap())
+    let socket = runtime
+        .bind_udp(client_addr.to_socket_addrs().unwrap().next().unwrap())
         .await
         .expect("could not create socket"); // some random address...
     println!("bound client socket");
 
-    let (mut stream, mut sender) = UdpStream::<B::Socket>::with_bound(socket, server_addr);
+    let (mut stream, mut sender) = UdpStream::<R::UdpSocket>::with_bound(socket, server_addr);
 
     for _i in 0..send_recv_times {
         // test once
@@ -118,7 +118,7 @@ pub async fn udp_stream_test<B: UdpSocketBinder + Default + Send + 'static>(serv
 
 /// Test udp_client_stream.
 #[allow(clippy::print_stdout)]
-pub fn udp_client_stream_test<S: UdpSocketBinder + Send + 'static, E: Executor, TE: Time>(
+pub fn udp_client_stream_test<S: RuntimeProvider + Send + 'static, E: Executor, TE: Time>(
     server_addr: IpAddr,
     mut exec: E,
     binder: S,

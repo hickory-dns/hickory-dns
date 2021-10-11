@@ -6,7 +6,7 @@
 #[cfg(feature = "tokio-runtime")]
 fn main() {
     use tokio::runtime::Runtime;
-    use trust_dns_resolver::{TokioAsyncResolver, TokioHandle};
+    use trust_dns_resolver::{TokioAsyncResolver, TokioRuntime};
 
     env_logger::init();
 
@@ -18,7 +18,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(TokioHandle)
+            TokioAsyncResolver::from_system_conf(TokioRuntime)
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

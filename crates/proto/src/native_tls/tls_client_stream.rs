@@ -21,21 +21,22 @@ use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
 use crate::native_tls::TlsStreamBuilder;
-use crate::tcp::{TcpClientStream, TcpConnector};
+use crate::tcp::TcpClientStream;
 use crate::xfer::BufDnsStreamHandle;
+use crate::RuntimeProvider;
 
 /// TlsClientStream secure DNS over TCP stream
 ///
 /// See TlsClientStreamBuilder::new()
-pub type TlsClientStream<S> =
-    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
+pub type TlsClientStream<R> =
+    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<R>>>>;
 
 /// Builder for TlsClientStream
-pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);
+pub struct TlsClientStreamBuilder<R>(TlsStreamBuilder<R>);
 
-impl<S: TcpConnector> TlsClientStreamBuilder<S> {
+impl<R: RuntimeProvider> TlsClientStreamBuilder<R> {
     /// Creates a builder fo the construction of a TlsClientStream
-    pub fn new(connector: S) -> TlsClientStreamBuilder<S> {
+    pub fn new(connector: R) -> TlsClientStreamBuilder<R> {
         TlsClientStreamBuilder(TlsStreamBuilder::new(connector))
     }
 
@@ -64,7 +65,7 @@ impl<S: TcpConnector> TlsClientStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsClientStream<S::Socket>, ProtoError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<R::TcpConnection>, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
@@ -79,7 +80,7 @@ impl<S: TcpConnector> TlsClientStreamBuilder<S> {
     }
 }
 
-impl<S: TcpConnector + Default> Default for TlsClientStreamBuilder<S> {
+impl<R: RuntimeProvider + Default> Default for TlsClientStreamBuilder<R> {
     fn default() -> Self {
         Self::new(Default::default())
     }

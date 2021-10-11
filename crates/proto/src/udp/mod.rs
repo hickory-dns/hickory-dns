@@ -20,6 +20,4 @@ mod udp_client_stream;
 mod udp_stream;
 
 pub use self::udp_client_stream::{UdpClientConnect, UdpClientStream};
-pub use self::udp_stream::{UdpSocket, UdpSocketBinder, UdpStream};
-#[cfg(feature = "tokio-runtime")]
-pub use udp_stream::TokioUdpBinder;
+pub use self::udp_stream::{UdpSocket, UdpStream};

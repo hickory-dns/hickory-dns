@@ -11,7 +11,8 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::proto::udp::{UdpClientConnect, UdpClientStream, UdpSocketBinder};
+use crate::proto::udp::{UdpClientConnect, UdpClientStream};
+use crate::proto::RuntimeProvider;
 
 use crate::client::ClientConnection;
 use crate::client::Signer;
@@ -21,47 +22,47 @@ use crate::error::*;
 ///
 /// Use with `trust_dns_client::client::Client` impls
 #[derive(Clone, Copy)]
-pub struct UdpClientConnection<S> {
+pub struct UdpClientConnection<R> {
     name_server: SocketAddr,
     timeout: Duration,
-    binder: S,
+    runtime: R,
 }
 
-impl<S: UdpSocketBinder + 'static> UdpClientConnection<S> {
+impl<R: RuntimeProvider + 'static> UdpClientConnection<R> {
     /// Creates a new client connection. With a default timeout of 5 seconds
     ///
     /// # Arguments
     ///
     /// * `name_server` - address of the name server to use for queries
-    /// * `binder` - binder for creating UDP sockets
-    pub fn new(name_server: SocketAddr, binder: S) -> ClientResult<Self> {
-        Self::with_timeout(name_server, binder, Duration::from_secs(5))
+    /// * `runtime` - runtime responsible for creating UDP sockets
+    pub fn new(name_server: SocketAddr, runtime: R) -> ClientResult<Self> {
+        Self::with_timeout(name_server, runtime, Duration::from_secs(5))
     }
 
     /// Allows a custom timeout
     pub fn with_timeout(
         name_server: SocketAddr,
-        binder: S,
+        runtime: R,
         timeout: Duration,
     ) -> ClientResult<Self> {
         Ok(UdpClientConnection {
             name_server,
             timeout,
-            binder,
+            runtime,
         })
     }
 }
 
-impl<S: UdpSocketBinder + 'static> ClientConnection for UdpClientConnection<S> {
-    type Sender = UdpClientStream<S, Signer>;
-    type SenderFuture = UdpClientConnect<S, Signer>;
+impl<R: RuntimeProvider + 'static> ClientConnection for UdpClientConnection<R> {
+    type Sender = UdpClientStream<R, Signer>;
+    type SenderFuture = UdpClientConnect<R, Signer>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         UdpClientStream::with_timeout_and_signer(
             self.name_server,
             self.timeout,
             signer,
-            self.binder.clone(),
+            self.runtime.clone(),
         )
     }
 }

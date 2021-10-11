@@ -18,9 +18,10 @@ use log::warn;
 use crate::error::ProtoError;
 #[cfg(feature = "tokio-runtime")]
 use crate::iocompat::AsyncIoTokioAsStd;
-use crate::tcp::{DnsTcpStream, TcpConnector, TcpStream};
+use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{DnsClientStream, SerialMessage};
 use crate::BufDnsStreamHandle;
+use crate::RuntimeProvider;
 #[cfg(feature = "tokio-runtime")]
 use crate::TokioTime;
 
@@ -43,13 +44,13 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `connector` - connector for creating the TCP socket
+    /// * `runtime` - runtime responsible for creating the TCP socket
     #[allow(clippy::new_ret_no_self)]
-    pub fn new<C: TcpConnector<Socket = S> + 'static>(
+    pub fn new<R: RuntimeProvider<TcpConnection = S> + 'static>(
         name_server: SocketAddr,
-        connector: C,
+        runtime: R,
     ) -> (TcpClientConnect<S>, BufDnsStreamHandle) {
-        Self::with_timeout(name_server, Duration::from_secs(5), connector)
+        Self::with_timeout(name_server, Duration::from_secs(5), runtime)
     }
 
     /// Constructs a new TcpStream for a client to the specified SocketAddr.
@@ -58,13 +59,13 @@ impl<S: DnsTcpStream> TcpClientStream<S> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `timeout` - connection timeout
-    /// * `connector` - connector for creating the TCP socket
-    pub fn with_timeout<C: TcpConnector<Socket = S> + 'static>(
+    /// * `runtime` - runtime for creating the TCP socket
+    pub fn with_timeout<R: RuntimeProvider<TcpConnection = S> + 'static>(
         name_server: SocketAddr,
         timeout: Duration,
-        connector: C,
+        runtime: R,
     ) -> (TcpClientConnect<S>, BufDnsStreamHandle) {
-        let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout, connector);
+        let (stream_future, sender) = TcpStream::<S>::with_timeout(name_server, timeout, runtime);
 
         let new_future = Box::pin(
             stream_future
@@ -144,16 +145,15 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr};
     use tokio::runtime::Runtime;
 
-    use crate::tcp::TokioTcpConnector;
     use crate::tests::tcp_client_stream_test;
-    use crate::TokioTime;
+    use crate::{TokioRuntime, TokioTime};
     #[test]
     fn test_tcp_stream_ipv4() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_client_stream_test::<TokioTcpConnector, Runtime, TokioTime>(
+        tcp_client_stream_test::<TokioRuntime, Runtime, TokioTime>(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             io_loop,
-            TokioTcpConnector,
+            TokioRuntime,
         )
     }
 
@@ -161,10 +161,10 @@ mod tests {
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_tcp_stream_ipv6() {
         let io_loop = Runtime::new().expect("failed to create tokio runtime");
-        tcp_client_stream_test::<TokioTcpConnector, Runtime, TokioTime>(
+        tcp_client_stream_test::<TokioRuntime, Runtime, TokioTime>(
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             io_loop,
-            TokioTcpConnector,
+            TokioRuntime,
         )
     }
 }

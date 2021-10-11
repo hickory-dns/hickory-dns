@@ -13,20 +13,21 @@ use std::time::Duration;
 
 use crate::client::{ClientConnection, Signer};
 use crate::error::*;
-use crate::proto::tcp::{TcpClientConnect, TcpClientStream, TcpConnector};
+use crate::proto::tcp::{TcpClientConnect, TcpClientStream};
 use crate::proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
+use crate::proto::RuntimeProvider;
 
 /// Tcp client connection
 ///
 /// Use with `trust_dns_client::client::Client` impls
 #[derive(Clone, Copy)]
-pub struct TcpClientConnection<S: TcpConnector> {
+pub struct TcpClientConnection<R: RuntimeProvider> {
     name_server: SocketAddr,
     timeout: Duration,
-    connector: S,
+    runtime: R,
 }
 
-impl<S: TcpConnector> TcpClientConnection<S> {
+impl<R: RuntimeProvider> TcpClientConnection<R> {
     /// Creates a new client connection.
     ///
     /// *Note* this has side affects of establishing the connection to the specified DNS server and
@@ -37,8 +38,8 @@ impl<S: TcpConnector> TcpClientConnection<S> {
     /// # Arguments
     ///
     /// * `name_server` - address of the name server to use for queries
-    pub fn new(name_server: SocketAddr, connector: S) -> ClientResult<Self> {
-        Self::with_timeout(name_server, Duration::from_secs(5), connector)
+    pub fn new(name_server: SocketAddr, runtime: R) -> ClientResult<Self> {
+        Self::with_timeout(name_server, Duration::from_secs(5), runtime)
     }
 
     /// Creates a new client connection.
@@ -52,29 +53,32 @@ impl<S: TcpConnector> TcpClientConnection<S> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-        connector: S,
+        runtime: R,
     ) -> ClientResult<Self> {
         Ok(TcpClientConnection {
             name_server,
             timeout,
-            connector,
+            runtime,
         })
     }
 }
 
-impl<S: TcpConnector> ClientConnection for TcpClientConnection<S>
+impl<R: RuntimeProvider> ClientConnection for TcpClientConnection<R>
 where
-    <S as TcpConnector>::Socket: tokio::io::AsyncRead + tokio::io::AsyncWrite,
+    R::TcpConnection: tokio::io::AsyncRead + tokio::io::AsyncWrite,
 {
-    type Sender = DnsMultiplexer<TcpClientStream<S::Socket>, Signer>;
-    type SenderFuture =
-        DnsMultiplexerConnect<TcpClientConnect<S::Socket>, TcpClientStream<S::Socket>, Signer>;
+    type Sender = DnsMultiplexer<TcpClientStream<R::TcpConnection>, Signer>;
+    type SenderFuture = DnsMultiplexerConnect<
+        TcpClientConnect<R::TcpConnection>,
+        TcpClientStream<R::TcpConnection>,
+        Signer,
+    >;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
-        let (tcp_client_stream, handle) = TcpClientStream::<S::Socket>::with_timeout(
+        let (tcp_client_stream, handle) = TcpClientStream::<R::TcpConnection>::with_timeout(
             self.name_server,
             self.timeout,
-            self.connector.clone(),
+            self.runtime.clone(),
         );
         DnsMultiplexer::new(tcp_client_stream, handle, signer)
     }

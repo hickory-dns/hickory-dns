@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use rustls::ClientConfig;
 use trust_dns_proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
-use trust_dns_proto::tcp::TcpConnector;
+use trust_dns_proto::RuntimeProvider;
 
 use crate::client::{ClientConnection, Signer};
 
@@ -27,8 +27,8 @@ pub struct HttpsClientConnection<T> {
     connector: T,
 }
 
-impl<T: TcpConnector> HttpsClientConnection<T> {
-    /// Creates a new client connection.
+impl<T: RuntimeProvider> HttpsClientConnection<T> {
+    /// Creates a new client connection with runtime provider.
     ///
     /// *Note* this has side affects of starting the listening event_loop. Expect this to change in
     /// the future.
@@ -56,7 +56,7 @@ impl<T: TcpConnector> HttpsClientConnection<T> {
 
 impl<T> ClientConnection for HttpsClientConnection<T>
 where
-    T: TcpConnector,
+    T: RuntimeProvider,
 {
     type Sender = HttpsClientStream;
     type SenderFuture = HttpsClientConnect<T>;

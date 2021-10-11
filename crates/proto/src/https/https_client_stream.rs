@@ -30,8 +30,8 @@ use tokio_rustls::{
 
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
-use crate::tcp::TcpConnector;
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
+use crate::RuntimeProvider;
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -285,7 +285,7 @@ pub struct HttpsClientStreamBuilder<T> {
     connector: T,
 }
 
-impl<T: TcpConnector> HttpsClientStreamBuilder<T> {
+impl<T: RuntimeProvider> HttpsClientStreamBuilder<T> {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     ///
     /// # Arguments
@@ -327,11 +327,11 @@ impl<T: TcpConnector> HttpsClientStreamBuilder<T> {
 /// A future that resolves to an HttpsClientStream
 pub struct HttpsClientConnect<S>(HttpsClientConnectState<S>)
 where
-    S: TcpConnector;
+    S: RuntimeProvider;
 
 impl<S> Future for HttpsClientConnect<S>
 where
-    S: TcpConnector,
+    S: RuntimeProvider,
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
@@ -347,23 +347,23 @@ struct TlsConfig {
 
 #[allow(clippy::large_enum_variant)]
 #[allow(clippy::type_complexity)]
-enum HttpsClientConnectState<S>
+enum HttpsClientConnectState<R>
 where
-    S: TcpConnector,
+    R: RuntimeProvider,
 {
     ConnectTcp {
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
-        connector: S,
+        connector: R,
     },
     TcpConnecting {
-        connect: Pin<Box<dyn Future<Output = io::Result<S::Socket>> + Send>>,
+        connect: Pin<Box<dyn Future<Output = io::Result<R::TcpConnection>> + Send>>,
         name_server: SocketAddr,
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
         // TODO: also abstract away Tokio TLS in RuntimeProvider.
-        tls: TokioTlsConnect<AsyncIoStdAsTokio<S::Socket>>,
+        tls: TokioTlsConnect<AsyncIoStdAsTokio<R::TcpConnection>>,
         name_server_name: Arc<str>,
         name_server: SocketAddr,
     },
@@ -375,7 +375,7 @@ where
                             (
                                 SendRequest<Bytes>,
                                 Connection<
-                                    TokioTlsClientStream<AsyncIoStdAsTokio<S::Socket>>,
+                                    TokioTlsClientStream<AsyncIoStdAsTokio<R::TcpConnection>>,
                                     Bytes,
                                 >,
                             ),
@@ -393,7 +393,7 @@ where
 
 impl<S> Future for HttpsClientConnectState<S>
 where
-    S: TcpConnector,
+    S: RuntimeProvider,
 {
     type Output = Result<HttpsClientStream, ProtoError>;
 
@@ -406,9 +406,8 @@ where
                     ref connector,
                 } => {
                     debug!("tcp connecting to: {}", name_server);
-                    let connect = connector.clone().connect(name_server);
                     HttpsClientConnectState::TcpConnecting {
-                        connect,
+                        connect: connector.connect_tcp(name_server),
                         name_server,
                         tls: tls.take(),
                     }
@@ -518,8 +517,8 @@ mod tests {
 
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::{Name, RData, RecordType};
-    use crate::tcp::TokioTcpConnector;
     use crate::xfer::FirstAnswer;
+    use crate::TokioRuntime;
 
     use super::*;
 
@@ -537,12 +536,9 @@ mod tests {
         let mut client_config = client_config_tls12_webpki_roots();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(
-            TokioTcpConnector,
-            Arc::new(client_config),
-        );
-        let connect = https_builder
-            .build(google, "dns.google".to_string());
+        let https_builder =
+            HttpsClientStreamBuilder::with_client_config(TokioRuntime, Arc::new(client_config));
+        let connect = https_builder.build(google, "dns.google".to_string());
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
@@ -606,10 +602,8 @@ mod tests {
         let request = DnsRequest::new(request, Default::default());
 
         let client_config = client_config_tls12_webpki_roots();
-        let https_builder = HttpsClientStreamBuilder::with_client_config(
-            TokioTcpConnector,
-            Arc::new(client_config),
-        );
+        let https_builder =
+            HttpsClientStreamBuilder::with_client_config(TokioRuntime, Arc::new(client_config));
         let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
 
         // tokio runtime stuff...

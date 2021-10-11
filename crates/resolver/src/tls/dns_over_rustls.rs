@@ -18,9 +18,9 @@ use rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore};
 use proto::error::ProtoError;
 use proto::rustls::{tls_client_connect, TlsClientStream};
 use proto::BufDnsStreamHandle;
+use proto::RuntimeProvider;
 
 use crate::config::TlsClientConfig;
-use crate::name_server::RuntimeProvider;
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -55,15 +55,15 @@ pub(crate) fn new_tls_stream<R: RuntimeProvider>(
     socket_addr: SocketAddr,
     dns_name: String,
     client_config: Option<TlsClientConfig>,
-    connector: R::Handle,
+    runtime: R,
 ) -> (
-    Pin<Box<dyn Future<Output = Result<TlsClientStream<R::Tcp>, ProtoError>> + Send>>,
+    Pin<Box<dyn Future<Output = Result<TlsClientStream<R::TcpConnection>, ProtoError>> + Send>>,
     BufDnsStreamHandle,
 ) {
     let client_config = client_config.map_or_else(
         || CLIENT_CONFIG.clone(),
         |TlsClientConfig(client_config)| client_config,
     );
-    let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config, connector);
+    let (stream, handle) = tls_client_connect(socket_addr, dns_name, client_config, runtime);
     (Box::pin(stream), handle)
 }

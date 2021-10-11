@@ -252,6 +252,7 @@ pub enum ProtoErrorKind {
 
 /// The error type for errors that get returned in the crate
 #[derive(Error, Clone, Debug)]
+// TODO: Should this not be removed?
 #[non_exhaustive]
 pub struct ProtoError {
     /// Kind of error that ocurred

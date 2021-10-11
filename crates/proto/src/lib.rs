@@ -84,6 +84,12 @@ pub mod tests;
 pub mod udp;
 pub mod xfer;
 
+pub mod runtime_provider;
+
+pub use runtime_provider::RuntimeProvider;
+#[cfg(feature = "tokio-runtime")]
+pub use runtime_provider::TokioRuntime;
+
 #[doc(hidden)]
 pub use crate::xfer::dns_handle::{DnsHandle, DnsStreamHandle};
 #[doc(hidden)]

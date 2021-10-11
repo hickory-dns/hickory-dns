@@ -19,22 +19,23 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
 use crate::iocompat::AsyncIoTokioAsStd;
-use crate::tcp::{TcpClientStream, TcpConnector};
+use crate::tcp::TcpClientStream;
 use crate::xfer::BufDnsStreamHandle;
+use crate::RuntimeProvider;
 
 use super::TlsStreamBuilder;
 
 /// A Type definition for the TLS stream
-pub type TlsClientStream<S> =
-    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<S>>>>;
+pub type TlsClientStream<R> =
+    TcpClientStream<AsyncIoTokioAsStd<TokioTlsStream<AsyncIoStdAsTokio<R>>>>;
 
 /// A Builder for the TlsClientStream
-pub struct TlsClientStreamBuilder<S>(TlsStreamBuilder<S>);
+pub struct TlsClientStreamBuilder<R>(TlsStreamBuilder<R>);
 
-impl<S: TcpConnector> TlsClientStreamBuilder<S> {
+impl<R: RuntimeProvider> TlsClientStreamBuilder<R> {
     /// Creates a builder for the construction of a TlsClientStream.
-    pub fn new(connector: S) -> Self {
-        TlsClientStreamBuilder(TlsStreamBuilder::new(connector))
+    pub fn new(runtime: R) -> Self {
+        TlsClientStreamBuilder(TlsStreamBuilder::new(runtime))
     }
 
     /// Add a custom trusted peer certificate or certificate authority.
@@ -72,7 +73,7 @@ impl<S: TcpConnector> TlsClientStreamBuilder<S> {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Pin<Box<dyn Future<Output = Result<TlsClientStream<S::Socket>, ProtoError>> + Send>>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<R::TcpConnection>, ProtoError>> + Send>>,
         BufDnsStreamHandle,
     ) {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
@@ -87,7 +88,7 @@ impl<S: TcpConnector> TlsClientStreamBuilder<S> {
     }
 }
 
-impl<S: TcpConnector + Default> Default for TlsClientStreamBuilder<S> {
+impl<R: RuntimeProvider + Default> Default for TlsClientStreamBuilder<R> {
     fn default() -> Self {
         Self::new(Default::default())
     }

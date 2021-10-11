@@ -6,14 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::future::Future;
+use std::io;
+use std::pin::Pin;
 
 use trust_dns_resolver::proto::error::ProtoError;
-use trust_dns_resolver::proto::tcp::TcpConnector;
-use trust_dns_resolver::proto::udp::UdpSocketBinder;
 use trust_dns_resolver::proto::Executor;
 
 use trust_dns_resolver::name_server::{
-    GenericConnection, GenericConnectionProvider, RuntimeProvider, Spawn,
+    GenericConnection, GenericConnectionProvider, RuntimeProvider,
 };
 
 use crate::net::{AsyncStdTcpStream, AsyncStdUdpSocket};
@@ -59,49 +59,34 @@ impl Executor for AsyncStdRuntime {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct AsyncStdRuntimeHandle;
-impl Spawn for AsyncStdRuntimeHandle {
-    fn spawn_bg<F>(&mut self, future: F)
-    where
-        F: Future<Output = Result<(), ProtoError>> + Send + 'static,
-    {
-        let _join = async_std::task::spawn(future);
-    }
-}
-
 #[async_trait::async_trait]
-impl UdpSocketBinder for AsyncStdRuntimeHandle {
-    type Socket = AsyncStdUdpSocket;
+impl RuntimeProvider for AsyncStdRuntime {
+    type UdpSocket = AsyncStdUdpSocket;
     type Time = AsyncStdTime;
-    async fn bind(&self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
+    type TcpConnection = AsyncStdTcpStream;
+
+    async fn bind_udp(&self, addr: std::net::SocketAddr) -> io::Result<Self::UdpSocket> {
         async_std::net::UdpSocket::bind(addr)
             .await
             .map(AsyncStdUdpSocket)
     }
-}
 
-#[async_trait::async_trait]
-impl TcpConnector for AsyncStdRuntimeHandle {
-    type Socket = AsyncStdTcpStream;
-    async fn connect(self, addr: std::net::SocketAddr) -> std::io::Result<Self::Socket> {
-        let stream = async_std::net::TcpStream::connect(addr).await?;
-        stream.set_nodelay(true)?;
-        Ok(AsyncStdTcpStream(stream))
+    fn connect_tcp(
+        &self,
+        addr: std::net::SocketAddr,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::TcpConnection>> + Send>> {
+        Box::pin(async move {
+            let stream = async_std::net::TcpStream::connect(addr).await?;
+            stream.set_nodelay(true)?;
+            Ok(AsyncStdTcpStream(stream))
+        })
     }
-}
 
-impl RuntimeProvider for AsyncStdRuntime {
-    type Handle = AsyncStdRuntimeHandle;
-    type Tcp = AsyncStdTcpStream;
-    type Timer = AsyncStdTime;
-    type Udp = AsyncStdUdpSocket;
-}
-
-impl AsyncStdRuntime {
-    #[cfg(test)]
-    pub(crate) fn handle(&self) -> AsyncStdRuntimeHandle {
-        AsyncStdRuntimeHandle
+    fn spawn_bg<F>(&self, future: F)
+    where
+        F: Future<Output = Result<(), ProtoError>> + Send + 'static,
+    {
+        let _join = async_std::task::spawn(future);
     }
 }
 

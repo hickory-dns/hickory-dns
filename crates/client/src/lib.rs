@@ -78,12 +78,12 @@
 //! ## Setup a connection
 //!
 //! ```rust
-//! use trust_dns_client::proto::{DnsStreamHandle, udp::TokioUdpBinder};
+//! use trust_dns_client::proto::{DnsStreamHandle, TokioRuntime};
 //! use trust_dns_client::client::{Client, ClientConnection, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
 //!
 //! let address = "8.8.8.8:53".parse().unwrap();
-//! let conn = UdpClientConnection::new(address, TokioUdpBinder).unwrap();
+//! let conn = UdpClientConnection::new(address, TokioRuntime).unwrap();
 //!
 //! // and then create the Client
 //! let client = SyncClient::new(conn);
@@ -100,12 +100,12 @@
 //! use std::str::FromStr;
 //! # use trust_dns_client::client::{Client, SyncClient};
 //! # use trust_dns_client::udp::UdpClientConnection;
-//! # use trust_dns_client::proto::udp::TokioUdpBinder;
+//! # use trust_dns_client::proto::TokioRuntime;
 //! use trust_dns_client::op::DnsResponse;
 //! use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
-//! # let conn = UdpClientConnection::new(address, TokioUdpBinder).unwrap();
+//! # let conn = UdpClientConnection::new(address, TokioRuntime).unwrap();
 //! # let client = SyncClient::new(conn);
 //!
 //! // Specify the name, note the final '.' which specifies it's an FQDN
@@ -155,14 +155,14 @@
 //! use openssl::rsa::Rsa;
 //! use trust_dns_client::client::{Client, SyncClient};
 //! use trust_dns_client::udp::UdpClientConnection;
-//! use trust_dns_client::proto::udp::TokioUdpBinder;
+//! use trust_dns_client::proto::TokioRuntime;
 //! use trust_dns_client::rr::{Name, RData, Record, RecordType};
 //! use trust_dns_client::rr::dnssec::{Algorithm, SigSigner, KeyPair};
 //! use trust_dns_client::op::ResponseCode;
 //! use trust_dns_client::rr::rdata::key::KEY;
 //!
 //! # let address = "0.0.0.0:53".parse().unwrap();
-//! # let conn = UdpClientConnection::new(address, TokioUdpBinder).unwrap();
+//! # let conn = UdpClientConnection::new(address, TokioRuntime).unwrap();
 //!
 //! // The format of the key is dependent on the KeyPair type, in this example we're using RSA
 //! //  if the key was generated with BIND, the binary in Trust-DNS client lib `dnskey-to-pem`
@@ -228,7 +228,7 @@
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
 //! use trust_dns_client::client::{AsyncClient, ClientHandle};
-//! use trust_dns_client::proto::{iocompat::AsyncIoTokioAsStd, tcp::TokioTcpConnector};
+//! use trust_dns_client::proto::{iocompat::AsyncIoTokioAsStd, TokioRuntime};
 //! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 //! use trust_dns_client::tcp::TcpClientStream;
 //!
@@ -236,7 +236,7 @@
 //! async fn main() {
 //!     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
 //!     let (stream, sender) =
-//!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into(), TokioTcpConnector);
+//!         TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into(), TokioRuntime);
 //!
 //!     // Create a new client, the bg is a background future which handles
 //!     //   the multiplexing of the DNS requests to the server.

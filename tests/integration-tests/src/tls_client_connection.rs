@@ -19,8 +19,8 @@ use trust_dns_client::client::ClientConnection;
 use trust_dns_client::client::Signer;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::rustls::{tls_client_connect, TlsClientStream};
-use trust_dns_proto::tcp::TcpConnector;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
+use trust_dns_proto::RuntimeProvider;
 
 /// Tls client connection
 ///
@@ -49,11 +49,11 @@ impl<T> TlsClientConnection<T> {
 }
 
 #[allow(clippy::type_complexity)]
-impl<T: TcpConnector> ClientConnection for TlsClientConnection<T> {
-    type Sender = DnsMultiplexer<TlsClientStream<T::Socket>, Signer>;
+impl<T: RuntimeProvider> ClientConnection for TlsClientConnection<T> {
+    type Sender = DnsMultiplexer<TlsClientStream<T::TcpConnection>, Signer>;
     type SenderFuture = DnsMultiplexerConnect<
-        Pin<Box<dyn Future<Output = Result<TlsClientStream<T::Socket>, ProtoError>> + Send>>,
-        TlsClientStream<T::Socket>,
+        Pin<Box<dyn Future<Output = Result<TlsClientStream<T::TcpConnection>, ProtoError>> + Send>>,
+        TlsClientStream<T::TcpConnection>,
         Signer,
     >;
 

@@ -29,7 +29,7 @@ use trust_dns_client::{
 use trust_dns_proto::xfer::{DnsExchangeBackground, DnsMultiplexer};
 #[cfg(all(feature = "dnssec", feature = "sqlite"))]
 use trust_dns_proto::TokioTime;
-use trust_dns_proto::{tcp::TokioTcpConnector, udp::TokioUdpBinder, xfer::FirstAnswer, DnsHandle};
+use trust_dns_proto::{xfer::FirstAnswer, DnsHandle, TokioRuntime};
 
 use trust_dns_server::authority::{Authority, Catalog};
 
@@ -59,7 +59,7 @@ fn test_query_nonet() {
 fn test_query_udp_ipv4() {
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let stream = UdpClientStream::<TokioUdpBinder>::new(addr, TokioUdpBinder);
+    let stream = UdpClientStream::<TokioRuntime>::new(addr, TokioRuntime);
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -79,7 +79,7 @@ fn test_query_udp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let stream = UdpClientStream::new(addr, TokioUdpBinder);
+    let stream = UdpClientStream::new(addr, TokioRuntime);
     let client = AsyncClient::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -94,7 +94,7 @@ fn test_query_udp_ipv6() {
 fn test_query_tcp_ipv4() {
     let io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, TokioTcpConnector);
+    let (stream, sender) = TcpClientStream::new(addr, TokioRuntime);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -113,7 +113,7 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, TokioTcpConnector);
+    let (stream, sender) = TcpClientStream::new(addr, TokioRuntime);
     let client = AsyncClient::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -154,7 +154,7 @@ fn test_query_https() {
     client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
     let https_builder =
-        HttpsClientStreamBuilder::with_client_config(TokioTcpConnector, Arc::new(client_config));
+        HttpsClientStreamBuilder::with_client_config(TokioRuntime, Arc::new(client_config));
     let client = AsyncClient::connect(https_builder.build(addr, "cloudflare-dns.com".to_string()));
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -976,7 +976,7 @@ fn test_timeout_query_udp() {
         .unwrap();
 
     let stream =
-        UdpClientStream::with_timeout(addr, std::time::Duration::from_millis(1), TokioUdpBinder);
+        UdpClientStream::with_timeout(addr, std::time::Duration::from_millis(1), TokioRuntime);
     let client = AsyncClient::connect(stream);
     let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
@@ -997,7 +997,7 @@ fn test_timeout_query_tcp() {
         .unwrap();
 
     let (stream, sender) =
-        TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1), TokioTcpConnector);
+        TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1), TokioRuntime);
     let client = AsyncClient::with_timeout(
         Box::new(stream),
         sender,

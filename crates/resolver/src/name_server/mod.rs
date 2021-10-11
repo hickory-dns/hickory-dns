@@ -12,7 +12,8 @@ mod name_server_pool;
 mod name_server_state;
 mod name_server_stats;
 
-pub use self::connection_provider::{ConnectionProvider, RuntimeProvider, Spawn};
+//TODO: Stop exposing RuntimeProvider here
+pub use self::connection_provider::{ConnectionProvider, Spawn};
 pub use self::connection_provider::{GenericConnection, GenericConnectionProvider};
 #[cfg(feature = "mdns")]
 #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
@@ -21,9 +22,11 @@ pub use self::name_server::NameServer;
 pub use self::name_server_pool::NameServerPool;
 use self::name_server_state::NameServerState;
 use self::name_server_stats::NameServerStats;
+pub use crate::proto::RuntimeProvider;
 
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
-pub use self::connection_provider::tokio_runtime::{
-    TokioConnection, TokioConnectionProvider, TokioHandle, TokioRuntime,
-};
+pub use self::connection_provider::tokio_runtime::{TokioConnection, TokioConnectionProvider};
+#[cfg(feature = "tokio-runtime")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
+pub use crate::proto::TokioRuntime;

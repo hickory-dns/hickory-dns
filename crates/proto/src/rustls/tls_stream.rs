@@ -21,9 +21,9 @@ use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
-use crate::tcp::TcpConnector;
 use crate::tcp::{DnsTcpStream, TcpStream};
 use crate::xfer::{BufDnsStreamHandle, StreamReceiver};
+use crate::RuntimeProvider;
 
 /// Predefined type for abstracting the TlsClientStream with TokioTls
 pub type TokioTlsClientStream<S> = tokio_rustls::client::TlsStream<AsyncIoStdAsTokio<S>>;
@@ -74,17 +74,17 @@ pub fn tls_from_stream<S: DnsTcpStream>(
 /// * `client_config` - TLS client configuration
 /// * `connector` - connector for creating and connecting TCP sockets.
 #[allow(clippy::type_complexity)]
-pub fn tls_connect<S: TcpConnector>(
+pub fn tls_connect<R: RuntimeProvider>(
     name_server: SocketAddr,
     dns_name: String,
     client_config: Arc<ClientConfig>,
-    connector: S,
+    connector: R,
 ) -> (
     Pin<
         Box<
             dyn Future<
                     Output = Result<
-                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<S::Socket>>>,
+                        TlsStream<AsyncIoTokioAsStd<TokioTlsClientStream<R::TcpConnection>>>,
                         io::Error,
                     >,
                 > + Send,
@@ -109,14 +109,14 @@ pub fn tls_connect<S: TcpConnector>(
     (stream, message_sender)
 }
 
-async fn connect_tls<S: TcpConnector>(
+async fn connect_tls<R: RuntimeProvider>(
     tls_connector: TlsConnector,
     name_server: SocketAddr,
     dns_name: String,
     outbound_messages: StreamReceiver,
-    connector: S,
-) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S::Socket>>>> {
-    let tcp = connector.connect(name_server).await?;
+    runtime: R,
+) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<R::TcpConnection>>>> {
+    let tcp = runtime.connect_tcp(name_server).await?;
 
     let dns_name = match dns_name.as_str().try_into() {
         Ok(name) => name,

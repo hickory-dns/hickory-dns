@@ -26,9 +26,8 @@ use trust_dns_integration::authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::op::*;
-use trust_dns_proto::tcp::TokioTcpConnector;
-use trust_dns_proto::udp::TokioUdpBinder;
 use trust_dns_proto::xfer::{DnsMultiplexer, DnsMultiplexerConnect};
+use trust_dns_proto::TokioRuntime;
 use trust_dns_server::authority::{Authority, Catalog};
 
 pub struct TestClientConnection {
@@ -76,7 +75,7 @@ fn test_query_nonet() {
 #[allow(deprecated)]
 fn test_query_udp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = UdpClientConnection::new(addr, TokioUdpBinder).unwrap();
+    let conn = UdpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncClient::new(conn);
 
     test_query(client);
@@ -86,7 +85,7 @@ fn test_query_udp() {
 #[allow(deprecated)]
 fn test_query_udp_edns() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = UdpClientConnection::new(addr, TokioUdpBinder).unwrap();
+    let conn = UdpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncClient::new(conn);
 
     test_query_edns(client);
@@ -97,7 +96,7 @@ fn test_query_udp_edns() {
 #[allow(deprecated)]
 fn test_query_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr, TokioTcpConnector).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncClient::new(conn);
 
     test_query(client);
@@ -197,7 +196,7 @@ fn test_secure_query_example_udp() {
     // env_logger::init();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = UdpClientConnection::new(addr, TokioUdpBinder).unwrap();
+    let conn = UdpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
@@ -210,7 +209,7 @@ fn test_secure_query_example_tcp() {
     // env_logger::init();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr, TokioTcpConnector).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     test_secure_query_example(client);
@@ -278,7 +277,7 @@ fn test_timeout_query_udp() {
         .unwrap();
 
     // TODO: need to add timeout length to SyncClient
-    let client = SyncClient::new(UdpClientConnection::new(addr, TokioUdpBinder).unwrap());
+    let client = SyncClient::new(UdpClientConnection::new(addr, TokioRuntime).unwrap());
     test_timeout_query(client);
 }
 
@@ -294,8 +293,7 @@ fn test_timeout_query_tcp() {
 
     // TODO: need to add timeout length to SyncClient
     let client = SyncClient::new(
-        TcpClientConnection::with_timeout(addr, Duration::from_millis(1), TokioTcpConnector)
-            .unwrap(),
+        TcpClientConnection::with_timeout(addr, Duration::from_millis(1), TokioRuntime).unwrap(),
     );
     test_timeout_query(client);
 }
@@ -348,9 +346,9 @@ fn test_timeout_query_tcp() {
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = UdpClientConnection::new(addr, TokioUdpBinder).unwrap();
+    let conn = UdpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncDnssecClient::new(conn).build();
-    test_nsec_query_example::<UdpClientConnection<TokioUdpBinder>>(client);
+    test_nsec_query_example::<UdpClientConnection<TokioRuntime>>(client);
 }
 
 #[test]
@@ -359,9 +357,9 @@ fn test_nsec_query_example_udp() {
 #[cfg(feature = "dnssec")]
 fn test_nsec_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr, TokioTcpConnector).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncDnssecClient::new(conn).build();
-    test_nsec_query_example::<TcpClientConnection<TokioTcpConnector>>(client);
+    test_nsec_query_example::<TcpClientConnection<TokioRuntime>>(client);
 }
 
 #[cfg(feature = "dnssec")]
@@ -385,7 +383,7 @@ fn test_nsec_query_type() {
     let name = Name::from_str("www.example.com").unwrap();
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr, TokioTcpConnector).unwrap();
+    let conn = TcpClientConnection::new(addr, TokioRuntime).unwrap();
     let client = SyncDnssecClient::new(conn).build();
 
     let response = client

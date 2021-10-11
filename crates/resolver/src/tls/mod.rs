@@ -33,7 +33,7 @@ mod tests {
     use tokio::runtime::Runtime;
 
     use crate::config::{ResolverConfig, ResolverOpts};
-    use crate::{TokioAsyncResolver, TokioHandle};
+    use crate::{TokioAsyncResolver, TokioRuntime};
 
     fn tls_test(config: ResolverConfig) {
         let io_loop = Runtime::new().unwrap();
@@ -44,7 +44,7 @@ mod tests {
                 try_tcp_on_error: true,
                 ..Default::default()
             },
-            TokioHandle,
+            TokioRuntime,
         )
         .expect("failed to create resolver");
 

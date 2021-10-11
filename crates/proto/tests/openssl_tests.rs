@@ -31,9 +31,9 @@ use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
 
-use trust_dns_proto::tcp::{TcpConnector, TokioTcpConnector};
 use trust_dns_proto::xfer::SerialMessage;
 use trust_dns_proto::DnsStreamHandle;
+use trust_dns_proto::{RuntimeProvider, TokioRuntime};
 
 use trust_dns_proto::openssl::TlsStreamBuilder;
 
@@ -202,7 +202,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = X509::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = TlsStreamBuilder::new(TokioTcpConnector);
+    let mut builder = TlsStreamBuilder::new(TokioRuntime);
     builder.add_ca(trust_chain);
 
     if mtls {
@@ -232,7 +232,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 }
 
 #[allow(unused_variables)]
-fn config_mtls<T: TcpConnector>(
+fn config_mtls<T: RuntimeProvider>(
     root_pkey: &PKey<Private>,
     root_name: &X509Name,
     root_cert: &X509,

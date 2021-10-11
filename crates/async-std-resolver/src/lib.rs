@@ -96,7 +96,7 @@ use trust_dns_resolver::AsyncResolver;
 
 pub use crate::runtime::AsyncStdConnection;
 pub use crate::runtime::AsyncStdConnectionProvider;
-use crate::runtime::AsyncStdRuntimeHandle;
+use crate::runtime::AsyncStdRuntime;
 
 mod net;
 mod runtime;
@@ -130,7 +130,7 @@ pub async fn resolver(
     config: config::ResolverConfig,
     options: config::ResolverOpts,
 ) -> Result<AsyncStdResolver, ResolveError> {
-    AsyncStdResolver::new(config, options, AsyncStdRuntimeHandle)
+    AsyncStdResolver::new(config, options, AsyncStdRuntime)
 }
 
 /// Constructs a new async-std based Resolver with the system configuration.
@@ -139,5 +139,5 @@ pub async fn resolver(
 #[cfg(any(unix, target_os = "windows"))]
 #[cfg(feature = "system-config")]
 pub async fn resolver_from_system_conf() -> Result<AsyncStdResolver, ResolveError> {
-    AsyncStdResolver::from_system_conf(AsyncStdRuntimeHandle)
+    AsyncStdResolver::from_system_conf(AsyncStdRuntime)
 }
