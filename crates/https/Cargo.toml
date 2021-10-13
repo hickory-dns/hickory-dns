@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-https"
-version = "0.21.0-alpha.3"
+version = "0.21.0-alpha.4"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -47,4 +47,4 @@ name = "trust_dns_https"
 path = "src/lib.rs"
 
 [dependencies]
-trust-dns-proto = { version = "0.21.0-alpha.3", path = "../proto", features = ["tokio-runtime", "dns-over-https-rustls"], default-features = false }
+trust-dns-proto = { version = "0.21.0-alpha.4", path = "../proto", features = ["tokio-runtime", "dns-over-https-rustls"], default-features = false }
