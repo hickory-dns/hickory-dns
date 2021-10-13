@@ -16,6 +16,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (resolver) TCP for truncated message responses, but not for other failures on responses (switch for old behavior `try_tcp_on_error`) ( @peterthejohnston) #1562
 - (server) Multiple queries in a message will always result in a FormError now #1554
 - (server) `ServerFuture` and other `Catalog` related API changes #1554
 - (server) By default, the server will now only log a single log line based for a given request (debug will be needed for more details) #1554
