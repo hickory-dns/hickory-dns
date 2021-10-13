@@ -75,7 +75,7 @@ chrono = "0.4"
 clap = "2.33"
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 log = "0.4"
-rustls = { version = "0.19", optional = true }
+rustls = { version = "0.20", optional = true }
 tokio = { version = "1.0", features = ["time"] }
 trust-dns-client = { version = "0.21.0-alpha.4", path = "../crates/client" }
 trust-dns-proto = { version = "0.21.0-alpha.4", path = "../crates/proto" }
