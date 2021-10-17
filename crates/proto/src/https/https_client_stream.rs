@@ -14,6 +14,7 @@ use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::convert::TryFrom;
 
 use bytes::{Buf, Bytes, BytesMut};
 use futures_util::future::{FutureExt, TryFutureExt};
@@ -26,7 +27,6 @@ use rustls::ClientConfig;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
 };
-use webpki::DNSNameRef;
 
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
@@ -287,7 +287,11 @@ pub struct HttpsClientStreamBuilder {
 impl HttpsClientStreamBuilder {
     /// Return a new builder for DNS-over-HTTPS
     pub fn new() -> HttpsClientStreamBuilder {
-        let mut client_config = ClientConfig::new();
+        let root_store = rustls::RootCertStore::empty();
+        let mut client_config = rustls::ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         HttpsClientStreamBuilder {
@@ -433,7 +437,7 @@ where
                     let dns_name = tls.dns_name;
                     let name_server_name = Arc::clone(&dns_name);
 
-                    match DNSNameRef::try_from_ascii_str(&dns_name) {
+                    match rustls::ServerName::try_from(&*dns_name) {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
@@ -545,12 +549,21 @@ mod tests {
 
         // using the mozilla default root store
         let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        let versions = vec![ProtocolVersion::TLSv1_2];
-
-        let mut client_config = ClientConfig::new();
-        client_config.root_store = root_store;
-        client_config.versions = versions;
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+            |ta| {
+                rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                    ta.subject,
+                    ta.spki,
+                    ta.name_constraints,
+                )
+            },
+        ));
+        let mut client_config = ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&rustls::version::TLS12]).unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
         client_config.key_log = Arc::new(KeyLogFile::new());
 
@@ -621,12 +634,21 @@ mod tests {
 
         // using the mozilla default root store
         let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        let versions = vec![ProtocolVersion::TLSv1_2];
-
-        let mut client_config = ClientConfig::new();
-        client_config.root_store = root_store;
-        client_config.versions = versions;
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+            |ta| {
+                rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                    ta.subject,
+                    ta.spki,
+                    ta.name_constraints,
+                )
+            },
+        ));
+        let mut client_config = ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&rustls::version::TLS12]).unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));

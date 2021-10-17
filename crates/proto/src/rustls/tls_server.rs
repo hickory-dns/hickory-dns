@@ -12,7 +12,7 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 use log::warn;
-use rustls::internal::pemfile::{certs, pkcs8_private_keys};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use rustls::{self, Certificate, PrivateKey, ServerConfig};
 
 use crate::error::{ProtoError, ProtoResult};
@@ -25,20 +25,27 @@ pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<Certificate>> {
         .map_err(|e| format!("error opening cert file: {:?}: {}", cert_path, e))?;
 
     let mut reader = BufReader::new(&mut cert_file);
-    certs(&mut reader).map_err(|()| {
+    let certs = certs(&mut reader).map_err(|_| {
         ProtoError::from(format!(
             "failed to read certs from: {}",
             cert_path.display()
         ))
-    })
+    })?;
+    let certs = certs.into_iter()
+        .map(Certificate)
+        .collect();
+    Ok(certs)
 }
 
 /// Reads a private key from a pkcs8 formatted, and possibly encoded file
 pub fn read_key_from_pkcs8(path: &Path) -> ProtoResult<PrivateKey> {
     let mut file = BufReader::new(File::open(path)?);
 
-    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(&mut file)
-        .map_err(|()| ProtoError::from(format!("failed to read keys from: {}", path.display())))?;
+    let keys: Vec<_> = pkcs8_private_keys(&mut file)
+        .map_err(|_| ProtoError::from(format!("failed to read keys from: {}", path.display())))?;
+    let mut keys: Vec<_> = keys.into_iter()
+        .map(PrivateKey)
+        .collect();
     match keys.len() {
         0 => return Err(format!("no keys available in: {}", path.display()).into()),
         1 => (),
@@ -65,23 +72,24 @@ pub fn read_key_from_pem(path: &Path) -> ProtoResult<PrivateKey> {
     let file = File::open(path)?;
     let mut file = BufReader::new(file);
 
-    let mut keys = rustls::internal::pemfile::rsa_private_keys(&mut file)
+    let mut keys = rustls_pemfile::rsa_private_keys(&mut file)
         .map_err(|_| format!("Error reading RSA key from: {}", path.display()))?;
     let key = keys
         .pop()
         .ok_or_else(|| format!("No RSA keys in file: {}", path.display()))?;
 
-    Ok(key)
+    Ok(PrivateKey(key))
 }
 
 /// Construct the new Acceptor with the associated pkcs12 data
 pub fn new_acceptor(
     cert: Vec<Certificate>,
     key: PrivateKey,
-) -> Result<ServerConfig, rustls::TLSError> {
-    let mut config = ServerConfig::new(rustls::NoClientAuth::new());
-    config.set_protocols(&[b"h2".to_vec()]);
-    config.set_single_cert(cert, key)?;
-
+) -> Result<ServerConfig, rustls::Error> {
+    let mut config = rustls::ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth()
+        .with_single_cert(cert, key)?;
+    config.alpn_protocols = vec![b"h2".to_vec()];
     Ok(config)
 }

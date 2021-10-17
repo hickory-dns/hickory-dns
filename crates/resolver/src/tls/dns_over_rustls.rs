@@ -13,7 +13,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use futures_util::future::Future;
-use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+use rustls::{ClientConfig, RootCertStore};
 
 use proto::error::ProtoError;
 use proto::rustls::{tls_client_connect, TlsClientStream};
@@ -28,12 +28,21 @@ lazy_static! {
     // using the mozilla default root store
     pub(crate) static ref CLIENT_CONFIG: Arc<ClientConfig> = {
         let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        let versions = vec![ProtocolVersion::TLSv1_2];
-
-        let mut client_config = ClientConfig::new();
-        client_config.root_store = root_store;
-        client_config.versions = versions;
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+            |ta| {
+                rustls::OwnedTrustAnchor::from_subject_spki_name_constraints(
+                    ta.subject,
+                    ta.spki,
+                    ta.name_constraints,
+                )
+            },
+        ));
+        let mut client_config = ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&rustls::version::TLS12]).unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         Arc::new(client_config)

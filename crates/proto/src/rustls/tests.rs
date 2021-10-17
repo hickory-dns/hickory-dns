@@ -201,13 +201,16 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
 
+    let mut root_store = rustls::RootCertStore::empty();
     let trust_chain = Certificate(root_cert_der);
-
-    let mut config = ClientConfig::new();
-    config
-        .root_store
+    root_store
         .add(&trust_chain)
         .expect("bad certificate!");
+
+    let mut config = ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
 
     // barrier.wait();
     // fix MTLS

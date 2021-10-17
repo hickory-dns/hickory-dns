@@ -12,13 +12,13 @@ use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::convert::TryFrom;
 
 use futures_util::TryFutureExt;
 use rustls::ClientConfig;
 use tokio;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio_rustls::TlsConnector;
-use webpki::{DNSName, DNSNameRef};
 
 use crate::iocompat::{AsyncIoStdAsTokio, AsyncIoTokioAsStd};
 use crate::tcp::Connect;
@@ -113,12 +113,11 @@ async fn connect_tls<S: Connect>(
 ) -> io::Result<TcpStream<AsyncIoTokioAsStd<TokioTlsClientStream<S>>>> {
     let tcp = S::connect(name_server).await?;
 
-    let dns_name = DNSNameRef::try_from_ascii_str(&dns_name)
-        .map(DNSName::from)
+    let dns_name = rustls::ServerName::try_from(dns_name.as_str())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "bad dns_name"))?;
 
     let s = tls_connector
-        .connect(dns_name.as_ref(), AsyncIoStdAsTokio(tcp))
+        .connect(dns_name, AsyncIoStdAsTokio(tcp))
         .map_err(|e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,

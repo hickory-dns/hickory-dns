@@ -41,6 +41,22 @@ impl<T> HttpsClientConnection<T> {
     pub fn new() -> HttpsClientConnectionBuilder {
         HttpsClientConnectionBuilder::new()
     }
+
+    /// Creates a new HttpsStream to the specified name_server
+    ///
+    /// # Arguments
+    ///
+    /// * `client_config` - TLS client config
+    /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    pub fn build_with_client_config(client_config: ClientConfig, name_server: SocketAddr, dns_name: String)
+        -> HttpsClientConnection<T>
+    {
+        HttpsClientConnection {
+            name_server, dns_name, client_config,
+            marker: PhantomData,
+        }
+    }
 }
 
 impl<T> ClientConnection for HttpsClientConnection<T>
@@ -64,28 +80,22 @@ where
 
 /// A helper to construct an HTTPS connection
 pub struct HttpsClientConnectionBuilder {
-    client_config: ClientConfig,
+    root_store: rustls::RootCertStore
 }
 
 impl HttpsClientConnectionBuilder {
     /// Return a new builder for DNS-over-HTTPS
     pub fn new() -> HttpsClientConnectionBuilder {
         HttpsClientConnectionBuilder {
-            client_config: ClientConfig::new(),
+            root_store: rustls::RootCertStore::empty(),
         }
-    }
-
-    /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: ClientConfig) -> Self {
-        HttpsClientConnectionBuilder { client_config }
     }
 
     /// Add a custom trusted peer certificate or certificate authority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca(&mut self, ca: Certificate) {
-        self.client_config
-            .root_store
+        self.root_store
             .add(&ca)
             .expect("bad certificate!");
     }
@@ -97,13 +107,19 @@ impl HttpsClientConnectionBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     pub fn build<T>(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnection<T> {
+        let client_config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(self.root_store)
+            .with_no_client_auth();
+
         HttpsClientConnection {
             name_server,
             dns_name,
-            client_config: self.client_config,
+            client_config,
             marker: PhantomData,
         }
     }
+
 }
 
 impl Default for HttpsClientConnectionBuilder {
