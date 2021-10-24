@@ -11,7 +11,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
 #[cfg(not(feature = "none"))]
-use chrono::Duration;
+use time::Duration;
 
 #[cfg(not(feature = "none"))]
 use trust_dns_client::client::{Client, SyncClient};
@@ -67,7 +67,7 @@ fn test_zone_transfer() {
     let mut record = Record::with(
         Name::from_str("new.example.net.").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 

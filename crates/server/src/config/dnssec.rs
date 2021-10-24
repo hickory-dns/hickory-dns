@@ -261,9 +261,9 @@ impl TlsCertConfig {
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
     use log::info;
 
-    use chrono::Duration;
     use std::fs::File;
     use std::io::Read;
+    use time::Duration;
 
     let key_path = key_config.key_path();
     let algorithm = key_config

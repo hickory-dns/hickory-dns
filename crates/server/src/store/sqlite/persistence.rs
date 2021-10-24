@@ -11,10 +11,10 @@ use std::iter::Iterator;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use chrono;
 use log::error;
 use rusqlite::types::ToSql;
 use rusqlite::{self, Connection};
+use time;
 
 use crate::error::{PersistenceErrorKind, PersistenceResult};
 use crate::proto::rr::Record;
@@ -87,7 +87,7 @@ impl Journal {
             record.emit(&mut encoder)?;
         }
 
-        let timestamp = chrono::Utc::now();
+        let timestamp = time::OffsetDateTime::now_utc();
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
         let soa_serial: i64 = i64::from(soa_serial);
 

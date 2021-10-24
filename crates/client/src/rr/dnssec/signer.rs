@@ -7,7 +7,7 @@
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(feature = "dnssec")]
-use chrono::Duration;
+use time::Duration;
 
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::proto::error::{ProtoErrorKind, ProtoResult};
@@ -291,7 +291,7 @@ impl SigSigner {
             key,
             algorithm,
             signer_name,
-            sig_duration: Duration::zero(),
+            sig_duration: Duration::ZERO,
             is_zone_signing_key: false,
         }
     }

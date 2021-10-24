@@ -11,10 +11,10 @@ use std::env;
 use std::fmt::Display;
 use std::io::{self, Write};
 
-use chrono::Utc;
 use env_logger;
 use env_logger::fmt::Formatter;
 use log;
+use time::OffsetDateTime;
 
 fn format<L, M, LN, A>(
     fmt: &mut Formatter,
@@ -29,8 +29,8 @@ where
     LN: Display,
     A: Display,
 {
-    let now = Utc::now();
-    let now_secs = now.format("%s%.6f");
+    let now = OffsetDateTime::now_utc();
+    let now_secs = now.unix_timestamp();
     writeln!(fmt, "{}:{}:{}:{}:{}", now_secs, level, module, line, args)
 }
 
