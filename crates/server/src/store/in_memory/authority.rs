@@ -537,9 +537,9 @@ impl InMemoryAuthority {
     ) -> DnsSecResult<()> {
         use crate::client::rr::dnssec::tbs;
         use crate::client::rr::rdata::SIG;
-        use chrono::Utc;
+        use time::OffsetDateTime;
 
-        let inception = Utc::now();
+        let inception = OffsetDateTime::now_utc();
 
         rr_set.clear_rrsigs();
 
@@ -566,8 +566,8 @@ impl InMemoryAuthority {
                 rr_set.record_type(),
                 signer.algorithm(),
                 rr_set.ttl(),
-                expiration.timestamp() as u32,
-                inception.timestamp() as u32,
+                expiration.unix_timestamp() as u32,
+                inception.unix_timestamp() as u32,
                 signer.calculate_key_tag()?,
                 signer.signer_name(),
                 // TODO: this is a nasty clone... the issue is that the vec
@@ -607,9 +607,9 @@ impl InMemoryAuthority {
                 // original_ttl: u32,
                 rr_set.ttl(),
                 // sig_expiration: u32,
-                expiration.timestamp() as u32,
+                expiration.unix_timestamp() as u32,
                 // sig_inception: u32,
-                inception.timestamp() as u32,
+                inception.unix_timestamp() as u32,
                 // key_tag: u16,
                 signer.calculate_key_tag()?,
                 // signer_name: Name,

@@ -4,9 +4,9 @@ use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex, RwLock};
 
-#[cfg(feature = "dnssec")]
-use chrono::Duration;
 use futures::Future;
+#[cfg(feature = "dnssec")]
+use time::Duration;
 
 #[cfg(feature = "dnssec")]
 use trust_dns_client::client::SyncDnssecClient;
@@ -384,7 +384,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
         Algorithm::RSASHA256,
         key,
         Name::from_str("trusted.example.com").unwrap(),
-        Duration::max_value(),
+        Duration::MAX,
         true,
         true,
     );
@@ -393,7 +393,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
     let mut auth_key = Record::with(
         Name::from_str("trusted.example.com").unwrap(),
         RecordType::DNSSEC(DNSSECRecordType::KEY),
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(KEY::new(
         Default::default(),
@@ -424,7 +424,7 @@ fn test_create() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -464,7 +464,7 @@ fn test_append() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -543,7 +543,7 @@ fn test_compare_and_swap() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -609,7 +609,7 @@ fn test_delete_by_rdata() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -663,7 +663,7 @@ fn test_delete_rrset() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -709,7 +709,7 @@ fn test_delete_all() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
