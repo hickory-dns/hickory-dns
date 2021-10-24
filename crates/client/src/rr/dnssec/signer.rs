@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use chrono::Duration;
+#[cfg(feature = "dnssec")]
+use time::Duration;
 
 use crate::proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(feature = "dnssec")]
@@ -297,7 +297,7 @@ impl Signer {
             key,
             algorithm,
             signer_name,
-            sig_duration: Duration::zero(),
+            sig_duration: Duration::ZERO,
             is_zone_signing_key: false,
         }
     }
