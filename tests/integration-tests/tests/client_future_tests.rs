@@ -4,9 +4,9 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
 };
 
-#[cfg(feature = "dnssec")]
-use chrono::Duration;
 use futures::{Future, FutureExt, TryFutureExt};
+#[cfg(feature = "dnssec")]
+use time::Duration;
 use tokio::{
     net::{TcpStream as TokioTcpStream, UdpSocket as TokioUdpSocket},
     runtime::Runtime,
@@ -303,7 +303,7 @@ async fn create_sig0_ready_client() -> (
     let mut auth_key = Record::with(
         trusted_name,
         RecordType::KEY,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(sig0_key)));
     authority.upsert_mut(auth_key, 0);
@@ -332,7 +332,7 @@ fn test_create() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
@@ -376,7 +376,7 @@ fn test_create_multi() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
@@ -430,7 +430,7 @@ fn test_append() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
@@ -498,7 +498,7 @@ fn test_append_multi() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -572,7 +572,7 @@ fn test_compare_and_swap() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
@@ -630,7 +630,7 @@ fn test_compare_and_swap_multi() {
     let mut current = RecordSet::with_ttl(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
 
     let current1 = current
@@ -700,7 +700,7 @@ fn test_delete_by_rdata() {
     let mut record1 = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record1.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -752,7 +752,7 @@ fn test_delete_by_rdata_multi() {
     let mut rrset = RecordSet::with_ttl(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
 
     let record1 = rrset
@@ -785,7 +785,7 @@ fn test_delete_by_rdata_multi() {
     let mut rrset = RecordSet::with_ttl(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
 
     let record1 = rrset.new_record(record1.rdata()).clone();
@@ -829,7 +829,7 @@ fn test_delete_rrset() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
@@ -876,7 +876,7 @@ fn test_delete_all() {
     let mut record = Record::with(
         Name::from_str("new.example.com").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 

@@ -13,7 +13,7 @@ use std::io::Read;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::str::FromStr;
 
-use chrono::Duration;
+use time::Duration;
 
 use trust_dns_client::client::Client;
 use trust_dns_client::client::{ClientConnection, SyncClient};
@@ -64,7 +64,7 @@ fn test_create() {
     let mut record = Record::with(
         Name::from_str("new.example.net.").unwrap(),
         RecordType::A,
-        Duration::minutes(5).num_seconds() as u32,
+        Duration::minutes(5).whole_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 

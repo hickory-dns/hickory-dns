@@ -190,8 +190,8 @@ pub fn create_example() -> InMemoryAuthority {
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
-    use chrono::Duration;
     use openssl::rsa::Rsa;
+    use time::Duration;
     use trust_dns_client::rr::dnssec::*;
     use trust_dns_server::authority::{Authority, DnssecAuthority};
 

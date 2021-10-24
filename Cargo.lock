@@ -286,19 +286,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "chrono"
-version = "0.4.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
-dependencies = [
- "libc",
- "num-integer",
- "num-traits",
- "time",
- "winapi",
-]
-
-[[package]]
 name = "clap"
 version = "2.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -913,25 +900,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "num-integer"
-version = "0.1.44"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2cc698a63b549a70bc047073d2949cce27cd1c7b0a4a862d08a8031bc2801db"
-dependencies = [
- "autocfg",
- "num-traits",
-]
-
-[[package]]
-name = "num-traits"
-version = "0.2.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
-dependencies = [
- "autocfg",
-]
-
-[[package]]
 name = "num_cpus"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1240,13 +1208,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e2aebd07fccf5c0d3f1458219965b0861d45f5db9f9b2617277fa7f85179213"
 dependencies = [
  "bitflags",
- "chrono",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
  "libsqlite3-sys",
  "memchr",
  "smallvec",
+ "time",
 ]
 
 [[package]]
@@ -1481,13 +1449,20 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.43"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
+checksum = "cde1cf55178e0293453ba2cca0d5f8392a922e52aa958aee9c28ed02becc6d03"
 dependencies = [
+ "itoa",
  "libc",
- "winapi",
+ "time-macros",
 ]
+
+[[package]]
+name = "time-macros"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25eb0ca3468fc0acc11828786797f6ef9aa1555e4a211a60d64cc8e4d1be47d6"
 
 [[package]]
 name = "tinyvec"
@@ -1612,7 +1587,6 @@ dependencies = [
 name = "trust-dns"
 version = "0.21.0-alpha.4"
 dependencies = [
- "chrono",
  "clap",
  "env_logger",
  "futures",
@@ -1620,6 +1594,7 @@ dependencies = [
  "native-tls",
  "regex",
  "rustls",
+ "time",
  "tokio",
  "trust-dns-client",
  "trust-dns-proto",
@@ -1633,7 +1608,6 @@ name = "trust-dns-client"
 version = "0.21.0-alpha.4"
 dependencies = [
  "cfg-if",
- "chrono",
  "data-encoding",
  "futures",
  "futures-channel",
@@ -1647,6 +1621,7 @@ dependencies = [
  "rustls",
  "serde",
  "thiserror",
+ "time",
  "tokio",
  "trust-dns-proto",
  "webpki",
@@ -1656,12 +1631,12 @@ dependencies = [
 name = "trust-dns-compatibility"
 version = "0.21.0-alpha.4"
 dependencies = [
- "chrono",
  "data-encoding",
  "env_logger",
  "futures",
  "openssl",
  "rand",
+ "time",
  "trust-dns-client",
 ]
 
@@ -1677,7 +1652,6 @@ name = "trust-dns-integration"
 version = "0.21.0-alpha.4"
 dependencies = [
  "async-trait",
- "chrono",
  "env_logger",
  "futures",
  "lazy_static",
@@ -1686,6 +1660,7 @@ dependencies = [
  "rand",
  "rusqlite",
  "rustls",
+ "time",
  "tokio",
  "trust-dns-client",
  "trust-dns-proto",
@@ -1790,7 +1765,6 @@ dependencies = [
  "async-trait",
  "bytes",
  "cfg-if",
- "chrono",
  "enum-as-inner",
  "env_logger",
  "futures-executor",
@@ -1803,6 +1777,7 @@ dependencies = [
  "rustls",
  "serde",
  "thiserror",
+ "time",
  "tokio",
  "tokio-openssl",
  "tokio-rustls",
