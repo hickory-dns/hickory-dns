@@ -24,7 +24,6 @@ use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::*;
 
 use futures_util::stream::StreamExt;
-use rustls::Certificate;
 use rustls::ClientConfig;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
@@ -201,13 +200,13 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5));
 
-    let trust_chain = Certificate(root_cert_der);
-
-    let mut config = ClientConfig::new();
-    config
-        .root_store
-        .add(&trust_chain)
-        .expect("bad certificate!");
+    let mut roots = rustls::RootCertStore::empty();
+    let (_, ignored) = roots.add_parsable_certificates(&[root_cert_der]);
+    assert_eq!(ignored, 0, "bad certificate!");
+    let mut config = ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(roots)
+        .with_no_client_auth();
 
     // barrier.wait();
     // fix MTLS

@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::convert::TryInto;
 use std::fmt::{self, Display};
 use std::future::Future;
 use std::io;
@@ -26,7 +27,6 @@ use rustls::ClientConfig;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
 };
-use webpki::DNSNameRef;
 
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
@@ -285,16 +285,6 @@ pub struct HttpsClientStreamBuilder {
 }
 
 impl HttpsClientStreamBuilder {
-    /// Return a new builder for DNS-over-HTTPS
-    pub fn new() -> HttpsClientStreamBuilder {
-        let mut client_config = ClientConfig::new();
-        client_config.alpn_protocols.push(ALPN_H2.to_vec());
-
-        HttpsClientStreamBuilder {
-            client_config: Arc::new(client_config),
-        }
-    }
-
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
         HttpsClientStreamBuilder { client_config }
@@ -326,12 +316,6 @@ impl HttpsClientStreamBuilder {
             name_server,
             tls: Some(tls),
         })
-    }
-}
-
-impl Default for HttpsClientStreamBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -430,10 +414,9 @@ where
                     let tls = tls
                         .take()
                         .expect("programming error, tls should not be None here");
-                    let dns_name = tls.dns_name;
-                    let name_server_name = Arc::clone(&dns_name);
+                    let name_server_name = Arc::clone(&tls.dns_name);
 
-                    match DNSNameRef::try_from_ascii_str(&dns_name) {
+                    match tls.dns_name.as_ref().try_into() {
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
@@ -444,7 +427,7 @@ where
                             }
                         }
                         Err(_) => HttpsClientConnectState::Errored(Some(ProtoError::from(
-                            format!("bad dns_name: {}", dns_name),
+                            format!("bad dns_name: {}", &tls.dns_name),
                         ))),
                     }
                 }
@@ -520,10 +503,9 @@ mod tests {
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::str::FromStr;
 
-    use rustls::{ClientConfig, KeyLogFile, ProtocolVersion, RootCertStore};
+    use rustls::KeyLogFile;
     use tokio::net::TcpStream as TokioTcpStream;
     use tokio::runtime::Runtime;
-    use webpki_roots;
 
     use crate::iocompat::AsyncIoTokioAsStd;
     use crate::op::{Message, Query, ResponseCode};
@@ -543,15 +525,7 @@ mod tests {
 
         let request = DnsRequest::new(request, Default::default());
 
-        // using the mozilla default root store
-        let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        let versions = vec![ProtocolVersion::TLSv1_2];
-
-        let mut client_config = ClientConfig::new();
-        client_config.root_store = root_store;
-        client_config.versions = versions;
-        client_config.alpn_protocols.push(ALPN_H2.to_vec());
+        let mut client_config = client_config_tls12_webpki_roots();
         client_config.key_log = Arc::new(KeyLogFile::new());
 
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
@@ -619,16 +593,7 @@ mod tests {
 
         let request = DnsRequest::new(request, Default::default());
 
-        // using the mozilla default root store
-        let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        let versions = vec![ProtocolVersion::TLSv1_2];
-
-        let mut client_config = ClientConfig::new();
-        client_config.root_store = root_store;
-        client_config.versions = versions;
-        client_config.alpn_protocols.push(ALPN_H2.to_vec());
-
+        let client_config = client_config_tls12_webpki_roots();
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
         let connect = https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(
             cloudflare,
@@ -677,5 +642,28 @@ mod tests {
             addr,
             &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
         );
+    }
+
+    fn client_config_tls12_webpki_roots() -> ClientConfig {
+        use rustls::{OwnedTrustAnchor, RootCertStore};
+        let mut root_store = RootCertStore::empty();
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
+
+        let mut client_config = ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&rustls::version::TLS12])
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
+
+        client_config.alpn_protocols = vec![ALPN_H2.to_vec()];
+        client_config
     }
 }

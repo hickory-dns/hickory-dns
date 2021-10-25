@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use rustls::{Certificate, ClientConfig};
+use rustls::ClientConfig;
 use trust_dns_proto::https::{HttpsClientConnect, HttpsClientStream, HttpsClientStreamBuilder};
 use trust_dns_proto::tcp::Connect;
 
@@ -24,22 +24,33 @@ use crate::client::{ClientConnection, Signer};
 pub struct HttpsClientConnection<T> {
     name_server: SocketAddr,
     dns_name: String,
-    client_config: ClientConfig,
+    client_config: Arc<ClientConfig>,
     marker: PhantomData<T>,
 }
 
 impl<T> HttpsClientConnection<T> {
     /// Creates a new client connection.
     ///
-    /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
-    ///        event_loop. Expect this to change in the future.
+    /// *Note* this has side affects of starting the listening event_loop. Expect this to change in
+    /// the future.
     ///
     /// # Arguments
     ///
-    /// * `name_server` - address of the name server to use for queries
+    /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
+    /// * `client_config` - The TLS config
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> HttpsClientConnectionBuilder {
-        HttpsClientConnectionBuilder::new()
+    pub fn new(
+        name_server: SocketAddr,
+        dns_name: String,
+        client_config: Arc<ClientConfig>,
+    ) -> Self {
+        Self {
+            name_server,
+            dns_name,
+            client_config,
+            marker: PhantomData,
+        }
     }
 }
 
@@ -57,57 +68,7 @@ where
     ) -> Self::SenderFuture {
         // TODO: maybe signer needs to be applied in https...
         let https_builder =
-            HttpsClientStreamBuilder::with_client_config(Arc::new(self.client_config.clone()));
+            HttpsClientStreamBuilder::with_client_config(Arc::clone(&self.client_config));
         https_builder.build(self.name_server, self.dns_name.clone())
-    }
-}
-
-/// A helper to construct an HTTPS connection
-pub struct HttpsClientConnectionBuilder {
-    client_config: ClientConfig,
-}
-
-impl HttpsClientConnectionBuilder {
-    /// Return a new builder for DNS-over-HTTPS
-    pub fn new() -> HttpsClientConnectionBuilder {
-        HttpsClientConnectionBuilder {
-            client_config: ClientConfig::new(),
-        }
-    }
-
-    /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn with_client_config(client_config: ClientConfig) -> Self {
-        HttpsClientConnectionBuilder { client_config }
-    }
-
-    /// Add a custom trusted peer certificate or certificate authority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: Certificate) {
-        self.client_config
-            .root_store
-            .add(&ca)
-            .expect("bad certificate!");
-    }
-
-    /// Creates a new HttpsStream to the specified name_server
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<T>(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnection<T> {
-        HttpsClientConnection {
-            name_server,
-            dns_name,
-            client_config: self.client_config,
-            marker: PhantomData,
-        }
-    }
-}
-
-impl Default for HttpsClientConnectionBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }
