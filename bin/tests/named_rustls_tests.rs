@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use rustls::Certificate;
 use rustls::ClientConfig;
+use rustls::RootCertStore;
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 
@@ -55,8 +56,14 @@ fn test_example_tls_toml_startup() {
                 .unwrap();
 
             let cert = to_trust_anchor(&cert_der);
-            let mut config = ClientConfig::new();
-            config.root_store.add(&cert).expect("bad certificate");
+            let mut root_store = RootCertStore::empty();
+            root_store.add(&cert).expect("bad certificate");
+
+            let config = ClientConfig::builder()
+                .with_safe_defaults()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
+
             let config = Arc::new(config);
 
             let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(

@@ -19,7 +19,7 @@ use std::io::*;
 use std::net::*;
 use std::sync::Arc;
 
-use rustls::{Certificate, ClientConfig, ProtocolVersion, RootCertStore};
+use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
@@ -56,16 +56,26 @@ fn test_example_https_toml_startup() {
 
         std::thread::sleep(std::time::Duration::from_secs(1));
 
+        // using the mozilla default root store
         let mut root_store = RootCertStore::empty();
-        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
-        let versions = vec![ProtocolVersion::TLSv1_2];
+        root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
 
         let cert = to_trust_anchor(&cert_der);
         root_store.add(&cert).unwrap();
 
-        let mut client_config = ClientConfig::new();
-        client_config.root_store = root_store;
-        client_config.versions = versions;
+        let mut client_config = ClientConfig::builder()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&rustls::version::TLS12])
+            .unwrap()
+            .with_root_certificates(root_store)
+            .with_no_client_auth();
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
         let client_config = Arc::new(client_config);

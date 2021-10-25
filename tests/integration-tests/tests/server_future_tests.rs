@@ -24,6 +24,8 @@ use trust_dns_server::ServerFuture;
 use trust_dns_integration::authority::create_example;
 
 #[cfg(feature = "dns-over-rustls")]
+use rustls::RootCertStore;
+#[cfg(feature = "dns-over-rustls")]
 use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
@@ -266,11 +268,18 @@ fn lazy_tls_client(
 ) -> TlsClientConnection<trust_dns_proto::iocompat::AsyncIoTokioAsStd<tokio::net::TcpStream>> {
     use rustls::ClientConfig;
 
-    let mut config = ClientConfig::new();
+    let mut root_store = RootCertStore::empty();
+    let der_certs = cert_chain.into_iter().map(|cert| cert.0).collect::<Vec<_>>();
+    let (_, ignored) = root_store.add_parsable_certificates(&der_certs);
+    assert_eq!(ignored, 0, "bad certificate!");
 
-    for cert in cert_chain {
-        config.root_store.add(&cert).expect("bad certificate");
-    }
+    let config = ClientConfig::builder()
+        .with_safe_default_cipher_suites()
+        .with_safe_default_kx_groups()
+        .with_protocol_versions(&[&rustls::version::TLS12])
+        .unwrap()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
 
     TlsClientConnection::new(ipaddr, dns_name, Arc::new(config))
 }
