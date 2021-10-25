@@ -252,11 +252,8 @@ impl DnsLru {
             }
 
             Self::nx_error_with_ttl(&mut error, ttl_duration);
-
-            error
-        } else {
-            error
-        }
+        };
+        error
     }
 
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
