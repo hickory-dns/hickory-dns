@@ -41,7 +41,6 @@ pub struct NameServerPool<
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
-    conn_provider: P,
 }
 
 #[cfg(test)]
@@ -108,7 +107,6 @@ where
             #[cfg(feature = "mdns")]
             mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone(), false),
             options: *options,
-            conn_provider,
         }
     }
 
@@ -118,13 +116,11 @@ where
         options: &ResolverOpts,
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
-        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             options: *options,
-            conn_provider,
         }
     }
 
@@ -135,14 +131,12 @@ where
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
         mdns_conns: NameServer<C, P>,
-        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             mdns_conns,
             options: *options,
-            conn_provider,
         }
     }
 
@@ -153,13 +147,11 @@ where
         options: &ResolverOpts,
         datagram_conns: Arc<[NameServer<C, P>]>,
         stream_conns: Arc<[NameServer<C, P>]>,
-        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns,
             stream_conns,
             options: *options,
-            conn_provider,
         }
     }
 
@@ -170,7 +162,6 @@ where
         datagram_conns: Arc<[NameServer<C, P>]>,
         stream_conns: Arc<[NameServer<C, P>]>,
         mdns_conns: NameServer<C, P>,
-        conn_provider: P,
     ) -> Self {
         NameServerPool {
             datagram_conns,
@@ -536,7 +527,7 @@ mod tests {
             ..Default::default()
         };
         let ns_config = { tcp };
-        let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider.clone());
+        let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider);
         let name_servers: Arc<[_]> = Arc::from([name_server]);
 
         let mut pool = NameServerPool::from_nameservers_test(
@@ -544,8 +535,7 @@ mod tests {
             Arc::from([]),
             Arc::clone(&name_servers),
             #[cfg(feature = "mdns")]
-            name_server::mdns_nameserver(opts, conn_provider.clone()),
-            conn_provider,
+            name_server::mdns_nameserver(opts, TokioConnectionProvider::new(TokioHandle)),
         );
 
         let name = Name::from_str("www.example.com.").unwrap();
