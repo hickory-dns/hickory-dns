@@ -6,7 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use crate::{
-    authority::{message_request::QueriesEmitAndCount, Queries},
+    authority::{
+        message_request::{MessageRequest, QueriesEmitAndCount},
+        Queries,
+    },
     proto::{
         error::*,
         op::{
@@ -121,7 +124,7 @@ pub struct MessageResponseBuilder<'q> {
 }
 
 impl<'q> MessageResponseBuilder<'q> {
-    /// Constructs a new Response
+    /// Constructs a new response builder
     ///
     /// # Arguments
     ///
@@ -132,6 +135,15 @@ impl<'q> MessageResponseBuilder<'q> {
             sig0: None,
             edns: None,
         }
+    }
+
+    /// Constructs a new response builder
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - original request message to associate with the response
+    pub fn from_message_request(message: &'q MessageRequest) -> Self {
+        Self::new(Some(message.raw_query()))
     }
 
     /// Associate EDNS with the Response
