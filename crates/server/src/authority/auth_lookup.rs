@@ -188,8 +188,6 @@ impl From<LookupRecords> for AuthLookup {
 pub struct AnyRecords {
     lookup_options: LookupOptions,
     rrsets: Vec<Arc<RecordSet>>,
-    rrset: Option<Arc<RecordSet>>,
-    records: Option<Arc<RecordSet>>,
     query_type: RecordType,
     query_name: LowerName,
 }
@@ -206,8 +204,6 @@ impl AnyRecords {
         AnyRecords {
             lookup_options,
             rrsets,
-            rrset: None,
-            records: None,
             query_type,
             query_name,
         }
