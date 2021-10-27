@@ -1,3 +1,4 @@
+[![minimum rustc: 1.51](https://img.shields.io/badge/minimum%20rustc-1.51-green?logo=rust)](https://www.whatrustisit.com)
 [![Build Status](https://github.com/bluejekyll/trust-dns/workflows/test/badge.svg?branch=main)](https://github.com/bluejekyll/trust-dns/actions?query=workflow%3Atest)
 [![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
@@ -172,7 +173,7 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ### Minimum Rust Version
 
-- The current minimum rustc version for this project is `1.46`
+- The current minimum rustc version for this project is `1.51`
 - OpenSSL development libraries (optional in client and resolver, min version 1.0.2)
 
 ### Mac OS X: using homebrew
