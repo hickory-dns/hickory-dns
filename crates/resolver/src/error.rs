@@ -17,7 +17,7 @@ use crate::proto::op::{Query, ResponseCode};
 use crate::proto::rr::rdata::SOA;
 use crate::proto::xfer::retry_dns_handle::RetryableError;
 use crate::proto::xfer::DnsResponse;
-#[cfg(feature = "with-backtrace")]
+#[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 
 /// An alias for results returned by functions of this crate
@@ -98,7 +98,7 @@ impl Clone for ResolveErrorKind {
 #[derive(Debug, Clone, Error)]
 pub struct ResolveError {
     pub(crate) kind: ResolveErrorKind,
-    #[cfg(feature = "with-backtrace")]
+    #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
 
@@ -249,7 +249,7 @@ impl RetryableError for ResolveError {
 impl fmt::Display for ResolveError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "with-backtrace")] {
+            if #[cfg(feature = "backtrace")] {
                 if let Some(ref backtrace) = self.backtrack {
                     fmt::Display::fmt(&self.kind, f)?;
                     fmt::Debug::fmt(backtrace, f)
@@ -267,7 +267,7 @@ impl From<ResolveErrorKind> for ResolveError {
     fn from(kind: ResolveErrorKind) -> ResolveError {
         ResolveError {
             kind,
-            #[cfg(feature = "with-backtrace")]
+            #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
     }
