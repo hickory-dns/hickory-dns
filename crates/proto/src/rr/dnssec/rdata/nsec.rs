@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-//! negative cache proof for non-existence
+//! NSEC record types
 use std::fmt;
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use super::nsec3;
 use crate::error::*;
+use crate::rr::type_bit_map::{decode_type_bit_maps, encode_type_bit_maps};
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::*;
 
@@ -143,7 +143,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
         .map(|u| u as usize)
         .checked_sub(decoder.index() - start_idx)
         .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
-    let record_types = nsec3::decode_type_bit_maps(decoder, bit_map_len)?;
+    let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
 
     Ok(NSEC::new(next_domain_name, record_types))
 }
@@ -161,7 +161,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
 pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC) -> ProtoResult<()> {
     encoder.with_canonical_names(|encoder| {
         rdata.next_domain_name().emit(encoder)?;
-        nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())
+        encode_type_bit_maps(encoder, rdata.type_bit_maps())
     })
 }
 

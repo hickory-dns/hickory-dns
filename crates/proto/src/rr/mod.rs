@@ -27,6 +27,7 @@ pub mod record_data;
 pub mod record_type;
 pub mod resource;
 mod rr_set;
+pub mod type_bit_map;
 
 pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name, TryParseIp};

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+//! NSEC3 related record types
+
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 

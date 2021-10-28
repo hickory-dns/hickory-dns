@@ -208,6 +208,10 @@ pub enum ProtoErrorKind {
     #[error("nsec3 flags should be 0b0000000*: {0:b}")]
     UnrecognizedNsec3Flags(u8),
 
+    /// Unrecognized csync flags were found
+    #[error("csync flags should be 0b000000**: {0:b}")]
+    UnrecognizedCsyncFlags(u16),
+
     // foreign
     /// An error got returned from IO
     #[error("io error: {0}")]
@@ -489,6 +493,7 @@ impl Clone for ProtoErrorKind {
             UnknownRecordTypeValue(value) => UnknownRecordTypeValue(value),
             UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
             UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
+            UnrecognizedCsyncFlags(flags) => UnrecognizedCsyncFlags(flags),
 
             // foreign
             Io(ref e) => Io(if let Some(raw) = e.raw_os_error() {
