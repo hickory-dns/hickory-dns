@@ -44,6 +44,7 @@ impl RDataParser for RData {
             RecordType::AXFR => return Err(ParseError::from("parsing AXFR doesn't make sense")),
             RecordType::CAA => caa::parse(tokens).map(RData::CAA)?,
             RecordType::CNAME => RData::CNAME(name::parse(tokens, origin)?),
+            RecordType::CSYNC => csync::parse(tokens).map(RData::CSYNC)?,
             RecordType::HINFO => RData::HINFO(hinfo::parse(tokens)?),
             RecordType::HTTPS => svcb::parse(tokens).map(RData::SVCB)?,
             RecordType::IXFR => return Err(ParseError::from("parsing IXFR doesn't make sense")),
@@ -89,5 +90,74 @@ impl RDataParser for RData {
         };
 
         Ok(rdata)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::dbg_macro, clippy::print_stdout)]
+
+    use super::*;
+    use crate::rr::domain::Name;
+    use crate::rr::rdata::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_a() {
+        let tokens = vec!["192.168.0.1"];
+        let name = Name::from_str("example.com.").unwrap();
+        let record =
+            RData::parse(RecordType::A, tokens.iter().map(AsRef::as_ref), Some(&name)).unwrap();
+
+        assert_eq!(record, RData::A("192.168.0.1".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_aaaa() {
+        let tokens = vec!["::1"];
+        let name = Name::from_str("example.com.").unwrap();
+        let record = RData::parse(
+            RecordType::AAAA,
+            tokens.iter().map(AsRef::as_ref),
+            Some(&name),
+        )
+        .unwrap();
+
+        assert_eq!(record, RData::AAAA("::1".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_csync() {
+        let tokens = vec!["123", "1", "A", "NS"];
+        let name = Name::from_str("example.com.").unwrap();
+        let record = RData::parse(
+            RecordType::CSYNC,
+            tokens.iter().map(AsRef::as_ref),
+            Some(&name),
+        )
+        .unwrap();
+
+        assert_eq!(
+            record,
+            RData::CSYNC(CSYNC::new(
+                123,
+                true,
+                false,
+                vec![RecordType::A, RecordType::NS]
+            ))
+        );
+    }
+
+    #[test]
+    fn test_any() {
+        let tokens = vec!["test"];
+        let name = Name::from_str("example.com.").unwrap();
+        let result = RData::parse(
+            RecordType::ANY,
+            tokens.iter().map(AsRef::as_ref),
+            Some(&name),
+        );
+
+        assert!(result.is_err());
     }
 }

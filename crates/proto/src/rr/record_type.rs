@@ -53,6 +53,8 @@ pub enum RecordType {
     //  DHCID,      // 49 RFC 4701 DHCP identifier
     //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
     //  DNAME,      // 39 RFC 2672 Delegation Name
+    /// [RFC 7477](https://tools.ietf.org/html/rfc4034) Child-to-parent synchronization record
+    CSYNC,
     /// [RFC 4034](https://tools.ietf.org/html/rfc4034) DNS Key record: RSASHA256 and RSASHA512, RFC5702
     DNSKEY,
     /// [RFC 4034](https://tools.ietf.org/html/rfc4034) Delegation signer: RSASHA256 and RSASHA512, RFC5702
@@ -194,6 +196,7 @@ impl FromStr for RecordType {
             "AXFR" => Ok(RecordType::AXFR),
             "CAA" => Ok(RecordType::CAA),
             "CNAME" => Ok(RecordType::CNAME),
+            "CSYNC" => Ok(RecordType::CSYNC),
             "DNSKEY" => Ok(RecordType::DNSKEY),
             "DS" => Ok(RecordType::DS),
             "HINFO" => Ok(RecordType::HINFO),
@@ -243,6 +246,7 @@ impl From<u16> for RecordType {
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
             5 => RecordType::CNAME,
+            62 => RecordType::CSYNC,
             48 => RecordType::DNSKEY,
             43 => RecordType::DS,
             13 => RecordType::HINFO,
@@ -315,6 +319,7 @@ impl From<RecordType> for &'static str {
             RecordType::AXFR => "AXFR",
             RecordType::CAA => "CAA",
             RecordType::CNAME => "CNAME",
+            RecordType::CSYNC => "CSYNC",
             RecordType::DNSKEY => "DNSKEY",
             RecordType::DS => "DS",
             RecordType::HINFO => "HINFO",
@@ -366,6 +371,7 @@ impl From<RecordType> for u16 {
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
             RecordType::CNAME => 5,
+            RecordType::CSYNC => 62,
             RecordType::DNSKEY => 48,
             RecordType::DS => 43,
             RecordType::HINFO => 13,
@@ -437,6 +443,7 @@ mod tests {
             RecordType::TXT,
             RecordType::AAAA,
             RecordType::SRV,
+            RecordType::CSYNC,
             RecordType::AXFR,
             RecordType::ANY,
         ];
@@ -455,6 +462,7 @@ mod tests {
             RecordType::TXT,
             RecordType::AAAA,
             RecordType::HINFO,
+            RecordType::CSYNC,
         ];
 
         unordered.sort();
@@ -476,6 +484,7 @@ mod tests {
             "ANAME",
             "CAA",
             "CNAME",
+            "CSYNC",
             "HINFO",
             "NULL",
             "MX",

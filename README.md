@@ -129,6 +129,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 ### Update operations
 - [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
+- [RFC 7477](https://tools.ietf.org/html/rfc7477): Child-to-Parent Synchronization in DNS
 
 ### Secure DNS operations
 - [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update

@@ -22,7 +22,7 @@ use log::{trace, warn};
 use super::domain::Name;
 use super::rdata;
 use super::rdata::{
-    CAA, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+    CAA, CSYNC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
 };
 use super::record_type::RecordType;
 use crate::error::*;
@@ -166,6 +166,25 @@ pub enum RData {
     /// the description of name server logic in [RFC-1034] for details.
     /// ```
     CNAME(Name),
+
+    /// ```text
+    /// 2.1.  The CSYNC Resource Record Format
+    ///
+    /// 2.1.1.  The CSYNC Resource Record Wire Format
+    ///
+    /// The CSYNC RDATA consists of the following fields:
+    ///
+    ///                     1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    /// 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// |                          SOA Serial                           |
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// |       Flags                   |            Type Bit Map       /
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// /                     Type Bit Map (continued)                  /
+    /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// ```
+    CSYNC(CSYNC),
 
     /// ```text
     /// 3.3.2. HINFO RDATA format
@@ -715,6 +734,10 @@ impl RData {
                 trace!("reading CNAME");
                 rdata::name::read(decoder).map(RData::CNAME)
             }
+            RecordType::CSYNC => {
+                trace!("reading CSYNC");
+                rdata::csync::read(decoder, rdata_length).map(RData::CSYNC)
+            }
             RecordType::HINFO => {
                 trace!("reading HINFO");
                 rdata::hinfo::read(decoder).map(RData::HINFO)
@@ -888,6 +911,7 @@ impl RData {
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
                 rdata::name::emit(encoder, name)
             }
+            RData::CSYNC(ref csync) => rdata::csync::emit(encoder, csync),
             RData::HINFO(ref hinfo) => rdata::hinfo::emit(encoder, hinfo),
             RData::HTTPS(ref svcb) => rdata::svcb::emit(encoder, svcb),
             RData::ZERO => Ok(()),
@@ -929,6 +953,7 @@ impl RData {
             RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
+            RData::CSYNC(..) => RecordType::CSYNC,
             RData::HINFO(..) => RecordType::HINFO,
             RData::HTTPS(..) => RecordType::HTTPS,
             RData::MX(..) => RecordType::MX,
@@ -974,6 +999,7 @@ impl fmt::Display for RData {
             RData::CAA(ref caa) => w(f, caa),
             // to_lowercase for rfc4034 and rfc6840
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
+            RData::CSYNC(ref csync) => w(f, csync),
             RData::HINFO(ref hinfo) => w(f, hinfo),
             RData::HTTPS(ref svcb) => w(f, svcb),
             RData::ZERO => Ok(()),
@@ -1221,6 +1247,7 @@ mod tests {
             RData::ANAME(..) => RecordType::ANAME,
             RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
+            RData::CSYNC(..) => RecordType::CSYNC,
             RData::HINFO(..) => RecordType::HINFO,
             RData::HTTPS(..) => RecordType::HTTPS,
             RData::MX(..) => RecordType::MX,
