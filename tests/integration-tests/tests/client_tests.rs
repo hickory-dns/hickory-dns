@@ -448,7 +448,8 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
         Algorithm::RSASHA256,
         key,
         Name::from_str("trusted.example.com").unwrap(),
-        Duration::MAX,
+        // can be Duration::MAX after min Rust version 1.53
+        std::time::Duration::new(u64::MAX, 1_000_000_000 - 1),
         true,
         true,
     );

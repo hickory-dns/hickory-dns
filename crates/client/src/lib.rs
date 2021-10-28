@@ -149,6 +149,7 @@
 //! use std::str::FromStr;
 //!
 //! use time::Duration;
+//!
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
 //! use trust_dns_client::client::{Client, SyncClient};
