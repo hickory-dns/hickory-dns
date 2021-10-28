@@ -190,6 +190,8 @@ pub fn create_example() -> InMemoryAuthority {
 #[cfg(feature = "dnssec")]
 #[allow(unused)]
 pub fn create_secure_example() -> InMemoryAuthority {
+    use std::convert::TryInto;
+
     use openssl::rsa::Rsa;
     use time::Duration;
     use trust_dns_client::rr::dnssec::*;
@@ -203,7 +205,7 @@ pub fn create_secure_example() -> InMemoryAuthority {
         dnskey,
         key,
         authority.origin().clone().into(),
-        Duration::weeks(1),
+        Duration::weeks(1).try_into().unwrap(),
     );
 
     authority.add_zone_signing_key_mut(signer);

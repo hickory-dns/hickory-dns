@@ -261,8 +261,10 @@ impl TlsCertConfig {
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String> {
     use log::info;
 
+    use std::convert::TryInto;
     use std::fs::File;
     use std::io::Read;
+
     use time::Duration;
 
     let key_path = key_config.key_path();
@@ -299,7 +301,14 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
     let dnskey = key
         .to_dnskey(algorithm)
         .map_err(|e| format!("error converting to dnskey: {}", e))?;
-    Ok(SigSigner::dnssec(dnskey, key, name, Duration::weeks(52)))
+    Ok(SigSigner::dnssec(
+        dnskey,
+        key,
+        name,
+        Duration::weeks(52)
+            .try_into()
+            .map_err(|e| format!("error converting time to std::Duration: {}", e))?,
+    ))
 }
 
 /// Load a Certificate from the path (with openssl)
