@@ -269,7 +269,10 @@ fn lazy_tls_client(
     use rustls::ClientConfig;
 
     let mut root_store = RootCertStore::empty();
-    let der_certs = cert_chain.into_iter().map(|cert| cert.0).collect::<Vec<_>>();
+    let der_certs = cert_chain
+        .into_iter()
+        .map(|cert| cert.0)
+        .collect::<Vec<_>>();
     let (_, ignored) = root_store.add_parsable_certificates(&der_certs);
     assert_eq!(ignored, 0, "bad certificate!");
 
