@@ -49,6 +49,7 @@ mod tokio_runtime {
         type UdpSocket = tokio::net::UdpSocket;
         type TcpConnection = AsyncIoTokioAsStd<tokio::net::TcpStream>;
 
+        #[inline(always)]
         fn bind_udp(
             &self,
             addr: std::net::SocketAddr,

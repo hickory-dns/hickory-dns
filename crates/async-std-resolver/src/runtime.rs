@@ -64,6 +64,7 @@ impl RuntimeProvider for AsyncStdRuntime {
     type Time = AsyncStdTime;
     type TcpConnection = AsyncStdTcpStream;
 
+    #[inline(always)]
     fn bind_udp(
         &self,
         addr: std::net::SocketAddr,
@@ -75,6 +76,7 @@ impl RuntimeProvider for AsyncStdRuntime {
         })
     }
 
+    #[inline(always)]
     fn connect_tcp(
         &self,
         addr: std::net::SocketAddr,
