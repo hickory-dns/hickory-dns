@@ -15,7 +15,10 @@ pub trait RuntimeProvider: Clone + 'static + Send + Sync + Unpin {
     type TcpConnection: DnsTcpStream;
 
     /// Bind an UDP socket to the given socket address.
-    async fn bind_udp(&self, addr: SocketAddr) -> io::Result<Self::UdpSocket>;
+    fn bind_udp(
+        &self,
+        addr: SocketAddr,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::UdpSocket>> + Send>>;
 
     /// Create a socket and connect to the specified socket address.
     fn connect_tcp(
@@ -41,14 +44,16 @@ mod tokio_runtime {
     #[derive(Clone, Default, Copy)]
     pub struct TokioRuntime;
 
-    #[async_trait::async_trait]
     impl RuntimeProvider for TokioRuntime {
         type Time = crate::TokioTime;
         type UdpSocket = tokio::net::UdpSocket;
         type TcpConnection = AsyncIoTokioAsStd<tokio::net::TcpStream>;
 
-        async fn bind_udp(&self, addr: std::net::SocketAddr) -> std::io::Result<Self::UdpSocket> {
-            tokio::net::UdpSocket::bind(addr).await
+        fn bind_udp(
+            &self,
+            addr: std::net::SocketAddr,
+        ) -> Pin<Box<dyn Future<Output = io::Result<Self::UdpSocket>> + Send>> {
+            Box::pin(async move { tokio::net::UdpSocket::bind(addr).await })
         }
 
         fn connect_tcp(

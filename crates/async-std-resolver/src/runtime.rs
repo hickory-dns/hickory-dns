@@ -59,16 +59,20 @@ impl Executor for AsyncStdRuntime {
     }
 }
 
-#[async_trait::async_trait]
 impl RuntimeProvider for AsyncStdRuntime {
     type UdpSocket = AsyncStdUdpSocket;
     type Time = AsyncStdTime;
     type TcpConnection = AsyncStdTcpStream;
 
-    async fn bind_udp(&self, addr: std::net::SocketAddr) -> io::Result<Self::UdpSocket> {
-        async_std::net::UdpSocket::bind(addr)
-            .await
-            .map(AsyncStdUdpSocket)
+    fn bind_udp(
+        &self,
+        addr: std::net::SocketAddr,
+    ) -> Pin<Box<dyn Future<Output = io::Result<Self::UdpSocket>> + Send>> {
+        Box::pin(async move {
+            async_std::net::UdpSocket::bind(addr)
+                .await
+                .map(AsyncStdUdpSocket)
+        })
     }
 
     fn connect_tcp(
