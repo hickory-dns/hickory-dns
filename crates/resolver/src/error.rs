@@ -252,7 +252,15 @@ impl ResolveError {
 
 impl RetryableError for ResolveError {
     fn should_retry(&self) -> bool {
-        !matches!(self.kind(), ResolveErrorKind::NoRecordsFound { trusted, .. } if *trusted)
+        match self.kind() {
+            ResolveErrorKind::Message(_)
+            | ResolveErrorKind::Msg(_)
+            | ResolveErrorKind::NoConnections
+            | ResolveErrorKind::NoRecordsFound { .. } => false,
+            ResolveErrorKind::Io(_) | ResolveErrorKind::Proto(_) | ResolveErrorKind::Timeout => {
+                true
+            }
+        }
     }
 
     fn attempted(&self) -> bool {
