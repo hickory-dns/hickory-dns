@@ -16,7 +16,16 @@ use crate::error::{ProtoError, ProtoErrorKind};
 use crate::xfer::{DnsRequest, DnsResponse};
 use crate::DnsHandle;
 
-/// Can be used to reattempt a queries if they fail
+/// Can be used to reattempt queries if they fail
+///
+/// Note: this does not reattempt queries that fail with a negative response.
+/// For example, if a query gets a `NODATA` response from a name server, the
+/// query will not be retried. It only reattempts queries that effectively
+/// failed to get a response, such as queries that resulted in IO or timeout
+/// errors.
+///
+/// Whether an error is retryable by the [`RetryDnsHandle`] is determined by the
+/// [`RetryableError`] trait.
 ///
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]

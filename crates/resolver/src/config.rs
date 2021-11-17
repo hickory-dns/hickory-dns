@@ -385,14 +385,16 @@ pub struct NameServerConfig {
     /// SPKI name, only relevant for TLS connections
     #[cfg_attr(feature = "serde-config", serde(default))]
     pub tls_dns_name: Option<String>,
-    /// Default to not trust negative responses from upstream nameservers
+    /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
-    /// When this is `false`, and an empty `NXDOMAIN` response is received, the
-    /// query will be retried against other configured name servers.
+    /// When this is `true`, and an empty `NXDOMAIN` response is received, the
+    /// query will not be retried against other configured name servers.
     ///
     /// (On an empty `NoError` response, or a response with any other error
-    /// response code, the query will be retried regardless of this
+    /// response code, the query will still be retried regardless of this
     /// configuration setting.)
+    ///
+    /// Defaults to false.
     #[cfg_attr(feature = "serde-config", serde(default))]
     pub trust_nx_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
