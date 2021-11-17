@@ -31,11 +31,10 @@ use crate::{
 };
 
 // TODO, would be nice to have a Slab for buffers here...
-
 /// A Futures based implementation of a DNS server
 pub struct ServerFuture<T: RequestHandler> {
     handler: Arc<Mutex<T>>,
-    joins: Vec<JoinHandle<Result<(), ProtoError>>>,
+    tasks: Vec<ServerTask>,
 }
 
 impl<T: RequestHandler> ServerFuture<T> {
@@ -43,7 +42,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     pub fn new(handler: T) -> ServerFuture<T> {
         ServerFuture {
             handler: Arc::new(Mutex::new(handler)),
-            joins: vec![],
+            tasks: vec![],
         }
     }
 
@@ -59,7 +58,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
-        let join_handle = tokio::spawn({
+        let task = tokio::spawn({
             async move {
                 while let Some(message) = buf_stream.next().await {
                     let message = match message {
@@ -86,7 +85,7 @@ impl<T: RequestHandler> ServerFuture<T> {
             }
         });
 
-        self.joins.push(join_handle);
+        self.tasks.push(ServerTask(task));
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
@@ -113,7 +112,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // for each incoming request...
-        let join = tokio::spawn({
+        let task = tokio::spawn({
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
@@ -164,7 +163,7 @@ impl<T: RequestHandler> ServerFuture<T> {
             }
         });
 
-        self.joins.push(join);
+        self.tasks.push(ServerTask(task));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -225,7 +224,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = Box::pin(tls_server::new_acceptor(cert, chain, key)?);
 
         // for each incoming request...
-        let join = tokio::spawn({
+        let task = tokio::spawn({
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
@@ -292,7 +291,7 @@ impl<T: RequestHandler> ServerFuture<T> {
             }
         });
 
-        self.joins.push(join);
+        self.tasks.push(ServerTask(task));
 
         Ok(())
     }
@@ -366,7 +365,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let tls_acceptor = TlsAcceptor::from(Arc::new(tls_acceptor));
 
         // for each incoming request...
-        let join = tokio::spawn({
+        let task = tokio::spawn({
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
@@ -426,7 +425,7 @@ impl<T: RequestHandler> ServerFuture<T> {
             }
         });
 
-        self.joins.push(join);
+        self.tasks.push(ServerTask(task));
 
         Ok(())
     }
@@ -507,7 +506,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         let dns_hostname = dns_hostname;
-        let join = tokio::spawn({
+        let task = tokio::spawn({
             async move {
                 let dns_hostname = dns_hostname;
                 loop {
@@ -547,15 +546,35 @@ impl<T: RequestHandler> ServerFuture<T> {
             }
         });
 
-        self.joins.push(join);
+        self.tasks.push(ServerTask(task));
         Ok(())
     }
 
     /// This will run until all background tasks of the trust_dns_server end.
     pub async fn block_until_done(self) -> Result<(), ProtoError> {
-        let (result, _, _) = future::select_all(self.joins).await;
+        let (result, _, _) = future::select_all(self.tasks).await;
 
         result.map_err(|e| ProtoError::from(format!("Internal error in spawn: {}", e)))?
+    }
+}
+
+/// Wrapping the join handle ensures that the tasks can be aborted if the handle is dropped.
+struct ServerTask(JoinHandle<Result<(), ProtoError>>);
+
+impl std::future::Future for ServerTask {
+    type Output = Result<Result<(), ProtoError>, tokio::task::JoinError>;
+
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        std::pin::Pin::new(&mut self.0).poll(cx)
+    }
+}
+
+impl Drop for ServerTask {
+    fn drop(&mut self) {
+        self.0.abort();
     }
 }
 
@@ -728,5 +747,39 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             }
         }
         Err(e) => warn!("failed to read message: {}", e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::authority::Catalog;
+    use futures_util::future;
+    use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+
+    #[test]
+    fn cleanup_after_shutdown() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let random_port = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0))
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let bind_addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), random_port);
+
+        let (server_future, abort_handle) = future::abortable(async move {
+            let mut server_future = ServerFuture::new(Catalog::new());
+            let udp_socket = tokio::net::UdpSocket::bind(bind_addr).await.unwrap();
+            server_future.register_socket(udp_socket);
+            server_future.block_until_done().await
+        });
+
+        abort_handle.abort();
+        runtime.block_on(async move {
+            let _ = server_future.await;
+        });
+
+        UdpSocket::bind(bind_addr).unwrap();
     }
 }
