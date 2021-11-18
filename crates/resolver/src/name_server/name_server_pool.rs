@@ -226,14 +226,12 @@ where
             debug!("sending request: {:?}", request.queries());
 
             // First try the UDP connections
-            let udp_res = Self::try_send(opts, datagram_conns, request).await;
-
-            let udp_res = match udp_res {
+            let udp_res = match Self::try_send(opts, datagram_conns, request).await {
                 Ok(response) if response.truncated() => {
                     debug!("truncated response received, retrying over TCP");
                     Ok(response)
                 }
-                Err(e) if opts.try_tcp_on_error => {
+                Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
                     debug!("error received, retrying over TCP");
                     Err(e)
                 }
@@ -279,7 +277,7 @@ where
     C: DnsHandle<Error = ResolveError> + 'static,
     P: ConnectionProvider<Conn = C> + 'static,
 {
-    let mut err = ResolveError::from("No connections available");
+    let mut err = ResolveError::no_connections();
     // If the name server we're trying is giving us backpressure by returning ProtoErrorKind::Busy,
     // we will first try the other name servers (as for other error types). However, if the other
     // servers are also busy, we're going to wait for a little while and then retry each server that
