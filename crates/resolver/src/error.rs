@@ -36,6 +36,10 @@ pub enum ResolveErrorKind {
     #[error("{0}")]
     Msg(String),
 
+    /// No resolvers available
+    #[error("No connections available")]
+    NoConnections,
+
     /// No records were found for a query
     #[error("no record found for {query}")]
     NoRecordsFound {
@@ -71,6 +75,7 @@ impl Clone for ResolveErrorKind {
     fn clone(&self) -> Self {
         use self::ResolveErrorKind::*;
         match self {
+            NoConnections => NoConnections,
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             NoRecordsFound {
@@ -123,6 +128,18 @@ impl ResolveError {
     /// Get the kind of the error
     pub fn kind(&self) -> &ResolveErrorKind {
         &self.kind
+    }
+
+    pub(crate) fn no_connections() -> Self {
+        Self {
+            kind: ResolveErrorKind::NoConnections,
+            #[cfg(feature = "backtrace")]
+            backtrack: trace!(),
+        }
+    }
+
+    pub(crate) fn is_no_connections(&self) -> bool {
+        matches!(self.kind, ResolveErrorKind::NoConnections)
     }
 
     /// A conversion to determine if the response is an error
