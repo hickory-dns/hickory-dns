@@ -56,7 +56,7 @@ path = "src/resolve.rs"
 
 [dependencies]
 clap = "2.33.1"
-console = "0.14.0"
+console = "0.15.0"
 data-encoding = "2.2.0"
 env_logger = { version = "0.9.0", features = ["termcolor", "humantime", "atty"] }
 trust-dns-client= { version = "0.21.0-alpha.4", features = ["dnssec-openssl"], path = "../crates/client" }
