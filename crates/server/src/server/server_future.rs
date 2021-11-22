@@ -281,6 +281,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                             self::handle_raw_request(
                                 message,
+                                Protocol::Tls,
                                 handler.clone(),
                                 stream_handle.clone(),
                             )
