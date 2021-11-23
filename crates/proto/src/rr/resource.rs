@@ -441,18 +441,12 @@ impl<'r> BinDecodable<'r> for Record {
                 ))
             })?;
 
-        // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of
-        //  pre-requisites
-        let rdata: RData = if rd_length == 0 {
-            RData::NULL(NULL::new())
-        } else {
-            // RDATA           a variable length string of octets that describes the
-            //                resource.  The format of this information varies
-            //                according to the TYPE and CLASS of the resource record.
-            // Adding restrict to the rdata length because it's used for many calculations later
-            //  and must be validated before hand
-            RData::read(decoder, record_type, Restrict::new(rd_length))?
-        };
+        // RDATA          a variable length string of octets that describes the
+        //                resource.  The format of this information varies
+        //                according to the TYPE and CLASS of the resource record.
+        // Adding restrict to the rdata length because it's used for many calculations later
+        //  and must be validated before hand
+        let rdata = RData::read(decoder, record_type, Restrict::new(rd_length))?;
 
         Ok(Record {
             name_labels,
