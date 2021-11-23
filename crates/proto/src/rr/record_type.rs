@@ -45,8 +45,10 @@ pub enum RecordType {
     AXFR,
     /// [RFC 6844](https://tools.ietf.org/html/rfc6844) Certification Authority Authorization
     CAA,
-    //  CDS,        //	59	RFC 7344	Child DS
-    //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
+    /// [RFC 7344](https://tools.ietf.org/html/rfc7344) Child DS
+    CDS,
+    /// [RFC 7344](https://tools.ietf.org/html/rfc7344) Child DNSKEY
+    CDNSKEY,
     //  CERT,       // 37 RFC 4398 Certificate record
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035) Canonical name record
     CNAME,
@@ -162,6 +164,8 @@ impl RecordType {
         matches!(
             self,
             RecordType::DNSKEY
+                | RecordType::CDNSKEY
+                | RecordType::CDS
                 | RecordType::DS
                 | RecordType::KEY
                 | RecordType::NSEC
@@ -195,6 +199,8 @@ impl FromStr for RecordType {
             "ANAME" => Ok(RecordType::ANAME),
             "AXFR" => Ok(RecordType::AXFR),
             "CAA" => Ok(RecordType::CAA),
+            "CDNSKEY" => Ok(RecordType::CDNSKEY),
+            "CDS" => Ok(RecordType::CDS),
             "CNAME" => Ok(RecordType::CNAME),
             "CSYNC" => Ok(RecordType::CSYNC),
             "DNSKEY" => Ok(RecordType::DNSKEY),
@@ -245,6 +251,8 @@ impl From<u16> for RecordType {
             251 => RecordType::IXFR,
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
+            59 => RecordType::CDS,
+            60 => RecordType::CDNSKEY,
             5 => RecordType::CNAME,
             62 => RecordType::CSYNC,
             48 => RecordType::DNSKEY,
@@ -318,6 +326,8 @@ impl From<RecordType> for &'static str {
             RecordType::ANY => "ANY",
             RecordType::AXFR => "AXFR",
             RecordType::CAA => "CAA",
+            RecordType::CDNSKEY => "CDNSKEY",
+            RecordType::CDS => "CDS",
             RecordType::CNAME => "CNAME",
             RecordType::CSYNC => "CSYNC",
             RecordType::DNSKEY => "DNSKEY",
@@ -370,6 +380,8 @@ impl From<RecordType> for u16 {
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
+            RecordType::CDNSKEY => 60,
+            RecordType::CDS => 59,
             RecordType::CNAME => 5,
             RecordType::CSYNC => 62,
             RecordType::DNSKEY => 48,
@@ -503,6 +515,8 @@ mod tests {
 
         #[cfg(feature = "dnssec")]
         let dnssec_record_names = &[
+            "CDNSKEY",
+            "CDS",
             "DNSKEY",
             "DS",
             "KEY",

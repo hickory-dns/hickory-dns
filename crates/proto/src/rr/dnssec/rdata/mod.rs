@@ -62,6 +62,39 @@ pub type DNSSECRecordType = RecordType;
 #[non_exhaustive]
 pub enum DNSSECRData {
     /// ```text
+    /// RFC 7344              Delegation Trust Maintenance        September 2014
+    ///
+    /// 3.2.  CDNSKEY Resource Record Format
+    ///
+    ///    The wire and presentation format of the CDNSKEY ("Child DNSKEY")
+    ///    resource record is identical to the DNSKEY record.  IANA has
+    ///    allocated RR code 60 for the CDNSKEY resource record via Expert
+    ///    Review.  The CDNSKEY RR uses the same registries as DNSKEY for its
+    ///    fields.
+    ///
+    ///    No special processing is performed by authoritative servers or by
+    ///    resolvers, when serving or resolving.  For all practical purposes,
+    ///    CDNSKEY is a regular RR type.
+    /// ```
+    CDNSKEY(DNSKEY),
+
+    /// ```text
+    /// RFC 7344              Delegation Trust Maintenance        September 2014
+    ///
+    /// 3.1.  CDS Resource Record Format
+    ///    The wire and presentation format of the Child DS (CDS) resource
+    ///    record is identical to the DS record [RFC4034].  IANA has allocated
+    ///    RR code 59 for the CDS resource record via Expert Review
+    ///    [DNS-TRANSPORT].  The CDS RR uses the same registries as DS for its
+    ///    fields.
+    ///
+    ///    No special processing is performed by authoritative servers or by
+    ///    resolvers, when serving or resolving.  For all practical purposes,
+    ///    CDS is a regular RR type.
+    /// ```
+    CDS(DS),
+
+    /// ```text
     /// RFC 4034                DNSSEC Resource Records               March 2005
     ///
     /// 2.1.  DNSKEY RDATA Wire Format
@@ -516,6 +549,14 @@ impl DNSSECRData {
         rdata_length: Restrict<u16>,
     ) -> ProtoResult<Self> {
         match record_type {
+            RecordType::CDNSKEY => {
+                trace!("reading CDNSKEY");
+                dnskey::read(decoder, rdata_length).map(DNSSECRData::CDNSKEY)
+            }
+            RecordType::CDS => {
+                trace!("reading CDS");
+                ds::read(decoder, rdata_length).map(DNSSECRData::CDS)
+            }
             RecordType::DNSKEY => {
                 trace!("reading DNSKEY");
                 dnskey::read(decoder, rdata_length).map(DNSSECRData::DNSKEY)
@@ -560,6 +601,12 @@ impl DNSSECRData {
 
     pub(crate) fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
+            DNSSECRData::CDNSKEY(ref cdnskey) => {
+                encoder.with_canonical_names(|encoder| dnskey::emit(encoder, cdnskey))
+            }
+            DNSSECRData::CDS(ref cds) => {
+                encoder.with_canonical_names(|encoder| ds::emit(encoder, cds))
+            }
             DNSSECRData::DS(ref ds) => {
                 encoder.with_canonical_names(|encoder| ds::emit(encoder, ds))
             }
@@ -590,6 +637,8 @@ impl DNSSECRData {
 
     pub(crate) fn to_record_type(&self) -> RecordType {
         match *self {
+            DNSSECRData::CDNSKEY(..) => RecordType::CDNSKEY,
+            DNSSECRData::CDS(..) => RecordType::CDS,
             DNSSECRData::DS(..) => RecordType::DS,
             DNSSECRData::KEY(..) => RecordType::KEY,
             DNSSECRData::DNSKEY(..) => RecordType::DNSKEY,
@@ -610,6 +659,8 @@ impl fmt::Display for DNSSECRData {
         }
 
         match self {
+            DNSSECRData::CDNSKEY(key) => w(f, key),
+            DNSSECRData::CDS(ds) => w(f, ds),
             DNSSECRData::DS(ds) => w(f, ds),
             DNSSECRData::KEY(key) => w(f, key),
             DNSSECRData::DNSKEY(key) => w(f, key),

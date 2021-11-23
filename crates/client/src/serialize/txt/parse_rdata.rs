@@ -65,8 +65,12 @@ impl RDataParser for RData {
             RecordType::DNSKEY => {
                 return Err(ParseError::from("DNSKEY should be dynamically generated"))
             }
+            RecordType::CDNSKEY => {
+                return Err(ParseError::from("CDNSKEY should be dynamically generated"))
+            }
             RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
             RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
+            RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
             RecordType::NSEC => {
                 return Err(ParseError::from("NSEC should be dynamically generated"))
             }
@@ -159,5 +163,29 @@ mod tests {
         );
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dynamically_generated() {
+        let dynamically_generated = vec![
+            RecordType::DS,
+            RecordType::CDS,
+            RecordType::DNSKEY,
+            RecordType::CDNSKEY,
+            RecordType::KEY,
+            RecordType::NSEC,
+            RecordType::NSEC3,
+            RecordType::NSEC3PARAM,
+            RecordType::RRSIG,
+        ];
+
+        let tokens = vec!["test"];
+
+        let name = Name::from_str("example.com.").unwrap();
+
+        for record_type in dynamically_generated {
+            let result = RData::parse(record_type, tokens.iter().map(AsRef::as_ref), Some(&name));
+            assert!(result.is_err());
+        }
     }
 }
