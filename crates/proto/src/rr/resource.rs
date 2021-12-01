@@ -94,7 +94,7 @@ impl Default for Record {
         Record {
             // TODO: these really should all be Optionals, I was lazy.
             name_labels: Name::new(),
-            rr_type: RecordType::A,
+            rr_type: RecordType::NULL,
             dns_class: DNSClass::IN,
             ttl: 0,
             rdata: RData::NULL(NULL::new()),
