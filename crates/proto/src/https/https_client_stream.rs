@@ -101,7 +101,7 @@ impl HttpsClientStream {
             .map(|v| v.to_str())
             .transpose()
             .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?
-            .map(|v| usize::from_str(v))
+            .map(usize::from_str)
             .transpose()
             .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?;
 

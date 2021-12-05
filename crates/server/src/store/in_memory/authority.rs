@@ -302,6 +302,7 @@ impl InMemoryAuthority {
     }
 }
 
+#[derive(Default)]
 struct InnerInMemory {
     records: BTreeMap<RrKey, Arc<RecordSet>>,
     // Private key mapped to the Record of the DNSKey
@@ -311,16 +312,6 @@ struct InnerInMemory {
     //   for this, in some form, perhaps alternate root zones...
     #[cfg(feature = "dnssec")]
     secure_keys: Vec<SigSigner>,
-}
-
-impl Default for InnerInMemory {
-    fn default() -> Self {
-        Self {
-            records: BTreeMap::new(),
-            #[cfg(feature = "dnssec")]
-            secure_keys: Vec::new(),
-        }
-    }
 }
 
 impl InnerInMemory {

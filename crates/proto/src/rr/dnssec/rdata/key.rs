@@ -408,7 +408,7 @@ fn test_key_usage() {
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[deprecated = "Deprecated by RFC3007"]
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
     ///   detach, and move zones by creating and deleting NS, glue A, and
@@ -423,17 +423,6 @@ pub struct UpdateScope {
     pub unique: bool,
     /// The general update signatory field bit has no special meaning, (true if the others are false)
     pub general: bool,
-}
-
-impl Default for UpdateScope {
-    fn default() -> Self {
-        UpdateScope {
-            zone: false,
-            strong: false,
-            unique: false,
-            general: false,
-        }
-    }
 }
 
 impl From<u16> for UpdateScope {
