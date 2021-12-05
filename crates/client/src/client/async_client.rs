@@ -43,6 +43,7 @@ pub type ClientFuture = AsyncClient;
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
+#[derive(Clone)]
 pub struct AsyncClient {
     exchange: DnsExchange,
     use_edns: bool,
@@ -136,15 +137,6 @@ impl AsyncClient {
     /// Disable usage of EDNS for outgoing messages
     pub fn disable_edns(&mut self) {
         self.use_edns = false;
-    }
-}
-
-impl Clone for AsyncClient {
-    fn clone(&self) -> Self {
-        AsyncClient {
-            exchange: self.exchange.clone(),
-            use_edns: true,
-        }
     }
 }
 
