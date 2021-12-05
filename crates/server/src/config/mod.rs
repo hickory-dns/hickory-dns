@@ -59,6 +59,7 @@ pub struct Config {
     #[serde(default)]
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections (currently the same is used for HTTPS and TLS)
+    #[cfg(feature = "dnssec")]
     tls_cert: Option<dnssec::TlsCertConfig>,
 }
 
@@ -130,7 +131,7 @@ impl Config {
     pub fn get_directory(&self) -> &Path {
         self.directory
             .as_ref()
-            .map_or(Path::new(DEFAULT_PATH), |s| Path::new(s))
+            .map_or(Path::new(DEFAULT_PATH), Path::new)
     }
 
     /// the set of zones which should be loaded
