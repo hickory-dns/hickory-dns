@@ -71,7 +71,7 @@ name = "named"
 path = "src/named.rs"
 
 [dependencies]
-clap = "2.33"
+clap = "2.34"
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 log = "0.4"
 rustls = { version = "0.20", optional = true }
