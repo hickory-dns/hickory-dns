@@ -116,7 +116,8 @@ impl SSHFP {
 ///
 /// The algorithm values have been updated in
 /// [RFC 6594](https://tools.ietf.org/html/rfc6594) and
-/// [RFC 7479](https://tools.ietf.org/html/rfc7479).
+/// [RFC 7479](https://tools.ietf.org/html/rfc7479) and
+/// [RFC 8709](https://tools.ietf.org/html/rfc8709).
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Algorithm {
@@ -135,6 +136,9 @@ pub enum Algorithm {
     /// Ed25519
     Ed25519,
 
+    /// Ed448
+    Ed448,
+
     /// Unassigned value
     Unassigned(u8),
 }
@@ -147,6 +151,7 @@ impl From<u8> for Algorithm {
             2 => Algorithm::DSA,
             3 => Algorithm::ECDSA,
             4 => Algorithm::Ed25519, // TODO more (XMSS)
+            6 => Algorithm::Ed448,
             _ => Algorithm::Unassigned(alg),
         }
     }
@@ -160,6 +165,7 @@ impl From<Algorithm> for u8 {
             Algorithm::DSA => 2,
             Algorithm::ECDSA => 3,
             Algorithm::Ed25519 => 4,
+            Algorithm::Ed448 => 6,
             Algorithm::Unassigned(alg) => alg,
         }
     }
@@ -280,6 +286,7 @@ mod tests {
         assert_eq!(Algorithm::DSA, 2.into());
         assert_eq!(Algorithm::ECDSA, 3.into());
         assert_eq!(Algorithm::Ed25519, 4.into());
+        assert_eq!(Algorithm::Ed448, 6.into());
         assert_eq!(Algorithm::Unassigned(17), 17.into());
         assert_eq!(Algorithm::Unassigned(42), 42.into());
 
@@ -288,6 +295,7 @@ mod tests {
         assert_eq!(2u8, Algorithm::DSA.into());
         assert_eq!(3u8, Algorithm::ECDSA.into());
         assert_eq!(4u8, Algorithm::Ed25519.into());
+        assert_eq!(6u8, Algorithm::Ed448.into());
         assert_eq!(17u8, Algorithm::Unassigned(17).into());
         assert_eq!(42u8, Algorithm::Unassigned(42).into());
     }
