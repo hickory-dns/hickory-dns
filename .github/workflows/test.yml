@@ -120,8 +120,8 @@ jobs:
       with:
         version: ${{ env.CARGO_MAKE_VERSION }}
 
-    - name: cargo make all-features
-      run: cargo make all-features
+    - name: cargo make no-default-features
+      run: cargo make no-default-features
 
     - name: cargo make build-bench
       if: matrix.version == 'nightly'
