@@ -974,10 +974,12 @@ async fn test_journal() {
     let delete_name = Name::from_str("www.example.com").unwrap();
     let new_record = Record::new()
         .set_name(new_name.clone())
+        .set_record_type(RecordType::A)
         .set_rdata(RData::A(Ipv4Addr::new(10, 11, 12, 13)))
         .clone();
     let delete_record = Record::new()
         .set_name(delete_name.clone())
+        .set_record_type(RecordType::A)
         .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
         .set_dns_class(DNSClass::NONE)
         .clone();

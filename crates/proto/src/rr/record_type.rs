@@ -176,6 +176,12 @@ impl RecordType {
                 | RecordType::TSIG
         )
     }
+
+    /// Returns true if this is a Zero (unspecified) RecordType
+    #[inline]
+    pub fn is_zero(self) -> bool {
+        self == RecordType::ZERO
+    }
 }
 
 impl FromStr for RecordType {
