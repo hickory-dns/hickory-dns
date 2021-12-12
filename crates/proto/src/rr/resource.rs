@@ -44,6 +44,7 @@ use crate::serialize::binary::*;
 /// ```
 const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 
+const NULL_RDATA: &RData = &RData::NULL(NULL::new());
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
 /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
@@ -84,7 +85,7 @@ pub struct Record {
     rr_type: RecordType,
     dns_class: DNSClass,
     ttl: u32,
-    rdata: RData,
+    rdata: Option<RData>,
     #[cfg(feature = "mdns")]
     mdns_cache_flush: bool,
 }
@@ -97,7 +98,7 @@ impl Default for Record {
             rr_type: RecordType::NULL,
             dns_class: DNSClass::IN,
             ttl: 0,
-            rdata: RData::NULL(NULL::new()),
+            rdata: None,
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
         }
@@ -126,7 +127,7 @@ impl Record {
             rr_type,
             dns_class: DNSClass::IN,
             ttl,
-            rdata: RData::NULL(NULL::new()),
+            rdata: None,
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
         }
@@ -145,7 +146,7 @@ impl Record {
             rr_type: rdata.to_record_type(),
             dns_class: DNSClass::IN,
             ttl,
-            rdata,
+            rdata: Some(rdata),
             #[cfg(feature = "mdns")]
             mdns_cache_flush: false,
         }
@@ -208,7 +209,20 @@ impl Record {
     ///                 For example, the if the TYPE is A and the CLASS is IN,
     ///                 the RDATA field is a 4 octet ARPA Internet address.
     /// ```
+    #[deprecated(note = "use `Record::set_data` instead")]
     pub fn set_rdata(&mut self, rdata: RData) -> &mut Self {
+        self.rdata = Some(rdata);
+        self
+    }
+
+    /// ```text
+    /// RDATA           a variable length string of octets that describes the
+    ///                 resource.  The format of this information varies
+    ///                 according to the TYPE and CLASS of the resource record.
+    ///                 For example, the if the TYPE is A and the CLASS is IN,
+    ///                 the RDATA field is a 4 octet ARPA Internet address.
+    /// ```
+    pub fn set_data(&mut self, rdata: Option<RData>) -> &mut Self {
         self.rdata = rdata;
         self
     }
@@ -249,8 +263,18 @@ impl Record {
     }
 
     /// Returns the Record Data, i.e. the record information
+    #[deprecated(note = "use `Record::data` instead")]
     pub fn rdata(&self) -> &RData {
-        &self.rdata
+        if let Some(ref rdata) = &self.rdata {
+            return rdata;
+        } else {
+            NULL_RDATA
+        }
+    }
+
+    /// Returns the Record Data, i.e. the record information
+    pub fn data(&self) -> Option<&RData> {
+        self.rdata.as_ref()
     }
 
     /// Returns if the mDNS cache-flush bit is set or not
@@ -262,12 +286,12 @@ impl Record {
     }
 
     /// Returns a mutable reference to the Record Data
-    pub fn rdata_mut(&mut self) -> &mut RData {
-        &mut self.rdata
+    pub fn data_mut(&mut self) -> Option<&mut RData> {
+        self.rdata.as_mut()
     }
 
     /// Returns the RData consuming the Record
-    pub fn into_data(self) -> RData {
+    pub fn into_data(self) -> Option<RData> {
         self.rdata
     }
 
@@ -289,7 +313,7 @@ pub struct RecordParts {
     /// time to live
     pub ttl: u32,
     /// rdata
-    pub rdata: RData,
+    pub rdata: Option<RData>,
     /// mDNS cache flush
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
@@ -361,7 +385,11 @@ impl BinEncodable for Record {
         let place = encoder.place::<u16>()?;
 
         // write the RData
-        self.rdata.emit(encoder)?;
+        //   the None case is handled below by writing `0` for the length of the RData
+        //   this is in turn read as None during the `read` operation.
+        if let Some(rdata) = &self.rdata {
+            rdata.emit(encoder)?;
+        }
 
         // get the length written
         let len = encoder.len_since_place(&place);
@@ -441,16 +469,17 @@ impl<'r> BinDecodable<'r> for Record {
                 ))
             })?;
 
-        //  pre-requisites
-        let rdata: RData = if rd_length == 0 && !record_type.is_zero() {
-            RData::NULL(NULL::new())
+        // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of pre-requisites
+        //   Null represents any data.
+        let rdata = if rd_length == 0 {
+            None
         } else {
             // RDATA           a variable length string of octets that describes the
             //                resource.  The format of this information varies
             //                according to the TYPE and CLASS of the resource record.
             // Adding restrict to the rdata length because it's used for many calculations later
             //  and must be validated before hand
-            RData::read(decoder, record_type, Restrict::new(rd_length))?
+            Some(RData::read(decoder, record_type, Restrict::new(rd_length))?)
         };
 
         Ok(Record {
@@ -511,13 +540,18 @@ impl fmt::Display for Record {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
-            "{name} {ttl} {class} {ty} {rdata}",
+            "{name} {ttl} {class} {ty}",
             name = self.name_labels,
             ttl = self.ttl,
             class = self.dns_class,
             ty = self.rr_type,
-            rdata = self.rdata
-        )
+        )?;
+
+        if let Some(rdata) = &self.rdata {
+            write!(f, " {rdata}", rdata = rdata)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -657,7 +691,7 @@ mod tests {
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
-            .set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
+            .set_data(Some(RData::A(Ipv4Addr::new(192, 168, 0, 1))));
 
         let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
         {

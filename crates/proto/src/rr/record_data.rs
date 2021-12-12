@@ -687,6 +687,7 @@ pub enum RData {
     },
 
     /// This corresponds to a record type of 0, unspecified
+    #[deprecated(note = "Use None for the RData in the resource record instead")]
     ZERO,
 }
 
