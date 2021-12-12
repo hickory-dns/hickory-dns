@@ -1112,9 +1112,6 @@ fn rdata_zero_roundtrip() {
     let buf = &[
         160, 160, 0, 13, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0,
     ];
-    let msg = Message::from_bytes(buf).unwrap();
-    let encoded = msg.to_bytes().unwrap();
 
-    assert_eq!(encoded.len(), buf.len());
-    assert_eq!(Message::from_bytes(&encoded).unwrap(), msg);
+    assert!(Message::from_bytes(buf).is_err());
 }

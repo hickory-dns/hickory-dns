@@ -749,7 +749,7 @@ impl RData {
             }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
-                return Ok(RData::ZERO);
+                Ok(RData::ZERO)
             }
             RecordType::MX => {
                 trace!("reading MX");
