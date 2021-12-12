@@ -523,7 +523,7 @@ impl InnerInMemory {
             return 0;
         };
 
-        let serial = if let RData::SOA(ref mut soa_rdata) = *record.rdata_mut() {
+        let serial = if let Some(RData::SOA(ref mut soa_rdata)) = record.data_mut() {
             soa_rdata.increment_serial();
             soa_rdata.serial()
         } else {

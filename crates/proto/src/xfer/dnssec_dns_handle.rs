@@ -288,7 +288,7 @@ where
             .chain(message_result.additionals())
             .filter(|rr| is_dnssec(rr, RecordType::RRSIG))
             .filter(|rr| {
-                if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *rr.rdata() {
+                if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = rr.data() {
                     rrsig.type_covered() == record_type
                 } else {
                     false
@@ -478,7 +478,7 @@ where
             .enumerate()
             .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
             .filter_map(|(i, rr)| {
-                if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
+                if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata))) = rr.data() {
                     Some((i, rdata))
                 } else {
                     None
@@ -522,7 +522,7 @@ where
         .enumerate()
         .filter(|&(_, rr)| is_dnssec(rr, RecordType::DNSKEY))
         .filter_map(|(i, rr)| {
-            if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
+            if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata))) = rr.data() {
                 Some((i, rdata))
             } else {
                 None
@@ -534,7 +534,7 @@ where
                 .iter()
                 .filter(|ds| is_dnssec(ds, RecordType::DS))
                 .filter_map(|ds| {
-                    if let RData::DNSSEC(DNSSECRData::DS(ref ds_rdata)) = *ds.rdata() {
+                    if let Some(RData::DNSSEC(DNSSECRData::DS(ref ds_rdata))) = ds.data() {
                         Some((ds.name(), ds_rdata))
                     } else {
                         None
@@ -658,7 +658,7 @@ where
         .iter()
         .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
         .any(|rrsig| {
-            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
+            if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = rrsig.data() {
                 RecordType::DNSKEY == rrset.record_type && sig.signer_name() == &rrset.name
             } else {
                 panic!("expected a SIG here");
@@ -675,7 +675,7 @@ where
                 // this filter is technically unnecessary, can probably remove it...
                 .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
                 .map(|rrsig| {
-                    if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.into_data() {
+                    if let Some(RData::DNSSEC(DNSSECRData::SIG(sig))) = rrsig.into_data() {
                         // setting up the context explicitly.
                         sig
                     } else {
@@ -686,11 +686,11 @@ where
                     let rrset = Arc::clone(&rrset);
 
                     if rrset.records.iter().any(|r| {
-                        if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
+                        if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
                             let dnskey_name = r.name();
                             verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
                         } else {
-                            panic!("expected a DNSKEY here: {:?}", r.rdata());
+                            panic!("expected a DNSKEY here: {:?}", r.data());
                         }
                     }) {
                         Some(())
@@ -722,7 +722,7 @@ where
         // this filter is technically unnecessary, can probably remove it...
         .filter(|rrsig| is_dnssec(rrsig, RecordType::RRSIG))
         .map(|rrsig|
-            if let RData::DNSSEC(DNSSECRData::SIG(sig)) = rrsig.into_data() {
+            if let Some(RData::DNSSEC(DNSSECRData::SIG(sig))) = rrsig.into_data() {
                 // setting up the context explicitly.
                 sig
             } else {
@@ -746,11 +746,11 @@ where
                         .iter()
                         .filter(|r| is_dnssec(r, RecordType::DNSKEY))
                         .find(|r|
-                            if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
+                            if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
                                 let dnskey_name = r.name();
                                 verify_rrset_with_dnskey(dnskey_name, dnskey, &sig, &rrset).is_ok()
                             } else {
-                                panic!("expected a DNSKEY here: {:?}", r.rdata());
+                                panic!("expected a DNSKEY here: {:?}", r.data());
                             }
                         )
                         .map(|_| ())

@@ -43,25 +43,28 @@ use crate::serialize::binary::*;
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NULL {
-    anything: Option<Vec<u8>>,
+    anything: Vec<u8>,
 }
 
 impl NULL {
     /// Construct a new NULL RData
-    pub fn new() -> NULL {
-        Default::default()
+    pub const fn new() -> NULL {
+        Self {
+            anything: Vec::new(),
+        }
     }
 
     /// Constructs a new NULL RData with the associated data
     pub fn with(anything: Vec<u8>) -> NULL {
-        NULL {
-            anything: Some(anything),
-        }
+        // FIXME: we don't want empty data for NULL's, should be Option in the Record
+        debug_assert!(!anything.is_empty());
+
+        NULL { anything }
     }
 
     /// Returns the buffer stored in the NULL
-    pub fn anything(&self) -> Option<&[u8]> {
-        self.anything.as_ref().map(|bytes| &bytes[..])
+    pub fn anything(&self) -> &[u8] {
+        &self.anything
     }
 }
 
@@ -78,7 +81,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder<'_>, nil: &NULL) -> ProtoResult<()> {
-    if let Some(anything) = nil.anything() {
+    if let anything = nil.anything() {
         for b in anything.iter() {
             encoder.emit(*b)?;
         }
@@ -89,11 +92,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, nil: &NULL) -> ProtoResult<()> {
 
 impl fmt::Display for NULL {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        if let Some(thing) = &self.anything {
-            f.write_str(&data_encoding::BASE64.encode(thing))?;
-        }
-
-        Ok(())
+        f.write_str(&data_encoding::BASE64.encode(&self.anything))
     }
 }
 
