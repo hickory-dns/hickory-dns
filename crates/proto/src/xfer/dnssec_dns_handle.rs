@@ -892,8 +892,8 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
     //    WTF? is that bad server, bad record
     if let Some(nsec) = nsecs.iter().find(|nsec| query.name() == nsec.name()) {
         return nsec
-            .rdata()
-            .as_dnssec()
+            .data()
+            .and_then(RData::as_dnssec)
             .and_then(DNSSECRData::as_nsec)
             .map_or(false, |rdata| {
                 // this should not be in the covered list
@@ -905,8 +905,8 @@ pub fn verify_nsec(query: &Query, soa_name: &Name, nsecs: &[&Record]) -> bool {
         nsecs.iter().any(|nsec| {
             // the query name must be greater than nsec's label (or equal in the case of wildcard)
             name >= nsec.name() && {
-                nsec.rdata()
-                    .as_dnssec()
+                nsec.data()
+                    .and_then(RData::as_dnssec)
                     .and_then(DNSSECRData::as_nsec)
                     .map_or(false, |rdata| {
                         // the query name is less than the next name

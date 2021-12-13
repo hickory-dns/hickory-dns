@@ -81,10 +81,8 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder<'_>, nil: &NULL) -> ProtoResult<()> {
-    if let anything = nil.anything() {
-        for b in anything.iter() {
-            encoder.emit(*b)?;
-        }
+    for b in nil.anything() {
+        encoder.emit(*b)?;
     }
 
     Ok(())

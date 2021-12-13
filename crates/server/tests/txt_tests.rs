@@ -80,7 +80,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     assert_eq!(&Name::from_str("isi.edu").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
-    if let RData::SOA(ref soa) = *soa_record.rdata() {
+    if let Some(RData::SOA(ref soa)) = soa_record.data() {
         // this should all be lowercased
         assert_eq!(&Name::from_str("venera.isi.edu").unwrap(), soa.mname());
         assert_eq!(
@@ -108,7 +108,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .unwrap();
     assert_eq!(&Name::from_str("tech.").unwrap(), lowercase_record.name());
     assert_eq!(DNSClass::IN, lowercase_record.dns_class());
-    if let RData::SOA(ref lower_soa) = *lowercase_record.rdata() {
+    if let Some(RData::SOA(ref lower_soa)) = lowercase_record.data() {
         assert_eq!(
             &Name::from_str("ns0.centralnic.net").unwrap(),
             lower_soa.mname()
@@ -152,7 +152,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::NS, record.rr_type());
-        if let RData::NS(nsdname) = record.rdata() {
+        if let Some(RData::NS(nsdname)) = record.data() {
             assert_eq!(name, *nsdname);
         } else {
             panic!("Not an NS record!!!") // valid panic, test code
@@ -183,7 +183,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::MX, record.rr_type());
-        if let RData::MX(ref rdata) = *record.rdata() {
+        if let Some(RData::MX(ref rdata)) = record.data() {
             assert_eq!(num, rdata.preference());
             assert_eq!(name, rdata.exchange());
         } else {
@@ -206,7 +206,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
     assert_eq!(DNSClass::IN, a_record.dns_class());
     assert_eq!(RecordType::A, a_record.rr_type());
-    if let RData::A(ref address) = *a_record.rdata() {
+    if let Some(RData::A(ref address)) = a_record.data() {
         assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 103u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
@@ -224,7 +224,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .unwrap();
     assert_eq!(&Name::from_str("aaaa.isi.edu").unwrap(), aaaa_record.name());
-    if let RData::AAAA(ref address) = *aaaa_record.rdata() {
+    if let Some(RData::AAAA(ref address)) = aaaa_record.data() {
         assert_eq!(
             &Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(),
             address
@@ -249,7 +249,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         short_record.name()
     );
     assert_eq!(70, short_record.ttl());
-    if let RData::A(ref address) = *short_record.rdata() {
+    if let Some(RData::A(ref address)) = short_record.data() {
         assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 104u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
@@ -292,7 +292,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     let compare = txt_records.iter().zip(compare);
 
     for (record, ref vector) in compare {
-        if let RData::TXT(ref rdata) = *record.rdata() {
+        if let Some(RData::TXT(ref rdata)) = record.data() {
             assert_eq!(vector as &[Box<[u8]>], rdata.txt_data());
         } else {
             panic!("Not a TXT record!!!") // valid panic, test code
@@ -310,7 +310,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .next()
     .cloned()
     .unwrap();
-    if let RData::PTR(ref ptrdname) = *ptr_record.rdata() {
+    if let Some(RData::PTR(ref ptrdname)) = ptr_record.data() {
         assert_eq!(&Name::from_str("a.isi.edu").unwrap(), ptrdname);
     } else {
         panic!("Not a PTR record!!!") // valid panic, test code
@@ -327,7 +327,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .next()
     .cloned()
     .unwrap();
-    if let RData::SRV(ref rdata) = *srv_record.rdata() {
+    if let Some(RData::SRV(ref rdata)) = srv_record.data() {
         assert_eq!(rdata.priority(), 1);
         assert_eq!(rdata.weight(), 2);
         assert_eq!(rdata.port(), 3);
@@ -351,7 +351,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         &Name::from_str("rust-❤️-🦀.isi.edu").unwrap(),
         idna_record.name()
     );
-    if let RData::A(ref address) = *idna_record.rdata() {
+    if let Some(RData::A(ref address)) = idna_record.data() {
         assert_eq!(&Ipv4Addr::new(192u8, 0u8, 2u8, 1u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
@@ -368,7 +368,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .next()
     .cloned()
     .expect("nocerts not found");
-    if let RData::CAA(ref rdata) = *caa_record.rdata() {
+    if let Some(RData::CAA(ref rdata)) = caa_record.data() {
         assert!(!rdata.issuer_critical());
         assert!(rdata.tag().is_issue());
         assert!(rdata.value().is_issuer());
@@ -391,7 +391,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .next()
     .cloned()
     .expect("tlsa record not found");
-    if let RData::TLSA(ref rdata) = *tlsa_record.rdata() {
+    if let Some(RData::TLSA(ref rdata)) = tlsa_record.data() {
         assert_eq!(rdata.cert_usage(), CertUsage::CA);
         assert_eq!(rdata.selector(), Selector::Full);
         assert_eq!(rdata.matching(), Matching::Sha256);

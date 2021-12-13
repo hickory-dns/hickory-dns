@@ -250,7 +250,7 @@ mod tests {
 
             let answer = Record::new()
                 .set_name(Name::from_str("www.example.com.").unwrap())
-                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
                 .set_dns_class(DNSClass::NONE)
                 .clone();
 
@@ -286,7 +286,7 @@ mod tests {
 
             let answer = Record::new()
                 .set_name(Name::from_str("www.example.com.").unwrap())
-                .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
                 .set_dns_class(DNSClass::NONE)
                 .clone();
 

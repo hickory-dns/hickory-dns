@@ -481,7 +481,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
     // the TTL should be 0
     record.set_ttl(0);
     // the rdata must be null to delete all rrsets
-    record.set_rdata(RData::NULL(NULL::new()));
+    record.set_data(Some(RData::NULL(NULL::new())));
     message.add_update(record);
 
     // Extended dns

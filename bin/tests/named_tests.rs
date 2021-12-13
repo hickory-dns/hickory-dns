@@ -306,7 +306,7 @@ fn test_forward() {
             RecordType::A,
         );
         assert_eq!(
-            *response.answers()[0].rdata().as_a().unwrap(),
+            *response.answers()[0].data().and_then(RData::as_a).unwrap(),
             Ipv4Addr::new(93, 184, 216, 34)
         );
 
@@ -328,7 +328,7 @@ fn test_forward() {
             RecordType::A,
         );
         assert_eq!(
-            *response.answers()[0].rdata().as_a().unwrap(),
+            *response.answers()[0].data().and_then(RData::as_a).unwrap(),
             Ipv4Addr::new(93, 184, 216, 34)
         );
         assert!(!response.header().authoritative());

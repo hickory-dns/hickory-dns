@@ -48,8 +48,8 @@ fn test_get() {
     assert_eq!(result.answers().len(), 1);
     assert_eq!(result.answers()[0].rr_type(), RecordType::A);
 
-    let rdata = result.answers()[0].rdata();
-    if let RData::A(address) = rdata {
+    let rdata = result.answers()[0].data();
+    if let Some(RData::A(address)) = rdata {
         assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1));
     } else {
         panic!("RData::A wasn't here");
@@ -106,7 +106,7 @@ fn test_create() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -128,7 +128,7 @@ fn test_create() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);

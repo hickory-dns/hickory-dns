@@ -541,11 +541,10 @@ mod tests {
             .expect("send_message failed");
 
         let record = &response.answers()[0];
-        let addr = if let RData::A(addr) = record.rdata() {
-            addr
-        } else {
-            panic!("invalid response, expected A record");
-        };
+        let addr = record
+            .data()
+            .and_then(RData::as_a)
+            .expect("Expected A record");
 
         assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
 
@@ -568,11 +567,10 @@ mod tests {
             }
 
             let record = &response.answers()[0];
-            let addr = if let RData::AAAA(addr) = record.rdata() {
-                addr
-            } else {
-                panic!("invalid response, expected A record");
-            };
+            let addr = record
+                .data()
+                .and_then(RData::as_aaaa)
+                .expect("invalid response, expected A record");
 
             assert_eq!(
                 addr,
@@ -609,11 +607,10 @@ mod tests {
             .expect("send_message failed");
 
         let record = &response.answers()[0];
-        let addr = if let RData::A(addr) = record.rdata() {
-            addr
-        } else {
-            panic!("invalid response, expected A record");
-        };
+        let addr = record
+            .data()
+            .and_then(RData::as_a)
+            .expect("invalid response, expected A record");
 
         assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
 
@@ -632,11 +629,10 @@ mod tests {
             .expect("send_message failed");
 
         let record = &response.answers()[0];
-        let addr = if let RData::AAAA(addr) = record.rdata() {
-            addr
-        } else {
-            panic!("invalid response, expected A record");
-        };
+        let addr = record
+            .data()
+            .and_then(RData::as_aaaa)
+            .expect("invalid response, expected A record");
 
         assert_eq!(
             addr,

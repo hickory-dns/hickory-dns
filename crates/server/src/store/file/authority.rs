@@ -392,9 +392,9 @@ mod tests {
             .into_iter()
             .next()
             .expect("A record not found in authity")
-            .rdata()
+            .data()
         {
-            RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
+            Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
             _ => panic!("wrong rdata type returned"),
         }
 
@@ -410,9 +410,9 @@ mod tests {
             .into_iter()
             .next()
             .expect("A record not found in authity")
-            .rdata()
+            .data()
         {
-            RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 5), *ip),
+            Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 5), *ip),
             _ => panic!("wrong rdata type returned"),
         }
     }

@@ -245,14 +245,19 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     for r in lookup.record_iter() {
-        println!(
-            "\t{name} {ttl} {class} {ty} {rdata}",
+        print!(
+            "\t{name} {ttl} {class} {ty}",
             name = style(r.name()).blue(),
             ttl = style(r.ttl()).blue(),
             class = style(r.dns_class()).blue(),
             ty = style(r.record_type()).blue(),
-            rdata = style(r.rdata()).yellow()
         );
+
+        if let Some(rdata) = r.data() {
+            println!(" {rdata}", rdata = rdata);
+        } else {
+            println!("NULL")
+        }
     }
 
     Ok(())

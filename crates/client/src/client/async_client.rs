@@ -709,16 +709,11 @@ impl<R> ClientStreamXfrState<R> {
     }
 
     /// Helper to ingest answer Records
-    // TODO this is complexe enough it should get its own tests
+    // TODO: this is complex enough it should get its own tests
     fn process(&mut self, answers: &[Record]) -> Result<(), ClientError> {
         use ClientStreamXfrState::*;
         fn get_serial(r: &Record) -> Option<u32> {
-            let rdata = r.rdata();
-            if let RData::SOA(soa) = rdata {
-                Some(soa.serial())
-            } else {
-                None
-            }
+            r.data().and_then(RData::as_soa).map(SOA::serial)
         }
 
         if answers.is_empty() {
