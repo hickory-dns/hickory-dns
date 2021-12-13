@@ -125,7 +125,7 @@ where
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let RData::A(ref address) = *record.rdata() {
+    if let RData::A(ref address) = *record.data().unwrap() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         panic!();
@@ -180,7 +180,7 @@ where
         &EdnsOption::Unknown(EdnsCode::Subnet.into(), vec![0, 1, 16, 0, 1, 2])
     );
 
-    if let RData::A(ref address) = *record.rdata() {
+    if let RData::A(ref address) = *record.data().unwrap() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         panic!();
@@ -235,7 +235,7 @@ where
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let RData::A(ref address) = *record.rdata() {
+    if let RData::A(ref address) = *record.data().unwrap() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         panic!();
@@ -460,14 +460,14 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConne
         RecordType::KEY,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(KEY::new(
+    auth_key.set_data(Some(RData::DNSSEC(DNSSECRData::KEY(KEY::new(
         Default::default(),
         Default::default(),
         Default::default(),
         Default::default(),
         signer.algorithm(),
         signer.key().to_public_bytes().expect("to_vec failed"),
-    ))));
+    )))));
     authority.upsert_mut(auth_key, 0);
 
     catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
@@ -488,7 +488,7 @@ fn test_create() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -510,7 +510,7 @@ fn test_create() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
@@ -528,7 +528,7 @@ fn test_append() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -552,7 +552,7 @@ fn test_append() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
 
     let result = client
         .append(record.clone(), origin.clone(), true)
@@ -568,7 +568,7 @@ fn test_append() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = *rr.rdata() {
+        .any(|rr| if let RData::A(ip) = *rr.data().unwrap() {
             ip == Ipv4Addr::new(100, 10, 100, 10)
         } else {
             false
@@ -576,7 +576,7 @@ fn test_append() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.rdata() {
+        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
             *ip == Ipv4Addr::new(101, 11, 101, 11)
         } else {
             false
@@ -607,7 +607,7 @@ fn test_compare_and_swap() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -616,7 +616,7 @@ fn test_compare_and_swap() {
 
     let current = record;
     let mut new = current.clone();
-    new.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    new.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
 
     let result = client
         .compare_and_swap(current.clone(), new.clone(), origin.clone())
@@ -631,7 +631,7 @@ fn test_compare_and_swap() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.rdata() {
+        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
             *ip == Ipv4Addr::new(101, 11, 101, 11)
         } else {
             false
@@ -639,7 +639,7 @@ fn test_compare_and_swap() {
 
     // check the it fails if tried again.
     let mut new = new;
-    new.set_rdata(RData::A(Ipv4Addr::new(102, 12, 102, 12)));
+    new.set_data(Some(RData::A(Ipv4Addr::new(102, 12, 102, 12))));
 
     let result = client
         .compare_and_swap(current, new.clone(), origin)
@@ -654,7 +654,7 @@ fn test_compare_and_swap() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.rdata() {
+        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
             *ip == Ipv4Addr::new(101, 11, 101, 11)
         } else {
             false
@@ -673,7 +673,7 @@ fn test_delete_by_rdata() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -688,7 +688,7 @@ fn test_delete_by_rdata() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let mut record = record;
-    record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .expect("create failed");
@@ -708,7 +708,7 @@ fn test_delete_by_rdata() {
     assert!(result
         .answers()
         .iter()
-        .any(|rr| if let RData::A(ip) = rr.rdata() {
+        .any(|rr| if let RData::A(ip) = rr.data().unwrap() {
             *ip == Ipv4Addr::new(100, 10, 100, 10)
         } else {
             false
@@ -727,7 +727,7 @@ fn test_delete_rrset() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -742,7 +742,7 @@ fn test_delete_rrset() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let mut record = record;
-    record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
     let result = client
         .append(record.clone(), origin.clone(), true)
         .expect("create failed");
@@ -773,7 +773,7 @@ fn test_delete_all() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     // first check the must_exist option
     let result = client
@@ -789,7 +789,7 @@ fn test_delete_all() {
 
     let mut record = record;
     record.set_rr_type(RecordType::AAAA);
-    record.set_rdata(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8)));
+    record.set_data(Some(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8))));
     let result = client
         .create(record.clone(), origin.clone())
         .expect("create failed");

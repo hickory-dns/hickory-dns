@@ -344,10 +344,10 @@ impl Parser {
             }
         }
 
-        // TODO validate record, e.g. the name of SRV record allows _ but others do not.
+        // TODO: validate record, e.g. the name of SRV record allows _ but others do not.
 
         // move the rdata into record...
-        record.set_rdata(rdata);
+        record.set_data(Some(rdata));
 
         // add to the map
         let key = RrKey::new(LowerName::new(record.name()), record.rr_type());

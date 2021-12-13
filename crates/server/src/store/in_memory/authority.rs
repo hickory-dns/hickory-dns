@@ -86,7 +86,8 @@ impl InMemoryAuthority {
             .iter()
             .find(|(key, _)| key.record_type == RecordType::SOA)
             .and_then(|(_, rrset)| rrset.records_without_rrsigs().next())
-            .and_then(|record| record.rdata().as_soa())
+            .and_then(Record::data)
+            .and_then(RData::as_soa)
             .map(SOA::serial)
             .ok_or_else(|| format!("SOA record must be present: {}", origin))?;
 
@@ -339,7 +340,8 @@ impl InnerInMemory {
         self.records
             .get(&rr_key)
             .and_then(|rrset| rrset.records_without_rrsigs().next())
-            .and_then(|record| record.rdata().as_soa())
+            .and_then(Record::data)
+            .and_then(RData::as_soa)
     }
 
     /// Returns the minimum ttl (as used in the SOA record)
@@ -441,7 +443,9 @@ impl InnerInMemory {
                 };
 
                 for record in records {
-                    new_answer.add_rdata(record.rdata().clone());
+                    if let Some(rdata) = record.data() {
+                        new_answer.add_rdata(rdata.clone());
+                    }
                 }
 
                 #[cfg(feature = "dnssec")]
@@ -680,7 +684,7 @@ impl InnerInMemory {
                         // names aren't equal, create the NSEC record
                         let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
                         let rdata = NSEC::new_cover_self(key.name.clone().into(), vec);
-                        record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
+                        record.set_data(Some(RData::DNSSEC(DNSSECRData::NSEC(rdata))));
                         records.push(record);
 
                         // new record...
@@ -694,7 +698,7 @@ impl InnerInMemory {
                 // names aren't equal, create the NSEC record
                 let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
                 let rdata = NSEC::new_cover_self(origin.clone().into(), vec);
-                record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
+                record.set_data(Some(RData::DNSSEC(DNSSECRData::NSEC(rdata))));
                 records.push(record);
             }
         }
@@ -781,7 +785,7 @@ impl InnerInMemory {
             };
 
             let mut rrsig = rrsig_temp.clone();
-            rrsig.set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
+            rrsig.set_data(Some(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
                 // type_covered: RecordType,
                 rr_set.record_type(),
                 // algorithm: Algorithm,
@@ -800,7 +804,7 @@ impl InnerInMemory {
                 signer.signer_name().clone(),
                 // sig: Vec<u8>
                 signature,
-            ))));
+            )))));
 
             rr_set.insert_rrsig(rrsig);
         }
@@ -850,33 +854,38 @@ fn maybe_next_name(
         | (t @ RecordType::ANAME, RecordType::ANAME) => record_set
             .records_without_rrsigs()
             .next()
-            .and_then(|record| record.rdata().as_aname().cloned())
+            .and_then(Record::data)
+            .and_then(RData::as_aname)
             .map(LowerName::from)
             .map(|name| (name, t)),
         (t @ RecordType::NS, RecordType::NS) => record_set
             .records_without_rrsigs()
             .next()
-            .and_then(|record| record.rdata().as_ns().cloned())
+            .and_then(Record::data)
+            .and_then(RData::as_ns)
             .map(LowerName::from)
             .map(|name| (name, t)),
         // CNAME will continue to additional processing for any query type
         (t @ RecordType::CNAME, _) => record_set
             .records_without_rrsigs()
             .next()
-            .and_then(|record| record.rdata().as_cname().cloned())
+            .and_then(Record::data)
+            .and_then(RData::as_cname)
             .map(LowerName::from)
             .map(|name| (name, t)),
         (t @ RecordType::MX, RecordType::MX) => record_set
             .records_without_rrsigs()
             .next()
-            .and_then(|record| record.rdata().as_mx())
+            .and_then(Record::data)
+            .and_then(RData::as_mx)
             .map(|mx| mx.exchange().clone())
             .map(LowerName::from)
             .map(|name| (name, t)),
         (t @ RecordType::SRV, RecordType::SRV) => record_set
             .records_without_rrsigs()
             .next()
-            .and_then(|record| record.rdata().as_srv())
+            .and_then(Record::data)
+            .and_then(RData::as_srv)
             .map(|srv| srv.target().clone())
             .map(LowerName::from)
             .map(|name| (name, t)),
@@ -1050,7 +1059,10 @@ impl Authority for InMemoryAuthority {
                                             _ => None,
                                         })
                                         .map(|records| {
-                                            records.map(Record::rdata).cloned().collect::<Vec<_>>()
+                                            records
+                                                .filter_map(Record::data)
+                                                .cloned()
+                                                .collect::<Vec<_>>()
                                         });
 
                                     (rdatas, a_aaaa_ttl)
@@ -1239,7 +1251,8 @@ impl Authority for InMemoryAuthority {
                     rr_set
                         .records(false, SupportedAlgorithms::default())
                         .next()
-                        .and_then(|r| r.rdata().as_dnssec())
+                        .and_then(Record::data)
+                        .and_then(RData::as_dnssec)
                         .and_then(DNSSECRData::as_nsec)
                         .map_or(false, |r| {
                             // the search name is less than the next NSEC record

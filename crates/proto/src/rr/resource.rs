@@ -266,7 +266,7 @@ impl Record {
     #[deprecated(note = "use `Record::data` instead")]
     pub fn rdata(&self) -> &RData {
         if let Some(ref rdata) = &self.rdata {
-            return rdata;
+            rdata
         } else {
             NULL_RDATA
         }
@@ -386,7 +386,7 @@ impl BinEncodable for Record {
 
         // write the RData
         //   the None case is handled below by writing `0` for the length of the RData
-        //   this is in turn read as None during the `read` operation.
+        //   this is in turn read as `None` during the `read` operation.
         if let Some(rdata) = &self.rdata {
             rdata.emit(encoder)?;
         }
@@ -714,7 +714,7 @@ mod tests {
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
-            .set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
+            .set_data(Some(RData::A(Ipv4Addr::new(192, 168, 0, 1))));
 
         let mut greater_name = record.clone();
         greater_name.set_name(Name::from_str("zzz.example.com").unwrap());
@@ -726,7 +726,7 @@ mod tests {
         greater_class.set_dns_class(DNSClass::NONE);
 
         let mut greater_rdata = record.clone();
-        greater_rdata.set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
+        greater_rdata.set_data(Some(RData::A(Ipv4Addr::new(192, 168, 0, 255))));
 
         let compares = vec![
             (&record, &greater_name),
