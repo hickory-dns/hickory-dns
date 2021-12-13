@@ -20,7 +20,7 @@ use futures_util::stream::Stream;
 use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
 use crate::op::{Message, ResponseCode};
 use crate::rr::rdata::SOA;
-use crate::rr::RecordType;
+use crate::rr::{RData, RecordType};
 
 /// A stream returning DNS responses
 pub struct DnsResponseStream {
@@ -136,7 +136,7 @@ impl DnsResponse {
     pub fn soa(&self) -> Option<SOA> {
         self.name_servers()
             .iter()
-            .filter_map(|record| record.rdata().as_soa())
+            .filter_map(|record| record.data().and_then(RData::as_soa))
             .next()
             .cloned()
     }
@@ -200,7 +200,12 @@ impl DnsResponse {
         // TODO: should this ensure that the SOA zone matches the Queried Zone?
         self.name_servers()
             .iter()
-            .filter_map(|record| record.rdata().as_soa().map(|soa| (record.ttl(), soa)))
+            .filter_map(|record| {
+                record
+                    .data()
+                    .and_then(RData::as_soa)
+                    .map(|soa| (record.ttl(), soa))
+            })
             .next()
             .map(|(ttl, soa)| (ttl as u32).min(soa.minimum()).max(0))
     }

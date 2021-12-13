@@ -725,8 +725,8 @@ pub fn signed_bitmessage_to_buf(
 
     // parse a tsig record
     let sig = Record::read(&mut decoder)?;
-    let tsig = if let (RecordType::TSIG, RData::DNSSEC(DNSSECRData::TSIG(tsig_data))) =
-        (sig.rr_type(), sig.rdata())
+    let tsig = if let (RecordType::TSIG, Some(RData::DNSSEC(DNSSECRData::TSIG(tsig_data)))) =
+        (sig.rr_type(), sig.data())
     {
         tsig_data
     } else {
@@ -774,7 +774,7 @@ pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
         .set_dns_class(DNSClass::ANY)
         //   TTL:  This MUST be 0.
         .set_ttl(0)
-        .set_rdata(DNSSECRData::TSIG(rdata).into());
+        .set_data(Some(DNSSECRData::TSIG(rdata).into()));
     tsig
 }
 

@@ -21,9 +21,10 @@ pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("A record not found in authority")
-        .rdata()
+        .data()
+        .and_then(RData::as_a)
     {
-        RData::A(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
+        Some(ip) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
         _ => panic!("wrong rdata type returned"),
     }
 }
@@ -36,9 +37,9 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("SOA record not found in authity")
-        .rdata()
+        .data()
     {
-        RData::SOA(soa) => {
+        Some(RData::SOA(soa)) => {
             assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *soa.mname());
             assert_eq!(Name::from_str("root.trust-dns.org.").unwrap(), *soa.rname());
             assert_eq!(199609203, soa.serial());
@@ -58,9 +59,9 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("NS record not found in authity")
-        .rdata()
+        .data()
     {
-        RData::NS(name) => assert_eq!(Name::from_str("bbb.example.com.").unwrap(), *name),
+        Some(RData::NS(name)) => assert_eq!(Name::from_str("bbb.example.com.").unwrap(), *name),
         _ => panic!("wrong rdata type returned"),
     }
 }
@@ -78,8 +79,8 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("NS record not found in authority")
-        .rdata()
-        .as_ns()
+        .data()
+        .and_then(RData::as_ns)
         .expect("Not an NS record");
 
     assert_eq!(Name::from_str("bbb.example.com.").unwrap(), *ns);
@@ -88,8 +89,8 @@ pub fn test_ns_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 2), *a);
 }
@@ -107,8 +108,8 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("MX record not found in authority")
-        .rdata()
-        .as_mx()
+        .data()
+        .and_then(RData::as_mx)
         .expect("Not an MX record");
 
     assert_eq!(
@@ -122,24 +123,24 @@ pub fn test_mx<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let cname = additionals
         .next()
         .expect("CNAME record not found")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not an CNAME record");
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
 
     let a = additionals
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 
     let aaaa = additionals
         .next()
         .expect("AAAA record not found")
-        .rdata()
-        .as_aaaa()
+        .data()
+        .and_then(RData::as_aaaa)
         .expect("Not an AAAA record");
     assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }
@@ -159,8 +160,8 @@ pub fn test_mx_to_null<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("MX record not found in authority")
-        .rdata()
-        .as_mx()
+        .data()
+        .and_then(RData::as_mx)
         .expect("Not an MX record");
 
     assert_eq!(Name::from_str(".").unwrap(), *mx.exchange());
@@ -178,8 +179,8 @@ pub fn test_cname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("CNAME record not found in authority")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not an A record");
 
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
@@ -199,8 +200,8 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("CNAME record not found in authority")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not a CNAME record");
 
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
@@ -210,8 +211,8 @@ pub fn test_cname_alias<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 }
@@ -233,8 +234,8 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("CNAME record not found in authority")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not a CNAME record");
 
     assert_eq!(Name::from_str("alias.example.com.").unwrap(), *cname);
@@ -245,16 +246,16 @@ pub fn test_cname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let cname = additionals
         .next()
         .expect("CNAME record not found")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not an CNAME record");
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
 
     let a = additionals
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 }
@@ -274,8 +275,8 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("ANAME record not found in authority")
-        .rdata()
-        .as_aname()
+        .data()
+        .and_then(RData::as_aname)
         .expect("Not an ANAME record");
 
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *aname);
@@ -284,7 +285,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let a = additionals
         .iter()
         .find(|r| r.record_type() == RecordType::A)
-        .map(Record::rdata)
+        .and_then(Record::data)
         .and_then(RData::as_a)
         .expect("A not found");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
@@ -292,7 +293,7 @@ pub fn test_aname<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let aaaa = additionals
         .iter()
         .find(|r| r.record_type() == RecordType::AAAA)
-        .map(Record::rdata)
+        .and_then(Record::data)
         .and_then(RData::as_aaaa)
         .expect("AAAA not found");
     assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
@@ -312,10 +313,10 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let (name, a) = lookup
         .into_iter()
         .next()
-        .map(|r| (r.name(), dbg!(r.rdata())))
+        .map(|r| (r.name(), r.data()))
         .expect("No A answer");
 
-    let a = a.as_a().expect("Not an A record");
+    let a = a.and_then(RData::as_a).expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
     assert_eq!(Name::from_str("example.com.").unwrap(), *name);
 
@@ -324,8 +325,8 @@ pub fn test_aname_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("ANAME record not found in authority")
-        .rdata()
-        .as_aname()
+        .data()
+        .and_then(RData::as_aname)
         .expect("Not an ANAME record");
 
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *aname);
@@ -347,10 +348,10 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let (name, a) = lookup
         .into_iter()
         .next()
-        .map(|r| (r.name(), r.rdata()))
+        .map(|r| (r.name(), r.data()))
         .expect("Not an A record");
 
-    let a = a.as_a().expect("Not an A record");
+    let a = a.and_then(RData::as_a).expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
     assert_eq!(Name::from_str("aname-chain.example.com.").unwrap(), *name);
 
@@ -360,8 +361,8 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let aname = additionals
         .next()
         .expect("ANAME record not found in authority")
-        .rdata()
-        .as_aname()
+        .data()
+        .and_then(RData::as_aname)
         .expect("Not an ANAME record");
 
     assert_eq!(Name::from_str("alias.example.com.").unwrap(), *aname);
@@ -369,16 +370,16 @@ pub fn test_aname_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let cname = additionals
         .next()
         .expect("CNAME record not found")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not an CNAME record");
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
 
     let a = additionals
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 }
@@ -407,8 +408,8 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
             .into_iter()
             .next()
             .expect("A record not found in authity")
-            .rdata()
-            .as_a()
+            .data()
+            .and_then(RData::as_a)
             .expect("wrong rdata type returned"),
         Ipv4Addr::new(127, 0, 0, 3)
     );
@@ -451,8 +452,8 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
             .into_iter()
             .next()
             .expect("CNAME record not found in authority")
-            .rdata()
-            .as_cname()
+            .data()
+            .and_then(RData::as_cname)
             .expect("wrong rdata type returned"),
         Name::from_str("www.example.com.").unwrap()
     );
@@ -477,8 +478,8 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A) {
                 r
             })
             .expect("CNAME record not found in authority")
-            .rdata()
-            .as_cname()
+            .data()
+            .and_then(RData::as_cname)
             .expect("wrong rdata type returned"),
         Name::from_str("www.example.com.").unwrap()
     );
@@ -501,8 +502,8 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
             .into_iter()
             .next()
             .expect("CNAME record not found in authority")
-            .rdata()
-            .as_cname()
+            .data()
+            .and_then(RData::as_cname)
             .expect("wrong rdata type returned"),
         Name::from_str("www.example.com.").unwrap()
     );
@@ -511,8 +512,8 @@ pub fn test_wildcard_chain<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let a = additionals
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 }
@@ -533,8 +534,8 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
         .into_iter()
         .next()
         .expect("SRV record not found in authority")
-        .rdata()
-        .as_srv()
+        .data()
+        .and_then(RData::as_srv)
         .expect("Not an SRV record");
 
     assert_eq!(Name::from_str("alias.example.com.").unwrap(), *srv.target());
@@ -545,24 +546,24 @@ pub fn test_srv<A: Authority<Lookup = AuthLookup>>(authority: A) {
     let cname = additionals
         .next()
         .expect("CNAME record not found")
-        .rdata()
-        .as_cname()
+        .data()
+        .and_then(RData::as_cname)
         .expect("Not an CNAME record");
     assert_eq!(Name::from_str("www.example.com.").unwrap(), *cname);
 
     let a = additionals
         .next()
         .expect("A record not found")
-        .rdata()
-        .as_a()
+        .data()
+        .and_then(RData::as_a)
         .expect("Not an A record");
     assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *a);
 
     let aaaa = additionals
         .next()
         .expect("AAAA record not found")
-        .rdata()
-        .as_aaaa()
+        .data()
+        .and_then(RData::as_aaaa)
         .expect("Not an AAAA record");
     assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1), *aaaa);
 }

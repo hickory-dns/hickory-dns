@@ -6,7 +6,7 @@ use std::str::FromStr;
 
 use tokio::runtime::Runtime;
 
-use trust_dns_client::rr::{Name, RecordType};
+use trust_dns_client::rr::{Name, RData, RecordType};
 use trust_dns_resolver::TokioHandle;
 use trust_dns_server::authority::{Authority, LookupObject};
 use trust_dns_server::store::forwarder::ForwardAuthority;
@@ -29,6 +29,9 @@ fn test_lookup() {
         .unwrap();
 
     let address = lookup.iter().next().expect("no addresses returned!");
-    let address = address.rdata().as_a().expect("not an A record");
+    let address = address
+        .data()
+        .and_then(RData::as_a)
+        .expect("not an A record");
     assert_eq!(*address, Ipv4Addr::new(93, 184, 216, 34));
 }

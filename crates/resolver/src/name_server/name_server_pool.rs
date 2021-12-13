@@ -430,6 +430,7 @@ mod tests {
     use proto::op::Query;
     use proto::rr::{Name, RecordType};
     use proto::xfer::{DnsHandle, DnsRequestOptions};
+    use trust_dns_proto::rr::RData;
 
     use super::*;
     use crate::config::NameServerConfig;
@@ -554,8 +555,8 @@ mod tests {
 
         assert_eq!(
             *response.answers()[0]
-                .rdata()
-                .as_a()
+                .data()
+                .and_then(RData::as_a)
                 .expect("no a record available"),
             Ipv4Addr::new(93, 184, 216, 34)
         );
@@ -578,8 +579,8 @@ mod tests {
 
         assert_eq!(
             *response.answers()[0]
-                .rdata()
-                .as_aaaa()
+                .data()
+                .and_then(RData::as_aaaa)
                 .expect("no aaaa record available"),
             Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
         );

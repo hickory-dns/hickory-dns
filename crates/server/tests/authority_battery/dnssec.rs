@@ -7,7 +7,7 @@ use futures_executor::block_on;
 
 use trust_dns_client::op::Query;
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
-use trust_dns_client::rr::{DNSClass, Name, Record, RecordType};
+use trust_dns_client::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::rr::dnssec::rdata::DNSKEY;
 use trust_dns_proto::xfer;
 use trust_dns_server::authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions};
@@ -47,7 +47,12 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]
 
     assert_eq!(soa_records.len(), 1);
 
-    let soa = soa_records.first().unwrap().rdata().as_soa().unwrap();
+    let soa = soa_records
+        .first()
+        .unwrap()
+        .data()
+        .and_then(RData::as_soa)
+        .unwrap();
 
     assert_eq!(Name::from_str("trust-dns.org.").unwrap(), *soa.mname());
     assert_eq!(Name::from_str("root.trust-dns.org.").unwrap(), *soa.rname());
@@ -76,7 +81,12 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
         .partition(|r| r.record_type() == RecordType::NS);
 
     assert_eq!(
-        *ns_records.first().unwrap().rdata().as_ns().unwrap(),
+        *ns_records
+            .first()
+            .unwrap()
+            .data()
+            .and_then(RData::as_ns)
+            .unwrap(),
         Name::from_str("bbb.example.com.").unwrap()
     );
 
@@ -309,8 +319,8 @@ pub fn verify(records: &[Record], rrsig_records: &[Record], keys: &[DNSKEY]) {
         .iter()
         .filter_map(|rrsig| {
             let rrsig = rrsig
-                .rdata()
-                .as_dnssec()
+                .data()
+                .and_then(RData::as_dnssec)
                 .expect("not DNSSEC")
                 .as_sig()
                 .expect("not RRSIG");

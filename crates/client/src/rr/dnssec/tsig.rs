@@ -117,7 +117,7 @@ impl TSigner {
         first_message: bool,
     ) -> ProtoResult<(Vec<u8>, Range<u64>, u64)> {
         let (tbv, record) = signed_bitmessage_to_buf(previous_hash, message, first_message)?;
-        let tsig = if let RData::DNSSEC(DNSSECRData::TSIG(tsig)) = record.rdata() {
+        let tsig = if let Some(RData::DNSSEC(DNSSECRData::TSIG(tsig))) = record.data() {
             tsig
         } else {
             unreachable!("tsig::signed_message_to_buff always returns a TSIG record")

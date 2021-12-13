@@ -105,7 +105,7 @@ fn create_ip_like_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::A(Ipv4Addr::new(198, 51, 100, 35)))
+            .set_data(Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))))
             .clone(),
         0,
     );
@@ -262,7 +262,7 @@ fn test_cname_lookup_preserve() {
     let lookup = io_loop.block_on(lookup).unwrap();
 
     let mut iter = lookup.iter();
-    assert_eq!(iter.next().unwrap(), cname_record.rdata());
+    assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
     assert_eq!(
         *iter.next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))
@@ -341,7 +341,7 @@ fn test_chained_cname_lookup_preserve() {
     let lookup = io_loop.block_on(lookup).unwrap();
 
     let mut iter = lookup.iter();
-    assert_eq!(iter.next().unwrap(), cname_record.rdata());
+    assert_eq!(iter.next().unwrap(), cname_record.data().unwrap());
     assert_eq!(
         *iter.next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))

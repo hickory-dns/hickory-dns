@@ -86,6 +86,7 @@ impl RDataParser for RData {
                 return Err(ParseError::from("RRSIG should be dynamically generated"))
             }
             RecordType::TSIG => return Err(ParseError::from("TSIG is only used during AXFR")),
+            #[allow(deprecated)]
             RecordType::ZERO => RData::ZERO,
             r @ RecordType::Unknown(..) | r => {
                 // TODO: add a way to associate generic record types to the zone

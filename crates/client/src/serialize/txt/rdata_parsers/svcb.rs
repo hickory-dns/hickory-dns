@@ -322,6 +322,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use trust_dns_proto::rr::RData;
+
     use crate::rr::DNSClass;
     use crate::serialize::txt::{Lexer, Parser};
 
@@ -342,8 +344,8 @@ mod tests {
             .into_iter()
             .next()
             .unwrap()
-            .rdata()
-            .as_svcb()
+            .data()
+            .and_then(RData::as_svcb)
             .expect("Not an SVCB record")
             .clone()
     }

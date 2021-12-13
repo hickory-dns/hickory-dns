@@ -123,7 +123,7 @@ impl<'a> Iterator for LookupIter<'a> {
     type Item = &'a RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Record::rdata)
+        self.0.next().and_then(Record::data)
     }
 }
 
@@ -166,7 +166,7 @@ impl Iterator for LookupIntoIter {
     type Item = RData;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let rdata = self.records.get(self.index).map(Record::rdata);
+        let rdata = self.records.get(self.index).and_then(Record::data);
         self.index += 1;
         rdata.cloned()
     }

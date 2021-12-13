@@ -125,6 +125,7 @@ impl Edns {
     }
 }
 
+// FIXME: this should be a TryFrom
 impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
         assert!(value.rr_type() == RecordType::OPT);
@@ -134,17 +135,17 @@ impl<'a> From<&'a Record> for Edns {
         let dnssec_ok: bool = value.ttl() & 0x0000_8000 == 0x0000_8000;
         let max_payload: u16 = u16::from(value.dns_class());
 
-        let options: OPT = match *value.rdata() {
-            RData::NULL(..) => {
+        let options: OPT = match value.data() {
+            Some(RData::NULL(..)) | None => {
                 // NULL, there was no data in the OPT
                 OPT::default()
             }
-            RData::OPT(ref option_data) => {
+            Some(RData::OPT(ref option_data)) => {
                 option_data.clone() // TODO: Edns should just refer to this, have the same lifetime as the Record
             }
             _ => {
                 // this should be a coding error, as opposed to a parsing error.
-                panic!("rr_type doesn't match the RData: {:?}", value.rdata()) // valid panic, never should happen
+                panic!("rr_type doesn't match the RData: {:?}", value.data()) // valid panic, never should happen
             }
         };
 
@@ -181,7 +182,7 @@ impl<'a> From<&'a Edns> for Record {
         //  also, since this is a hash, there is no guarantee that ordering will be preserved from
         //  the original binary format.
         // maybe switch to: https://crates.io/crates/linked-hash-map/
-        record.set_rdata(RData::OPT(value.options().clone()));
+        record.set_data(Some(RData::OPT(value.options().clone())));
 
         record
     }

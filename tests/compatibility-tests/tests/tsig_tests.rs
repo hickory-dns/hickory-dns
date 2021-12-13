@@ -66,7 +66,7 @@ fn test_create() {
         RecordType::A,
         Duration::minutes(5).whole_seconds() as u32,
     );
-    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -88,7 +88,7 @@ fn test_create() {
 
     // will fail if already set and not the same value.
     let mut record = record;
-    record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
+    record.set_data(Some(RData::A(Ipv4Addr::new(101, 11, 101, 11))));
 
     let result = client.create(record, origin).expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);

@@ -7,6 +7,8 @@
 
 //! record data enum variants
 
+#![allow(deprecated)] // allows us to deprecate RData types
+
 use std::cmp::Ordering;
 #[cfg(test)]
 use std::convert::From;
@@ -749,6 +751,9 @@ impl RData {
             }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
+                // we should never get here, since ZERO should be 0 length, and None in the Record.
+                //   this invariant is verified below, and the decoding will fail with an err.
+                #[allow(deprecated)]
                 Ok(RData::ZERO)
             }
             RecordType::MX => {

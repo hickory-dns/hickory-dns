@@ -229,7 +229,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let response = query_message(io_loop, client, name, RecordType::A);
     let record = &response.answers()[0];
 
-    if let RData::A(ref address) = *record.rdata() {
+    if let Some(RData::A(ref address)) = record.data() {
         assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1))
     } else {
         panic!("wrong RDATA")
@@ -262,7 +262,7 @@ pub fn query_all_dnssec(
         .iter()
         .filter(|r| r.rr_type() == RecordType::DNSKEY)
         .map(|r| {
-            if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
+            if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
                 dnskey.clone()
             } else {
                 panic!("wrong RDATA")
@@ -278,7 +278,7 @@ pub fn query_all_dnssec(
         .iter()
         .filter(|r| r.rr_type() == RecordType::RRSIG)
         .map(|r| {
-            if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
+            if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = r.data() {
                 rrsig.clone()
             } else {
                 panic!("wrong RDATA")

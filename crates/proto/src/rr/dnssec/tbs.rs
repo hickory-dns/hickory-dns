@@ -73,6 +73,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 /// # Returns
 ///
 /// the binary hash of the specified RRSet and associated information
+// FIXME: OMG, there are a ton of asserts in here...
 #[allow(clippy::too_many_arguments)]
 pub fn rrset_tbs(
     name: &Name,
@@ -157,7 +158,9 @@ pub fn rrset_tbs(
             {
                 let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
                 rdata_encoder.set_canonical_names(true);
-                assert!(record.rdata().emit(&mut rdata_encoder).is_ok());
+                if let Some(rdata) = record.data() {
+                    assert!(rdata.emit(&mut rdata_encoder).is_ok());
+                }
             }
             assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
             //
@@ -181,7 +184,7 @@ pub fn rrset_tbs(
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
 pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<TBS> {
-    if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
+    if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = rrsig.data() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
         Err(format!("could not determine name from {}", rrsig.name()).into())
