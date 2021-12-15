@@ -222,7 +222,13 @@ impl Record {
     ///                 For example, the if the TYPE is A and the CLASS is IN,
     ///                 the RDATA field is a 4 octet ARPA Internet address.
     /// ```
+    #[allow(deprecated)]
     pub fn set_data(&mut self, rdata: Option<RData>) -> &mut Self {
+        debug_assert!(
+            !(matches!(&rdata, Some(RData::ZERO))
+                && matches!(&rdata, Some(RData::NULL(null)) if null.anything().is_empty())),
+            "pass None rather than ZERO or NULL"
+        );
         self.rdata = rdata;
         self
     }
