@@ -199,7 +199,7 @@
 //! let mut record = Record::with(Name::from_str("new.example.com").unwrap(),
 //!                               RecordType::A,
 //!                               Duration::minutes(5).whole_seconds() as u32);
-//! record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+//! record.set_data(Some(RData::A(Ipv4Addr::new(100, 10, 100, 10))));
 //!
 //! // the server must be authoritative for this zone
 //! let origin = Name::from_str("example.com.").unwrap();

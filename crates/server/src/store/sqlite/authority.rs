@@ -325,7 +325,7 @@ impl SqliteAuthority {
 
             match require.dns_class() {
                 DNSClass::ANY => {
-                    if require.data().is_none() {
+                    if let None | Some(RData::NULL(..)) = require.data() {
                         match require.rr_type() {
                             // ANY      ANY      empty    Name is in use
                             RecordType::ANY => {
@@ -363,7 +363,7 @@ impl SqliteAuthority {
                     }
                 }
                 DNSClass::NONE => {
-                    if require.data().is_none() {
+                    if let None | Some(RData::NULL(..)) = require.data() {
                         match require.rr_type() {
                             // NONE     ANY      empty    Name is not in use
                             RecordType::ANY => {
@@ -599,7 +599,9 @@ impl SqliteAuthority {
                         if rr.ttl() != 0 {
                             return Err(ResponseCode::FormErr);
                         }
-                        if rr.data().is_some() {
+                        if let None | Some(RData::NULL(..)) = rr.data() {
+                            ()
+                        } else {
                             return Err(ResponseCode::FormErr);
                         }
                         match rr.rr_type() {
@@ -759,6 +761,7 @@ impl SqliteAuthority {
                                 .filter(|k| k.name == rr_name)
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
+
                             for delete in to_delete {
                                 self.in_memory.records_mut().await.remove(&delete);
                                 updated = true;
@@ -771,7 +774,7 @@ impl SqliteAuthority {
                             //   SOA or NS RRs will be deleted.
 
                             // ANY      rrset    empty    Delete an RRset
-                            if let Some(RData::NULL(..)) = rr.data() {
+                            if let None | Some(RData::NULL(..)) = rr.data() {
                                 let deleted = self.in_memory.records_mut().await.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
