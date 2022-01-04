@@ -114,6 +114,13 @@ impl Resolver {
         Self::new(config, options)
     }
 
+    /// Removes all entries from the cache
+    pub fn clear_cache(&mut self) -> ResolveResult<()> {
+        let clearing = self.async_resolver.clear_cache();
+        self.runtime.lock()?.block_on(clearing);
+        Ok(())
+    }
+
     /// Generic lookup for any RecordType
     ///
     /// *WARNING* This interface may change in the future, please use [`Self::lookup_ip`] or another variant for more stable interfaces.

@@ -187,6 +187,11 @@ impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvi
     pub fn from_system_conf(runtime: R::Handle) -> Result<Self, ResolveError> {
         Self::from_system_conf_with_provider(GenericConnectionProvider::<R>::new(runtime))
     }
+
+    /// Removes all entries from the cache
+    pub async fn clear_cache(&mut self) {
+        self.client_cache.clear_cache();
+    }
 }
 
 impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncResolver<C, P> {
