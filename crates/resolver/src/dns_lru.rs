@@ -147,6 +147,10 @@ impl DnsLru {
         }
     }
 
+    pub(crate) fn clear(&self) {
+        self.cache.lock().clear();
+    }
+
     pub(crate) fn insert(
         &self,
         query: Query,

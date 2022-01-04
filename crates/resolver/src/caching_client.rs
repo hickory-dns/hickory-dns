@@ -473,6 +473,11 @@ where
             Err(err) => Err(self.lru.negative(query, err, Instant::now())),
         }
     }
+
+    /// Flushes/Removes all entries from the cache
+    pub fn clear_cache(&mut self) {
+        self.lru.clear();
+    }
 }
 
 enum Records {
