@@ -114,7 +114,7 @@ impl Resolver {
         Self::new(config, options)
     }
 
-    /// Removes all entries from the cache
+    /// Flushes/Removes all entries from the cache
     pub fn clear_cache(&mut self) -> ResolveResult<()> {
         let clearing = self.async_resolver.clear_cache();
         self.runtime.lock()?.block_on(clearing);

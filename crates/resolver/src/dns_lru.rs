@@ -146,6 +146,7 @@ impl DnsLru {
                 .unwrap_or_else(|| Duration::from_secs(u64::from(MAX_TTL))),
         }
     }
+
     pub(crate) fn clear(&self) {
         self.cache.lock().clear();
     }
