@@ -279,8 +279,8 @@ struct Args {
     pub(crate) flag_https_port: Option<u16>,
 }
 
-impl<'a> From<ArgMatches<'a>> for Args {
-    fn from(matches: ArgMatches<'a>) -> Args {
+impl<'a> From<ArgMatches> for Args {
+    fn from(matches: ArgMatches) -> Args {
         Args {
             flag_quiet: matches.is_present(QUIET_ARG),
             flag_debug: matches.is_present(DEBUG_ARG),
@@ -309,49 +309,49 @@ impl<'a> From<ArgMatches<'a>> for Args {
 fn main() {
     let args = app_from_crate!()
         .arg(
-            Arg::with_name(QUIET_ARG)
+            Arg::new(QUIET_ARG)
                 .long(QUIET_ARG)
-                .short("q")
+                .short('q')
                 .help("Disable INFO messages, WARN and ERROR will remain")
                 .conflicts_with(DEBUG_ARG),
         )
         .arg(
-            Arg::with_name(DEBUG_ARG)
+            Arg::new(DEBUG_ARG)
                 .long(DEBUG_ARG)
-                .short("d")
+                .short('d')
                 .help("Turn on DEBUG messages (default is only INFO)")
                 .conflicts_with(QUIET_ARG),
         )
         .arg(
-            Arg::with_name(CONFIG_ARG)
+            Arg::new(CONFIG_ARG)
                 .long(CONFIG_ARG)
-                .short("c")
+                .short('c')
                 .help("Path to configuration file")
                 .value_name("FILE")
                 .default_value("/etc/named.toml"),
         )
         .arg(
-            Arg::with_name(ZONEDIR_ARG)
+            Arg::new(ZONEDIR_ARG)
                 .long(ZONEDIR_ARG)
-                .short("z")
+                .short('z')
                 .help("Path to the root directory for all zone files, see also config toml")
                 .value_name("DIR"),
         )
         .arg(
-            Arg::with_name(PORT_ARG)
+            Arg::new(PORT_ARG)
                 .long(PORT_ARG)
-                .short("p")
+                .short('p')
                 .help("Listening port for DNS queries, overrides any value in config file")
                 .value_name(PORT_ARG),
         )
         .arg(
-            Arg::with_name(TLS_PORT_ARG)
+            Arg::new(TLS_PORT_ARG)
                 .long(TLS_PORT_ARG)
                 .help("Listening port for DNS over TLS queries, overrides any value in config file")
                 .value_name(TLS_PORT_ARG),
         )
         .arg(
-            Arg::with_name(HTTPS_PORT_ARG)
+            Arg::new(HTTPS_PORT_ARG)
                 .long(HTTPS_PORT_ARG)
                 .help(
                     "Listening port for DNS over HTTPS queries, overrides any value in config file",
