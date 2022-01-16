@@ -28,7 +28,7 @@ use openssl::pkey::PKey;
 
 use trust_dns_client::rr::dnssec::{KeyPair, Public};
 
-fn args<'a>() -> ArgMatches<'a> {
+fn args() -> ArgMatches {
     App::new("Trust-DNS pem-to-public-dnskey")
         .version(trust_dns_client::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
@@ -36,17 +36,17 @@ fn args<'a>() -> ArgMatches<'a> {
             "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",
         )
         .arg(
-            Arg::with_name("key")
+            Arg::new("key")
                 .value_name("PEM_KEY_FILE")
                 .help("Input PEM FILE from which to read the public key")
                 .required(true)
                 .index(1),
         )
         .arg(
-            Arg::with_name("output")
+            Arg::new("output")
                 .value_name("OUTPUT_FILE")
                 .long("output")
-                .short("o")
+                .short('o')
                 .takes_value(true)
                 .help("Output FILE to write to")
                 .default_value("out.dnskey"),
