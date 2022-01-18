@@ -12,6 +12,7 @@ use std::{borrow::Borrow, collections::HashMap, future::Future, io};
 
 use cfg_if::cfg_if;
 use log::{debug, error, info, trace, warn};
+use trust_dns_proto::rr::Record;
 
 #[cfg(feature = "dnssec")]
 use crate::client::rr::{
@@ -37,9 +38,16 @@ pub struct Catalog {
 }
 
 #[allow(unused_mut, unused_variables)]
-async fn send_response<R: ResponseHandler>(
+async fn send_response<'a, R: ResponseHandler>(
     response_edns: Option<Edns>,
-    mut response: MessageResponse<'_, '_>,
+    mut response: MessageResponse<
+        '_,
+        'a,
+        impl Iterator<Item = &'a Record> + Send + 'a,
+        impl Iterator<Item = &'a Record> + Send + 'a,
+        impl Iterator<Item = &'a Record> + Send + 'a,
+        impl Iterator<Item = &'a Record> + Send + 'a,
+    >,
     mut response_handle: R,
 ) -> io::Result<ResponseInfo> {
     #[cfg(feature = "dnssec")]

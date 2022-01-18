@@ -11,6 +11,7 @@ use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::{net, task::JoinHandle};
+use trust_dns_proto::rr::Record;
 
 #[cfg(all(feature = "dns-over-openssl", not(feature = "dns-over-rustls")))]
 use crate::proto::openssl::tls_server::*;
@@ -609,9 +610,16 @@ struct ReportingResponseHandler<R: ResponseHandler> {
 
 #[async_trait::async_trait]
 impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
-    async fn send_response(
+    async fn send_response<'a>(
         &mut self,
-        response: crate::authority::MessageResponse<'_, '_>,
+        response: crate::authority::MessageResponse<
+            '_,
+            'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+        >,
     ) -> io::Result<super::ResponseInfo> {
         let response_info = self.handler.send_response(response).await?;
 

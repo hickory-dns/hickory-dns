@@ -8,6 +8,7 @@
 use std::{io, net::SocketAddr};
 
 use log::debug;
+use trust_dns_proto::rr::Record;
 
 use crate::{
     authority::MessageResponse,
@@ -25,9 +26,16 @@ pub trait ResponseHandler: Clone + Send + Sync + Unpin + 'static {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    async fn send_response(
+    async fn send_response<'a>(
         &mut self,
-        response: MessageResponse<'_, '_>,
+        response: MessageResponse<
+            '_,
+            'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+        >,
     ) -> io::Result<ResponseInfo>;
 }
 
@@ -51,9 +59,16 @@ impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    async fn send_response(
+    async fn send_response<'a>(
         &mut self,
-        response: MessageResponse<'_, '_>,
+        response: MessageResponse<
+            '_,
+            'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+        >,
     ) -> io::Result<ResponseInfo> {
         debug!(
             "response: {} response_code: {}",
