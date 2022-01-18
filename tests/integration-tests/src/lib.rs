@@ -27,6 +27,7 @@ use trust_dns_client::{
 };
 use trust_dns_proto::{
     error::ProtoError,
+    rr::Record,
     xfer::{DnsClientStream, DnsMultiplexer, DnsMultiplexerConnect, SerialMessage, StreamReceiver},
     BufDnsStreamHandle, TokioTime,
 };
@@ -105,9 +106,16 @@ impl TestResponseHandler {
 
 #[async_trait::async_trait]
 impl ResponseHandler for TestResponseHandler {
-    async fn send_response(
+    async fn send_response<'a>(
         &mut self,
-        response: MessageResponse<'_, '_>,
+        response: MessageResponse<
+            '_,
+            'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+            impl Iterator<Item = &'a Record> + Send + 'a,
+        >,
     ) -> io::Result<ResponseInfo> {
         let buf = &mut self.buf.lock().unwrap();
         buf.clear();
