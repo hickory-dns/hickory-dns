@@ -68,6 +68,7 @@ impl std::ops::Deref for Request {
     }
 }
 
+// TODO: add ProtocolInfo that would have TLS details or other additional things...
 /// A narrow view of the Request, specifically a verified single query for the request
 #[non_exhaustive]
 pub struct RequestInfo<'a> {
@@ -79,6 +80,30 @@ pub struct RequestInfo<'a> {
     pub header: &'a Header,
     /// The query from the request
     pub query: &'a LowerQuery,
+}
+
+impl<'a> RequestInfo<'a> {
+    /// Construct a new RequestInfo
+    ///
+    /// # Arguments
+    ///
+    /// * `src` - The source address from which the request came
+    /// * `protocol` - The protocol used for the request
+    /// * `header` - The header from the original request
+    /// * `query` - The query from the request, LowerQuery is intended to reduce complexity for lookups in authorities
+    pub fn new(
+        src: SocketAddr,
+        protocol: Protocol,
+        header: &'a Header,
+        query: &'a LowerQuery,
+    ) -> Self {
+        Self {
+            src,
+            protocol,
+            header,
+            query,
+        }
+    }
 }
 
 /// Information about the response sent for a request

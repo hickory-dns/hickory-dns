@@ -28,10 +28,10 @@ use crate::{
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
     client::{
-        op::LowerQuery,
         rr::{LowerName, Name, RecordSet, RecordType, RrKey},
         serialize::txt::{Lexer, Parser, Token},
     },
+    server::RequestInfo,
     store::{file::FileConfig, in_memory::InMemoryAuthority},
 };
 
@@ -295,10 +295,10 @@ impl Authority for FileAuthority {
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
     async fn search(
         &self,
-        query: &LowerQuery,
+        request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        self.0.search(query, lookup_options).await
+        self.0.search(request_info, lookup_options).await
     }
 
     /// Get the NS, NameServer, record for the zone

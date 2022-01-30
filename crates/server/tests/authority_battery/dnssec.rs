@@ -5,18 +5,27 @@ use std::str::FromStr;
 
 use futures_executor::block_on;
 
-use trust_dns_client::op::Query;
+use trust_dns_client::op::{Header, Query};
 use trust_dns_client::rr::dnssec::{Algorithm, SupportedAlgorithms, Verifier};
 use trust_dns_client::rr::{DNSClass, Name, Record, RecordType};
 use trust_dns_proto::rr::dnssec::rdata::DNSKEY;
 use trust_dns_proto::xfer;
 use trust_dns_server::authority::{AuthLookup, Authority, DnssecAuthority, LookupOptions};
+use trust_dns_server::server::{Protocol, RequestInfo};
+
+const TEST_HEADER: &Header = &Header::new();
 
 pub fn test_a_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY]) {
-    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
+    );
 
     let lookup = block_on(authority.search(
-        &query.into(),
+        request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
     .unwrap();
@@ -92,10 +101,17 @@ pub fn test_aname_lookup<A: Authority<Lookup = AuthLookup>>(authority: A, keys: 
     let query = Query::query(
         Name::from_str("aname-chain.example.com.").unwrap(),
         RecordType::A,
+    )
+    .into();
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
     );
 
     let lookup = block_on(authority.search(
-        &query.into(),
+        request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
     .unwrap();
@@ -118,9 +134,17 @@ pub fn test_wildcard<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DN
     let query = Query::query(
         Name::from_str("www.wildcard.example.com.").unwrap(),
         RecordType::CNAME,
+    )
+    .into();
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
     );
+
     let lookup = block_on(authority.search(
-        &query.into(),
+        request_info,
         LookupOptions::for_dnssec(true, SupportedAlgorithms::new()),
     ))
     .expect("lookup of www.wildcard.example.com. failed");
@@ -277,10 +301,16 @@ pub fn test_rfc_6975_supported_algorithms<A: Authority<Lookup = AuthLookup>>(
     for key in keys {
         println!("key algorithm: {}", key.algorithm());
 
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A).into();
+        let request_info = RequestInfo::new(
+            "127.0.0.1:53".parse().unwrap(),
+            Protocol::Udp,
+            TEST_HEADER,
+            &query,
+        );
 
         let lookup = block_on(authority.search(
-            &query.into(),
+            request_info,
             LookupOptions::for_dnssec(true, SupportedAlgorithms::from(key.algorithm())),
         ))
         .unwrap();

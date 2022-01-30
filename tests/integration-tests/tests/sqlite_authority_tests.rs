@@ -12,8 +12,12 @@ use trust_dns_client::rr::*;
 
 use trust_dns_server::authority::LookupOptions;
 use trust_dns_server::authority::{Authority, ZoneType};
+use trust_dns_server::server::Protocol;
+use trust_dns_server::server::RequestInfo;
 use trust_dns_server::store::in_memory::InMemoryAuthority;
 use trust_dns_server::store::sqlite::{Journal, SqliteAuthority};
+
+const TEST_HEADER: &Header = &Header::new();
 
 fn create_example() -> SqliteAuthority {
     let authority = trust_dns_integration::authority::create_example();
@@ -34,9 +38,15 @@ async fn test_search() {
     let mut query: Query = Query::new();
     query.set_name(origin.into());
     let query = LowerQuery::from(query);
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
+    );
 
     let result = example
-        .search(&query, LookupOptions::default())
+        .search(request_info, LookupOptions::default())
         .await
         .unwrap();
     if !result.is_empty() {
@@ -58,9 +68,15 @@ async fn test_search_www() {
     let mut query: Query = Query::new();
     query.set_name(www_name);
     let query = LowerQuery::from(query);
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
+    );
 
     let result = example
-        .search(&query, LookupOptions::default())
+        .search(request_info, LookupOptions::default())
         .await
         .unwrap();
     if !result.is_empty() {
@@ -1120,8 +1136,15 @@ async fn test_axfr() {
         Name::from_str("example.com.").unwrap(),
         RecordType::AXFR,
     ));
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
+    );
+
     let result = authority
-        .search(&query, LookupOptions::default())
+        .search(request_info, LookupOptions::default())
         .await
         .unwrap();
 
@@ -1138,7 +1161,16 @@ async fn test_refused_axfr() {
         Name::from_str("example.com.").unwrap(),
         RecordType::AXFR,
     ));
-    let result = authority.search(&query, LookupOptions::default()).await;
+    let request_info = RequestInfo::new(
+        "127.0.0.1:53".parse().unwrap(),
+        Protocol::Udp,
+        TEST_HEADER,
+        &query,
+    );
+
+    let result = authority
+        .search(request_info, LookupOptions::default())
+        .await;
 
     // just update this if the count goes up in the authority
     assert!(result.unwrap_err().is_refused());

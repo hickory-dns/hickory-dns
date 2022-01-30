@@ -414,6 +414,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
 
     let (response_header, sections) = build_response(
         &*authority,
+        request_info,
         request.id(),
         request.header(),
         query,
@@ -466,6 +467,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
 
 async fn build_response(
     authority: &dyn AuthorityObject,
+    request_info: RequestInfo<'_>,
     request_id: u16,
     request_header: &Header,
     query: &LowerQuery,
@@ -485,7 +487,7 @@ async fn build_response(
     response_header.set_authoritative(authority.zone_type().is_authoritative());
 
     debug!("performing {} on {}", query, authority.origin());
-    let future = authority.search(query, lookup_options);
+    let future = authority.search(request_info, lookup_options);
 
     #[allow(deprecated)]
     let sections = match authority.zone_type() {

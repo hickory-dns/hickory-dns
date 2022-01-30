@@ -18,15 +18,13 @@ use log::{error, info, warn};
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    client::{
-        op::LowerQuery,
-        rr::{LowerName, RrKey},
-    },
+    client::rr::{LowerName, RrKey},
     error::{PersistenceErrorKind, PersistenceResult},
     proto::{
         op::ResponseCode,
         rr::{DNSClass, Name, RData, Record, RecordSet, RecordType},
     },
+    server::RequestInfo,
     store::{
         in_memory::InMemoryAuthority,
         sqlite::{Journal, SqliteConfig},
@@ -968,10 +966,10 @@ impl Authority for SqliteAuthority {
 
     async fn search(
         &self,
-        query: &LowerQuery,
+        request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        self.in_memory.search(query, lookup_options).await
+        self.in_memory.search(request_info, lookup_options).await
     }
 
     /// Return the NSEC records based on the given name
