@@ -132,6 +132,14 @@ impl fmt::Display for Flags {
 
 impl Default for Header {
     fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Header {
+    // TODO: we should make id, message_type and op_code all required and non-editable
+    /// A default Header, not very useful.
+    pub const fn new() -> Self {
         Header {
             id: 0,
             message_type: MessageType::Query,
@@ -142,20 +150,12 @@ impl Default for Header {
             recursion_available: false,
             authentic_data: false,
             checking_disabled: false,
-            response_code: ResponseCode::default(),
+            response_code: ResponseCode::NoError,
             query_count: 0,
             answer_count: 0,
             name_server_count: 0,
             additional_count: 0,
         }
-    }
-}
-
-impl Header {
-    // TODO: we should make id, message_type and op_code all required and non-editable
-    /// A default Header, not very useful.
-    pub fn new() -> Self {
-        Default::default()
     }
 
     /// Construct a new header based off the request header. This copies over the RD (recursion-desired)

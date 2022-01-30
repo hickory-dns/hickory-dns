@@ -13,10 +13,8 @@ use log::debug;
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
-    client::{
-        op::LowerQuery,
-        rr::{LowerName, Record, RecordType},
-    },
+    client::rr::{LowerName, Record, RecordType},
+    server::RequestInfo,
 };
 
 /// An Object safe Authority
@@ -71,7 +69,7 @@ pub trait AuthorityObject: Send + Sync {
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
     async fn search(
         &self,
-        query: &LowerQuery,
+        request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError>;
 
@@ -185,12 +183,12 @@ where
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
     async fn search(
         &self,
-        query: &LowerQuery,
+        request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Box<dyn LookupObject>, LookupError> {
         let this = self.as_ref();
-        debug!("performing {} on {}", query, this.origin());
-        let lookup = Authority::search(&*this, query, lookup_options).await;
+        debug!("performing {} on {}", request_info.query, this.origin());
+        let lookup = Authority::search(&*this, request_info, lookup_options).await;
         lookup.map(|l| Box::new(l) as Box<dyn LookupObject>)
     }
 

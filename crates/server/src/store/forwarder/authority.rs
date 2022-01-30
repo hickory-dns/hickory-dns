@@ -14,12 +14,13 @@ use crate::{
         Authority, LookupError, LookupObject, LookupOptions, MessageRequest, UpdateResult, ZoneType,
     },
     client::{
-        op::{LowerQuery, ResponseCode},
+        op::ResponseCode,
         rr::{LowerName, Name, Record, RecordType},
     },
     resolver::{
         config::ResolverConfig, lookup::Lookup as ResolverLookup, TokioAsyncResolver, TokioHandle,
     },
+    server::RequestInfo,
     store::forwarder::ForwardConfig,
 };
 
@@ -116,11 +117,15 @@ impl Authority for ForwardAuthority {
 
     async fn search(
         &self,
-        query: &LowerQuery,
+        request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        self.lookup(query.name(), query.query_type(), lookup_options)
-            .await
+        self.lookup(
+            request_info.query.name(),
+            request_info.query.query_type(),
+            lookup_options,
+        )
+        .await
     }
 
     async fn get_nsec_records(

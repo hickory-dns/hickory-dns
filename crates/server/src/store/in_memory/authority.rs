@@ -35,12 +35,13 @@ use crate::{
         MessageRequest, UpdateResult, ZoneType,
     },
     client::{
-        op::{LowerQuery, ResponseCode},
+        op::ResponseCode,
         rr::{
             rdata::SOA,
             {DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey},
         },
     },
+    server::RequestInfo,
 };
 
 /// InMemoryAuthority is responsible for storing the resource records for a particular zone.
@@ -1141,13 +1142,13 @@ impl Authority for InMemoryAuthority {
 
     async fn search(
         &self,
-        query: &LowerQuery,
+        request_info: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        debug!("searching InMemoryAuthority for: {}", query);
+        debug!("searching InMemoryAuthority for: {}", request_info.query);
 
-        let lookup_name = query.name();
-        let record_type: RecordType = query.query_type();
+        let lookup_name = request_info.query.name();
+        let record_type: RecordType = request_info.query.query_type();
 
         // if this is an AXFR zone transfer, verify that this is either the Secondary or Primary
         //  for AXFR the first and last record must be the SOA

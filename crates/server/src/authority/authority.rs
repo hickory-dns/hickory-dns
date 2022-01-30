@@ -17,11 +17,9 @@ use crate::client::{
 };
 use crate::{
     authority::{LookupError, MessageRequest, UpdateResult, ZoneType},
-    client::{
-        op::LowerQuery,
-        rr::{LowerName, RecordSet, RecordType},
-    },
+    client::rr::{LowerName, RecordSet, RecordType},
     proto::rr::RrsetRecords,
+    server::RequestInfo,
 };
 
 /// LookupOptions that specify different options from the client to include or exclude various records in the response.
@@ -148,7 +146,7 @@ pub trait Authority: Send + Sync {
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
     async fn search(
         &self,
-        query: &LowerQuery,
+        request: RequestInfo<'_>,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError>;
 
