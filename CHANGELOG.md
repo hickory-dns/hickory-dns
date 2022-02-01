@@ -55,7 +55,7 @@ bound for implementing the `Connect` trait.
 - (resolver) *BREAKING* Move `CachingClient` from `lookup_state` to `caching_client` module
 - (resolver) *BREAKING* Move `ResolverOpts::distrust_nx_responses` to `NameServerConfig::trust_nx_responses` (@djc) #1212
 - (proto) `data-encoding` is now a required dependency #1208
-- (all) minimum rustc version now `1.45`
+- (all) minimum rustc version now `1.46`
 - (resolver) For all NxDomain and NoError/NoData responses, `ResolveErrorKind::NoRecordsFound` will be returned #1197
 - (server) Support for lowercase DNSClass and RecordType fields in zonefiles (@zhanif3) #1186
 - (resolver) Make EDNS optional for resolvers (@CtrlZvi) #1173
