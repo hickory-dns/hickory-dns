@@ -26,7 +26,14 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![allow(clippy::upper_case_acronyms, clippy::single_component_path_imports)]
+#![allow(
+    clippy::upper_case_acronyms,
+    clippy::single_component_path_imports,
+    dead_code,
+    clippy::needless_borrow,
+    clippy::redundant_closure,
+    clippy::search_is_some
+)]
 #![recursion_limit = "2048"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.

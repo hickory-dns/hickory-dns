@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![allow(clippy::needless_borrow)]
+
 use std::io::{Read, Write};
 #[cfg(not(target_os = "linux"))]
 use std::net::Ipv6Addr;

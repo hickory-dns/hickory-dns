@@ -1,4 +1,5 @@
 #![cfg(feature = "sqlite")]
+#![allow(clippy::needless_borrow)]
 
 use std::net::*;
 use std::str::FromStr;
