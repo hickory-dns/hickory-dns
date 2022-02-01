@@ -26,6 +26,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![allow(clippy::needless_borrow)]
 
 //! TLS protocol related components for DNS over TLS
 

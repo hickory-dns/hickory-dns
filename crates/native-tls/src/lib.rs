@@ -28,6 +28,7 @@
     rust_2018_idioms,
     unreachable_pub
 )]
+#![allow(clippy::single_component_path_imports)]
 
 pub mod tls_client_stream;
 pub mod tls_stream;

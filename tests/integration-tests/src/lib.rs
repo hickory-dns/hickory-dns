@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-#![allow(clippy::dbg_macro)]
+#![allow(clippy::dbg_macro, clippy::mem_replace_with_default)]
 
 use std::fmt;
 use std::io;

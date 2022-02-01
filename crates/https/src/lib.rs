@@ -19,7 +19,11 @@
     rust_2018_idioms,
     unreachable_pub
 )]
-#![allow(clippy::single_component_path_imports)]
+#![allow(
+    clippy::single_component_path_imports,
+    clippy::redundant_closure,
+    clippy::needless_borrow
+)]
 
 const MIME_APPLICATION_DNS: &str = "application/dns-message";
 const DNS_QUERY_PATH: &str = "/dns-query";

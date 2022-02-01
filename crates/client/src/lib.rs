@@ -261,6 +261,8 @@
 //! }
 //! ```
 
+#![allow(clippy::needless_borrow)]
+
 pub mod client;
 pub mod error;
 #[cfg(feature = "mdns")]
