@@ -51,6 +51,17 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (proto) Panic when name exceeds maximal domain name length during display #1447
 
+## 0.20.4
+
+### Fixed
+
+- (all) updated tokio dependencies to 1.16 #1623
+- (all) removed audit chrono due to rustsec audit failure (backport) #1623
+
+### Changed
+
+- (all) Increased MSRV to 1.51
+
 ## 0.20.3
 
 ### Fixed
