@@ -68,7 +68,7 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.42"
+async-trait = "0.1.43"
 backtrace = { version = "0.3.50", optional = true }
 bytes = { version = "1", optional = true }
 cfg-if = "1"
@@ -82,7 +82,7 @@ http = { version = "0.2", optional = true }
 idna = "0.2.3"
 ipnet = "2.3.0"
 js-sys = { version = "0.3.44", optional = true }
-lazy_static = "1.0"
+lazy_static = "1.2.0"
 log = "0.4"
 native-tls = { version = "0.2", optional = true }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }

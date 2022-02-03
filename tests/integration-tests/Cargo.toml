@@ -69,9 +69,9 @@ dns-over-tls = []
 sqlite = ["rusqlite", "trust-dns-server/sqlite"]
 
 [dependencies]
-async-trait = "0.1.42"
+async-trait = "0.1.43"
 env_logger = "0.9"
-lazy_static = "1.0"
+lazy_static = "1.2.0"
 log = "0.4"
 futures = "0.3.5"
 openssl = { version = "0.10", features = ["v102", "v110"] }
