@@ -13,6 +13,8 @@ members = ["crates/proto",
            "crates/openssl",
            "crates/rustls"]
 
+exclude = ["fuzz"]
+
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
 # mio = { git = "https://github.com/tokio-rs/mio.git" }
