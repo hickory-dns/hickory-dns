@@ -10,13 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-
-[dependencies.trust-dns-proto]
-path = ".."
-
-# Prevent this from interfering with workspaces
-[workspace]
-members = ["."]
+trust-dns-proto = { path = "../crates/proto"}
 
 [[bin]]
 name = "message"
