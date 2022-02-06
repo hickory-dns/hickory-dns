@@ -1223,6 +1223,12 @@ fn read_inner(
         }
     }
 
+    // TODO: should we consider checking this while the name is parsed?
+    let len = name.len();
+    if len >= 255 {
+        return Err(DecodeError::DomainNameTooLong(len));
+    }
+
     Ok(())
 }
 

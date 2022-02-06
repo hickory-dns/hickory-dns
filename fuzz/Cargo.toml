@@ -18,14 +18,14 @@ path = "fuzz_targets/message.rs"
 test = false
 doc = false
 
-[[bin]]
-name = "name"
-path = "fuzz_targets/name.rs"
-test = false
-doc = false
+# [[bin]]
+# name = "name"
+# path = "fuzz_targets/name.rs"
+# test = false
+# doc = false
 
-[[bin]]
-name = "rdata"
-path = "fuzz_targets/rdata.rs"
-test = false
-doc = false
+# [[bin]]
+# name = "rdata"
+# path = "fuzz_targets/rdata.rs"
+# test = false
+# doc = false
