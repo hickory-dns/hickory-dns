@@ -256,6 +256,7 @@ description = "A place-holder for crates to override with examples to run"
 
 [tasks.test-docs]
 description = "Run doc tests in all crates"
+env = { CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "fuzz" }
 command = "cargo"
 args = ["test", "--doc", "@@remove-empty(FEATURES)"]
 
