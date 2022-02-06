@@ -74,6 +74,7 @@ fn records_equal(records1: &[Record], records2: &[Record]) -> bool {
 }
 
 /// Some RDATAs don't roundtrip elegantly, so we have custom matching rules here.
+#[allow(clippy::single_match)]
 fn record_equal(record1: &Record, record2: &Record) -> bool {
     use trust_dns_proto::rr::RData;
 
