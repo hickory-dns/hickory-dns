@@ -11,9 +11,10 @@ members = ["crates/proto",
            "crates/https",
            "crates/native-tls",
            "crates/openssl",
-           "crates/rustls"]
+           "crates/rustls",
+           "fuzz"]
 
-exclude = ["fuzz"]
+#exclude = ["fuzz"]
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }
