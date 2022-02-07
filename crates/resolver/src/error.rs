@@ -144,6 +144,8 @@ impl ResolveError {
 
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
+        debug!("Response:{}", response.header());
+
         match response.response_code() {
             response_code @ ResponseCode::ServFail
             | response_code @ ResponseCode::Refused
@@ -163,8 +165,6 @@ impl ResolveError {
             | response_code @ ResponseCode::BADALG
             | response_code @ ResponseCode::BADTRUNC
             | response_code @ ResponseCode::BADCOOKIE => {
-                debug!("Nameserver responded with {}", response_code);
-
                 let mut response = response;
                 let soa = response.soa();
                 let query = response.take_queries().drain(..).next().unwrap_or_default();
@@ -182,9 +182,7 @@ impl ResolveError {
             response_code @ ResponseCode::NXDomain |
             // No answers are available, CNAME referrals are not failures
             response_code @ ResponseCode::NoError
-            if !response.contains_answer() => {
-                debug!("Nameserver responded with {} and no records", response_code);
-
+            if !response.contains_answer() && !response.truncated() => {
                 // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
                 // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 

@@ -65,6 +65,21 @@ pub struct Header {
     additional_count: u16,
 }
 
+impl fmt::Display for Header {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{id}:{flags}:{code:?}:{answers}/{authorities}/{additionals}",
+            id = self.id,
+            flags = self.flags(),
+            code = self.response_code,
+            answers = self.answer_count,
+            authorities = self.name_server_count,
+            additionals = self.additional_count,
+        )
+    }
+}
+
 /// Message types are either Query (also Update) or Response
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 pub enum MessageType {
