@@ -160,7 +160,7 @@ fn test_datagram() {
 }
 
 #[test]
-fn test_datagram_stream_upgrade() {
+fn test_datagram_stream_upgrades_on_truncation() {
     // Lookup to UDP should return a truncated message, then we expect lookup on TCP.
     // This should occur even though `try_tcp_on_error` is set to false.
 
@@ -189,6 +189,45 @@ fn test_datagram_stream_upgrade() {
 
     let response = block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
+}
+
+#[test]
+fn test_datagram_stream_upgrade_on_truncation_despite_udp() {
+    // Lookup to UDP should return a truncated message, then we expect lookup on TCP.
+    // This should occur even though `try_tcp_on_error` is set to false.
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let tcp_record1 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+    let tcp_record2 = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 3));
+
+    let mut udp_message = message(query.clone(), vec![udp_record], vec![], vec![]);
+    udp_message.set_truncated(true);
+
+    let tcp_message = message(
+        query.clone(),
+        vec![tcp_record1.clone(), tcp_record2.clone()],
+        vec![],
+        vec![],
+    );
+
+    let udp_nameserver = mock_nameserver(vec![Ok(udp_message.into())], Default::default());
+    let tcp_nameserver = mock_nameserver(vec![Ok(tcp_message.into())], Default::default());
+
+    let mut pool = mock_nameserver_pool(
+        vec![udp_nameserver],
+        vec![tcp_nameserver],
+        None,
+        Default::default(),
+    );
+
+    // lookup on UDP succeeds, any other would fail
+    let request = message(query, vec![], vec![], vec![]);
+    let future = pool.send(request).first_answer();
+
+    let response = block_on(future).unwrap();
+    assert_eq!(response.answers(), &[tcp_record1, tcp_record2]);
 }
 
 #[test]
