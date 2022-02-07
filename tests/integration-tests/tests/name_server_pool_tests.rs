@@ -166,10 +166,9 @@ fn test_datagram_stream_upgrade() {
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
-    let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
-    let mut udp_message = message(query.clone(), vec![udp_record], vec![], vec![]);
+    let mut udp_message = message(query.clone(), vec![], vec![], vec![]);
     udp_message.set_truncated(true);
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
