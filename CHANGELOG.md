@@ -9,6 +9,11 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Added
 
+- (fuzz) Added fuzzing configuration (@saethlin) #1626
+- (resolver) Add `resolver.clear_cache()` sync and async (dns2utf8) #1611
+- (proto) Add CDS/CDNSKEY records from RFC7344 (frelon) #1595
+- (resolver) Configuration of outbound bind address for resolver (@surban) #1586
+- (proto) Add `CSYNC` record from RFC7477 (@frelon) #1583
 - (proto) trust_dns_proto::rr::Record now serializable (@mvforell) #1536
 - (client) new `zone_transfer` method for `AXFR` and `IXFR` use cases, client only (@trinity-1686a) #1478
 - (client) Flag for `use_edns` configuration on `AsyncClient` (@astro) #1492
@@ -16,6 +21,10 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (server) pass RequestInfo into Authority on search #1620
+- (proto) SSHFP: Ed448 is assigned algorithm 6 in RFC 8709 #1604
+- (resolver) Do not retry the same name server on a negative response (@peterthejohnston) #1589
+- (all) `with-backtrace` feature renamed to `backtrace` (@pinkisemils) #1577
 - (resolver) TCP for truncated message responses, but not for other failures on responses (switch for old behavior `try_tcp_on_error`) ( @peterthejohnston) #1562
 - (server) Multiple queries in a message will always result in a FormError now #1554
 - (server) `ServerFuture` and other `Catalog` related API changes #1554
@@ -42,6 +51,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Removed
 
+- (all) removed `chrono` dependency #1569
 - (client) Remove AsyncClientConnect and AsyncSecureClientConnect (future impls) in favor of async constructors (@ErwanDL) #1541
 - (proto) removed `RecordType::DNSSEC` and moved all variants of `DNSSECRecordType` into `RecordType` #1506
 - (proto) removed `BufStreamHandle` and `StreamHandle` #1433
@@ -49,6 +59,9 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (clien) Fix AsyncClient::clone always setting use_edns (ecton) #1598
+- (resolver) Use stream connections if datagram connections are not available (@pinkisemils) #1592
+- (server) Release resources when a server future is dropped (@pinkisemils) #1587
 - (proto) Panic when name exceeds maximal domain name length during display #1447
 
 ## 0.20.4
