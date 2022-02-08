@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-integration"
-version = "0.21.0-alpha.4"
+version = "0.21.0-alpha.5"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -80,11 +80,11 @@ rusqlite = { version = "0.26.0", features = ["bundled"], optional = true }
 rustls = "0.20"
 time = "0.3"
 tokio = { version = "1.0", features = ["time", "rt"] }
-trust-dns-client= { version = "0.21.0-alpha.4", path = "../../crates/client" }
-trust-dns-proto = { version = "0.21.0-alpha.4", path = "../../crates/proto", features = ["testing"] }
-trust-dns-resolver = { version = "0.21.0-alpha.4", path = "../../crates/resolver" }
+trust-dns-client= { version = "0.21.0-alpha.5", path = "../../crates/client" }
+trust-dns-proto = { version = "0.21.0-alpha.5", path = "../../crates/proto", features = ["testing"] }
+trust-dns-resolver = { version = "0.21.0-alpha.5", path = "../../crates/resolver" }
 # TODO: fixup tests to not require openssl
-trust-dns-server = { version = "0.21.0-alpha.4", path = "../../crates/server", features = ["testing"] }
+trust-dns-server = { version = "0.21.0-alpha.5", path = "../../crates/server", features = ["testing"] }
 webpki-roots = { version = "0.21", optional = true }
 
 [dev-dependencies]
