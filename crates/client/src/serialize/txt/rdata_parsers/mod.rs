@@ -23,6 +23,7 @@ pub(crate) mod a;
 pub(crate) mod aaaa;
 pub(crate) mod caa;
 pub(crate) mod csync;
+pub(crate) mod ds;
 pub(crate) mod hinfo;
 pub(crate) mod mx;
 pub(crate) mod name;
