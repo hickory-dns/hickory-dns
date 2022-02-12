@@ -837,17 +837,22 @@ impl fmt::Display for Property {
 }
 
 impl fmt::Display for Value {
+    // https://datatracker.ietf.org/doc/html/rfc6844#section-5.1.1
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str("\"")?;
 
         match self {
-            Value::Issuer(_, values) => {
-                if let Some(value) = values.first() {
-                    write!(f, "{}", value)?;
+            Value::Issuer(name, values) => {
+                match name {
+                    Some(name) => write!(f, "{}", name)?,
+                    None => write!(f, ";")?,
                 }
 
-                for value in &values[1..] {
-                    write!(f, "; {}", value)?;
+                if let Some(value) = values.first() {
+                    write!(f, " {}", value)?;
+                    for value in &values[1..] {
+                        write!(f, "; {}", value)?;
+                    }
                 }
             }
             Value::Url(url) => write!(f, "{}", url)?,
@@ -1108,6 +1113,36 @@ mod tests {
                 vec![],
             ),
             &encoded,
+        );
+    }
+
+    #[test]
+    fn test_tostring() {
+        let deny = CAA::new_issue(false, None, vec![]);
+        assert_eq!(deny.to_string(), "0 issue \";\"");
+
+        let empty_options = CAA::new_issue(
+            false,
+            Some(Name::parse("example.com", None).unwrap()),
+            vec![],
+        );
+        assert_eq!(empty_options.to_string(), "0 issue \"example.com\"");
+
+        let one_option = CAA::new_issue(
+            false,
+            Some(Name::parse("example.com", None).unwrap()),
+            vec![KeyValue::new("one", "1")],
+        );
+        assert_eq!(one_option.to_string(), "0 issue \"example.com one=1\"");
+
+        let two_options = CAA::new_issue(
+            false,
+            Some(Name::parse("example.com", None).unwrap()),
+            vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+        );
+        assert_eq!(
+            two_options.to_string(),
+            "0 issue \"example.com one=1; two=2\""
         );
     }
 }
