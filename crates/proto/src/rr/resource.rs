@@ -111,7 +111,7 @@ impl Record {
     /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
     /// ttl of 0 and the 0.0.0.0 ip address.
     pub fn new() -> Record {
-        Default::default()
+        Record::default()
     }
 
     /// Create a record with the specified initial values.

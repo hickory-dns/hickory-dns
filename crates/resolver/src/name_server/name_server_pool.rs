@@ -526,7 +526,7 @@ mod tests {
 
         let opts = ResolverOpts {
             try_tcp_on_error: true,
-            ..Default::default()
+            ..ResolverOpts::default()
         };
         let ns_config = { tcp };
         let name_server = NameServer::new_with_provider(ns_config, opts, conn_provider);

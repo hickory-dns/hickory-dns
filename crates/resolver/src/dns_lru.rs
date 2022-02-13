@@ -337,7 +337,7 @@ mod tests {
         // configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig {
             positive_min_ttl: Some(Duration::from_secs(2)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -369,7 +369,7 @@ mod tests {
         // configure the cache with a maximum TTL of 2 seconds.
         let ttls = TtlConfig {
             negative_min_ttl: Some(Duration::from_secs(2)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -427,7 +427,7 @@ mod tests {
         // configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig {
             positive_max_ttl: Some(Duration::from_secs(60)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -459,7 +459,7 @@ mod tests {
         // configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig {
             negative_max_ttl: Some(Duration::from_secs(60)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -582,7 +582,7 @@ mod tests {
         // minimum TTL of 3 seconds.
         let ttls = TtlConfig {
             positive_min_ttl: Some(Duration::from_secs(3)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
         lru.insert(query.clone(), ips_ttl, now);
@@ -642,7 +642,7 @@ mod tests {
         // minimum TTL of 2 seconds.
         let ttls = TtlConfig {
             positive_max_ttl: Some(Duration::from_secs(2)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
         lru.insert(query.clone(), ips_ttl, now);

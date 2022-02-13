@@ -36,7 +36,7 @@ pub struct Name {
 impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
-        Default::default()
+        Name::default()
     }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
@@ -176,7 +176,7 @@ impl Name {
 
         let mut name = Name {
             is_fqdn: true,
-            ..Default::default()
+            ..Name::default()
         };
         for label in labels {
             name = name.append_label(label)?;

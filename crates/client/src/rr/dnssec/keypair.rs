@@ -29,6 +29,7 @@ use ring::{
         ECDSA_P384_SHA384_FIXED_SIGNING,
     },
 };
+use trust_dns_proto::rr::dnssec::rdata::key::{KeyTrust, Protocol, UpdateScope};
 
 use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -281,7 +282,7 @@ impl<K: HasPublic> KeyPair<K> {
     ///
     /// the KEY record data
     pub fn to_sig0key(&self, algorithm: Algorithm) -> DnsSecResult<KEY> {
-        self.to_sig0key_with_usage(algorithm, Default::default())
+        self.to_sig0key_with_usage(algorithm, KeyUsage::default())
     }
 
     /// Convert this keypair into a KEY record type for usage with SIG0
@@ -302,10 +303,10 @@ impl<K: HasPublic> KeyPair<K> {
     ) -> DnsSecResult<KEY> {
         self.to_public_bytes().map(|bytes| {
             KEY::new(
-                Default::default(),
+                KeyTrust::default(),
                 usage,
-                Default::default(),
-                Default::default(),
+                UpdateScope::default(),
+                Protocol::default(),
                 algorithm,
                 bytes,
             )

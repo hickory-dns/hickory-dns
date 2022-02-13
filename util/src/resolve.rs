@@ -9,6 +9,7 @@
 
 // BINARY WARNINGS
 #![warn(
+    clippy::default_trait_access,
     clippy::dbg_macro,
     clippy::unimplemented,
     missing_copy_implementations,
@@ -24,6 +25,7 @@ use std::net::{IpAddr, SocketAddr};
 use console::style;
 use structopt::StructOpt;
 
+use trust_dns_proto::xfer::DnsRequestOptions;
 use trust_dns_resolver::config::{
     NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts,
 };
@@ -239,7 +241,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         lookup.into()
     } else {
         resolver
-            .lookup(name.to_string(), ty, Default::default())
+            .lookup(name.to_string(), ty, DnsRequestOptions::default())
             .await?
     };
 
