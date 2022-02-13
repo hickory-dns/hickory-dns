@@ -2,6 +2,7 @@
 members = [
     "crates/proto",
     "crates/resolver",
+    "crates/recursor",
     "crates/client", 
     "crates/server",
     "crates/async-std-resolver",
