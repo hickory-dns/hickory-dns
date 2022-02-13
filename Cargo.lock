@@ -1857,6 +1857,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-dns-recursor"
+version = "0.21.1"
+dependencies = [
+ "async-trait",
+ "backtrace",
+ "bytes",
+ "cfg-if",
+ "enum-as-inner",
+ "futures-executor",
+ "futures-util",
+ "h2",
+ "http",
+ "openssl",
+ "rusqlite",
+ "rustls",
+ "serde",
+ "thiserror",
+ "time",
+ "tokio",
+ "tokio-openssl",
+ "tokio-rustls",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
+ "trust-dns-proto",
+ "trust-dns-resolver",
+]
+
+[[package]]
 name = "trust-dns-resolver"
 version = "0.21.2"
 dependencies = [
