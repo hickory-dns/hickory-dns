@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-recursor"
-version = "0.21.1-alpha.5"
+version = "0.21.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2021"
 
@@ -39,15 +39,13 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
-backtrace = ["trust-dns-proto/backtrace"]
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
 sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
-# dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
-dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
+dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls",  "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
@@ -58,9 +56,6 @@ dns-over-tls = []
 # This is a deprecated feature...
 tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
-
-# WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
-# mtls = ["trust-dns-client/mtls"]
 
 testing = []
 
@@ -79,7 +74,7 @@ futures-util = { version = "0.3.5", default-features = false, features = ["std"]
 h2 = { version = "0.3.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-rusqlite = { version = "0.26.1", features = ["bundled", "time"], optional = true }
+rusqlite = { version = "0.27.0", features = ["bundled", "time"], optional = true }
 rustls = { version = "0.20", optional = true }
 serde = { version = "1.0.114", features = ["derive"] }
 thiserror = "1.0.20"
