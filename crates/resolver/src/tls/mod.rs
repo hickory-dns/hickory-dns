@@ -42,7 +42,7 @@ mod tests {
             config,
             ResolverOpts {
                 try_tcp_on_error: true,
-                ..Default::default()
+                ..ResolverOpts::default()
             },
             TokioHandle,
         )

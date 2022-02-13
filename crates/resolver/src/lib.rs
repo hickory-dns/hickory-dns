@@ -229,6 +229,7 @@
 
 // LIBRARY WARNINGS
 #![warn(
+    clippy::default_trait_access,
     clippy::dbg_macro,
     clippy::print_stdout,
     clippy::unimplemented,

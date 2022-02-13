@@ -435,8 +435,8 @@ mod test {
     use crate::rr::record_type::RecordType;
     use crate::rr::{DNSClass, Name, RData, Record};
     use crate::serialize::binary::BinEncodable;
-    use crate::xfer::DnsClientStream;
     use crate::xfer::StreamReceiver;
+    use crate::xfer::{DnsClientStream, DnsRequestOptions};
     use futures_util::future;
     use futures_util::stream::TryStreamExt;
     use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -545,7 +545,10 @@ mod test {
                 .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
                 .clone(),
         );
-        (DnsRequest::new(query, Default::default()), vec![msg])
+        (
+            DnsRequest::new(query, DnsRequestOptions::default()),
+            vec![msg],
+        )
     }
 
     fn axfr_query() -> Message {
@@ -628,7 +631,10 @@ mod test {
         let query = msg.clone();
         msg.set_message_type(MessageType::Response)
             .insert_answers(axfr_response());
-        (DnsRequest::new(query, Default::default()), vec![msg])
+        (
+            DnsRequest::new(query, DnsRequestOptions::default()),
+            vec![msg],
+        )
     }
 
     fn axfr_query_answer_multi() -> (DnsRequest, Vec<Message>) {
@@ -643,7 +649,10 @@ mod test {
         let mut msg2 = base;
         msg2.set_message_type(MessageType::Response)
             .insert_answers(rr2);
-        (DnsRequest::new(query, Default::default()), vec![msg1, msg2])
+        (
+            DnsRequest::new(query, DnsRequestOptions::default()),
+            vec![msg1, msg2],
+        )
     }
 
     #[tokio::test]

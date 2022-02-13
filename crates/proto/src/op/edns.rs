@@ -55,7 +55,7 @@ impl Default for Edns {
 impl Edns {
     /// Creates a new extended DNS object.
     pub fn new() -> Self {
-        Default::default()
+        Edns::default()
     }
 
     /// The high order bytes for the response code in the DNS Message

@@ -83,7 +83,7 @@ impl Default for Query {
 impl Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
     pub fn new() -> Self {
-        Default::default()
+        Query::default()
     }
 
     /// Create a new query from name and type, class defaults to IN

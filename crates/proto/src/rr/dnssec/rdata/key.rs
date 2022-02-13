@@ -407,21 +407,24 @@ fn test_key_usage() {
 ///
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
-#[deprecated = "Deprecated by RFC3007"]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
     ///   detach, and move zones by creating and deleting NS, glue A, and
     ///   zone KEY RR(s)
+    #[deprecated = "Deprecated by RFC3007"]
     pub zone: bool,
     /// this key is authorized to add and
     ///   delete RRs even if there are other RRs with the same owner name
     ///   and class that are authenticated by a SIG signed with a
     ///   different dynamic update KEY
+    #[deprecated = "Deprecated by RFC3007"]
     pub strong: bool,
     /// this key is authorized to add and update RRs for only a single owner name
+    #[deprecated = "Deprecated by RFC3007"]
     pub unique: bool,
     /// The general update signatory field bit has no special meaning, (true if the others are false)
+    #[deprecated = "Deprecated by RFC3007"]
     pub general: bool,
 }
 
@@ -907,10 +910,10 @@ mod tests {
     #[test]
     fn test() {
         let rdata = KEY::new(
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
+            KeyTrust::default(),
+            KeyUsage::default(),
+            UpdateScope::default(),
+            Protocol::default(),
             Algorithm::RSASHA256,
             vec![0, 1, 2, 3, 4, 5, 6, 7],
         );

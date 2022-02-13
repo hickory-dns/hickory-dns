@@ -8,6 +8,7 @@
 use std::io;
 
 use log::{debug, info};
+use trust_dns_proto::xfer::DnsRequestOptions;
 
 use crate::{
     authority::{
@@ -110,7 +111,10 @@ impl Authority for ForwardAuthority {
 
         debug!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
-        let resolve = self.resolver.lookup(name, rtype, Default::default()).await;
+        let resolve = self
+            .resolver
+            .lookup(name, rtype, DnsRequestOptions::default())
+            .await;
 
         resolve.map(ForwardLookup).map_err(LookupError::from)
     }

@@ -522,7 +522,7 @@ mod tests {
     use crate::iocompat::AsyncIoTokioAsStd;
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::{Name, RData, RecordType};
-    use crate::xfer::FirstAnswer;
+    use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;
 
@@ -535,7 +535,7 @@ mod tests {
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
 
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let mut client_config = client_config_tls12_webpki_roots();
         client_config.key_log = Arc::new(KeyLogFile::new());
@@ -568,7 +568,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
             let response = runtime
@@ -601,7 +601,7 @@ mod tests {
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
 
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let client_config = client_config_tls12_webpki_roots();
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
@@ -634,7 +634,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let response = runtime
             .block_on(https.send_message(request).first_answer())

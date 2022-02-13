@@ -27,8 +27,8 @@ use proto::rr::rdata::SOA;
 use proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer};
 
-use crate::dns_lru;
 use crate::dns_lru::DnsLru;
+use crate::dns_lru::{self, TtlConfig};
 use crate::error::*;
 use crate::lookup::Lookup;
 
@@ -80,7 +80,7 @@ where
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C, preserve_intermediates: bool) -> Self {
         Self::with_cache(
-            DnsLru::new(max_size, Default::default()),
+            DnsLru::new(max_size, TtlConfig::default()),
             client,
             preserve_intermediates,
         )
@@ -517,7 +517,7 @@ mod tests {
             ..
         } = block_on(CachingClient::inner_lookup(
             Query::new(),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -553,7 +553,7 @@ mod tests {
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::new(),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -574,7 +574,7 @@ mod tests {
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::new(),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -591,7 +591,7 @@ mod tests {
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::new(),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -647,7 +647,7 @@ mod tests {
 
         let ips = block_on(CachingClient::inner_lookup(
             Query::query(Name::from_str("www.example.com.").unwrap(), query_type),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -682,7 +682,7 @@ mod tests {
                 Name::from_str("_443._tcp.www.example.com.").unwrap(),
                 RecordType::SRV,
             ),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -730,7 +730,7 @@ mod tests {
                 Name::from_str("_443._tcp.www.example.com.").unwrap(),
                 RecordType::SRV,
             ),
-            Default::default(),
+            DnsRequestOptions::default(),
             client,
             vec![],
         ))
@@ -819,7 +819,7 @@ mod tests {
 
         let records = CachingClient::handle_noerror(
             &mut client,
-            Default::default(),
+            DnsRequestOptions::default(),
             false,
             &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             message.into(),
@@ -856,7 +856,7 @@ mod tests {
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A);
-            let lookup = block_on(client.lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), DnsRequestOptions::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -867,7 +867,7 @@ mod tests {
 
         {
             let query = Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::AAAA);
-            let lookup = block_on(client.lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), DnsRequestOptions::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -878,7 +878,7 @@ mod tests {
 
         {
             let query = Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::PTR);
-            let lookup = block_on(client.lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), DnsRequestOptions::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -892,7 +892,7 @@ mod tests {
                 Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
                 RecordType::PTR,
             );
-            let lookup = block_on(client.lookup(query.clone(), Default::default()))
+            let lookup = block_on(client.lookup(query.clone(), DnsRequestOptions::default()))
                 .expect("should have returned localhost");
             assert_eq!(lookup.query(), &query);
             assert_eq!(
@@ -903,13 +903,13 @@ mod tests {
 
         assert!(block_on(client.lookup(
             Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX),
-            Default::default()
+            DnsRequestOptions::default()
         ))
         .is_err());
 
         assert!(block_on(client.lookup(
             Query::query(Name::from(Ipv4Addr::new(127, 0, 0, 1)), RecordType::MX),
-            Default::default()
+            DnsRequestOptions::default()
         ))
         .is_err());
 
@@ -918,7 +918,7 @@ mod tests {
                 Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
                 RecordType::MX
             ),
-            Default::default()
+            DnsRequestOptions::default()
         ))
         .is_err());
     }
@@ -934,7 +934,7 @@ mod tests {
                 Name::from_ascii("horrible.invalid.").unwrap(),
                 RecordType::A,
             ),
-            Default::default()
+            DnsRequestOptions::default()
         ))
         .is_err());
     }
@@ -962,7 +962,7 @@ mod tests {
                 Name::from_ascii("www.example.local.").unwrap(),
                 RecordType::A,
             ),
-            Default::default()
+            DnsRequestOptions::default()
         ))
         .is_ok());
     }
