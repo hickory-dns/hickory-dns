@@ -19,6 +19,7 @@
 use crate::error::*;
 use crate::rr::{Name, RData, RecordType};
 use crate::serialize::txt::rdata_parsers::*;
+#[cfg(feature = "dnssec")]
 use crate::proto::rr::dnssec::rdata::DNSSECRData;
 
 pub(crate) trait RDataParser: Sized {
@@ -70,7 +71,10 @@ impl RDataParser for RData {
                 return Err(ParseError::from("CDNSKEY should be dynamically generated"))
             }
             RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
+            #[cfg(feature = "dnssec")]
             RecordType::DS => RData::DNSSEC(DNSSECRData::DS(ds::parse(tokens)?)),
+            #[cfg(not(feature = "dnssec"))]
+            RecordType::CDS => return Err(ParseError::from("DS should be dynamically generated")),
             RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
             RecordType::NSEC => {
                 return Err(ParseError::from("NSEC should be dynamically generated"))
@@ -154,6 +158,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "dnssec")]
     #[test]
     fn test_ds() {
         let tokens = ["60485", "5", "1", "2BB183AF5F22588179A53B0A", "98631FAD1A292118"];
