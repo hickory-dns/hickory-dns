@@ -414,26 +414,16 @@ impl Parser {
                     let digit = c.to_digit(10).ok_or(ParseErrorKind::CharToInt(c))?;
                     collect = Some(collect.unwrap_or(0) * 10 + digit);
                 }
-                'S' | 's' => {
-                    value += collect.ok_or(ParseErrorKind::ParseTime(ttl_str.to_string()))?;
-                    collect = None;
-                }
-                'M' | 'm' => {
-                    value += collect.ok_or(ParseErrorKind::ParseTime(ttl_str.to_string()))? * 60;
-                    collect = None;
-                }
-                'H' | 'h' => {
-                    value += collect.ok_or(ParseErrorKind::ParseTime(ttl_str.to_string()))? * 3_600;
-                    collect = None;
-                }
-                'D' | 'd' => {
-                    value += collect.ok_or(ParseErrorKind::ParseTime(ttl_str.to_string()))? * 86_400;
-                    collect = None;
-                }
-                'W' | 'w' => {
-                    value += collect.ok_or(ParseErrorKind::ParseTime(ttl_str.to_string()))? * 604_800;
-                    collect = None;
-                }
+                'S' | 's' => value += collect.take()
+                    .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?,
+                'M' | 'm' => value += 60 * collect.take()
+                    .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?,
+                'H' | 'h' => value += 3_600 * collect.take()
+                    .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?,
+                'D' | 'd' => value += 86_400 * collect.take()
+                    .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?,
+                'W' | 'w' => value += 604_800 * collect.take()
+                    .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?,
                 _ => return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into()),
             }
         }
