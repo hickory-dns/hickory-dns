@@ -7,11 +7,9 @@
 
 //! Structs for creating and using a AsyncResolver
 use std::fmt;
-use std::future::Future;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use futures_util::{self, future};
 use proto::error::ProtoResult;
 use proto::op::Query;
 use proto::rr::domain::usage::ONION;
@@ -92,10 +90,7 @@ macro_rules! lookup_fn {
                 }
             };
 
-            let mut request_opts = DnsRequestOptions::default();
-            request_opts.use_edns = self.options.edns0;
-
-            self.inner_lookup(name, $r, request_opts).await
+            self.inner_lookup(name, $r, self.request_options()).await
         }
     };
     ($p:ident, $l:ty, $r:path, $t:ty) => {
@@ -106,8 +101,7 @@ macro_rules! lookup_fn {
         /// * `query` - a type which can be converted to `Name` via `From`.
         pub async fn $p(&self, query: $t) -> Result<$l, ResolveError> {
             let name = Name::from(query);
-            self.inner_lookup(name, $r, DnsRequestOptions::default())
-                .await
+            self.inner_lookup(name, $r, self.request_options()).await
         }
     };
 }
@@ -265,6 +259,15 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
         Self::new_with_conn(config, options, conn_provider)
     }
 
+    /// Per request options based on the ResolverOpts
+    pub(crate) fn request_options(&self) -> DnsRequestOptions {
+        let mut request_opts = DnsRequestOptions::default();
+        request_opts.recursion_desired = self.options.recursion_desired;
+        request_opts.use_edns = self.options.edns0;
+
+        request_opts
+    }
+
     /// Generic lookup for any RecordType
     ///
     /// *WARNING* this interface may change in the future, see if one of the specializations would be better.
@@ -277,24 +280,18 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
     /// # Returns
     ///
     //  A future for the returned Lookup RData
-    pub fn lookup<N: IntoName>(
+    pub async fn lookup<N: IntoName>(
         &self,
         name: N,
         record_type: RecordType,
-        options: DnsRequestOptions,
-    ) -> impl Future<Output = Result<Lookup, ResolveError>> + Send + Unpin + 'static {
+    ) -> Result<Lookup, ResolveError> {
         let name = match name.into_name() {
             Ok(name) => name,
-            Err(err) => return future::Either::Left(future::err(err.into())),
+            Err(err) => return Err(err.into()),
         };
 
-        let names = self.build_names(name);
-        future::Either::Right(LookupFuture::lookup(
-            names,
-            record_type,
-            options,
-            self.client_cache.clone(),
-        ))
+        self.inner_lookup(name, record_type, self.request_options())
+            .await
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -375,7 +372,10 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
     where
         L: From<Lookup> + Send + 'static,
     {
-        self.lookup(name, record_type, options).await.map(L::from)
+        let names = self.build_names(name);
+        LookupFuture::lookup(names, record_type, options, self.client_cache.clone())
+            .await
+            .map(L::from)
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -430,7 +430,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
             names,
             self.options.ip_strategy,
             self.client_cache.clone(),
-            DnsRequestOptions::default(),
+            self.request_options(),
             hosts,
             finally_ip_addr.and_then(Record::into_data),
         )
