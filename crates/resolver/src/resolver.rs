@@ -14,7 +14,6 @@ use proto::rr::domain::TryParseIp;
 use proto::rr::IntoName;
 use proto::rr::RecordType;
 use tokio::runtime::{self, Runtime};
-use trust_dns_proto::xfer::DnsRequestOptions;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::error::*;
@@ -129,9 +128,7 @@ impl Resolver {
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
     pub fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> ResolveResult<Lookup> {
-        let lookup = self
-            .async_resolver
-            .lookup(name, record_type, DnsRequestOptions::default());
+        let lookup = self.async_resolver.lookup(name, record_type);
         self.runtime.lock()?.block_on(lookup)
     }
 

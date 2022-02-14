@@ -25,7 +25,6 @@ use std::net::{IpAddr, SocketAddr};
 use clap::Parser;
 use console::style;
 
-use trust_dns_proto::xfer::DnsRequestOptions;
 use trust_dns_resolver::config::{
     NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts,
 };
@@ -238,9 +237,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         lookup.into()
     } else {
-        resolver
-            .lookup(name.to_string(), ty, DnsRequestOptions::default())
-            .await?
+        resolver.lookup(name.to_string(), ty).await?
     };
 
     // report response, TODO: better display of errors

@@ -797,6 +797,10 @@ pub struct ResolverOpts {
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,
+    /// Request upstream recursive resolvers to not perform any recursion.
+    ///
+    /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
+    pub recursion_desired: bool,
 }
 
 impl Default for ResolverOpts {
@@ -825,6 +829,7 @@ impl Default for ResolverOpts {
             preserve_intermediates: true,
 
             try_tcp_on_error: false,
+            recursion_desired: true,
         }
     }
 }
