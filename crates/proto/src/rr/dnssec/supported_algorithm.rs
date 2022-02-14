@@ -71,7 +71,7 @@ impl SupportedAlgorithms {
             Algorithm::ECDSAP256SHA256 => Some(4),
             Algorithm::ECDSAP384SHA384 => Some(5),
             Algorithm::ED25519 => Some(6),
-            Algorithm::Unknown(_) => None,
+            Algorithm::RSAMD5 | Algorithm::DSA | Algorithm::Unknown(_) => None,
         };
 
         bit_pos.map(|b| 1u8 << b)

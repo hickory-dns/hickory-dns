@@ -99,6 +99,10 @@ use crate::serialize::binary::*;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[non_exhaustive]
 pub enum Algorithm {
+    /// DO NOT USE, MD5 is a compromised hashing function, it is here for backward compatibility
+    RSAMD5,
+    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatibility
+    DSA,
     /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatibility
     RSASHA1,
     /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatibility
@@ -121,6 +125,8 @@ impl Algorithm {
     /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> Self {
         match value {
+            1 => Algorithm::RSAMD5,
+            3 => Algorithm::DSA,
             5 => Algorithm::RSASHA1,
             7 => Algorithm::RSASHA1NSEC3SHA1,
             8 => Algorithm::RSASHA256,
@@ -135,7 +141,8 @@ impl Algorithm {
     /// length in bytes that the hash portion of this function will produce
     pub fn hash_len(self) -> Option<usize> {
         match self {
-            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => Some(20), // 160 bits
+            Algorithm::RSAMD5 => Some(16), // 128 bits
+            Algorithm::DSA | Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => Some(20), // 160 bits
             Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => Some(32), // 256 bits
             Algorithm::ECDSAP384SHA384 => Some(48),
             Algorithm::RSASHA512 => Some(64), // 512 bites
@@ -152,6 +159,8 @@ impl Algorithm {
     /// Convert to string form
     pub fn as_str(self) -> &'static str {
         match self {
+            Algorithm::RSAMD5 => "RSAMD5",
+            Algorithm::DSA => "DSA",
             Algorithm::RSASHA1 => "RSASHA1",
             Algorithm::RSASHA256 => "RSASHA256",
             Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
@@ -188,6 +197,8 @@ impl From<Algorithm> for &'static str {
 impl From<Algorithm> for u8 {
     fn from(a: Algorithm) -> u8 {
         match a {
+            Algorithm::RSAMD5 => 1,
+            Algorithm::DSA => 3,
             Algorithm::RSASHA1 => 5,
             Algorithm::RSASHA1NSEC3SHA1 => 7,
             Algorithm::RSASHA256 => 8,
@@ -209,6 +220,8 @@ impl Display for Algorithm {
 #[test]
 fn test_into() {
     for algorithm in &[
+        Algorithm::RSAMD5,
+        Algorithm::DSA,
         Algorithm::RSASHA1,
         Algorithm::RSASHA256,
         Algorithm::RSASHA1NSEC3SHA1,
@@ -224,6 +237,8 @@ fn test_into() {
 #[test]
 fn test_order() {
     let mut algorithms = [
+        Algorithm::RSAMD5,
+        Algorithm::DSA,
         Algorithm::RSASHA1,
         Algorithm::RSASHA256,
         Algorithm::RSASHA1NSEC3SHA1,
@@ -237,6 +252,8 @@ fn test_order() {
 
     for (got, expect) in algorithms.iter().zip(
         [
+            Algorithm::RSAMD5,
+            Algorithm::DSA,
             Algorithm::RSASHA1,
             Algorithm::RSASHA1NSEC3SHA1,
             Algorithm::RSASHA256,
