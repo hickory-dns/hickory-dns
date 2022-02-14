@@ -131,10 +131,7 @@ impl Authority for ForwardAuthority {
 
         debug!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
-        let resolve = self
-            .resolver
-            .lookup(name, rtype, DnsRequestOptions::default())
-            .await;
+        let resolve = self.resolver.lookup(name, rtype).await;
 
         resolve.map(ForwardLookup).map_err(LookupError::from)
     }

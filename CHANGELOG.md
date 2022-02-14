@@ -54,6 +54,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 - (util) openssl is no longer default enabled in trust-dns-utils, bins marked as required as necessary #1644
 - (proto) deprecate outdated dnssec algorithms #1640
+- (resolver) *BREAKING* removed `DnsRequestOptions` parameter from `AsyncResolver::lookup`, this is derived from `ResolverOpts`
 - (server) pass RequestInfo into Authority on search #1620
 - (proto) SSHFP: Ed448 is assigned algorithm 6 in RFC 8709 #1604
 - (resolver) Do not retry the same name server on a negative response (@peterthejohnston) #1589

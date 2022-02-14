@@ -818,6 +818,10 @@ pub struct ResolverOpts {
     pub try_tcp_on_error: bool,
     /// The server ordering strategy that the resolver should use.
     pub server_ordering_strategy: ServerOrderingStrategy,
+    /// Request upstream recursive resolvers to not perform any recursion.
+    ///
+    /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
+    pub recursion_desired: bool,
 }
 
 impl Default for ResolverOpts {
@@ -847,6 +851,7 @@ impl Default for ResolverOpts {
 
             try_tcp_on_error: false,
             server_ordering_strategy: ServerOrderingStrategy::default(),
+            recursion_desired: true,
         }
     }
 }
