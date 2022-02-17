@@ -17,10 +17,10 @@
 //! record data enum variants
 
 use crate::error::*;
-use crate::rr::{Name, RData, RecordType};
-use crate::serialize::txt::rdata_parsers::*;
 #[cfg(feature = "dnssec")]
 use crate::proto::rr::dnssec::rdata::DNSSECRData;
+use crate::rr::{Name, RData, RecordType};
+use crate::serialize::txt::rdata_parsers::*;
 
 pub(crate) trait RDataParser: Sized {
     fn parse<'i, I: Iterator<Item = &'i str>>(
@@ -161,12 +161,18 @@ mod tests {
     #[cfg(feature = "dnssec")]
     #[test]
     fn test_ds() {
-        let tokens = ["60485", "5", "1", "2BB183AF5F22588179A53B0A", "98631FAD1A292118"];
+        let tokens = [
+            "60485",
+            "5",
+            "1",
+            "2BB183AF5F22588179A53B0A",
+            "98631FAD1A292118",
+        ];
         let name = Name::from_str("dskey.example.com.").unwrap();
         let record = RData::parse(
             RecordType::DS,
             tokens.iter().map(AsRef::as_ref),
-            Some(&name)
+            Some(&name),
         )
         .unwrap();
 
@@ -177,9 +183,8 @@ mod tests {
                 crate::proto::rr::dnssec::Algorithm::RSASHA1,
                 crate::proto::rr::dnssec::DigestType::SHA1,
                 vec![
-                    0x2B, 0xB1, 0x83, 0xAF, 0x5F, 0x22, 0x58, 0x81,
-                    0x79, 0xA5, 0x3B, 0x0A, 0x98, 0x63, 0x1F, 0xAD,
-                    0x1A, 0x29, 0x21, 0x18
+                    0x2B, 0xB1, 0x83, 0xAF, 0x5F, 0x22, 0x58, 0x81, 0x79, 0xA5, 0x3B, 0x0A, 0x98,
+                    0x63, 0x1F, 0xAD, 0x1A, 0x29, 0x21, 0x18
                 ]
             )))
         );

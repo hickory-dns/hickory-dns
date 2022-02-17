@@ -1,8 +1,8 @@
 //! Parser for DS text form
 
 use crate::error::*;
-use crate::proto::rr::dnssec::{Algorithm, DigestType};
 use crate::proto::rr::dnssec::rdata::ds::DS;
+use crate::proto::rr::dnssec::{Algorithm, DigestType};
 
 /// Parse the RData from a set of Tokens
 ///
@@ -24,7 +24,7 @@ use crate::proto::rr::dnssec::rdata::ds::DS;
 ///    hexadecimal digits.  Whitespace is allowed within the hexadecimal
 ///    text.
 /// ```
-pub (crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<DS> {
+pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<DS> {
     let tag_str: &str = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::Message("key tag not present")))?;
@@ -45,18 +45,22 @@ pub (crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseRes
         "INDIRECT" => Algorithm::Unknown(252),
         "PRIVATEDNS" => Algorithm::Unknown(253),
         "PRIVATEOID" => Algorithm::Unknown(254),
-        _ => Algorithm::from_u8(algorithm_str.parse()?)
+        _ => Algorithm::from_u8(algorithm_str.parse()?),
     };
     let digest_type = DigestType::from_u8(digest_type_str.parse()?)?;
     let digest_str: String = tokens.collect();
     if digest_str.is_empty() {
-        return Err(ParseError::from(ParseErrorKind::Message("digest not present")));
+        return Err(ParseError::from(ParseErrorKind::Message(
+            "digest not present",
+        )));
     }
     let mut digest = Vec::with_capacity(digest_str.len() / 2);
     let mut s = digest_str.as_str();
     while s.len() >= 2 {
-        if ! s.is_char_boundary(2) {
-            return Err(ParseError::from(ParseErrorKind::Message("digest contains non hexadecimal text")));
+        if !s.is_char_boundary(2) {
+            return Err(ParseError::from(ParseErrorKind::Message(
+                "digest contains non hexadecimal text",
+            )));
         }
         let (byte_str, rest) = s.split_at(2);
         s = rest;
@@ -75,11 +79,12 @@ mod tests {
         assert_eq!(
             parse("60485 5 1 2BB183AF5F22588179A53B0A 98631FAD1A292118".split(' ')).unwrap(),
             DS::new(
-                60485, Algorithm::RSASHA1, DigestType::SHA1,
+                60485,
+                Algorithm::RSASHA1,
+                DigestType::SHA1,
                 vec![
-                    0x2B, 0xB1, 0x83, 0xAF, 0x5F, 0x22, 0x58, 0x81,
-                    0x79, 0xA5, 0x3B, 0x0A, 0x98, 0x63, 0x1F, 0xAD,
-                    0x1A, 0x29, 0x21, 0x18
+                    0x2B, 0xB1, 0x83, 0xAF, 0x5F, 0x22, 0x58, 0x81, 0x79, 0xA5, 0x3B, 0x0A, 0x98,
+                    0x63, 0x1F, 0xAD, 0x1A, 0x29, 0x21, 0x18
                 ]
             )
         );
