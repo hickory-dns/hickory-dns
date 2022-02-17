@@ -406,25 +406,22 @@ fn test_key_usage() {
 ///    SHOULD be set to 0 in KEY records, and MUST be ignored.
 ///
 /// ```
+#[deprecated = "Deprecated by RFC3007"]
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
     ///   detach, and move zones by creating and deleting NS, glue A, and
     ///   zone KEY RR(s)
-    #[deprecated = "Deprecated by RFC3007"]
     pub zone: bool,
     /// this key is authorized to add and
     ///   delete RRs even if there are other RRs with the same owner name
     ///   and class that are authenticated by a SIG signed with a
     ///   different dynamic update KEY
-    #[deprecated = "Deprecated by RFC3007"]
     pub strong: bool,
     /// this key is authorized to add and update RRs for only a single owner name
-    #[deprecated = "Deprecated by RFC3007"]
     pub unique: bool,
     /// The general update signatory field bit has no special meaning, (true if the others are false)
-    #[deprecated = "Deprecated by RFC3007"]
     pub general: bool,
 }
 

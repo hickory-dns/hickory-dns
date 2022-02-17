@@ -29,6 +29,7 @@ use ring::{
         ECDSA_P384_SHA384_FIXED_SIGNING,
     },
 };
+#[allow(deprecated)]
 use trust_dns_proto::rr::dnssec::rdata::key::{KeyTrust, Protocol, UpdateScope};
 
 use crate::error::*;
@@ -305,6 +306,7 @@ impl<K: HasPublic> KeyPair<K> {
             KEY::new(
                 KeyTrust::default(),
                 usage,
+                #[allow(deprecated)]
                 UpdateScope::default(),
                 Protocol::default(),
                 algorithm,
