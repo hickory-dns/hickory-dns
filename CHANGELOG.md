@@ -59,7 +59,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
-- (clien) Fix AsyncClient::clone always setting use_edns (ecton) #1598
+- (proto) fix DoubleEndedIterator impl for Name #1639
+- (client) Fix AsyncClient::clone always setting use_edns (ecton) #1598
 - (resolver) Use stream connections if datagram connections are not available (@pinkisemils) #1592
 - (server) Release resources when a server future is dropped (@pinkisemils) #1587
 - (proto) Panic when name exceeds maximal domain name length during display #1447

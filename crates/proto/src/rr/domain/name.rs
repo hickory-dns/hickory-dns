@@ -109,9 +109,8 @@ impl Name {
     pub fn iter(&self) -> LabelIter<'_> {
         LabelIter {
             name: self,
-            index: 0,
-            started: false,
-            finished: false,
+            start: 0,
+            end: self.label_ends.len(),
         }
     }
 
@@ -929,33 +928,29 @@ impl LabelEnc for LabelEncUtf8 {
 /// An iterator over labels in a name
 pub struct LabelIter<'a> {
     name: &'a Name,
-    index: usize,
-    started: bool,
-    finished: bool,
+    start: usize,
+    end: usize,
 }
 
 impl<'a> Iterator for LabelIter<'a> {
     type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.finished {
+        if self.start >= self.end {
             return None;
         }
-        self.started = true;
-        let end = *self.name.label_ends.get(self.index)?;
-        let start = match self.index {
+
+        let end = *self.name.label_ends.get(self.start)?;
+        let start = match self.start {
             0 => 0,
-            _ => self.name.label_ends[self.index - 1],
+            _ => self.name.label_ends[self.start - 1],
         };
-        self.index += 1;
-        if self.index == self.name.label_ends.len() {
-            self.finished = true;
-        }
+        self.start += 1;
         Some(&self.name.label_data[start as usize..end as usize])
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.name.label_ends.len() - self.index;
+        let len = self.end.saturating_sub(self.start);
         (len, Some(len))
     }
 }
@@ -964,23 +959,18 @@ impl<'a> ExactSizeIterator for LabelIter<'a> {}
 
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.finished {
+        if self.end <= self.start {
             return None;
         }
-        if !self.started {
-            self.index = self.name.label_ends.len().checked_sub(1)?;
-        }
-        self.started = true;
-        let end = *self.name.label_ends.get(self.index)?;
-        let start = match self.index {
+
+        self.end -= 1;
+
+        let end = *self.name.label_ends.get(self.end)?;
+        let start = match self.end {
             0 => 0,
-            _ => self.name.label_ends[self.index - 1],
+            _ => self.name.label_ends[self.end - 1],
         };
-        if self.index == 0 {
-            self.finished = true;
-        } else {
-            self.index -= 1;
-        }
+
         Some(&self.name.label_data[start as usize..end as usize])
     }
 }
@@ -1908,5 +1898,35 @@ mod tests {
             ProtoErrorKind::Message("labels exceed maximum length of 255") => (),
             _ => panic!("expected too long message"),
         }
+    }
+
+    #[test]
+    fn test_double_ended_iterator() {
+        let name = Name::from_ascii("www.example.com").unwrap();
+        let mut iter = name.iter();
+
+        assert_eq!(iter.next().unwrap(), b"www");
+        assert_eq!(iter.next_back().unwrap(), b"com");
+        assert_eq!(iter.next().unwrap(), b"example");
+        assert!(iter.next_back().is_none());
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_size_hint() {
+        let name = Name::from_ascii("www.example.com").unwrap();
+        let mut iter = name.iter();
+
+        assert_eq!(iter.size_hint().0, 3);
+        assert_eq!(iter.next().unwrap(), b"www");
+        assert_eq!(iter.size_hint().0, 2);
+        assert_eq!(iter.next_back().unwrap(), b"com");
+        assert_eq!(iter.size_hint().0, 1);
+        assert_eq!(iter.next().unwrap(), b"example");
+        assert_eq!(iter.size_hint().0, 0);
+        assert!(iter.next_back().is_none());
+        assert_eq!(iter.size_hint().0, 0);
+        assert!(iter.next().is_none());
+        assert_eq!(iter.size_hint().0, 0);
     }
 }
