@@ -74,7 +74,7 @@ impl RDataParser for RData {
             #[cfg(feature = "dnssec")]
             RecordType::DS => RData::DNSSEC(DNSSECRData::DS(ds::parse(tokens)?)),
             #[cfg(not(feature = "dnssec"))]
-            RecordType::CDS => return Err(ParseError::from("DS should be dynamically generated")),
+            RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
             RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
             RecordType::NSEC => {
                 return Err(ParseError::from("NSEC should be dynamically generated"))
