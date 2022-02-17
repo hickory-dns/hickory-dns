@@ -30,4 +30,7 @@ server          SRV     1 1 443 alias
 
 no-service 86400 IN MX 0 .
 
+dskey           NS      www
+                DS      60485 5 1 2BB183AF5F22588179A53B0A 98631FAD1A292118
+
 $INCLUDE include.example.com.zone
