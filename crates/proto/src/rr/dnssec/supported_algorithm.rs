@@ -63,6 +63,7 @@ impl SupportedAlgorithms {
 
     fn pos(algorithm: Algorithm) -> Option<u8> {
         // not using the values from the RFC's to keep the bit_map space condensed
+        #[allow(deprecated)]
         let bit_pos: Option<u8> = match algorithm {
             Algorithm::RSASHA1 => Some(0),
             Algorithm::RSASHA256 => Some(1),
@@ -79,6 +80,7 @@ impl SupportedAlgorithms {
 
     fn from_pos(pos: u8) -> Option<Algorithm> {
         // TODO: should build a code generator or possibly a macro for deriving these inversions
+        #[allow(deprecated)]
         match pos {
             0 => Some(Algorithm::RSASHA1),
             1 => Some(Algorithm::RSASHA256),
@@ -218,6 +220,7 @@ impl BinEncodable for SupportedAlgorithms {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_has() {
     let mut supported = SupportedAlgorithms::new();
 
@@ -235,6 +238,8 @@ fn test_has() {
 }
 
 #[test]
+#[allow(deprecated)]
+
 fn test_iterator() {
     let supported = SupportedAlgorithms::all();
     assert_eq!(supported.iter().count(), 7);
@@ -260,6 +265,7 @@ fn test_iterator() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_vec() {
     let supported = SupportedAlgorithms::all();
     let array: Vec<u8> = (&supported).into();

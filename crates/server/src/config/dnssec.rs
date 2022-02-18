@@ -111,6 +111,7 @@ impl KeyConfig {
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
+    #[allow(deprecated)]
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
         match self.algorithm.as_str() {
             "RSASHA1" => Ok(Algorithm::RSASHA1),

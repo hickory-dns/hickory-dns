@@ -160,6 +160,7 @@ mod tests {
 
     #[cfg(feature = "dnssec")]
     #[test]
+    #[allow(deprecated)]
     fn test_ds() {
         let tokens = [
             "60485",
