@@ -5,6 +5,7 @@ use trust_dns_proto::rr::dnssec::{Algorithm, DigestType};
 use trust_dns_proto::rr::Name;
 
 #[test]
+#[allow(deprecated)]
 fn test_dnskey_display() {
     let dnskey = DNSKEY::new(
         true,
@@ -30,6 +31,7 @@ fn test_dnskey_display() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_ds_display() {
     let dnskey = DNSKEY::new(
         true,

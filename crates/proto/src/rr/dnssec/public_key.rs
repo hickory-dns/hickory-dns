@@ -403,6 +403,7 @@ impl<'k> PublicKey for Rsa<'k> {
 
     #[cfg(feature = "ring")]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
+        #[allow(deprecated)]
         let alg = match algorithm {
             Algorithm::RSASHA256 => &signature::RSA_PKCS1_1024_8192_SHA256_FOR_LEGACY_USE_ONLY,
             Algorithm::RSASHA512 => &signature::RSA_PKCS1_1024_8192_SHA512_FOR_LEGACY_USE_ONLY,
@@ -451,6 +452,7 @@ impl<'k> PublicKeyEnum<'k> {
     /// Converts the bytes into a PulbicKey of the specified algorithm
     #[allow(unused_variables, clippy::match_single_binding)]
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
+        #[allow(deprecated)]
         match algorithm {
             #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(PublicKeyEnum::Ec(

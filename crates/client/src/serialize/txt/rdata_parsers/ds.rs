@@ -24,6 +24,7 @@ use crate::proto::rr::dnssec::{Algorithm, DigestType};
 ///    hexadecimal digits.  Whitespace is allowed within the hexadecimal
 ///    text.
 /// ```
+#[allow(deprecated)]
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<DS> {
     let tag_str: &str = tokens
         .next()
@@ -75,6 +76,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[allow(deprecated)]
     fn test_parsing() {
         assert_eq!(
             parse("60485 5 1 2BB183AF5F22588179A53B0A 98631FAD1A292118".split(' ')).unwrap(),

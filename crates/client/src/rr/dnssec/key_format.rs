@@ -36,6 +36,7 @@ impl KeyFormat {
         let password = password.unwrap_or("");
         let password = password.as_bytes();
 
+        #[allow(deprecated)]
         match algorithm {
             Algorithm::Unknown(v) => Err(format!("unknown algorithm: {}", v).into()),
             #[cfg(feature = "openssl")]
@@ -135,7 +136,7 @@ impl KeyFormat {
             .next();
 
         // generate the key
-        #[allow(unused)]
+        #[allow(unused, deprecated)]
         let key_pair: KeyPair<Private> = match algorithm {
             Algorithm::Unknown(v) => return Err(format!("unknown algorithm: {}", v).into()),
             #[cfg(feature = "openssl")]

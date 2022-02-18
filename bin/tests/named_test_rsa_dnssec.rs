@@ -187,6 +187,7 @@ fn test_ed25519() {
 
 #[test]
 #[should_panic]
+#[allow(deprecated)]
 fn test_rsa_sha1_fails() {
     generic_test(
         confg_toml(),

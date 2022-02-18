@@ -49,6 +49,7 @@ pub fn main() {
         .expect("query failed");
 
     for r in lookup.iter() {
+        #[allow(deprecated)]
         match r {
             RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)) => {
                 if !(dnskey.secure_entry_point() && dnskey.zone_key()) {

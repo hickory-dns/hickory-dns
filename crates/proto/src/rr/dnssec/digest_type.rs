@@ -151,6 +151,7 @@ impl DigestType {
 
 impl From<Algorithm> for DigestType {
     fn from(a: Algorithm) -> Self {
+        #[allow(deprecated)]
         match a {
             Algorithm::RSAMD5
             | Algorithm::DSA

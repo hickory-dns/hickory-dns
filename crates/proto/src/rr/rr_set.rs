@@ -570,6 +570,7 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
                     if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = record.data() {
                         rrsig.algorithm()
                     } else {
+                        #[allow(deprecated)]
                         Algorithm::RSASHA1
                     }
                 })
