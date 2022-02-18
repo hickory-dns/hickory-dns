@@ -364,6 +364,12 @@ mod tests {
 
     #[test]
     fn test_load_zone() {
+        #[cfg(feature = "dnssec")]
+        let config = FileConfig {
+            zone_file_path: "../../tests/test-data/named_test_configs/dnssec/example.com.zone"
+                .to_string(),
+        };
+        #[cfg(not(feature = "dnssec"))]
         let config = FileConfig {
             zone_file_path: "../../tests/test-data/named_test_configs/example.com.zone".to_string(),
         };

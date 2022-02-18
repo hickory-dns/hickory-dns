@@ -387,7 +387,7 @@ impl Parser {
     /// use trust_dns_client::serialize::txt::Parser;
     ///
     /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
-    /// assert_eq!(Parser::parse_time("s").unwrap(),  0);
+    /// assert!(Parser::parse_time("s").is_err());
     /// assert_eq!(Parser::parse_time("0s").unwrap(), 0);
     /// assert_eq!(Parser::parse_time("1").unwrap(),  1);
     /// assert_eq!(Parser::parse_time("1S").unwrap(), 1);
@@ -405,40 +405,49 @@ impl Parser {
     /// ```
     pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
         let mut value: u32 = 0;
-        let mut collect: u32 = 0;
+        let mut collect: Option<u32> = None;
 
         for c in ttl_str.chars() {
             match c {
                 // TODO, should these all be checked operations?
                 '0'..='9' => {
-                    collect *= 10;
-                    collect += c.to_digit(10).ok_or(ParseErrorKind::CharToInt(c))?;
+                    let digit = c.to_digit(10).ok_or(ParseErrorKind::CharToInt(c))?;
+                    collect = Some(collect.unwrap_or(0) * 10 + digit);
                 }
                 'S' | 's' => {
-                    value += collect;
-                    collect = 0;
+                    value += collect
+                        .take()
+                        .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
                 }
                 'M' | 'm' => {
-                    value += collect * 60;
-                    collect = 0;
+                    value += 60
+                        * collect
+                            .take()
+                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
                 }
                 'H' | 'h' => {
-                    value += collect * 3_600;
-                    collect = 0;
+                    value += 3_600
+                        * collect
+                            .take()
+                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
                 }
                 'D' | 'd' => {
-                    value += collect * 86_400;
-                    collect = 0;
+                    value += 86_400
+                        * collect
+                            .take()
+                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
                 }
                 'W' | 'w' => {
-                    value += collect * 604_800;
-                    collect = 0;
+                    value += 604_800
+                        * collect
+                            .take()
+                            .ok_or_else(|| ParseErrorKind::ParseTime(ttl_str.to_string()))?
                 }
                 _ => return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into()),
             }
         }
 
-        Ok(value + collect) // collects the initial num, or 0 if it was already collected
+        Ok(value + collect.unwrap_or(0)) // collects the initial num, or 0 if it was already collected
     }
 }
 

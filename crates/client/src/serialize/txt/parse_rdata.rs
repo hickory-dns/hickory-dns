@@ -17,6 +17,8 @@
 //! record data enum variants
 
 use crate::error::*;
+#[cfg(feature = "dnssec")]
+use crate::proto::rr::dnssec::rdata::DNSSECRData;
 use crate::rr::{Name, RData, RecordType};
 use crate::serialize::txt::rdata_parsers::*;
 
@@ -69,6 +71,9 @@ impl RDataParser for RData {
                 return Err(ParseError::from("CDNSKEY should be dynamically generated"))
             }
             RecordType::KEY => return Err(ParseError::from("KEY should be dynamically generated")),
+            #[cfg(feature = "dnssec")]
+            RecordType::DS => Self::DNSSEC(DNSSECRData::DS(ds::parse(tokens)?)),
+            #[cfg(not(feature = "dnssec"))]
             RecordType::DS => return Err(ParseError::from("DS should be dynamically generated")),
             RecordType::CDS => return Err(ParseError::from("CDS should be dynamically generated")),
             RecordType::NSEC => {
@@ -150,6 +155,38 @@ mod tests {
                 false,
                 vec![RecordType::A, RecordType::NS]
             ))
+        );
+    }
+
+    #[cfg(feature = "dnssec")]
+    #[test]
+    fn test_ds() {
+        let tokens = [
+            "60485",
+            "5",
+            "1",
+            "2BB183AF5F22588179A53B0A",
+            "98631FAD1A292118",
+        ];
+        let name = Name::from_str("dskey.example.com.").unwrap();
+        let record = RData::parse(
+            RecordType::DS,
+            tokens.iter().map(AsRef::as_ref),
+            Some(&name),
+        )
+        .unwrap();
+
+        assert_eq!(
+            record,
+            RData::DNSSEC(DNSSECRData::DS(DS::new(
+                60485,
+                crate::proto::rr::dnssec::Algorithm::RSASHA1,
+                crate::proto::rr::dnssec::DigestType::SHA1,
+                vec![
+                    0x2B, 0xB1, 0x83, 0xAF, 0x5F, 0x22, 0x58, 0x81, 0x79, 0xA5, 0x3B, 0x0A, 0x98,
+                    0x63, 0x1F, 0xAD, 0x1A, 0x29, 0x21, 0x18
+                ]
+            )))
         );
     }
 

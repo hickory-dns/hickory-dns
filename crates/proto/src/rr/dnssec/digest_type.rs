@@ -47,7 +47,8 @@ pub enum DigestType {
     SHA1,
     /// [RFC 4509](https://tools.ietf.org/html/rfc4509)
     SHA256,
-    // GOSTR34_11_94, // [RFC5933]
+    /// [RFC 5933](https://tools.ietf.org/html/rfc5933)
+    GOSTR34_11_94,
     /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
     SHA384,
     /// Undefined
@@ -63,7 +64,7 @@ impl DigestType {
         match value {
             1 => Ok(Self::SHA1),
             2 => Ok(Self::SHA256),
-            //  3  => Ok(DigestType::GOSTR34_11_94),
+            3 => Ok(Self::GOSTR34_11_94),
             4 => Ok(Self::SHA384),
             5 => Ok(Self::ED25519),
             _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
@@ -151,7 +152,10 @@ impl DigestType {
 impl From<Algorithm> for DigestType {
     fn from(a: Algorithm) -> Self {
         match a {
-            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => Self::SHA1,
+            Algorithm::RSAMD5
+            | Algorithm::DSA
+            | Algorithm::RSASHA1
+            | Algorithm::RSASHA1NSEC3SHA1 => Self::SHA1,
             Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => Self::SHA256,
             Algorithm::RSASHA512 => Self::SHA512,
             Algorithm::ECDSAP384SHA384 => Self::SHA384,
@@ -166,7 +170,7 @@ impl From<DigestType> for u8 {
         match a {
             DigestType::SHA1 => 1,
             DigestType::SHA256 => 2,
-            // DigestType::GOSTR34_11_94 => 3,
+            DigestType::GOSTR34_11_94 => 3,
             DigestType::SHA384 => 4,
             DigestType::ED25519 => 5,
             DigestType::SHA512 => 255,
