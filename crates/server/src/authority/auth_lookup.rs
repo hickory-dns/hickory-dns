@@ -51,7 +51,7 @@ pub enum AuthLookup {
 impl AuthLookup {
     /// Construct an answer with additional section
     pub fn answers(answers: LookupRecords, additionals: Option<LookupRecords>) -> Self {
-        AuthLookup::Records {
+        Self::Records {
             answers,
             additionals,
         }
@@ -98,23 +98,23 @@ impl AuthLookup {
 
 impl LookupObject for AuthLookup {
     fn is_empty(&self) -> bool {
-        AuthLookup::is_empty(self)
+        Self::is_empty(self)
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        let boxed_iter = AuthLookup::iter(self);
+        let boxed_iter = Self::iter(self);
         Box::new(boxed_iter)
     }
 
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
-        let additionals = AuthLookup::take_additionals(self);
+        let additionals = Self::take_additionals(self);
         additionals.map(|a| Box::new(a) as Box<dyn LookupObject>)
     }
 }
 
 impl Default for AuthLookup {
     fn default() -> Self {
-        AuthLookup::Empty
+        Self::Empty
     }
 }
 
@@ -169,7 +169,7 @@ impl<'a> Default for AuthLookupIter<'a> {
 
 impl From<LookupRecords> for AuthLookup {
     fn from(lookup: LookupRecords) -> Self {
-        AuthLookup::Records {
+        Self::Records {
             answers: lookup,
             additionals: None,
         }
@@ -201,7 +201,7 @@ impl AnyRecords {
         query_type: RecordType,
         query_name: LowerName,
     ) -> Self {
-        AnyRecords {
+        Self {
             lookup_options,
             rrsets,
             query_type,
@@ -311,7 +311,7 @@ pub enum LookupRecords {
 impl LookupRecords {
     /// Construct a new LookupRecords
     pub fn new(lookup_options: LookupOptions, records: Arc<RecordSet>) -> Self {
-        LookupRecords::Records {
+        Self::Records {
             lookup_options,
             records,
         }
@@ -321,7 +321,7 @@ impl LookupRecords {
     pub fn many(lookup_options: LookupOptions, mut records: Vec<Arc<RecordSet>>) -> Self {
         // we're reversing the records because they are output in reverse order, via pop()
         records.reverse();
-        LookupRecords::ManyRecords(lookup_options, records)
+        Self::ManyRecords(lookup_options, records)
     }
 
     /// This is an NxDomain or NameExists, and has no associated records
@@ -339,7 +339,7 @@ impl LookupRecords {
 
 impl Default for LookupRecords {
     fn default() -> Self {
-        LookupRecords::Empty
+        Self::Empty
     }
 }
 
@@ -410,13 +410,13 @@ impl<'r> Iterator for LookupRecordsIter<'r> {
 
 impl From<AnyRecords> for LookupRecords {
     fn from(rrset_records: AnyRecords) -> Self {
-        LookupRecords::AnyRecords(rrset_records)
+        Self::AnyRecords(rrset_records)
     }
 }
 
 impl LookupObject for LookupRecords {
     fn is_empty(&self) -> bool {
-        LookupRecords::was_empty(self)
+        Self::was_empty(self)
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {

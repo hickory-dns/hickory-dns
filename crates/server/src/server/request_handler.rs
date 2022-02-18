@@ -112,7 +112,7 @@ impl<'a> RequestInfo<'a> {
 pub struct ResponseInfo(Header);
 
 impl ResponseInfo {
-    pub(crate) fn serve_failed() -> ResponseInfo {
+    pub(crate) fn serve_failed() -> Self {
         let mut header = Header::new();
         header.set_response_code(ResponseCode::ServFail);
         header.into()
@@ -121,7 +121,7 @@ impl ResponseInfo {
 
 impl From<Header> for ResponseInfo {
     fn from(header: Header) -> Self {
-        ResponseInfo(header)
+        Self(header)
     }
 }
 

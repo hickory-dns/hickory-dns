@@ -551,47 +551,47 @@ impl DNSSECRData {
         match record_type {
             RecordType::CDNSKEY => {
                 trace!("reading CDNSKEY");
-                dnskey::read(decoder, rdata_length).map(DNSSECRData::CDNSKEY)
+                dnskey::read(decoder, rdata_length).map(Self::CDNSKEY)
             }
             RecordType::CDS => {
                 trace!("reading CDS");
-                ds::read(decoder, rdata_length).map(DNSSECRData::CDS)
+                ds::read(decoder, rdata_length).map(Self::CDS)
             }
             RecordType::DNSKEY => {
                 trace!("reading DNSKEY");
-                dnskey::read(decoder, rdata_length).map(DNSSECRData::DNSKEY)
+                dnskey::read(decoder, rdata_length).map(Self::DNSKEY)
             }
             RecordType::DS => {
                 trace!("reading DS");
-                ds::read(decoder, rdata_length).map(DNSSECRData::DS)
+                ds::read(decoder, rdata_length).map(Self::DS)
             }
             RecordType::KEY => {
                 trace!("reading KEY");
-                key::read(decoder, rdata_length).map(DNSSECRData::KEY)
+                key::read(decoder, rdata_length).map(Self::KEY)
             }
             RecordType::NSEC => {
                 trace!("reading NSEC");
-                nsec::read(decoder, rdata_length).map(DNSSECRData::NSEC)
+                nsec::read(decoder, rdata_length).map(Self::NSEC)
             }
             RecordType::NSEC3 => {
                 trace!("reading NSEC3");
-                nsec3::read(decoder, rdata_length).map(DNSSECRData::NSEC3)
+                nsec3::read(decoder, rdata_length).map(Self::NSEC3)
             }
             RecordType::NSEC3PARAM => {
                 trace!("reading NSEC3PARAM");
-                nsec3param::read(decoder).map(DNSSECRData::NSEC3PARAM)
+                nsec3param::read(decoder).map(Self::NSEC3PARAM)
             }
             RecordType::RRSIG => {
                 trace!("reading RRSIG");
-                sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
+                sig::read(decoder, rdata_length).map(Self::SIG)
             }
             RecordType::SIG => {
                 trace!("reading SIG");
-                sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
+                sig::read(decoder, rdata_length).map(Self::SIG)
             }
             RecordType::TSIG => {
                 trace!("reading TSIG");
-                tsig::read(decoder, rdata_length).map(DNSSECRData::TSIG)
+                tsig::read(decoder, rdata_length).map(Self::TSIG)
             }
             r => {
                 panic!("not a dnssec RecordType: {}", r);
@@ -601,35 +601,27 @@ impl DNSSECRData {
 
     pub(crate) fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
-            DNSSECRData::CDNSKEY(ref cdnskey) => {
+            Self::CDNSKEY(ref cdnskey) => {
                 encoder.with_canonical_names(|encoder| dnskey::emit(encoder, cdnskey))
             }
-            DNSSECRData::CDS(ref cds) => {
-                encoder.with_canonical_names(|encoder| ds::emit(encoder, cds))
-            }
-            DNSSECRData::DS(ref ds) => {
-                encoder.with_canonical_names(|encoder| ds::emit(encoder, ds))
-            }
-            DNSSECRData::KEY(ref key) => {
-                encoder.with_canonical_names(|encoder| key::emit(encoder, key))
-            }
-            DNSSECRData::DNSKEY(ref dnskey) => {
+            Self::CDS(ref cds) => encoder.with_canonical_names(|encoder| ds::emit(encoder, cds)),
+            Self::DS(ref ds) => encoder.with_canonical_names(|encoder| ds::emit(encoder, ds)),
+            Self::KEY(ref key) => encoder.with_canonical_names(|encoder| key::emit(encoder, key)),
+            Self::DNSKEY(ref dnskey) => {
                 encoder.with_canonical_names(|encoder| dnskey::emit(encoder, dnskey))
             }
-            DNSSECRData::NSEC(ref nsec) => {
+            Self::NSEC(ref nsec) => {
                 encoder.with_canonical_names(|encoder| nsec::emit(encoder, nsec))
             }
-            DNSSECRData::NSEC3(ref nsec3) => {
+            Self::NSEC3(ref nsec3) => {
                 encoder.with_canonical_names(|encoder| nsec3::emit(encoder, nsec3))
             }
-            DNSSECRData::NSEC3PARAM(ref nsec3param) => {
+            Self::NSEC3PARAM(ref nsec3param) => {
                 encoder.with_canonical_names(|encoder| nsec3param::emit(encoder, nsec3param))
             }
-            DNSSECRData::SIG(ref sig) => {
-                encoder.with_canonical_names(|encoder| sig::emit(encoder, sig))
-            }
-            DNSSECRData::TSIG(ref tsig) => tsig::emit(encoder, tsig),
-            DNSSECRData::Unknown { ref rdata, .. } => {
+            Self::SIG(ref sig) => encoder.with_canonical_names(|encoder| sig::emit(encoder, sig)),
+            Self::TSIG(ref tsig) => tsig::emit(encoder, tsig),
+            Self::Unknown { ref rdata, .. } => {
                 encoder.with_canonical_names(|encoder| null::emit(encoder, rdata))
             }
         }
@@ -637,17 +629,17 @@ impl DNSSECRData {
 
     pub(crate) fn to_record_type(&self) -> RecordType {
         match *self {
-            DNSSECRData::CDNSKEY(..) => RecordType::CDNSKEY,
-            DNSSECRData::CDS(..) => RecordType::CDS,
-            DNSSECRData::DS(..) => RecordType::DS,
-            DNSSECRData::KEY(..) => RecordType::KEY,
-            DNSSECRData::DNSKEY(..) => RecordType::DNSKEY,
-            DNSSECRData::NSEC(..) => RecordType::NSEC,
-            DNSSECRData::NSEC3(..) => RecordType::NSEC3,
-            DNSSECRData::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
-            DNSSECRData::SIG(..) => RecordType::SIG,
-            DNSSECRData::TSIG(..) => RecordType::TSIG,
-            DNSSECRData::Unknown { code, .. } => RecordType::Unknown(code),
+            Self::CDNSKEY(..) => RecordType::CDNSKEY,
+            Self::CDS(..) => RecordType::CDS,
+            Self::DS(..) => RecordType::DS,
+            Self::KEY(..) => RecordType::KEY,
+            Self::DNSKEY(..) => RecordType::DNSKEY,
+            Self::NSEC(..) => RecordType::NSEC,
+            Self::NSEC3(..) => RecordType::NSEC3,
+            Self::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
+            Self::SIG(..) => RecordType::SIG,
+            Self::TSIG(..) => RecordType::TSIG,
+            Self::Unknown { code, .. } => RecordType::Unknown(code),
         }
     }
 }
@@ -659,23 +651,23 @@ impl fmt::Display for DNSSECRData {
         }
 
         match self {
-            DNSSECRData::CDNSKEY(key) => w(f, key),
-            DNSSECRData::CDS(ds) => w(f, ds),
-            DNSSECRData::DS(ds) => w(f, ds),
-            DNSSECRData::KEY(key) => w(f, key),
-            DNSSECRData::DNSKEY(key) => w(f, key),
-            DNSSECRData::NSEC(nsec) => w(f, nsec),
-            DNSSECRData::NSEC3(nsec3) => w(f, nsec3),
-            DNSSECRData::NSEC3PARAM(nsec3param) => w(f, nsec3param),
-            DNSSECRData::SIG(sig) => w(f, sig),
-            DNSSECRData::TSIG(ref tsig) => w(f, tsig),
-            DNSSECRData::Unknown { rdata, .. } => w(f, rdata),
+            Self::CDNSKEY(key) => w(f, key),
+            Self::CDS(ds) => w(f, ds),
+            Self::DS(ds) => w(f, ds),
+            Self::KEY(key) => w(f, key),
+            Self::DNSKEY(key) => w(f, key),
+            Self::NSEC(nsec) => w(f, nsec),
+            Self::NSEC3(nsec3) => w(f, nsec3),
+            Self::NSEC3PARAM(nsec3param) => w(f, nsec3param),
+            Self::SIG(sig) => w(f, sig),
+            Self::TSIG(ref tsig) => w(f, tsig),
+            Self::Unknown { rdata, .. } => w(f, rdata),
         }
     }
 }
 
 impl From<DNSSECRData> for RData {
-    fn from(rdata: DNSSECRData) -> RData {
-        RData::DNSSEC(rdata)
+    fn from(rdata: DNSSECRData) -> Self {
+        Self::DNSSEC(rdata)
     }
 }

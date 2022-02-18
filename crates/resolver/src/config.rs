@@ -41,7 +41,7 @@ pub struct ResolverConfig {
 impl ResolverConfig {
     /// Creates a new empty configuration
     pub fn new() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -55,7 +55,7 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn google() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -69,7 +69,7 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn cloudflare() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -85,7 +85,7 @@ impl ResolverConfig {
     #[cfg(feature = "dns-over-tls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn cloudflare_tls() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -101,7 +101,7 @@ impl ResolverConfig {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn cloudflare_https() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -115,7 +115,7 @@ impl ResolverConfig {
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn quad9() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -131,7 +131,7 @@ impl ResolverConfig {
     #[cfg(feature = "dns-over-tls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-tls")))]
     pub fn quad9_tls() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -147,7 +147,7 @@ impl ResolverConfig {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn quad9_https() -> Self {
-        ResolverConfig {
+        Self {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
@@ -167,7 +167,7 @@ impl ResolverConfig {
         search: Vec<Name>,
         name_servers: G,
     ) -> Self {
-        ResolverConfig {
+        Self {
             domain,
             search,
             name_servers: name_servers.into(),
@@ -259,7 +259,7 @@ impl Default for ResolverConfig {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the system configuration see: `Resolver::from_system_conf` and `AsyncResolver::from_system_conf`
     fn default() -> Self {
-        ResolverConfig::google()
+        Self::google()
     }
 }
 
@@ -345,7 +345,7 @@ impl Protocol {
 impl Default for Protocol {
     /// Default protocol should be UDP, which is supported by all DNS servers
     fn default() -> Self {
-        Protocol::Udp
+        Self::Udp
     }
 }
 
@@ -459,7 +459,7 @@ impl NameServerConfigGroup {
 
     /// Creates a new `NameServiceConfigGroup` with the specified capacity
     pub fn with_capacity(capacity: usize) -> Self {
-        NameServerConfigGroup(
+        Self(
             Vec::with_capacity(capacity),
             #[cfg(feature = "dns-over-rustls")]
             None,
@@ -686,11 +686,11 @@ impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
     fn from(configs: Vec<NameServerConfig>) -> Self {
         #[cfg(not(feature = "dns-over-rustls"))]
         {
-            NameServerConfigGroup(configs)
+            Self(configs)
         }
         #[cfg(feature = "dns-over-rustls")]
         {
-            NameServerConfigGroup(configs, None)
+            Self(configs, None)
         }
     }
 }
@@ -714,7 +714,7 @@ pub enum LookupIpStrategy {
 impl Default for LookupIpStrategy {
     /// Returns [`LookupIpStrategy::Ipv4thenIpv6`] as the default.
     fn default() -> Self {
-        LookupIpStrategy::Ipv4thenIpv6
+        Self::Ipv4thenIpv6
     }
 }
 
@@ -792,7 +792,7 @@ impl Default for ResolverOpts {
     ///
     /// This follows the resolv.conf defaults as defined in the [Linux man pages](http://man7.org/linux/man-pages/man5/resolv.conf.5.html)
     fn default() -> Self {
-        ResolverOpts {
+        Self {
             ndots: 1,
             timeout: Duration::from_secs(5),
             attempts: 2,

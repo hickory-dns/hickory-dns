@@ -210,7 +210,7 @@ impl<'q> BinDecodable<'q> for MessageRequest {
                 header.merge_response_code(high_response_code);
             }
 
-            Ok(MessageRequest {
+            Ok(Self {
                 header,
                 query,
                 answers,
@@ -257,7 +257,7 @@ impl Queries {
             .to_vec()
             .into_boxed_slice();
 
-        Ok(Queries { queries, original })
+        Ok(Self { queries, original })
     }
 
     /// return the number of queries in the request
@@ -368,7 +368,7 @@ pub trait UpdateRequest {
 
 impl UpdateRequest for MessageRequest {
     fn id(&self) -> u16 {
-        MessageRequest::id(self)
+        Self::id(self)
     }
 
     fn zone(&self) -> &LowerQuery {

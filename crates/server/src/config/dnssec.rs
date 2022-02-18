@@ -61,7 +61,7 @@ impl KeyConfig {
         is_zone_signing_key: bool,
         is_zone_update_auth: bool,
     ) -> Self {
-        KeyConfig {
+        Self {
             key_path,
             password,
             algorithm: algorithm.as_str().to_string(),
@@ -179,7 +179,7 @@ pub enum CertType {
 
 impl Default for CertType {
     fn default() -> Self {
-        CertType::Pkcs12
+        Self::Pkcs12
     }
 }
 
@@ -196,7 +196,7 @@ pub enum PrivateKeyType {
 
 impl Default for PrivateKeyType {
     fn default() -> Self {
-        PrivateKeyType::Der
+        Self::Der
     }
 }
 

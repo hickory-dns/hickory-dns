@@ -68,8 +68,8 @@ impl NSEC {
     /// # Returns
     ///
     /// An NSEC RData for use in a Resource Record
-    pub fn new(next_domain_name: Name, type_bit_maps: Vec<RecordType>) -> NSEC {
-        NSEC {
+    pub fn new(next_domain_name: Name, type_bit_maps: Vec<RecordType>) -> Self {
+        Self {
             next_domain_name,
             type_bit_maps,
         }
@@ -86,7 +86,7 @@ impl NSEC {
     /// # Returns
     ///
     /// An NSEC RData for use in a Resource Record
-    pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: Vec<RecordType>) -> NSEC {
+    pub fn new_cover_self(next_domain_name: Name, mut type_bit_maps: Vec<RecordType>) -> Self {
         type_bit_maps.push(RecordType::NSEC);
 
         Self::new(next_domain_name, type_bit_maps)

@@ -140,18 +140,18 @@ pub enum CertUsage {
 impl From<u8> for CertUsage {
     fn from(usage: u8) -> Self {
         match usage {
-            0 => CertUsage::CA,
-            1 => CertUsage::Service,
-            2 => CertUsage::TrustAnchor,
-            3 => CertUsage::DomainIssued,
-            4..=254 => CertUsage::Unassigned(usage),
-            255 => CertUsage::Private,
+            0 => Self::CA,
+            1 => Self::Service,
+            2 => Self::TrustAnchor,
+            3 => Self::DomainIssued,
+            4..=254 => Self::Unassigned(usage),
+            255 => Self::Private,
         }
     }
 }
 
 impl From<CertUsage> for u8 {
-    fn from(usage: CertUsage) -> u8 {
+    fn from(usage: CertUsage) -> Self {
         match usage {
             CertUsage::CA => 0,
             CertUsage::Service => 1,
@@ -200,16 +200,16 @@ pub enum Selector {
 impl From<u8> for Selector {
     fn from(selector: u8) -> Self {
         match selector {
-            0 => Selector::Full,
-            1 => Selector::Spki,
-            2..=254 => Selector::Unassigned(selector),
-            255 => Selector::Private,
+            0 => Self::Full,
+            1 => Self::Spki,
+            2..=254 => Self::Unassigned(selector),
+            255 => Self::Private,
         }
     }
 }
 
 impl From<Selector> for u8 {
-    fn from(selector: Selector) -> u8 {
+    fn from(selector: Selector) -> Self {
         match selector {
             Selector::Full => 0,
             Selector::Spki => 1,
@@ -262,17 +262,17 @@ pub enum Matching {
 impl From<u8> for Matching {
     fn from(matching: u8) -> Self {
         match matching {
-            0 => Matching::Raw,
-            1 => Matching::Sha256,
-            2 => Matching::Sha512,
-            3..=254 => Matching::Unassigned(matching),
-            255 => Matching::Private,
+            0 => Self::Raw,
+            1 => Self::Sha256,
+            2 => Self::Sha512,
+            3..=254 => Self::Unassigned(matching),
+            255 => Self::Private,
         }
     }
 }
 
 impl From<Matching> for u8 {
-    fn from(matching: Matching) -> u8 {
+    fn from(matching: Matching) -> Self {
         match matching {
             Matching::Raw => 0,
             Matching::Sha256 => 1,
@@ -308,7 +308,7 @@ impl TLSA {
         matching: Matching,
         cert_data: Vec<u8>,
     ) -> Self {
-        TLSA {
+        Self {
             cert_usage,
             selector,
             matching,

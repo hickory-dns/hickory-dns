@@ -73,8 +73,8 @@ pub struct TlsStreamBuilder<S> {
 
 impl<S: Connect> TlsStreamBuilder<S> {
     /// Constructs a new TlsStreamBuilder
-    pub fn new() -> TlsStreamBuilder<S> {
-        TlsStreamBuilder {
+    pub fn new() -> Self {
+        Self {
             ca_chain: vec![],
             identity: None,
             bind_addr: None,

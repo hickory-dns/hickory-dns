@@ -35,7 +35,7 @@ impl OPENPGPKEY {
     /// * `public_key` - an OpenPGP Transferable Public Key. This will NOT
     ///    be checked.
     pub fn new(public_key: Vec<u8>) -> Self {
-        OPENPGPKEY { public_key }
+        Self { public_key }
     }
 
     /// The public key. This should be an OpenPGP Transferable Public Key,

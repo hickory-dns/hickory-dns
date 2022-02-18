@@ -86,7 +86,7 @@ impl BufDnsStreamHandle {
         let (sender, receiver) = mpsc::channel(CHANNEL_BUFFER_SIZE);
         let receiver = receiver.fuse().peekable();
 
-        let this = BufDnsStreamHandle {
+        let this = Self {
             remote_addr,
             sender,
         };
@@ -183,13 +183,11 @@ pub struct OneshotDnsRequest {
 }
 
 impl OneshotDnsRequest {
-    fn oneshot(
-        dns_request: DnsRequest,
-    ) -> (OneshotDnsRequest, oneshot::Receiver<DnsResponseStream>) {
+    fn oneshot(dns_request: DnsRequest) -> (Self, oneshot::Receiver<DnsResponseStream>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
         (
-            OneshotDnsRequest {
+            Self {
                 dns_request,
                 sender_for_response,
             },
@@ -234,7 +232,7 @@ impl Stream for DnsResponseReceiver {
                     let future = ready!(receiver
                         .poll(cx)
                         .map_err(|_| ProtoError::from("receiver was canceled")))?;
-                    DnsResponseReceiver::Received(future)
+                    Self::Received(future)
                 }
                 DnsResponseReceiver::Received(ref mut stream) => {
                     return stream.poll_next_unpin(cx);

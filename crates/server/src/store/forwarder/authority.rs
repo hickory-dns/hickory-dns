@@ -41,7 +41,7 @@ impl ForwardAuthority {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
-        Ok(ForwardAuthority {
+        Ok(Self {
             origin: Name::root().into(),
             resolver,
         })
@@ -65,7 +65,7 @@ impl ForwardAuthority {
         info!("forward resolver configured: {}: ", origin);
 
         // TODO: this might be infallible?
-        Ok(ForwardAuthority {
+        Ok(Self {
             origin: origin.into(),
             resolver,
         })

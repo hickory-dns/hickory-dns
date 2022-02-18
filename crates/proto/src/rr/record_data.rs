@@ -716,105 +716,105 @@ impl RData {
         let result = match record_type {
             RecordType::A => {
                 trace!("reading A");
-                rdata::a::read(decoder).map(RData::A)
+                rdata::a::read(decoder).map(Self::A)
             }
             RecordType::AAAA => {
                 trace!("reading AAAA");
-                rdata::aaaa::read(decoder).map(RData::AAAA)
+                rdata::aaaa::read(decoder).map(Self::AAAA)
             }
             RecordType::ANAME => {
                 trace!("reading ANAME");
-                rdata::name::read(decoder).map(RData::ANAME)
+                rdata::name::read(decoder).map(Self::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
             }
             RecordType::CAA => {
                 trace!("reading CAA");
-                rdata::caa::read(decoder, rdata_length).map(RData::CAA)
+                rdata::caa::read(decoder, rdata_length).map(Self::CAA)
             }
             RecordType::CNAME => {
                 trace!("reading CNAME");
-                rdata::name::read(decoder).map(RData::CNAME)
+                rdata::name::read(decoder).map(Self::CNAME)
             }
             RecordType::CSYNC => {
                 trace!("reading CSYNC");
-                rdata::csync::read(decoder, rdata_length).map(RData::CSYNC)
+                rdata::csync::read(decoder, rdata_length).map(Self::CSYNC)
             }
             RecordType::HINFO => {
                 trace!("reading HINFO");
-                rdata::hinfo::read(decoder).map(RData::HINFO)
+                rdata::hinfo::read(decoder).map(Self::HINFO)
             }
             RecordType::HTTPS => {
                 trace!("reading HTTPS");
-                rdata::svcb::read(decoder, rdata_length).map(RData::HTTPS)
+                rdata::svcb::read(decoder, rdata_length).map(Self::HTTPS)
             }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
                 // we should never get here, since ZERO should be 0 length, and None in the Record.
                 //   this invariant is verified below, and the decoding will fail with an err.
                 #[allow(deprecated)]
-                Ok(RData::ZERO)
+                Ok(Self::ZERO)
             }
             RecordType::MX => {
                 trace!("reading MX");
-                rdata::mx::read(decoder).map(RData::MX)
+                rdata::mx::read(decoder).map(Self::MX)
             }
             RecordType::NAPTR => {
                 trace!("reading NAPTR");
-                rdata::naptr::read(decoder).map(RData::NAPTR)
+                rdata::naptr::read(decoder).map(Self::NAPTR)
             }
             RecordType::NULL => {
                 trace!("reading NULL");
-                rdata::null::read(decoder, rdata_length).map(RData::NULL)
+                rdata::null::read(decoder, rdata_length).map(Self::NULL)
             }
             RecordType::NS => {
                 trace!("reading NS");
-                rdata::name::read(decoder).map(RData::NS)
+                rdata::name::read(decoder).map(Self::NS)
             }
             RecordType::OPENPGPKEY => {
                 trace!("reading OPENPGPKEY");
-                rdata::openpgpkey::read(decoder, rdata_length).map(RData::OPENPGPKEY)
+                rdata::openpgpkey::read(decoder, rdata_length).map(Self::OPENPGPKEY)
             }
             RecordType::OPT => {
                 trace!("reading OPT");
-                rdata::opt::read(decoder, rdata_length).map(RData::OPT)
+                rdata::opt::read(decoder, rdata_length).map(Self::OPT)
             }
             RecordType::PTR => {
                 trace!("reading PTR");
-                rdata::name::read(decoder).map(RData::PTR)
+                rdata::name::read(decoder).map(Self::PTR)
             }
             RecordType::SOA => {
                 trace!("reading SOA");
-                rdata::soa::read(decoder).map(RData::SOA)
+                rdata::soa::read(decoder).map(Self::SOA)
             }
             RecordType::SRV => {
                 trace!("reading SRV");
-                rdata::srv::read(decoder).map(RData::SRV)
+                rdata::srv::read(decoder).map(Self::SRV)
             }
             RecordType::SSHFP => {
                 trace!("reading SSHFP");
-                rdata::sshfp::read(decoder, rdata_length).map(RData::SSHFP)
+                rdata::sshfp::read(decoder, rdata_length).map(Self::SSHFP)
             }
             RecordType::SVCB => {
                 trace!("reading SVCB");
-                rdata::svcb::read(decoder, rdata_length).map(RData::SVCB)
+                rdata::svcb::read(decoder, rdata_length).map(Self::SVCB)
             }
             RecordType::TLSA => {
                 trace!("reading TLSA");
-                rdata::tlsa::read(decoder, rdata_length).map(RData::TLSA)
+                rdata::tlsa::read(decoder, rdata_length).map(Self::TLSA)
             }
             RecordType::TXT => {
                 trace!("reading TXT");
-                rdata::txt::read(decoder, rdata_length).map(RData::TXT)
+                rdata::txt::read(decoder, rdata_length).map(Self::TXT)
             }
             #[cfg(feature = "dnssec")]
             r if r.is_dnssec() => {
-                DNSSECRData::read(decoder, record_type, rdata_length).map(RData::DNSSEC)
+                DNSSECRData::read(decoder, record_type, rdata_length).map(Self::DNSSEC)
             }
             record_type => {
                 trace!("reading Unknown record: {}", record_type);
-                rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown {
+                rdata::null::read(decoder, rdata_length).map(|rdata| Self::Unknown {
                     code: record_type.into(),
                     rdata,
                 })
@@ -1031,8 +1031,8 @@ impl fmt::Display for RData {
     }
 }
 
-impl PartialOrd<RData> for RData {
-    fn partial_cmp(&self, other: &RData) -> Option<Ordering> {
+impl PartialOrd<Self> for RData {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }

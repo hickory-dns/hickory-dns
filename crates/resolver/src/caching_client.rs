@@ -88,7 +88,7 @@ where
 
     pub(crate) fn with_cache(lru: DnsLru, client: C, preserve_intermediates: bool) -> Self {
         let query_depth = Arc::new(AtomicU8::new(0));
-        CachingClient {
+        Self {
             lru,
             client,
             query_depth,
@@ -432,7 +432,7 @@ where
         if was_cname && client.query_depth.load(Ordering::Acquire) < MAX_QUERY_DEPTH {
             let next_query = Query::query(search_name, query.query_type());
             Ok(Records::CnameChain {
-                next: Box::pin(CachingClient::inner_lookup(
+                next: Box::pin(Self::inner_lookup(
                     next_query,
                     options,
                     client.clone(),

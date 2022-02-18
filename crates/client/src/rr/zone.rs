@@ -115,7 +115,7 @@ struct TrieName(Name);
 
 impl From<Name> for TrieName {
     fn from(n: Name) -> Self {
-        TrieName(n)
+        Self(n)
     }
 }
 
@@ -243,7 +243,7 @@ impl UsageTrie {
             .insert(EXAMPLE_ORG.clone().into(), &EXAMPLE_ORG)
             .is_none());
 
-        UsageTrie(trie)
+        Self(trie)
     }
 
     /// Fetches the ZoneUsage

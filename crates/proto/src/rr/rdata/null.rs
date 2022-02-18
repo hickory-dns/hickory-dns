@@ -48,18 +48,18 @@ pub struct NULL {
 
 impl NULL {
     /// Construct a new NULL RData
-    pub const fn new() -> NULL {
+    pub const fn new() -> Self {
         Self {
             anything: Vec::new(),
         }
     }
 
     /// Constructs a new NULL RData with the associated data
-    pub fn with(anything: Vec<u8>) -> NULL {
+    pub fn with(anything: Vec<u8>) -> Self {
         // FIXME: we don't want empty data for NULL's, should be Option in the Record
         debug_assert!(!anything.is_empty());
 
-        NULL { anything }
+        Self { anything }
     }
 
     /// Returns the buffer stored in the NULL

@@ -76,7 +76,7 @@ where
     S::Item: Clone + Send + Unpin,
 {
     fn clone(&self) -> Self {
-        RcStream {
+        Self {
             stream_and_result: Arc::clone(&self.stream_and_result),
             pos: 0, // index is not kept to allow to read first messages
         }

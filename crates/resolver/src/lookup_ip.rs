@@ -62,7 +62,7 @@ impl LookupIp {
 
 impl From<Lookup> for LookupIp {
     fn from(lookup: Lookup) -> Self {
-        LookupIp(lookup)
+        Self(lookup)
     }
 }
 
@@ -216,7 +216,7 @@ where
     ) -> Self {
         let empty =
             ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"));
-        LookupIpFuture {
+        Self {
             names,
             strategy,
             client_cache,

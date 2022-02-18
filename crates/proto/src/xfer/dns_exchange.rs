@@ -243,7 +243,7 @@ where
         outbound_messages: mpsc::Receiver<OneshotDnsRequest>,
         sender: BufDnsRequestStreamHandle,
     ) -> Self {
-        DnsExchangeConnect(DnsExchangeConnectInner::Connecting {
+        Self(DnsExchangeConnectInner::Connecting {
             connect_future,
             outbound_messages: Some(outbound_messages),
             sender: Some(sender),
@@ -317,7 +317,7 @@ where
                                 sender.take().expect("cannot poll after complete"),
                             );
 
-                            next = DnsExchangeConnectInner::Connected {
+                            next = Self::Connected {
                                 exchange,
                                 background: Some(background),
                             };
@@ -325,7 +325,7 @@ where
                         Poll::Pending => return Poll::Pending,
                         Poll::Ready(Err(error)) => {
                             debug!("stream errored while connecting: {:?}", error);
-                            next = DnsExchangeConnectInner::FailAll {
+                            next = Self::FailAll {
                                 error,
                                 outbound_messages: outbound_messages
                                     .take()

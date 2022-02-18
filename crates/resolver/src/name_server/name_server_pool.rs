@@ -64,7 +64,7 @@ where
         config: &ResolverConfig,
         options: &ResolverOpts,
         conn_provider: P,
-    ) -> NameServerPool<C, P> {
+    ) -> Self {
         let datagram_conns: Vec<NameServer<C, P>> = config
             .name_servers()
             .iter()
@@ -101,7 +101,7 @@ where
             })
             .collect();
 
-        NameServerPool {
+        Self {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             #[cfg(feature = "mdns")]
@@ -117,7 +117,7 @@ where
         datagram_conns: Vec<NameServer<C, P>>,
         stream_conns: Vec<NameServer<C, P>>,
     ) -> Self {
-        NameServerPool {
+        Self {
             datagram_conns: Arc::from(datagram_conns),
             stream_conns: Arc::from(stream_conns),
             options: *options,
@@ -148,7 +148,7 @@ where
         datagram_conns: Arc<[NameServer<C, P>]>,
         stream_conns: Arc<[NameServer<C, P>]>,
     ) -> Self {
-        NameServerPool {
+        Self {
             datagram_conns,
             stream_conns,
             options: *options,

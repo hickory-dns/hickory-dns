@@ -44,7 +44,7 @@ impl TSigner {
         fudge: u16,
     ) -> ProtoResult<Self> {
         if algorithm.supported() {
-            Ok(TSigner(Arc::new(TSignerInner {
+            Ok(Self(Arc::new(TSignerInner {
                 key,
                 algorithm,
                 signer_name,

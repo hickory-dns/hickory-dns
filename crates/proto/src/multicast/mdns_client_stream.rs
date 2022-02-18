@@ -64,7 +64,7 @@ impl MdnsClientStream {
             MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
 
         let stream_future = stream_future
-            .map_ok(move |mdns_stream| MdnsClientStream { mdns_stream })
+            .map_ok(move |mdns_stream| Self { mdns_stream })
             .map_err(ProtoError::from);
 
         let new_future = Box::new(stream_future);

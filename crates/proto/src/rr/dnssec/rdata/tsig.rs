@@ -230,7 +230,7 @@ impl TSIG {
         error: u16,
         other: Vec<u8>,
     ) -> Self {
-        TSIG {
+        Self {
             algorithm,
             time,
             fudge,
@@ -316,7 +316,7 @@ impl TSIG {
     ///
     /// * `mac` - mac to be stored in this record.
     pub fn set_mac(self, mac: Vec<u8>) -> Self {
-        TSIG { mac, ..self }
+        Self { mac, ..self }
     }
 }
 
@@ -477,7 +477,7 @@ impl TsigAlgorithm {
     pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         let mut name = Name::read(decoder)?;
         name.set_fqdn(false);
-        Ok(TsigAlgorithm::from_name(name))
+        Ok(Self::from_name(name))
     }
 
     /// Convert a DNS name to an Algorithm

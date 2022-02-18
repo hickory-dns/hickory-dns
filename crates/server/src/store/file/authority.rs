@@ -61,11 +61,11 @@ struct FileReaderState {
 
 impl FileReaderState {
     fn new() -> Self {
-        FileReaderState { level: 0 }
+        Self { level: 0 }
     }
 
     fn next_level(&self) -> Self {
-        FileReaderState {
+        Self {
             level: self.level + 1,
         }
     }
@@ -162,11 +162,7 @@ impl FileAuthority {
                         zone_path.display()
                     );
 
-                    FileAuthority::read_file(
-                        include_zone_path,
-                        &mut include_buf,
-                        state.next_level(),
-                    )?;
+                    Self::read_file(include_zone_path, &mut include_buf, state.next_level())?;
                     buf.push_str(&include_buf);
                 }
                 _ => {
@@ -196,7 +192,7 @@ impl FileAuthority {
 
         // TODO: this should really use something to read line by line or some other method to
         //  keep the usage down. and be a custom lexer...
-        FileAuthority::read_file(zone_path, &mut buf, FileReaderState::new())
+        Self::read_file(zone_path, &mut buf, FileReaderState::new())
             .map_err(|e| format!("failed to read {}: {:?}", &config.zone_file_path, e))?;
 
         let lexer = Lexer::new(&buf);
@@ -211,7 +207,7 @@ impl FileAuthority {
         );
         debug!("zone: {:#?}", records);
 
-        FileAuthority::new(origin, records, zone_type, allow_axfr)
+        Self::new(origin, records, zone_type, allow_axfr)
     }
 
     /// Unwrap the InMemoryAuthority

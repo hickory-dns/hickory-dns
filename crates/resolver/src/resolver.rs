@@ -84,7 +84,7 @@ impl Resolver {
         let async_resolver =
             AsyncResolver::new(config, options, TokioHandle).expect("failed to create resolver");
 
-        Ok(Resolver {
+        Ok(Self {
             runtime: Mutex::new(runtime),
             async_resolver,
         })

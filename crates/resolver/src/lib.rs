@@ -233,6 +233,7 @@
     clippy::dbg_macro,
     clippy::print_stdout,
     clippy::unimplemented,
+    clippy::use_self,
     missing_copy_implementations,
     missing_docs,
     non_snake_case,

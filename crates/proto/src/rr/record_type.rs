@@ -125,37 +125,37 @@ impl RecordType {
     /// Returns true if this is an ANY
     #[inline]
     pub fn is_any(self) -> bool {
-        self == RecordType::ANY
+        self == Self::ANY
     }
 
     /// Returns true if this is a CNAME
     #[inline]
     pub fn is_cname(self) -> bool {
-        self == RecordType::CNAME
+        self == Self::CNAME
     }
 
     /// Returns true if this is an NS
     #[inline]
     pub fn is_ns(self) -> bool {
-        self == RecordType::NS
+        self == Self::NS
     }
 
     /// Returns true if this is an SOA
     #[inline]
     pub fn is_soa(self) -> bool {
-        self == RecordType::SOA
+        self == Self::SOA
     }
 
     /// Returns true if this is an SRV
     #[inline]
     pub fn is_srv(self) -> bool {
-        self == RecordType::SRV
+        self == Self::SRV
     }
 
     /// Returns true if this is an A or an AAAA record
     #[inline]
     pub fn is_ip_addr(self) -> bool {
-        matches!(self, RecordType::A | RecordType::AAAA)
+        matches!(self, Self::A | Self::AAAA)
     }
 
     /// Returns true if this is a DNSSEC RecordType
@@ -163,24 +163,24 @@ impl RecordType {
     pub fn is_dnssec(self) -> bool {
         matches!(
             self,
-            RecordType::DNSKEY
-                | RecordType::CDNSKEY
-                | RecordType::CDS
-                | RecordType::DS
-                | RecordType::KEY
-                | RecordType::NSEC
-                | RecordType::NSEC3
-                | RecordType::NSEC3PARAM
-                | RecordType::RRSIG
-                | RecordType::SIG
-                | RecordType::TSIG
+            Self::DNSKEY
+                | Self::CDNSKEY
+                | Self::CDS
+                | Self::DS
+                | Self::KEY
+                | Self::NSEC
+                | Self::NSEC3
+                | Self::NSEC3PARAM
+                | Self::RRSIG
+                | Self::SIG
+                | Self::TSIG
         )
     }
 
     /// Returns true if this is a Zero (unspecified) RecordType
     #[inline]
     pub fn is_zero(self) -> bool {
-        self == RecordType::ZERO
+        self == Self::ZERO
     }
 }
 
@@ -200,39 +200,39 @@ impl FromStr for RecordType {
         // TODO missing stuff?
         debug_assert!(str.chars().all(|x| char::is_digit(x, 36)));
         match str {
-            "A" => Ok(RecordType::A),
-            "AAAA" => Ok(RecordType::AAAA),
-            "ANAME" => Ok(RecordType::ANAME),
-            "AXFR" => Ok(RecordType::AXFR),
-            "CAA" => Ok(RecordType::CAA),
-            "CDNSKEY" => Ok(RecordType::CDNSKEY),
-            "CDS" => Ok(RecordType::CDS),
-            "CNAME" => Ok(RecordType::CNAME),
-            "CSYNC" => Ok(RecordType::CSYNC),
-            "DNSKEY" => Ok(RecordType::DNSKEY),
-            "DS" => Ok(RecordType::DS),
-            "HINFO" => Ok(RecordType::HINFO),
-            "HTTPS" => Ok(RecordType::HTTPS),
-            "KEY" => Ok(RecordType::KEY),
-            "MX" => Ok(RecordType::MX),
-            "NAPTR" => Ok(RecordType::NAPTR),
-            "NSEC" => Ok(RecordType::NSEC),
-            "NSEC3" => Ok(RecordType::NSEC3),
-            "NSEC3PARAM" => Ok(RecordType::NSEC3PARAM),
-            "NS" => Ok(RecordType::NS),
-            "NULL" => Ok(RecordType::NULL),
-            "OPENPGPKEY" => Ok(RecordType::OPENPGPKEY),
-            "PTR" => Ok(RecordType::PTR),
-            "RRSIG" => Ok(RecordType::RRSIG),
-            "SIG" => Ok(RecordType::SIG),
-            "SOA" => Ok(RecordType::SOA),
-            "SRV" => Ok(RecordType::SRV),
-            "SSHFP" => Ok(RecordType::SSHFP),
-            "SVCB" => Ok(RecordType::SVCB),
-            "TLSA" => Ok(RecordType::TLSA),
-            "TXT" => Ok(RecordType::TXT),
-            "TSIG" => Ok(RecordType::TSIG),
-            "ANY" | "*" => Ok(RecordType::ANY),
+            "A" => Ok(Self::A),
+            "AAAA" => Ok(Self::AAAA),
+            "ANAME" => Ok(Self::ANAME),
+            "AXFR" => Ok(Self::AXFR),
+            "CAA" => Ok(Self::CAA),
+            "CDNSKEY" => Ok(Self::CDNSKEY),
+            "CDS" => Ok(Self::CDS),
+            "CNAME" => Ok(Self::CNAME),
+            "CSYNC" => Ok(Self::CSYNC),
+            "DNSKEY" => Ok(Self::DNSKEY),
+            "DS" => Ok(Self::DS),
+            "HINFO" => Ok(Self::HINFO),
+            "HTTPS" => Ok(Self::HTTPS),
+            "KEY" => Ok(Self::KEY),
+            "MX" => Ok(Self::MX),
+            "NAPTR" => Ok(Self::NAPTR),
+            "NSEC" => Ok(Self::NSEC),
+            "NSEC3" => Ok(Self::NSEC3),
+            "NSEC3PARAM" => Ok(Self::NSEC3PARAM),
+            "NS" => Ok(Self::NS),
+            "NULL" => Ok(Self::NULL),
+            "OPENPGPKEY" => Ok(Self::OPENPGPKEY),
+            "PTR" => Ok(Self::PTR),
+            "RRSIG" => Ok(Self::RRSIG),
+            "SIG" => Ok(Self::SIG),
+            "SOA" => Ok(Self::SOA),
+            "SRV" => Ok(Self::SRV),
+            "SSHFP" => Ok(Self::SSHFP),
+            "SVCB" => Ok(Self::SVCB),
+            "TLSA" => Ok(Self::TLSA),
+            "TXT" => Ok(Self::TXT),
+            "TSIG" => Ok(Self::TSIG),
+            "ANY" | "*" => Ok(Self::ANY),
             _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
         }
     }
@@ -249,45 +249,45 @@ impl From<u16> for RecordType {
     /// ```
     fn from(value: u16) -> Self {
         match value {
-            1 => RecordType::A,
-            28 => RecordType::AAAA,
+            1 => Self::A,
+            28 => Self::AAAA,
             // TODO: wrong value here, see https://github.com/bluejekyll/trust-dns/issues/723
-            65305 => RecordType::ANAME,
-            255 => RecordType::ANY,
-            251 => RecordType::IXFR,
-            252 => RecordType::AXFR,
-            257 => RecordType::CAA,
-            59 => RecordType::CDS,
-            60 => RecordType::CDNSKEY,
-            5 => RecordType::CNAME,
-            62 => RecordType::CSYNC,
-            48 => RecordType::DNSKEY,
-            43 => RecordType::DS,
-            13 => RecordType::HINFO,
-            65 => RecordType::HTTPS,
-            25 => RecordType::KEY,
-            15 => RecordType::MX,
-            35 => RecordType::NAPTR,
-            2 => RecordType::NS,
-            47 => RecordType::NSEC,
-            50 => RecordType::NSEC3,
-            51 => RecordType::NSEC3PARAM,
-            10 => RecordType::NULL,
-            61 => RecordType::OPENPGPKEY,
-            41 => RecordType::OPT,
-            12 => RecordType::PTR,
-            46 => RecordType::RRSIG,
-            24 => RecordType::SIG,
-            6 => RecordType::SOA,
-            33 => RecordType::SRV,
-            44 => RecordType::SSHFP,
-            64 => RecordType::SVCB,
-            52 => RecordType::TLSA,
-            250 => RecordType::TSIG,
-            16 => RecordType::TXT,
-            0 => RecordType::ZERO,
+            65305 => Self::ANAME,
+            255 => Self::ANY,
+            251 => Self::IXFR,
+            252 => Self::AXFR,
+            257 => Self::CAA,
+            59 => Self::CDS,
+            60 => Self::CDNSKEY,
+            5 => Self::CNAME,
+            62 => Self::CSYNC,
+            48 => Self::DNSKEY,
+            43 => Self::DS,
+            13 => Self::HINFO,
+            65 => Self::HTTPS,
+            25 => Self::KEY,
+            15 => Self::MX,
+            35 => Self::NAPTR,
+            2 => Self::NS,
+            47 => Self::NSEC,
+            50 => Self::NSEC3,
+            51 => Self::NSEC3PARAM,
+            10 => Self::NULL,
+            61 => Self::OPENPGPKEY,
+            41 => Self::OPT,
+            12 => Self::PTR,
+            46 => Self::RRSIG,
+            24 => Self::SIG,
+            6 => Self::SOA,
+            33 => Self::SRV,
+            44 => Self::SSHFP,
+            64 => Self::SVCB,
+            52 => Self::TLSA,
+            250 => Self::TSIG,
+            16 => Self::TXT,
+            0 => Self::ZERO,
             // all unknown record types
-            _ => RecordType::Unknown(value),
+            _ => Self::Unknown(value),
         }
     }
 }
@@ -422,8 +422,8 @@ impl From<RecordType> for u16 {
 }
 
 /// [Canonical DNS Name Order](https://tools.ietf.org/html/rfc4034#section-6)
-impl PartialOrd<RecordType> for RecordType {
-    fn partial_cmp(&self, other: &RecordType) -> Option<Ordering> {
+impl PartialOrd<Self> for RecordType {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }

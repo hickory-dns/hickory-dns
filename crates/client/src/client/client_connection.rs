@@ -47,7 +47,7 @@ pub enum Signer {
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl From<SigSigner> for Signer {
     fn from(s: SigSigner) -> Self {
-        Signer::Sig0(Box::new(s))
+        Self::Sig0(Box::new(s))
     }
 }
 
@@ -55,7 +55,7 @@ impl From<SigSigner> for Signer {
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 impl From<TSigner> for Signer {
     fn from(s: TSigner) -> Self {
-        Signer::TSIG(s)
+        Self::TSIG(s)
     }
 }
 

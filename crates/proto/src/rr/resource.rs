@@ -92,7 +92,7 @@ pub struct Record {
 
 impl Default for Record {
     fn default() -> Self {
-        Record {
+        Self {
             // TODO: these really should all be Optionals, I was lazy.
             name_labels: Name::new(),
             rr_type: RecordType::NULL,
@@ -110,8 +110,8 @@ impl Record {
     ///
     /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
     /// ttl of 0 and the 0.0.0.0 ip address.
-    pub fn new() -> Record {
-        Record::default()
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Create a record with the specified initial values.
@@ -121,8 +121,8 @@ impl Record {
     /// * `name` - name of the resource records
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
-    pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Record {
-        Record {
+    pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Self {
+        Self {
             name_labels: name,
             rr_type,
             dns_class: DNSClass::IN,
@@ -140,8 +140,8 @@ impl Record {
     /// * `name` - name of the resource records
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
     /// * `rdata` - record data to associate with the Record
-    pub fn from_rdata(name: Name, ttl: u32, rdata: RData) -> Record {
-        Record {
+    pub fn from_rdata(name: Name, ttl: u32, rdata: RData) -> Self {
+        Self {
             name_labels: name,
             rr_type: rdata.to_record_type(),
             dns_class: DNSClass::IN,
@@ -349,7 +349,7 @@ impl From<Record> for RecordParts {
             }
         }
 
-        RecordParts {
+        Self {
             name_labels,
             rr_type,
             dns_class,
@@ -410,7 +410,7 @@ impl BinEncodable for Record {
 impl<'r> BinDecodable<'r> for Record {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Record> {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
         let name_labels: Name = Name::read(decoder)?;
@@ -488,7 +488,7 @@ impl<'r> BinDecodable<'r> for Record {
             Some(RData::read(decoder, record_type, Restrict::new(rd_length))?)
         };
 
-        Ok(Record {
+        Ok(Self {
             name_labels,
             rr_type: record_type,
             dns_class: class,
@@ -622,7 +622,7 @@ impl Ord for Record {
     ///        originating authoritative zone or the Original TTL field of the
     ///        covering RRSIG RR.
     /// ```
-    fn cmp(&self, other: &Record) -> Ordering {
+    fn cmp(&self, other: &Self) -> Ordering {
         // TODO: given that the ordering of Resource Records is dependent on it's binary form and this
         //  method will be used during insertion sort or similar, we should probably do this
         //  conversion once somehow and store it separately. Or should the internal storage of all
@@ -637,7 +637,7 @@ impl Ord for Record {
     }
 }
 
-impl PartialOrd<Record> for Record {
+impl PartialOrd<Self> for Record {
     /// Canonical ordering as defined by
     ///  [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
     ///
@@ -667,7 +667,7 @@ impl PartialOrd<Record> for Record {
     ///        originating authoritative zone or the Original TTL field of the
     ///        covering RRSIG RR.
     /// ```
-    fn partial_cmp(&self, other: &Record) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }

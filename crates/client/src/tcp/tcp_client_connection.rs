@@ -72,7 +72,7 @@ impl TcpClientConnection {
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
     ) -> ClientResult<Self> {
-        Ok(TcpClientConnection {
+        Ok(Self {
             name_server,
             bind_addr,
             timeout,

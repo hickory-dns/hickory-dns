@@ -61,7 +61,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         config: NameServerConfig,
         options: ResolverOpts,
         conn_provider: P,
-    ) -> NameServer<C, P> {
+    ) -> Self {
         Self {
             config,
             options,
@@ -78,7 +78,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         options: ResolverOpts,
         client: C,
         conn_provider: P,
-    ) -> NameServer<C, P> {
+    ) -> Self {
         Self {
             config,
             options,

@@ -97,7 +97,7 @@ impl SqliteAuthority {
                 .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e))?;
 
             let in_memory = InMemoryAuthority::empty(zone_name.clone(), zone_type, allow_axfr);
-            let mut authority = SqliteAuthority::new(in_memory, config.allow_update, enable_dnssec);
+            let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 
             authority
                 .recover_with_journal(&journal)
@@ -125,7 +125,7 @@ impl SqliteAuthority {
             )?
             .unwrap();
 
-            let mut authority = SqliteAuthority::new(in_memory, config.allow_update, enable_dnssec);
+            let mut authority = Self::new(in_memory, config.allow_update, enable_dnssec);
 
             // if dynamic update is enabled, enable the journal
             info!("creating new journal: {:?}", journal_path);

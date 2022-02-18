@@ -150,7 +150,7 @@ impl CAA {
     ) -> Self {
         assert!(tag.is_issue() || tag.is_issuewild());
 
-        CAA {
+        Self {
             issuer_critical,
             tag,
             value: Value::Issuer(name, options),
@@ -194,7 +194,7 @@ impl CAA {
     ///
     /// If `value` is not `Value::Issuer`
     pub fn new_iodef(issuer_critical: bool, url: Url) -> Self {
-        CAA {
+        Self {
             issuer_critical,
             tag: Property::Iodef,
             value: Value::Url(url),
@@ -277,18 +277,18 @@ impl Property {
 }
 
 impl From<String> for Property {
-    fn from(tag: String) -> Property {
+    fn from(tag: String) -> Self {
         // RFC6488 section 5.1 states that "Matching of tag values is case
         // insensitive."
         let lower = tag.to_ascii_lowercase();
         match &lower as &str {
-            "issue" => return Property::Issue,
-            "issuewild" => return Property::IssueWild,
-            "iodef" => return Property::Iodef,
+            "issue" => return Self::Issue,
+            "issuewild" => return Self::IssueWild,
+            "iodef" => return Self::Iodef,
             &_ => (),
         }
 
-        Property::Unknown(tag)
+        Self::Unknown(tag)
     }
 }
 
@@ -639,7 +639,7 @@ pub struct KeyValue {
 impl KeyValue {
     /// Construct a new KeyValue pair
     pub fn new<K: Into<String>, V: Into<String>>(key: K, value: V) -> Self {
-        KeyValue {
+        Self {
             key: key.into(),
             value: value.into(),
         }

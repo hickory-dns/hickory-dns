@@ -221,16 +221,16 @@ pub enum SvcParamKey {
 impl From<u16> for SvcParamKey {
     fn from(val: u16) -> Self {
         match val {
-            0 => SvcParamKey::Mandatory,
-            1 => SvcParamKey::Alpn,
-            2 => SvcParamKey::NoDefaultAlpn,
-            3 => SvcParamKey::Port,
-            4 => SvcParamKey::Ipv4Hint,
-            5 => SvcParamKey::EchConfig,
-            6 => SvcParamKey::Ipv6Hint,
-            65280..=65534 => SvcParamKey::Key(val),
-            65535 => SvcParamKey::Key65535,
-            _ => SvcParamKey::Unknown(val),
+            0 => Self::Mandatory,
+            1 => Self::Alpn,
+            2 => Self::NoDefaultAlpn,
+            3 => Self::Port,
+            4 => Self::Ipv4Hint,
+            5 => Self::EchConfig,
+            6 => Self::Ipv6Hint,
+            65280..=65534 => Self::Key(val),
+            65535 => Self::Key65535,
+            _ => Self::Unknown(val),
         }
     }
 }
@@ -306,14 +306,14 @@ impl std::str::FromStr for SvcParamKey {
         }
 
         let key = match s {
-            "mandatory" => SvcParamKey::Mandatory,
-            "alpn" => SvcParamKey::Alpn,
-            "no-default-alpn" => SvcParamKey::NoDefaultAlpn,
-            "port" => SvcParamKey::Port,
-            "ipv4hint" => SvcParamKey::Ipv4Hint,
-            "echconfig" => SvcParamKey::EchConfig,
-            "ipv6hint" => SvcParamKey::Ipv6Hint,
-            "key65535" => SvcParamKey::Key65535,
+            "mandatory" => Self::Mandatory,
+            "alpn" => Self::Alpn,
+            "no-default-alpn" => Self::NoDefaultAlpn,
+            "port" => Self::Port,
+            "ipv4hint" => Self::Ipv4Hint,
+            "echconfig" => Self::EchConfig,
+            "ipv6hint" => Self::Ipv6Hint,
+            "key65535" => Self::Key65535,
             _ => parse_unknown_key(s)?,
         };
 
@@ -585,7 +585,7 @@ impl<'r> BinDecodable<'r> for Mandatory {
             return Err(ProtoError::from("Mandatory expects at least one value"));
         }
 
-        Ok(Mandatory(keys))
+        Ok(Self(keys))
     }
 }
 
@@ -754,7 +754,7 @@ impl<'r> BinDecodable<'r> for Alpn {
             return Err(ProtoError::from("Alpn expects at least one value"));
         }
 
-        Ok(Alpn(alpns))
+        Ok(Self(alpns))
     }
 }
 
@@ -831,7 +831,7 @@ impl<'r> BinDecodable<'r> for EchConfig {
         let data =
             decoder.read_vec(redundant_len)?.unverified(/*up to consumer to validate this data*/);
 
-        Ok(EchConfig(data))
+        Ok(Self(data))
     }
 }
 
@@ -944,7 +944,7 @@ where
             ips.push(T::read(decoder)?)
         }
 
-        Ok(IpHint(ips))
+        Ok(Self(ips))
     }
 }
 
@@ -1012,7 +1012,7 @@ impl<'r> BinDecodable<'r> for Unknown {
             unknowns.push(data)
         }
 
-        Ok(Unknown(unknowns))
+        Ok(Self(unknowns))
     }
 }
 

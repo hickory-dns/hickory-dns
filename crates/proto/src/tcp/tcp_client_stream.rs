@@ -82,7 +82,7 @@ impl<S: Connect> TcpClientStream<S> {
 
         let new_future = Box::pin(
             stream_future
-                .map_ok(move |tcp_stream| TcpClientStream { tcp_stream })
+                .map_ok(move |tcp_stream| Self { tcp_stream })
                 .map_err(ProtoError::from),
         );
 
@@ -93,7 +93,7 @@ impl<S: Connect> TcpClientStream<S> {
 impl<S: DnsTcpStream> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
-        TcpClientStream { tcp_stream }
+        Self { tcp_stream }
     }
 }
 

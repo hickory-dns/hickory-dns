@@ -74,8 +74,8 @@ impl Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),

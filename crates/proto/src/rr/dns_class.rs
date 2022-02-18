@@ -54,11 +54,11 @@ impl FromStr for DNSClass {
     fn from_str(str: &str) -> ProtoResult<Self> {
         debug_assert!(str.chars().all(|x| char::is_ascii_uppercase(&x)));
         match str {
-            "IN" => Ok(DNSClass::IN),
-            "CH" => Ok(DNSClass::CH),
-            "HS" => Ok(DNSClass::HS),
-            "NONE" => Ok(DNSClass::NONE),
-            "ANY" | "*" => Ok(DNSClass::ANY),
+            "IN" => Ok(Self::IN),
+            "CH" => Ok(Self::CH),
+            "HS" => Ok(Self::HS),
+            "NONE" => Ok(Self::NONE),
+            "ANY" | "*" => Ok(Self::ANY),
             _ => Err(ProtoErrorKind::UnknownDnsClassStr(str.to_string()).into()),
         }
     }
@@ -75,11 +75,11 @@ impl DNSClass {
     /// ```
     pub fn from_u16(value: u16) -> ProtoResult<Self> {
         match value {
-            1 => Ok(DNSClass::IN),
-            3 => Ok(DNSClass::CH),
-            4 => Ok(DNSClass::HS),
-            254 => Ok(DNSClass::NONE),
-            255 => Ok(DNSClass::ANY),
+            1 => Ok(Self::IN),
+            3 => Ok(Self::CH),
+            4 => Ok(Self::HS),
+            254 => Ok(Self::NONE),
+            255 => Ok(Self::ANY),
             _ => Err(ProtoErrorKind::UnknownDnsClassValue(value).into()),
         }
     }
@@ -88,7 +88,7 @@ impl DNSClass {
     pub fn for_opt(value: u16) -> Self {
         // From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`
         let value = value.max(512);
-        DNSClass::OPT(value)
+        Self::OPT(value)
     }
 }
 
@@ -151,8 +151,8 @@ impl From<DNSClass> for u16 {
     }
 }
 
-impl PartialOrd<DNSClass> for DNSClass {
-    fn partial_cmp(&self, other: &DNSClass) -> Option<Ordering> {
+impl PartialOrd<Self> for DNSClass {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
