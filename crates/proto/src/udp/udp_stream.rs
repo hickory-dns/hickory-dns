@@ -87,7 +87,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
         remote_addr: SocketAddr,
         bind_addr: Option<SocketAddr>,
     ) -> (
-        Box<dyn Future<Output = Result<UdpStream<S>, io::Error>> + Send + Unpin>,
+        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
@@ -98,7 +98,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream = Box::new(next_socket.map_ok(move |socket| UdpStream {
+        let stream = Box::new(next_socket.map_ok(move |socket| Self {
             socket,
             outbound_messages,
         }));
@@ -122,7 +122,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
     ///  handle which can be used to send messages into the stream.
     pub fn with_bound(socket: S, remote_addr: SocketAddr) -> (Self, BufDnsStreamHandle) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(remote_addr);
-        let stream = UdpStream {
+        let stream = Self {
             socket,
             outbound_messages,
         };
@@ -132,7 +132,7 @@ impl<S: UdpSocket + Send + 'static> UdpStream<S> {
 
     #[allow(unused)]
     pub(crate) fn from_parts(socket: S, outbound_messages: StreamReceiver) -> Self {
-        UdpStream {
+        Self {
             socket,
             outbound_messages,
         }
@@ -193,10 +193,7 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
     /// if no port is specified.
     ///
     /// If a port is specified in the bind address it is used.
-    pub(crate) fn new(
-        name_server: &SocketAddr,
-        bind_addr: &Option<SocketAddr>,
-    ) -> NextRandomUdpSocket<S> {
+    pub(crate) fn new(name_server: &SocketAddr, bind_addr: &Option<SocketAddr>) -> Self {
         let bind_address = match bind_addr {
             Some(ba) => *ba,
             None => match *name_server {
@@ -207,7 +204,7 @@ impl<S: UdpSocket> NextRandomUdpSocket<S> {
             },
         };
 
-        NextRandomUdpSocket {
+        Self {
             bind_address,
             marker: PhantomData,
         }
@@ -272,7 +269,7 @@ impl UdpSocket for tokio::net::UdpSocket {
     type Time = crate::TokioTime;
 
     async fn bind(addr: SocketAddr) -> io::Result<Self> {
-        tokio::net::UdpSocket::bind(addr).await
+        Self::bind(addr).await
     }
 
     fn poll_recv_from(
@@ -281,7 +278,7 @@ impl UdpSocket for tokio::net::UdpSocket {
         buf: &mut [u8],
     ) -> Poll<io::Result<(usize, SocketAddr)>> {
         let mut buf = tokio::io::ReadBuf::new(buf);
-        let addr = ready!(tokio::net::UdpSocket::poll_recv_from(self, cx, &mut buf))?;
+        let addr = ready!(Self::poll_recv_from(self, cx, &mut buf))?;
         let len = buf.filled().len();
 
         Poll::Ready(Ok((len, addr)))
@@ -293,7 +290,7 @@ impl UdpSocket for tokio::net::UdpSocket {
         buf: &[u8],
         target: SocketAddr,
     ) -> Poll<io::Result<usize>> {
-        tokio::net::UdpSocket::poll_send_to(self, cx, buf, target)
+        Self::poll_send_to(self, cx, buf, target)
     }
 }
 

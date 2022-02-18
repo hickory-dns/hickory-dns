@@ -22,7 +22,7 @@ pub struct LowerQuery {
 impl LowerQuery {
     /// Create a new query from name and type, class defaults to IN
     pub fn query(query: Query) -> Self {
-        LowerQuery {
+        Self {
             name: LowerName::new(query.name()),
             original: query,
         }
@@ -65,8 +65,8 @@ impl LowerQuery {
 }
 
 impl From<Query> for LowerQuery {
-    fn from(query: Query) -> LowerQuery {
-        LowerQuery::query(query)
+    fn from(query: Query) -> Self {
+        Self::query(query)
     }
 }
 
@@ -79,7 +79,7 @@ impl BinEncodable for LowerQuery {
 impl<'r> BinDecodable<'r> for LowerQuery {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let original = Query::read(decoder)?;
-        Ok(LowerQuery::query(original))
+        Ok(Self::query(original))
     }
 }
 

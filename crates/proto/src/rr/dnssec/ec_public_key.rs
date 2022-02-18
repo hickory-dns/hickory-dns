@@ -35,7 +35,7 @@ impl ECPublicKey {
         }
         let mut buf = [0x04u8; MAX_LEN];
         buf[1..len].copy_from_slice(without_prefix);
-        Ok(ECPublicKey { buf, len })
+        Ok(Self { buf, len })
     }
 
     pub fn prefixed_bytes(&self) -> &[u8] {

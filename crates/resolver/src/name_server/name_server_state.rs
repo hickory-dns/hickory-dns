@@ -37,17 +37,17 @@ enum NameServerStateInner {
 
 impl From<NameServerStateInner> for u8 {
     /// used for ordering purposes. The highest priority is placed on open connections
-    fn from(val: NameServerStateInner) -> u8 {
-        val as u8
+    fn from(val: NameServerStateInner) -> Self {
+        val as Self
     }
 }
 
 impl From<u8> for NameServerStateInner {
     fn from(val: u8) -> Self {
         match val {
-            2 => NameServerStateInner::Established,
-            1 => NameServerStateInner::Init,
-            _ => NameServerStateInner::Failed,
+            2 => Self::Established,
+            1 => Self::Init,
+            _ => Self::Failed,
         }
     }
 }
@@ -67,7 +67,7 @@ impl NameServerState {
     /// If send_dns is some, this will be sent on the first request when it is established
     pub(crate) fn init(_send_edns: Option<Edns>) -> Self {
         // TODO: need to track send_edns
-        NameServerState {
+        Self {
             conn_state: AtomicU8::new(NameServerStateInner::Init.into()),
             remote_edns: Mutex::new(Arc::new(None)),
         }

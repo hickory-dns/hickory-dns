@@ -462,7 +462,7 @@ impl EncodedSize for u16 {
 
 impl EncodedSize for Header {
     fn size_of() -> usize {
-        Header::len()
+        Self::len()
     }
 }
 

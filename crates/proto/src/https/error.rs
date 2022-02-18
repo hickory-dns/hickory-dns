@@ -79,8 +79,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -89,13 +89,13 @@ impl From<ErrorKind> for Error {
 }
 
 impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Error {
+    fn from(msg: &'static str) -> Self {
         ErrorKind::Message(msg).into()
     }
 }
 
 impl From<String> for Error {
-    fn from(msg: String) -> Error {
+    fn from(msg: String) -> Self {
         ErrorKind::Msg(msg).into()
     }
 }
@@ -126,6 +126,6 @@ impl From<h2::Error> for Error {
 
 impl From<Error> for io::Error {
     fn from(err: Error) -> Self {
-        io::Error::new(io::ErrorKind::Other, format!("https: {}", err))
+        Self::new(io::ErrorKind::Other, format!("https: {}", err))
     }
 }

@@ -125,28 +125,28 @@ impl Algorithm {
     /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> Self {
         match value {
-            1 => Algorithm::RSAMD5,
-            3 => Algorithm::DSA,
-            5 => Algorithm::RSASHA1,
-            7 => Algorithm::RSASHA1NSEC3SHA1,
-            8 => Algorithm::RSASHA256,
-            10 => Algorithm::RSASHA512,
-            13 => Algorithm::ECDSAP256SHA256,
-            14 => Algorithm::ECDSAP384SHA384,
-            15 => Algorithm::ED25519,
-            _ => Algorithm::Unknown(value),
+            1 => Self::RSAMD5,
+            3 => Self::DSA,
+            5 => Self::RSASHA1,
+            7 => Self::RSASHA1NSEC3SHA1,
+            8 => Self::RSASHA256,
+            10 => Self::RSASHA512,
+            13 => Self::ECDSAP256SHA256,
+            14 => Self::ECDSAP384SHA384,
+            15 => Self::ED25519,
+            _ => Self::Unknown(value),
         }
     }
 
     /// length in bytes that the hash portion of this function will produce
     pub fn hash_len(self) -> Option<usize> {
         match self {
-            Algorithm::RSAMD5 => Some(16), // 128 bits
-            Algorithm::DSA | Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => Some(20), // 160 bits
-            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => Some(32), // 256 bits
-            Algorithm::ECDSAP384SHA384 => Some(48),
-            Algorithm::RSASHA512 => Some(64), // 512 bites
-            Algorithm::Unknown(_) => None,
+            Self::RSAMD5 => Some(16),                                       // 128 bits
+            Self::DSA | Self::RSASHA1 | Self::RSASHA1NSEC3SHA1 => Some(20), // 160 bits
+            Self::RSASHA256 | Self::ECDSAP256SHA256 | Algorithm::ED25519 => Some(32), // 256 bits
+            Self::ECDSAP384SHA384 => Some(48),
+            Self::RSASHA512 => Some(64), // 512 bites
+            Self::Unknown(_) => None,
         }
     }
 
@@ -181,10 +181,10 @@ impl BinEncodable for Algorithm {
 
 impl<'r> BinDecodable<'r> for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Algorithm> {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let algorithm_id =
             decoder.read_u8()?.unverified(/*Algorithm is verified as safe in processing this*/);
-        Ok(Algorithm::from_u8(algorithm_id))
+        Ok(Self::from_u8(algorithm_id))
     }
 }
 
@@ -195,7 +195,7 @@ impl From<Algorithm> for &'static str {
 }
 
 impl From<Algorithm> for u8 {
-    fn from(a: Algorithm) -> u8 {
+    fn from(a: Algorithm) -> Self {
         match a {
             Algorithm::RSAMD5 => 1,
             Algorithm::DSA => 3,

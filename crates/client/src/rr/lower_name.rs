@@ -27,7 +27,7 @@ pub struct LowerName(Name);
 impl LowerName {
     /// Create a new domain::LowerName, i.e. label
     pub fn new(name: &Name) -> Self {
-        LowerName(name.to_lowercase())
+        Self(name.to_lowercase())
     }
 
     /// Returns true if there are no labels, i.e. it's empty.
@@ -85,8 +85,8 @@ impl LowerName {
     /// assert_eq!(LowerName::from(Name::from_str("com.").unwrap().base_name()), LowerName::from(Name::root()));
     /// assert_eq!(LowerName::from(Name::root().base_name()), LowerName::from(Name::root()));
     /// ```
-    pub fn base_name(&self) -> LowerName {
-        LowerName(self.0.base_name())
+    pub fn base_name(&self) -> Self {
+        Self(self.0.base_name())
     }
 
     /// returns true if the name components of self are all present at the end of name
@@ -160,7 +160,7 @@ impl LowerName {
     /// Replaces the first label with the wildcard character, "*"
     pub fn into_wildcard(self) -> Self {
         let name = self.0.into_wildcard();
-        LowerName(name)
+        Self(name)
     }
 }
 
@@ -175,7 +175,7 @@ impl Hash for LowerName {
     }
 }
 
-impl PartialEq<LowerName> for LowerName {
+impl PartialEq<Self> for LowerName {
     fn eq(&self, other: &Self) -> bool {
         self.0.eq_case(&other.0)
     }
@@ -194,8 +194,8 @@ impl fmt::Display for LowerName {
     }
 }
 
-impl PartialOrd<LowerName> for LowerName {
-    fn partial_cmp(&self, other: &LowerName) -> Option<Ordering> {
+impl PartialOrd<Self> for LowerName {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -243,13 +243,13 @@ impl Ord for LowerName {
 
 impl From<Name> for LowerName {
     fn from(name: Name) -> Self {
-        LowerName::new(&name)
+        Self::new(&name)
     }
 }
 
 impl<'a> From<&'a Name> for LowerName {
     fn from(name: &'a Name) -> Self {
-        LowerName::new(name)
+        Self::new(name)
     }
 }
 
@@ -276,9 +276,9 @@ impl<'r> BinDecodable<'r> for LowerName {
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the Vec which it is reading...
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<LowerName> {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let name = Name::read(decoder)?;
-        Ok(LowerName(name.to_lowercase()))
+        Ok(Self(name.to_lowercase()))
     }
 }
 
@@ -286,7 +286,7 @@ impl FromStr for LowerName {
     type Err = ProtoError;
 
     fn from_str(name: &str) -> Result<Self, Self::Err> {
-        Name::from_str(name).map(LowerName::from)
+        Name::from_str(name).map(Self::from)
     }
 }
 
@@ -302,7 +302,7 @@ impl Serialize for LowerName {
 
 #[cfg(feature = "serde-config")]
 impl<'de> Deserialize<'de> for LowerName {
-    fn deserialize<D>(deserializer: D) -> Result<LowerName, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {

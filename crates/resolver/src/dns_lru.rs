@@ -117,8 +117,8 @@ pub(crate) struct TtlConfig {
 }
 
 impl TtlConfig {
-    pub(crate) fn from_opts(opts: &config::ResolverOpts) -> TtlConfig {
-        TtlConfig {
+    pub(crate) fn from_opts(opts: &config::ResolverOpts) -> Self {
+        Self {
             positive_min_ttl: opts.positive_min_ttl,
             negative_min_ttl: opts.negative_min_ttl,
             positive_max_ttl: opts.positive_max_ttl,
@@ -239,8 +239,7 @@ impl DnsLru {
             let ttl_duration = Duration::from_secs(u64::from(ttl))
                 // Clamp the TTL so that it's between the cache's configured
                 // minimum and maximum TTLs for negative responses.
-                .max(self.negative_min_ttl)
-                .min(self.negative_max_ttl);
+                .clamp(self.negative_min_ttl, self.negative_max_ttl);
             let valid_until = now + ttl_duration;
 
             {
@@ -337,7 +336,7 @@ mod tests {
         // configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig {
             positive_min_ttl: Some(Duration::from_secs(2)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -369,7 +368,7 @@ mod tests {
         // configure the cache with a maximum TTL of 2 seconds.
         let ttls = TtlConfig {
             negative_min_ttl: Some(Duration::from_secs(2)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -427,7 +426,7 @@ mod tests {
         // configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig {
             positive_max_ttl: Some(Duration::from_secs(60)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -459,7 +458,7 @@ mod tests {
         // configure the cache with a maximum TTL of 60 seconds.
         let ttls = TtlConfig {
             negative_max_ttl: Some(Duration::from_secs(60)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
 
@@ -582,7 +581,7 @@ mod tests {
         // minimum TTL of 3 seconds.
         let ttls = TtlConfig {
             positive_min_ttl: Some(Duration::from_secs(3)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
         lru.insert(query.clone(), ips_ttl, now);
@@ -642,7 +641,7 @@ mod tests {
         // minimum TTL of 2 seconds.
         let ttls = TtlConfig {
             positive_max_ttl: Some(Duration::from_secs(2)),
-            ..Default::default()
+            ..TtlConfig::default()
         };
         let lru = DnsLru::new(1, ttls);
         lru.insert(query.clone(), ips_ttl, now);

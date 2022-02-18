@@ -147,8 +147,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -157,31 +157,31 @@ impl From<ErrorKind> for Error {
 }
 
 impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Error {
+    fn from(msg: &'static str) -> Self {
         ErrorKind::Message(msg).into()
     }
 }
 
 impl From<String> for Error {
-    fn from(msg: String) -> Error {
+    fn from(msg: String) -> Self {
         ErrorKind::Msg(msg).into()
     }
 }
 
 impl From<std::net::AddrParseError> for Error {
-    fn from(e: std::net::AddrParseError) -> Error {
+    fn from(e: std::net::AddrParseError) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<::data_encoding::DecodeError> for Error {
-    fn from(e: data_encoding::DecodeError) -> Error {
+    fn from(e: data_encoding::DecodeError) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
+    fn from(e: io::Error) -> Self {
         match e.kind() {
             io::ErrorKind::TimedOut => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
@@ -190,19 +190,19 @@ impl From<io::Error> for Error {
 }
 
 impl From<LexerError> for Error {
-    fn from(e: LexerError) -> Error {
+    fn from(e: LexerError) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<std::num::ParseIntError> for Error {
-    fn from(e: std::num::ParseIntError) -> Error {
+    fn from(e: std::num::ParseIntError) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<ProtoError> for Error {
-    fn from(e: ProtoError) -> Error {
+    fn from(e: ProtoError) -> Self {
         match *e.kind() {
             ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
@@ -211,7 +211,7 @@ impl From<ProtoError> for Error {
 }
 
 impl From<std::convert::Infallible> for Error {
-    fn from(_e: std::convert::Infallible) -> Error {
+    fn from(_e: std::convert::Infallible) -> Self {
         panic!("infallible")
     }
 }
@@ -219,8 +219,8 @@ impl From<std::convert::Infallible> for Error {
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match *e.kind() {
-            ErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e),
-            _ => io::Error::new(io::ErrorKind::Other, e),
+            ErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
+            _ => Self::new(io::ErrorKind::Other, e),
         }
     }
 }

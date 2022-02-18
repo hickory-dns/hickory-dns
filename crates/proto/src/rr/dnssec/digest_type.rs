@@ -62,11 +62,11 @@ impl DigestType {
     /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
-            1 => Ok(DigestType::SHA1),
-            2 => Ok(DigestType::SHA256),
-            3 => Ok(DigestType::GOSTR34_11_94),
-            4 => Ok(DigestType::SHA384),
-            5 => Ok(DigestType::ED25519),
+            1 => Ok(Self::SHA1),
+            2 => Ok(Self::SHA256),
+            3 => Ok(Self::GOSTR34_11_94),
+            4 => Ok(Self::SHA384),
+            5 => Ok(Self::ED25519),
             _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
     }
@@ -76,10 +76,10 @@ impl DigestType {
     #[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
     pub fn to_openssl_digest(self) -> ProtoResult<hash::MessageDigest> {
         match self {
-            DigestType::SHA1 => Ok(hash::MessageDigest::sha1()),
-            DigestType::SHA256 => Ok(hash::MessageDigest::sha256()),
-            DigestType::SHA384 => Ok(hash::MessageDigest::sha384()),
-            DigestType::SHA512 => Ok(hash::MessageDigest::sha512()),
+            Self::SHA1 => Ok(hash::MessageDigest::sha1()),
+            Self::SHA256 => Ok(hash::MessageDigest::sha256()),
+            Self::SHA384 => Ok(hash::MessageDigest::sha384()),
+            Self::SHA512 => Ok(hash::MessageDigest::sha512()),
             _ => Err(format!("digest not supported by openssl: {:?}", self).into()),
         }
     }
@@ -89,10 +89,10 @@ impl DigestType {
     #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     pub fn to_ring_digest_alg(self) -> ProtoResult<&'static digest::Algorithm> {
         match self {
-            DigestType::SHA1 => Ok(&digest::SHA1_FOR_LEGACY_USE_ONLY),
-            DigestType::SHA256 => Ok(&digest::SHA256),
-            DigestType::SHA384 => Ok(&digest::SHA384),
-            DigestType::SHA512 => Ok(&digest::SHA512),
+            Self::SHA1 => Ok(&digest::SHA1_FOR_LEGACY_USE_ONLY),
+            Self::SHA256 => Ok(&digest::SHA256),
+            Self::SHA384 => Ok(&digest::SHA384),
+            Self::SHA512 => Ok(&digest::SHA512),
             _ => Err(format!("digest not supported by ring: {:?}", self).into()),
         }
     }
@@ -150,24 +150,23 @@ impl DigestType {
 }
 
 impl From<Algorithm> for DigestType {
-    fn from(a: Algorithm) -> DigestType {
+    fn from(a: Algorithm) -> Self {
         match a {
             Algorithm::RSAMD5
             | Algorithm::DSA
             | Algorithm::RSASHA1
-            | Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
-            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
-            Algorithm::RSASHA512 => DigestType::SHA512,
-            Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
-            Algorithm::ED25519 => DigestType::ED25519,
-
-            Algorithm::Unknown(_) => DigestType::SHA512,
+            | Algorithm::RSASHA1NSEC3SHA1 => Self::SHA1,
+            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => Self::SHA256,
+            Algorithm::RSASHA512 => Self::SHA512,
+            Algorithm::ECDSAP384SHA384 => Self::SHA384,
+            Algorithm::ED25519 => Self::ED25519,
+            Algorithm::Unknown(_) => Self::SHA512,
         }
     }
 }
 
 impl From<DigestType> for u8 {
-    fn from(a: DigestType) -> u8 {
+    fn from(a: DigestType) -> Self {
         match a {
             DigestType::SHA1 => 1,
             DigestType::SHA256 => 2,

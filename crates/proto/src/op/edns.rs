@@ -42,7 +42,7 @@ pub struct Edns {
 
 impl Default for Edns {
     fn default() -> Self {
-        Edns {
+        Self {
             rcode_high: 0,
             version: 0,
             dnssec_ok: false,
@@ -55,7 +55,7 @@ impl Default for Edns {
 impl Edns {
     /// Creates a new extended DNS object.
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// The high order bytes for the response code in the DNS Message
@@ -149,7 +149,7 @@ impl<'a> From<&'a Record> for Edns {
             }
         };
 
-        Edns {
+        Self {
             rcode_high,
             version,
             dnssec_ok,
@@ -162,8 +162,8 @@ impl<'a> From<&'a Record> for Edns {
 impl<'a> From<&'a Edns> for Record {
     /// This returns a Resource Record that is formatted for Edns(0).
     /// Note: the rcode_high value is only part of the rcode, the rest is part of the base
-    fn from(value: &'a Edns) -> Record {
-        let mut record: Record = Record::new();
+    fn from(value: &'a Edns) -> Self {
+        let mut record = Self::new();
 
         record.set_name(Name::root());
         record.set_rr_type(RecordType::OPT);

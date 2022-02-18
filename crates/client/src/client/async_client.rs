@@ -65,7 +65,7 @@ impl AsyncClient {
         signer: Option<Arc<Signer>>,
     ) -> Result<
         (
-            AsyncClient,
+            Self,
             DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
         ),
         ProtoError,
@@ -94,7 +94,7 @@ impl AsyncClient {
         signer: Option<Arc<Signer>>,
     ) -> Result<
         (
-            AsyncClient,
+            Self,
             DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
         ),
         ProtoError,
@@ -119,14 +119,14 @@ impl AsyncClient {
     ///  If it is None, then another thread has already run the background.
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(AsyncClient, DnsExchangeBackground<S, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), ProtoError>
     where
         S: DnsRequestSender,
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     {
         let result = DnsExchange::connect(connect_future).await;
         let use_edns = true;
-        result.map(|(exchange, bg)| (AsyncClient { exchange, use_edns }, bg))
+        result.map(|(exchange, bg)| (Self { exchange, use_edns }, bg))
     }
 
     /// (Re-)enable usage of EDNS for outgoing messages
@@ -656,7 +656,7 @@ where
     R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
 {
     fn new(inner: R, maybe_incr: bool) -> Self {
-        ClientStreamXfr {
+        Self {
             state: ClientStreamXfrState::Start { inner, maybe_incr },
         }
     }

@@ -189,7 +189,7 @@ pub enum KeyTrust {
 
 impl Default for KeyTrust {
     fn default() -> Self {
-        KeyTrust::AuthOrPrivate
+        Self::AuthOrPrivate
     }
 }
 
@@ -198,13 +198,13 @@ impl From<u16> for KeyTrust {
         // we only care about the first two bits, zero out the rest
         match flags & 0b1100_0000_0000_0000 {
             // 10: Use of the key is prohibited for authentication.
-            0b1000_0000_0000_0000 => KeyTrust::NotAuth,
+            0b1000_0000_0000_0000 => Self::NotAuth,
             // 01: Use of the key is prohibited for confidentiality.
-            0b0100_0000_0000_0000 => KeyTrust::NotPrivate,
+            0b0100_0000_0000_0000 => Self::NotPrivate,
             // 00: Use of the key for authentication and/or confidentiality
-            0b0000_0000_0000_0000 => KeyTrust::AuthOrPrivate,
+            0b0000_0000_0000_0000 => Self::AuthOrPrivate,
             // 11: If both bits are one, the "no key" value, there is no key
-            0b1100_0000_0000_0000 => KeyTrust::DoNotTrust,
+            0b1100_0000_0000_0000 => Self::DoNotTrust,
             _ => panic!("All other bit fields should have been cleared"),
         }
     }
@@ -262,7 +262,7 @@ pub enum KeyUsage {
 
 impl Default for KeyUsage {
     fn default() -> Self {
-        KeyUsage::Entity
+        Self::Entity
     }
 }
 
@@ -271,13 +271,13 @@ impl From<u16> for KeyUsage {
         // we only care about the 6&7 two bits, zero out the rest
         match flags & 0b0000_0011_0000_0000 {
             // 00: indicates that this is a key associated with a "user" or
-            0b0000_0000_0000_0000 => KeyUsage::Host,
+            0b0000_0000_0000_0000 => Self::Host,
             // 01: indicates that this is a zone key for the zone whose name
-            0b0000_0001_0000_0000 => KeyUsage::Zone,
+            0b0000_0001_0000_0000 => Self::Zone,
             // 10: indicates that this is a key associated with the non-zone
-            0b0000_0010_0000_0000 => KeyUsage::Entity,
+            0b0000_0010_0000_0000 => Self::Entity,
             // 11: reserved.
-            0b0000_0011_0000_0000 => KeyUsage::Reserved,
+            0b0000_0011_0000_0000 => Self::Reserved,
             _ => panic!("All other bit fields should have been cleared"),
         }
     }
@@ -406,8 +406,8 @@ fn test_key_usage() {
 ///    SHOULD be set to 0 in KEY records, and MUST be ignored.
 ///
 /// ```
-#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[deprecated = "Deprecated by RFC3007"]
+#[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
@@ -428,7 +428,7 @@ pub struct UpdateScope {
 impl From<u16> for UpdateScope {
     fn from(flags: u16) -> Self {
         // we only care about the final four bits, zero out the rest
-        UpdateScope {
+        Self {
             //    Bit 0, zone control - If nonzero, this key is authorized to attach,
             zone: flags & 0b0000_0000_0000_1000 != 0,
             //    Bit 1, strong update - If nonzero, this key is authorized to add and
@@ -591,20 +591,20 @@ pub enum Protocol {
 
 impl Default for Protocol {
     fn default() -> Self {
-        Protocol::DNSSec
+        Self::DNSSec
     }
 }
 
 impl From<u8> for Protocol {
     fn from(field: u8) -> Self {
         match field {
-            0 => Protocol::Reserved,
-            1 => Protocol::TLS,
-            2 => Protocol::Email,
-            3 => Protocol::DNSSec,
-            4 => Protocol::IPSec,
-            255 => Protocol::All,
-            _ => Protocol::Other(field),
+            0 => Self::Reserved,
+            1 => Self::TLS,
+            2 => Self::Email,
+            3 => Self::DNSSec,
+            4 => Self::IPSec,
+            255 => Self::All,
+            _ => Self::Other(field),
         }
     }
 }
@@ -644,8 +644,8 @@ impl KEY {
         protocol: Protocol,
         algorithm: Algorithm,
         public_key: Vec<u8>,
-    ) -> KEY {
-        KEY {
+    ) -> Self {
+        Self {
             key_trust,
             key_usage,
             signatory,
@@ -760,8 +760,8 @@ impl KEY {
 }
 
 impl From<KEY> for RData {
-    fn from(key: KEY) -> RData {
-        RData::DNSSEC(super::DNSSECRData::KEY(key))
+    fn from(key: KEY) -> Self {
+        Self::DNSSEC(super::DNSSECRData::KEY(key))
     }
 }
 
@@ -907,10 +907,10 @@ mod tests {
     #[test]
     fn test() {
         let rdata = KEY::new(
-            Default::default(),
-            Default::default(),
-            Default::default(),
-            Default::default(),
+            KeyTrust::default(),
+            KeyUsage::default(),
+            UpdateScope::default(),
+            Protocol::default(),
             Algorithm::RSASHA256,
             vec![0, 1, 2, 3, 4, 5, 6, 7],
         );

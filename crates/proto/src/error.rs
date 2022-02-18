@@ -295,8 +295,8 @@ impl fmt::Display for ProtoError {
 }
 
 impl From<ProtoErrorKind> for ProtoError {
-    fn from(kind: ProtoErrorKind) -> ProtoError {
-        ProtoError {
+    fn from(kind: ProtoErrorKind) -> Self {
+        Self {
             kind: Box::new(kind),
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -305,7 +305,7 @@ impl From<ProtoErrorKind> for ProtoError {
 }
 
 impl From<DecodeError> for ProtoError {
-    fn from(err: DecodeError) -> ProtoError {
+    fn from(err: DecodeError) -> Self {
         match err {
             DecodeError::PointerNotPriorToLabel { idx, ptr } => {
                 ProtoErrorKind::PointerNotPriorToLabel { idx, ptr }
@@ -323,19 +323,19 @@ impl From<DecodeError> for ProtoError {
 }
 
 impl From<&'static str> for ProtoError {
-    fn from(msg: &'static str) -> ProtoError {
+    fn from(msg: &'static str) -> Self {
         ProtoErrorKind::Message(msg).into()
     }
 }
 
 impl From<String> for ProtoError {
-    fn from(msg: String) -> ProtoError {
+    fn from(msg: String) -> Self {
         ProtoErrorKind::Msg(msg).into()
     }
 }
 
 impl From<io::Error> for ProtoError {
-    fn from(e: io::Error) -> ProtoError {
+    fn from(e: io::Error) -> Self {
         match e.kind() {
             io::ErrorKind::TimedOut => ProtoErrorKind::Timeout.into(),
             _ => ProtoErrorKind::from(e).into(),
@@ -344,43 +344,43 @@ impl From<io::Error> for ProtoError {
 }
 
 impl<T> From<sync::PoisonError<T>> for ProtoError {
-    fn from(_e: sync::PoisonError<T>) -> ProtoError {
+    fn from(_e: sync::PoisonError<T>) -> Self {
         ProtoErrorKind::Poisoned.into()
     }
 }
 
 impl From<Unspecified> for ProtoError {
-    fn from(e: Unspecified) -> ProtoError {
+    fn from(e: Unspecified) -> Self {
         ProtoErrorKind::from(e).into()
     }
 }
 
 impl From<SslErrorStack> for ProtoError {
-    fn from(e: SslErrorStack) -> ProtoError {
+    fn from(e: SslErrorStack) -> Self {
         ProtoErrorKind::from(e).into()
     }
 }
 
 impl From<url::ParseError> for ProtoError {
-    fn from(e: url::ParseError) -> ProtoError {
+    fn from(e: url::ParseError) -> Self {
         ProtoErrorKind::from(e).into()
     }
 }
 
 impl From<std::str::Utf8Error> for ProtoError {
-    fn from(e: std::str::Utf8Error) -> ProtoError {
+    fn from(e: std::str::Utf8Error) -> Self {
         ProtoErrorKind::from(e).into()
     }
 }
 
 impl From<std::string::FromUtf8Error> for ProtoError {
-    fn from(e: std::string::FromUtf8Error) -> ProtoError {
+    fn from(e: std::string::FromUtf8Error) -> Self {
         ProtoErrorKind::from(e).into()
     }
 }
 
 impl From<std::num::ParseIntError> for ProtoError {
-    fn from(e: std::num::ParseIntError) -> ProtoError {
+    fn from(e: std::num::ParseIntError) -> Self {
         ProtoErrorKind::from(e).into()
     }
 }
@@ -434,8 +434,8 @@ pub mod not_ring {
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
         match *e.kind() {
-            ProtoErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e),
-            _ => io::Error::new(io::ErrorKind::Other, e),
+            ProtoErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
+            _ => Self::new(io::ErrorKind::Other, e),
         }
     }
 }

@@ -93,8 +93,13 @@ impl DS {
     /// # Returns
     ///
     /// the DS RDATA for use in a Resource Record
-    pub fn new(key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8>) -> DS {
-        DS {
+    pub fn new(
+        key_tag: u16,
+        algorithm: Algorithm,
+        digest_type: DigestType,
+        digest: Vec<u8>,
+    ) -> Self {
+        Self {
             key_tag,
             algorithm,
             digest_type,

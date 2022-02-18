@@ -97,8 +97,8 @@ impl NSEC3PARAM {
         opt_out: bool,
         iterations: u16,
         salt: Vec<u8>,
-    ) -> NSEC3PARAM {
-        NSEC3PARAM {
+    ) -> Self {
+        Self {
             hash_algorithm,
             opt_out,
             iterations,

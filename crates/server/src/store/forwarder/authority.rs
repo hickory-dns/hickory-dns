@@ -8,6 +8,7 @@
 use std::io;
 
 use log::{debug, info};
+use trust_dns_proto::xfer::DnsRequestOptions;
 
 use crate::{
     authority::{
@@ -40,7 +41,7 @@ impl ForwardAuthority {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
-        Ok(ForwardAuthority {
+        Ok(Self {
             origin: Name::root().into(),
             resolver,
         })
@@ -64,7 +65,7 @@ impl ForwardAuthority {
         info!("forward resolver configured: {}: ", origin);
 
         // TODO: this might be infallible?
-        Ok(ForwardAuthority {
+        Ok(Self {
             origin: origin.into(),
             resolver,
         })
@@ -110,7 +111,10 @@ impl Authority for ForwardAuthority {
 
         debug!("forwarding lookup: {} {}", name, rtype);
         let name: LowerName = name.clone();
-        let resolve = self.resolver.lookup(name, rtype, Default::default()).await;
+        let resolve = self
+            .resolver
+            .lookup(name, rtype, DnsRequestOptions::default())
+            .await;
 
         resolve.map(ForwardLookup).map_err(LookupError::from)
     }

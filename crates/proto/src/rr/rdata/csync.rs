@@ -63,8 +63,8 @@ impl CSYNC {
         immediate: bool,
         soa_minimum: bool,
         type_bit_maps: Vec<RecordType>,
-    ) -> CSYNC {
-        CSYNC {
+    ) -> Self {
+        Self {
             soa_serial,
             immediate,
             soa_minimum,

@@ -178,7 +178,7 @@ impl RequestHandler for Catalog {
 impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
-        Catalog {
+        Self {
             authorities: HashMap::new(),
         }
     }
@@ -455,7 +455,7 @@ fn lookup_options_for_edns(edns: Option<&Edns>) -> LookupOptions {
                algs
             } else {
                debug!("no DAU in request, used default SupportAlgorithms");
-               Default::default()
+               SupportedAlgorithms::default()
             };
 
             LookupOptions::for_dnssec(edns.dnssec_ok(), supported_algorithms)

@@ -62,7 +62,7 @@ impl LookupIp {
 
 impl From<Lookup> for LookupIp {
     fn from(lookup: Lookup) -> Self {
-        LookupIp(lookup)
+        Self(lookup)
     }
 }
 
@@ -216,7 +216,7 @@ where
     ) -> Self {
         let empty =
             ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"));
-        LookupIpFuture {
+        Self {
             names,
             strategy,
             client_cache,
@@ -528,7 +528,7 @@ pub mod tests {
             block_on(ipv4_only(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -545,7 +545,7 @@ pub mod tests {
             block_on(ipv6_only(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -564,7 +564,7 @@ pub mod tests {
             block_on(ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), v4_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -582,7 +582,7 @@ pub mod tests {
             block_on(ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![empty(), v4_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -597,7 +597,7 @@ pub mod tests {
             block_on(ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![error(), v4_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -612,7 +612,7 @@ pub mod tests {
             block_on(ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -627,7 +627,7 @@ pub mod tests {
             block_on(ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), error()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -645,7 +645,7 @@ pub mod tests {
             block_on(ipv6_then_ipv4(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -660,7 +660,7 @@ pub mod tests {
             block_on(ipv6_then_ipv4(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message(), empty()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -675,7 +675,7 @@ pub mod tests {
             block_on(ipv6_then_ipv4(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message(), error()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -693,7 +693,7 @@ pub mod tests {
             block_on(ipv4_then_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -708,7 +708,7 @@ pub mod tests {
             block_on(ipv4_then_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), empty()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()
@@ -723,7 +723,7 @@ pub mod tests {
             block_on(ipv4_then_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), error()]), false),
-                Default::default(),
+                DnsRequestOptions::default(),
                 None,
             ))
             .unwrap()

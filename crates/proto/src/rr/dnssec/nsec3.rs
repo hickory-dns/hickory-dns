@@ -112,7 +112,7 @@ impl Nsec3HashAlgorithm {
     /// <http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml>
     pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
-            1 => Ok(Nsec3HashAlgorithm::SHA1),
+            1 => Ok(Self::SHA1),
             // TODO: where/when is SHA2?
             _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
@@ -182,7 +182,7 @@ impl Nsec3HashAlgorithm {
 }
 
 impl From<Nsec3HashAlgorithm> for u8 {
-    fn from(a: Nsec3HashAlgorithm) -> u8 {
+    fn from(a: Nsec3HashAlgorithm) -> Self {
         match a {
             Nsec3HashAlgorithm::SHA1 => 1,
         }

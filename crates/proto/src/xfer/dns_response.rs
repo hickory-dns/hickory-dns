@@ -84,19 +84,19 @@ impl Stream for DnsResponseStream {
 
 impl From<TimeoutFuture> for DnsResponseStream {
     fn from(f: TimeoutFuture) -> Self {
-        DnsResponseStream::new(DnsResponseStreamInner::Timeout(f))
+        Self::new(DnsResponseStreamInner::Timeout(f))
     }
 }
 
 impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
     fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
-        DnsResponseStream::new(DnsResponseStreamInner::Receiver(receiver))
+        Self::new(DnsResponseStreamInner::Receiver(receiver))
     }
 }
 
 impl From<ProtoError> for DnsResponseStream {
     fn from(e: ProtoError) -> Self {
-        DnsResponseStream::new(DnsResponseStreamInner::Error(Some(e)))
+        Self::new(DnsResponseStreamInner::Error(Some(e)))
     }
 }
 
@@ -105,7 +105,7 @@ where
     F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
-        DnsResponseStream::new(DnsResponseStreamInner::Boxed(
+        Self::new(DnsResponseStreamInner::Boxed(
             f as Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
         ))
     }
@@ -299,14 +299,14 @@ impl DerefMut for DnsResponse {
 }
 
 impl From<DnsResponse> for Message {
-    fn from(response: DnsResponse) -> Message {
+    fn from(response: DnsResponse) -> Self {
         response.0
     }
 }
 
 impl From<Message> for DnsResponse {
-    fn from(message: Message) -> DnsResponse {
-        DnsResponse(message)
+    fn from(message: Message) -> Self {
+        Self(message)
     }
 }
 

@@ -228,8 +228,8 @@ impl SIG {
         key_tag: u16,
         signer_name: Name,
         sig: Vec<u8>,
-    ) -> SIG {
-        SIG {
+    ) -> Self {
+        Self {
             type_covered,
             algorithm,
             num_labels,
@@ -252,7 +252,7 @@ impl SIG {
     ///
     /// The new SIG record data.
     pub fn set_sig(self, signature: Vec<u8>) -> Self {
-        SIG {
+        Self {
             type_covered: self.type_covered,
             algorithm: self.algorithm,
             num_labels: self.num_labels,

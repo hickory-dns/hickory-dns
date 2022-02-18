@@ -106,10 +106,10 @@ impl HttpsClientStream {
             .map_err(|e| ProtoError::from(format!("bad headers received: {}", e)))?;
 
         // TODO: what is a good max here?
-        // max(512) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
-        //  just a little protection from malicious actors.
+        // clamp(512, 4096) says make sure it is at least 512 bytes, and min 4096 says it is at most 4k
+        // just a little protection from malicious actors.
         let mut response_bytes =
-            BytesMut::with_capacity(content_length.unwrap_or(512).max(512).min(4096));
+            BytesMut::with_capacity(content_length.unwrap_or(512).clamp(512, 4096));
 
         while let Some(partial_bytes) = response_stream.body_mut().data().await {
             let partial_bytes =
@@ -288,7 +288,7 @@ pub struct HttpsClientStreamBuilder {
 impl HttpsClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
-        HttpsClientStreamBuilder {
+        Self {
             client_config,
             bind_addr: None,
         }
@@ -409,7 +409,7 @@ where
                 } => {
                     debug!("tcp connecting to: {}", name_server);
                     let connect = S::connect_with_bind(name_server, bind_addr);
-                    HttpsClientConnectState::TcpConnecting {
+                    Self::TcpConnecting {
                         connect,
                         name_server,
                         tls: tls.take(),
@@ -432,15 +432,16 @@ where
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
-                            HttpsClientConnectState::TlsConnecting {
+                            Self::TlsConnecting {
                                 name_server_name,
                                 name_server,
                                 tls,
                             }
                         }
-                        Err(_) => HttpsClientConnectState::Errored(Some(ProtoError::from(
-                            format!("bad dns_name: {}", &tls.dns_name),
-                        ))),
+                        Err(_) => Self::Errored(Some(ProtoError::from(format!(
+                            "bad dns_name: {}",
+                            &tls.dns_name
+                        )))),
                     }
                 }
                 HttpsClientConnectState::TlsConnecting {
@@ -454,7 +455,7 @@ where
                     handshake.enable_push(false);
 
                     let handshake = handshake.handshake(tls);
-                    HttpsClientConnectState::H2Handshake {
+                    Self::H2Handshake {
                         name_server_name: Arc::clone(name_server_name),
                         name_server,
                         handshake: Box::pin(handshake),
@@ -477,7 +478,7 @@ where
                             .map(|_: Result<(), ()>| ()),
                     );
 
-                    HttpsClientConnectState::Connected(Some(HttpsClientStream {
+                    Self::Connected(Some(HttpsClientStream {
                         name_server_name: Arc::clone(name_server_name),
                         name_server,
                         h2: send_request,
@@ -522,7 +523,7 @@ mod tests {
     use crate::iocompat::AsyncIoTokioAsStd;
     use crate::op::{Message, Query, ResponseCode};
     use crate::rr::{Name, RData, RecordType};
-    use crate::xfer::FirstAnswer;
+    use crate::xfer::{DnsRequestOptions, FirstAnswer};
 
     use super::*;
 
@@ -535,7 +536,7 @@ mod tests {
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
 
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let mut client_config = client_config_tls12_webpki_roots();
         client_config.key_log = Arc::new(KeyLogFile::new());
@@ -568,7 +569,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         for _ in 0..3 {
             let response = runtime
@@ -601,7 +602,7 @@ mod tests {
         let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         request.add_query(query);
 
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let client_config = client_config_tls12_webpki_roots();
         let https_builder = HttpsClientStreamBuilder::with_client_config(Arc::new(client_config));
@@ -634,7 +635,7 @@ mod tests {
             RecordType::AAAA,
         );
         request.add_query(query);
-        let request = DnsRequest::new(request, Default::default());
+        let request = DnsRequest::new(request, DnsRequestOptions::default());
 
         let response = runtime
             .block_on(https.send_message(request).first_answer())

@@ -70,7 +70,7 @@ pub struct Query {
 impl Default for Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
     fn default() -> Self {
-        Query {
+        Self {
             name: Name::new(),
             query_type: RecordType::A,
             query_class: DNSClass::IN,
@@ -83,13 +83,13 @@ impl Default for Query {
 impl Query {
     /// Return a default query with an empty name and A, IN for the query_type and query_class
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Create a new query from name and type, class defaults to IN
     #[allow(clippy::self_named_constructors)]
     pub fn query(name: Name, query_type: RecordType) -> Self {
-        Query {
+        Self {
             name,
             query_type,
             query_class: DNSClass::IN,
@@ -258,7 +258,7 @@ impl<'r> BinDecodable<'r> for Query {
             }
         };
 
-        Ok(Query {
+        Ok(Self {
             name,
             query_type,
             query_class,

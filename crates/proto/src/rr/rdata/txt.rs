@@ -53,8 +53,8 @@ impl TXT {
     /// # Return value
     ///
     /// The new TXT record data.
-    pub fn new(txt_data: Vec<String>) -> TXT {
-        TXT {
+    pub fn new(txt_data: Vec<String>) -> Self {
+        Self {
             txt_data: txt_data
                 .into_iter()
                 .map(|s| s.into_bytes().into_boxed_slice())
@@ -73,8 +73,8 @@ impl TXT {
     /// # Return value
     ///
     /// The new TXT record data.
-    pub fn from_bytes(txt_data: Vec<&[u8]>) -> TXT {
-        TXT {
+    pub fn from_bytes(txt_data: Vec<&[u8]>) -> Self {
+        Self {
             txt_data: txt_data
                 .into_iter()
                 .map(|s| s.to_vec().into_boxed_slice())

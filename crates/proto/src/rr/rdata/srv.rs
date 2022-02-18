@@ -107,8 +107,8 @@ impl SRV {
     /// # Return value
     ///
     /// The newly constructed SRV record data.
-    pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> SRV {
-        SRV {
+    pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> Self {
+        Self {
             priority,
             weight,
             port,

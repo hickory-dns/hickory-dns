@@ -62,8 +62,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -72,13 +72,13 @@ impl From<ErrorKind> for Error {
 }
 
 impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Error {
+    fn from(e: io::Error) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<toml::de::Error> for Error {
-    fn from(e: toml::de::Error) -> Error {
+    fn from(e: toml::de::Error) -> Self {
         ErrorKind::from(e).into()
     }
 }

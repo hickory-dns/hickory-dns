@@ -96,7 +96,7 @@ impl Connect for AsyncStdTcpStream {
             None => async_std::net::TcpStream::connect(addr).await?,
         };
         stream.set_nodelay(true)?;
-        Ok(AsyncStdTcpStream(stream))
+        Ok(Self(stream))
     }
 }
 

@@ -106,7 +106,7 @@ impl SOA {
         expire: i32,
         minimum: u32,
     ) -> Self {
-        SOA {
+        Self {
             mname,
             rname,
             serial,

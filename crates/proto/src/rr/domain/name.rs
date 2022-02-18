@@ -36,7 +36,7 @@ pub struct Name {
 impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
-        Default::default()
+        Self::default()
     }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
@@ -109,9 +109,8 @@ impl Name {
     pub fn iter(&self) -> LabelIter<'_> {
         LabelIter {
             name: self,
-            index: 0,
-            started: false,
-            finished: false,
+            start: 0,
+            end: self.label_ends.len(),
         }
     }
 
@@ -174,9 +173,9 @@ impl Name {
             return Err(format!("error converting some labels: {:?}", errors).into());
         };
 
-        let mut name = Name {
+        let mut name = Self {
             is_fqdn: true,
-            ..Default::default()
+            ..Self::default()
         };
         for label in labels {
             name = name.append_label(label)?;
@@ -262,7 +261,7 @@ impl Name {
             .iter()
             .map(|c| c.to_ascii_lowercase())
             .collect();
-        Name {
+        Self {
             is_fqdn: self.is_fqdn,
             label_data: new_label_data,
             label_ends: self.label_ends.clone(),
@@ -282,7 +281,7 @@ impl Name {
     /// assert_eq!(Name::from_str("com.").unwrap().base_name(), Name::root());
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
-    pub fn base_name(&self) -> Name {
+    pub fn base_name(&self) -> Self {
         let length = self.label_ends.len();
         if length > 0 {
             return self.trim_to(length - 1);
@@ -304,11 +303,11 @@ impl Name {
     /// assert_eq!(example_com.trim_to(0), Name::root());
     /// assert_eq!(example_com.trim_to(3), Name::from_str("example.com.").unwrap());
     /// ```
-    pub fn trim_to(&self, num_labels: usize) -> Name {
+    pub fn trim_to(&self, num_labels: usize) -> Self {
         if num_labels > self.label_ends.len() {
             self.clone()
         } else {
-            Name::from_labels(self.iter().skip(self.label_ends.len() - num_labels)).unwrap()
+            Self::from_labels(self.iter().skip(self.label_ends.len() - num_labels)).unwrap()
         }
     }
 
@@ -517,7 +516,7 @@ impl Name {
     }
 
     fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
-        let mut name = Name::new();
+        let mut name = Self::new();
         let mut label = String::new();
 
         let mut state = ParseState::Label;
@@ -868,7 +867,7 @@ impl Name {
     /// ```
     pub fn into_wildcard(self) -> Self {
         if self.label_ends.is_empty() {
-            return Name::root();
+            return Self::root();
         }
         let mut label_data = TinyVec::new();
         label_data.push(b'*');
@@ -880,7 +879,7 @@ impl Name {
             label_data.extend_from_slice(label);
             label_ends.push(label_data.len() as u8);
         }
-        Name {
+        Self {
             label_data,
             label_ends,
             is_fqdn: self.is_fqdn,
@@ -929,33 +928,29 @@ impl LabelEnc for LabelEncUtf8 {
 /// An iterator over labels in a name
 pub struct LabelIter<'a> {
     name: &'a Name,
-    index: usize,
-    started: bool,
-    finished: bool,
+    start: usize,
+    end: usize,
 }
 
 impl<'a> Iterator for LabelIter<'a> {
     type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.finished {
+        if self.start >= self.end {
             return None;
         }
-        self.started = true;
-        let end = *self.name.label_ends.get(self.index)?;
-        let start = match self.index {
+
+        let end = *self.name.label_ends.get(self.start)?;
+        let start = match self.start {
             0 => 0,
-            _ => self.name.label_ends[self.index - 1],
+            _ => self.name.label_ends[self.start - 1],
         };
-        self.index += 1;
-        if self.index == self.name.label_ends.len() {
-            self.finished = true;
-        }
+        self.start += 1;
         Some(&self.name.label_data[start as usize..end as usize])
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.name.label_ends.len() - self.index;
+        let len = self.end.saturating_sub(self.start);
         (len, Some(len))
     }
 }
@@ -964,23 +959,18 @@ impl<'a> ExactSizeIterator for LabelIter<'a> {}
 
 impl<'a> DoubleEndedIterator for LabelIter<'a> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        if self.finished {
+        if self.end <= self.start {
             return None;
         }
-        if !self.started {
-            self.index = self.name.label_ends.len().checked_sub(1)?;
-        }
-        self.started = true;
-        let end = *self.name.label_ends.get(self.index)?;
-        let start = match self.index {
+
+        self.end -= 1;
+
+        let end = *self.name.label_ends.get(self.end)?;
+        let start = match self.end {
             0 => 0,
-            _ => self.name.label_ends[self.index - 1],
+            _ => self.name.label_ends[self.end - 1],
         };
-        if self.index == 0 {
-            self.finished = true;
-        } else {
-            self.index -= 1;
-        }
+
         Some(&self.name.label_data[start as usize..end as usize])
     }
 }
@@ -995,7 +985,7 @@ impl<'a> IntoIterator for &'a Name {
 }
 
 impl From<IpAddr> for Name {
-    fn from(addr: IpAddr) -> Name {
+    fn from(addr: IpAddr) -> Self {
         match addr {
             IpAddr::V4(ip) => ip.into(),
             IpAddr::V6(ip) => ip.into(),
@@ -1004,7 +994,7 @@ impl From<IpAddr> for Name {
 }
 
 impl From<Ipv4Addr> for Name {
-    fn from(addr: Ipv4Addr) -> Name {
+    fn from(addr: Ipv4Addr) -> Self {
         let octets = addr.octets();
 
         let mut labels =
@@ -1032,7 +1022,7 @@ impl From<Ipv4Addr> for Name {
 }
 
 impl From<Ipv6Addr> for Name {
-    fn from(addr: Ipv6Addr) -> Name {
+    fn from(addr: Ipv6Addr) -> Self {
         let segments = addr.segments();
 
         let mut labels =
@@ -1074,7 +1064,7 @@ impl From<Ipv6Addr> for Name {
     }
 }
 
-impl PartialEq<Name> for Name {
+impl PartialEq<Self> for Name {
     fn eq(&self, other: &Self) -> bool {
         self.cmp_with_f::<CaseInsensitive>(other) == Ordering::Equal
     }
@@ -1113,8 +1103,8 @@ impl<'r> BinDecodable<'r> for Name {
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the `Vec` which it is reading...
-    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
-        let mut name = Name::root(); // this is FQDN
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let mut name = Self::root(); // this is FQDN
 
         read_inner(decoder, &mut name, None)?;
         Ok(name)
@@ -1238,8 +1228,8 @@ impl fmt::Display for Name {
     }
 }
 
-impl PartialOrd<Name> for Name {
-    fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
+impl PartialOrd<Self> for Name {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -1298,7 +1288,7 @@ impl FromStr for Name {
 
     /// Uses the Name::from_utf8 conversion on this string, see [Name::from_ascii] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Name::from_str_relaxed(s)
+        Self::from_str_relaxed(s)
     }
 }
 
@@ -1350,7 +1340,7 @@ impl Serialize for Name {
 
 #[cfg(feature = "serde-config")]
 impl<'de> Deserialize<'de> for Name {
-    fn deserialize<D>(deserializer: D) -> Result<Name, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -1908,5 +1898,35 @@ mod tests {
             ProtoErrorKind::Message("labels exceed maximum length of 255") => (),
             _ => panic!("expected too long message"),
         }
+    }
+
+    #[test]
+    fn test_double_ended_iterator() {
+        let name = Name::from_ascii("www.example.com").unwrap();
+        let mut iter = name.iter();
+
+        assert_eq!(iter.next().unwrap(), b"www");
+        assert_eq!(iter.next_back().unwrap(), b"com");
+        assert_eq!(iter.next().unwrap(), b"example");
+        assert!(iter.next_back().is_none());
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_size_hint() {
+        let name = Name::from_ascii("www.example.com").unwrap();
+        let mut iter = name.iter();
+
+        assert_eq!(iter.size_hint().0, 3);
+        assert_eq!(iter.next().unwrap(), b"www");
+        assert_eq!(iter.size_hint().0, 2);
+        assert_eq!(iter.next_back().unwrap(), b"com");
+        assert_eq!(iter.size_hint().0, 1);
+        assert_eq!(iter.next().unwrap(), b"example");
+        assert_eq!(iter.size_hint().0, 0);
+        assert!(iter.next_back().is_none());
+        assert_eq!(iter.size_hint().0, 0);
+        assert!(iter.next().is_none());
+        assert_eq!(iter.size_hint().0, 0);
     }
 }

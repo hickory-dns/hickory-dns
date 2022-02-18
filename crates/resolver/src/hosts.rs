@@ -34,7 +34,7 @@ impl Hosts {
     /// Creates a new configuration from the system hosts file,
     /// only works for Windows and Unix-like OSes,
     /// will return empty configuration on others
-    pub fn new() -> Hosts {
+    pub fn new() -> Self {
         read_hosts_conf(hosts_path()).unwrap_or_default()
     }
 

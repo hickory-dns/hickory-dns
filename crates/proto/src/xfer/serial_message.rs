@@ -20,7 +20,7 @@ pub struct SerialMessage {
 impl SerialMessage {
     /// Construct a new SerialMessage and the source or destination address
     pub fn new(message: Vec<u8>, addr: SocketAddr) -> Self {
-        SerialMessage { message, addr }
+        Self { message, addr }
     }
 
     /// Get a reference to the bytes
@@ -51,7 +51,7 @@ impl SerialMessage {
 
 impl From<(Vec<u8>, SocketAddr)> for SerialMessage {
     fn from((message, addr): (Vec<u8>, SocketAddr)) -> Self {
-        SerialMessage { message, addr }
+        Self { message, addr }
     }
 }
 

@@ -29,6 +29,8 @@ use ring::{
         ECDSA_P384_SHA384_FIXED_SIGNING,
     },
 };
+#[allow(deprecated)]
+use trust_dns_proto::rr::dnssec::rdata::key::{KeyTrust, Protocol, UpdateScope};
 
 use crate::error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -75,44 +77,42 @@ impl<K> KeyPair<K> {
     #[cfg(feature = "openssl")]
     #[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
     pub fn from_rsa(rsa: OpenSslRsa<K>) -> DnsSecResult<Self> {
-        PKey::from_rsa(rsa).map(KeyPair::RSA).map_err(Into::into)
+        PKey::from_rsa(rsa).map(Self::RSA).map_err(Into::into)
     }
 
     /// Given a known pkey of an RSA key, return the wrapped keypair
     #[cfg(feature = "openssl")]
     #[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
     pub fn from_rsa_pkey(pkey: PKey<K>) -> Self {
-        KeyPair::RSA(pkey)
+        Self::RSA(pkey)
     }
 
     /// Creates an EC, elliptic curve, type keypair, only P256 or P384 are supported.
     #[cfg(feature = "openssl")]
     #[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
     pub fn from_ec_key(ec_key: EcKey<K>) -> DnsSecResult<Self> {
-        PKey::from_ec_key(ec_key)
-            .map(KeyPair::EC)
-            .map_err(Into::into)
+        PKey::from_ec_key(ec_key).map(Self::EC).map_err(Into::into)
     }
 
     /// Given a known pkey of an EC key, return the wrapped keypair
     #[cfg(feature = "openssl")]
     #[cfg_attr(docsrs, doc(cfg(feature = "openssl")))]
     pub fn from_ec_pkey(pkey: PKey<K>) -> Self {
-        KeyPair::EC(pkey)
+        Self::EC(pkey)
     }
 
     /// Creates an ECDSA keypair with ring.
     #[cfg(feature = "ring")]
     #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     pub fn from_ecdsa(ec_key: EcdsaKeyPair) -> Self {
-        KeyPair::ECDSA(ec_key)
+        Self::ECDSA(ec_key)
     }
 
     /// Creates an ED25519 keypair.
     #[cfg(feature = "ring")]
     #[cfg_attr(docsrs, doc(cfg(feature = "ring")))]
     pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
-        KeyPair::ED25519(ed_key)
+        Self::ED25519(ed_key)
     }
 }
 
@@ -281,7 +281,7 @@ impl<K: HasPublic> KeyPair<K> {
     ///
     /// the KEY record data
     pub fn to_sig0key(&self, algorithm: Algorithm) -> DnsSecResult<KEY> {
-        self.to_sig0key_with_usage(algorithm, Default::default())
+        self.to_sig0key_with_usage(algorithm, KeyUsage::default())
     }
 
     /// Convert this keypair into a KEY record type for usage with SIG0
@@ -302,10 +302,11 @@ impl<K: HasPublic> KeyPair<K> {
     ) -> DnsSecResult<KEY> {
         self.to_public_bytes().map(|bytes| {
             KEY::new(
-                Default::default(),
+                KeyTrust::default(),
                 usage,
-                Default::default(),
-                Default::default(),
+                #[allow(deprecated)]
+                UpdateScope::default(),
+                Protocol::default(),
                 algorithm,
                 bytes,
             )
@@ -461,18 +462,18 @@ impl KeyPair<Private> {
                 // TODO: the only keysize right now, would be better for people to use other algorithms...
                 OpenSslRsa::generate(2048)
                     .map_err(Into::into)
-                    .and_then(KeyPair::from_rsa)
+                    .and_then(Self::from_rsa)
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP256SHA256 => EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
                 .and_then(|group| EcKey::generate(&group))
                 .map_err(Into::into)
-                .and_then(KeyPair::from_ec_key),
+                .and_then(Self::from_ec_key),
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP384SHA384 => EcGroup::from_curve_name(Nid::SECP384R1)
                 .and_then(|group| EcKey::generate(&group))
                 .map_err(Into::into)
-                .and_then(KeyPair::from_ec_key),
+                .and_then(Self::from_ec_key),
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => Err(DnsSecErrorKind::Message(
                 "use generate_pkcs8 for generating private key and encoding",

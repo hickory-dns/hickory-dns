@@ -83,7 +83,7 @@ impl BinEncodable for i32 {
 }
 
 impl<'r> BinDecodable<'r> for i32 {
-    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<i32> {
+    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
         decoder
             .read_i32()
             .map(Restrict::unverified)

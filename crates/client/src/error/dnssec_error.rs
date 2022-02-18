@@ -111,8 +111,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -121,19 +121,19 @@ impl From<ErrorKind> for Error {
 }
 
 impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Error {
+    fn from(msg: &'static str) -> Self {
         ErrorKind::Message(msg).into()
     }
 }
 
 impl From<String> for Error {
-    fn from(msg: String) -> Error {
+    fn from(msg: String) -> Self {
         ErrorKind::Msg(msg).into()
     }
 }
 
 impl From<ProtoError> for Error {
-    fn from(e: ProtoError) -> Error {
+    fn from(e: ProtoError) -> Self {
         match *e.kind() {
             ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
@@ -142,19 +142,19 @@ impl From<ProtoError> for Error {
 }
 
 impl From<KeyRejected> for Error {
-    fn from(e: KeyRejected) -> Error {
+    fn from(e: KeyRejected) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<Unspecified> for Error {
-    fn from(e: Unspecified) -> Error {
+    fn from(e: Unspecified) -> Self {
         ErrorKind::from(e).into()
     }
 }
 
 impl From<SslErrorStack> for Error {
-    fn from(e: SslErrorStack) -> Error {
+    fn from(e: SslErrorStack) -> Self {
         ErrorKind::from(e).into()
     }
 }

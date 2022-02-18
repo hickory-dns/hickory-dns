@@ -40,13 +40,13 @@ impl Label {
         if bytes.len() > 63 {
             return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
         };
-        Ok(Label(TinyVec::from(bytes)))
+        Ok(Self(TinyVec::from(bytes)))
     }
 
     /// Translates this string into IDNA safe name, encoding to punycode as necessary.
     pub fn from_utf8(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label::wildcard());
+            return Ok(Self::wildcard());
         }
 
         // special case for SRV type records
@@ -70,7 +70,7 @@ impl Label {
     /// This will return an Error if the label is not an ascii string
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label::wildcard());
+            return Ok(Self::wildcard());
         }
 
         if !s.is_empty()
@@ -78,7 +78,7 @@ impl Label {
             && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
             && s.chars().skip(1).all(|c| is_safe_ascii(c, false, false))
         {
-            Label::from_raw_bytes(s.as_bytes())
+            Self::from_raw_bytes(s.as_bytes())
         } else {
             Err(format!("Malformed label: {}", s).into())
         }
@@ -86,7 +86,7 @@ impl Label {
 
     /// Returns a new Label of the Wildcard, i.e. "*"
     pub fn wildcard() -> Self {
-        Label(TinyVec::from(WILDCARD))
+        Self(TinyVec::from(WILDCARD))
     }
 
     /// Converts this label to lowercase
@@ -100,7 +100,7 @@ impl Label {
         {
             let mut lower_label: Vec<u8> = self.0.to_vec();
             lower_label[idx..].make_ascii_lowercase();
-            Label(TinyVec::from(lower_label.as_slice()))
+            Self(TinyVec::from(lower_label.as_slice()))
         } else {
             self.clone()
         }
@@ -260,14 +260,14 @@ impl Debug for Label {
     }
 }
 
-impl PartialEq<Label> for Label {
+impl PartialEq<Self> for Label {
     fn eq(&self, other: &Self) -> bool {
         self.eq_ignore_ascii_case(other)
     }
 }
 
-impl PartialOrd<Label> for Label {
-    fn partial_cmp(&self, other: &Label) -> Option<Ordering> {
+impl PartialOrd<Self> for Label {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }

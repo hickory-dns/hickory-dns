@@ -166,7 +166,7 @@ impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvi
         options: ResolverOpts,
         runtime: R::Handle,
     ) -> Result<Self, ResolveError> {
-        AsyncResolver::<GenericConnection, GenericConnectionProvider<R>>::new_with_conn(
+        Self::new_with_conn(
             config,
             options,
             GenericConnectionProvider::<R>::new(runtime),
@@ -242,7 +242,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
 
         trace!("handle passed back");
         let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
-        Ok(AsyncResolver {
+        Ok(Self {
             config,
             options,
             client_cache: CachingClient::with_cache(lru, either, options.preserve_intermediates),

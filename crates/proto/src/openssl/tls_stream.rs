@@ -164,7 +164,7 @@ pub struct TlsStreamBuilder<S> {
 impl<S: Connect> TlsStreamBuilder<S> {
     /// A builder for associating trust information to the `TlsStream`.
     pub fn new() -> Self {
-        TlsStreamBuilder {
+        Self {
             ca_chain: vec![],
             identity: None,
             bind_addr: None,

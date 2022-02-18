@@ -9,6 +9,7 @@
 
 // BINARY WARNINGS
 #![warn(
+    clippy::default_trait_access,
     clippy::dbg_macro,
     clippy::unimplemented,
     missing_copy_implementations,

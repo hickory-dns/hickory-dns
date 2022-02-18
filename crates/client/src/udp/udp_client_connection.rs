@@ -56,7 +56,7 @@ impl UdpClientConnection {
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
     ) -> ClientResult<Self> {
-        Ok(UdpClientConnection {
+        Ok(Self {
             name_server,
             bind_addr,
             timeout,

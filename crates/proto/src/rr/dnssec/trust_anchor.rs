@@ -32,8 +32,8 @@ pub struct TrustAnchor {
 }
 
 impl Default for TrustAnchor {
-    fn default() -> TrustAnchor {
-        TrustAnchor {
+    fn default() -> Self {
+        Self {
             pkeys: vec![ROOT_ANCHOR_ORIG.to_owned(), ROOT_ANCHOR_2018.to_owned()],
         }
     }
@@ -41,8 +41,8 @@ impl Default for TrustAnchor {
 
 impl TrustAnchor {
     /// Creates a new empty trust anchor set
-    pub fn new() -> TrustAnchor {
-        TrustAnchor { pkeys: vec![] }
+    pub fn new() -> Self {
+        Self { pkeys: vec![] }
     }
 
     /// determines if the key is in the trust anchor set with the raw dnskey bytes

@@ -11,7 +11,7 @@ pub struct TBS(Vec<u8>);
 
 impl<'a> From<&'a [u8]> for TBS {
     fn from(slice: &'a [u8]) -> Self {
-        TBS(slice.to_owned())
+        Self(slice.to_owned())
     }
 }
 

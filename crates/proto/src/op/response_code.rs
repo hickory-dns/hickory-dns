@@ -150,7 +150,7 @@ impl ResponseCode {
     }
 
     /// Combines the EDNS high and low from the Header to produce the Extended ResponseCode
-    pub fn from(high: u8, low: u8) -> ResponseCode {
+    pub fn from(high: u8, low: u8) -> Self {
         ((u16::from(high) << 4) | ((u16::from(low)) & 0x000F)).into()
     }
 
@@ -255,29 +255,29 @@ impl From<u16> for ResponseCode {
     #[allow(clippy::unimplemented)]
     fn from(value: u16) -> Self {
         match value {
-            0 => ResponseCode::NoError, // 0    NoError    No Error                             [RFC1035]
-            1 => ResponseCode::FormErr, // 1    FormErr    Format Error                         [RFC1035]
-            2 => ResponseCode::ServFail, // 2    ServFail   Server Failure                       [RFC1035]
-            3 => ResponseCode::NXDomain, // 3    NXDomain   Non-Existent Domain                  [RFC1035]
-            4 => ResponseCode::NotImp, // 4    NotImp     Not Implemented                      [RFC1035]
-            5 => ResponseCode::Refused, // 5    Refused    Query Refused                        [RFC1035]
-            6 => ResponseCode::YXDomain, // 6    YXDomain   Name Exists when it should not       [RFC2136][RFC6672]
-            7 => ResponseCode::YXRRSet, // 7    YXRRSet    RR Set Exists when it should not     [RFC2136]
-            8 => ResponseCode::NXRRSet, // 8    NXRRSet    RR Set that should exist does not    [RFC2136]
-            9 => ResponseCode::NotAuth, // 9    NotAuth    Server Not Authoritative for zone    [RFC2136]
-            10 => ResponseCode::NotZone, // 10   NotZone    Name not contained in zone           [RFC2136]
+            0 => Self::NoError, // 0    NoError    No Error                             [RFC1035]
+            1 => Self::FormErr, // 1    FormErr    Format Error                         [RFC1035]
+            2 => Self::ServFail, // 2    ServFail   Server Failure                       [RFC1035]
+            3 => Self::NXDomain, // 3    NXDomain   Non-Existent Domain                  [RFC1035]
+            4 => Self::NotImp,  // 4    NotImp     Not Implemented                      [RFC1035]
+            5 => Self::Refused, // 5    Refused    Query Refused                        [RFC1035]
+            6 => Self::YXDomain, // 6    YXDomain   Name Exists when it should not       [RFC2136][RFC6672]
+            7 => Self::YXRRSet,  // 7    YXRRSet    RR Set Exists when it should not     [RFC2136]
+            8 => Self::NXRRSet,  // 8    NXRRSet    RR Set that should exist does not    [RFC2136]
+            9 => Self::NotAuth,  // 9    NotAuth    Server Not Authoritative for zone    [RFC2136]
+            10 => Self::NotZone, // 10   NotZone    Name not contained in zone           [RFC2136]
             // this looks to be backwards compat for 4 bit ResponseCodes.
             // 16    BADVERS    Bad OPT Version    [RFC6891]
             // 16 => ResponseCode::BADVERS,
-            16 => ResponseCode::BADSIG, // 16    BADSIG    TSIG Signature Failure               [RFC2845]
-            17 => ResponseCode::BADKEY, // 17    BADKEY    Key not recognized                   [RFC2845]
-            18 => ResponseCode::BADTIME, // 18    BADTIME   Signature out of time window         [RFC2845]
-            19 => ResponseCode::BADMODE, // 19    BADMODE   Bad TKEY Mode                        [RFC2930]
-            20 => ResponseCode::BADNAME, // 20    BADNAME   Duplicate key name                   [RFC2930]
-            21 => ResponseCode::BADALG, // 21    BADALG    Algorithm not supported              [RFC2930]
-            22 => ResponseCode::BADTRUNC, // 22    BADTRUNC  Bad Truncation                       [RFC4635]
-            23 => ResponseCode::BADCOOKIE, // 23    BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)    Bad/missing server cookie    [draft-ietf-dnsop-cookies]
-            code => ResponseCode::Unknown(code),
+            16 => Self::BADSIG, // 16    BADSIG    TSIG Signature Failure               [RFC2845]
+            17 => Self::BADKEY, // 17    BADKEY    Key not recognized                   [RFC2845]
+            18 => Self::BADTIME, // 18    BADTIME   Signature out of time window         [RFC2845]
+            19 => Self::BADMODE, // 19    BADMODE   Bad TKEY Mode                        [RFC2930]
+            20 => Self::BADNAME, // 20    BADNAME   Duplicate key name                   [RFC2930]
+            21 => Self::BADALG, // 21    BADALG    Algorithm not supported              [RFC2930]
+            22 => Self::BADTRUNC, // 22    BADTRUNC  Bad Truncation                       [RFC4635]
+            23 => Self::BADCOOKIE, // 23    BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)    Bad/missing server cookie    [draft-ietf-dnsop-cookies]
+            code => Self::Unknown(code),
         }
     }
 }

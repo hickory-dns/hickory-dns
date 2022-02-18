@@ -40,19 +40,19 @@ pub struct SupportedAlgorithms {
 impl SupportedAlgorithms {
     /// Return a new set of Supported algorithms
     pub fn new() -> Self {
-        SupportedAlgorithms { bit_map: 0 }
+        Self { bit_map: 0 }
     }
 
     /// Specify the entire set is supported
     pub fn all() -> Self {
-        SupportedAlgorithms {
+        Self {
             bit_map: 0b0111_1111,
         }
     }
 
     /// Based on the set of Algorithms, return the supported set
     pub fn from_vec(algorithms: &[Algorithm]) -> Self {
-        let mut supported = SupportedAlgorithms::new();
+        let mut supported = Self::new();
 
         for a in algorithms {
             supported.set(*a);
@@ -125,8 +125,8 @@ impl SupportedAlgorithms {
 }
 
 impl Default for SupportedAlgorithms {
-    fn default() -> SupportedAlgorithms {
-        SupportedAlgorithms::new()
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -143,7 +143,7 @@ impl Display for SupportedAlgorithms {
 
 impl<'a> From<&'a [u8]> for SupportedAlgorithms {
     fn from(values: &'a [u8]) -> Self {
-        let mut supported = SupportedAlgorithms::new();
+        let mut supported = Self::new();
 
         for a in values.iter().map(|i| Algorithm::from_u8(*i)) {
             match a {
@@ -157,8 +157,8 @@ impl<'a> From<&'a [u8]> for SupportedAlgorithms {
 }
 
 impl<'a> From<&'a SupportedAlgorithms> for Vec<u8> {
-    fn from(value: &'a SupportedAlgorithms) -> Vec<u8> {
-        let mut bytes: Vec<u8> = Vec::with_capacity(8); // today this is less than 8
+    fn from(value: &'a SupportedAlgorithms) -> Self {
+        let mut bytes = Self::with_capacity(8); // today this is less than 8
 
         for a in value.iter() {
             bytes.push(a.into());
@@ -171,7 +171,7 @@ impl<'a> From<&'a SupportedAlgorithms> for Vec<u8> {
 
 impl From<Algorithm> for SupportedAlgorithms {
     fn from(algorithm: Algorithm) -> Self {
-        SupportedAlgorithms::from_vec(&[algorithm])
+        Self::from_vec(&[algorithm])
     }
 }
 

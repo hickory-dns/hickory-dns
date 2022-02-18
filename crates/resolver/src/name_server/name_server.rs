@@ -61,7 +61,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         config: NameServerConfig,
         options: ResolverOpts,
         conn_provider: P,
-    ) -> NameServer<C, P> {
+    ) -> Self {
         Self {
             config,
             options,
@@ -78,7 +78,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         options: ResolverOpts,
         client: C,
         conn_provider: P,
-    ) -> NameServer<C, P> {
+    ) -> Self {
         Self {
             config,
             options,
@@ -315,7 +315,7 @@ mod tests {
     fn test_failed_name_server() {
         let options = ResolverOpts {
             timeout: Duration::from_millis(1), // this is going to fail, make it fail fast...
-            ..Default::default()
+            ..ResolverOpts::default()
         };
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),

@@ -31,7 +31,7 @@ pub struct MdnsClientConnection {
 impl MdnsClientConnection {
     /// associates the socket to the well-known ipv4 multicast address
     pub fn new_ipv4(packet_ttl: Option<u32>, ipv4_if: Option<Ipv4Addr>) -> Self {
-        MdnsClientConnection {
+        Self {
             multicast_addr: *MDNS_IPV4,
             packet_ttl,
             ipv4_if,
@@ -41,7 +41,7 @@ impl MdnsClientConnection {
 
     /// associates the socket to the well-known ipv6 multicast address
     pub fn new_ipv6(packet_ttl: Option<u32>, ipv6_if: Option<u32>) -> Self {
-        MdnsClientConnection {
+        Self {
             multicast_addr: *MDNS_IPV6,
             packet_ttl,
             ipv4_if: None,

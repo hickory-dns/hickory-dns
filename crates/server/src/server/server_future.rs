@@ -40,8 +40,8 @@ pub struct ServerFuture<T: RequestHandler> {
 
 impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
-    pub fn new(handler: T) -> ServerFuture<T> {
-        ServerFuture {
+    pub fn new(handler: T) -> Self {
+        Self {
             handler: Arc::new(Mutex::new(handler)),
             tasks: vec![],
         }

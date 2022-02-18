@@ -429,7 +429,7 @@ impl ZoneUsage {
         op: OpUsage,
         registry: RegistryUsage,
     ) -> Self {
-        ZoneUsage {
+        Self {
             name,
             user,
             app,

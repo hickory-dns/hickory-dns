@@ -78,7 +78,7 @@ where
     /// * `handle` - handle to use for all connections to a remote server.
     /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
     pub fn with_trust_anchor(handle: H, trust_anchor: TrustAnchor) -> Self {
-        DnssecDnsHandle {
+        Self {
             handle,
             trust_anchor: Arc::new(trust_anchor),
             request_depth: 0,
@@ -91,7 +91,7 @@ where
     ///  original handle, such as the request_depth such that infinite recursion does
     ///  not occur.
     fn clone_with_context(&self) -> Self {
-        DnssecDnsHandle {
+        Self {
             handle: self.handle.clone(),
             trust_anchor: Arc::clone(&self.trust_anchor),
             request_depth: self.request_depth + 1,
@@ -132,7 +132,7 @@ where
                 .first()
                 .cloned()
                 .expect("no queries in request");
-            let handle: DnssecDnsHandle<H> = self.clone_with_context();
+            let handle: Self = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
             #[cfg(feature = "dnssec")]
