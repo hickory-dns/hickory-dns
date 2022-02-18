@@ -249,7 +249,7 @@ impl Ec {
     ///   for both of the above algorithms.
     /// ```
     pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
-        ECPublicKey::from_unprefixed(public_key, algorithm)
+        Self::from_unprefixed(public_key, algorithm)
     }
 }
 
@@ -508,7 +508,7 @@ pub struct PublicKeyBuf {
 impl PublicKeyBuf {
     /// Constructs a new PublicKey from the specified bytes, these should be in DNSKEY form.
     pub fn new(key_buf: Vec<u8>) -> Self {
-        PublicKeyBuf { key_buf }
+        Self { key_buf }
     }
 }
 

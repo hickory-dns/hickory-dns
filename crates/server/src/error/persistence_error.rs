@@ -82,8 +82,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -92,7 +92,7 @@ impl From<ErrorKind> for Error {
 }
 
 impl From<ProtoError> for Error {
-    fn from(e: ProtoError) -> Error {
+    fn from(e: ProtoError) -> Self {
         match *e.kind() {
             ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
@@ -103,7 +103,7 @@ impl From<ProtoError> for Error {
 #[cfg(feature = "sqlite")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
 impl From<rusqlite::Error> for Error {
-    fn from(e: rusqlite::Error) -> Error {
+    fn from(e: rusqlite::Error) -> Self {
         ErrorKind::from(e).into()
     }
 }

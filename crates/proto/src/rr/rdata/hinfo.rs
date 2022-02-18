@@ -59,8 +59,8 @@ impl HINFO {
     /// # Return value
     ///
     /// The new HINFO record data.
-    pub fn new(cpu: String, os: String) -> HINFO {
-        HINFO {
+    pub fn new(cpu: String, os: String) -> Self {
+        Self {
             cpu: cpu.into_bytes().into_boxed_slice(),
             os: os.into_bytes().into_boxed_slice(),
         }
@@ -77,8 +77,8 @@ impl HINFO {
     /// # Return value
     ///
     /// The new HINFO record data.
-    pub fn from_bytes(cpu: Box<[u8]>, os: Box<[u8]>) -> HINFO {
-        HINFO { cpu, os }
+    pub fn from_bytes(cpu: Box<[u8]>, os: Box<[u8]>) -> Self {
+        Self { cpu, os }
     }
 
     /// A <character-string> which specifies the CPU type.

@@ -39,7 +39,7 @@ pub struct DnsRequest {
 impl DnsRequest {
     /// Returns a new DnsRequest object
     pub fn new(message: Message, options: DnsRequestOptions) -> Self {
-        DnsRequest { message, options }
+        Self { message, options }
     }
 
     /// Get the set of request options associated with this request
@@ -67,7 +67,7 @@ impl DerefMut for DnsRequest {
 }
 
 impl From<Message> for DnsRequest {
-    fn from(message: Message) -> DnsRequest {
-        DnsRequest::new(message, DnsRequestOptions::default())
+    fn from(message: Message) -> Self {
+        Self::new(message, DnsRequestOptions::default())
     }
 }

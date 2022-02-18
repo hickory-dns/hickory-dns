@@ -44,7 +44,7 @@ impl AsyncDnssecClient {
     /// Returns a DNSSEC verifying client with the default TrustAnchor
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(AsyncDnssecClient, DnsExchangeBackground<S, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), ProtoError>
     where
         S: DnsRequestSender,
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
@@ -61,7 +61,7 @@ impl AsyncDnssecClient {
 
 impl Clone for AsyncDnssecClient {
     fn clone(&self) -> Self {
-        AsyncDnssecClient {
+        Self {
             client: self.client.clone(),
         }
     }

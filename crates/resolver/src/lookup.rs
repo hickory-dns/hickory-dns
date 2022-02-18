@@ -54,7 +54,7 @@ impl Lookup {
     /// Return new instance with given records and the maximum TTL.
     pub fn new_with_max_ttl(query: Query, records: Arc<[Record]>) -> Self {
         let valid_until = Instant::now() + Duration::from_secs(u64::from(MAX_TTL));
-        Lookup {
+        Self {
             query,
             records,
             valid_until,
@@ -63,7 +63,7 @@ impl Lookup {
 
     /// Return a new instance with the given records and deadline.
     pub fn new_with_deadline(query: Query, records: Arc<[Record]>, valid_until: Instant) -> Self {
-        Lookup {
+        Self {
             query,
             records,
             valid_until,
@@ -105,7 +105,7 @@ impl Lookup {
     }
 
     /// Clones the inner vec, appends the other vec
-    pub(crate) fn append(&self, other: Lookup) -> Self {
+    pub(crate) fn append(&self, other: Self) -> Self {
         let mut records = Vec::with_capacity(self.len() + other.len());
         records.extend_from_slice(&*self.records);
         records.extend_from_slice(&*other.records);
@@ -252,7 +252,7 @@ where
             Err(err) => future::err(err).boxed(),
         };
 
-        LookupFuture {
+        Self {
             client_cache,
             names,
             record_type,
@@ -345,7 +345,7 @@ impl SrvLookup {
 
 impl From<Lookup> for SrvLookup {
     fn from(lookup: Lookup) -> Self {
-        SrvLookup(lookup)
+        Self(lookup)
     }
 }
 

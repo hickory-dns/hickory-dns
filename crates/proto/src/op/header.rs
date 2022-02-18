@@ -155,7 +155,7 @@ impl Header {
     // TODO: we should make id, message_type and op_code all required and non-editable
     /// A default Header, not very useful.
     pub const fn new() -> Self {
-        Header {
+        Self {
             id: 0,
             message_type: MessageType::Query,
             op_code: OpCode::Query,
@@ -191,8 +191,8 @@ impl Header {
     ///    dangerous, given the existing implementation.  Meanings for these
     ///    bits may only be assigned by a Standards Action.
     /// ```
-    pub fn response_from_request(header: &Header) -> Self {
-        Header {
+    pub fn response_from_request(header: &Self) -> Self {
+        Self {
             id: header.id,
             message_type: MessageType::Response,
             op_code: header.op_code,
@@ -581,7 +581,7 @@ impl<'r> BinDecodable<'r> for Header {
 
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...
-        Ok(Header {
+        Ok(Self {
             id,
             message_type,
             op_code,

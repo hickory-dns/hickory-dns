@@ -39,7 +39,7 @@ impl LookupOptions {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn for_dnssec(is_dnssec: bool, supported_algorithms: SupportedAlgorithms) -> Self {
-        LookupOptions {
+        Self {
             is_dnssec,
             supported_algorithms,
         }

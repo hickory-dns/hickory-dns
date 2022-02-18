@@ -105,8 +105,8 @@ impl DNSKEY {
         revoke: bool,
         algorithm: Algorithm,
         public_key: Vec<u8>,
-    ) -> DNSKEY {
-        DNSKEY {
+    ) -> Self {
+        Self {
             zone_key,
             secure_entry_point,
             revoke,
@@ -341,8 +341,8 @@ impl DNSKEY {
 }
 
 impl From<DNSKEY> for RData {
-    fn from(key: DNSKEY) -> RData {
-        RData::DNSSEC(super::DNSSECRData::DNSKEY(key))
+    fn from(key: DNSKEY) -> Self {
+        Self::DNSSEC(super::DNSSECRData::DNSKEY(key))
     }
 }
 

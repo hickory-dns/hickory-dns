@@ -55,7 +55,7 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
+        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
@@ -67,7 +67,7 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
+        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
     ) {
         Self::new(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
@@ -106,7 +106,7 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<dyn Future<Output = Result<MdnsStream, io::Error>> + Send + Unpin>,
+        Box<dyn Future<Output = Result<Self, io::Error>> + Send + Unpin>,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(multicast_addr);
@@ -148,7 +148,7 @@ impl MdnsStream {
                             Arc::new(UdpSocket::from_std(multicast_socket).expect("bad handle?"))
                         });
 
-                        MdnsStream {
+                        Self {
                             multicast_addr,
                             datagram,
                             multicast,

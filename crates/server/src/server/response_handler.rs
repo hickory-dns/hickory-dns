@@ -50,7 +50,7 @@ pub struct ResponseHandle {
 impl ResponseHandle {
     /// Returns a new `ResponseHandle` for sending a response message
     pub fn new(dst: SocketAddr, stream_handle: BufDnsStreamHandle) -> Self {
-        ResponseHandle { dst, stream_handle }
+        Self { dst, stream_handle }
     }
 }
 

@@ -8,7 +8,7 @@ impl<T> Restrict<T> {
     /// Create a new restricted type
     #[inline]
     pub fn new(restricted: T) -> Self {
-        Restrict(restricted)
+        Self(restricted)
     }
 
     /// It is the responsibility of this function to verify the contained type is valid.

@@ -103,8 +103,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Error {
-        Error {
+    fn from(kind: ErrorKind) -> Self {
+        Self {
             kind,
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
@@ -113,7 +113,7 @@ impl From<ErrorKind> for Error {
 }
 
 impl From<&'static str> for Error {
-    fn from(msg: &'static str) -> Error {
+    fn from(msg: &'static str) -> Self {
         ErrorKind::Message(msg).into()
     }
 }
@@ -125,13 +125,13 @@ impl From<mpsc::SendError> for Error {
 }
 
 impl From<String> for Error {
-    fn from(msg: String) -> Error {
+    fn from(msg: String) -> Self {
         ErrorKind::Msg(msg).into()
     }
 }
 
 impl From<DnsSecError> for Error {
-    fn from(e: DnsSecError) -> Error {
+    fn from(e: DnsSecError) -> Self {
         match *e.kind() {
             DnsSecErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
@@ -149,7 +149,7 @@ impl From<io::Error> for Error {
 }
 
 impl From<ProtoError> for Error {
-    fn from(e: ProtoError) -> Error {
+    fn from(e: ProtoError) -> Self {
         match *e.kind() {
             ProtoErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::from(e).into(),
@@ -160,8 +160,8 @@ impl From<ProtoError> for Error {
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
         match *e.kind() {
-            ErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e),
-            _ => io::Error::new(io::ErrorKind::Other, e),
+            ErrorKind::Timeout => Self::new(io::ErrorKind::TimedOut, e),
+            _ => Self::new(io::ErrorKind::Other, e),
         }
     }
 }

@@ -50,7 +50,7 @@ impl ActiveRequest {
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
         verifier: Option<MessageVerifier>,
     ) -> Self {
-        ActiveRequest {
+        Self {
             completion,
             request_id,
             // request,
@@ -454,7 +454,7 @@ mod test {
             addr: SocketAddr,
         ) -> Pin<Box<dyn Future<Output = Result<Self, ProtoError>> + Send>> {
             messages.reverse(); // so we can pop() and get messages in order
-            Box::pin(future::ok(MockClientStream {
+            Box::pin(future::ok(Self {
                 messages,
                 addr,
                 id: None,

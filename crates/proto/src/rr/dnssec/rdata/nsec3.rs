@@ -132,8 +132,8 @@ impl NSEC3 {
         salt: Vec<u8>,
         next_hashed_owner_name: Vec<u8>,
         type_bit_maps: Vec<RecordType>,
-    ) -> NSEC3 {
-        NSEC3 {
+    ) -> Self {
+        Self {
             hash_algorithm,
             opt_out,
             iterations,

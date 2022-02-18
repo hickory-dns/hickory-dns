@@ -65,7 +65,7 @@ pub struct Config {
 
 impl Config {
     /// read a Config file from the file specified at path.
-    pub fn read_config(path: &Path) -> ConfigResult<Config> {
+    pub fn read_config(path: &Path) -> ConfigResult<Self> {
         let mut file: File = File::open(path)?;
         let mut toml: String = String::new();
         file.read_to_string(&mut toml)?;
@@ -154,7 +154,7 @@ impl Config {
 impl FromStr for Config {
     type Err = ConfigError;
 
-    fn from_str(toml: &str) -> ConfigResult<Config> {
+    fn from_str(toml: &str) -> ConfigResult<Self> {
         toml::de::from_str(toml).map_err(Into::into)
     }
 }
@@ -203,7 +203,7 @@ impl ZoneConfig {
         enable_dnssec: Option<bool>,
         keys: Vec<dnssec::KeyConfig>,
     ) -> Self {
-        ZoneConfig {
+        Self {
             zone,
             zone_type,
             file: Some(file),

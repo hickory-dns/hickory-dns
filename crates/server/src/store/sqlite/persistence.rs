@@ -31,16 +31,16 @@ pub struct Journal {
 
 impl Journal {
     /// Constructs a new Journal, attaching to the specified Sqlite Connection
-    pub fn new(conn: Connection) -> PersistenceResult<Journal> {
+    pub fn new(conn: Connection) -> PersistenceResult<Self> {
         let version = Self::select_schema_version(&conn)?;
-        Ok(Journal {
+        Ok(Self {
             conn: Mutex::new(conn),
             version,
         })
     }
 
     /// Constructs a new Journal opening a Sqlite connection to the file at the specified path
-    pub fn from_file(journal_file: &Path) -> PersistenceResult<Journal> {
+    pub fn from_file(journal_file: &Path) -> PersistenceResult<Self> {
         let result = Self::new(Connection::open(journal_file)?);
         match result {
             Ok(mut journal) => {

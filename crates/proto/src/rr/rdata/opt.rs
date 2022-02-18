@@ -181,8 +181,8 @@ impl OPT {
     /// # Return value
     ///
     /// The newly created OPT data
-    pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
-        OPT { options }
+    pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> Self {
+        Self { options }
     }
 
     #[deprecated(note = "Please use as_ref() or as_mut() for shared/mutable references")]
@@ -365,29 +365,29 @@ pub enum EdnsCode {
 
 // TODO: implement a macro to perform these inversions
 impl From<u16> for EdnsCode {
-    fn from(value: u16) -> EdnsCode {
+    fn from(value: u16) -> Self {
         match value {
-            0 => EdnsCode::Zero,
-            1 => EdnsCode::LLQ,
-            2 => EdnsCode::UL,
-            3 => EdnsCode::NSID,
+            0 => Self::Zero,
+            1 => Self::LLQ,
+            2 => Self::UL,
+            3 => Self::NSID,
             // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
-            5 => EdnsCode::DAU,
-            6 => EdnsCode::DHU,
-            7 => EdnsCode::N3U,
-            8 => EdnsCode::Subnet,
-            9 => EdnsCode::Expire,
-            10 => EdnsCode::Cookie,
-            11 => EdnsCode::Keepalive,
-            12 => EdnsCode::Padding,
-            13 => EdnsCode::Chain,
-            _ => EdnsCode::Unknown(value),
+            5 => Self::DAU,
+            6 => Self::DHU,
+            7 => Self::N3U,
+            8 => Self::Subnet,
+            9 => Self::Expire,
+            10 => Self::Cookie,
+            11 => Self::Keepalive,
+            12 => Self::Padding,
+            13 => Self::Chain,
+            _ => Self::Unknown(value),
         }
     }
 }
 
 impl From<EdnsCode> for u16 {
-    fn from(value: EdnsCode) -> u16 {
+    fn from(value: EdnsCode) -> Self {
         match value {
             EdnsCode::Zero => 0,
             EdnsCode::LLQ => 1,
@@ -475,21 +475,21 @@ impl BinEncodable for EdnsOption {
 /// only the supported extensions are listed right now.
 impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
     #[allow(clippy::match_single_binding)]
-    fn from(value: (EdnsCode, &'a [u8])) -> EdnsOption {
+    fn from(value: (EdnsCode, &'a [u8])) -> Self {
         match value.0 {
             #[cfg(feature = "dnssec")]
-            EdnsCode::DAU => EdnsOption::DAU(value.1.into()),
+            EdnsCode::DAU => Self::DAU(value.1.into()),
             #[cfg(feature = "dnssec")]
-            EdnsCode::DHU => EdnsOption::DHU(value.1.into()),
+            EdnsCode::DHU => Self::DHU(value.1.into()),
             #[cfg(feature = "dnssec")]
-            EdnsCode::N3U => EdnsOption::N3U(value.1.into()),
-            _ => EdnsOption::Unknown(value.0.into(), value.1.to_vec()),
+            EdnsCode::N3U => Self::N3U(value.1.into()),
+            _ => Self::Unknown(value.0.into(), value.1.to_vec()),
         }
     }
 }
 
 impl<'a> From<&'a EdnsOption> for Vec<u8> {
-    fn from(value: &'a EdnsOption) -> Vec<u8> {
+    fn from(value: &'a EdnsOption) -> Self {
         match *value {
             #[cfg(feature = "dnssec")]
             EdnsOption::DAU(ref algorithms)
@@ -501,14 +501,14 @@ impl<'a> From<&'a EdnsOption> for Vec<u8> {
 }
 
 impl<'a> From<&'a EdnsOption> for EdnsCode {
-    fn from(value: &'a EdnsOption) -> EdnsCode {
+    fn from(value: &'a EdnsOption) -> Self {
         match *value {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(..) => EdnsCode::DAU,
+            EdnsOption::DAU(..) => Self::DAU,
             #[cfg(feature = "dnssec")]
-            EdnsOption::DHU(..) => EdnsCode::DHU,
+            EdnsOption::DHU(..) => Self::DHU,
             #[cfg(feature = "dnssec")]
-            EdnsOption::N3U(..) => EdnsCode::N3U,
+            EdnsOption::N3U(..) => Self::N3U,
             EdnsOption::Unknown(code, _) => code.into(),
         }
     }

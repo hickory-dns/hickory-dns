@@ -178,7 +178,7 @@ impl RequestHandler for Catalog {
 impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
-        Catalog {
+        Self {
             authorities: HashMap::new(),
         }
     }

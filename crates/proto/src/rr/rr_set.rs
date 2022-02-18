@@ -44,7 +44,7 @@ impl RecordSet {
     /// The newly created Resource Record Set
     /// TODO: make all cloned params pass by value
     pub fn new(name: &Name, record_type: RecordType, serial: u32) -> Self {
-        RecordSet {
+        Self {
             name: name.clone(),
             record_type,
             dns_class: DNSClass::IN,
@@ -69,7 +69,7 @@ impl RecordSet {
     /// The newly created Resource Record Set
     /// TODO: make all cloned params pass by value
     pub fn with_ttl(name: Name, record_type: RecordType, ttl: u32) -> Self {
-        RecordSet {
+        Self {
             name,
             record_type,
             dns_class: DNSClass::IN,
@@ -468,7 +468,7 @@ impl From<RecordSet> for RecordSetParts {
             rrsigs,
             serial,
         } = rset;
-        RecordSetParts {
+        Self {
             name,
             record_type,
             dns_class,
@@ -482,7 +482,7 @@ impl From<RecordSet> for RecordSetParts {
 
 impl From<Record> for RecordSet {
     fn from(record: Record) -> Self {
-        RecordSet {
+        Self {
             name: record.name().clone(),
             record_type: record.rr_type(),
             dns_class: record.dns_class(),

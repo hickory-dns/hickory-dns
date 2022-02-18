@@ -38,8 +38,8 @@ where
     H: ClientHandle,
 {
     /// Returns a new handle wrapping the specified client
-    pub fn new(client: H) -> MemoizeClientHandle<H> {
-        MemoizeClientHandle {
+    pub fn new(client: H) -> Self {
+        Self {
             client,
             active_queries: Arc::new(Mutex::new(HashMap::new())),
         }

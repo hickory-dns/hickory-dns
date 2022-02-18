@@ -49,7 +49,7 @@ pub struct AsyncStdRuntime;
 
 impl Executor for AsyncStdRuntime {
     fn new() -> Self {
-        AsyncStdRuntime {}
+        Self {}
     }
 
     fn block_on<F: Future>(&mut self, future: F) -> F::Output {

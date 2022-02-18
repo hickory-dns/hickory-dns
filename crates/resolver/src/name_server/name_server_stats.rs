@@ -23,7 +23,7 @@ impl Default for NameServerStats {
 
 impl NameServerStats {
     pub(crate) fn new(successes: usize, failures: usize) -> Self {
-        NameServerStats {
+        Self {
             successes: AtomicUsize::new(successes),
             failures: AtomicUsize::new(failures),
         }

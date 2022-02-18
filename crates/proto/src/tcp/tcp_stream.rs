@@ -106,7 +106,7 @@ impl<S: Connect> TcpStream<S> {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
+        impl Future<Output = Result<Self, io::Error>> + Send,
         BufDnsStreamHandle,
     )
     where
@@ -126,7 +126,7 @@ impl<S: Connect> TcpStream<S> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
+        impl Future<Output = Result<Self, io::Error>> + Send,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -151,7 +151,7 @@ impl<S: Connect> TcpStream<S> {
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
     ) -> (
-        impl Future<Output = Result<TcpStream<S>, io::Error>> + Send,
+        impl Future<Output = Result<Self, io::Error>> + Send,
         BufDnsStreamHandle,
     ) {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(name_server);
@@ -165,7 +165,7 @@ impl<S: Connect> TcpStream<S> {
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
         outbound_messages: StreamReceiver,
-    ) -> Result<TcpStream<S>, io::Error> {
+    ) -> Result<Self, io::Error> {
         let tcp = S::connect_with_bind(name_server, bind_addr);
         S::Time::timeout(timeout, tcp)
             .map(move |tcp_stream: Result<Result<S, io::Error>, _>| {
@@ -173,7 +173,7 @@ impl<S: Connect> TcpStream<S> {
                     .and_then(|tcp_stream| tcp_stream)
                     .map(|tcp_stream| {
                         debug!("TCP connection established to: {}", name_server);
-                        TcpStream {
+                        Self {
                             socket: tcp_stream,
                             outbound_messages,
                             send_state: None,
@@ -231,7 +231,7 @@ impl<S: DnsTcpStream> TcpStream<S> {
         peer_addr: SocketAddr,
         outbound_messages: StreamReceiver,
     ) -> Self {
-        TcpStream {
+        Self {
             socket,
             outbound_messages,
             send_state: None,

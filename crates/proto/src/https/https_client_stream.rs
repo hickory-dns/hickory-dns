@@ -288,7 +288,7 @@ pub struct HttpsClientStreamBuilder {
 impl HttpsClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
     pub fn with_client_config(client_config: Arc<ClientConfig>) -> Self {
-        HttpsClientStreamBuilder {
+        Self {
             client_config,
             bind_addr: None,
         }
@@ -409,7 +409,7 @@ where
                 } => {
                     debug!("tcp connecting to: {}", name_server);
                     let connect = S::connect_with_bind(name_server, bind_addr);
-                    HttpsClientConnectState::TcpConnecting {
+                    Self::TcpConnecting {
                         connect,
                         name_server,
                         tls: tls.take(),
@@ -432,15 +432,16 @@ where
                         Ok(dns_name) => {
                             let tls = TlsConnector::from(tls.client_config);
                             let tls = tls.connect(dns_name, AsyncIoStdAsTokio(tcp));
-                            HttpsClientConnectState::TlsConnecting {
+                            Self::TlsConnecting {
                                 name_server_name,
                                 name_server,
                                 tls,
                             }
                         }
-                        Err(_) => HttpsClientConnectState::Errored(Some(ProtoError::from(
-                            format!("bad dns_name: {}", &tls.dns_name),
-                        ))),
+                        Err(_) => Self::Errored(Some(ProtoError::from(format!(
+                            "bad dns_name: {}",
+                            &tls.dns_name
+                        )))),
                     }
                 }
                 HttpsClientConnectState::TlsConnecting {
@@ -454,7 +455,7 @@ where
                     handshake.enable_push(false);
 
                     let handshake = handshake.handshake(tls);
-                    HttpsClientConnectState::H2Handshake {
+                    Self::H2Handshake {
                         name_server_name: Arc::clone(name_server_name),
                         name_server,
                         handshake: Box::pin(handshake),
@@ -477,7 +478,7 @@ where
                             .map(|_: Result<(), ()>| ()),
                     );
 
-                    HttpsClientConnectState::Connected(Some(HttpsClientStream {
+                    Self::Connected(Some(HttpsClientStream {
                         name_server_name: Arc::clone(name_server_name),
                         name_server,
                         h2: send_request,

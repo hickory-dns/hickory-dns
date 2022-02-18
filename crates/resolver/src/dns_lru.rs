@@ -117,8 +117,8 @@ pub(crate) struct TtlConfig {
 }
 
 impl TtlConfig {
-    pub(crate) fn from_opts(opts: &config::ResolverOpts) -> TtlConfig {
-        TtlConfig {
+    pub(crate) fn from_opts(opts: &config::ResolverOpts) -> Self {
+        Self {
             positive_min_ttl: opts.positive_min_ttl,
             negative_min_ttl: opts.negative_min_ttl,
             positive_max_ttl: opts.positive_max_ttl,

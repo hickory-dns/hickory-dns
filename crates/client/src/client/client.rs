@@ -450,7 +450,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     pub fn new(conn: CC) -> Self {
-        SyncClient { conn, signer: None }
+        Self { conn, signer: None }
     }
 
     /// Creates a new DNS client with the specified connection type and a SIG0 signer.
@@ -464,7 +464,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn with_signer(conn: CC, signer: SigSigner) -> Self {
-        SyncClient {
+        Self {
             conn,
             signer: Some(Arc::new(signer.into())),
         }
@@ -481,7 +481,7 @@ impl<CC: ClientConnection> SyncClient<CC> {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn with_tsigner(conn: CC, signer: TSigner) -> Self {
-        SyncClient {
+        Self {
             conn,
             signer: Some(Arc::new(signer.into())),
         }

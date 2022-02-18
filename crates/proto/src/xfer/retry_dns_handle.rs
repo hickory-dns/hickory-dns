@@ -51,7 +51,7 @@ where
     /// * `handle` - handle to the dns connection
     /// * `attempts` - number of attempts before failing
     pub fn new(handle: H, attempts: usize) -> Self {
-        RetryDnsHandle { handle, attempts }
+        Self { handle, attempts }
     }
 }
 

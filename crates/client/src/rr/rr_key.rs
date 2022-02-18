@@ -30,8 +30,8 @@ impl RrKey {
     ///
     /// A new key to access the Authorities.
     /// TODO: make all cloned params pass by value.
-    pub fn new(name: LowerName, record_type: RecordType) -> RrKey {
-        RrKey { name, record_type }
+    pub fn new(name: LowerName, record_type: RecordType) -> Self {
+        Self { name, record_type }
     }
 
     /// Returns the name of the key
@@ -41,7 +41,7 @@ impl RrKey {
 }
 
 impl PartialOrd for RrKey {
-    fn partial_cmp(&self, other: &RrKey) -> Option<Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }

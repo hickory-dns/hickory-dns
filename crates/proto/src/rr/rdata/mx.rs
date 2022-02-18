@@ -60,8 +60,8 @@ impl MX {
     /// # Returns
     ///
     /// A new MX RData for use in a Resource Record
-    pub fn new(preference: u16, exchange: Name) -> MX {
-        MX {
+    pub fn new(preference: u16, exchange: Name) -> Self {
+        Self {
             preference,
             exchange,
         }
