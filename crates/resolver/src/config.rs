@@ -479,6 +479,11 @@ impl NameServerConfigGroup {
         )
     }
 
+    /// Returns the inner vec of configs
+    pub fn into_inner(self) -> Vec<NameServerConfig> {
+        self.0
+    }
+
     /// Configure a NameServer address and port
     ///
     /// This will create UDP and TCP connections, using the same port.
