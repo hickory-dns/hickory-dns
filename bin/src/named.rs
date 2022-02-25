@@ -307,7 +307,7 @@ impl<'a> From<ArgMatches> for Args {
 /// `Note`: Tries to avoid panics, in favor of always starting.
 #[allow(unused_mut)]
 fn main() {
-    let args = app_from_crate!()
+    let args = command!()
         .arg(
             Arg::new(QUIET_ARG)
                 .long(QUIET_ARG)

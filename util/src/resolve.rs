@@ -22,8 +22,8 @@
 
 use std::net::{IpAddr, SocketAddr};
 
+use clap::Parser;
 use console::style;
-use structopt::StructOpt;
 
 use trust_dns_proto::xfer::DnsRequestOptions;
 use trust_dns_resolver::config::{
@@ -40,81 +40,81 @@ use trust_dns_resolver::TokioAsyncResolver;
 /// nameservers are the Google provided ones. The system configured ones can be
 /// used with the `--system` FLAG. Other nameservers, as many as desired, can
 /// be configured directly with the `--nameserver` OPTION.
-#[derive(Debug, StructOpt)]
-#[structopt(name = "resolve")]
+#[derive(Debug, Parser)]
+#[clap(name = "resolve")]
 struct Opts {
     /// Name to attempt to resolve, if followed by a '.' then it's a fully-qualified-domain-name.
     domainname: String,
 
     /// Type of query to issue, e.g. A, AAAA, NS, etc.
-    #[structopt(short = "t", long = "type", default_value = "A")]
+    #[clap(short = 't', long = "type", default_value = "A")]
     ty: RecordType,
 
     /// Happy eye balls lookup, ipv4 and ipv6
-    #[structopt(short = "e", long = "happy", conflicts_with("ty"))]
+    #[clap(short = 'e', long = "happy", conflicts_with("ty"))]
     happy: bool,
 
     /// Use system configuration, e.g. /etc/resolv.conf, instead of defaults
-    #[structopt(short = "s", long = "system")]
+    #[clap(short = 's', long = "system")]
     system: bool,
 
     /// Use google resolvers, default
-    #[structopt(long)]
+    #[clap(long)]
     google: bool,
 
     /// Use cloudflare resolvers
-    #[structopt(long)]
+    #[clap(long)]
     cloudflare: bool,
 
     /// Use quad9 resolvers
-    #[structopt(long)]
+    #[clap(long)]
     quad9: bool,
 
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
-    #[structopt(short = "n", long, require_delimiter = true)]
+    #[clap(short = 'n', long, require_value_delimiter = true)]
     nameserver: Vec<SocketAddr>,
 
     /// Specify the IP address to connect from.
-    #[structopt(long)]
+    #[clap(long)]
     bind: Option<IpAddr>,
 
     /// Use ipv4 addresses only, default is both ipv4 and ipv6
-    #[structopt(long)]
+    #[clap(long)]
     ipv4: bool,
 
     /// Use ipv6 addresses only, default is both ipv4 and ipv6
-    #[structopt(long)]
+    #[clap(long)]
     ipv6: bool,
 
     /// Use only UDP, default to UDP and TCP
-    #[structopt(long)]
+    #[clap(long)]
     udp: bool,
 
     /// Use only TCP, default to UDP and TCP
-    #[structopt(long)]
+    #[clap(long)]
     tcp: bool,
 
     /// Enable debug and all logging
-    #[structopt(long)]
+    #[clap(long)]
     debug: bool,
 
     /// Enable info + warning + error logging
-    #[structopt(long)]
+    #[clap(long)]
     info: bool,
 
     /// Enable warning + error logging
-    #[structopt(long)]
+    #[clap(long)]
     warn: bool,
 
     /// Enable error logging
-    #[structopt(long)]
+    #[clap(long)]
     error: bool,
 }
 
 /// Run the resolve program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opts: Opts = Opts::from_args();
+    let opts: Opts = Opts::parse();
 
     // enable logging early
     let log_level = if opts.debug {
