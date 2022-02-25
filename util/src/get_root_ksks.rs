@@ -25,7 +25,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::PathBuf;
 
-use clap::{app_from_crate, ArgMatches};
+use clap::{command, ArgMatches};
 
 use trust_dns_client::rr::dnssec::Algorithm;
 use trust_dns_proto::rr::dnssec::rdata::DNSSECRData;
@@ -34,7 +34,7 @@ use trust_dns_proto::rr::record_type::RecordType;
 use trust_dns_resolver::Resolver;
 
 fn args() -> ArgMatches {
-    app_from_crate!().bin_name("get-root-ksks").get_matches()
+    command!().bin_name("get-root-ksks").get_matches()
 }
 
 /// Run the get_root_ksks program

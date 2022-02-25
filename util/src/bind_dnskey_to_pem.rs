@@ -25,7 +25,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Lines, Write};
 use std::str::FromStr;
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use data_encoding::BASE64;
 use log::info;
 use openssl::bn::BigNum;
@@ -34,7 +34,7 @@ use openssl::rsa::Rsa;
 use trust_dns_client::rr::dnssec::Algorithm;
 
 fn args() -> ArgMatches {
-    App::new("Trust-DNS dnskey-to-pem")
+    Command::new("Trust-DNS dnskey-to-pem")
         .version(trust_dns_client::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about("Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format")

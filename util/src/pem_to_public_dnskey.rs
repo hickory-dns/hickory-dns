@@ -23,14 +23,14 @@
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 
-use clap::{App, Arg, ArgMatches};
+use clap::{Arg, ArgMatches, Command};
 use log::info;
 use openssl::pkey::PKey;
 
 use trust_dns_client::rr::dnssec::{KeyPair, Public};
 
 fn args() -> ArgMatches {
-    App::new("Trust-DNS pem-to-public-dnskey")
+    Command::new("Trust-DNS pem-to-public-dnskey")
         .version(trust_dns_client::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about(
