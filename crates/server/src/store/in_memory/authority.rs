@@ -420,6 +420,7 @@ impl InnerInMemory {
             name.clone().into_wildcard()
         };
 
+        #[allow(clippy::needless_late_init)]
         self.inner_lookup(&wildcard, record_type, lookup_options)
             // we need to change the name to the query name in the result set since this was a wildcard
             .map(|rrset| {

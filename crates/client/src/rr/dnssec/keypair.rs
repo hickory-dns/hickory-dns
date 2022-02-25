@@ -589,7 +589,7 @@ mod tests {
         );
         sig[10] = !sig[10];
         assert!(
-            !pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            pk.verify(algorithm, tbs.as_ref(), &sig).is_err(),
             "algorithm: {:?} (public key, neg)",
             algorithm
         );
@@ -632,15 +632,15 @@ mod tests {
             algorithm
         );
         assert!(
-            !neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_err(),
             "algorithm: {:?} (neg)",
             algorithm
         );
         assert!(
-            !neg.to_dnskey(algorithm)
+            neg.to_dnskey(algorithm)
                 .unwrap()
                 .verify(tbs.as_ref(), &sig)
-                .is_ok(),
+                .is_err(),
             "algorithm: {:?} (dnskey, neg)",
             algorithm
         );
