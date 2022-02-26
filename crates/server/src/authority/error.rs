@@ -42,11 +42,6 @@ impl LookupError {
         Self::NameExists
     }
 
-    /// True if other records exist at the same name, but not the searched for RecordType
-    pub fn is_name_exists(&self) -> bool {
-        matches!(*self, LookupError::NameExists)
-    }
-
     /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
         matches!(*self, LookupError::ResponseCode(ResponseCode::NXDomain))
