@@ -3,7 +3,6 @@
 [![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/main/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
-[![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=bluejekyll/trust-dns)](https://dependabot.com)
 [![Discord](https://img.shields.io/discord/590067103822774272.svg)](https://discord.gg/89nxE4n)
 
 ![Trust-DNS](logo.svg)
@@ -26,7 +25,6 @@ This repo consists of multiple crates:
 | **NativeTls** | [![](https://img.shields.io/crates/v/trust-dns-native-tls.svg)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls) Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries |
 | **OpenSsl** | [![](https://img.shields.io/crates/v/trust-dns-openssl.svg)](https://crates.io/crates/trust_dns_openssl) [![trust-dns-openssl](https://docs.rs/trust-dns-openssl/badge.svg)](https://docs.rs/trust-dns-openssl) Implementation of DNS over TLS protocol using OpenSSL |
 
-
 # Goals
 
 - Build a safe and secure DNS server and client with modern features.
@@ -37,7 +35,7 @@ This repo consists of multiple crates:
 - Support options for Global Load Balancing functions
 - Make it dead simple to operate
 
-# Status:
+# Status
 
 ## Resolver
 
@@ -117,6 +115,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 8499](https://tools.ietf.org/html/rfc8499): No more master/slave, in honor of [Juneteenth](https://en.wikipedia.org/wiki/Juneteenth)
 
 ### Basic operations
+
 - [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (see the Resolver for caching)
 - [RFC 2308](https://tools.ietf.org/html/rfc2308): Negative Caching of DNS Queries (see the Resolver)
 - [RFC 2782](https://tools.ietf.org/html/rfc2782): Service location
@@ -128,10 +127,12 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC ANAME](https://tools.ietf.org/html/draft-ietf-dnsop-aname-02): Address-specific DNS aliases (`ANAME`)
 
 ### Update operations
+
 - [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
 - [RFC 7477](https://tools.ietf.org/html/rfc7477): Child-to-Parent Synchronization in DNS
 
 ### Secure DNS operations
+
 - [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update
 - [RFC 4034](https://tools.ietf.org/html/rfc4034): DNSSEC Resource Records
 - [RFC 4035](https://tools.ietf.org/html/rfc4035): Protocol Modifications for DNSSEC
@@ -149,15 +150,18 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 ## RFCs in progress or not yet implemented
 
 ### Basic operations
+
 - [RFC 2317](https://tools.ietf.org/html/rfc2317): Classless IN-ADDR.ARPA delegation
 
 ### Update operations
+
 - [RFC 1995](https://tools.ietf.org/html/rfc1995): Incremental Zone Transfer
 - [RFC 1996](https://tools.ietf.org/html/rfc1996): Notify secondaries of update
 - [Update Leases](https://tools.ietf.org/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
 - [Long-Lived Queries](https://tools.ietf.org/html/draft-sekar-dns-llq-01): Notify with bells
 
 ### Secure DNS operations
+
 - [RFC 5155](https://tools.ietf.org/html/rfc5155): DNSSEC Hashed Authenticated Denial of Existence
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
 - [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
@@ -167,8 +171,8 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
 presume that the trust-dns repos have already been synced to the local system:
 
-    $ git clone https://github.com/bluejekyll/trust-dns.git
-    $ cd trust-dns
+    git clone https://github.com/bluejekyll/trust-dns.git
+    cd trust-dns
 
 ## Prerequisites
 
@@ -180,9 +184,9 @@ presume that the trust-dns repos have already been synced to the local system:
 ### Mac OS X: using homebrew
 
 ```
-  $ brew install openssl
-  $ export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
-  $ export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
+  brew install openssl
+  export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
+  export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 ```
 
 ### Debian-based (includes Ubuntu & Raspbian): using apt-get
@@ -205,7 +209,7 @@ Trust-DNS uses `cargo-make` for build workflow management. While running `cargo 
     be run from the crate directory, i.e. `client` or `server` and `cargo test`
 
 ```shell
-$ cargo make
+cargo make
 ```
 
 - Default feature tests
@@ -213,7 +217,7 @@ $ cargo make
     Trust-DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
 
 ```shell
-$ cargo make all-features
+cargo make all-features
 ```
 
 - Individual feature tests
@@ -221,19 +225,19 @@ $ cargo make all-features
     Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `cargo-make`:
 
 ```shell
-$ cargo make dns-over-https-rustls
+cargo make dns-over-https-rustls
 ```
 
--   Benchmarks
+- Benchmarks
 
     Waiting on benchmarks to stabilize in mainline Rust.
 
 ## Building
 
--   Production build, from the `trust-dns` base dir, to get all features, just pass the `--all-features` flag.
+- Production build, from the `trust-dns` base dir, to get all features, just pass the `--all-features` flag.
 
 ```shell
-$ cargo build --release -p trust-dns
+cargo build --release -p trust-dns
 ```
 
 ## Running
@@ -242,30 +246,30 @@ Warning: Trust-DNS is still under development, running in production is not
 recommended. The server is currently only single-threaded, it is non-blocking
 so this should allow it to work with most internal loads.
 
--   Verify the version
+- Verify the version
 
 ```shell
-$ ./target/release/named --version
+./target/release/named --version
 ```
 
--   Get help
+- Get help
 
 ```shell
-$ ./target/release/named --help
+./target/release/named --help
 ```
 
--   Launch `named` server with test config
+- Launch `named` server with test config
 
 You may want not passing the `-p` parameter will run on default DNS ports. For the tls features, there are also port options for those, see `trust-dns --help`
 
 ```shell
-$ ./target/release/named -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
+./target/release/named -c ./tests/test-data/named_test_configs/example.toml -z ./tests/test-data/named_test_configs/ -p 24141
 ```
 
--   Query the just launched server with `dig`
+- Query the just launched server with `dig`
 
 ```shell
-$ dig @127.0.0.1 -p 24141 www.example.com
+dig @127.0.0.1 -p 24141 www.example.com
 ```
 
 ## Using the trust-dns-resolver CLI
@@ -273,16 +277,16 @@ $ dig @127.0.0.1 -p 24141 www.example.com
 Available in `0.20`
 
 ```shell
-$ cargo install --bin resolve trust-dns-util
+cargo install --bin resolve trust-dns-util
 ```
 
 Or from source, in the trust-dns directory
 
 ```shell
-$ cargo install --bin resolve --path util
+cargo install --bin resolve --path util
 ```
 
-example: 
+example:
 
 ```shell
 $ resolve www.example.com.
@@ -303,7 +307,7 @@ The Client has a few features which can be disabled for different reasons when e
 
 - `dns-over-native-tls`
     Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
- 
+
 - `dns-over-openssl`
     Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
 
@@ -333,7 +337,7 @@ $> cargo build --release --features dns-over-rustls
 
 ## FAQ
 
--   Why are you building another DNS server?
+- Why are you building another DNS server?
 
     Because of all the security advisories out there for BIND.
 Using Rust semantics it should be possible to develop a high performance and
@@ -347,8 +351,8 @@ For live discussions beyond this repository, please see this [Discord](https://d
 
 Licensed under either of
 
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or https://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or https://opensource.org/licenses/MIT)
+- Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or <https://opensource.org/licenses/MIT>)
 
 at your option.
 
