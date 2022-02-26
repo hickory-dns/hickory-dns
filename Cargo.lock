@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "async-std",
  "async-trait",
@@ -315,7 +315,7 @@ version = "3.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01d42c94ce7c2252681b5fed4d3627cc807b13dfc033246bd05d5b252399000e"
 dependencies = [
- "heck 0.4.0",
+ "heck",
  "proc-macro-error",
  "proc-macro2",
  "quote",
@@ -402,11 +402,11 @@ checksum = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
 
 [[package]]
 name = "enum-as-inner"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c5f0096a91d210159eceb2ff5e1c4da18388a170e1e3ce948aac9c8fdbbf595"
+checksum = "570d109b813e904becc80d8d5da38376818a143348413f7149f1340fe04754d4"
 dependencies = [
- "heck 0.3.3",
+ "heck",
  "proc-macro2",
  "quote",
  "syn",
@@ -658,15 +658,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7249a3129cbc1ffccd74857f81464a323a152173cdb134e0fd81bc803b29facf"
 dependencies = [
  "hashbrown",
-]
-
-[[package]]
-name = "heck"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d621efb26863f0e9924c6ac577e8275e5e6b77455db64ffa6c65c904e9e132c"
-dependencies = [
- "unicode-segmentation",
 ]
 
 [[package]]
@@ -1603,7 +1594,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "clap",
  "env_logger",
@@ -1623,7 +1614,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-client"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -1647,7 +1638,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-compatibility"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "data-encoding",
  "env_logger",
@@ -1660,14 +1651,14 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-https"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-integration"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "async-trait",
  "env_logger",
@@ -1689,21 +1680,21 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-native-tls"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-openssl"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "async-trait",
  "backtrace",
@@ -1746,7 +1737,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "cfg-if",
  "env_logger",
@@ -1772,14 +1763,14 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-rustls"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "trust-dns-proto",
 ]
 
 [[package]]
 name = "trust-dns-server"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1808,7 +1799,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-util"
-version = "0.21.0-alpha.5"
+version = "0.21.0"
 dependencies = [
  "clap",
  "console",
@@ -1839,12 +1830,6 @@ checksum = "d54590932941a9e9266f0832deed84ebe1bf2e4c9e4a3554d393d18f5e854bf9"
 dependencies = [
  "tinyvec",
 ]
-
-[[package]]
-name = "unicode-segmentation"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8895849a949e7845e06bd6dc1aa51731a103c42707010a5b591c0038fb73385b"
 
 [[package]]
 name = "unicode-width"
