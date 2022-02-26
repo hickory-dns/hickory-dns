@@ -5,10 +5,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
-## 0.21.0 (unreleased)
+## 0.21.0
 
 ### Added
 
+- (client) Parse DS records (@kmkaplan) #1635
 - (fuzz) Added fuzzing configuration (@saethlin) #1626
 - (resolver) Add `resolver.clear_cache()` sync and async (dns2utf8) #1611
 - (proto) Add CDS/CDNSKEY records from RFC7344 (frelon) #1595
@@ -21,6 +22,8 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (util) openssl is no longer default enabled in trust-dns-utils, bins marked as required as necessary #1644
+- (proto) deprecate outdated dnssec algorithms #1640
 - (server) pass RequestInfo into Authority on search #1620
 - (proto) SSHFP: Ed448 is assigned algorithm 6 in RFC 8709 #1604
 - (resolver) Do not retry the same name server on a negative response (@peterthejohnston) #1589
@@ -51,6 +54,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Removed
 
+- (all) removed `structopt` dependency #1644
 - (all) removed `chrono` dependency #1569
 - (client) Remove AsyncClientConnect and AsyncSecureClientConnect (future impls) in favor of async constructors (@ErwanDL) #1541
 - (proto) removed `RecordType::DNSSEC` and moved all variants of `DNSSECRecordType` into `RecordType` #1506
@@ -59,8 +63,9 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Fixed
 
+- (proto) fix CAA .to_string() crash and format (@hartshorne) #1631
 - (proto) fix DoubleEndedIterator impl for Name #1639
-- (client) Fix AsyncClient::clone always setting use_edns (ecton) #1598
+- (client) Fix AsyncClient::clone always setting use_edns (@ecton) #1598
 - (resolver) Use stream connections if datagram connections are not available (@pinkisemils) #1592
 - (server) Release resources when a server future is dropped (@pinkisemils) #1587
 - (proto) Panic when name exceeds maximal domain name length during display #1447
