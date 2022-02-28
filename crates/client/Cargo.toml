@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-client"
-version = "0.21.0"
+version = "0.21.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -82,7 +82,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 time = "0.3"
 tokio = { version = "1.0", features = ["rt"] }
-trust-dns-proto = { version = "0.21.0", path = "../proto"}
+trust-dns-proto = { version = "0.21.1", path = "../proto"}
 webpki = { version = "0.22.0", optional = true }
 
 [dev-dependencies]

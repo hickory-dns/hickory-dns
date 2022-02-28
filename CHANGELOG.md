@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.21.1
+
+### Fixed
+
+- (util) fixed feature build issue in `resolve` #1649
+
 ## 0.21.0
 
 ### Added
