@@ -209,7 +209,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
     /// documentation for `AsyncResolver` for more information on how to use
     /// the background future.
     #[allow(clippy::unnecessary_wraps)]
-    pub(crate) fn new_with_conn(
+    pub fn new_with_conn(
         config: ResolverConfig,
         options: ResolverOpts,
         conn_provider: P,
@@ -259,7 +259,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
         docsrs,
         doc(cfg(all(feature = "system-config", any(unix, target_os = "windows"))))
     )]
-    pub(crate) fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
+    pub fn from_system_conf_with_provider(conn_provider: P) -> Result<Self, ResolveError> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Self::new_with_conn(config, options, conn_provider)
     }
