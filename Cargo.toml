@@ -1,19 +1,19 @@
 [workspace]
-members = ["crates/proto",
-           "crates/resolver",
-           "crates/client", 
-           "crates/server",
-           "crates/async-std-resolver",
-           "bin",
-           "util",
-           "tests/compatibility-tests",
-           "tests/integration-tests",
-           "crates/https",
-           "crates/native-tls",
-           "crates/openssl",
-           "crates/rustls"]
+members = [
+    "crates/proto",
+    "crates/resolver",
+    "crates/client", 
+    "crates/server",
+    "crates/async-std-resolver",
+    "bin",
+    "util",
+    "tests/compatibility-tests",
+    "tests/integration-tests",
+]
 
-exclude = ["fuzz"]
+exclude = [
+    "fuzz",
+]
 
 [patch.crates-io]
 # tokio = { path = "../tokio/tokio" }

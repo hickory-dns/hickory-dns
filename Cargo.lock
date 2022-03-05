@@ -1650,13 +1650,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-dns-https"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
-]
-
-[[package]]
 name = "trust-dns-integration"
 version = "0.21.1"
 dependencies = [
@@ -1676,20 +1669,6 @@ dependencies = [
  "trust-dns-resolver",
  "trust-dns-server",
  "webpki-roots 0.21.1",
-]
-
-[[package]]
-name = "trust-dns-native-tls"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
-]
-
-[[package]]
-name = "trust-dns-openssl"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
 ]
 
 [[package]]
@@ -1759,13 +1738,6 @@ dependencies = [
  "tokio-rustls",
  "trust-dns-proto",
  "webpki-roots 0.22.1",
-]
-
-[[package]]
-name = "trust-dns-rustls"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
 ]
 
 [[package]]
