@@ -13,10 +13,6 @@ members = [
 
 exclude = [
     "fuzz",
-    "old-crates/https",
-    "old-crates/native-tls",
-    "old-crates/openssl",
-    "old-crates/rustls",
 ]
 
 [patch.crates-io]
