@@ -17,15 +17,18 @@ The project has these high-level crates (to be used as dependencies in other pro
 Low-level crates supporting the above high-level crates:
 
 - **[trust-dns-proto](crates/proto)** - the lowest level crate, implements the basics of DNS
-- **[trust-dns-rustls](crates/rustls)** - DoT (DNS-over-TLS) support for trust-dns using rustls and \*ring\*, client & server
-- **[trust-dns-openssl](crates/openssl)** - DoT (DNS-over-TLS) support for trust-dns using OpenSSL (may be removed), client & server
-- **[trust-dns-native-tls](crates/native-tls)** - DoT (DNS-over-TLS) support for trust-dns using the OS TLS library, client only
-- **[trust-dns-https](crates/https)** - DoH (DNS-over-HTTPS) support, currently only supports trust-dns-rustls, client & server
 
 Binaries:
 
 - **[trust-dns](bin/)** - server binary, `named`, for hosting authorities, zones, and/or setting up a forwarder
 - **[trust-dns-util](util/)** - helpful utilities, e.g. `resolve` for a CLI resolver, as well as some DNSSEC utilities
+
+Old and Outdated crates:
+
+- **[trust-dns-rustls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/rustls)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
+- **[trust-dns-openssl](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/openssl)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
+- **[trust-dns-native-tls](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/native-tls)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
+- **[trust-dns-https](https://github.com/bluejekyll/trust-dns/tree/v0.21.0/crates/https)** - removed in favor of feature in trust-dns-prot0, crate efs in [v0.21.0](https://github.com/bluejekyll/trust-dns/tree/v0.21.0)
 
 ## TBD
 
