@@ -15,11 +15,13 @@
  */
 
 //! Parser for SOA text form
-use std::str::FromStr;
+use std::convert::TryInto;
 
-use crate::error::*;
-use crate::rr::domain::Name;
-use crate::rr::rdata::SOA;
+use crate::{
+    error::*,
+    rr::{domain::Name, rdata::SOA},
+    serialize::txt::zone,
+};
 
 /// Parse the RData from a set of Tokens
 pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
@@ -39,29 +41,68 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(
     let serial: u32 = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("serial".to_string())))
-        .and_then(|s| u32::from_str(s).map_err(Into::into))?;
+        .and_then(zone::Parser::parse_time)?;
 
     let refresh: i32 = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("refresh".to_string())))
-        .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+        .and_then(zone::Parser::parse_time)?
+        .try_into()
+        .map_err(|_e| ParseError::from("refresh outside i32 range"))?;
 
     let retry: i32 = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("retry".to_string())))
-        .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+        .and_then(zone::Parser::parse_time)?
+        .try_into()
+        .map_err(|_e| ParseError::from("retry outside i32 range"))?;
 
     let expire: i32 = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("expire".to_string())))
-        .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+        .and_then(zone::Parser::parse_time)?
+        .try_into()
+        .map_err(|_e| ParseError::from("expire outside i32 range"))?;
 
     let minimum: u32 = tokens
         .next()
         .ok_or_else(|| ParseError::from(ParseErrorKind::MissingToken("minimum".to_string())))
-        .and_then(|s| u32::from_str(s).map_err(Into::into))?;
+        .and_then(zone::Parser::parse_time)?;
 
     Ok(SOA::new(
         mname, rname, serial, refresh, retry, expire, minimum,
     ))
+}
+
+#[test]
+fn test_parse() {
+    use std::str::FromStr;
+
+    let soa_tokens = vec![
+        "trust-dns.org.",
+        "root.trust-dns.org.",
+        "199609203",
+        "8h",
+        "120m",
+        "7d",
+        "24h",
+    ];
+
+    let parsed_soa = parse(
+        soa_tokens.into_iter(),
+        Some(&Name::from_str("example.com.").unwrap()),
+    )
+    .expect("failed to parse tokens");
+
+    let expected_soa = SOA::new(
+        "trust-dns.org.".parse().unwrap(),
+        "root.trust-dns.org.".parse().unwrap(),
+        199609203,
+        28800,
+        7200,
+        604800,
+        86400,
+    );
+
+    assert_eq!(parsed_soa, expected_soa);
 }
