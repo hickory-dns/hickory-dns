@@ -20,7 +20,11 @@
     unreachable_pub
 )]
 
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    net::{IpAddr, SocketAddr},
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 use clap::Parser;
 use console::style;
@@ -85,6 +89,10 @@ struct Opts {
     /// Enable error logging
     #[clap(long)]
     error: bool,
+
+    /// Path to a hints file
+    #[clap(short = 'f', long)]
+    hints: PathBuf,
 }
 
 /// Run the resolve programf
@@ -176,7 +184,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ty = style(ty).yellow(),
     );
 
-    let lookup = recursor.resolve(name.to_string(), ty).await?;
+    let now = Instant::now();
+    let lookup = recursor.resolve(name.to_string(), ty, now).await?;
 
     // report response, TODO: better display of errors
     println!(

@@ -1,15 +1,17 @@
-use std::fmt;
+use std::{fmt, time::Instant};
 
 use log::debug;
 
-use trust_dns_proto::rr::RecordType;
+use trust_dns_proto::rr::{RecordSet, RecordType};
 use trust_dns_resolver::{
-    config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts},
+    config::{NameServerConfigGroup, ResolverConfig, ResolverOpts},
     error::ResolveError,
     lookup::Lookup,
-    IntoName, Name, TokioAsyncResolver,
+    name_server::NameServerPool,
+    IntoName, Name, TokioAsyncResolver, TokioConnection, TokioConnectionProvider,
 };
 
+use crate::Error;
 /// A top down recursive resolver which operates off a list of "hints", this is often the root nodes.
 pub struct Recursor {
     hints: TokioAsyncResolver,
@@ -35,7 +37,8 @@ impl Recursor {
 
     /// Permform a recursive resolution
     ///
-    /// [https://datatracker.ietf.org/doc/html/rfc1034#section-5.3.3](RFC 1034), Domain Concepts and Facilities, November 1987
+    /// [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034#section-5.3.3), Domain Concepts and Facilities, November 1987
+    ///
     /// ```text
     /// 5.3.3. Algorithm
     ///
@@ -197,11 +200,12 @@ impl Recursor {
         &self,
         domain: N,
         ty: RecordType,
+        request_time: Instant,
     ) -> Result<Lookup, ResolveError> {
         let domain = domain.into_name()?;
 
         // wild guess on number fo lookups needed
-        let mut lookups = Vec::<RecursiveLookup>::with_capacity(10);
+        let mut lookups = Vec::<RecursiveQuery>::with_capacity(10);
         lookups.push((domain.clone(), ty).into());
 
         // collect all the nameservers we need.
@@ -222,14 +226,23 @@ impl Recursor {
 
         todo!();
     }
+
+    async fn lookup(
+        &self,
+        domain: &Name,
+        ty: RecordType,
+        ns: &NameServerPool<TokioConnection, TokioConnectionProvider>,
+    ) -> Result<RecordSet, Error> {
+        unimplemented!()
+    }
 }
 
-struct RecursiveLookup {
+struct RecursiveQuery {
     name: Name,
     ty: RecordType,
 }
 
-impl From<(Name, RecordType)> for RecursiveLookup {
+impl From<(Name, RecordType)> for RecursiveQuery {
     fn from(name_ty: (Name, RecordType)) -> Self {
         Self {
             name: name_ty.0,
@@ -238,7 +251,7 @@ impl From<(Name, RecordType)> for RecursiveLookup {
     }
 }
 
-impl fmt::Display for RecursiveLookup {
+impl fmt::Display for RecursiveQuery {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "({},{})", self.name, self.ty)
     }
@@ -253,4 +266,9 @@ fn recursor_opts() -> ResolverOpts {
     options.recursion_desired = false;
 
     options
+}
+
+enum RecursiveLookup {
+    Found(RecordSet),
+    Forward(RecordSet),
 }
