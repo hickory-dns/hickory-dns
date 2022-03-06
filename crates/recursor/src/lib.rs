@@ -19,7 +19,11 @@
 #![recursion_limit = "2048"]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+pub mod error;
 mod recursor;
 
+pub use error::{Error, ErrorKind};
 pub use recursor::Recursor;
+pub use trust_dns_proto as proto;
+pub use trust_dns_resolver as resolver;
 pub use trust_dns_resolver::config::NameServerConfig;
