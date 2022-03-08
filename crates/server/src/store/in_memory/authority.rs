@@ -9,7 +9,7 @@
 
 use std::{
     borrow::Borrow,
-    collections::BTreeMap,
+    collections::{BTreeMap, HashSet},
     ops::{Deref, DerefMut},
     sync::Arc,
 };
@@ -465,11 +465,11 @@ impl InnerInMemory {
     /// * original_name - the original name that was being looked up
     /// * query_type - original type in the request query
     /// * next_name - the name from the CNAME, ANAME, MX, etc. record that is being searched
-    /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the begging of the chain
+    /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the beginning of the chain
     fn additional_search(
         &self,
-        original_name: Name,
-        query_type: RecordType,
+        original_name: &LowerName,
+        original_query_type: RecordType,
         next_name: LowerName,
         _search_type: RecordType,
         lookup_options: LookupOptions,
@@ -477,8 +477,8 @@ impl InnerInMemory {
         let mut additionals: Vec<Arc<RecordSet>> = vec![];
 
         // if it's a CNAME or other forwarding record, we'll be adding additional records based on the query_type
-        let mut query_types_arr = [query_type; 2];
-        let query_types: &[RecordType] = match query_type {
+        let mut query_types_arr = [original_query_type; 2];
+        let query_types: &[RecordType] = match original_query_type {
             RecordType::ANAME | RecordType::NS | RecordType::MX | RecordType::SRV => {
                 query_types_arr = [RecordType::A, RecordType::AAAA];
                 &query_types_arr[..]
@@ -488,18 +488,33 @@ impl InnerInMemory {
 
         for query_type in query_types {
             // loop and collect any additional records to send
+
+            // Track the names we've looked up for this query type.
+            let mut names = HashSet::new();
+
+            // If we're just going to repeat the same query then bail out.
+            if query_type == &original_query_type {
+                names.insert(original_name.clone());
+            }
+
             let mut next_name = Some(next_name.clone());
             while let Some(search) = next_name.take() {
+                // If we've already looked up this name then bail out.
+                if names.contains(&search) {
+                    break;
+                }
+
                 let additional = self.inner_lookup(&search, *query_type, lookup_options);
+                names.insert(search);
 
                 if let Some(additional) = additional {
                     // assuming no crazy long chains...
-                    if additional.name() != &original_name && !additionals.contains(&additional) {
+                    if !additionals.contains(&additional) {
                         additionals.push(additional.clone());
-
-                        next_name = maybe_next_name(&additional, *query_type)
-                            .map(|(name, _search_type)| name);
                     }
+
+                    next_name =
+                        maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
                 }
             }
         }
