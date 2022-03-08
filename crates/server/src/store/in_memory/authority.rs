@@ -1034,7 +1034,7 @@ impl Authority for InMemoryAuthority {
                         .and_then(|(search_name, search_type)| {
                             inner
                                 .additional_search(
-                                    name.into(),
+                                    name,
                                     query_type,
                                     search_name,
                                     search_type,
