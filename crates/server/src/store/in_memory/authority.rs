@@ -462,11 +462,13 @@ impl InnerInMemory {
     ///
     /// # Arguments
     ///
+    /// * original_name - the original name that was being looked up
     /// * query_type - original type in the request query
     /// * next_name - the name from the CNAME, ANAME, MX, etc. record that is being searched
     /// * search_type - the root search type, ANAME, CNAME, MX, i.e. the begging of the chain
     fn additional_search(
         &self,
+        original_name: Name,
         query_type: RecordType,
         next_name: LowerName,
         _search_type: RecordType,
@@ -489,19 +491,16 @@ impl InnerInMemory {
             let mut next_name = Some(next_name.clone());
             while let Some(search) = next_name.take() {
                 let additional = self.inner_lookup(&search, *query_type, lookup_options);
-                let mut continue_name = None;
 
                 if let Some(additional) = additional {
                     // assuming no crazy long chains...
-                    if !additionals.contains(&additional) {
+                    if additional.name() != &original_name && !additionals.contains(&additional) {
                         additionals.push(additional.clone());
+
+                        next_name = maybe_next_name(&additional, *query_type)
+                            .map(|(name, _search_type)| name);
                     }
-
-                    continue_name =
-                        maybe_next_name(&additional, *query_type).map(|(name, _search_type)| name);
                 }
-
-                next_name = continue_name;
             }
         }
 
@@ -1020,6 +1019,7 @@ impl Authority for InMemoryAuthority {
                         .and_then(|(search_name, search_type)| {
                             inner
                                 .additional_search(
+                                    name.into(),
                                     query_type,
                                     search_name,
                                     search_type,
