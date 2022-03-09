@@ -47,7 +47,7 @@ use crate::{
 ///
 /// ```
 ///
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Header {
     id: u16,
     message_type: MessageType,
@@ -81,7 +81,7 @@ impl fmt::Display for Header {
 }
 
 /// Message types are either Query (also Update) or Response
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 pub enum MessageType {
     /// Queries are Client requests, these are either Queries or Updates
     Query,
@@ -101,7 +101,7 @@ impl fmt::Display for MessageType {
 }
 
 /// All the flags of the request/response header
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Flags {
     authoritative: bool,
     truncation: bool,

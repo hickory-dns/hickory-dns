@@ -28,7 +28,7 @@ use crate::error::*;
 ///
 ///                 3-15            reserved for future use
 /// ```
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 #[allow(dead_code)]
 pub enum OpCode {
     /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)

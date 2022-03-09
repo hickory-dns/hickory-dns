@@ -12,7 +12,7 @@ use std::ops::{Deref, DerefMut};
 use crate::op::Message;
 
 /// A set of options for expressing options to how requests should be treated
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct DnsRequestOptions {
     /// When true, the underlying DNS protocols will not return on the first response received.
@@ -30,7 +30,7 @@ pub struct DnsRequestOptions {
 /// A DNS request object
 ///
 /// This wraps a DNS Message for requests. It also has request options associated for controlling certain features of the DNS protocol handlers.
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct DnsRequest {
     message: Message,
     options: DnsRequestOptions,
