@@ -808,7 +808,10 @@ impl Default for ResolverOpts {
             positive_max_ttl: None,
             negative_max_ttl: None,
             num_concurrent_reqs: 2,
-            preserve_intermediates: false,
+
+            // Defaults to `true` to match the behavior of dig and nslookup.
+            preserve_intermediates: true,
+
             try_tcp_on_error: false,
         }
     }
