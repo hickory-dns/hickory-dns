@@ -19,7 +19,7 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
 use tracing::debug;
 
-use crate::config::{ResolverConfig, ResolverOpts};
+use crate::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
@@ -101,6 +101,33 @@ where
                 NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
             })
             .collect();
+
+        Self {
+            datagram_conns: Arc::from(datagram_conns),
+            stream_conns: Arc::from(stream_conns),
+            #[cfg(feature = "mdns")]
+            mdns_conns: name_server::mdns_nameserver(*options, conn_provider.clone(), false),
+            options: *options,
+        }
+    }
+
+    /// Construct a NameServerPool from a set of name server configs
+    pub fn from_config(
+        mut name_servers: NameServerConfigGroup,
+        options: &ResolverOpts,
+        conn_provider: P,
+    ) -> Self {
+        let map_config_to_ns = |ns_config| {
+            NameServer::<C, P>::new_with_provider(ns_config, *options, conn_provider.clone())
+        };
+
+        let (datagram, stream): (Vec<_>, Vec<_>) = name_servers
+            .into_inner()
+            .into_iter()
+            .partition(|ns| ns.protocol.is_datagram());
+
+        let datagram_conns: Vec<_> = datagram.into_iter().map(map_config_to_ns).collect();
+        let stream_conns: Vec<_> = stream.into_iter().map(map_config_to_ns).collect();
 
         Self {
             datagram_conns: Arc::from(datagram_conns),

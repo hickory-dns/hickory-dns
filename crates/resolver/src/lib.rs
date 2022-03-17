@@ -266,7 +266,7 @@ mod hosts;
 mod https;
 pub mod lookup;
 pub mod lookup_ip;
-#[doc(hidden)]
+// TODO: consider #[doc(hidden)]
 pub mod name_server;
 #[cfg(feature = "dns-over-quic")]
 mod quic;
