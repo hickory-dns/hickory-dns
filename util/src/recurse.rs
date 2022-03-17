@@ -51,7 +51,12 @@ struct Opts {
     ty: RecordType,
 
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
-    #[clap(short = 'n', long, require_value_delimiter = true)]
+    #[clap(
+        short = 'n',
+        long,
+        use_value_delimiter = true,
+        require_value_delimiter = true
+    )]
     nameserver: Vec<SocketAddr>,
 
     /// Specify the IP address to connect from.
@@ -175,7 +180,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let name = &opts.domainname;
     let ty = opts.ty;
 
-    let recursor = Recursor::new(hints)?;
+    let mut recursor = Recursor::new(hints)?;
 
     // execute query
     println!(
@@ -189,12 +194,12 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // report response, TODO: better display of errors
     println!(
-        "{} for query {}",
+        "{} for query {:?}",
         style("Success").green(),
-        style(lookup.query()).blue()
+        style(lookup).blue()
     );
 
-    for r in lookup.record_iter() {
+    for r in lookup.records_without_rrsigs() {
         print!(
             "\t{name} {ttl} {class} {ty}",
             name = style(r.name()).blue(),

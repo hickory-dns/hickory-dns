@@ -1,21 +1,45 @@
-use std::{fmt, time::Instant};
-
-use log::debug;
-
-use trust_dns_proto::rr::{RecordSet, RecordType};
-use trust_dns_resolver::{
-    config::{NameServerConfigGroup, ResolverConfig, ResolverOpts},
-    error::ResolveError,
-    lookup::Lookup,
-    name_server::NameServerPool,
-    IntoName, Name, TokioAsyncResolver, TokioConnection, TokioConnectionProvider,
+use std::{
+    collections::BTreeSet,
+    fmt,
+    net::{IpAddr, SocketAddr},
+    time::Instant,
 };
 
-use crate::Error;
+use futures_util::StreamExt;
+use log::debug;
+use lru_cache::LruCache;
+
+use trust_dns_proto::{
+    op::Query,
+    rr::{RData, RecordSet, RecordType},
+    xfer::{DnsRequestOptions, DnsResponse},
+    DnsHandle,
+};
+use trust_dns_resolver::{
+    config::{NameServerConfigGroup, ResolverConfig, ResolverOpts},
+    error::{ResolveError, ResolveErrorKind},
+    lookup::Lookup,
+    name_server::{GenericConnectionProvider, NameServerPool, RuntimeProvider, TokioRuntime},
+    IntoName, Name, TokioAsyncResolver, TokioConnection, TokioConnectionProvider, TokioHandle,
+};
+
+use crate::{Error, ErrorKind};
+
+/// A socket_addr based via of known nameservers.
+///
+/// The SocketAddr is matched to the Glue records in the GlueCache
+type NameServerCache =
+    LruCache<ConnectionKey, NameServerPool<TokioConnection, TokioConnectionProvider>>;
+
+/// Records that have been found
+type RecordCache = LruCache<CacheKey, RecordSet>;
+
 /// A top down recursive resolver which operates off a list of "hints", this is often the root nodes.
 pub struct Recursor {
-    hints: TokioAsyncResolver,
+    hints: NameServerPool<TokioConnection, TokioConnectionProvider>,
     opts: ResolverOpts,
+    name_server_cache: NameServerCache,
+    record_cache: RecordCache,
 }
 
 impl Recursor {
@@ -25,14 +49,18 @@ impl Recursor {
         let mut config = ResolverConfig::new();
         let hints: NameServerConfigGroup = hints.into();
 
-        for hint in hints.into_inner() {
-            config.add_name_server(hint);
-        }
-
         let opts = recursor_opts();
-        let hints = TokioAsyncResolver::tokio(config, opts)?;
+        let hints =
+            NameServerPool::from_config(hints, &opts, TokioConnectionProvider::new(TokioHandle));
+        let name_server_cache = NameServerCache::new(100); // TODO: make this configurable
+        let record_cache = RecordCache::new(100);
 
-        Ok(Self { hints, opts })
+        Ok(Self {
+            hints,
+            opts,
+            name_server_cache,
+            record_cache,
+        })
     }
 
     /// Permform a recursive resolution
@@ -197,11 +225,11 @@ impl Recursor {
     /// contiguous zone at ISI.EDU.
     /// ```
     pub async fn resolve<N: IntoName>(
-        &self,
+        &mut self,
         domain: N,
         ty: RecordType,
         request_time: Instant,
-    ) -> Result<Lookup, ResolveError> {
+    ) -> Result<&RecordSet, ResolveError> {
         let domain = domain.into_name()?;
 
         // wild guess on number fo lookups needed
@@ -209,43 +237,156 @@ impl Recursor {
         lookups.push((domain.clone(), ty).into());
 
         // collect all the nameservers we need.
-        let mut next_ns = domain;
-        loop {
-            let ns = next_ns.base_name();
-            if ns.is_root() {
-                break;
+        // let mut next_ns = domain;
+        // loop {
+        //     let ns = next_ns.base_name();
+        //     if ns.is_root() {
+        //         break;
+        //     }
+
+        //     lookups.push((ns.clone(), RecordType::NS).into());
+        //     next_ns = ns;
+        // }
+
+        // peak the next thing... only pop if we've found it.
+        while let Some(lookup) = lookups.last() {
+            let cached = self.check_cache(lookup.clone());
+
+            if cached.is_some() {
+                lookups.pop();
+                continue;
             }
 
-            lookups.push((ns.clone(), RecordType::NS).into());
-            next_ns = ns;
+            // not in cache, let's look for an ns record for lookup
+            let ns_query = if lookup.ty == RecordType::NS {
+                // if the lookup was NS, then we need to bump up a level
+                RecursiveQuery::from((lookup.domain.base_name(), RecordType::NS))
+            } else {
+                // look for the NS records "inside" the zone
+                RecursiveQuery::from((lookup.domain.clone(), RecordType::NS))
+            };
+
+            let nameserver_pool = if ns_query.domain.is_root() {
+                &self.hints
+            } else {
+                // see if we have the nameserver records cached
+                let ns_cache = if let Some(ns) = self.check_cache(ns_query.clone()) {
+                    // collect the NS records
+                    let names = ns
+                        .records_without_rrsigs()
+                        .filter_map(|r| r.data().map(RData::as_ns).flatten());
+
+                    let names = names.collect::<Vec<_>>();
+
+                    if names.is_empty() {
+                        None
+                    } else {
+                        Some(names)
+                    }
+                } else {
+                    None
+                };
+
+                let ns_cache = if let Some(ns_cache) = ns_cache {
+                    ns_cache
+                } else {
+                    // add to search list and continue
+                    //   we have more to find.
+                    lookups.push(ns_query);
+                    continue;
+                };
+
+                // now see if we have the glue for these
+                let mut glue = BTreeSet::<IpAddr>::new();
+
+                todo!()
+                // for ns in ns_cache {
+                // let glue = self.check_glue();
+            };
+
+            log::info!("sending request: {}", lookup);
+            // let response = self.lookup(lookup.clone(), nameserver_pool).await?;
+            // log::info!("got response: {}", response.header());
+            todo!()
         }
 
-        for to_resolve in lookups {
-            debug!("resolving: {}", to_resolve);
-        }
+        // we've gone through the entire search list, so we either found the record or not
+        // self.check_cache((domain.clone(), ty).into())
+        //     .ok_or_else(|| ResolveErrorKind::Message("No records found").into())
+        todo!()
+    }
 
-        todo!();
+    fn check_cache(&mut self, query: RecursiveQuery) -> Option<&RecordSet> {
+        let key = CacheKey {
+            domain: query.domain,
+            ty: query.ty,
+        };
+
+        self.record_cache.get_mut(&key).map(|v| &*v)
+    }
+
+    fn check_glue(&mut self, domain: &Name) -> Vec<IpAddr> {
+        let mut ipv4s: Vec<IpAddr> = self
+            .check_cache(RecursiveQuery {
+                domain: domain.clone(),
+                ty: RecordType::A,
+            })
+            .map(|r| r.records_without_rrsigs())
+            .into_iter()
+            .flatten()
+            .filter_map(|r| r.data().map(RData::as_a).flatten())
+            .map(|i| IpAddr::from(*i))
+            .collect();
+
+        let ipv6s = self
+            .check_cache(RecursiveQuery {
+                domain: domain.clone(),
+                ty: RecordType::AAAA,
+            })
+            .map(|r| r.records_without_rrsigs())
+            .into_iter()
+            .flatten()
+            .filter_map(|r| r.data().map(RData::as_aaaa).flatten())
+            .map(|i| IpAddr::from(*i));
+
+        // combine the ips for glue...
+        ipv4s.extend(ipv6s);
+        ipv4s
     }
 
     async fn lookup(
         &self,
-        domain: &Name,
-        ty: RecordType,
-        ns: &NameServerPool<TokioConnection, TokioConnectionProvider>,
-    ) -> Result<RecordSet, Error> {
-        unimplemented!()
+        query: RecursiveQuery,
+        mut ns: NameServerPool<TokioConnection, TokioConnectionProvider>,
+    ) -> Result<DnsResponse, Error> {
+        let query = Query::query(query.domain, query.ty);
+        let mut options = DnsRequestOptions::default();
+        options.use_edns = false; // TODO: this should be configurable
+        options.recursion_desired = false;
+
+        let mut response = ns.lookup(query, options);
+
+        // TODO: we are only expecting one response
+        // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
+        if let Some(response) = response.next().await {
+            // TODO: check if data is "authentic"
+            response.map_err(|e| ErrorKind::from(e).into())
+        } else {
+            Err("no responses from nameserver".into())
+        }
     }
 }
 
+#[derive(Clone)]
 struct RecursiveQuery {
-    name: Name,
+    domain: Name,
     ty: RecordType,
 }
 
 impl From<(Name, RecordType)> for RecursiveQuery {
     fn from(name_ty: (Name, RecordType)) -> Self {
         Self {
-            name: name_ty.0,
+            domain: name_ty.0,
             ty: name_ty.1,
         }
     }
@@ -253,7 +394,7 @@ impl From<(Name, RecordType)> for RecursiveQuery {
 
 impl fmt::Display for RecursiveQuery {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "({},{})", self.name, self.ty)
+        write!(f, "({},{})", self.domain, self.ty)
     }
 }
 
@@ -271,4 +412,25 @@ fn recursor_opts() -> ResolverOpts {
 enum RecursiveLookup {
     Found(RecordSet),
     Forward(RecordSet),
+}
+
+// FIXME: this needs a borrowed variant
+#[derive(Clone, Hash, Eq, PartialEq, Ord, PartialOrd)]
+struct CacheKey {
+    domain: Name,
+    ty: RecordType,
+}
+
+// FIXME: this is inefficient, doing this to hash from list of addrs for a NameServer to connections.
+#[derive(Hash, Eq, PartialEq, Ord, PartialOrd)]
+struct ConnectionKey {
+    addrs: BTreeSet<IpAddr>,
+}
+
+impl ConnectionKey {
+    fn from_addresses(addrs: &[IpAddr]) -> Self {
+        let addrs = BTreeSet::from_iter(addrs.iter().map(|a| *a));
+
+        Self { addrs }
+    }
 }
