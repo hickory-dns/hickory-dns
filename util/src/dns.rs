@@ -216,6 +216,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
     match protocol {
         Protocol::Udp => {
+            println!("; using udp:{nameserver}");
             let stream = UdpClientStream::<UdpSocket>::new(nameserver);
             let (client, bg) = AsyncClient::connect(stream).await?;
             let handle = tokio::spawn(bg);
@@ -223,15 +224,25 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             drop(handle);
         }
         Protocol::Tcp => {
-            todo!()
+            println!("; using tcp:{nameserver}");
+            let (stream, sender) =
+                TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(nameserver);
+            let client = AsyncClient::new(stream, sender, None);
+            let (mut client, bg) = client.await?;
+            let handle = tokio::spawn(bg);
+            handle_request(class, zone, command, client).await?;
+            drop(handle);
         }
         Protocol::Tls => {
+            println!("; using tls:{nameserver}");
             todo!()
         }
         Protocol::Https => {
+            println!("; using https:{nameserver}");
             todo!()
         }
         Protocol::Quic => {
+            println!("; using quic:{nameserver}");
             todo!()
         }
     };
