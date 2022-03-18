@@ -36,7 +36,7 @@ use trust_dns_proto::{rr::Name, xfer::DnsRequestOptions};
 /// This utility directly uses the trust-dns-client to perform actions with a single
 /// DNS server
 #[derive(Debug, Parser)]
-#[clap(name = "dns client")]
+#[clap(name = "trust dns client", version)]
 struct Opts {
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
     #[clap(short = 'n', long)]
