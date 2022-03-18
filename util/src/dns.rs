@@ -27,9 +27,15 @@ use std::{
 
 use clap::{ArgEnum, Args, Parser, Subcommand};
 use console::style;
+use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 
-use trust_dns_client::rr::{DNSClass, RData, RecordType};
-use trust_dns_proto::{rr::Name, xfer::DnsRequestOptions};
+use trust_dns_client::{
+    client::{AsyncClient, ClientHandle},
+    rr::{DNSClass, RData, RecordType},
+    tcp::TcpClientStream,
+    udp::UdpClientStream,
+};
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, rr::Name, xfer::DnsRequestOptions};
 
 /// A CLI interface for the trust-dns-client.
 ///
@@ -41,10 +47,6 @@ struct Opts {
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
     #[clap(short = 'n', long)]
     nameserver: SocketAddr,
-
-    /// Specify the IP address to connect from.
-    #[clap(long)]
-    bind: Option<IpAddr>,
 
     /// Protocol type to use for the communication
     #[clap(short = 'p', long, default_value = "udp", arg_enum)]
@@ -84,6 +86,7 @@ struct Opts {
 enum Protocol {
     Udp,
     Tcp,
+    Tls,
     Https,
     Quic,
 }
@@ -179,7 +182,7 @@ struct DeleteRecordOpt {
 /// Run the resolve program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let opts: Opts = Opts::parse();
+    let mut opts: Opts = Opts::parse();
 
     // enable logging early
     let log_level = if opts.debug {
@@ -203,14 +206,60 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .format_indent(Some(4))
         .init();
 
-    // query parameters
-    let name = opts.zone.as_ref();
+    // params
+    let nameserver = opts.nameserver;
+    let class = opts.class;
+    let zone = opts.zone;
+    let protocol = opts.protocol;
+    let command = opts.command;
 
-    // execute query
-    println!("Sending DNS request");
+    // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
+    match protocol {
+        Protocol::Udp => {
+            let stream = UdpClientStream::<UdpSocket>::new(nameserver);
+            let (client, bg) = AsyncClient::connect(stream).await?;
+            let handle = tokio::spawn(bg);
+            handle_request(class, zone, command, client).await?;
+            drop(handle);
+        }
+        Protocol::Tcp => {
+            todo!()
+        }
+        Protocol::Tls => {
+            todo!()
+        }
+        Protocol::Https => {
+            todo!()
+        }
+        Protocol::Quic => {
+            todo!()
+        }
+    };
 
-    // report response, TODO: better display of errors
-    println!("Got response");
+    Ok(())
+}
 
+async fn handle_request(
+    class: DNSClass,
+    zone: Option<Name>,
+    command: Command,
+    mut client: impl ClientHandle,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let response = match command {
+        Command::Query(query) => {
+            let name = query.name;
+            let ty = query.ty;
+            println!("; sending query: {name} {class} {ty}");
+            client.query(name, class, ty).await?
+        }
+        Command::Notify(notify) => todo!(),
+        Command::Create(create) => todo!(),
+        Command::Append(append) => todo!(),
+        Command::DeleteRecord(delete) => todo!(),
+    };
+
+    let response = response.into_inner();
+    println!("; received response");
+    println!("{response}");
     Ok(())
 }

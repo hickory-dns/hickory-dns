@@ -16,6 +16,8 @@
 
 //! Extended DNS options
 
+use std::fmt;
+
 use crate::error::*;
 use crate::rr::rdata::opt::{self, EdnsCode, EdnsOption};
 use crate::rr::rdata::OPT;
@@ -212,6 +214,20 @@ impl BinEncodable for Edns {
 
         place.replace(encoder, len as u16)?;
         Ok(())
+    }
+}
+
+impl fmt::Display for Edns {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let version = self.version;
+        let dnssec_ok = self.dnssec_ok;
+        let max_payload = self.max_payload;
+
+        write!(
+            f,
+            "version: {version} dnssec_ok: {dnssec_ok} max_payload: {max_payload} opts: {}",
+            self.options().as_ref().len()
+        )
     }
 }
 
