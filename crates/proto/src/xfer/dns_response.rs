@@ -282,6 +282,11 @@ impl DnsResponse {
             _ => None,
         }
     }
+
+    /// Take the inner Message from the response
+    pub fn into_inner(self) -> Message {
+        self.0
+    }
 }
 
 impl Deref for DnsResponse {

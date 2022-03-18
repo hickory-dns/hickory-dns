@@ -7,7 +7,7 @@
 
 //! Basic protocol message for DNS
 
-use std::{iter, mem, ops::Deref, sync::Arc};
+use std::{fmt, iter, mem, ops::Deref, sync::Arc};
 
 use log::{debug, warn};
 
@@ -1049,6 +1049,43 @@ impl<'r> BinDecodable<'r> for Message {
             signature,
             edns,
         })
+    }
+}
+
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        let write_query = |slice, f: &mut fmt::Formatter<'_>| -> Result<(), fmt::Error> {
+            for d in slice {
+                writeln!(f, ";; {d}")?;
+            }
+
+            Ok(())
+        };
+
+        let write_slice = |slice, f: &mut fmt::Formatter<'_>| -> Result<(), fmt::Error> {
+            for d in slice {
+                writeln!(f, "{d}")?;
+            }
+
+            Ok(())
+        };
+
+        writeln!(f, "; header {header}", header = self.header())?;
+
+        if let Some(edns) = self.edns() {
+            writeln!(f, "; edns {}", edns)?;
+        }
+
+        writeln!(f, "; query")?;
+        write_query(self.queries(), f)?;
+        writeln!(f, "; answers {}", self.answer_count())?;
+        write_slice(self.answers(), f)?;
+        writeln!(f, "; nameservers {}", self.name_server_count())?;
+        write_slice(self.name_servers(), f)?;
+        writeln!(f, "; additionals {}", self.additional_count())?;
+        write_slice(self.additionals(), f)?;
+
+        Ok(())
     }
 }
 
