@@ -22,12 +22,39 @@ use crate::proto::rr::dnssec::rdata::DNSSECRData;
 use crate::rr::{Name, RData, RecordType};
 use crate::serialize::txt::rdata_parsers::*;
 
-pub(crate) trait RDataParser: Sized {
+use crate::serialize::txt::zone_lex::Lexer;
+
+use super::Token;
+
+/// Extension on RData for text parsing
+pub trait RDataParser: Sized {
+    /// Attempts to parse a streem of tokenized strs into the RData of the specified record type
     fn parse<'i, I: Iterator<Item = &'i str>>(
         record_type: RecordType,
         tokens: I,
         origin: Option<&Name>,
     ) -> ParseResult<Self>;
+
+    /// Parse RData from a string
+    fn try_from_str(record_type: RecordType, s: &str) -> ParseResult<Self> {
+        let mut lexer = Lexer::new(s);
+        let mut rdata = Vec::new();
+
+        while let Some(token) = lexer.next_token()? {
+            match token {
+                Token::List(list) => rdata.extend(list),
+                Token::CharData(s) => rdata.push(s),
+                Token::EOL | Token::Blank => (),
+                _ => {
+                    return Err(ParseError::from(format!(
+                        "unexpected token in record data: {token:?}"
+                    )))
+                }
+            }
+        }
+
+        Self::parse(record_type, rdata.iter().map(AsRef::as_ref), None)
+    }
 }
 
 #[warn(clippy::wildcard_enum_match_arm)] // make sure all cases are handled
@@ -123,6 +150,14 @@ mod tests {
     }
 
     #[test]
+    fn test_a_parse() {
+        let data = "192.168.0.1";
+        let record = RData::try_from_str(RecordType::A, data).unwrap();
+
+        assert_eq!(record, RData::A("192.168.0.1".parse().unwrap()));
+    }
+
+    #[test]
     fn test_aaaa() {
         let tokens = vec!["::1"];
         let name = Name::from_str("example.com.").unwrap();
@@ -137,6 +172,25 @@ mod tests {
     }
 
     #[test]
+    fn test_aaaa_parse() {
+        let data = "::1";
+        let record = RData::try_from_str(RecordType::AAAA, data).unwrap();
+
+        assert_eq!(record, RData::AAAA("::1".parse().unwrap()));
+    }
+
+    #[test]
+    fn test_ns_parse() {
+        let data = "ns.example.com";
+        let record = RData::try_from_str(RecordType::NS, data).unwrap();
+
+        assert_eq!(
+            record,
+            RData::NS(Name::from_str("ns.example.com.").unwrap())
+        );
+    }
+
+    #[test]
     fn test_csync() {
         let tokens = vec!["123", "1", "A", "NS"];
         let name = Name::from_str("example.com.").unwrap();
@@ -146,6 +200,22 @@ mod tests {
             Some(&name),
         )
         .unwrap();
+
+        assert_eq!(
+            record,
+            RData::CSYNC(CSYNC::new(
+                123,
+                true,
+                false,
+                vec![RecordType::A, RecordType::NS]
+            ))
+        );
+    }
+
+    #[test]
+    fn test_csync_parse() {
+        let data = "123 1 A NS";
+        let record = RData::try_from_str(RecordType::CSYNC, data).unwrap();
 
         assert_eq!(
             record,
