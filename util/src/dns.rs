@@ -31,7 +31,8 @@ use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 
 use trust_dns_client::{
     client::{AsyncClient, ClientHandle},
-    rr::{DNSClass, RData, RecordType},
+    rr::{DNSClass, RData, RecordSet, RecordType},
+    serialize::txt::RDataParser,
     tcp::TcpClientStream,
     udp::UdpClientStream,
 };
@@ -51,6 +52,10 @@ struct Opts {
     /// Protocol type to use for the communication
     #[clap(short = 'p', long, default_value = "udp", arg_enum)]
     protocol: Protocol,
+
+    /// TLS endpoint name, i.e. the name in the certificate presented by the remote server
+    #[clap(short = 'c', long, required_if_eq_any = &[("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
+    tls_dns_name: Option<String>,
 
     // TODO: zone is required for all update operations...
     /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
@@ -118,6 +123,7 @@ struct QueryOpt {
 
 /// Notify a nameserver that a record has been updated
 #[derive(Debug, Args)]
+
 struct NotifyOpt {
     /// Name associated to the record that is being notified
     name: Name,
@@ -140,6 +146,9 @@ struct CreateOpt {
     #[clap(name = "TYPE")]
     ty: RecordType,
 
+    /// Time to live value for the record
+    ttl: u32,
+
     /// Record data to associate
     #[clap(required = true)]
     rdata: Vec<String>,
@@ -158,6 +167,9 @@ struct AppendOpt {
     /// Type of DNS record to update
     #[clap(name = "TYPE")]
     ty: RecordType,
+
+    /// Time to live value for the record
+    ttl: u32,
 
     /// Record data to associate
     #[clap(required = true)]
@@ -211,6 +223,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let class = opts.class;
     let zone = opts.zone;
     let protocol = opts.protocol;
+    let dns_name = opts.tls_dns_name;
     let command = opts.command;
 
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
@@ -234,15 +247,18 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             drop(handle);
         }
         Protocol::Tls => {
-            println!("; using tls:{nameserver}");
+            let dns_name = dns_name.expect("tls_dns_name is required tls connections");
+            println!("; using tls:{nameserver} dns_name:{dns_name}");
             todo!()
         }
         Protocol::Https => {
-            println!("; using https:{nameserver}");
+            let dns_name = dns_name.expect("tls_dns_name is required https connections");
+            println!("; using https:{nameserver} dns_name:{dns_name}");
             todo!()
         }
         Protocol::Quic => {
-            println!("; using quic:{nameserver}");
+            let dns_name = dns_name.expect("tls_dns_name is required quic connections");
+            println!("; using quic:{nameserver} dns_name:{dns_name}");
             todo!()
         }
     };
@@ -263,14 +279,85 @@ async fn handle_request(
             println!("; sending query: {name} {class} {ty}");
             client.query(name, class, ty).await?
         }
-        Command::Notify(notify) => todo!(),
-        Command::Create(create) => todo!(),
-        Command::Append(append) => todo!(),
-        Command::DeleteRecord(delete) => todo!(),
+        Command::Notify(opt) => {
+            let name = opt.name;
+            let ty = opt.ty;
+            let ttl = 0;
+            let rdata = opt.rdata;
+
+            let rdata = if rdata.is_empty() {
+                None
+            } else {
+                Some(record_set_from(name.clone(), class, ty, ttl, rdata))
+            };
+
+            println!("; sending notify: {name} {class} {ty}");
+            client.notify(name, class, ty, rdata).await?
+        }
+        Command::Create(opt) => {
+            let zone = zone.expect("zone is required for dynamic update operations");
+            let name = opt.name;
+            let ty = opt.ty;
+            let ttl = opt.ttl;
+            let rdata = opt.rdata;
+
+            let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
+
+            println!("; sending create: {name} {class} {ty} in {zone}");
+            client.create(rdata, zone).await?
+        }
+        Command::Append(opt) => {
+            let zone = zone.expect("zone is required for dynamic update operations");
+            let name = opt.name;
+            let ty = opt.ty;
+            let ttl = opt.ttl;
+            let rdata = opt.rdata;
+            let must_exist = opt.must_exist;
+
+            let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
+
+            println!(
+                "; sending append: {name} {class} {ty} in {zone} and must_exist({must_exist})"
+            );
+            client.append(rdata, zone, must_exist).await?
+        }
+        Command::DeleteRecord(opt) => {
+            let zone = zone.expect("zone is required for dynamic update operations");
+            let name = opt.name;
+            let ty = opt.ty;
+            let ttl = 0;
+            let rdata = opt.rdata;
+
+            let rdata = record_set_from(name.clone(), class, ty, ttl, rdata);
+
+            println!("; sending delete-record: {name} {class} {ty} from {zone}");
+            client.delete_by_rdata(rdata, zone).await?
+        }
     };
 
     let response = response.into_inner();
     println!("; received response");
     println!("{response}");
     Ok(())
+}
+
+fn record_set_from(
+    name: Name,
+    class: DNSClass,
+    record_type: RecordType,
+    ttl: u32,
+    rdata: Vec<String>,
+) -> RecordSet {
+    let rdata = rdata
+        .iter()
+        .map(|r| RData::try_from_str(record_type, r).expect("failed to parse rdata"));
+
+    let mut record_set = RecordSet::with_ttl(name, record_type, ttl);
+    record_set.set_dns_class(class);
+
+    for data in rdata {
+        record_set.add_rdata(data);
+    }
+
+    record_set
 }
