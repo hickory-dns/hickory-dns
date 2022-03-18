@@ -47,6 +47,10 @@ dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust
 dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 
 [[bin]]
+name = "dns"
+path = "src/dns.rs"
+
+[[bin]]
 name = "dnskey-to-pem"
 path = "src/bind_dnskey_to_pem.rs"
 required-features = ["dnssec-openssl"]

@@ -21,6 +21,7 @@ mod rdata_parsers;
 mod zone;
 mod zone_lex;
 
+pub use self::parse_rdata::RDataParser;
 pub use self::zone::Parser;
 pub use self::zone_lex::Lexer;
 pub use self::zone_lex::Token;
