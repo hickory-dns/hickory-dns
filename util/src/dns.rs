@@ -24,11 +24,17 @@ use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
+    time::SystemTime,
 };
 
 use clap::{ArgEnum, Args, Parser, Subcommand};
 use console::style;
-use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
+use log::{error, warn};
+use rustls::{
+    client::{HandshakeSignatureValid, ServerCertVerified},
+    internal::msgs::handshake::DigitallySignedStruct,
+    Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore,
+};
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 
 use trust_dns_client::{
@@ -402,8 +408,56 @@ fn tls_config() -> ClientConfig {
         )
     }));
 
-    ClientConfig::builder()
-        .with_safe_defaults()
-        .with_root_certificates(root_store)
-        .with_no_client_auth()
+    let mut config = ClientConfig::builder()
+        //.with_safe_defaults() // FIXME: only use this
+        .with_cipher_suites(rustls::ALL_CIPHER_SUITES) // FIXME: remove this
+        .with_kx_groups(&rustls::ALL_KX_GROUPS) // FIXME: remove this
+        .with_protocol_versions(rustls::ALL_VERSIONS)
+        .expect("protocol versions issue") // FIXME: remove this
+        .with_custom_certificate_verifier(Arc::new(DangerousVerifier)) // FIXME: remove this
+        //.with_root_certificates(root_store) // FIXME: only use this
+        .with_no_client_auth();
+
+    config
+        .dangerous()
+        .set_certificate_verifier(Arc::new(DangerousVerifier));
+
+    config
+}
+
+struct DangerousVerifier;
+
+impl rustls::client::ServerCertVerifier for DangerousVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &Certificate,
+        intermediates: &[Certificate],
+        server_name: &rustls::ServerName,
+        scts: &mut dyn Iterator<Item = &[u8]>,
+        ocsp_response: &[u8],
+        now: SystemTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &Certificate,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
+        Ok(HandshakeSignatureValid::assertion())
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &Certificate,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
+        Ok(HandshakeSignatureValid::assertion())
+    }
 }
