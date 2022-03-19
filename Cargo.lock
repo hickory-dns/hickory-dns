@@ -1882,10 +1882,13 @@ dependencies = [
  "env_logger",
  "log",
  "openssl",
+ "rustls",
  "tokio",
  "trust-dns-client",
  "trust-dns-proto",
  "trust-dns-resolver",
+ "webpki 0.22.0",
+ "webpki-roots 0.22.1",
 ]
 
 [[package]]

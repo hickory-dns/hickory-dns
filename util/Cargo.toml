@@ -36,7 +36,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
-dns-over-rustls = ["trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
+dns-over-rustls = ["rustls", "webpki", "webpki-roots", "trust-dns-proto/dns-over-rustls", "trust-dns-client/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
 dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls", "trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls"]
 dns-over-https = ["trust-dns-proto/dns-over-https", "trust-dns-client/dns-over-https","trust-dns-resolver/dns-over-https"]
 
@@ -49,6 +49,7 @@ dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec
 [[bin]]
 name = "dns"
 path = "src/dns.rs"
+required-features = ["dns-over-rustls", "dns-over-https-rustls"]
 
 [[bin]]
 name = "dnskey-to-pem"
@@ -74,9 +75,13 @@ clap = { version = "3.1", default-features = false, features = ["std", "cargo", 
 console = "0.15.0"
 data-encoding = "2.2.0"
 env_logger = { version = "0.9.0", features = ["termcolor", "humantime", "atty"] }
+log = "0.4"
+openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
+rustls = { version = "0.20.0", optional = true }
 trust-dns-client = { version = "0.21.1", path = "../crates/client" }
 trust-dns-proto = { version = "0.21.1", path = "../crates/proto" }
 trust-dns-resolver = { version = "0.21.1", path = "../crates/resolver" }
-log = "0.4"
-openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+webpki = { version = "0.22.0", optional = true }
+webpki-roots = { version = "0.22.1", optional = true }
+

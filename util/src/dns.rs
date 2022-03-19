@@ -23,10 +23,12 @@
 use std::{
     net::{IpAddr, SocketAddr},
     str::FromStr,
+    sync::Arc,
 };
 
 use clap::{ArgEnum, Args, Parser, Subcommand};
 use console::style;
+use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
 
 use trust_dns_client::{
@@ -36,7 +38,9 @@ use trust_dns_client::{
     tcp::TcpClientStream,
     udp::UdpClientStream,
 };
-use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, rr::Name, xfer::DnsRequestOptions};
+use trust_dns_proto::{
+    iocompat::AsyncIoTokioAsStd, rr::Name, rustls::tls_client_connect, xfer::DnsRequestOptions,
+};
 
 /// A CLI interface for the trust-dns-client.
 ///
@@ -54,7 +58,7 @@ struct Opts {
     protocol: Protocol,
 
     /// TLS endpoint name, i.e. the name in the certificate presented by the remote server
-    #[clap(short = 'c', long, required_if_eq_any = &[("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
+    #[clap(short = 't', long, required_if_eq_any = &[("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
     tls_dns_name: Option<String>,
 
     // TODO: zone is required for all update operations...
@@ -242,6 +246,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(nameserver);
             let client = AsyncClient::new(stream, sender, None);
             let (mut client, bg) = client.await?;
+
             let handle = tokio::spawn(bg);
             handle_request(class, zone, command, client).await?;
             drop(handle);
@@ -249,7 +254,33 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Protocol::Tls => {
             let dns_name = dns_name.expect("tls_dns_name is required tls connections");
             println!("; using tls:{nameserver} dns_name:{dns_name}");
-            todo!()
+
+            let mut root_store = RootCertStore::empty();
+            root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+                |ta| {
+                    OwnedTrustAnchor::from_subject_spki_name_constraints(
+                        ta.subject,
+                        ta.spki,
+                        ta.name_constraints,
+                    )
+                },
+            ));
+
+            let config = ClientConfig::builder()
+                .with_safe_defaults()
+                .with_root_certificates(root_store)
+                .with_no_client_auth();
+
+            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
+                nameserver,
+                dns_name,
+                Arc::new(config),
+            );
+            let (client, bg) = AsyncClient::new(stream, sender, None).await?;
+
+            let handle = tokio::spawn(bg);
+            handle_request(class, zone, command, client).await?;
+            drop(handle);
         }
         Protocol::Https => {
             let dns_name = dns_name.expect("tls_dns_name is required https connections");
