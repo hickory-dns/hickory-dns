@@ -317,6 +317,11 @@ where
                 debug!("sending message id: {}", active_request.request_id());
                 let serial_message = SerialMessage::new(buffer, self.stream.name_server_addr());
 
+                debug!(
+                    "final message: {}",
+                    serial_message.to_message().expect("bizarre we just made this message")
+                );
+
                 // add to the map -after- the client send b/c we don't want to put it in the map if
                 //  we ended up returning an error from the send.
                 match self.stream_handle.send(serial_message) {

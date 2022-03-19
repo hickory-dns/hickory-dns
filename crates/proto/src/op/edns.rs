@@ -218,7 +218,7 @@ impl BinEncodable for Edns {
 }
 
 impl fmt::Display for Edns {
-    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let version = self.version;
         let dnssec_ok = self.dnssec_ok;
         let max_payload = self.max_payload;
