@@ -199,7 +199,7 @@ struct DeleteRecordOpt {
 /// Run the resolve program
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut opts: Opts = Opts::parse();
+    let opts: Opts = Opts::parse();
 
     // enable logging early
     let log_level = if opts.debug {
