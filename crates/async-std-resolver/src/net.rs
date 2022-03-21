@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -26,6 +26,27 @@ pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
 #[async_trait]
 impl UdpSocket for AsyncStdUdpSocket {
     type Time = AsyncStdTime;
+
+    // FIXME: make bind_addr ToSocketAddrs
+    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
+        let socket = async_std::net::UdpSocket::bind(addr).await?;
+
+        socket.connect(addr);
+        Ok(AsyncStdUdpSocket(socket))
+    }
+
+    // FIXME: make bind_addr ToSocketAddrs
+    async fn connect(addr: SocketAddr) -> io::Result<Self> {
+        let bind_addr: SocketAddr = match addr {
+            SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),
+            SocketAddr::V6(_addr) => (Ipv6Addr::UNSPECIFIED, 0).into(),
+        };
+
+        let socket = async_std::net::UdpSocket::bind(bind_addr).await?;
+
+        socket.connect(addr);
+        Ok(AsyncStdUdpSocket(socket))
+    }
 
     async fn bind(addr: SocketAddr) -> io::Result<Self> {
         async_std::net::UdpSocket::bind(addr)

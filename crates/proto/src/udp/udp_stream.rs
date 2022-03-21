@@ -30,7 +30,13 @@ where
     /// Time implementation used for this type
     type Time: Time;
 
-    /// UdpSocket
+    /// setups up a "client" udp connection that will only receive packets from the associated address
+    async fn connect(addr: SocketAddr) -> io::Result<Self>;
+
+    /// same as connect, but binds to the specified local address for seding address
+    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self>;
+
+    /// a "server" UDP socket, that bind to the local listening address, and unbound remote address (can receive from anything)
     async fn bind(addr: SocketAddr) -> io::Result<Self>;
 
     /// Poll once Receive data from the socket and returns the number of bytes read and the address from
@@ -268,6 +274,32 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 impl UdpSocket for tokio::net::UdpSocket {
     type Time = crate::TokioTime;
 
+    /// setups up a "client" udp connection that will only receive packets from the associated address
+    ///
+    /// if the addr is ipv4 then it will bind local addr to 0.0.0.0:0, ipv6 [::]0
+    // FIXME: make bind_addr ToSocketAddrs
+    async fn connect(addr: SocketAddr) -> io::Result<Self> {
+        let bind_addr: SocketAddr = match addr {
+            SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),
+            SocketAddr::V6(_addr) => (Ipv6Addr::UNSPECIFIED, 0).into(),
+        };
+
+        let socket = Self::bind(bind_addr).await?;
+        socket.connect(addr);
+
+        Ok(socket)
+    }
+
+    /// same as connect, but binds to the specified local address for seding address
+    // FIXME: make bind_addr ToSocketAddrs
+    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
+        let socket = Self::bind(bind_addr).await?;
+        socket.connect(addr);
+
+        Ok(socket)
+    }
+
+    // FIXME: make bind_addr ToSocketAddrs
     async fn bind(addr: SocketAddr) -> io::Result<Self> {
         Self::bind(addr).await
     }

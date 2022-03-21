@@ -74,6 +74,9 @@ pub mod op;
 #[cfg(feature = "dns-over-openssl")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-openssl")))]
 pub mod openssl;
+#[cfg(feature = "dns-over-quic")]
+#[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+pub mod quic;
 pub mod rr;
 #[cfg(feature = "dns-over-rustls")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
