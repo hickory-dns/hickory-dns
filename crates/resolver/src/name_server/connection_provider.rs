@@ -29,6 +29,8 @@ use tokio_rustls::client::TlsStream as TokioTlsStream;
 use proto::https::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
+#[cfg(feature = "dns-over-quic")]
+use proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::{
     self,
     error::ProtoError,
@@ -267,6 +269,8 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     ),
     #[cfg(feature = "dns-over-https")]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
+    #[cfg(feature = "dns-over-quic")]
+    Quic(DnsExchangeConnect<QuicClientConnect<R::Udp>, QuicClientStream<R::Udp>, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(
         DnsExchangeConnect<
@@ -307,6 +311,12 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnect::Https(ref mut conn) => {
+                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
+                self.spawner.spawn_bg(bg);
+                GenericConnection(conn)
+            }
+            #[cfg(feature = "dns-over-quic")]
+            ConnectionConnect::Quic(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)

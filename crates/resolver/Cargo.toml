@@ -48,6 +48,8 @@ dns-over-tls = []
 dns-over-https-rustls = ["trust-dns-proto/dns-over-https-rustls", "dns-over-rustls", "dns-over-https"]
 dns-over-https = ["trust-dns-proto/dns-over-https"]
 
+dns-over-quic = ["rustls/quic", "dns-over-rustls", "trust-dns-proto/dns-over-quic"]
+
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = []
