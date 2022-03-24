@@ -15,11 +15,10 @@ use std::{
 };
 
 use cfg_if::cfg_if;
-use futures_util::{
-    future::{self, TryFutureExt},
-    lock::{Mutex, MutexGuard},
-};
+use futures_util::future::{self, TryFutureExt};
 use log::{debug, error, warn};
+
+use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 #[cfg(feature = "dnssec")]
 use crate::{
@@ -53,7 +52,7 @@ pub struct InMemoryAuthority {
     class: DNSClass,
     zone_type: ZoneType,
     allow_axfr: bool,
-    inner: Mutex<InnerInMemory>,
+    inner: RwLock<InnerInMemory>,
 }
 
 impl InMemoryAuthority {
@@ -122,7 +121,7 @@ impl InMemoryAuthority {
             class: DNSClass::IN,
             zone_type,
             allow_axfr,
-            inner: Mutex::new(InnerInMemory::default()),
+            inner: RwLock::new(InnerInMemory::default()),
         }
     }
 
@@ -146,19 +145,19 @@ impl InMemoryAuthority {
     /// Retrieve the Signer, which contains the private keys, for this zone
     #[cfg(all(feature = "dnssec", feature = "testing"))]
     pub async fn secure_keys(&self) -> impl Deref<Target = [SigSigner]> + '_ {
-        MutexGuard::map(self.inner.lock().await, |i| i.secure_keys.as_mut_slice())
+        RwLockWriteGuard::map(self.inner.write().await, |i| i.secure_keys.as_mut_slice())
     }
 
     /// Get all the records
     pub async fn records(&self) -> impl Deref<Target = BTreeMap<RrKey, Arc<RecordSet>>> + '_ {
-        MutexGuard::map(self.inner.lock().await, |i| &mut i.records)
+        RwLockReadGuard::map(self.inner.read().await, |i| &i.records)
     }
 
     /// Get a mutable reference to the records
     pub async fn records_mut(
         &self,
     ) -> impl DerefMut<Target = BTreeMap<RrKey, Arc<RecordSet>>> + '_ {
-        MutexGuard::map(self.inner.lock().await, |i| &mut i.records)
+        RwLockWriteGuard::map(self.inner.write().await, |i| &mut i.records)
     }
 
     /// Get a mutable reference to the records
@@ -168,19 +167,19 @@ impl InMemoryAuthority {
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub async fn minimum_ttl(&self) -> u32 {
-        self.inner.lock().await.minimum_ttl(self.origin())
+        self.inner.read().await.minimum_ttl(self.origin())
     }
 
     /// get the current serial number for the zone.
     pub async fn serial(&self) -> u32 {
-        self.inner.lock().await.serial(self.origin())
+        self.inner.read().await.serial(self.origin())
     }
 
     #[cfg(any(feature = "dnssec", feature = "sqlite"))]
     #[allow(unused)]
     pub(crate) async fn increment_soa_serial(&self) -> u32 {
         self.inner
-            .lock()
+            .write()
             .await
             .increment_soa_serial(self.origin(), self.class)
     }
@@ -198,7 +197,7 @@ impl InMemoryAuthority {
     ///
     /// true if the value was inserted, false otherwise
     pub async fn upsert(&self, record: Record, serial: u32) -> bool {
-        self.inner.lock().await.upsert(record, serial, self.class)
+        self.inner.write().await.upsert(record, serial, self.class)
     }
 
     /// Non-async version of upsert when behind a mutable reference.
@@ -1009,7 +1008,7 @@ impl Authority for InMemoryAuthority {
         query_type: RecordType,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        let inner = self.inner.lock().await;
+        let inner = self.inner.read().await;
 
         // Collect the records from each rr_set
         let (result, additionals): (LookupResult<LookupRecords>, Option<LookupRecords>) =
@@ -1237,7 +1236,7 @@ impl Authority for InMemoryAuthority {
         name: &LowerName,
         lookup_options: LookupOptions,
     ) -> Result<Self::Lookup, LookupError> {
-        let inner = self.inner.lock().await;
+        let inner = self.inner.read().await;
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             rr_set.record_type() == RecordType::NSEC
         }
@@ -1330,7 +1329,7 @@ impl Authority for InMemoryAuthority {
 impl DnssecAuthority for InMemoryAuthority {
     /// Add a (Sig0) key that is authorized to perform updates against this authority
     async fn add_update_auth_key(&self, name: Name, key: KEY) -> DnsSecResult<()> {
-        let mut inner = self.inner.lock().await;
+        let mut inner = self.inner.write().await;
 
         Self::inner_add_update_auth_key(&mut inner, name, key, self.origin(), self.class)
     }
@@ -1341,14 +1340,14 @@ impl DnssecAuthority for InMemoryAuthority {
     ///
     /// * `signer` - Signer with associated private key
     async fn add_zone_signing_key(&self, signer: SigSigner) -> DnsSecResult<()> {
-        let mut inner = self.inner.lock().await;
+        let mut inner = self.inner.write().await;
 
         Self::inner_add_zone_signing_key(&mut inner, signer, self.origin(), self.class)
     }
 
     /// Sign the zone for DNSSEC
     async fn secure_zone(&self) -> DnsSecResult<()> {
-        let mut inner = self.inner.lock().await;
+        let mut inner = self.inner.write().await;
 
         inner.secure_zone_mut(self.origin(), self.class)
     }
