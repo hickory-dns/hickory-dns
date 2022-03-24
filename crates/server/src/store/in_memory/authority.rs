@@ -10,7 +10,7 @@
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, HashSet},
-    ops::{Deref, DerefMut},
+    ops::DerefMut,
     sync::Arc,
 };
 
@@ -42,6 +42,8 @@ use crate::{
     },
     server::RequestInfo,
 };
+#[cfg(all(feature = "dnssec", feature = "testing"))]
+use std::ops::Deref;
 
 /// InMemoryAuthority is responsible for storing the resource records for a particular zone.
 ///
@@ -149,8 +151,9 @@ impl InMemoryAuthority {
     }
 
     /// Get all the records
-    pub async fn records(&self) -> impl Deref<Target = BTreeMap<RrKey, Arc<RecordSet>>> + '_ {
-        RwLockReadGuard::map(self.inner.read().await, |i| &i.records)
+    pub async fn records(&self) -> BTreeMap<RrKey, Arc<RecordSet>> {
+        let records = RwLockReadGuard::map(self.inner.read().await, |i| &i.records);
+        records.clone()
     }
 
     /// Get a mutable reference to the records
