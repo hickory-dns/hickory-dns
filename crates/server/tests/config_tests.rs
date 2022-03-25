@@ -38,7 +38,7 @@ fn test_read_config() {
     assert_eq!(config.get_listen_addrs_ipv4(), Vec::<Ipv4Addr>::new());
     assert_eq!(config.get_listen_addrs_ipv6(), Vec::<Ipv6Addr>::new());
     assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(5));
-    assert_eq!(config.get_log_level(), log::Level::Info);
+    assert_eq!(config.get_log_level(), tracing::Level::INFO);
     assert_eq!(config.get_directory(), Path::new("/var/named"));
     assert_eq!(
         config.get_zones(),
@@ -141,7 +141,7 @@ fn test_parse_toml() {
     assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(25));
 
     let config: Config = "log_level = \"Debug\"".parse().unwrap();
-    assert_eq!(config.get_log_level(), log::Level::Debug);
+    assert_eq!(config.get_log_level(), tracing::Level::DEBUG);
 
     let config: Config = "directory = \"/dev/null\"".parse().unwrap();
     assert_eq!(config.get_directory(), Path::new("/dev/null"));

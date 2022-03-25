@@ -17,6 +17,7 @@ use futures_util::stream::{once, Stream};
 #[cfg(feature = "mdns")]
 use proto::multicast::MDNS_IPV4;
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
+use tracing::debug;
 
 #[cfg(feature = "mdns")]
 use crate::config::Protocol;

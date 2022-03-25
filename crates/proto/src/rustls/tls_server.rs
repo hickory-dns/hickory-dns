@@ -11,7 +11,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-use log::warn;
+use tracing::warn;
 use rustls::{self, Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 

@@ -1,9 +1,6 @@
 #![cfg(feature = "dnssec")]
 #![cfg(not(windows))]
 
-#[macro_use]
-extern crate log;
-
 mod server_harness;
 
 use std::env;
@@ -78,7 +75,7 @@ async fn standard_tcp_conn(
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
     // use trust_dns_client::logger;
-    // use log::LogLevel;
+    // use tracing::LogLevel;
     // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());

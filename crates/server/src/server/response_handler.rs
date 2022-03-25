@@ -7,7 +7,7 @@
 
 use std::{io, net::SocketAddr};
 
-use log::debug;
+use tracing::debug;
 use trust_dns_proto::rr::Record;
 
 use crate::{

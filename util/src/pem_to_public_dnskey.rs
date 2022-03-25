@@ -24,7 +24,6 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 
 use clap::{Arg, ArgMatches, Command};
-use log::info;
 use openssl::pkey::PKey;
 
 use trust_dns_client::rr::dnssec::{KeyPair, Public};
@@ -63,7 +62,7 @@ pub fn main() {
     let key_path = matches.value_of("key").unwrap();
     let output_path = matches.value_of("output").unwrap();
 
-    info!("Reading key from pem: {}", key_path);
+    log::info!("Reading key from pem: {}", key_path);
 
     let mut key_file = File::open(key_path).expect("private key file could not be opened");
 

@@ -23,7 +23,7 @@ use std::fmt::{Display, Formatter};
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use log::warn;
+use tracing::warn;
 
 use crate::error::*;
 use crate::rr::dnssec::Algorithm;

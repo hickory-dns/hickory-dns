@@ -17,6 +17,7 @@ use smallvec::SmallVec;
 
 use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
+use tracing::debug;
 
 use crate::config::{ResolverConfig, ResolverOpts};
 use crate::error::{ResolveError, ResolveErrorKind};
@@ -509,8 +510,6 @@ mod tests {
 
     #[test]
     fn test_multi_use_conns() {
-        env_logger::try_init().ok();
-
         let io_loop = Runtime::new().unwrap();
         let conn_provider = TokioConnectionProvider::new(TokioHandle);
 

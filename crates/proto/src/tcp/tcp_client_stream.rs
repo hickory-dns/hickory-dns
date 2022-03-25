@@ -16,7 +16,7 @@ use std::time::Duration;
 #[cfg(feature = "tokio-runtime")]
 use async_trait::async_trait;
 use futures_util::{future::Future, stream::Stream, StreamExt, TryFutureExt};
-use log::warn;
+use tracing::warn;
 
 use crate::error::ProtoError;
 #[cfg(feature = "tokio-runtime")]

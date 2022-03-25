@@ -37,8 +37,6 @@
 
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate log;
 
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
@@ -52,9 +50,11 @@ use tokio::{
     runtime,
 };
 
+use tracing::{debug, error, info};
 use trust_dns_client::rr::Name;
 #[cfg(feature = "dns-over-tls")]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
+use trust_dns_server::server::ServerFuture;
 #[cfg(feature = "resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "sqlite")]
@@ -67,7 +67,6 @@ use trust_dns_server::{
         StoreConfig,
     },
 };
-use trust_dns_server::{logger, server::ServerFuture};
 
 #[cfg(feature = "dnssec")]
 use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
@@ -148,7 +147,9 @@ async fn load_zone(
     let is_dnssec_enabled = zone_config.is_dnssec_enabled();
 
     if zone_config.is_update_allowed() {
-        warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
+        tracing::warn!(
+            "allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]"
+        );
     }
 
     // load the zone
@@ -156,7 +157,9 @@ async fn load_zone(
         #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
-                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+                tracing::warn!(
+                    "ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]"
+                );
             }
 
             let mut authority = SqliteAuthority::try_from_config(
@@ -175,7 +178,9 @@ async fn load_zone(
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
-                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
+                tracing::warn!(
+                    "ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]"
+                );
             }
 
             let mut authority = FileAuthority::try_from_config(
@@ -199,7 +204,7 @@ async fn load_zone(
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
-            warn!(
+            tracing::warn!(
                 "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
             );
             let zone_file_path = zone_path.ok_or("file is a necessary parameter of zone_config")?;
@@ -363,12 +368,26 @@ fn main() {
     let args: Args = args.into();
 
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
-    if args.flag_quiet {
-        logger::quiet();
+    if !args.flag_quiet {
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+            // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+            // will be written to stdout.
+            .with_max_level(tracing::Level::INFO)
+            // completes the builder.
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
     } else if args.flag_debug {
-        logger::debug();
-    } else {
-        logger::default();
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+            // all spans/events with a level higher than TRACE (e.g, debug, info, warn, etc.)
+            // will be written to stdout.
+            .with_max_level(tracing::Level::DEBUG)
+            // completes the builder.
+            .finish();
+
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
     }
 
     info!("Trust-DNS {} starting", trust_dns_client::version());
@@ -543,7 +562,9 @@ fn config_tls(
         .collect();
 
     if tls_sockaddrs.is_empty() {
-        warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
+        tracing::warn!(
+            "a tls certificate was specified, but no TLS addresses configured to listen on"
+        );
     }
 
     for tls_listener in &tls_sockaddrs {
@@ -596,7 +617,9 @@ fn config_https(
         .collect();
 
     if https_sockaddrs.is_empty() {
-        warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
+        tracing::warn!(
+            "a tls certificate was specified, but no HTTPS addresses configured to listen on"
+        );
     }
 
     for https_listener in &https_sockaddrs {

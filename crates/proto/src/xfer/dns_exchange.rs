@@ -14,7 +14,7 @@ use std::task::{Context, Poll};
 use futures_channel::mpsc;
 use futures_util::future::{Future, FutureExt};
 use futures_util::stream::{Peekable, Stream, StreamExt};
-use log::{debug, warn};
+use tracing::{debug, warn};
 
 use crate::error::*;
 use crate::xfer::dns_handle::DnsHandle;

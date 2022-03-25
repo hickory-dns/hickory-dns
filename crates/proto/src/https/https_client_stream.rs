@@ -22,7 +22,7 @@ use futures_util::ready;
 use futures_util::stream::Stream;
 use h2::client::{Connection, SendRequest};
 use http::header::{self, CONTENT_LENGTH};
-use log::{debug, warn};
+use tracing::{debug, warn};
 use rustls::ClientConfig;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,

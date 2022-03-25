@@ -14,7 +14,7 @@ use std::{
 };
 
 use futures_util::lock::Mutex;
-use log::{error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},
@@ -450,7 +450,7 @@ impl SqliteAuthority {
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     #[allow(clippy::blocks_in_if_conditions)]
     pub async fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
-        use log::debug;
+        use tracing::debug;
 
         use crate::client::rr::rdata::DNSSECRData;
         use crate::proto::rr::dnssec::Verifier;

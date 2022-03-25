@@ -73,16 +73,16 @@ path = "src/named.rs"
 [dependencies]
 clap = { version = "3.0", default-features = false, features = ["std", "cargo"] }
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
-log = "0.4"
 rustls = { version = "0.20", optional = true }
 time = "0.3"
+tracing = "0.1"
+tracing-subscriber = "0.2"
 tokio = { version = "1.0", features = ["time"] }
 trust-dns-client = { version = "0.21.1", path = "../crates/client" }
 trust-dns-proto = { version = "0.21.1", path = "../crates/proto" }
 trust-dns-server = { version = "0.21.1", path = "../crates/server" }
 
 [dev-dependencies]
-env_logger = "0.9"
 native-tls = "0.2"
 regex = "1.3.4"
 trust-dns-proto = { version = "0.21.1", path = "../crates/proto", features = ["testing", "dns-over-native-tls"] }

@@ -250,8 +250,6 @@
 extern crate cfg_if;
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
-extern crate log;
 #[cfg(feature = "serde-config")]
 #[macro_use]
 extern crate serde;

@@ -68,9 +68,9 @@ clap = { version = "3.1", default-features = false, features = ["std", "cargo", 
 console = "0.15.0"
 data-encoding = "2.2.0"
 env_logger = { version = "0.9.0", features = ["termcolor", "humantime", "atty"] }
+log = "0.4"
 trust-dns-client = { version = "0.21.1", path = "../crates/client" }
 trust-dns-proto = { version = "0.21.1", path = "../crates/proto" }
 trust-dns-resolver = { version = "0.21.1", path = "../crates/resolver" }
-log = "0.4"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }

@@ -14,7 +14,7 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
-use log::debug;
+use tracing::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 

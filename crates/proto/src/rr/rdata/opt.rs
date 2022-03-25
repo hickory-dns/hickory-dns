@@ -21,7 +21,7 @@ use std::collections::HashMap;
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
 
-use log::warn;
+use tracing::warn;
 
 use crate::error::*;
 use crate::serialize::binary::*;

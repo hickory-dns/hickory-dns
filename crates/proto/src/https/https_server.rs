@@ -17,7 +17,7 @@ use futures_util::stream::{Stream, StreamExt};
 use h2;
 use http::header::CONTENT_LENGTH;
 use http::{Method, Request};
-use log::debug;
+use tracing::debug;
 
 use crate::https::HttpsError;
 

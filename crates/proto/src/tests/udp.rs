@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use futures_util::stream::StreamExt;
-use log::debug;
+use tracing::debug;
 
 use crate::udp::{UdpClientStream, UdpSocket, UdpStream};
 use crate::xfer::dns_handle::DnsStreamHandle;

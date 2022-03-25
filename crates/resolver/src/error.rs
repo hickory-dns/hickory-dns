@@ -11,6 +11,7 @@ use std::cmp::Ordering;
 use std::{fmt, io, sync};
 
 use thiserror::Error;
+use tracing::debug;
 
 use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::op::{Query, ResponseCode};

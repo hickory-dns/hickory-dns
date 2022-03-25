@@ -16,7 +16,7 @@
 
 //! mail exchange, email, record
 
-use log::warn;
+use tracing::warn;
 
 use crate::proto::rr::rdata::caa;
 use crate::proto::rr::rdata::caa::{Property, Value};

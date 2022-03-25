@@ -7,7 +7,7 @@
 use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 
 use futures_util::{future, lock::Mutex, StreamExt};
-use log::{debug, info, warn};
+use tracing::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::{net, task::JoinHandle};

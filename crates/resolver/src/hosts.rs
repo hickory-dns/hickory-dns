@@ -74,7 +74,7 @@ impl Hosts {
                     Lookup::new_with_max_ttl(query, Arc::from([]))
                 }),
                 _ => {
-                    warn!("unsupported IP type from Hosts file: {:#?}", record_type);
+                    tracing::warn!("unsupported IP type from Hosts file: {:#?}", record_type);
                     return;
                 }
             };
@@ -86,7 +86,7 @@ impl Hosts {
         match record_type {
             RecordType::A => lookup_type.a = Some(new_lookup),
             RecordType::AAAA => lookup_type.aaaa = Some(new_lookup),
-            _ => warn!("unsupported IP type from Hosts file"),
+            _ => tracing::warn!("unsupported IP type from Hosts file"),
         }
     }
 }
@@ -141,7 +141,7 @@ pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
         let addr = if let Some(a) = fields[0].try_parse_ip() {
             a
         } else {
-            warn!("could not parse an IP from hosts file");
+            tracing::warn!("could not parse an IP from hosts file");
             continue;
         };
 
@@ -161,7 +161,7 @@ pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
                         hosts.insert(name.clone(), RecordType::AAAA, lookup);
                     }
                     _ => {
-                        warn!("unsupported IP type from Hosts file: {:#?}", addr);
+                        tracing::warn!("unsupported IP type from Hosts file: {:#?}", addr);
                         continue;
                     }
                 };

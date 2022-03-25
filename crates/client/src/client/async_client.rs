@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-use log::debug;
+use tracing::debug;
 use rand;
 
 use crate::client::Signer;

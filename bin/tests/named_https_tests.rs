@@ -8,9 +8,6 @@
 #![cfg(not(windows))]
 #![cfg(feature = "dns-over-https")]
 
-#[macro_use]
-extern crate log;
-
 mod server_harness;
 
 use std::env;

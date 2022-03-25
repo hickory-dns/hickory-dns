@@ -11,7 +11,7 @@
 use std::{borrow::Borrow, collections::HashMap, future::Future, io};
 
 use cfg_if::cfg_if;
-use log::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 use trust_dns_proto::rr::Record;
 
 #[cfg(feature = "dnssec")]

@@ -22,6 +22,7 @@ use proto::error::ProtoError;
 use proto::op::Query;
 use proto::rr::{Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions};
+use tracing::debug;
 
 use crate::caching_client::CachingClient;
 use crate::config::LookupIpStrategy;
