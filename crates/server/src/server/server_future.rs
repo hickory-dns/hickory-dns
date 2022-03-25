@@ -117,8 +117,8 @@ impl<T: RequestHandler> ServerFuture<T> {
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TCP tcp_stream error: {}", e);
                             continue;
@@ -129,7 +129,6 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     // and spawn to the io_loop
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("accepted request from: {}", src_addr);
                         // take the created stream...
                         let (buf_stream, stream_handle) =
@@ -229,8 +228,8 @@ impl<T: RequestHandler> ServerFuture<T> {
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
                             continue;
@@ -242,7 +241,6 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     // kick out to a different task immediately, let them do the TLS handshake
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting TLS request from: {}", src_addr);
 
                         // perform the TLS
@@ -371,8 +369,8 @@ impl<T: RequestHandler> ServerFuture<T> {
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
                             continue;
@@ -384,7 +382,6 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     // kick out to a different task immediately, let them do the TLS handshake
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting TLS request from: {}", src_addr);
 
                         // perform the TLS
@@ -513,8 +510,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let dns_hostname = dns_hostname;
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving HTTPS tcp_stream error: {}", e);
                             continue;
@@ -526,7 +523,6 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let dns_hostname = dns_hostname.clone();
 
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting HTTPS request from: {}", src_addr);
 
                         // TODO: need to consider timeout of total connect...
