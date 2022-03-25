@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use log::debug;
+use tracing::debug;
 
 use crate::{
     authority::{Authority, LookupError, LookupOptions, MessageRequest, UpdateResult, ZoneType},

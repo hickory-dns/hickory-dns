@@ -11,7 +11,7 @@ use std::iter::Iterator;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use log::error;
+use tracing::error;
 use rusqlite::types::ToSql;
 use rusqlite::{self, Connection};
 use time;

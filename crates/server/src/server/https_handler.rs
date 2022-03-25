@@ -10,7 +10,7 @@ use std::{io, net::SocketAddr, sync::Arc};
 use bytes::{Bytes, BytesMut};
 use futures_util::lock::Mutex;
 use h2::server;
-use log::{debug, warn};
+use tracing::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
 use trust_dns_proto::rr::Record;
 

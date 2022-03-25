@@ -16,7 +16,7 @@ use std::{
 
 use cfg_if::cfg_if;
 use futures_util::future::{self, TryFutureExt};
-use log::{debug, error, warn};
+use tracing::{debug, error, warn};
 
 use tokio::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -1100,7 +1100,7 @@ impl Authority for InMemoryAuthority {
                                 // if DNSSEC is enabled, and the request had the DO set, sign the recordset
                                 #[cfg(feature = "dnssec")]
                                 {
-                                    use log::warn;
+                                    use tracing::warn;
 
                                     // ANAME's are constructed on demand, so need to be signed before return
                                     if lookup_options.is_dnssec() {

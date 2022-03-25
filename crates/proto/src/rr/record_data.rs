@@ -19,7 +19,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
-use log::{trace, warn};
+use tracing::{trace, warn};
 
 use super::domain::Name;
 use super::rdata;

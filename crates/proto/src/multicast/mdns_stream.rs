@@ -15,7 +15,7 @@ use std::task::{Context, Poll};
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
 use lazy_static::lazy_static;
-use log::{debug, trace};
+use tracing::{debug, trace};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};

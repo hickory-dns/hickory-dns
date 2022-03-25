@@ -20,7 +20,7 @@ use std::hash::{Hash, Hasher};
 use tinyvec::TinyVec;
 
 use idna;
-use log::debug;
+use tracing::debug;
 
 use crate::error::*;
 

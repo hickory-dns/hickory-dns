@@ -27,7 +27,6 @@ use std::str::FromStr;
 
 use clap::{Arg, ArgMatches, Command};
 use data_encoding::BASE64;
-use log::info;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 
@@ -65,7 +64,7 @@ pub fn main() {
     let key_path = matches.value_of("key").unwrap();
     let output_path = matches.value_of("output").unwrap();
 
-    info!("Reading private key: {}", key_path);
+    log::info!("Reading private key: {}", key_path);
 
     let key_file = File::open(key_path).expect("private key file could not be opened");
 
@@ -110,7 +109,7 @@ pub fn main() {
         _ => panic!("Algorithm currently not supported: {:?}", algorithm),
     };
 
-    info!("Writing private key to pem: {}", output_path);
+    log::info!("Writing private key to pem: {}", output_path);
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)

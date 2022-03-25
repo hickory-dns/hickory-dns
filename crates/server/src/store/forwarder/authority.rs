@@ -7,7 +7,7 @@
 
 use std::io;
 
-use log::{debug, info};
+use tracing::{debug, info};
 use trust_dns_proto::xfer::DnsRequestOptions;
 
 use crate::{
@@ -70,7 +70,7 @@ impl ForwardAuthority {
         // preserve_intemediates enables when set to true, and disables
         // when set to false. So we set it to true.
         if !options.preserve_intermediates {
-            log::warn!(
+            tracing::warn!(
                 "preserve_intermediates set to false, which is invalid \
                 for a forwarder; switching to true"
             );

@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! tsigner is a structure for computing tsig messasignuthentication code for dns transactions
+use tracing::debug;
+
 use crate::proto::error::{ProtoError, ProtoResult};
 use crate::proto::rr::dnssec::rdata::tsig::{
     make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
@@ -173,7 +175,7 @@ impl MessageFinalizer for TSigner {
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
-        log::debug!("signing message: {:?}", message);
+        debug!("signing message: {:?}", message);
         let current_time = current_time as u64;
 
         let pre_tsig = TSIG::new(

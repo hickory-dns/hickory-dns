@@ -9,7 +9,7 @@
 
 use std::{fmt, iter, mem, ops::Deref, sync::Arc};
 
-use log::{debug, warn};
+use tracing::{debug, warn};
 
 use crate::{
     error::*,

@@ -17,7 +17,6 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use cfg_if::cfg_if;
-use log;
 use serde::{self, Deserialize};
 use toml;
 
@@ -120,18 +119,18 @@ impl Config {
     }
 
     /// specify the log level which should be used, ["Trace", "Debug", "Info", "Warn", "Error"]
-    pub fn get_log_level(&self) -> log::Level {
+    pub fn get_log_level(&self) -> tracing::Level {
         if let Some(ref level_str) = self.log_level {
             match level_str as &str {
-                "Trace" => log::Level::Trace,
-                "Debug" => log::Level::Debug,
-                "Info" => log::Level::Info,
-                "Warn" => log::Level::Warn,
-                "Error" => log::Level::Error,
-                _ => log::Level::Info,
+                "Trace" => tracing::Level::TRACE,
+                "Debug" => tracing::Level::DEBUG,
+                "Info" => tracing::Level::INFO,
+                "Warn" => tracing::Level::WARN,
+                "Error" => tracing::Level::ERROR,
+                _ => tracing::Level::INFO,
             }
         } else {
-            log::Level::Info
+            tracing::Level::INFO
         }
     }
 

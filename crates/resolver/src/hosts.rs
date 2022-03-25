@@ -74,7 +74,7 @@ impl Hosts {
                     Lookup::new_with_max_ttl(query, Arc::from([]))
                 }),
                 _ => {
-                    warn!("unsupported IP type from Hosts file: {:#?}", record_type);
+                    tracing::warn!("unsupported IP type from Hosts file: {:#?}", record_type);
                     return;
                 }
             };
@@ -86,7 +86,7 @@ impl Hosts {
         match record_type {
             RecordType::A => lookup_type.a = Some(new_lookup),
             RecordType::AAAA => lookup_type.aaaa = Some(new_lookup),
-            _ => warn!("unsupported IP type from Hosts file"),
+            _ => tracing::warn!("unsupported IP type from Hosts file"),
         }
     }
 

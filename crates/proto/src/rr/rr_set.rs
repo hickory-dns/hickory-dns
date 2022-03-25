@@ -8,7 +8,7 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::vec;
 
-use log::{info, warn};
+use tracing::{info, warn};
 
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
