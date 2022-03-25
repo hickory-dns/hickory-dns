@@ -35,7 +35,7 @@ pub mod sig;
 pub mod tsig;
 
 use enum_as_inner::EnumAsInner;
-use log::trace;
+use tracing::trace;
 
 use crate::error::*;
 use crate::rr::rdata::null;

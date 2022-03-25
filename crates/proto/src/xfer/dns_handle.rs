@@ -9,7 +9,7 @@
 use std::error::Error;
 
 use futures_util::stream::Stream;
-use log::debug;
+use tracing::debug;
 use rand;
 
 use crate::op::{Message, MessageType, OpCode, Query};

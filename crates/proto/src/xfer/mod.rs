@@ -14,7 +14,7 @@ use futures_channel::oneshot;
 use futures_util::future::Future;
 use futures_util::ready;
 use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
-use log::{debug, warn};
+use tracing::{debug, warn};
 
 use crate::error::*;
 use crate::Time;

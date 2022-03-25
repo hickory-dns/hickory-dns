@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
+use tracing::debug;
+
 #[cfg(feature = "dnssec")]
 use std::time::Duration;
 
@@ -517,7 +519,7 @@ impl MessageFinalizer for SigSigner {
         message: &Message,
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
-        log::debug!("signing message: {:?}", message);
+        debug!("signing message: {:?}", message);
         let key_tag: u16 = self.calculate_key_tag()?;
 
         // this is based on RFCs 2535, 2931 and 3007

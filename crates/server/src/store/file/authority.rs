@@ -15,7 +15,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use log::{debug, info};
+use tracing::{debug, info};
 
 #[cfg(feature = "dnssec")]
 use crate::{

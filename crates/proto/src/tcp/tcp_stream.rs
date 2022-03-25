@@ -18,7 +18,7 @@ use async_trait::async_trait;
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_util::stream::Stream;
 use futures_util::{self, future::Future, ready, FutureExt};
-use log::debug;
+use tracing::debug;
 
 use crate::error::*;
 use crate::xfer::{SerialMessage, StreamReceiver};

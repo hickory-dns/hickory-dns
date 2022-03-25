@@ -20,7 +20,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use futures_channel::mpsc;
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future::Future, ready, FutureExt};
-use log::{debug, warn};
+use tracing::{debug, warn};
 use rand;
 use rand::distributions::{Distribution, Standard};
 

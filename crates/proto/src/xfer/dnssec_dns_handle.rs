@@ -17,7 +17,7 @@ use futures_util::future;
 use futures_util::future::{Future, FutureExt, TryFutureExt};
 use futures_util::stream;
 use futures_util::stream::{Stream, TryStreamExt};
-use log::{debug, trace};
+use tracing::{debug, trace};
 
 use crate::op::{OpCode, Query};
 use crate::rr::dnssec::rdata::{DNSSECRData, DNSKEY, SIG};
@@ -351,16 +351,14 @@ where
             //       on a validation failure?
             // any error, is an error for all
             Err(e) => {
-                if log::log_enabled!(log::Level::Debug) {
-                    let mut query = message_result
-                        .queries()
-                        .iter()
-                        .map(|q| q.to_string())
-                        .fold(String::new(), |s, q| format!("{},{}", q, s));
+                let mut query = message_result
+                    .queries()
+                    .iter()
+                    .map(|q| q.to_string())
+                    .fold(String::new(), |s, q| format!("{},{}", q, s));
 
-                    query.truncate(query.len() - 1);
-                    debug!("an rrset failed to verify ({}): {:?}", query, e);
-                }
+                query.truncate(query.len() - 1);
+                debug!("an rrset failed to verify ({}): {:?}", query, e);
 
                 last_validation_err = Some(e);
             }
@@ -542,12 +540,10 @@ where
                 // must be covered by at least one DS record
                 .any(|(ds_name, ds_rdata)| {
                     if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
-                        if log::log_enabled!(log::Level::Debug) {
-                            debug!(
-                                "validated dnskey ({}, {}) with {} {}",
-                                rrset.name, key_rdata, ds_name, ds_rdata
-                            );
-                        }
+                        debug!(
+                            "validated dnskey ({}, {}) with {} {}",
+                            rrset.name, key_rdata, ds_name, ds_rdata
+                        );
                         true
                     } else {
                         false
@@ -801,22 +797,18 @@ fn verify_rrset_with_dnskey(
     dnskey
         .verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records)
         .map(|r| {
-            if log::log_enabled!(log::Level::Debug) {
-                debug!(
-                    "validated ({}, {:?}) with ({}, {})",
-                    rrset.name, rrset.record_type, dnskey_name, dnskey
-                )
-            }
+            debug!(
+                "validated ({}, {:?}) with ({}, {})",
+                rrset.name, rrset.record_type, dnskey_name, dnskey
+            );
             r
         })
         .map_err(Into::into)
         .map_err(|e| {
-            if log::log_enabled!(log::Level::Debug) {
-                debug!(
-                    "failed validation of ({}, {:?}) with ({}, {})",
-                    rrset.name, rrset.record_type, dnskey_name, dnskey
-                )
-            }
+            debug!(
+                "failed validation of ({}, {:?}) with ({}, {})",
+                rrset.name, rrset.record_type, dnskey_name, dnskey
+            );
 
             e
         })

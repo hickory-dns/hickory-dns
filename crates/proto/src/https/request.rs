@@ -11,7 +11,7 @@ use std::str::FromStr;
 
 use http::header::{ACCEPT, CONTENT_LENGTH, CONTENT_TYPE};
 use http::{header, uri, Request, Uri, Version};
-use log::debug;
+use tracing::debug;
 
 use crate::error::ProtoError;
 use crate::https::HttpsResult;
