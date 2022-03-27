@@ -352,14 +352,16 @@ where
             //       on a validation failure?
             // any error, is an error for all
             Err(e) => {
-                let mut query = message_result
-                    .queries()
-                    .iter()
-                    .map(|q| q.to_string())
-                    .fold(String::new(), |s, q| format!("{},{}", q, s));
+                if tracing::level_enabled!(tracing::Level::DEBUG) {
+                    let mut query = message_result
+                        .queries()
+                        .iter()
+                        .map(|q| q.to_string())
+                        .fold(String::new(), |s, q| format!("{},{}", q, s));
 
-                query.truncate(query.len() - 1);
-                debug!("an rrset failed to verify ({}): {:?}", query, e);
+                    query.truncate(query.len() - 1);
+                    debug!("an rrset failed to verify ({}): {:?}", query, e);
+                }
 
                 last_validation_err = Some(e);
             }
@@ -541,10 +543,12 @@ where
                 // must be covered by at least one DS record
                 .any(|(ds_name, ds_rdata)| {
                     if ds_rdata.covers(&rrset.name, key_rdata).unwrap_or(false) {
-                        debug!(
-                            "validated dnskey ({}, {}) with {} {}",
-                            rrset.name, key_rdata, ds_name, ds_rdata
-                        );
+                        if tracing::level_enabled!(tracing::Level::DEBUG) {
+                            debug!(
+                                "validated dnskey ({}, {}) with {} {}",
+                                rrset.name, key_rdata, ds_name, ds_rdata
+                            );
+                        }
                         true
                     } else {
                         false
@@ -798,19 +802,22 @@ fn verify_rrset_with_dnskey(
     dnskey
         .verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records)
         .map(|r| {
-            debug!(
-                "validated ({}, {:?}) with ({}, {})",
-                rrset.name, rrset.record_type, dnskey_name, dnskey
-            );
+            if tracing::level_enabled!(tracing::Level::DEBUG) {
+                debug!(
+                    "validated ({}, {:?}) with ({}, {})",
+                    rrset.name, rrset.record_type, dnskey_name, dnskey
+                );
+            }
             r
         })
         .map_err(Into::into)
         .map_err(|e| {
-            debug!(
-                "failed validation of ({}, {:?}) with ({}, {})",
-                rrset.name, rrset.record_type, dnskey_name, dnskey
-            );
-
+            if tracing::level_enabled!(tracing::Level::DEBUG) {
+                debug!(
+                    "failed validation of ({}, {:?}) with ({}, {})",
+                    rrset.name, rrset.record_type, dnskey_name, dnskey
+                );
+            }
             e
         })
 }
