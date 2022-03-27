@@ -58,7 +58,9 @@ fn args() -> ArgMatches {
 
 /// Run the bind_dnskey_to_pem program
 pub fn main() {
-    env_logger::init();
+    let subscriber = tracing_subscriber::FmtSubscriber::builder().finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     let matches = args();
 
     let key_path = matches.value_of("key").unwrap();
