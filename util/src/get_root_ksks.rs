@@ -39,7 +39,9 @@ fn args() -> ArgMatches {
 
 /// Run the get_root_ksks program
 pub fn main() {
-    env_logger::init();
+    let subscriber = tracing_subscriber::FmtSubscriber::builder().finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     let _matches = args();
 
     println!("querying for root key-signing-keys, ie dnskeys");

@@ -25,6 +25,7 @@ use std::io::{BufReader, Read, Write};
 
 use clap::{Arg, ArgMatches, Command};
 use openssl::pkey::PKey;
+use tracing::info;
 
 use trust_dns_client::rr::dnssec::{KeyPair, Public};
 
@@ -56,13 +57,15 @@ fn args() -> ArgMatches {
 
 /// Run the pem_to_public_dnskey program
 pub fn main() {
-    env_logger::init();
+    let subscriber = tracing_subscriber::FmtSubscriber::builder().finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     let matches = args();
 
     let key_path = matches.value_of("key").unwrap();
     let output_path = matches.value_of("output").unwrap();
 
-    log::info!("Reading key from pem: {}", key_path);
+    info!("Reading key from pem: {}", key_path);
 
     let mut key_file = File::open(key_path).expect("private key file could not be opened");
 
