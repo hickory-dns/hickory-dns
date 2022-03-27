@@ -123,25 +123,24 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // enable logging early
     let log_level = if opts.debug {
-        log::LevelFilter::Debug
+        Some(tracing::Level::DEBUG)
     } else if opts.info {
-        log::LevelFilter::Info
+        Some(tracing::Level::INFO)
     } else if opts.warn {
-        log::LevelFilter::Warn
+        Some(tracing::Level::WARN)
     } else if opts.error {
-        log::LevelFilter::Error
+        Some(tracing::Level::ERROR)
     } else {
-        log::LevelFilter::Off
+        None
     };
 
-    // Get query term
-    env_logger::builder()
-        .filter_module("trust_dns_resolver", log_level)
-        .filter_module("trust_dns_proto", log_level)
-        .filter_module("trust_dns_proto", log_level)
-        .write_style(env_logger::WriteStyle::Auto)
-        .format_indent(Some(4))
-        .init();
+    if let Some(log_level) = log_level {
+        let subscriber = tracing_subscriber::FmtSubscriber::builder()
+            .with_max_level(log_level)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
+    }
 
     // read system configuration
     let (sys_config, sys_options): (Option<ResolverConfig>, Option<ResolverOpts>) = if opts.system {
