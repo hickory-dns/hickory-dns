@@ -10,10 +10,7 @@
 const MIME_APPLICATION_DNS: &str = "application/dns-message";
 const DNS_QUERY_PATH: &str = "/dns-query";
 
-mod error;
 mod quic_client_stream;
-
-pub use self::error::{Error as QuicError, Result as QuicResult};
 
 pub use self::quic_client_stream::{
     QuicClientConnect, QuicClientResponse, QuicClientStream, QuicClientStreamBuilder,

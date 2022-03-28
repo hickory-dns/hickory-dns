@@ -1124,6 +1124,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
+name = "quinn"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "584865613896a1f644d757e52c45c573441c8b04cac38ac13990b0235203db66"
+dependencies = [
+ "bytes",
+ "futures-channel",
+ "futures-util",
+ "fxhash",
+ "quinn-proto",
+ "quinn-udp",
+ "rustls",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "webpki 0.22.0",
+]
+
+[[package]]
 name = "quinn-proto"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1134,12 +1153,28 @@ dependencies = [
  "rand",
  "ring",
  "rustls",
+ "rustls-native-certs",
  "rustls-pemfile 0.2.1",
  "slab",
  "thiserror",
  "tinyvec",
  "tracing",
  "webpki 0.22.0",
+]
+
+[[package]]
+name = "quinn-udp"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df185e5e5f7611fa6e628ed8f9633df10114b03bbaecab186ec55822c44ac727"
+dependencies = [
+ "futures-util",
+ "libc",
+ "mio",
+ "quinn-proto",
+ "socket2",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1293,6 +1328,18 @@ dependencies = [
  "ring",
  "sct",
  "webpki 0.22.0",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ca9ebdfa27d3fc180e42879037b5338ab1c040c06affd00d8338598e7800943"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile 0.2.1",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]
@@ -1750,7 +1797,7 @@ dependencies = [
  "log",
  "native-tls",
  "openssl",
- "quinn-proto",
+ "quinn",
  "rand",
  "ring",
  "rustls",

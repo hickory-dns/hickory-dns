@@ -252,6 +252,16 @@ pub enum ProtoErrorKind {
     /// An int parsing error
     #[error("error parsing int")]
     ParseInt(#[from] std::num::ParseIntError),
+
+    /// A Quinn (Quic) connection error occured
+    #[cfg(feature = "quinn")]
+    #[error("error creating quic connection")]
+    QuinnConnect(#[from] quinn::ConnectError),
+
+    /// A Quinn (Quic) connection error occured
+    #[cfg(feature = "quinn")]
+    #[error("error with quic connection")]
+    QuinnConnection(#[from] quinn::ConnectionError),
 }
 
 /// The error type for errors that get returned in the crate
@@ -385,6 +395,20 @@ impl From<std::num::ParseIntError> for ProtoError {
     }
 }
 
+#[cfg(feature = "quinn")]
+impl From<quinn::ConnectError> for ProtoError {
+    fn from(e: quinn::ConnectError) -> Self {
+        ProtoErrorKind::from(e).into()
+    }
+}
+
+#[cfg(feature = "quinn")]
+impl From<quinn::ConnectionError> for ProtoError {
+    fn from(e: quinn::ConnectionError) -> Self {
+        ProtoErrorKind::from(e).into()
+    }
+}
+
 /// Stubs for running without OpenSSL
 #[cfg(not(feature = "openssl"))]
 #[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
@@ -510,6 +534,8 @@ impl Clone for ProtoErrorKind {
             Utf8(ref e) => Utf8(*e),
             FromUtf8(ref e) => FromUtf8(e.clone()),
             ParseInt(ref e) => ParseInt(e.clone()),
+            QuinnConnect(ref e) => QuinnConnect(e.clone()),
+            QuinnConnection(ref e) => QuinnConnection(e.clone()),
         }
     }
 }
