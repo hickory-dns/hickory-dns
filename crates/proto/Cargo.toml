@@ -44,7 +44,7 @@ dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl"]
 dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "webpki-roots"]
 dns-over-https = ["bytes", "dns-over-tls", "h2", "http"]
 
-dns-over-quic = ["quinn-proto", "rustls/quic", "dns-over-rustls"]
+dns-over-quic = ["quinn", "rustls/quic", "dns-over-rustls", "bytes", "webpki-roots"]
 
 dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring"]
@@ -88,7 +88,7 @@ lazy_static = "1.2.0"
 log = "0.4"
 native-tls = { version = "0.2", optional = true }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-quinn-proto = { version = "0.8.1", optional = true }
+quinn = { version = "0.8.1", optional = true }
 rand = "0.8"
 ring = { version = "0.16", optional = true, features = ["std"] }
 rustls = { version = "0.20.0", optional = true }

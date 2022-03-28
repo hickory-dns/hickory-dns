@@ -270,7 +270,7 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     #[cfg(feature = "dns-over-https")]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
     #[cfg(feature = "dns-over-quic")]
-    Quic(DnsExchangeConnect<QuicClientConnect<R::Udp>, QuicClientStream<R::Udp>, TokioTime>),
+    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(
         DnsExchangeConnect<

@@ -21,7 +21,9 @@ use futures_util::future::{FutureExt, TryFutureExt};
 use futures_util::ready;
 use futures_util::stream::Stream;
 use log::{debug, warn};
-use quinn_proto::{ClientConfig, TransportConfig, VarInt};
+use quinn::{
+    ClientConfig, Connection, Endpoint, EndpointConfig, NewConnection, TransportConfig, VarInt,
+};
 use rustls::ClientConfig as TlsClientConfig;
 use tokio_rustls::{
     client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
@@ -82,18 +84,15 @@ pub enum DoqErrorCode {
 }
 
 /// A DNS client connection for DNS-over-Quic
-#[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
-pub struct QuicClientStream<U: UdpSocket> {
-    // Corresponds to the dns-name of the Quic server
-    socket: U,
-    quic: (),
+pub struct QuicClientStream {
+    quic_connection: Connection,
     name_server_name: Arc<str>,
     name_server: SocketAddr,
     is_shutdown: bool,
 }
 
-impl<U: UdpSocket> Display for QuicClientStream<U> {
+impl Display for QuicClientStream {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             formatter,
@@ -103,7 +102,7 @@ impl<U: UdpSocket> Display for QuicClientStream<U> {
     }
 }
 
-impl<U: UdpSocket> QuicClientStream<U> {
+impl QuicClientStream {
     /// Builder for QuicClientStream
     pub fn builder() -> QuicClientStreamBuilder {
         QuicClientStreamBuilder::default()
@@ -122,7 +121,7 @@ impl<U: UdpSocket> QuicClientStream<U> {
     }
 }
 
-impl<U: UdpSocket + Send + Unpin + 'static> DnsRequestSender for QuicClientStream<U> {
+impl DnsRequestSender for QuicClientStream {
     /// The send loop for Quic in DNS stipulates that a new Quic "steam" should be opened and use for sending data.
     ///
     /// It should be closed after receiving the response. TODO: AXFR/IXFR support...
@@ -175,7 +174,7 @@ impl<U: UdpSocket + Send + Unpin + 'static> DnsRequestSender for QuicClientStrea
     }
 }
 
-impl<U: UdpSocket> Stream for QuicClientStream<U> {
+impl Stream for QuicClientStream {
     type Item = Result<(), ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -223,28 +222,43 @@ impl QuicClientStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    pub fn build<U: UdpSocket + 'static>(
+    pub fn build(self, name_server: SocketAddr, dns_name: String) -> QuicClientConnect {
+        QuicClientConnect(Box::pin(self.connect(name_server, dns_name)) as _)
+    }
+
+    async fn connect(
         self,
         name_server: SocketAddr,
         dns_name: String,
-    ) -> QuicClientConnect<U> {
+    ) -> Result<QuicClientStream, ProtoError> {
         let connect = if let Some(bind_addr) = self.bind_addr {
-            U::connect_with_bind(name_server, bind_addr)
+            <tokio::net::UdpSocket as UdpSocket>::connect_with_bind(name_server, bind_addr)
         } else {
-            U::connect(name_server)
+            <tokio::net::UdpSocket as UdpSocket>::connect(name_server)
         };
 
-        let connect = connect
-            .map_ok(move |udp| QuicClientStream {
-                socket: udp,
-                quic: (),
-                name_server,
-                name_server_name: dns_name.into(),
-                is_shutdown: false,
-            })
-            .map_err(ProtoError::from);
+        let socket = connect.await?;
+        let socket = socket.into_std()?;
 
-        QuicClientConnect(Box::pin(connect))
+        let (mut endpoint, _incoming) = Endpoint::new(EndpointConfig::default(), None, socket)?;
+        let client_config = ClientConfig::new(self.crypto_config);
+        endpoint.set_default_client_config(client_config);
+
+        let connecting = endpoint.connect(name_server, &dns_name)?;
+        // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
+
+        let connection = connecting.await?;
+        let NewConnection {
+            connection: quic_connection,
+            ..
+        } = connection;
+
+        Ok(QuicClientStream {
+            quic_connection,
+            name_server_name: Arc::from(dns_name),
+            name_server,
+            is_shutdown: false,
+        })
     }
 }
 
@@ -292,12 +306,12 @@ impl Default for QuicClientStreamBuilder {
 }
 
 /// A future that resolves to an QuicClientStream
-pub struct QuicClientConnect<U: UdpSocket>(
-    Pin<Box<dyn Future<Output = Result<QuicClientStream<U>, ProtoError>> + Send>>,
+pub struct QuicClientConnect(
+    Pin<Box<dyn Future<Output = Result<QuicClientStream, ProtoError>> + Send>>,
 );
 
-impl<U: UdpSocket> Future for QuicClientConnect<U> {
-    type Output = Result<QuicClientStream<U>, ProtoError>;
+impl Future for QuicClientConnect {
+    type Output = Result<QuicClientStream, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.poll_unpin(cx)
@@ -355,11 +369,13 @@ mod tests {
         let mut builder = QuicClientStreamBuilder::default();
         builder.crypto_config(Arc::new(client_config));
 
-        let connect = builder.build::<TokioUdpSocket>(google, "dns.google".to_string());
+        let connect = builder.build(google, "dns.google".to_string());
+        println!("starting quic connect");
 
         // tokio runtime stuff...
         let runtime = Runtime::new().expect("could not start runtime");
         let mut quic = runtime.block_on(connect).expect("quic connect failed");
+        println!("completed quic connect");
 
         let response = runtime
             .block_on(quic.send_message(request).first_answer())
