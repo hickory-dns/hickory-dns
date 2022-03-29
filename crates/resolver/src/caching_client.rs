@@ -640,6 +640,21 @@ mod tests {
         Ok(message.into())
     }
 
+    #[allow(clippy::unnecessary_wraps)]
+    pub(crate) fn ns_message() -> Result<DnsResponse, ResolveError> {
+        let mut message = Message::new();
+        message.add_query(Query::query(
+            Name::from_str("www.example.com.").unwrap(),
+            RecordType::NS,
+        ));
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            86400,
+            RData::NS(Name::from_str("www.example.com.").unwrap()),
+        )]);
+        Ok(message.into())
+    }
+
     fn no_recursion_on_query_test(query_type: RecordType) {
         let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
 
@@ -801,6 +816,50 @@ mod tests {
     //         ]
     //     );
     // }
+
+    #[test]
+    fn test_single_ns_query_response() {
+        let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
+
+        let mut message = ns_message().unwrap();
+        message.add_answer(Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            86400,
+            RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+        ));
+        message.insert_additionals(vec![
+            Record::from_rdata(
+                Name::from_str("actual.example.com.").unwrap(),
+                86400,
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_str("actual.example.com.").unwrap(),
+                86400,
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            ),
+        ]);
+
+        let client = mock(vec![error(), Ok(message)]);
+        let client = CachingClient::with_cache(cache, client, false);
+
+        let ips = block_on(CachingClient::inner_lookup(
+            Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::NS),
+            DnsRequestOptions::default(),
+            client,
+            vec![],
+        ))
+        .expect("lookup failed");
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![
+                RData::NS(Name::from_str("www.example.com.").unwrap()),
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            ]
+        );
+    }
 
     fn cname_ttl_test(first: u32, second: u32) {
         let lru = DnsLru::new(1, dns_lru::TtlConfig::default());
