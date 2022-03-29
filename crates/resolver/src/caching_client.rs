@@ -403,6 +403,8 @@ where
                         {
                             found_name = true;
                             Some((r, ttl))
+                        } else if query.query_type().is_ns() && r.rr_type().is_ip_addr() {
+                            Some((r, ttl))
                         } else {
                             None
                         }
