@@ -22,66 +22,21 @@ use futures_util::ready;
 use futures_util::stream::Stream;
 use log::{debug, warn};
 use quinn::{
-    ClientConfig, Connection, Endpoint, EndpointConfig, NewConnection, TransportConfig, VarInt,
+    ClientConfig, Connection, Endpoint, EndpointConfig, NewConnection, OpenBi, TransportConfig,
+    VarInt,
 };
 use rustls::ClientConfig as TlsClientConfig;
-use tokio_rustls::{
-    client::TlsStream as TokioTlsClientStream, Connect as TokioTlsConnect, TlsConnector,
+
+use crate::{
+    error::ProtoError,
+    iocompat::AsyncIoStdAsTokio,
+    quic::quic_stream::{DoqErrorCode, QuicStream},
+    tcp::Connect,
+    udp::UdpSocket,
+    xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage},
 };
 
-use crate::error::ProtoError;
-use crate::iocompat::AsyncIoStdAsTokio;
-use crate::tcp::Connect;
-use crate::udp::UdpSocket;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
-
-/// ```
-/// 5.1. Connection Establishment
-///
-/// DoQ connections are established as described in the QUIC transport specification [RFC9000]. During connection establishment,
-/// DoQ support is indicated by selecting the ALPN token "doq" in the crypto handshake.
-/// ```
-pub const ALPN: &[u8] = b"doq";
-
-/// [DoQ Error Codes](https://www.ietf.org/archive/id/draft-ietf-dprive-dnsoquic-10.html#name-doq-error-codes), draft-ietf-dprive-dnsoquic, Feb. 28, 2022
-/// ```text
-///  5.3. DoQ Error Codes
-///
-/// The following error codes are defined for use when abruptly terminating streams, aborting reading of streams, or immediately closing connections:
-///
-/// DOQ_NO_ERROR (0x0):
-///     No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
-///
-/// DOQ_INTERNAL_ERROR (0x1):
-///     The DoQ implementation encountered an internal error and is incapable of pursuing the transaction or the connection.
-///
-/// DOQ_PROTOCOL_ERROR (0x2):
-///     The DoQ implementation encountered an protocol error and is forcibly aborting the connection.
-///
-/// DOQ_REQUEST_CANCELLED (0x3):
-///     A DoQ client uses this to signal that it wants to cancel an outstanding transaction.
-///
-/// DOQ_EXCESSIVE_LOAD (0x4):
-///     A DoQ implementation uses this to signal when closing a connection due to excessive load.
-///
-/// DOQ_ERROR_RESERVED (0xd098ea5e):
-///     Alternative error code used for tests.
-/// ```
-#[repr(u32)]
-pub enum DoqErrorCode {
-    /// No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
-    DoqNoError = 0x0,
-    /// The DoQ implementation encountered an internal error and is incapable of pursuing the transaction or the connection.
-    DoqInternalError = 0x1,
-    /// The DoQ implementation encountered an protocol error and is forcibly aborting the connection.
-    DoqProtocolError = 0x2,
-    /// A DoQ client uses this to signal that it wants to cancel an outstanding transaction.
-    DoqRequestCancelled = 0x3,
-    /// A DoQ implementation uses this to signal when closing a connection due to excessive load.
-    DoqExcessiveLoad = 0x4,
-    /// Alternative error code used for tests.
-    DoqErrorReserved = 0xd098ea5e,
-}
+use super::quic_stream;
 
 /// A DNS client connection for DNS-over-Quic
 #[must_use = "futures do nothing unless polled"]
@@ -108,16 +63,21 @@ impl QuicClientStream {
         QuicClientStreamBuilder::default()
     }
 
-    async fn inner_send(
-        quic: (),
-        message: Bytes,
-        name_server_name: Arc<str>,
-        name_server: SocketAddr,
-    ) -> Result<DnsResponse, ProtoError> {
-        todo!()
-        // // and finally convert the bytes into a DNS message
-        // let message = SerialMessage::new(response_bytes.to_vec(), name_server).to_message()?;
-        // Ok(message.into())
+    async fn inner_send(stream: OpenBi, message: DnsRequest) -> Result<DnsResponse, ProtoError> {
+        let (send_stream, recv_stream) = stream.await?;
+
+        // RFC: The mapping specified here requires that the client selects a separate
+        //  QUIC stream for each query. The server then uses the same stream to provide all the response messages for that query.
+        let mut stream = QuicStream::new(send_stream, recv_stream);
+
+        stream.send(message.into_parts().0).await?;
+
+        // The client MUST send the DNS query over the selected stream,
+        // and MUST indicate through the STREAM FIN mechanism that no further data will be sent on that stream.
+        stream.finish().await?;
+
+        let response = stream.receive().await?;
+        Ok(response.into())
     }
 }
 
@@ -161,16 +121,24 @@ impl DnsRequestSender for QuicClientStream {
     /// a DNS message from DoQ over another transport, a DNS Message ID MUST be generated according to the rules of the protocol that is
     /// in use. When forwarding a DNS message from another transport over DoQ, the Message ID MUST be set to zero.
     /// ```
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
-        todo!()
+    fn send_message(&mut self, message: DnsRequest) -> DnsResponseStream {
+        if self.is_shutdown {
+            panic!("can not send messages after stream is shutdown")
+        }
+
+        let connection = self.quic_connection.open_bi();
+
+        Box::pin(Self::inner_send(connection, message)).into()
     }
 
     fn shutdown(&mut self) {
-        todo!()
+        self.is_shutdown = true;
+        self.quic_connection
+            .close(DoqErrorCode::NoError.into(), b"Shutdown");
     }
 
     fn is_shutdown(&self) -> bool {
-        todo!()
+        self.is_shutdown
     }
 }
 
@@ -185,14 +153,14 @@ impl Stream for QuicClientStream {
 /// A Quic connection builder for DNS-over-Quic
 #[derive(Clone)]
 pub struct QuicClientStreamBuilder {
-    crypto_config: Arc<TlsClientConfig>,
+    crypto_config: TlsClientConfig,
     transport_config: Arc<TransportConfig>,
     bind_addr: Option<SocketAddr>,
 }
 
 impl QuicClientStreamBuilder {
     /// Constructs a new TlsStreamBuilder with the associated ClientConfig
-    pub fn crypto_config(&mut self, crypto_config: Arc<TlsClientConfig>) -> &mut Self {
+    pub fn crypto_config(&mut self, crypto_config: TlsClientConfig) -> &mut Self {
         self.crypto_config = crypto_config;
         self
     }
@@ -241,7 +209,12 @@ impl QuicClientStreamBuilder {
         let socket = socket.into_std()?;
 
         let (mut endpoint, _incoming) = Endpoint::new(EndpointConfig::default(), None, socket)?;
-        let client_config = ClientConfig::new(self.crypto_config);
+
+        // ensure the ALPN protocol is set correctly
+        let mut crypto_config = self.crypto_config;
+        crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
+
+        let client_config = ClientConfig::new(Arc::new(crypto_config));
         endpoint.set_default_client_config(client_config);
 
         let connecting = endpoint.connect(name_server, &dns_name)?;
@@ -278,7 +251,7 @@ fn client_config_tls12_webpki_roots() -> TlsClientConfig {
         )
     }));
 
-    let mut client_config = TlsClientConfig::builder()
+    let client_config = TlsClientConfig::builder()
         .with_safe_default_cipher_suites()
         .with_safe_default_kx_groups()
         .with_protocol_versions(&[&rustls::version::TLS12])
@@ -286,7 +259,6 @@ fn client_config_tls12_webpki_roots() -> TlsClientConfig {
         .with_root_certificates(root_store)
         .with_no_client_auth();
 
-    client_config.alpn_protocols = vec![ALPN.to_vec()];
     client_config
 }
 
@@ -295,10 +267,10 @@ impl Default for QuicClientStreamBuilder {
         let mut transport_config = TransportConfig::default();
         sanitize_transport_config(&mut transport_config);
 
-        let mut client_config = client_config_tls12_webpki_roots();
+        let client_config = client_config_tls12_webpki_roots();
 
         Self {
-            crypto_config: Arc::new(client_config),
+            crypto_config: client_config,
             transport_config: Arc::new(transport_config),
             bind_addr: None,
         }
@@ -353,6 +325,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(off)]
     fn test_quic_google() {
         env_logger::builder().is_test(true).build();
 

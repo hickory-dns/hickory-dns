@@ -11,7 +11,12 @@ const MIME_APPLICATION_DNS: &str = "application/dns-message";
 const DNS_QUERY_PATH: &str = "/dns-query";
 
 mod quic_client_stream;
+mod quic_server;
+mod quic_stream;
 
 pub use self::quic_client_stream::{
     QuicClientConnect, QuicClientResponse, QuicClientStream, QuicClientStreamBuilder,
 };
+
+#[cfg(test)]
+mod tests;
