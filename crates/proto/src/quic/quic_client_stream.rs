@@ -1,4 +1,4 @@
-// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -173,11 +173,11 @@ impl QuicClientStreamBuilder {
 
     /// Sets a good set of defaults for the DoQ transport config
     pub fn default_transport_config(&mut self) -> &mut Self {
-        self.set_transport_config(TransportConfig::default())
+        self.transport_config(TransportConfig::default())
     }
 
     /// This will override the max_concurrent_bidi_streams and max_concurrent_uni_streams to 0, as DoQ doesn't support server push
-    pub fn set_transport_config(&mut self, mut transport_config: TransportConfig) -> &mut Self {
+    pub fn transport_config(&mut self, mut transport_config: TransportConfig) -> &mut Self {
         sanitize_transport_config(&mut transport_config);
         self.transport_config = Arc::new(transport_config);
 

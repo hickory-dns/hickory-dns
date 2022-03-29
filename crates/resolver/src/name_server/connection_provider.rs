@@ -198,6 +198,22 @@ where
                 );
                 ConnectionConnect::Https(exchange)
             }
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+
+                let exchange = crate::quic::new_quic_stream(
+                    socket_addr,
+                    bind_addr,
+                    tls_dns_name,
+                    client_config,
+                );
+                ConnectionConnect::Quic(exchange)
+            }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
                 let socket_addr = config.socket_addr;

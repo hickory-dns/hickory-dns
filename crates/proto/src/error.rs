@@ -274,11 +274,12 @@ pub enum ProtoErrorKind {
     QuinnReadError(#[from] quinn::ReadExactError),
 
     /// A quic message id should always be 0
+    #[cfg(feature = "quinn")]
     #[error("quic messages should always be 0, got: {0}")]
     QuicMessageIdNot0(u16),
 
     /// A Rustls error occured
-    #[cfg(feature = "dns-over-rustls")]
+    #[cfg(feature = "rustls")]
     #[error("rustls construction error: {0}")]
     RustlsError(#[from] rustls::Error),
 }
@@ -442,7 +443,7 @@ impl From<quinn::ReadExactError> for ProtoError {
     }
 }
 
-#[cfg(feature = "dns-over-rustls")]
+#[cfg(feature = "rustls")]
 impl From<rustls::Error> for ProtoError {
     fn from(e: rustls::Error) -> Self {
         ProtoErrorKind::from(e).into()
@@ -574,11 +575,17 @@ impl Clone for ProtoErrorKind {
             Utf8(ref e) => Utf8(*e),
             FromUtf8(ref e) => FromUtf8(e.clone()),
             ParseInt(ref e) => ParseInt(e.clone()),
+            #[cfg(feature = "quinn")]
             QuinnConnect(ref e) => QuinnConnect(e.clone()),
+            #[cfg(feature = "quinn")]
             QuinnConnection(ref e) => QuinnConnection(e.clone()),
+            #[cfg(feature = "quinn")]
             QuinnWriteError(ref e) => QuinnWriteError(e.clone()),
+            #[cfg(feature = "quinn")]
             QuicMessageIdNot0(val) => QuicMessageIdNot0(val),
+            #[cfg(feature = "quinn")]
             QuinnReadError(ref e) => QuinnReadError(e.clone()),
+            #[cfg(feature = "rustls")]
             RustlsError(ref e) => RustlsError(e.clone()),
         }
     }
