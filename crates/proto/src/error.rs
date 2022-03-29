@@ -255,13 +255,32 @@ pub enum ProtoErrorKind {
 
     /// A Quinn (Quic) connection error occured
     #[cfg(feature = "quinn")]
-    #[error("error creating quic connection")]
+    #[error("error creating quic connection: {0}")]
     QuinnConnect(#[from] quinn::ConnectError),
 
     /// A Quinn (Quic) connection error occured
     #[cfg(feature = "quinn")]
-    #[error("error with quic connection")]
+    #[error("error with quic connection: {0}")]
     QuinnConnection(#[from] quinn::ConnectionError),
+
+    /// A Quinn (Quic) write error occured
+    #[cfg(feature = "quinn")]
+    #[error("error writing to quic connection: {0}")]
+    QuinnWriteError(#[from] quinn::WriteError),
+
+    /// A Quinn (Quic) read error occured
+    #[cfg(feature = "quinn")]
+    #[error("error writing to quic read: {0}")]
+    QuinnReadError(#[from] quinn::ReadExactError),
+
+    /// A quic message id should always be 0
+    #[error("quic messages should always be 0, got: {0}")]
+    QuicMessageIdNot0(u16),
+
+    /// A Rustls error occured
+    #[cfg(feature = "dns-over-rustls")]
+    #[error("rustls construction error: {0}")]
+    RustlsError(#[from] rustls::Error),
 }
 
 /// The error type for errors that get returned in the crate
@@ -409,6 +428,27 @@ impl From<quinn::ConnectionError> for ProtoError {
     }
 }
 
+#[cfg(feature = "quinn")]
+impl From<quinn::WriteError> for ProtoError {
+    fn from(e: quinn::WriteError) -> Self {
+        ProtoErrorKind::from(e).into()
+    }
+}
+
+#[cfg(feature = "quinn")]
+impl From<quinn::ReadExactError> for ProtoError {
+    fn from(e: quinn::ReadExactError) -> Self {
+        ProtoErrorKind::from(e).into()
+    }
+}
+
+#[cfg(feature = "dns-over-rustls")]
+impl From<rustls::Error> for ProtoError {
+    fn from(e: rustls::Error) -> Self {
+        ProtoErrorKind::from(e).into()
+    }
+}
+
 /// Stubs for running without OpenSSL
 #[cfg(not(feature = "openssl"))]
 #[cfg_attr(docsrs, doc(cfg(not(feature = "openssl"))))]
@@ -536,6 +576,10 @@ impl Clone for ProtoErrorKind {
             ParseInt(ref e) => ParseInt(e.clone()),
             QuinnConnect(ref e) => QuinnConnect(e.clone()),
             QuinnConnection(ref e) => QuinnConnection(e.clone()),
+            QuinnWriteError(ref e) => QuinnWriteError(e.clone()),
+            QuicMessageIdNot0(val) => QuicMessageIdNot0(val),
+            QuinnReadError(ref e) => QuinnReadError(e.clone()),
+            RustlsError(ref e) => RustlsError(e.clone()),
         }
     }
 }
