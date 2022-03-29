@@ -284,6 +284,10 @@ pub enum Protocol {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     Https,
+    /// Quic for DNS over Quic
+    #[cfg(feature = "dns-over-quic")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+    Quic,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
@@ -299,6 +303,8 @@ impl fmt::Display for Protocol {
             Protocol::Tls => "tls",
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => "https",
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => "quic",
             #[cfg(feature = "mdns")]
             Protocol::Mdns => "mdns",
         };
@@ -317,6 +323,9 @@ impl Protocol {
             Protocol::Tls => false,
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => false,
+            // TODO: if you squint, this is true...
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => true,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => true,
         }
@@ -336,6 +345,8 @@ impl Protocol {
             Protocol::Tls => true,
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => true,
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => true,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => false,
         }
