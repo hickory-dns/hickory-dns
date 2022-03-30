@@ -492,7 +492,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         let dns_hostname: Arc<str> = Arc::from(dns_hostname);
         let handler = self.handler.clone();
-        debug!("registered tcp: {:?}", listener);
+        debug!("registered https: {:?}", listener);
 
         let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
             .map_err(|e| {
@@ -577,13 +577,9 @@ impl<T: RequestHandler> ServerFuture<T> {
         let dns_hostname: Arc<str> = Arc::from(dns_hostname);
         let handler = self.handler.clone();
 
+        debug!("registered quic: {:?}", socket);
         let mut server =
             QuicServer::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
-
-        debug!(
-            "registered quic server: {dns_hostname} on {}",
-            server.local_addr()?
-        );
 
         // for each incoming request...
         let dns_hostname = dns_hostname;

@@ -29,7 +29,7 @@ fn test_example_quic_toml_startup() {
     named_test_harness("dns_over_quic.toml", move |_, _, _, _, quic_port| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
-        println!("using server src path: {}", server_path);
+        println!("using server src path: {server_path} and quic_port: {quic_port:?}");
 
         File::open(&format!(
             "{}/tests/test-data/named_test_configs/sec/example.cert",

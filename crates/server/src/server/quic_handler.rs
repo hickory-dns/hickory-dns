@@ -44,7 +44,10 @@ where
 
         let request = request_stream.receive_bytes().await?;
 
-        debug!("Received bytes {} from {src_addr}", request.len());
+        debug!(
+            "Received bytes {} from {src_addr} {request:?}",
+            request.len()
+        );
         let handler = handler.clone();
         let responder = QuicResponseHandle(Arc::new(Mutex::new(request_stream)));
 
