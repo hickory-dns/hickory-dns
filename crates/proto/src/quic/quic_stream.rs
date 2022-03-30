@@ -7,7 +7,7 @@
 
 use std::convert::TryInto;
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use quinn::{RecvStream, SendStream, VarInt};
 
 use crate::{
@@ -47,7 +47,6 @@ pub const DOQ_ALPN: &[u8] = b"doq";
 /// DOQ_ERROR_RESERVED (0xd098ea5e):
 ///     Alternative error code used for tests.
 /// ```
-#[repr(u32)]
 pub enum DoqErrorCode {
     /// No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
     NoError,
@@ -78,13 +77,13 @@ impl From<DoqErrorCode> for VarInt {
         use DoqErrorCode::*;
 
         match doq_error {
-            NoError => VarInt::from_u32(NO_ERROR),
-            InternalError => VarInt::from_u32(INTERNAL_ERROR),
-            ProtocolError => VarInt::from_u32(PROTOCOL_ERROR),
-            RequestCancelled => VarInt::from_u32(REQUEST_CANCELLED),
-            ExcessiveLoad => VarInt::from_u32(EXCESSIVE_LOAD),
-            ErrorReserved => VarInt::from_u32(ERROR_RESERVED),
-            Unknown(code) => VarInt::from_u32(code),
+            NoError => Self::from_u32(NO_ERROR),
+            InternalError => Self::from_u32(INTERNAL_ERROR),
+            ProtocolError => Self::from_u32(PROTOCOL_ERROR),
+            RequestCancelled => Self::from_u32(REQUEST_CANCELLED),
+            ExcessiveLoad => Self::from_u32(EXCESSIVE_LOAD),
+            ErrorReserved => Self::from_u32(ERROR_RESERVED),
+            Unknown(code) => Self::from_u32(code),
         }
     }
 }
@@ -109,7 +108,8 @@ impl From<VarInt> for DoqErrorCode {
     }
 }
 
-pub(crate) struct QuicStream {
+/// A single bi-directional stream
+pub struct QuicStream {
     send_stream: SendStream,
     receive_stream: RecvStream,
 }
@@ -122,13 +122,18 @@ impl QuicStream {
         }
     }
 
-    pub(crate) async fn send(&mut self, mut message: Message) -> Result<(), ProtoError> {
+    pub async fn send(&mut self, mut message: Message) -> Result<(), ProtoError> {
         // RFC: When sending queries over a QUIC connection, the DNS Message ID MUST be set to zero. The stream mapping for DoQ allows for
         // unambiguous correlation of queries and responses and so the Message ID field is not required.
         message.set_id(0);
 
         let bytes = Bytes::from(message.to_vec()?);
 
+        self.send_bytes(bytes).await
+    }
+
+    /// Send pre-encoded bytes, warning, Quic requires the message id to be 0.
+    pub async fn send_bytes(&mut self, bytes: Bytes) -> Result<(), ProtoError> {
         // In order that multiple responses can be parsed, a 2-octet length field is used in exactly the same way as the 2-octet length
         // field defined for DNS over TCP [RFC1035]. The practical result of this is that the content of each QUIC stream is exactly
         // the same as the content of a TCP connection that would manage exactly one query.All DNS messages (queries and responses)
@@ -141,13 +146,26 @@ impl QuicStream {
     }
 
     /// finishes the send stream, i.e. there will be no more data sent to the remote
-    pub(crate) async fn finish(&mut self) -> Result<(), ProtoError> {
-        self.send_stream.finish();
-
+    pub async fn finish(&mut self) -> Result<(), ProtoError> {
+        self.send_stream.finish().await?;
         Ok(())
     }
 
-    pub(crate) async fn receive(&mut self) -> Result<Message, ProtoError> {
+    /// Receive a single packet
+    pub async fn receive(&mut self) -> Result<Message, ProtoError> {
+        let bytes = self.receive_bytes().await?;
+        let message = Message::from_vec(&bytes)?;
+
+        // assert that the message id is 0, this is a bad dns-over-quic packet if not
+        if message.id() != 0 {
+            return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
+        }
+
+        Ok(message)
+    }
+
+    /// Receive a single packet as raw bytes
+    pub async fn receive_bytes(&mut self) -> Result<BytesMut, ProtoError> {
         // following above, the data should be first the length, followed by the message(s)
         let mut len = [0u8; 2];
         self.receive_stream.read_exact(&mut len).await?;
@@ -157,16 +175,10 @@ impl QuicStream {
         //  However, DNS messages are restricted in practice to a maximum size of 65535 bytes. This maximum size
         //  is enforced by the use of a two-octet message length field in DNS over TCP [RFC1035] and DNS over TLS [RFC7858],
         //  and by the definition of the "application/dns-message" for DNS over HTTP [RFC8484]. DoQ enforces the same restriction.
-        let mut bytes = vec![0; len];
-        self.receive_stream.read_exact(&mut bytes[..len]);
+        let mut bytes = BytesMut::with_capacity(len);
+        bytes.resize(len, 0);
+        self.receive_stream.read_exact(&mut bytes[..len]).await?;
 
-        let message = Message::from_vec(&bytes)?;
-
-        // assert that the message id is 0, this is a bad dns-over-quic packet if not
-        if message.id() != 0 {
-            return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
-        }
-
-        Ok(message)
+        Ok(bytes)
     }
 }

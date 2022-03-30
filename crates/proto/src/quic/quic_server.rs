@@ -27,7 +27,17 @@ impl QuicServer {
     /// Construct the new Acceptor with the associated pkcs12 data
     pub async fn new(
         name_server: SocketAddr,
-        name_server_name: &str,
+        cert: Vec<Certificate>,
+        key: PrivateKey,
+    ) -> Result<Self, ProtoError> {
+        // setup a new socket for the server to use
+        let socket = <tokio::net::UdpSocket as UdpSocket>::bind(name_server).await?;
+        Self::with_socket(socket, cert, key)
+    }
+
+    /// Construct the new server with an existing socket
+    pub fn with_socket(
+        socket: tokio::net::UdpSocket,
         cert: Vec<Certificate>,
         key: PrivateKey,
     ) -> Result<Self, ProtoError> {
@@ -40,27 +50,33 @@ impl QuicServer {
 
         let server_config = ServerConfig::with_crypto(Arc::new(config));
 
-        // setup a new socket for the server to use
-        let socket = <tokio::net::UdpSocket as UdpSocket>::bind(name_server).await?;
         let socket = socket.into_std()?;
 
-        let (mut endpoint, incoming) =
+        let (endpoint, incoming) =
             Endpoint::new(EndpointConfig::default(), Some(server_config), socket)?;
 
         Ok(Self { endpoint, incoming })
     }
 
-    pub async fn next(&mut self) -> Result<Option<QuicStreams>, ProtoError> {
+    /// Get the next incoming stream
+    ///
+    /// # Returns
+    ///
+    /// A remote connection that could have many potential bi-directional streams and the remote socket address
+    pub async fn next(&mut self) -> Result<Option<(QuicStreams, SocketAddr)>, ProtoError> {
         let connecting = if let Some(conn) = self.incoming.next().await {
             conn
         } else {
             return Ok(None);
         };
 
+        let remote_addr = connecting.remote_address();
         let conn = connecting.await?;
-        Ok(Some(QuicStreams {
+        let streams = QuicStreams {
             incoming_bi_streams: conn.bi_streams,
-        }))
+        };
+
+        Ok(Some((streams, remote_addr)))
     }
 
     /// Returns the address this server is listening on
@@ -78,7 +94,7 @@ pub struct QuicStreams {
 
 impl QuicStreams {
     /// Get the next bi directional stream from the client
-    pub(crate) async fn next(&mut self) -> Option<Result<QuicStream, ProtoError>> {
+    pub async fn next(&mut self) -> Option<Result<QuicStream, ProtoError>> {
         match self.incoming_bi_streams.next().await? {
             Ok((send_stream, receive_stream)) => {
                 Some(Ok(QuicStream::new(send_stream, receive_stream)))

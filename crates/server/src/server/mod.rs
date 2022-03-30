@@ -10,6 +10,8 @@
 #[cfg(feature = "dns-over-https")]
 mod https_handler;
 mod protocol;
+#[cfg(feature = "dns-over-quic")]
+mod quic_handler;
 mod request_handler;
 mod response_handler;
 mod server_future;

@@ -85,6 +85,11 @@ where
         &self.header
     }
 
+    /// Get a mutable reference to the header
+    pub fn header_mut(&mut self) -> &mut Header {
+        &mut self.header
+    }
+
     /// Set the EDNS options for the Response
     pub fn set_edns(&mut self, edns: Edns) -> &mut Self {
         self.edns = Some(edns);
