@@ -122,6 +122,7 @@ impl QuicStream {
         }
     }
 
+    /// Send the DNS message to the other side
     pub async fn send(&mut self, mut message: Message) -> Result<(), ProtoError> {
         // RFC: When sending queries over a QUIC connection, the DNS Message ID MUST be set to zero. The stream mapping for DoQ allows for
         // unambiguous correlation of queries and responses and so the Message ID field is not required.

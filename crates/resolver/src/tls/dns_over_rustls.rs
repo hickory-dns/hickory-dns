@@ -39,7 +39,7 @@ lazy_static! {
         let mut client_config = ClientConfig::builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
-            .with_protocol_versions(&[&rustls::version::TLS12])
+            .with_safe_default_protocol_versions()
             .unwrap()
             .with_root_certificates(root_store)
             .with_no_client_auth();
