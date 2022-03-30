@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Quic protocol related components for DNS over Quic (DoQ)
+//! QUIC protocol related components for DNS over QUIC (DoQ)
 
 mod quic_client_stream;
 mod quic_server;

@@ -368,7 +368,7 @@ fn main() {
             Arg::new(QUIC_PORT_ARG)
                 .long(QUIC_PORT_ARG)
                 .help(
-                    "Listening port for DNS over Quic queries, overrides any value in config file",
+                    "Listening port for DNS over QUIC queries, overrides any value in config file",
                 )
                 .value_name(QUIC_PORT_ARG),
         )
@@ -483,7 +483,7 @@ fn main() {
     let tls_cert_config = config.get_tls_cert();
 
     // and TLS as necessary
-    // TODO: we should add some more control from configs to enable/disable TLS/HTTPS/Quic
+    // TODO: we should add some more control from configs to enable/disable TLS/HTTPS/QUIC
     if let Some(_tls_cert_config) = tls_cert_config {
         // setup TLS listeners
         #[cfg(feature = "dns-over-tls")]
@@ -509,7 +509,7 @@ fn main() {
             &mut runtime,
         );
 
-        // setup Quic listeners
+        // setup QUIC listeners
         #[cfg(feature = "dns-over-quic")]
         config_quic(
             &args,
@@ -681,7 +681,7 @@ fn config_quic(
         .collect();
 
     if quic_sockaddrs.is_empty() {
-        warn!("a tls certificate was specified, but no Quic addresses configured to listen on");
+        warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
     }
 
     for quic_listener in &quic_sockaddrs {
@@ -694,14 +694,14 @@ fn config_quic(
         let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
             .expect("error loading tls certificate file");
 
-        info!("binding Quic to {:?}", quic_listener);
+        info!("binding QUIC to {:?}", quic_listener);
         let quic_listener = runtime.block_on(
             UdpSocket::bind(quic_listener)
                 .unwrap_or_else(|_| panic!("could not bind to tls: {}", quic_listener)),
         );
 
         info!(
-            "listening for Quic on {:?}",
+            "listening for QUIC on {:?}",
             quic_listener
                 .local_addr()
                 .expect("could not lookup local address")
@@ -715,7 +715,7 @@ fn config_quic(
                 tls_cert,
                 tls_cert_config.get_endpoint_name().to_string(),
             )
-            .expect("could not register Quic listener");
+            .expect("could not register QUIC listener");
     }
 }
 

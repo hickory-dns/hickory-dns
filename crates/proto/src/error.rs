@@ -258,17 +258,17 @@ pub enum ProtoErrorKind {
     #[error("error creating quic connection: {0}")]
     QuinnConnect(#[from] quinn::ConnectError),
 
-    /// A Quinn (Quic) connection error occured
+    /// A Quinn (QUIC) connection error occured
     #[cfg(feature = "quinn")]
     #[error("error with quic connection: {0}")]
     QuinnConnection(#[from] quinn::ConnectionError),
 
-    /// A Quinn (Quic) write error occured
+    /// A Quinn (QUIC) write error occured
     #[cfg(feature = "quinn")]
     #[error("error writing to quic connection: {0}")]
     QuinnWriteError(#[from] quinn::WriteError),
 
-    /// A Quinn (Quic) read error occured
+    /// A Quinn (QUIC) read error occured
     #[cfg(feature = "quinn")]
     #[error("error writing to quic read: {0}")]
     QuinnReadError(#[from] quinn::ReadExactError),

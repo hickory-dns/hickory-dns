@@ -9,13 +9,13 @@ use std::{io, net::SocketAddr, sync::Arc};
 
 use futures_util::StreamExt;
 use quinn::{Endpoint, EndpointConfig, Incoming, IncomingBiStreams, ServerConfig};
-use rustls::{server::ServerConfig as TlsServerConfig, Certificate, PrivateKey};
+use rustls::{server::ServerConfig as TlsServerConfig, version::TLS13, Certificate, PrivateKey};
 
 use crate::{error::ProtoError, udp::UdpSocket};
 
 use super::quic_stream::{self, QuicStream};
 
-/// A DNS-over-Quic Server, see QuicClientStream for the client counterpart
+/// A DNS-over-QUIC Server, see QuicClientStream for the client counterpart
 pub struct QuicServer {
     endpoint: Endpoint,
     incoming: Incoming,
@@ -40,7 +40,10 @@ impl QuicServer {
         key: PrivateKey,
     ) -> Result<Self, ProtoError> {
         let mut config = TlsServerConfig::builder()
-            .with_safe_defaults()
+            .with_safe_default_cipher_suites()
+            .with_safe_default_kx_groups()
+            .with_protocol_versions(&[&TLS13])
+            .expect("TLS1.3 not supported")
             .with_no_client_auth()
             .with_single_cert(cert, key)?;
 
@@ -86,7 +89,7 @@ impl QuicServer {
     }
 }
 
-/// A stream of bi-directional Quic streams
+/// A stream of bi-directional QUIC streams
 pub struct QuicStreams {
     incoming_bi_streams: IncomingBiStreams,
 }
