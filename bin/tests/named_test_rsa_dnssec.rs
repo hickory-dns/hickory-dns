@@ -84,7 +84,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
 
-    named_test_harness(config_toml, |_, tcp_port, _, _| {
+    named_test_harness(config_toml, |_, tcp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present

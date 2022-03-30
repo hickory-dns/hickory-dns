@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(not(windows))]
-#![cfg(feature = "dns-over-https")]
+#![cfg(feature = "dns-over-quic")]
 
 #[macro_use]
 extern crate log;
@@ -20,21 +20,19 @@ use std::net::*;
 use std::sync::Arc;
 
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
-use trust_dns_proto::https::HttpsClientStreamBuilder;
 use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
+use trust_dns_proto::quic::QuicClientStream;
+use trust_dns_proto::quic::QuicClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 
 #[test]
-fn test_example_https_toml_startup() {
+fn test_example_quic_toml_startup() {
     // env_logger::try_init().ok();
 
-    const ALPN_H2: &[u8] = b"h2";
-
-    named_test_harness("dns_over_https.toml", move |_, _, _, https_port, _| {
+    named_test_harness("dns_over_quic.toml", move |_, _, _, _, quic_port| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
         println!("using server src path: {}", server_path);
@@ -48,7 +46,7 @@ fn test_example_https_toml_startup() {
         .expect("failed to read cert");
 
         let mut io_loop = Runtime::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", https_port.expect("no https_port"))
+        let addr: SocketAddr = ("127.0.0.1", quic_port.expect("no quic_port"))
             .to_socket_addrs()
             .unwrap()
             .next()
@@ -76,14 +74,11 @@ fn test_example_https_toml_startup() {
             .unwrap()
             .with_root_certificates(root_store)
             .with_no_client_auth();
-        client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
-        let client_config = Arc::new(client_config);
+        let mut quic_builder = QuicClientStream::builder();
+        quic_builder.crypto_config(client_config);
 
-        let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
-
-        let mp = https_builder
-            .build::<AsyncIoTokioAsStd<TokioTcpStream>>(addr, "ns.example.com".to_string());
+        let mp = quic_builder.build(addr, "ns.example.com".to_string());
         let client = AsyncClient::connect(mp);
 
         // ipv4 should succeed

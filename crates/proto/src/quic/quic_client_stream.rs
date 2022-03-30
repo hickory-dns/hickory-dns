@@ -145,8 +145,12 @@ impl DnsRequestSender for QuicClientStream {
 impl Stream for QuicClientStream {
     type Item = Result<(), ProtoError>;
 
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        todo!()
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if self.is_shutdown {
+            Poll::Ready(None)
+        } else {
+            Poll::Ready(Some(Ok(())))
+        }
     }
 }
 
@@ -254,7 +258,7 @@ fn client_config_tls12_webpki_roots() -> TlsClientConfig {
     let client_config = TlsClientConfig::builder()
         .with_safe_default_cipher_suites()
         .with_safe_default_kx_groups()
-        .with_protocol_versions(&[&rustls::version::TLS12])
+        .with_safe_default_protocol_versions()
         .unwrap()
         .with_root_certificates(root_store)
         .with_no_client_auth();
