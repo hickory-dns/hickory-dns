@@ -17,11 +17,13 @@ use crate::{
 use super::quic_server::QuicServer;
 
 async fn server_responder(mut server: QuicServer) {
-    while let Some(mut conn) = server
+    while let Some((mut conn, addr)) = server
         .next()
         .await
         .expect("failed to get next quic session")
     {
+        println!("received client request {addr}");
+
         while let Some(stream) = conn.next().await {
             let mut stream = stream.expect("new client stream failed");
 
@@ -62,7 +64,7 @@ async fn test_quic_stream() {
     .unwrap();
 
     // All testing is only done on local addresses, construct the server
-    let quic_ns = QuicServer::new(SocketAddr::from(([127, 0, 0, 1], 0)), dns_name, cert, key)
+    let quic_ns = QuicServer::new(SocketAddr::from(([127, 0, 0, 1], 0)), cert, key)
         .await
         .expect("failed to initialize QuicServer");
 

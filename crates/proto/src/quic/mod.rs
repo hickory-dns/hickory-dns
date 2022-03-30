@@ -18,5 +18,8 @@ pub use self::quic_client_stream::{
     QuicClientConnect, QuicClientResponse, QuicClientStream, QuicClientStreamBuilder,
 };
 
+pub use self::quic_server::{QuicServer, QuicStreams};
+pub use self::quic_stream::QuicStream;
+
 #[cfg(test)]
 mod tests;

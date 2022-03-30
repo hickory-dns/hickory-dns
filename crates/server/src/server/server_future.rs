@@ -462,7 +462,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         unimplemented!("openssl based `dns-over-https` not yet supported. see the `dns-over-https-rustls` feature")
     }
 
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
+    /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (dns-over-https). The TcpListener should already be bound to either an
     /// IPv6 or an IPv4 address.
     ///
     /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
@@ -474,7 +474,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
+    /// * `certificate_and_key` - certificate and key used to announce to clients
     #[cfg(feature = "dns-over-https-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn register_https_listener(
@@ -539,6 +539,75 @@ impl<T: RequestHandler> ServerFuture<T> {
                         debug!("accepted HTTPS request from: {}", src_addr);
 
                         h2_handler(handler, tls_stream, src_addr, dns_hostname).await;
+                    });
+                }
+            }
+        });
+
+        self.tasks.push(ServerTask(task));
+        Ok(())
+    }
+
+    /// Register a UdpSocket to the Server for supporting DoQ (dns-over-quic). The UdpSocket should already be bound to either an
+    /// IPv6 or an IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "dns-over-quic")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+    pub fn register_quic_listener(
+        &mut self,
+        socket: net::UdpSocket,
+        // TODO: need to set a timeout between requests.
+        _timeout: Duration,
+        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        dns_hostname: String,
+    ) -> io::Result<()> {
+        use crate::proto::quic::QuicServer;
+        use crate::server::quic_handler::quic_handler;
+
+        let dns_hostname: Arc<str> = Arc::from(dns_hostname);
+        let handler = self.handler.clone();
+
+        let mut server =
+            QuicServer::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
+
+        debug!(
+            "registered quic server: {dns_hostname} on {}",
+            server.local_addr()?
+        );
+
+        // for each incoming request...
+        let dns_hostname = dns_hostname;
+        let task = tokio::spawn({
+            async move {
+                let dns_hostname = dns_hostname;
+                loop {
+                    let (streams, src_addr) = match server.next().await {
+                        Ok(Some(c)) => c,
+                        Ok(None) => continue,
+                        Err(e) => {
+                            debug!("error receiving quic connection: {e}");
+                            continue;
+                        }
+                    };
+
+                    let handler = handler.clone();
+                    let dns_hostname = dns_hostname.clone();
+
+                    tokio::spawn(async move {
+                        debug!("starting quic stream request from: {}", src_addr);
+
+                        // TODO: need to consider timeout of total connect...
+                        quic_handler(handler, streams, src_addr, dns_hostname).await;
                     });
                 }
             }
@@ -654,6 +723,7 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
 }
 
 pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
+    // TODO: allow Message here...
     message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
