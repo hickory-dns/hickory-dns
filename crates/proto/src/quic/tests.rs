@@ -5,13 +5,17 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::{env, net::SocketAddr, path::Path, sync::Arc};
+use std::{env, net::SocketAddr, path::Path, str::FromStr, sync::Arc};
 
 use futures_util::StreamExt;
 use rustls::{ClientConfig, KeyLogFile};
 
 use crate::{
-    op::Message, quic::QuicClientStreamBuilder, rustls::tls_server, xfer::DnsRequestSender,
+    op::{Message, Query},
+    quic::QuicClientStreamBuilder,
+    rr::{Name, RecordType},
+    rustls::tls_server,
+    xfer::DnsRequestSender,
 };
 
 use super::quic_server::QuicServer;
@@ -97,7 +101,12 @@ async fn test_quic_stream() {
     println!("connected client to server");
 
     // create a test message, send and then receive...
-    let message = Message::default();
+    let mut message = Message::default();
+    message.add_query(Query::query(
+        Name::from_str("www.example.test.").unwrap(),
+        RecordType::AAAA,
+    ));
+
     let response = client_stream
         .send_message(message.clone().into())
         .next()

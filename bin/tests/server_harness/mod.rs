@@ -42,7 +42,8 @@ where
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {}", server_path);
 
-    let mut named = Command::new(&format!("{}/target/debug/named", server_path))
+    let mut command = Command::new(&format!("{}/target/debug/named", server_path));
+    command
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
@@ -57,9 +58,11 @@ where
         )).arg(&format!("--port={}", 0))
         .arg(&format!("--tls-port={}", 0))
         .arg(&format!("--https-port={}", 0))
-        .arg(&format!("--quic-port={}", 0))
-        .spawn()
-        .expect("failed to start named");
+        .arg(&format!("--quic-port={}", 0));
+
+    println!("named cli options: {command:#?}");
+
+    let mut named = command.spawn().expect("failed to start named");
 
     println!("server starting");
 
