@@ -277,29 +277,25 @@ impl UdpSocket for tokio::net::UdpSocket {
     /// setups up a "client" udp connection that will only receive packets from the associated address
     ///
     /// if the addr is ipv4 then it will bind local addr to 0.0.0.0:0, ipv6 [::]0
-    // FIXME: make bind_addr ToSocketAddrs
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
         let bind_addr: SocketAddr = match addr {
             SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),
             SocketAddr::V6(_addr) => (Ipv6Addr::UNSPECIFIED, 0).into(),
         };
 
-        let socket = Self::bind(bind_addr).await?;
-        socket.connect(addr).await?;
-
-        Ok(socket)
+        Self::connect_with_bind(addr, bind_addr).await
     }
 
     /// same as connect, but binds to the specified local address for seding address
-    // FIXME: make bind_addr ToSocketAddrs
-    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
+    async fn connect_with_bind(_addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
         let socket = Self::bind(bind_addr).await?;
-        socket.connect(addr).await?;
+
+        // TODO: research connect more, it appears to break UDP receiving tests, etc...
+        // socket.connect(addr).await?;
 
         Ok(socket)
     }
 
-    // FIXME: make bind_addr ToSocketAddrs
     async fn bind(addr: SocketAddr) -> io::Result<Self> {
         Self::bind(addr).await
     }

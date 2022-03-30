@@ -27,25 +27,21 @@ pub struct AsyncStdUdpSocket(async_std::net::UdpSocket);
 impl UdpSocket for AsyncStdUdpSocket {
     type Time = AsyncStdTime;
 
-    // FIXME: make bind_addr ToSocketAddrs
-    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
+    async fn connect_with_bind(_addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
         let socket = async_std::net::UdpSocket::bind(bind_addr).await?;
 
-        socket.connect(addr).await?;
+        // TODO: research connect more, it appears to break receive tests on UDP
+        // socket.connect(addr).await?;
         Ok(Self(socket))
     }
 
-    // FIXME: make bind_addr ToSocketAddrs
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
         let bind_addr: SocketAddr = match addr {
             SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),
             SocketAddr::V6(_addr) => (Ipv6Addr::UNSPECIFIED, 0).into(),
         };
 
-        let socket = async_std::net::UdpSocket::bind(bind_addr).await?;
-
-        socket.connect(addr).await?;
-        Ok(Self(socket))
+        Self::connect_with_bind(addr, bind_addr).await
     }
 
     async fn bind(addr: SocketAddr) -> io::Result<Self> {
