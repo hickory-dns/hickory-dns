@@ -19,7 +19,7 @@ use quinn::{
     ClientConfig, Connection, Endpoint, EndpointConfig, NewConnection, OpenBi, TransportConfig,
     VarInt,
 };
-use rustls::ClientConfig as TlsClientConfig;
+use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
 use crate::{
     error::ProtoError,
@@ -30,7 +30,7 @@ use crate::{
 
 use super::quic_stream;
 
-/// A DNS client connection for DNS-over-Quic
+/// A DNS client connection for DNS-over-QUIC
 #[must_use = "futures do nothing unless polled"]
 pub struct QuicClientStream {
     quic_connection: Connection,
@@ -43,7 +43,7 @@ impl Display for QuicClientStream {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             formatter,
-            "Quic({},{})",
+            "QUIC({},{})",
             self.name_server, self.name_server_name
         )
     }
@@ -74,7 +74,7 @@ impl QuicClientStream {
 }
 
 impl DnsRequestSender for QuicClientStream {
-    /// The send loop for Quic in DNS stipulates that a new Quic "steam" should be opened and use for sending data.
+    /// The send loop for QUIC in DNS stipulates that a new QUIC "stream" should be opened and use for sending data.
     ///
     /// It should be closed after receiving the response. TODO: AXFR/IXFR support...
     ///
@@ -146,7 +146,7 @@ impl Stream for QuicClientStream {
     }
 }
 
-/// A Quic connection builder for DNS-over-Quic
+/// A QUIC connection builder for DNS-over-QUIC
 #[derive(Clone)]
 pub struct QuicClientStreamBuilder {
     crypto_config: TlsClientConfig,
@@ -236,7 +236,7 @@ fn sanitize_transport_config(transport_config: &mut TransportConfig) {
     transport_config.max_concurrent_uni_streams(VarInt::from_u32(0));
 }
 
-fn client_config_tls12_webpki_roots() -> TlsClientConfig {
+fn client_config_tls13_webpki_roots() -> TlsClientConfig {
     use rustls::{OwnedTrustAnchor, RootCertStore};
     let mut root_store = RootCertStore::empty();
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
@@ -248,7 +248,10 @@ fn client_config_tls12_webpki_roots() -> TlsClientConfig {
     }));
 
     TlsClientConfig::builder()
-        .with_safe_defaults()
+        .with_safe_default_cipher_suites()
+        .with_safe_default_kx_groups()
+        .with_protocol_versions(&[&TLS13])
+        .expect("TLS 1.3 not supported")
         .with_root_certificates(root_store)
         .with_no_client_auth()
 }
@@ -258,7 +261,7 @@ impl Default for QuicClientStreamBuilder {
         let mut transport_config = TransportConfig::default();
         sanitize_transport_config(&mut transport_config);
 
-        let client_config = client_config_tls12_webpki_roots();
+        let client_config = client_config_tls13_webpki_roots();
 
         Self {
             crypto_config: client_config,

@@ -284,7 +284,7 @@ pub enum Protocol {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     Https,
-    /// Quic for DNS over Quic
+    /// QUIC for DNS over QUIC
     #[cfg(feature = "dns-over-quic")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
     Quic,

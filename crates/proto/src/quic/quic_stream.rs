@@ -134,7 +134,7 @@ impl QuicStream {
         self.send_bytes(bytes).await
     }
 
-    /// Send pre-encoded bytes, warning, Quic requires the message id to be 0.
+    /// Send pre-encoded bytes, warning, QUIC requires the message id to be 0.
     pub async fn send_bytes(&mut self, bytes: Bytes) -> Result<(), ProtoError> {
         // In order that multiple responses can be parsed, a 2-octet length field is used in exactly the same way as the 2-octet length
         // field defined for DNS over TCP [RFC1035]. The practical result of this is that the content of each QUIC stream is exactly

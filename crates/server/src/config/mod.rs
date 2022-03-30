@@ -50,7 +50,7 @@ pub struct Config {
     tls_listen_port: Option<u16>,
     /// HTTPS port to listen on
     https_listen_port: Option<u16>,
-    /// Quic port to listen on
+    /// QUIC port to listen on
     quic_listen_port: Option<u16>,
     /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
@@ -106,7 +106,7 @@ impl Config {
         self.https_listen_port.unwrap_or(DEFAULT_HTTPS_PORT)
     }
 
-    /// port on which to listen for Quic connections
+    /// port on which to listen for QUIC connections
     pub fn get_quic_listen_port(&self) -> u16 {
         self.quic_listen_port.unwrap_or(DEFAULT_QUIC_PORT)
     }

@@ -26,7 +26,7 @@ impl fmt::Display for Protocol {
             Protocol::Tls => "TLS",
             Protocol::Dtls => "DTLS",
             Protocol::Https => "HTTPS",
-            Protocol::Quic => "Quic",
+            Protocol::Quic => "QUIC",
         };
 
         f.write_str(s)

@@ -120,7 +120,7 @@ where
     let tcp_regex = Regex::new(r"listening for TCP on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
     let tls_regex = Regex::new(r"listening for TLS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
     let https_regex = Regex::new(r"listening for HTTPS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
-    let quic_regex = Regex::new(r"listening for Quic on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
+    let quic_regex = Regex::new(r"listening for QUIC on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
 
     while Instant::now() < wait_for_start_until {
         {
