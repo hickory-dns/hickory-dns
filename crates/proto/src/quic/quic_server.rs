@@ -8,16 +8,14 @@
 use std::{io, net::SocketAddr, sync::Arc};
 
 use futures_util::StreamExt;
-use quinn::{
-    Connecting, Connection, ConnectionError, Endpoint, EndpointConfig, Incoming, IncomingBiStreams,
-    NewConnection, ServerConfig, TransportConfig, VarInt,
-};
+use quinn::{Endpoint, EndpointConfig, Incoming, IncomingBiStreams, ServerConfig};
 use rustls::{server::ServerConfig as TlsServerConfig, Certificate, PrivateKey};
 
-use crate::{error::ProtoError, quic::quic_client_stream, udp::UdpSocket};
+use crate::{error::ProtoError, udp::UdpSocket};
 
 use super::quic_stream::{self, QuicStream};
 
+/// A DNS-over-Quic Server, see QuicClientStream for the client counterpart
 pub struct QuicServer {
     endpoint: Endpoint,
     incoming: Incoming,
@@ -88,6 +86,7 @@ impl QuicServer {
     }
 }
 
+/// A stream of bi-directional Quic streams
 pub struct QuicStreams {
     incoming_bi_streams: IncomingBiStreams,
 }

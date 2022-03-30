@@ -285,7 +285,7 @@ impl UdpSocket for tokio::net::UdpSocket {
         };
 
         let socket = Self::bind(bind_addr).await?;
-        socket.connect(addr);
+        socket.connect(addr).await?;
 
         Ok(socket)
     }
@@ -294,7 +294,7 @@ impl UdpSocket for tokio::net::UdpSocket {
     // FIXME: make bind_addr ToSocketAddrs
     async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
         let socket = Self::bind(bind_addr).await?;
-        socket.connect(addr);
+        socket.connect(addr).await?;
 
         Ok(socket)
     }

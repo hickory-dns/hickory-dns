@@ -13,18 +13,12 @@ extern crate log;
 
 mod server_harness;
 
-use std::env;
-use std::fs::File;
-use std::io::*;
-use std::net::*;
-use std::sync::Arc;
+use std::{env, fs::File, io::*, net::*};
 
 use rustls::{Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore};
 use tokio::runtime::Runtime;
 use trust_dns_client::client::*;
-use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 use trust_dns_proto::quic::QuicClientStream;
-use trust_dns_proto::quic::QuicClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 
@@ -67,11 +61,8 @@ fn test_example_quic_toml_startup() {
         let cert = to_trust_anchor(&cert_der);
         root_store.add(&cert).unwrap();
 
-        let mut client_config = ClientConfig::builder()
-            .with_safe_default_cipher_suites()
-            .with_safe_default_kx_groups()
-            .with_safe_default_protocol_versions()
-            .unwrap()
+        let client_config = ClientConfig::builder()
+            .with_safe_defaults()
             .with_root_certificates(root_store)
             .with_no_client_auth();
 

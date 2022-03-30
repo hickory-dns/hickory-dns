@@ -5,10 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! TLS protocol related components for DNS over HTTPS (DoH)
-
-const MIME_APPLICATION_DNS: &str = "application/dns-message";
-const DNS_QUERY_PATH: &str = "/dns-query";
+//! Quic protocol related components for DNS over Quic (DoQ)
 
 mod quic_client_stream;
 mod quic_server;

@@ -8,7 +8,7 @@
 use std::{env, net::SocketAddr, path::Path, sync::Arc};
 
 use futures_util::StreamExt;
-use rustls::{Certificate, ClientConfig, KeyLogFile};
+use rustls::{ClientConfig, KeyLogFile};
 
 use crate::{
     op::Message, quic::QuicClientStreamBuilder, rustls::tls_server, xfer::DnsRequestSender,
