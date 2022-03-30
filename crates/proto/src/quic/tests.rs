@@ -107,6 +107,10 @@ async fn test_quic_stream() {
         RecordType::AAAA,
     ));
 
+    // TODO: we should make the finalizer easier to call so this round-trip serialization isn't necessary.
+    let bytes = message.to_vec().unwrap();
+    let message = Message::from_vec(&bytes).unwrap();
+
     let response = client_stream
         .send_message(message.clone().into())
         .next()

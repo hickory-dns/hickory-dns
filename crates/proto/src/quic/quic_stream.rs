@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use bytes::{Bytes, BytesMut};
 use quinn::{RecvStream, SendStream, VarInt};
@@ -140,7 +140,9 @@ impl QuicStream {
         // field defined for DNS over TCP [RFC1035]. The practical result of this is that the content of each QUIC stream is exactly
         // the same as the content of a TCP connection that would manage exactly one query.All DNS messages (queries and responses)
         // sent over DoQ connections MUST be encoded as a 2-octet length field followed by the message content as specified in [RFC1035].
-        let len = bytes.len().to_ne_bytes().to_vec();
+        let len = u16::try_from(bytes.len())
+            .map_err(|_e| ProtoErrorKind::MaxBufferSizeExceeded(bytes.len()))?;
+        let len = len.to_ne_bytes().to_vec();
         let len = Bytes::from(len);
 
         self.send_stream.write_all_chunks(&mut [len, bytes]).await?;
