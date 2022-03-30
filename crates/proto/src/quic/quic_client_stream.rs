@@ -5,22 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::convert::TryInto;
-use std::fmt::{self, Display};
-use std::future::Future;
-use std::io;
-use std::net::SocketAddr;
-use std::ops::DerefMut;
-use std::pin::Pin;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::task::{Context, Poll};
+use std::{
+    fmt::{self, Display},
+    future::Future,
+    net::SocketAddr,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
 
-use bytes::{Buf, Bytes, BytesMut};
-use futures_util::future::{FutureExt, TryFutureExt};
-use futures_util::ready;
-use futures_util::stream::Stream;
-use log::{debug, warn};
+use futures_util::{future::FutureExt, stream::Stream};
 use quinn::{
     ClientConfig, Connection, Endpoint, EndpointConfig, NewConnection, OpenBi, TransportConfig,
     VarInt,
@@ -29,11 +23,9 @@ use rustls::ClientConfig as TlsClientConfig;
 
 use crate::{
     error::ProtoError,
-    iocompat::AsyncIoStdAsTokio,
     quic::quic_stream::{DoqErrorCode, QuicStream},
-    tcp::Connect,
     udp::UdpSocket,
-    xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage},
+    xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream},
 };
 
 use super::quic_stream;
@@ -145,7 +137,7 @@ impl DnsRequestSender for QuicClientStream {
 impl Stream for QuicClientStream {
     type Item = Result<(), ProtoError>;
 
-    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+    fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
             Poll::Ready(None)
         } else {
@@ -255,15 +247,10 @@ fn client_config_tls12_webpki_roots() -> TlsClientConfig {
         )
     }));
 
-    let client_config = TlsClientConfig::builder()
-        .with_safe_default_cipher_suites()
-        .with_safe_default_kx_groups()
-        .with_safe_default_protocol_versions()
-        .unwrap()
+    TlsClientConfig::builder()
+        .with_safe_defaults()
         .with_root_certificates(root_store)
-        .with_no_client_auth();
-
-    client_config
+        .with_no_client_auth()
 }
 
 impl Default for QuicClientStreamBuilder {
@@ -294,11 +281,6 @@ impl Future for QuicClientConnect {
     }
 }
 
-struct TlsConfig {
-    client_config: Arc<TlsClientConfig>,
-    dns_name: Arc<str>,
-}
-
 /// A future that resolves to
 pub struct QuicClientResponse(
     Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
@@ -309,91 +291,5 @@ impl Future for QuicClientResponse {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.0.as_mut().poll(cx).map_err(ProtoError::from)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
-    use std::str::FromStr;
-
-    use rustls::KeyLogFile;
-    use tokio::net::UdpSocket as TokioUdpSocket;
-    use tokio::runtime::Runtime;
-
-    use crate::iocompat::AsyncIoTokioAsStd;
-    use crate::op::{Message, Query, ResponseCode};
-    use crate::rr::{Name, RData, RecordType};
-    use crate::xfer::{DnsRequestOptions, FirstAnswer};
-
-    use super::*;
-
-    #[test]
-    #[cfg(off)]
-    fn test_quic_google() {
-        env_logger::builder().is_test(true).build();
-
-        let google = SocketAddr::from(([8, 8, 8, 8], 853));
-        let mut request = Message::new();
-        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        request.add_query(query);
-
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
-
-        let mut client_config = client_config_tls12_webpki_roots();
-        client_config.key_log = Arc::new(KeyLogFile::new());
-
-        let mut builder = QuicClientStreamBuilder::default();
-        builder.crypto_config(Arc::new(client_config));
-
-        let connect = builder.build(google, "dns.google".to_string());
-        println!("starting quic connect");
-
-        // tokio runtime stuff...
-        let runtime = Runtime::new().expect("could not start runtime");
-        let mut quic = runtime.block_on(connect).expect("quic connect failed");
-        println!("completed quic connect");
-
-        let response = runtime
-            .block_on(quic.send_message(request).first_answer())
-            .expect("send_message failed");
-
-        let record = &response.answers()[0];
-        let addr = record
-            .data()
-            .and_then(RData::as_a)
-            .expect("Expected A record");
-
-        assert_eq!(addr, &Ipv4Addr::new(93, 184, 216, 34));
-
-        //
-        // assert that the connection works for a second query
-        let mut request = Message::new();
-        let query = Query::query(
-            Name::from_str("www.example.com.").unwrap(),
-            RecordType::AAAA,
-        );
-        request.add_query(query);
-        let request = DnsRequest::new(request, DnsRequestOptions::default());
-
-        for _ in 0..3 {
-            let response = runtime
-                .block_on(quic.send_message(request.clone()).first_answer())
-                .expect("send_message failed");
-            if response.response_code() == ResponseCode::ServFail {
-                continue;
-            }
-
-            let record = &response.answers()[0];
-            let addr = record
-                .data()
-                .and_then(RData::as_aaaa)
-                .expect("invalid response, expected A record");
-
-            assert_eq!(
-                addr,
-                &Ipv6Addr::new(0x2606, 0x2800, 0x0220, 0x0001, 0x0248, 0x1893, 0x25c8, 0x1946)
-            );
-        }
     }
 }

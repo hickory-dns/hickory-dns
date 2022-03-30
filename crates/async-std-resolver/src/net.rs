@@ -29,10 +29,10 @@ impl UdpSocket for AsyncStdUdpSocket {
 
     // FIXME: make bind_addr ToSocketAddrs
     async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
-        let socket = async_std::net::UdpSocket::bind(addr).await?;
+        let socket = async_std::net::UdpSocket::bind(bind_addr).await?;
 
-        socket.connect(addr);
-        Ok(AsyncStdUdpSocket(socket))
+        socket.connect(addr).await?;
+        Ok(Self(socket))
     }
 
     // FIXME: make bind_addr ToSocketAddrs
@@ -44,8 +44,8 @@ impl UdpSocket for AsyncStdUdpSocket {
 
         let socket = async_std::net::UdpSocket::bind(bind_addr).await?;
 
-        socket.connect(addr);
-        Ok(AsyncStdUdpSocket(socket))
+        socket.connect(addr).await?;
+        Ok(Self(socket))
     }
 
     async fn bind(addr: SocketAddr) -> io::Result<Self> {

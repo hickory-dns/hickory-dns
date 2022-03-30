@@ -604,10 +604,14 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let dns_hostname = dns_hostname.clone();
 
                     tokio::spawn(async move {
-                        debug!("starting quic stream request from: {}", src_addr);
+                        debug!("starting quic stream request from: {src_addr}");
 
                         // TODO: need to consider timeout of total connect...
-                        quic_handler(handler, streams, src_addr, dns_hostname).await;
+                        let result = quic_handler(handler, streams, src_addr, dns_hostname).await;
+
+                        if let Err(e) = result {
+                            warn!("quic stream processing failed from {src_addr}: {e}")
+                        }
                     });
                 }
             }

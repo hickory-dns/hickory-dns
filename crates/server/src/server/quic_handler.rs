@@ -10,7 +10,7 @@ use std::{io, net::SocketAddr, sync::Arc};
 use bytes::{Bytes, BytesMut};
 use futures_util::lock::Mutex;
 use log::{debug, warn};
-use trust_dns_proto::{error::ProtoError, quic::QuicStream, rr::Record, xfer::DnsRequest};
+use trust_dns_proto::{error::ProtoError, quic::QuicStream, rr::Record};
 
 use crate::{
     authority::MessageResponse,
@@ -25,12 +25,11 @@ pub(crate) async fn quic_handler<T>(
     handler: Arc<Mutex<T>>,
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
-    dns_hostname: Arc<str>,
+    _dns_hostname: Arc<str>,
 ) -> Result<(), ProtoError>
 where
     T: RequestHandler,
 {
-    let dns_hostname = dns_hostname.clone();
     let mut max_requests = 100u32;
 
     // Accept all inbound quic streams sent over the connection.
@@ -46,7 +45,6 @@ where
         let request = request_stream.receive_bytes().await?;
 
         debug!("Received bytes {} from {src_addr}", request.len());
-        let dns_hostname = dns_hostname.clone();
         let handler = handler.clone();
         let responder = QuicResponseHandle(Arc::new(Mutex::new(request_stream)));
 
@@ -54,7 +52,7 @@ where
 
         // FIXME: send shutdown code
         max_requests -= 1;
-        if max_requests <= 0 {
+        if max_requests == 0 {
             warn!("exceeded request count, shutting down quic conn: {src_addr}");
             break;
         }

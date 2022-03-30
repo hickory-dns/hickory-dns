@@ -13,7 +13,6 @@ use proto::TokioTime;
 use trust_dns_proto::quic::{QuicClientConnect, QuicClientStream};
 
 use crate::config::TlsClientConfig;
-use crate::name_server::RuntimeProvider;
 use crate::tls::CLIENT_CONFIG;
 
 #[allow(clippy::type_complexity)]

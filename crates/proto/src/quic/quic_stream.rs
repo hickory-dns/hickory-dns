@@ -21,7 +21,7 @@ use crate::{
 /// DoQ connections are established as described in the QUIC transport specification [RFC9000]. During connection establishment,
 /// DoQ support is indicated by selecting the ALPN token "doq" in the crypto handshake.
 /// ```
-pub const DOQ_ALPN: &[u8] = b"doq";
+pub(crate) const DOQ_ALPN: &[u8] = b"doq";
 
 /// [DoQ Error Codes](https://www.ietf.org/archive/id/draft-ietf-dprive-dnsoquic-10.html#name-doq-error-codes), draft-ietf-dprive-dnsoquic, Feb. 28, 2022
 /// ```text
@@ -47,6 +47,7 @@ pub const DOQ_ALPN: &[u8] = b"doq";
 /// DOQ_ERROR_RESERVED (0xd098ea5e):
 ///     Alternative error code used for tests.
 /// ```
+#[derive(Clone, Copy)]
 pub enum DoqErrorCode {
     /// No error. This is used when the connection or stream needs to be closed, but there is no error to signal.
     NoError,
