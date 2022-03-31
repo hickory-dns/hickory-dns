@@ -60,7 +60,7 @@ where
         .arg(&format!("--https-port={}", 0))
         .arg(&format!("--quic-port={}", 0));
 
-    println!("named cli options: {command:#?}");
+    println!("named cli options: {command:#?}", command = command);
 
     let mut named = command.spawn().expect("failed to start named");
 
@@ -186,7 +186,7 @@ where
     stdout().flush().unwrap();
     assert!(found);
     println!(
-        "Test server started. ports: udp {test_udp_port:?}, tcp {test_tcp_port:?}, tls {test_tls_port:?}, https {test_https_port:?}, quic {test_quic_port:?}",
+        "Test server started. ports: udp {test_udp_port:?}, tcp {test_tcp_port:?}, tls {test_tls_port:?}, https {test_https_port:?}, quic {test_quic_port:?}", test_udp_port = test_udp_port, test_tcp_port = test_tcp_port, test_tls_port = test_tls_port, test_https_port = test_https_port, test_quic_port = test_quic_port,
     );
 
     // spawn a thread to capture stdout
