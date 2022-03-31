@@ -65,10 +65,9 @@ impl QuicServer {
     ///
     /// A remote connection that could have many potential bi-directional streams and the remote socket address
     pub async fn next(&mut self) -> Result<Option<(QuicStreams, SocketAddr)>, ProtoError> {
-        let connecting = if let Some(conn) = self.incoming.next().await {
-            conn
-        } else {
-            return Ok(None);
+        let connecting = match self.incoming.next().await {
+            Some(conn) => conn,
+            None => return Ok(None),
         };
 
         let remote_addr = connecting.remote_address();
