@@ -220,8 +220,7 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
     .set_recursion_desired(true)
     .set_edns(edns)
     .edns_mut()
-    .set_max_payload(1232)
-    .set_version(0);
+    .map(|edns| edns.set_max_payload(1232).set_version(0));
 
     client
         .send(msg)

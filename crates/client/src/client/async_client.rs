@@ -15,6 +15,7 @@ use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
 use log::debug;
 use rand;
+use trust_dns_proto::op::Edns;
 
 use crate::client::Signer;
 use crate::error::*;
@@ -268,9 +269,10 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
         // Extended dns
         if self.is_using_edns() {
-            let edns = message.edns_mut();
-            edns.set_max_payload(MAX_PAYLOAD_LEN);
-            edns.set_version(0);
+            message
+                .set_edns(Edns::new())
+                .edns_mut()
+                .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
         }
 
         // add the query

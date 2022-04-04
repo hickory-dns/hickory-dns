@@ -9,6 +9,8 @@
 
 use std::fmt::Debug;
 
+use trust_dns_proto::op::Edns;
+
 use crate::client::async_client::MAX_PAYLOAD_LEN;
 use crate::op::{Message, MessageType, OpCode, Query};
 use crate::rr::rdata::{NULL, SOA};
@@ -185,9 +187,10 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
 
     // Extended dns
     if use_edns {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
@@ -255,9 +258,10 @@ pub fn append(rrset: RecordSet, zone_origin: Name, must_exist: bool, use_edns: b
 
     // Extended dns
     if use_edns {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
@@ -346,9 +350,10 @@ pub fn compare_and_swap(
 
     // Extended dns
     if use_edns {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
@@ -416,9 +421,10 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
 
     // Extended dns
     if use_edns {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
@@ -486,9 +492,10 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 
     // Extended dns
     if use_edns {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
@@ -553,9 +560,10 @@ pub fn delete_all(
 
     // Extended dns
     if use_edns {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
@@ -598,9 +606,10 @@ pub fn zone_transfer(zone_origin: Name, last_soa: Option<SOA>) -> Message {
 
     // Extended dns
     {
-        let edns = message.edns_mut();
-        edns.set_max_payload(MAX_PAYLOAD_LEN);
-        edns.set_version(0);
+        message
+            .set_edns(Edns::new())
+            .edns_mut()
+            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
     }
 
     message
