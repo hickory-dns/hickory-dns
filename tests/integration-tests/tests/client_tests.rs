@@ -157,8 +157,7 @@ where
     .set_recursion_desired(true)
     .set_edns(edns)
     .edns_mut()
-    .set_max_payload(1232)
-    .set_version(0);
+    .map(|edns| edns.set_max_payload(1232).set_version(0));
 
     let response = client.send(msg).remove(0).expect("Query failed");
 

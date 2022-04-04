@@ -137,25 +137,25 @@ where
             // TODO: cache response of the server about understood algorithms
             #[cfg(feature = "dnssec")]
             {
-                let edns = request.edns_mut();
+                if let Some(edns) = request.edns_mut() {
+                    edns.set_dnssec_ok(true);
 
-                edns.set_dnssec_ok(true);
+                    // send along the algorithms which are supported by this handle
+                    let mut algorithms = SupportedAlgorithms::new();
+                    #[cfg(feature = "ring")]
+                    {
+                        algorithms.set(Algorithm::ED25519);
+                    }
+                    algorithms.set(Algorithm::ECDSAP256SHA256);
+                    algorithms.set(Algorithm::ECDSAP384SHA384);
+                    algorithms.set(Algorithm::RSASHA256);
 
-                // send along the algorithms which are supported by this handle
-                let mut algorithms = SupportedAlgorithms::new();
-                #[cfg(feature = "ring")]
-                {
-                    algorithms.set(Algorithm::ED25519);
+                    let dau = EdnsOption::DAU(algorithms);
+                    let dhu = EdnsOption::DHU(algorithms);
+
+                    edns.options_mut().insert(dau);
+                    edns.options_mut().insert(dhu);
                 }
-                algorithms.set(Algorithm::ECDSAP256SHA256);
-                algorithms.set(Algorithm::ECDSAP384SHA384);
-                algorithms.set(Algorithm::RSASHA256);
-
-                let dau = EdnsOption::DAU(algorithms);
-                let dhu = EdnsOption::DHU(algorithms);
-
-                edns.options_mut().insert(dau);
-                edns.options_mut().insert(dhu);
             }
 
             request.set_authentic_data(true);
