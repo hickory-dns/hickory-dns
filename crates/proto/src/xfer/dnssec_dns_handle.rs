@@ -19,7 +19,6 @@ use futures_util::stream;
 use futures_util::stream::{Stream, TryStreamExt};
 use log::{debug, trace};
 
-use crate::error::*;
 use crate::op::{OpCode, Query};
 use crate::rr::dnssec::rdata::{DNSSECRData, DNSKEY, SIG};
 #[cfg(feature = "dnssec")]
@@ -29,6 +28,7 @@ use crate::rr::rdata::opt::EdnsOption;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer};
+use crate::{error::*, op::Edns};
 
 #[derive(Debug)]
 struct Rrset {
@@ -137,25 +137,24 @@ where
             // TODO: cache response of the server about understood algorithms
             #[cfg(feature = "dnssec")]
             {
-                if let Some(edns) = request.edns_mut() {
-                    edns.set_dnssec_ok(true);
+                let edns = request.extensions_mut().get_or_insert_with(Edns::new);
+                edns.set_dnssec_ok(true);
 
-                    // send along the algorithms which are supported by this handle
-                    let mut algorithms = SupportedAlgorithms::new();
-                    #[cfg(feature = "ring")]
-                    {
-                        algorithms.set(Algorithm::ED25519);
-                    }
-                    algorithms.set(Algorithm::ECDSAP256SHA256);
-                    algorithms.set(Algorithm::ECDSAP384SHA384);
-                    algorithms.set(Algorithm::RSASHA256);
-
-                    let dau = EdnsOption::DAU(algorithms);
-                    let dhu = EdnsOption::DHU(algorithms);
-
-                    edns.options_mut().insert(dau);
-                    edns.options_mut().insert(dhu);
+                // send along the algorithms which are supported by this handle
+                let mut algorithms = SupportedAlgorithms::new();
+                #[cfg(feature = "ring")]
+                {
+                    algorithms.set(Algorithm::ED25519);
                 }
+                algorithms.set(Algorithm::ECDSAP256SHA256);
+                algorithms.set(Algorithm::ECDSAP384SHA384);
+                algorithms.set(Algorithm::RSASHA256);
+
+                let dau = EdnsOption::DAU(algorithms);
+                let dhu = EdnsOption::DHU(algorithms);
+
+                edns.options_mut().insert(dau);
+                edns.options_mut().insert(dhu);
             }
 
             request.set_authentic_data(true);

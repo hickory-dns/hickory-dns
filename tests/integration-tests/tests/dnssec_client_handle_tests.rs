@@ -50,7 +50,11 @@ where
         .expect("query failed");
 
     println!("response records: {:?}", response);
-    assert!(response.edns().expect("edns not here").dnssec_ok());
+    assert!(response
+        .extensions()
+        .as_ref()
+        .expect("edns not here")
+        .dnssec_ok());
 
     assert!(!response.answers().is_empty());
     let record = &response.answers()[0];

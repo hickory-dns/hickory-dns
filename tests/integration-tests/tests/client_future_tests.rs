@@ -219,7 +219,8 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
     .set_op_code(OpCode::Query)
     .set_recursion_desired(true)
     .set_edns(edns)
-    .edns_mut()
+    .extensions_mut()
+    .as_mut()
     .map(|edns| edns.set_max_payload(1232).set_version(0));
 
     client
@@ -238,9 +239,14 @@ fn test_query_edns(client: &mut AsyncClient) -> impl Future<Output = ()> {
             assert_eq!(record.name(), &name);
             assert_eq!(record.rr_type(), RecordType::A);
             assert_eq!(record.dns_class(), DNSClass::IN);
-            assert!(response.edns().is_some());
+            assert!(response.extensions().is_some());
             assert_eq!(
-                response.edns().unwrap().option(EdnsCode::Subnet).unwrap(),
+                response
+                    .extensions()
+                    .as_ref()
+                    .unwrap()
+                    .option(EdnsCode::Subnet)
+                    .unwrap(),
                 &EdnsOption::Unknown(EdnsCode::Subnet.into(), vec![0, 1, 16, 0, 1, 2])
             );
             if let RData::A(ref address) = *record.data().unwrap() {
