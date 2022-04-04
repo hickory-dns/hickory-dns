@@ -270,9 +270,10 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         // Extended dns
         if self.is_using_edns() {
             message
-                .set_edns(Edns::new())
-                .edns_mut()
-                .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
+                .extensions_mut()
+                .get_or_insert_with(Edns::new)
+                .set_max_payload(MAX_PAYLOAD_LEN)
+                .set_version(0);
         }
 
         // add the query

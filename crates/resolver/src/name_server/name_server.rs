@@ -144,7 +144,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                     ResolveError::from_response(response, self.config.trust_nx_responses)?;
 
                 // TODO: consider making message::take_edns...
-                let remote_edns = response.edns().cloned();
+                let remote_edns = response.extensions().clone();
 
                 // take the remote edns options and store them
                 self.state.establish(remote_edns);

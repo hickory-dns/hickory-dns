@@ -85,9 +85,10 @@ fn build_message(query: Query, options: DnsRequestOptions) -> Message {
     // Extended dns
     if options.use_edns {
         message
-            .set_edns(Edns::new())
-            .edns_mut()
-            .map(|edns| edns.set_max_payload(MAX_PAYLOAD_LEN).set_version(0));
+            .extensions_mut()
+            .get_or_insert_with(Edns::new)
+            .set_max_payload(MAX_PAYLOAD_LEN)
+            .set_version(0);
     }
     message
 }
