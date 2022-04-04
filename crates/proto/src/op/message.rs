@@ -298,6 +298,19 @@ impl Message {
         self
     }
 
+    /// Add all the records from the iterator to the additionals section of the Message
+    pub fn add_additionals<R, I>(&mut self, records: R) -> &mut Self
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>,
+    {
+        for record in records {
+            self.add_additional(record);
+        }
+
+        self
+    }
+
     /// Sets the additional to the specified set of Records.
     ///
     /// # Panics
@@ -501,18 +514,14 @@ impl Message {
     /// ```
     /// # Return value
     ///
-    /// Returns the EDNS record if it was found in the additional section.
+    /// Optionally returns a reference to EDNS section
     pub fn edns(&self) -> Option<&Edns> {
         self.edns.as_ref()
     }
 
-    /// If edns is_none, this will create a new default Edns.
-    pub fn edns_mut(&mut self) -> &mut Edns {
-        if self.edns.is_none() {
-            self.edns = Some(Edns::new());
-        }
-
-        self.edns.as_mut().unwrap()
+    /// Optionally returns mutable reference to EDNS section
+    pub fn edns_mut(&mut self) -> Option<&mut Edns> {
+        self.edns.as_mut()
     }
 
     /// # Return value
@@ -770,6 +779,29 @@ impl From<Message> for MessageParts {
             name_servers,
             additionals,
             sig0: signature,
+            edns,
+        }
+    }
+}
+
+impl From<MessageParts> for Message {
+    fn from(msg: MessageParts) -> Self {
+        let MessageParts {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            sig0,
+            edns,
+        } = msg;
+        Self {
+            header,
+            queries,
+            answers,
+            name_servers,
+            additionals,
+            signature: sig0,
             edns,
         }
     }
