@@ -8,6 +8,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use bytes::{Bytes, BytesMut};
+use log::debug;
 use quinn::{RecvStream, SendStream, VarInt};
 
 use crate::{
@@ -162,12 +163,16 @@ impl QuicStream {
 
         // assert that the message id is 0, this is a bad dns-over-quic packet if not
         if message.id() != 0 {
+            self.reset(DoqErrorCode::ProtocolError)
+                .map_err(|_| debug!("stream already closed"))
+                .ok();
             return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
         }
 
         Ok(message)
     }
 
+    // TODO: we should change the protocol handlers to work with Messages since some require things like 0 for the Message ID.
     /// Receive a single packet as raw bytes
     pub async fn receive_bytes(&mut self) -> Result<BytesMut, ProtoError> {
         // following above, the data should be first the length, followed by the message(s)
@@ -181,8 +186,27 @@ impl QuicStream {
         //  and by the definition of the "application/dns-message" for DNS over HTTP [RFC8484]. DoQ enforces the same restriction.
         let mut bytes = BytesMut::with_capacity(len);
         bytes.resize(len, 0);
-        self.receive_stream.read_exact(&mut bytes[..len]).await?;
+        if let Err(e) = self.receive_stream.read_exact(&mut bytes[..len]).await {
+            self.reset(DoqErrorCode::ProtocolError)
+                .map_err(|_| debug!("stream already closed"))
+                .ok();
+            return Err(e.into());
+        }
 
         Ok(bytes)
+    }
+
+    /// Reset the sending stream due to some error
+    pub fn reset(&mut self, code: DoqErrorCode) -> Result<(), ProtoError> {
+        self.send_stream
+            .reset(code.into())
+            .map_err(|_| ProtoError::from(ProtoErrorKind::QuinnUnknownStreamError))
+    }
+
+    /// Stop the receiving stream due to some error
+    pub fn stop(&mut self, code: DoqErrorCode) -> Result<(), ProtoError> {
+        self.receive_stream
+            .stop(code.into())
+            .map_err(|_| ProtoError::from(ProtoErrorKind::QuinnUnknownStreamError))
     }
 }

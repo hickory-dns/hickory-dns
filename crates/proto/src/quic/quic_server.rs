@@ -53,8 +53,11 @@ impl QuicServer {
 
         let socket = socket.into_std()?;
 
-        let (endpoint, incoming) =
-            Endpoint::new(EndpointConfig::default(), Some(server_config), socket)?;
+        // set some better EndpointConfig defaults for DoQ
+        let mut endpoint_config = EndpointConfig::default();
+        endpoint_config.max_udp_payload_size(u16::MAX as u64)?; // all DNS packets have a maximum size of u16 due to DoQ and 1035 rfc
+
+        let (endpoint, incoming) = Endpoint::new(endpoint_config, Some(server_config), socket)?;
 
         Ok(Self { endpoint, incoming })
     }
