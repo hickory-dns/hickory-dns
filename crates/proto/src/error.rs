@@ -382,8 +382,8 @@ impl From<String> for ProtoError {
 impl From<io::Error> for ProtoErrorKind {
     fn from(e: io::Error) -> Self {
         match e.kind() {
-            io::ErrorKind::TimedOut => ProtoErrorKind::Timeout,
-            _ => ProtoErrorKind::Io(e),
+            io::ErrorKind::TimedOut => Self::Timeout,
+            _ => Self::Io(e),
         }
     }
 }
