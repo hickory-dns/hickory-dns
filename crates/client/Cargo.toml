@@ -48,6 +48,8 @@ dns-over-https-openssl = ["dns-over-https", "dns-over-openssl"]
 dns-over-https-rustls = ["dns-over-https", "dns-over-rustls", "trust-dns-proto/dns-over-https-rustls"]
 dns-over-https = ["trust-dns-proto/dns-over-https"]
 
+dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic"]
+
 dns-over-native-tls = ["dns-over-tls", "trust-dns-proto/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "openssl"]
 dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "webpki", "trust-dns-proto/dns-over-rustls"]

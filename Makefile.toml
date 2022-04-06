@@ -403,6 +403,13 @@ workspace = false
 env = { FEATURES = "--features=dns-over-native-tls", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
 run_task = { name = "all", fork = true }
 
+[tasks.dns-over-quic]
+description = "Run all with --features=dns-over-quic"
+dependencies = ["install-openssl"]
+workspace = false
+env = { FEATURES = "--features=dns-over-quic", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/async-std-resolver;tests/compatibility-tests;util" }
+run_task = { name = "all", fork = true }
+
 [tasks.mdns]
 description = "Run all with --features=mdns"
 dependencies = ["install-openssl"]

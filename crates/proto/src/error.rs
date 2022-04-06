@@ -215,7 +215,7 @@ pub enum ProtoErrorKind {
     // foreign
     /// An error got returned from IO
     #[error("io error: {0}")]
-    Io(#[from] io::Error),
+    Io(io::Error),
 
     /// Any sync poised error
     #[error("lock poisoned error")]
@@ -376,6 +376,15 @@ impl From<&'static str> for ProtoError {
 impl From<String> for ProtoError {
     fn from(msg: String) -> Self {
         ProtoErrorKind::Msg(msg).into()
+    }
+}
+
+impl From<io::Error> for ProtoErrorKind {
+    fn from(e: io::Error) -> Self {
+        match e.kind() {
+            io::ErrorKind::TimedOut => ProtoErrorKind::Timeout,
+            _ => ProtoErrorKind::Io(e),
+        }
     }
 }
 
