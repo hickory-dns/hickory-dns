@@ -204,7 +204,11 @@ impl QuicClientStreamBuilder {
         let socket = connect.await?;
         let socket = socket.into_std()?;
 
-        let (mut endpoint, _incoming) = Endpoint::new(EndpointConfig::default(), None, socket)?;
+        // set some better EndpointConfig defaults for DoQ
+        let mut endpoint_config = EndpointConfig::default();
+        endpoint_config.max_udp_payload_size(u16::MAX as u64)?; // all DNS packets have a maximum size of u16 due to DoQ and 1035 rfc
+
+        let (mut endpoint, _incoming) = Endpoint::new(endpoint_config, None, socket)?;
 
         // ensure the ALPN protocol is set correctly
         let mut crypto_config = self.crypto_config;
