@@ -20,16 +20,13 @@
     unreachable_pub
 )]
 
-use std::{
-    net::{IpAddr, SocketAddr},
-    str::FromStr,
-    sync::Arc,
-    time::SystemTime,
-};
+use std::net::SocketAddr;
+#[cfg(feature = "dns-over-rustls")]
+use std::{sync::Arc, time::SystemTime};
 
 use clap::{ArgEnum, Args, Parser, Subcommand};
-use console::style;
-use log::{error, warn};
+use log::warn;
+#[cfg(feature = "dns-over-rustls")]
 use rustls::{
     client::{HandshakeSignatureValid, ServerCertVerified},
     internal::msgs::handshake::DigitallySignedStruct,
@@ -44,14 +41,9 @@ use trust_dns_client::{
     tcp::TcpClientStream,
     udp::UdpClientStream,
 };
-use trust_dns_proto::{
-    https::HttpsClientStreamBuilder,
-    iocompat::AsyncIoTokioAsStd,
-    quic::{self, QuicClientStream, QuicClientStreamBuilder},
-    rr::Name,
-    rustls::tls_client_connect,
-    xfer::DnsRequestOptions,
-};
+#[cfg(feature = "dns-over-rustls")]
+use trust_dns_proto::rustls::tls_client_connect;
+use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, rr::Name};
 
 /// A CLI interface for the trust-dns-client.
 ///
@@ -247,101 +239,147 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .format_indent(Some(4))
         .init();
 
-    // params
-    let nameserver = opts.nameserver;
-    let class = opts.class;
-    let zone = opts.zone;
-    let protocol = opts.protocol;
-    let dns_name = opts.tls_dns_name;
-    let command = opts.command;
-    let mut alpn = opts.alpn.map(String::into_bytes);
-    let do_not_verify_nameserver_cert = opts.do_not_verify_nameserver_cert;
-
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
-    match protocol {
-        Protocol::Udp => {
-            println!("; using udp:{nameserver}");
-            let stream = UdpClientStream::<UdpSocket>::new(nameserver);
-            let (client, bg) = AsyncClient::connect(stream).await?;
-            let handle = tokio::spawn(bg);
-            handle_request(class, zone, command, client).await?;
-            drop(handle);
-        }
-        Protocol::Tcp => {
-            println!("; using tcp:{nameserver}");
-            let (stream, sender) =
-                TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(nameserver);
-            let client = AsyncClient::new(stream, sender, None);
-            let (client, bg) = client.await?;
-
-            let handle = tokio::spawn(bg);
-            handle_request(class, zone, command, client).await?;
-            drop(handle);
-        }
-        Protocol::Tls => {
-            let dns_name = dns_name.expect("tls_dns_name is required tls connections");
-            println!("; using tls:{nameserver} dns_name:{dns_name}");
-
-            let mut config = tls_config();
-            if do_not_verify_nameserver_cert {
-                self::do_not_verify_nameserver_cert(&mut config);
-            }
-
-            let config = Arc::new(config);
-            let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
-                nameserver, dns_name, config,
-            );
-            let (client, bg) = AsyncClient::new(stream, sender, None).await?;
-
-            let handle = tokio::spawn(bg);
-            handle_request(class, zone, command, client).await?;
-            drop(handle);
-        }
-        Protocol::Https => {
-            let alpn = alpn.take().expect("ALPN is required for HTTPS");
-
-            let dns_name = dns_name.expect("tls_dns_name is required https connections");
-            println!("; using https:{nameserver} dns_name:{dns_name}");
-
-            let mut config = tls_config();
-            if do_not_verify_nameserver_cert {
-                self::do_not_verify_nameserver_cert(&mut config);
-            }
-            config.alpn_protocols.push(alpn);
-            let config = Arc::new(config);
-
-            let https_builder = HttpsClientStreamBuilder::with_client_config(config);
-            let (client, bg) = AsyncClient::connect(
-                https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(nameserver, dns_name),
-            )
-            .await?;
-
-            let handle = tokio::spawn(bg);
-            handle_request(class, zone, command, client).await?;
-            drop(handle);
-        }
-        Protocol::Quic => {
-            let alpn = alpn.take().expect("ALPN is required for HTTPS");
-
-            let dns_name = dns_name.expect("tls_dns_name is required quic connections");
-            println!("; using quic:{nameserver} dns_name:{dns_name}");
-
-            let mut config = quic::client_config_tls13_webpki_roots();
-            if do_not_verify_nameserver_cert {
-                self::do_not_verify_nameserver_cert(&mut config);
-            }
-            config.alpn_protocols.push(alpn);
-
-            let mut quic_builder = QuicClientStream::builder();
-            quic_builder.crypto_config(config);
-            let (client, bg) =
-                AsyncClient::connect(quic_builder.build(nameserver, dns_name)).await?;
-
-            let handle = tokio::spawn(bg);
-            handle_request(class, zone, command, client).await?;
-            drop(handle);
-        }
+    match opts.protocol {
+        Protocol::Udp => udp(opts).await?,
+        Protocol::Tcp => tcp(opts).await?,
+        Protocol::Tls => tls(opts).await?,
+        Protocol::Https => https(opts).await?,
+        Protocol::Quic => quic(opts).await?,
     };
+
+    Ok(())
+}
+
+async fn udp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    let nameserver = opts.nameserver;
+
+    println!("; using udp:{nameserver}");
+    let stream = UdpClientStream::<UdpSocket>::new(nameserver);
+    let (client, bg) = AsyncClient::connect(stream).await?;
+    let handle = tokio::spawn(bg);
+    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    drop(handle);
+
+    Ok(())
+}
+
+async fn tcp(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    let nameserver = opts.nameserver;
+
+    println!("; using tcp:{nameserver}");
+    let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(nameserver);
+    let client = AsyncClient::new(stream, sender, None);
+    let (client, bg) = client.await?;
+
+    let handle = tokio::spawn(bg);
+    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    drop(handle);
+
+    Ok(())
+}
+
+#[cfg(not(feature = "dns-over-rustls"))]
+async fn tls(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    panic!("`dns-over-rustls` feature is required during compilation");
+}
+
+#[cfg(feature = "dns-over-rustls")]
+async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    let nameserver = opts.nameserver;
+    let dns_name = opts
+        .tls_dns_name
+        .expect("tls_dns_name is required tls connections");
+    println!("; using tls:{nameserver} dns_name:{dns_name}");
+
+    let mut config = tls_config();
+    if opts.do_not_verify_nameserver_cert {
+        self::do_not_verify_nameserver_cert(&mut config);
+    }
+
+    let config = Arc::new(config);
+    let (stream, sender) =
+        tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(nameserver, dns_name, config);
+    let (client, bg) = AsyncClient::new(stream, sender, None).await?;
+
+    let handle = tokio::spawn(bg);
+    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    drop(handle);
+
+    Ok(())
+}
+
+#[cfg(not(feature = "dns-over-https"))]
+async fn https(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    panic!("`dns-over-https` feature is required during compilation");
+}
+
+#[cfg(feature = "dns-over-https")]
+async fn https(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    use trust_dns_proto::https::HttpsClientStreamBuilder;
+
+    let nameserver = opts.nameserver;
+    let alpn = opts
+        .alpn
+        .map(String::into_bytes)
+        .expect("ALPN is required for HTTPS");
+    let dns_name = opts
+        .tls_dns_name
+        .expect("tls_dns_name is required https connections");
+    println!("; using https:{nameserver} dns_name:{dns_name}");
+
+    let mut config = tls_config();
+    if opts.do_not_verify_nameserver_cert {
+        self::do_not_verify_nameserver_cert(&mut config);
+    }
+    config.alpn_protocols.push(alpn);
+    let config = Arc::new(config);
+
+    let https_builder = HttpsClientStreamBuilder::with_client_config(config);
+    let (client, bg) = AsyncClient::connect(
+        https_builder.build::<AsyncIoTokioAsStd<TokioTcpStream>>(nameserver, dns_name),
+    )
+    .await?;
+
+    let handle = tokio::spawn(bg);
+    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    drop(handle);
+
+    Ok(())
+}
+
+#[cfg(not(feature = "dns-over-quic"))]
+async fn quic(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    panic!("`dns-over-quic` feature is required during compilation");
+}
+
+#[cfg(feature = "dns-over-quic")]
+async fn quic(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
+    use trust_dns_proto::quic::{self, QuicClientStream};
+
+    let nameserver = opts.nameserver;
+    let alpn = opts
+        .alpn
+        .map(String::into_bytes)
+        .expect("ALPN is required for QUIC");
+    let dns_name = opts
+        .tls_dns_name
+        .expect("tls_dns_name is required quic connections");
+    println!("; using quic:{nameserver} dns_name:{dns_name}");
+
+    let mut config = quic::client_config_tls13_webpki_roots();
+    if opts.do_not_verify_nameserver_cert {
+        self::do_not_verify_nameserver_cert(&mut config);
+    }
+    config.alpn_protocols.push(alpn);
+
+    let mut quic_builder = QuicClientStream::builder();
+    quic_builder.crypto_config(config);
+    let (client, bg) = AsyncClient::connect(quic_builder.build(nameserver, dns_name)).await?;
+
+    let handle = tokio::spawn(bg);
+    handle_request(opts.class, opts.zone, opts.command, client).await?;
+    drop(handle);
 
     Ok(())
 }
@@ -442,6 +480,7 @@ fn record_set_from(
     record_set
 }
 
+#[cfg(feature = "dns-over-rustls")]
 fn tls_config() -> ClientConfig {
     let mut root_store = RootCertStore::empty();
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {
@@ -458,25 +497,28 @@ fn tls_config() -> ClientConfig {
         .with_no_client_auth()
 }
 
+#[cfg(feature = "dns-over-rustls")]
 fn do_not_verify_nameserver_cert(tls_config: &mut ClientConfig) {
     tls_config
         .dangerous()
         .set_certificate_verifier(Arc::new(DangerousVerifier));
 }
 
+#[cfg(feature = "dns-over-rustls")]
 struct DangerousVerifier;
 
+#[cfg(feature = "dns-over-rustls")]
 impl rustls::client::ServerCertVerifier for DangerousVerifier {
     fn verify_server_cert(
         &self,
-        end_entity: &Certificate,
-        intermediates: &[Certificate],
-        server_name: &rustls::ServerName,
-        scts: &mut dyn Iterator<Item = &[u8]>,
-        ocsp_response: &[u8],
-        now: SystemTime,
+        _end_entity: &Certificate,
+        _intermediates: &[Certificate],
+        _server_name: &rustls::ServerName,
+        _scts: &mut dyn Iterator<Item = &[u8]>,
+        _ocsp_response: &[u8],
+        _now: SystemTime,
     ) -> Result<ServerCertVerified, rustls::Error> {
-        println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
+        println!(";!!!NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(ServerCertVerified::assertion())
     }
 
@@ -486,7 +528,7 @@ impl rustls::client::ServerCertVerifier for DangerousVerifier {
         _cert: &Certificate,
         _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
+        println!(";!!!NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(HandshakeSignatureValid::assertion())
     }
 
@@ -496,7 +538,7 @@ impl rustls::client::ServerCertVerifier for DangerousVerifier {
         _cert: &Certificate,
         _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
+        println!(";!!!NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(HandshakeSignatureValid::assertion())
     }
 }
