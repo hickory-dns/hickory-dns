@@ -45,8 +45,12 @@ use trust_dns_client::{
     udp::UdpClientStream,
 };
 use trust_dns_proto::{
-    https::HttpsClientStreamBuilder, iocompat::AsyncIoTokioAsStd, rr::Name,
-    rustls::tls_client_connect, xfer::DnsRequestOptions,
+    https::HttpsClientStreamBuilder,
+    iocompat::AsyncIoTokioAsStd,
+    quic::{self, QuicClientStream, QuicClientStreamBuilder},
+    rr::Name,
+    rustls::tls_client_connect,
+    xfer::DnsRequestOptions,
 };
 
 /// A CLI interface for the trust-dns-client.
@@ -67,6 +71,20 @@ struct Opts {
     /// TLS endpoint name, i.e. the name in the certificate presented by the remote server
     #[clap(short = 't', long, required_if_eq_any = &[("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
     tls_dns_name: Option<String>,
+
+    /// For TLS, HTTPS, and QUIC a custom ALPN code can be supplied
+    ///  
+    /// Defaults: none for TLS, `h2` for HTTPS, and `doq` for QUIC
+    #[clap(short = 'a',
+        long,
+        default_value_ifs = &[("protocol", Some("tls"), None), ("protocol", Some("https"), Some("h2")), ("protocol", Some("quic"), Some("doq"))]
+    )]
+    alpn: Option<String>,
+
+    // TODO: put this behind a feature gate
+    /// DANGER: do not verify remote nameserver
+    #[clap(long)]
+    do_not_verify_nameserver_cert: bool,
 
     // TODO: zone is required for all update operations...
     /// Zone, required for dynamic DNS updates, e.g. example.com if updating www.example.com
@@ -236,6 +254,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let protocol = opts.protocol;
     let dns_name = opts.tls_dns_name;
     let command = opts.command;
+    let mut alpn = opts.alpn.map(String::into_bytes);
+    let do_not_verify_nameserver_cert = opts.do_not_verify_nameserver_cert;
 
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
     match protocol {
@@ -262,7 +282,12 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let dns_name = dns_name.expect("tls_dns_name is required tls connections");
             println!("; using tls:{nameserver} dns_name:{dns_name}");
 
-            let config = Arc::new(tls_config());
+            let mut config = tls_config();
+            if do_not_verify_nameserver_cert {
+                self::do_not_verify_nameserver_cert(&mut config);
+            }
+
+            let config = Arc::new(config);
             let (stream, sender) = tls_client_connect::<AsyncIoTokioAsStd<TokioTcpStream>>(
                 nameserver, dns_name, config,
             );
@@ -273,13 +298,16 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             drop(handle);
         }
         Protocol::Https => {
-            const ALPN_H2: &[u8] = b"h2";
+            let alpn = alpn.take().expect("ALPN is required for HTTPS");
 
             let dns_name = dns_name.expect("tls_dns_name is required https connections");
             println!("; using https:{nameserver} dns_name:{dns_name}");
 
             let mut config = tls_config();
-            config.alpn_protocols.push(ALPN_H2.to_vec());
+            if do_not_verify_nameserver_cert {
+                self::do_not_verify_nameserver_cert(&mut config);
+            }
+            config.alpn_protocols.push(alpn);
             let config = Arc::new(config);
 
             let https_builder = HttpsClientStreamBuilder::with_client_config(config);
@@ -293,9 +321,25 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             drop(handle);
         }
         Protocol::Quic => {
+            let alpn = alpn.take().expect("ALPN is required for HTTPS");
+
             let dns_name = dns_name.expect("tls_dns_name is required quic connections");
             println!("; using quic:{nameserver} dns_name:{dns_name}");
-            todo!()
+
+            let mut config = quic::client_config_tls13_webpki_roots();
+            if do_not_verify_nameserver_cert {
+                self::do_not_verify_nameserver_cert(&mut config);
+            }
+            config.alpn_protocols.push(alpn);
+
+            let mut quic_builder = QuicClientStream::builder();
+            quic_builder.crypto_config(config);
+            let (client, bg) =
+                AsyncClient::connect(quic_builder.build(nameserver, dns_name)).await?;
+
+            let handle = tokio::spawn(bg);
+            handle_request(class, zone, command, client).await?;
+            drop(handle);
         }
     };
 
@@ -408,21 +452,16 @@ fn tls_config() -> ClientConfig {
         )
     }));
 
-    let mut config = ClientConfig::builder()
-        //.with_safe_defaults() // FIXME: only use this
-        .with_cipher_suites(rustls::ALL_CIPHER_SUITES) // FIXME: remove this
-        .with_kx_groups(&rustls::ALL_KX_GROUPS) // FIXME: remove this
-        .with_protocol_versions(rustls::ALL_VERSIONS)
-        .expect("protocol versions issue") // FIXME: remove this
-        .with_custom_certificate_verifier(Arc::new(DangerousVerifier)) // FIXME: remove this
-        //.with_root_certificates(root_store) // FIXME: only use this
-        .with_no_client_auth();
+    ClientConfig::builder()
+        .with_safe_defaults()
+        .with_root_certificates(root_store)
+        .with_no_client_auth()
+}
 
-    config
+fn do_not_verify_nameserver_cert(tls_config: &mut ClientConfig) {
+    tls_config
         .dangerous()
         .set_certificate_verifier(Arc::new(DangerousVerifier));
-
-    config
 }
 
 struct DangerousVerifier;
@@ -443,9 +482,9 @@ impl rustls::client::ServerCertVerifier for DangerousVerifier {
 
     fn verify_tls12_signature(
         &self,
-        message: &[u8],
-        cert: &Certificate,
-        dss: &DigitallySignedStruct,
+        _message: &[u8],
+        _cert: &Certificate,
+        _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
         println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(HandshakeSignatureValid::assertion())
@@ -453,9 +492,9 @@ impl rustls::client::ServerCertVerifier for DangerousVerifier {
 
     fn verify_tls13_signature(
         &self,
-        message: &[u8],
-        cert: &Certificate,
-        dss: &DigitallySignedStruct,
+        _message: &[u8],
+        _cert: &Certificate,
+        _dss: &DigitallySignedStruct,
     ) -> Result<HandshakeSignatureValid, rustls::Error> {
         println!(";!!!THIS IS NOT VERIFYING THE SERVER TLS CERTIFICATE!!!");
         Ok(HandshakeSignatureValid::assertion())

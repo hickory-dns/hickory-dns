@@ -49,7 +49,7 @@ dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec
 [[bin]]
 name = "dns"
 path = "src/dns.rs"
-required-features = ["dns-over-rustls", "dns-over-https-rustls"]
+required-features = ["dns-over-rustls", "dns-over-https-rustls", "dns-over-quic"]
 
 [[bin]]
 name = "dnskey-to-pem"

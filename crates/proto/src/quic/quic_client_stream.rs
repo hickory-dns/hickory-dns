@@ -212,7 +212,9 @@ impl QuicClientStreamBuilder {
 
         // ensure the ALPN protocol is set correctly
         let mut crypto_config = self.crypto_config;
-        crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
+        if crypto_config.alpn_protocols.is_empty() {
+            crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
+        }
 
         let client_config = ClientConfig::new(Arc::new(crypto_config));
         endpoint.set_default_client_config(client_config);
@@ -240,7 +242,8 @@ fn sanitize_transport_config(transport_config: &mut TransportConfig) {
     transport_config.max_concurrent_uni_streams(VarInt::from_u32(0));
 }
 
-fn client_config_tls13_webpki_roots() -> TlsClientConfig {
+/// Default crypto options for quic
+pub fn client_config_tls13_webpki_roots() -> TlsClientConfig {
     use rustls::{OwnedTrustAnchor, RootCertStore};
     let mut root_store = RootCertStore::empty();
     root_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(|ta| {

@@ -580,7 +580,7 @@ impl NameServerConfigGroup {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn google_https() -> Self {
-        Self::from_ips_https(GOOGLE_IPS, 53, "dns.google".to_string(), true)
+        Self::from_ips_https(GOOGLE_IPS, 443, "dns.google".to_string(), true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
