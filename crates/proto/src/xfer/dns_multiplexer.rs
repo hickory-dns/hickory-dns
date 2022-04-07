@@ -319,7 +319,9 @@ where
 
                 debug!(
                     "final message: {}",
-                    serial_message.to_message().expect("bizarre we just made this message")
+                    serial_message
+                        .to_message()
+                        .expect("bizarre we just made this message")
                 );
 
                 // add to the map -after- the client send b/c we don't want to put it in the map if
