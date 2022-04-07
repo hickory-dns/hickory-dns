@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 
-use futures_util::{future, lock::Mutex, StreamExt};
+use futures_util::{future, StreamExt};
 use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
@@ -34,7 +34,7 @@ use crate::{
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
 pub struct ServerFuture<T: RequestHandler> {
-    handler: Arc<Mutex<T>>,
+    handler: Arc<T>,
     tasks: Vec<ServerTask>,
 }
 
@@ -42,7 +42,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self {
-            handler: Arc::new(Mutex::new(handler)),
+            handler: Arc::new(handler),
             tasks: vec![],
         }
     }
@@ -648,7 +648,7 @@ impl Drop for ServerTask {
 pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     protocol: Protocol,
-    request_handler: Arc<Mutex<T>>,
+    request_handler: Arc<T>,
     response_handler: BufDnsStreamHandle,
 ) {
     let src_addr = message.addr();
@@ -727,7 +727,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
-    request_handler: Arc<Mutex<T>>,
+    request_handler: Arc<T>,
     response_handler: R,
 ) {
     let mut decoder = BinDecoder::new(message_bytes);
@@ -772,11 +772,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             handler: response_handler,
         };
 
-        request_handler
-            .lock()
-            .await
-            .handle_request(&request, reporter)
-            .await;
+        request_handler.handle_request(&request, reporter).await;
     };
 
     // Attempt to decode the message
