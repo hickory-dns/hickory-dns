@@ -1000,17 +1000,16 @@ where
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 #[repr(transparent)]
-pub struct Unknown(pub Vec<Vec<u8>>);
+pub struct Unknown(pub Vec<u8>);
 
 impl<'r> BinDecodable<'r> for Unknown {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        let mut unknowns = Vec::new();
+        // The passed slice is already length delimited, and we cannot
+        // assume it's a collection of anything.
+        let len = decoder.len();
 
-        while decoder.peek().is_some() {
-            let data = decoder.read_character_data()?;
-            let data = data.unverified(/*any data is valid here*/).to_vec();
-            unknowns.push(data)
-        }
+        let data = decoder.read_vec(len)?;
+        let unknowns = data.unverified(/*any data is valid here*/).to_vec();
 
         Ok(Self(unknowns))
     }
@@ -1018,9 +1017,7 @@ impl<'r> BinDecodable<'r> for Unknown {
 
 impl BinEncodable for Unknown {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        for unknown in self.0.iter() {
-            encoder.emit_character_data(unknown)?;
-        }
+        encoder.emit_character_data(&self.0)?;
 
         Ok(())
     }
@@ -1028,10 +1025,8 @@ impl BinEncodable for Unknown {
 
 impl fmt::Display for Unknown {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        for unknown in self.0.iter() {
-            // TODO: this needs to be properly encoded
-            write!(f, "\"{}\",", String::from_utf8_lossy(unknown))?;
-        }
+        // TODO: this needs to be properly encoded
+        write!(f, "\"{}\",", String::from_utf8_lossy(&self.0))?;
 
         Ok(())
     }
