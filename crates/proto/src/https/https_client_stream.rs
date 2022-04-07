@@ -306,15 +306,17 @@ impl HttpsClientStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     pub fn build<S: Connect>(
-        self,
+        mut self,
         name_server: SocketAddr,
         dns_name: String,
     ) -> HttpsClientConnect<S> {
-        assert!(self
-            .client_config
-            .alpn_protocols
-            .iter()
-            .any(|protocol| *protocol == ALPN_H2.to_vec()));
+        // ensure the ALPN protocol is set correctly
+        if self.client_config.alpn_protocols.is_empty() {
+            let mut client_config = (*self.client_config).clone();
+            client_config.alpn_protocols = vec![ALPN_H2.to_vec()];
+
+            self.client_config = Arc::new(client_config);
+        }
 
         let tls = TlsConfig {
             client_config: self.client_config,
