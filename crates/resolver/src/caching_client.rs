@@ -172,7 +172,7 @@ where
         let is_dnssec = client.client.is_verifying_dnssec();
 
         // first transition any polling that is needed (mutable refs...)
-        if let Some(cached_lookup) = client.from_cache(&query) {
+        if let Some(cached_lookup) = client.lookup_from_cache(&query) {
             return cached_lookup;
         };
 
@@ -244,7 +244,7 @@ where
     }
 
     /// Check if this query is already cached
-    fn from_cache(&self, query: &Query) -> Option<Result<Lookup, ResolveError>> {
+    fn lookup_from_cache(&self, query: &Query) -> Option<Result<Lookup, ResolveError>> {
         self.lru.get(query, Instant::now())
     }
 
