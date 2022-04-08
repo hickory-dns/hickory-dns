@@ -225,8 +225,11 @@ impl fmt::Display for Edns {
 
         write!(
             f,
-            "version: {version} dnssec_ok: {dnssec_ok} max_payload: {max_payload} opts: {}",
-            self.options().as_ref().len()
+            "version: {version} dnssec_ok: {dnssec_ok} max_payload: {max_payload} opts: {opts_len}",
+            version = version,
+            dnssec_ok = dnssec_ok,
+            max_payload = max_payload,
+            opts_len = self.options().as_ref().len()
         )
     }
 }

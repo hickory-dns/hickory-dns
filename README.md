@@ -340,6 +340,14 @@ $> cargo build --release --features dns-over-rustls
 Using Rust semantics it should be possible to develop a high performance and
 safe DNS Server that is more resilient to attacks.
 
+- What is the MSRV (minimum stable Rust version) policy?
+
+    Trust-DNS will work to support backward compatibility with three Rust versions.
+For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
+version is only increased as necessary, so it's possible that the MSRV is older
+than this policy states. Additionally, the MSRV is only supported for the `no-default-features`
+build due to it being an intractable issue of trying to enforce this policy on dependencies.
+
 ## Community
 
 For live discussions beyond this repository, please see this [Discord](https://discord.gg/89nxE4n).
