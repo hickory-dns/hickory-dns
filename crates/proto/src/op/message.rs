@@ -1072,7 +1072,7 @@ impl fmt::Display for Message {
 
         writeln!(f, "; header {header}", header = self.header())?;
 
-        if let Some(edns) = self.edns() {
+        if let Some(edns) = self.extensions() {
             writeln!(f, "; edns {}", edns)?;
         }
 
