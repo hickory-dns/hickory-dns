@@ -52,7 +52,7 @@ jobs:
 
     - name: upload coverage
       if: matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -94,7 +94,7 @@ jobs:
       run: cargo make coverage --env=FEATURES="--features ${{ matrix.feature }}"
 
     - name: upload coverage
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
