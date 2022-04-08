@@ -66,7 +66,7 @@ struct Opts {
 
     /// For TLS, HTTPS, and QUIC a custom ALPN code can be supplied
     ///  
-    /// Defaults: none for TLS, `h2` for HTTPS, and `doq` for QUIC
+    /// Defaults: none for TLS (`dot` has been suggested), `h2` for HTTPS, and `doq` for QUIC
     #[clap(short = 'a',
         long,
         default_value_ifs = &[("protocol", Some("tls"), None), ("protocol", Some("https"), Some("h2")), ("protocol", Some("quic"), Some("doq"))]
@@ -287,6 +287,7 @@ async fn tls(_opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(feature = "dns-over-rustls")]
 async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let nameserver = opts.nameserver;
+    let alpn = opts.alpn.map(String::into_bytes);
     let dns_name = opts
         .tls_dns_name
         .expect("tls_dns_name is required tls connections");
@@ -295,6 +296,9 @@ async fn tls(opts: Opts) -> Result<(), Box<dyn std::error::Error>> {
     let mut config = tls_config();
     if opts.do_not_verify_nameserver_cert {
         self::do_not_verify_nameserver_cert(&mut config);
+    }
+    if let Some(alpn) = alpn {
+        config.alpn_protocols.push(alpn);
     }
 
     let config = Arc::new(config);
