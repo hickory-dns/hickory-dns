@@ -26,7 +26,7 @@ use crate::{
 };
 
 pub(crate) async fn quic_handler<T>(
-    handler: Arc<Mutex<T>>,
+    handler: Arc<T>,
     mut quic_streams: QuicStreams,
     src_addr: SocketAddr,
     _dns_hostname: Arc<str>,
@@ -75,7 +75,7 @@ where
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
-    handler: Arc<Mutex<T>>,
+    handler: Arc<T>,
     responder: QuicResponseHandle,
 ) where
     T: RequestHandler,

@@ -24,7 +24,7 @@ use crate::{
 };
 
 pub(crate) async fn h2_handler<T, I>(
-    handler: Arc<Mutex<T>>,
+    handler: Arc<T>,
     io: I,
     src_addr: SocketAddr,
     dns_hostname: Arc<str>,
@@ -71,7 +71,7 @@ pub(crate) async fn h2_handler<T, I>(
 async fn handle_request<T>(
     bytes: BytesMut,
     src_addr: SocketAddr,
-    handler: Arc<Mutex<T>>,
+    handler: Arc<T>,
     responder: HttpsResponseHandle,
 ) where
     T: RequestHandler,
