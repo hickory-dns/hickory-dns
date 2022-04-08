@@ -47,7 +47,8 @@ pub trait RDataParser: Sized {
                 Token::EOL | Token::Blank => (),
                 _ => {
                     return Err(ParseError::from(format!(
-                        "unexpected token in record data: {token:?}"
+                        "unexpected token in record data: {:?}",
+                        token
                     )))
                 }
             }

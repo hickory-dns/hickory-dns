@@ -1056,7 +1056,7 @@ impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let write_query = |slice, f: &mut fmt::Formatter<'_>| -> Result<(), fmt::Error> {
             for d in slice {
-                writeln!(f, ";; {d}")?;
+                writeln!(f, ";; {}", d)?;
             }
 
             Ok(())
@@ -1064,7 +1064,7 @@ impl fmt::Display for Message {
 
         let write_slice = |slice, f: &mut fmt::Formatter<'_>| -> Result<(), fmt::Error> {
             for d in slice {
-                writeln!(f, "{d}")?;
+                writeln!(f, "{}", d)?;
             }
 
             Ok(())
