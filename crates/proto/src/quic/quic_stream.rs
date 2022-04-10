@@ -141,11 +141,12 @@ impl QuicStream {
         // field defined for DNS over TCP [RFC1035]. The practical result of this is that the content of each QUIC stream is exactly
         // the same as the content of a TCP connection that would manage exactly one query.All DNS messages (queries and responses)
         // sent over DoQ connections MUST be encoded as a 2-octet length field followed by the message content as specified in [RFC1035].
-        let len = u16::try_from(bytes.len())
+        let bytes_len = u16::try_from(bytes.len())
             .map_err(|_e| ProtoErrorKind::MaxBufferSizeExceeded(bytes.len()))?;
-        let len = len.to_ne_bytes().to_vec();
+        let len = bytes_len.to_ne_bytes().to_vec();
         let len = Bytes::from(len);
 
+        debug!("received packet len: {} bytes: {:x?}", bytes_len, bytes);
         self.send_stream.write_all_chunks(&mut [len, bytes]).await?;
         Ok(())
     }
@@ -187,12 +188,15 @@ impl QuicStream {
         let mut bytes = BytesMut::with_capacity(len);
         bytes.resize(len, 0);
         if let Err(e) = self.receive_stream.read_exact(&mut bytes[..len]).await {
+            debug!("received bad packet len: {} bytes: {:?}", len, bytes);
+
             self.reset(DoqErrorCode::ProtocolError)
                 .map_err(|_| debug!("stream already closed"))
                 .ok();
             return Err(e.into());
         }
 
+        debug!("received packet len: {} bytes: {:x?}", len, bytes);
         Ok(bytes)
     }
 

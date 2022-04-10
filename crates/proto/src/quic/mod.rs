@@ -8,6 +8,7 @@
 //! QUIC protocol related components for DNS over QUIC (DoQ)
 
 mod quic_client_stream;
+mod quic_config;
 mod quic_server;
 mod quic_stream;
 

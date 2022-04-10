@@ -113,7 +113,9 @@ impl ResponseHandler for QuicResponseHandle {
         let bytes = Bytes::from(bytes);
 
         debug!("sending quic response: {}", bytes.len());
-        self.0.lock().await.send_bytes(bytes).await?;
+        let mut lock = self.0.lock().await;
+        lock.send_bytes(bytes).await?;
+        lock.finish().await?;
 
         Ok(info)
     }

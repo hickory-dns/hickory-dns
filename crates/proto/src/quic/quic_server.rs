@@ -8,12 +8,15 @@
 use std::{io, net::SocketAddr, sync::Arc};
 
 use futures_util::StreamExt;
-use quinn::{Endpoint, EndpointConfig, Incoming, IncomingBiStreams, ServerConfig};
+use quinn::{Endpoint, Incoming, IncomingBiStreams, ServerConfig};
 use rustls::{server::ServerConfig as TlsServerConfig, version::TLS13, Certificate, PrivateKey};
 
 use crate::{error::ProtoError, udp::UdpSocket};
 
-use super::quic_stream::{self, QuicStream};
+use super::{
+    quic_config,
+    quic_stream::{self, QuicStream},
+};
 
 /// A DNS-over-QUIC Server, see QuicClientStream for the client counterpart
 pub struct QuicServer {
@@ -49,14 +52,12 @@ impl QuicServer {
 
         config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
 
-        let server_config = ServerConfig::with_crypto(Arc::new(config));
+        let mut server_config = ServerConfig::with_crypto(Arc::new(config));
+        server_config.transport = Arc::new(quic_config::transport());
 
         let socket = socket.into_std()?;
 
-        // set some better EndpointConfig defaults for DoQ
-        let mut endpoint_config = EndpointConfig::default();
-        endpoint_config.max_udp_payload_size(u16::MAX as u64)?; // all DNS packets have a maximum size of u16 due to DoQ and 1035 rfc
-
+        let endpoint_config = quic_config::endpoint();
         let (endpoint, incoming) = Endpoint::new(endpoint_config, Some(server_config), socket)?;
 
         Ok(Self { endpoint, incoming })
