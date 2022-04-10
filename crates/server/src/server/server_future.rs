@@ -4,7 +4,12 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::{io, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    io,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 
 use futures_util::{future, StreamExt};
 use log::{debug, info, warn};
@@ -72,6 +77,17 @@ impl<T: RequestHandler> ServerFuture<T> {
 
                     let src_addr = message.addr();
                     debug!("received udp request from: {}", src_addr);
+
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let stream_handle = stream_handle.with_remote_addr(src_addr);
 
@@ -124,6 +140,16 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         }
                     };
+
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
 
                     let handler = handler.clone();
 
@@ -235,6 +261,16 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         }
                     };
+
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
 
                     let handler = handler.clone();
                     let tls_acceptor = tls_acceptor.clone();
@@ -377,6 +413,16 @@ impl<T: RequestHandler> ServerFuture<T> {
                         }
                     };
 
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let tls_acceptor = tls_acceptor.clone();
 
@@ -518,6 +564,16 @@ impl<T: RequestHandler> ServerFuture<T> {
                         }
                     };
 
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let tls_acceptor = tls_acceptor.clone();
                     let dns_hostname = dns_hostname.clone();
@@ -595,6 +651,17 @@ impl<T: RequestHandler> ServerFuture<T> {
                             continue;
                         }
                     };
+
+                    // verify that the src address is safe for responses
+                    // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
 
                     let handler = handler.clone();
                     let dns_hostname = dns_hostname.clone();
@@ -821,6 +888,50 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     }
 }
 
+/// Checks if the IP address is safe for returning messages
+///
+/// Examples of unsafe addresses are any with a port of `0`
+///
+/// # Returns
+///
+/// Error if the address should not be used for returned requests
+fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
+    // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
+    if src.port() == 0 {
+        return Err(format!("cannot respond to src on port 0: {}", src));
+    }
+
+    fn verify_v4(src: Ipv4Addr) -> Result<(), String> {
+        if src.is_unspecified() {
+            return Err(format!("cannot respond to unspecified v4 addr: {}", src));
+        }
+
+        if src.is_broadcast() {
+            return Err(format!("cannot respond to broadcast v4 addr: {}", src));
+        }
+
+        // TODO: add check for is_reserved when that stabilizes
+
+        Ok(())
+    }
+
+    fn verify_v6(src: Ipv6Addr) -> Result<(), String> {
+        if src.is_unspecified() {
+            return Err(format!("cannot respond to unspecified v6 addr: {}", src));
+        }
+
+        Ok(())
+    }
+
+    // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
+    match src.ip() {
+        IpAddr::V4(v4) => verify_v4(v4)?,
+        IpAddr::V6(v6) => verify_v6(v6)?,
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -852,5 +963,25 @@ mod tests {
         });
 
         UdpSocket::bind(bind_addr).unwrap();
+    }
+
+    #[test]
+    fn test_sanitize_src_addr() {
+        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4096))).is_ok());
+
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4096))).is_err());
+
+        assert!(
+            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4096))).is_ok()
+        );
+
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
+        assert!(
+            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err()
+        );
     }
 }
