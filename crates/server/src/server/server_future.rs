@@ -925,11 +925,9 @@ fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
 
     // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
     match src.ip() {
-        IpAddr::V4(v4) => verify_v4(v4)?,
-        IpAddr::V6(v6) => verify_v6(v6)?,
+        IpAddr::V4(v4) => verify_v4(v4),
+        IpAddr::V6(v6) => verify_v6(v6),
     }
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -967,16 +965,20 @@ mod tests {
 
     #[test]
     fn test_sanitize_src_addr() {
+        // ipv4 tests
         assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4096))).is_ok());
+        assert!(sanitize_src_address(SocketAddr::from(([127, 0, 0, 1], 53))).is_ok());
 
         assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
         assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
         assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4096))).is_err());
         assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4096))).is_err());
 
+        // ipv6 tests
         assert!(
             sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4096))).is_ok()
         );
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4096))).is_ok());
 
         assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4096))).is_err());
         assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
