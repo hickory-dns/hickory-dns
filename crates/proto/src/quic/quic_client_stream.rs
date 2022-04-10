@@ -15,10 +15,7 @@ use std::{
 };
 
 use futures_util::{future::FutureExt, stream::Stream};
-use quinn::{
-    ClientConfig, Connection, Endpoint, EndpointConfig, NewConnection, OpenBi, TransportConfig,
-    VarInt,
-};
+use quinn::{ClientConfig, Connection, Endpoint, NewConnection, OpenBi, TransportConfig, VarInt};
 use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
 use crate::{
@@ -28,7 +25,7 @@ use crate::{
     xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream},
 };
 
-use super::quic_stream;
+use super::{quic_config, quic_stream};
 
 /// A DNS client connection for DNS-over-QUIC
 #[must_use = "futures do nothing unless polled"]
@@ -167,19 +164,6 @@ impl QuicClientStreamBuilder {
         self
     }
 
-    /// Sets a good set of defaults for the DoQ transport config
-    pub fn default_transport_config(&mut self) -> &mut Self {
-        self.transport_config(TransportConfig::default())
-    }
-
-    /// This will override the max_concurrent_bidi_streams and max_concurrent_uni_streams to 0, as DoQ doesn't support server push
-    pub fn transport_config(&mut self, mut transport_config: TransportConfig) -> &mut Self {
-        sanitize_transport_config(&mut transport_config);
-        self.transport_config = Arc::new(transport_config);
-
-        self
-    }
-
     /// Creates a new QuicStream to the specified name_server
     ///
     /// # Arguments
@@ -204,10 +188,7 @@ impl QuicClientStreamBuilder {
         let socket = connect.await?;
         let socket = socket.into_std()?;
 
-        // set some better EndpointConfig defaults for DoQ
-        let mut endpoint_config = EndpointConfig::default();
-        endpoint_config.max_udp_payload_size(u16::MAX as u64)?; // all DNS packets have a maximum size of u16 due to DoQ and 1035 rfc
-
+        let endpoint_config = quic_config::endpoint();
         let (mut endpoint, _incoming) = Endpoint::new(endpoint_config, None, socket)?;
 
         // ensure the ALPN protocol is set correctly
@@ -216,7 +197,9 @@ impl QuicClientStreamBuilder {
             crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
         }
 
-        let client_config = ClientConfig::new(Arc::new(crypto_config));
+        let mut client_config = ClientConfig::new(Arc::new(crypto_config));
+        client_config.transport = self.transport_config;
+
         endpoint.set_default_client_config(client_config);
 
         let connecting = endpoint.connect(name_server, &dns_name)?;
@@ -235,11 +218,6 @@ impl QuicClientStreamBuilder {
             is_shutdown: false,
         })
     }
-}
-
-fn sanitize_transport_config(transport_config: &mut TransportConfig) {
-    transport_config.max_concurrent_bidi_streams(VarInt::from_u32(0));
-    transport_config.max_concurrent_uni_streams(VarInt::from_u32(0));
 }
 
 /// Default crypto options for quic
@@ -265,8 +243,9 @@ pub fn client_config_tls13_webpki_roots() -> TlsClientConfig {
 
 impl Default for QuicClientStreamBuilder {
     fn default() -> Self {
-        let mut transport_config = TransportConfig::default();
-        sanitize_transport_config(&mut transport_config);
+        let mut transport_config = quic_config::transport();
+        // clients never accept new bidirectional streams
+        transport_config.max_concurrent_bidi_streams(VarInt::from_u32(0));
 
         let client_config = client_config_tls13_webpki_roots();
 
