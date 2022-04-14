@@ -47,6 +47,7 @@ pub use self::serial_message::SerialMessage;
 fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
     if let Err(error) = result {
         if error.is_disconnected() {
+            debug!("ignoring send error on disconnected stream");
             return;
         }
 
