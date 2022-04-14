@@ -44,7 +44,7 @@ mod tests {
                 try_tcp_on_error: true,
                 ..ResolverOpts::default()
             },
-            TokioHandle,
+            TokioHandle::default(),
         )
         .expect("failed to create resolver");
 

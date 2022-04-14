@@ -80,8 +80,8 @@ impl Resolver {
         builder.enable_all();
 
         let runtime = builder.build()?;
-        let async_resolver =
-            AsyncResolver::new(config, options, TokioHandle).expect("failed to create resolver");
+        let async_resolver = AsyncResolver::new(config, options, TokioHandle::default())
+            .expect("failed to create resolver");
 
         Ok(Self {
             runtime: Mutex::new(runtime),
