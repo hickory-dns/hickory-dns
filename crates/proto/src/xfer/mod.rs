@@ -44,8 +44,12 @@ pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors
-fn ignore_send<M, E: Debug>(result: Result<M, E>) {
+fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
     if let Err(error) = result {
+        if error.is_disconnected() {
+            return;
+        }
+
         warn!("error notifying wait, possible future leak: {:?}", error);
     }
 }
