@@ -86,7 +86,7 @@ rustls = { version = "0.20", optional = true }
 time = "0.3"
 tracing = "0.1.30"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
-tokio = { version = "1.0", features = ["time"] }
+tokio = { version = "1.21", features = ["time", "rt"] }
 trust-dns-client = { version = "0.22.0", path = "../crates/client" }
 trust-dns-proto = { version = "0.22.0", path = "../crates/proto" }
 trust-dns-server = { version = "0.22.0", path = "../crates/server" }
