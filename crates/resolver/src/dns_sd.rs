@@ -174,7 +174,7 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
-            TokioHandle,
+            TokioHandle::default(),
         )
         .expect("failed to create resolver");
 
