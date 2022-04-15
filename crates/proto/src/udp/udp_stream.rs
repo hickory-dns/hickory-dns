@@ -170,7 +170,14 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
             //   meaning that sending will be prefered over receiving...
 
             // TODO: shouldn't this return the error to send to the sender?
-            ready!(socket.poll_send_to(cx, message.bytes(), addr))?;
+            if let Err(e) = ready!(socket.poll_send_to(cx, message.bytes(), addr)) {
+                // Drop the UDP packet and continue
+                log::warn!(
+                    "error sending message to {} on udp_socket, dropping response: {}",
+                    addr,
+                    e
+                );
+            }
 
             // message sent, need to pop the message
             assert!(outbound_messages.as_mut().poll_next(cx).is_ready());
