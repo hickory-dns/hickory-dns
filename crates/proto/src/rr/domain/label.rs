@@ -37,6 +37,12 @@ impl Label {
     /// This uses the bytes as raw ascii values, with nothing escaped on the wire.
     /// Generally users should use `from_str` or `from_ascii`
     pub fn from_raw_bytes(bytes: &[u8]) -> ProtoResult<Self> {
+        // Check for label validity.
+        // RFC 2181, Section 11 "Name Syntax".
+        // > The length of any one label is limited to between 1 and 63 octets.
+        if bytes.is_empty() {
+            return Err("Label requires a minimum length of 1".into());
+        }
         if bytes.len() > 63 {
             return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
         };
