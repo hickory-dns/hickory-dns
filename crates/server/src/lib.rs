@@ -55,6 +55,7 @@ pub use trust_dns_resolver as resolver;
 pub mod authority;
 pub mod config;
 pub mod error;
+#[cfg(feature = "logger")]
 pub mod logger;
 pub mod server;
 pub mod store;
