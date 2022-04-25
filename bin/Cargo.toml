@@ -81,7 +81,7 @@ time = "0.3"
 tokio = { version = "1.0", features = ["time"] }
 trust-dns-client = { version = "0.21.1", path = "../crates/client" }
 trust-dns-proto = { version = "0.21.1", path = "../crates/proto" }
-trust-dns-server = { version = "0.21.1", path = "../crates/server" }
+trust-dns-server = { version = "0.21.1", path = "../crates/server", features = ["logger"] }
 
 [dev-dependencies]
 env_logger = "0.9"

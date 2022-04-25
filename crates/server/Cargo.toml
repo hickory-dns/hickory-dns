@@ -48,6 +48,7 @@ dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec
 dnssec = []
 resolver = ["trust-dns-resolver"]
 sqlite = ["rusqlite"]
+logger = ["env_logger"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 # dns-over-https-openssl = ["dns-over-openssl", "trust-dns-client/dns-over-https-openssl", "dns-over-https"]
@@ -79,7 +80,7 @@ async-trait = "0.1.43"
 bytes = "1"
 cfg-if = "1"
 enum-as-inner = "0.4"
-env_logger = "0.9"
+env_logger = { version = "0.9", optional = true }
 futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 h2 = { version = "0.3.0", features = ["stream"], optional = true }
