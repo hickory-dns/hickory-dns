@@ -44,8 +44,13 @@ pub use self::retry_dns_handle::RetryDnsHandle;
 pub use self::serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors
-fn ignore_send<M, E: Debug>(result: Result<M, E>) {
+fn ignore_send<M, T>(result: Result<M, mpsc::TrySendError<T>>) {
     if let Err(error) = result {
+        if error.is_disconnected() {
+            debug!("ignoring send error on disconnected stream");
+            return;
+        }
+
         warn!("error notifying wait, possible future leak: {:?}", error);
     }
 }
@@ -163,7 +168,11 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request: DnsRequest = request.into();
-        debug!("enqueueing message: {:?}", request.queries());
+        debug!(
+            "enqueueing message:{}:{:?}",
+            request.op_code(),
+            request.queries()
+        );
 
         let (request, oneshot) = OneshotDnsRequest::oneshot(request);
         try_oneshot!(self.sender.try_send(request).map_err(|_| {

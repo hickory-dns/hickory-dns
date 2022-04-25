@@ -4,9 +4,14 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::{io, net::SocketAddr, sync::Arc, time::Duration};
+use std::{
+    io,
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
 
-use futures_util::{future, lock::Mutex, StreamExt};
+use futures_util::{future, StreamExt};
 use log::{debug, info, warn};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
@@ -34,7 +39,7 @@ use crate::{
 // TODO, would be nice to have a Slab for buffers here...
 /// A Futures based implementation of a DNS server
 pub struct ServerFuture<T: RequestHandler> {
-    handler: Arc<Mutex<T>>,
+    handler: Arc<T>,
     tasks: Vec<ServerTask>,
 }
 
@@ -42,7 +47,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> Self {
         Self {
-            handler: Arc::new(Mutex::new(handler)),
+            handler: Arc::new(handler),
             tasks: vec![],
         }
     }
@@ -65,13 +70,24 @@ impl<T: RequestHandler> ServerFuture<T> {
                     let message = match message {
                         Err(e) => {
                             warn!("error receiving message on udp_socket: {}", e);
-                            continue;
+                            break;
                         }
                         Ok(message) => message,
                     };
 
                     let src_addr = message.addr();
                     debug!("received udp request from: {}", src_addr);
+
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let stream_handle = stream_handle.with_remote_addr(src_addr);
 
@@ -117,19 +133,28 @@ impl<T: RequestHandler> ServerFuture<T> {
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TCP tcp_stream error: {}", e);
                             continue;
                         }
                     };
 
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
 
                     // and spawn to the io_loop
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("accepted request from: {}", src_addr);
                         // take the created stream...
                         let (buf_stream, stream_handle) =
@@ -229,20 +254,29 @@ impl<T: RequestHandler> ServerFuture<T> {
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
                             continue;
                         }
                     };
 
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let tls_acceptor = tls_acceptor.clone();
 
                     // kick out to a different task immediately, let them do the TLS handshake
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting TLS request from: {}", src_addr);
 
                         // perform the TLS
@@ -371,20 +405,29 @@ impl<T: RequestHandler> ServerFuture<T> {
             async move {
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving TLS tcp_stream error: {}", e);
                             continue;
                         }
                     };
 
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let tls_acceptor = tls_acceptor.clone();
 
                     // kick out to a different task immediately, let them do the TLS handshake
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting TLS request from: {}", src_addr);
 
                         // perform the TLS
@@ -465,7 +508,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         unimplemented!("openssl based `dns-over-https` not yet supported. see the `dns-over-https-rustls` feature")
     }
 
-    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
+    /// Register a TcpListener for HTTPS (h2) to the Server for supporting DoH (dns-over-https). The TcpListener should already be bound to either an
     /// IPv6 or an IPv4 address.
     ///
     /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
@@ -477,7 +520,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               requests within this time period will be closed. In the future it should be
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
-    /// * `pkcs12` - certificate used to announce to clients
+    /// * `certificate_and_key` - certificate and key used to announce to clients
     #[cfg(feature = "dns-over-https-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https-rustls")))]
     pub fn register_https_listener(
@@ -495,7 +538,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         let dns_hostname: Arc<str> = Arc::from(dns_hostname);
         let handler = self.handler.clone();
-        debug!("registered tcp: {:?}", listener);
+        debug!("registered https: {:?}", listener);
 
         let tls_acceptor = tls_server::new_acceptor(certificate_and_key.0, certificate_and_key.1)
             .map_err(|e| {
@@ -513,20 +556,29 @@ impl<T: RequestHandler> ServerFuture<T> {
                 let dns_hostname = dns_hostname;
                 loop {
                     let tcp_stream = listener.accept().await;
-                    let tcp_stream = match tcp_stream {
-                        Ok((t, _)) => t,
+                    let (tcp_stream, src_addr) = match tcp_stream {
+                        Ok((t, s)) => (t, s),
                         Err(e) => {
                             debug!("error receiving HTTPS tcp_stream error: {}", e);
                             continue;
                         }
                     };
 
+                    // verify that the src address is safe for responses
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
                     let handler = handler.clone();
                     let tls_acceptor = tls_acceptor.clone();
                     let dns_hostname = dns_hostname.clone();
 
                     tokio::spawn(async move {
-                        let src_addr = tcp_stream.peer_addr().unwrap();
                         debug!("starting HTTPS request from: {}", src_addr);
 
                         // TODO: need to consider timeout of total connect...
@@ -543,6 +595,86 @@ impl<T: RequestHandler> ServerFuture<T> {
                         debug!("accepted HTTPS request from: {}", src_addr);
 
                         h2_handler(handler, tls_stream, src_addr, dns_hostname).await;
+                    });
+                }
+            }
+        });
+
+        self.tasks.push(ServerTask(task));
+        Ok(())
+    }
+
+    /// Register a UdpSocket to the Server for supporting DoQ (dns-over-quic). The UdpSocket should already be bound to either an
+    /// IPv6 or an IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "dns-over-quic")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+    pub fn register_quic_listener(
+        &mut self,
+        socket: net::UdpSocket,
+        // TODO: need to set a timeout between requests.
+        _timeout: Duration,
+        certificate_and_key: (Vec<Certificate>, PrivateKey),
+        dns_hostname: String,
+    ) -> io::Result<()> {
+        use crate::proto::quic::QuicServer;
+        use crate::server::quic_handler::quic_handler;
+
+        let dns_hostname: Arc<str> = Arc::from(dns_hostname);
+        let handler = self.handler.clone();
+
+        debug!("registered quic: {:?}", socket);
+        let mut server =
+            QuicServer::with_socket(socket, certificate_and_key.0, certificate_and_key.1)?;
+
+        // for each incoming request...
+        let dns_hostname = dns_hostname;
+        let task = tokio::spawn({
+            async move {
+                let dns_hostname = dns_hostname;
+                loop {
+                    let (streams, src_addr) = match server.next().await {
+                        Ok(Some(c)) => c,
+                        Ok(None) => continue,
+                        Err(e) => {
+                            debug!("error receiving quic connection: {e}");
+                            continue;
+                        }
+                    };
+
+                    // verify that the src address is safe for responses
+                    // TODO: we're relying the quinn library to actually validate responses before we get here, but this check is still worth doing
+                    if let Err(e) = sanitize_src_address(src_addr) {
+                        warn!(
+                            "address can not be responded to {src_addr}: {e}",
+                            src_addr = src_addr,
+                            e = e
+                        );
+                        continue;
+                    }
+
+                    let handler = handler.clone();
+                    let dns_hostname = dns_hostname.clone();
+
+                    tokio::spawn(async move {
+                        debug!("starting quic stream request from: {src_addr}");
+
+                        // TODO: need to consider timeout of total connect...
+                        let result = quic_handler(handler, streams, src_addr, dns_hostname).await;
+
+                        if let Err(e) = result {
+                            warn!("quic stream processing failed from {src_addr}: {e}")
+                        }
                     });
                 }
             }
@@ -583,7 +715,7 @@ impl Drop for ServerTask {
 pub(crate) async fn handle_raw_request<T: RequestHandler>(
     message: SerialMessage,
     protocol: Protocol,
-    request_handler: Arc<Mutex<T>>,
+    request_handler: Arc<T>,
     response_handler: BufDnsStreamHandle,
 ) {
     let src_addr = message.addr();
@@ -658,10 +790,11 @@ impl<R: ResponseHandler> ResponseHandler for ReportingResponseHandler<R> {
 }
 
 pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
+    // TODO: allow Message here...
     message_bytes: &[u8],
     src_addr: SocketAddr,
     protocol: Protocol,
-    request_handler: Arc<Mutex<T>>,
+    request_handler: Arc<T>,
     response_handler: R,
 ) {
     let mut decoder = BinDecoder::new(message_bytes);
@@ -706,11 +839,7 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
             handler: response_handler,
         };
 
-        request_handler
-            .lock()
-            .await
-            .handle_request(&request, reporter)
-            .await;
+        request_handler.handle_request(&request, reporter).await;
     };
 
     // Attempt to decode the message
@@ -759,6 +888,48 @@ pub(crate) async fn handle_request<R: ResponseHandler, T: RequestHandler>(
     }
 }
 
+/// Checks if the IP address is safe for returning messages
+///
+/// Examples of unsafe addresses are any with a port of `0`
+///
+/// # Returns
+///
+/// Error if the address should not be used for returned requests
+fn sanitize_src_address(src: SocketAddr) -> Result<(), String> {
+    // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
+    if src.port() == 0 {
+        return Err(format!("cannot respond to src on port 0: {}", src));
+    }
+
+    fn verify_v4(src: Ipv4Addr) -> Result<(), String> {
+        if src.is_unspecified() {
+            return Err(format!("cannot respond to unspecified v4 addr: {}", src));
+        }
+
+        if src.is_broadcast() {
+            return Err(format!("cannot respond to broadcast v4 addr: {}", src));
+        }
+
+        // TODO: add check for is_reserved when that stabilizes
+
+        Ok(())
+    }
+
+    fn verify_v6(src: Ipv6Addr) -> Result<(), String> {
+        if src.is_unspecified() {
+            return Err(format!("cannot respond to unspecified v6 addr: {}", src));
+        }
+
+        Ok(())
+    }
+
+    // currently checks that the src address aren't either the undefined IPv4 or IPv6 address, and not port 0.
+    match src.ip() {
+        IpAddr::V4(v4) => verify_v4(v4),
+        IpAddr::V6(v6) => verify_v6(v6),
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -790,5 +961,29 @@ mod tests {
         });
 
         UdpSocket::bind(bind_addr).unwrap();
+    }
+
+    #[test]
+    fn test_sanitize_src_addr() {
+        // ipv4 tests
+        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 4096))).is_ok());
+        assert!(sanitize_src_address(SocketAddr::from(([127, 0, 0, 1], 53))).is_ok());
+
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 0))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([192, 168, 1, 1], 0))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0], 4096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([255, 255, 255, 255], 4096))).is_err());
+
+        // ipv6 tests
+        assert!(
+            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 4096))).is_ok()
+        );
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], 4096))).is_ok());
+
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 4096))).is_err());
+        assert!(sanitize_src_address(SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 0], 0))).is_err());
+        assert!(
+            sanitize_src_address(SocketAddr::from(([0x20, 0, 0, 0, 0, 0, 0, 0x1], 0))).is_err()
+        );
     }
 }

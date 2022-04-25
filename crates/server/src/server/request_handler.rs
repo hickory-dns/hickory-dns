@@ -71,6 +71,7 @@ impl std::ops::Deref for Request {
 // TODO: add ProtocolInfo that would have TLS details or other additional things...
 /// A narrow view of the Request, specifically a verified single query for the request
 #[non_exhaustive]
+#[derive(Clone)]
 pub struct RequestInfo<'a> {
     /// The source address from which the request came
     pub src: SocketAddr,
@@ -147,4 +148,28 @@ pub trait RequestHandler: Send + Sync + Unpin + 'static {
         request: &Request,
         response_handle: R,
     ) -> ResponseInfo;
+}
+
+#[cfg(test)]
+mod tests {
+    use trust_dns_client::op::{Header, Query};
+
+    use crate::server::Protocol;
+
+    use super::RequestInfo;
+
+    #[test]
+    fn request_info_clone() {
+        let query: Query = Query::new();
+        let header = Header::new();
+        let lower_query = query.into();
+        let origin = RequestInfo::new(
+            "127.0.0.1:3000".parse().unwrap(),
+            Protocol::Udp,
+            &header,
+            &lower_query,
+        );
+        let cloned = origin.clone();
+        assert_eq!(origin.header, cloned.header);
+    }
 }

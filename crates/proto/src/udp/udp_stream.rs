@@ -30,7 +30,13 @@ where
     /// Time implementation used for this type
     type Time: Time;
 
-    /// UdpSocket
+    /// setups up a "client" udp connection that will only receive packets from the associated address
+    async fn connect(addr: SocketAddr) -> io::Result<Self>;
+
+    /// same as connect, but binds to the specified local address for seding address
+    async fn connect_with_bind(addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self>;
+
+    /// a "server" UDP socket, that bind to the local listening address, and unbound remote address (can receive from anything)
     async fn bind(addr: SocketAddr) -> io::Result<Self>;
 
     /// Poll once Receive data from the socket and returns the number of bytes read and the address from
@@ -164,7 +170,14 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
             //   meaning that sending will be prefered over receiving...
 
             // TODO: shouldn't this return the error to send to the sender?
-            ready!(socket.poll_send_to(cx, message.bytes(), addr))?;
+            if let Err(e) = ready!(socket.poll_send_to(cx, message.bytes(), addr)) {
+                // Drop the UDP packet and continue
+                log::warn!(
+                    "error sending message to {} on udp_socket, dropping response: {}",
+                    addr,
+                    e
+                );
+            }
 
             // message sent, need to pop the message
             assert!(outbound_messages.as_mut().poll_next(cx).is_ready());
@@ -267,6 +280,28 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
 #[async_trait]
 impl UdpSocket for tokio::net::UdpSocket {
     type Time = crate::TokioTime;
+
+    /// setups up a "client" udp connection that will only receive packets from the associated address
+    ///
+    /// if the addr is ipv4 then it will bind local addr to 0.0.0.0:0, ipv6 [::]0
+    async fn connect(addr: SocketAddr) -> io::Result<Self> {
+        let bind_addr: SocketAddr = match addr {
+            SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),
+            SocketAddr::V6(_addr) => (Ipv6Addr::UNSPECIFIED, 0).into(),
+        };
+
+        Self::connect_with_bind(addr, bind_addr).await
+    }
+
+    /// same as connect, but binds to the specified local address for seding address
+    async fn connect_with_bind(_addr: SocketAddr, bind_addr: SocketAddr) -> io::Result<Self> {
+        let socket = Self::bind(bind_addr).await?;
+
+        // TODO: research connect more, it appears to break UDP receiving tests, etc...
+        // socket.connect(addr).await?;
+
+        Ok(socket)
+    }
 
     async fn bind(addr: SocketAddr) -> io::Result<Self> {
         Self::bind(addr).await

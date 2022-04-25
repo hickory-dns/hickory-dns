@@ -266,6 +266,7 @@ const ZONEDIR_ARG: &str = "zonedir";
 const PORT_ARG: &str = "port";
 const TLS_PORT_ARG: &str = "tls-port";
 const HTTPS_PORT_ARG: &str = "https-port";
+const QUIC_PORT_ARG: &str = "quic-port";
 
 /// Args struct for all options
 #[allow(dead_code)]
@@ -277,6 +278,7 @@ struct Args {
     pub(crate) flag_port: Option<u16>,
     pub(crate) flag_tls_port: Option<u16>,
     pub(crate) flag_https_port: Option<u16>,
+    pub(crate) flag_quic_port: Option<u16>,
 }
 
 impl<'a> From<ArgMatches> for Args {
@@ -298,6 +300,9 @@ impl<'a> From<ArgMatches> for Args {
             flag_https_port: matches
                 .value_of(HTTPS_PORT_ARG)
                 .map(|s| s.parse().expect("bad https-port argument")),
+            flag_quic_port: matches
+                .value_of(QUIC_PORT_ARG)
+                .map(|s| s.parse().expect("bad quic-port argument")),
         }
     }
 }
@@ -307,6 +312,7 @@ impl<'a> From<ArgMatches> for Args {
 /// `Note`: Tries to avoid panics, in favor of always starting.
 #[allow(unused_mut)]
 fn main() {
+    // TODO: rewrite arg parsing to use claps new struct macro parsing
     let args = command!()
         .arg(
             Arg::new(QUIET_ARG)
@@ -357,6 +363,14 @@ fn main() {
                     "Listening port for DNS over HTTPS queries, overrides any value in config file",
                 )
                 .value_name(HTTPS_PORT_ARG),
+        )
+        .arg(
+            Arg::new(QUIC_PORT_ARG)
+                .long(QUIC_PORT_ARG)
+                .help(
+                    "Listening port for DNS over QUIC queries, overrides any value in config file",
+                )
+                .value_name(QUIC_PORT_ARG),
         )
         .get_matches();
 
@@ -469,7 +483,7 @@ fn main() {
     let tls_cert_config = config.get_tls_cert();
 
     // and TLS as necessary
-    // TODO: we should add some more control from configs to enable/disable TLS/HTTPS
+    // TODO: we should add some more control from configs to enable/disable TLS/HTTPS/QUIC
     if let Some(_tls_cert_config) = tls_cert_config {
         // setup TLS listeners
         #[cfg(feature = "dns-over-tls")]
@@ -486,6 +500,18 @@ fn main() {
         // setup HTTPS listeners
         #[cfg(feature = "dns-over-https")]
         config_https(
+            &args,
+            &mut server,
+            &config,
+            _tls_cert_config,
+            &zone_dir,
+            &listen_addrs,
+            &mut runtime,
+        );
+
+        // setup QUIC listeners
+        #[cfg(feature = "dns-over-quic")]
+        config_quic(
             &args,
             &mut server,
             &config,
@@ -630,7 +656,66 @@ fn config_https(
                 tls_cert,
                 tls_cert_config.get_endpoint_name().to_string(),
             )
-            .expect("could not register TLS listener");
+            .expect("could not register HTTPS listener");
+    }
+}
+
+#[cfg(feature = "dns-over-quic")]
+fn config_quic(
+    args: &Args,
+    server: &mut ServerFuture<Catalog>,
+    config: &Config,
+    tls_cert_config: &TlsCertConfig,
+    zone_dir: &Path,
+    listen_addrs: &[IpAddr],
+    runtime: &mut runtime::Runtime,
+) {
+    use futures::TryFutureExt;
+
+    let quic_listen_port: u16 = args
+        .flag_quic_port
+        .unwrap_or_else(|| config.get_quic_listen_port());
+    let quic_sockaddrs: Vec<SocketAddr> = listen_addrs
+        .iter()
+        .flat_map(|x| (*x, quic_listen_port).to_socket_addrs().unwrap())
+        .collect();
+
+    if quic_sockaddrs.is_empty() {
+        warn!("a tls certificate was specified, but no QUIC addresses configured to listen on");
+    }
+
+    for quic_listener in &quic_sockaddrs {
+        info!(
+            "loading cert for DNS over TLS named {} from {:?}",
+            tls_cert_config.get_endpoint_name(),
+            tls_cert_config.get_path()
+        );
+        // TODO: see about modifying native_tls to impl Clone for Pkcs12
+        let tls_cert = dnssec::load_cert(zone_dir, tls_cert_config)
+            .expect("error loading tls certificate file");
+
+        info!("binding QUIC to {:?}", quic_listener);
+        let quic_listener = runtime.block_on(
+            UdpSocket::bind(quic_listener)
+                .unwrap_or_else(|_| panic!("could not bind to tls: {}", quic_listener)),
+        );
+
+        info!(
+            "listening for QUIC on {:?}",
+            quic_listener
+                .local_addr()
+                .expect("could not lookup local address")
+        );
+
+        let _guard = runtime.enter();
+        server
+            .register_quic_listener(
+                quic_listener,
+                config.get_tcp_request_timeout(),
+                tls_cert,
+                tls_cert_config.get_endpoint_name().to_string(),
+            )
+            .expect("could not register QUIC listener");
     }
 }
 

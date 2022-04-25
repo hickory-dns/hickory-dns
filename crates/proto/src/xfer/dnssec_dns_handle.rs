@@ -19,7 +19,6 @@ use futures_util::stream;
 use futures_util::stream::{Stream, TryStreamExt};
 use log::{debug, trace};
 
-use crate::error::*;
 use crate::op::{OpCode, Query};
 use crate::rr::dnssec::rdata::{DNSSECRData, DNSKEY, SIG};
 #[cfg(feature = "dnssec")]
@@ -29,6 +28,7 @@ use crate::rr::rdata::opt::EdnsOption;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, FirstAnswer};
+use crate::{error::*, op::Edns};
 
 #[derive(Debug)]
 struct Rrset {
@@ -137,8 +137,7 @@ where
             // TODO: cache response of the server about understood algorithms
             #[cfg(feature = "dnssec")]
             {
-                let edns = request.edns_mut();
-
+                let edns = request.extensions_mut().get_or_insert_with(Edns::new);
                 edns.set_dnssec_ok(true);
 
                 // send along the algorithms which are supported by this handle

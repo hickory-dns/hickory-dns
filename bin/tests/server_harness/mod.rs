@@ -37,16 +37,17 @@ fn collect_and_print<R: BufRead>(read: &mut R, output: &mut String) {
 #[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
 where
-    F: FnOnce(Option<u16>, Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
+    F: FnOnce(Option<u16>, Option<u16>, Option<u16>, Option<u16>, Option<u16>) -> R + UnwindSafe,
 {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {}", server_path);
 
-    let mut named = Command::new(&format!("{}/target/debug/named", server_path))
+    let mut command = Command::new(&format!("{}/target/debug/named", server_path));
+    command
         .stdout(Stdio::piped())
         .env(
             "RUST_LOG",
-            "trust_dns_client=debug,trust_dns_https=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
+            "trust_dns_client=debug,trust_dns_proto=debug,trust_dns_resolver=debug,trust_dns_server=debug",
         ).arg("-d")
         .arg(&format!(
             "--config={}/tests/test-data/named_test_configs/{}",
@@ -57,8 +58,11 @@ where
         )).arg(&format!("--port={}", 0))
         .arg(&format!("--tls-port={}", 0))
         .arg(&format!("--https-port={}", 0))
-        .spawn()
-        .expect("failed to start named");
+        .arg(&format!("--quic-port={}", 0));
+
+    println!("named cli options: {command:#?}", command = command);
+
+    let mut named = command.spawn().expect("failed to start named");
 
     println!("server starting");
 
@@ -98,11 +102,13 @@ where
         })
         .expect("could not start thread killer");
 
-    // These will be collected from the server startup
+    // These will be collected from the server startup'
+    // FIXME: create a wrapper type for all of these params
     let mut test_udp_port = Option::<u16>::None;
     let mut test_tcp_port = Option::<u16>::None;
     let mut test_tls_port = Option::<u16>::None;
     let mut test_https_port = Option::<u16>::None;
+    let mut test_quic_port = Option::<u16>::None;
 
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
@@ -114,6 +120,7 @@ where
     let tcp_regex = Regex::new(r"listening for TCP on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
     let tls_regex = Regex::new(r"listening for TLS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
     let https_regex = Regex::new(r"listening for HTTPS on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
+    let quic_regex = Regex::new(r"listening for QUIC on (?:V4\()?0\.0\.0\.0:(\d+)\)?").unwrap();
 
     while Instant::now() < wait_for_start_until {
         {
@@ -162,6 +169,14 @@ where
                     .parse()
                     .expect("could not parse https port"),
             );
+        } else if let Some(quic) = quic_regex.captures(&output) {
+            test_quic_port = Some(
+                quic.get(1)
+                    .expect("quic missing port")
+                    .as_str()
+                    .parse()
+                    .expect("could not parse quic port"),
+            );
         } else if output.contains("awaiting connections...") {
             found = true;
             break;
@@ -171,8 +186,7 @@ where
     stdout().flush().unwrap();
     assert!(found);
     println!(
-        "Test server started. ports: udp {:?}, tcp {:?}, tls {:?}, https {:?}",
-        test_udp_port, test_tcp_port, test_tls_port, test_https_port
+        "Test server started. ports: udp {test_udp_port:?}, tcp {test_tcp_port:?}, tls {test_tls_port:?}, https {test_https_port:?}, quic {test_quic_port:?}", test_udp_port = test_udp_port, test_tcp_port = test_tcp_port, test_tls_port = test_tls_port, test_https_port = test_https_port, test_quic_port = test_quic_port,
     );
 
     // spawn a thread to capture stdout
@@ -199,8 +213,15 @@ where
 
     println!("running test...");
 
-    let result =
-        catch_unwind(move || test(test_udp_port, test_tcp_port, test_tls_port, test_https_port));
+    let result = catch_unwind(move || {
+        test(
+            test_udp_port,
+            test_tcp_port,
+            test_tls_port,
+            test_https_port,
+            test_quic_port,
+        )
+    });
 
     println!("test completed");
     succeeded.store(true, atomic::Ordering::Relaxed);

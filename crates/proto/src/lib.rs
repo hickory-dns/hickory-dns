@@ -74,6 +74,12 @@ pub mod op;
 #[cfg(feature = "dns-over-openssl")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-openssl")))]
 pub mod openssl;
+#[cfg(all(feature = "dns-over-quic", feature = "tokio-runtime"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(all(feature = "dns-over-quic", feature = "tokio-runtime")))
+)]
+pub mod quic;
 pub mod rr;
 #[cfg(feature = "dns-over-rustls")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]

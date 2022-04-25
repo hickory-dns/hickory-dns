@@ -14,6 +14,8 @@ pub enum Protocol {
     Dtls,
     /// HTTP over TLS, DNS over HTTPS, aka DoH (similar to DoT)
     Https,
+    /// Quic, DNS over Quic, aka DoQ (similar to DoH)
+    Quic,
 }
 
 impl fmt::Display for Protocol {
@@ -24,6 +26,7 @@ impl fmt::Display for Protocol {
             Protocol::Tls => "TLS",
             Protocol::Dtls => "DTLS",
             Protocol::Https => "HTTPS",
+            Protocol::Quic => "QUIC",
         };
 
         f.write_str(s)

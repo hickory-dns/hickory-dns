@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-integration"
-version = "0.21.1"
+version = "0.21.2"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -59,6 +59,7 @@ dnssec = []
 
 dns-over-https-rustls = ["trust-dns-client/dns-over-https-rustls", "trust-dns-resolver/dns-over-https-rustls", "dns-over-https", "webpki-roots"]
 dns-over-https = ["trust-dns-proto/dns-over-https"]
+dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
 
 # TODO: need to make server support rustls and native-tls
 # dns-over-native-tls = ["dns-over-tls",  "trust-dns-resolver/dns-over-native-tls", "trust-dns-server/dns-over-native-tls"]

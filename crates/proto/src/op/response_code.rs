@@ -59,7 +59,7 @@ use std::fmt::{Display, Formatter};
 ///
 ///                 6-15            Reserved for future use.
 ///  ```
-#[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
 #[allow(dead_code)]
 pub enum ResponseCode {
     /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)

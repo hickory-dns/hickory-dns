@@ -284,6 +284,10 @@ pub enum Protocol {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     Https,
+    /// QUIC for DNS over QUIC
+    #[cfg(feature = "dns-over-quic")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-quic")))]
+    Quic,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
@@ -299,6 +303,8 @@ impl fmt::Display for Protocol {
             Protocol::Tls => "tls",
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => "https",
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => "quic",
             #[cfg(feature = "mdns")]
             Protocol::Mdns => "mdns",
         };
@@ -317,6 +323,9 @@ impl Protocol {
             Protocol::Tls => false,
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => false,
+            // TODO: if you squint, this is true...
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => true,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => true,
         }
@@ -336,6 +345,8 @@ impl Protocol {
             Protocol::Tls => true,
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => true,
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => true,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => false,
         }
@@ -569,7 +580,7 @@ impl NameServerConfigGroup {
     #[cfg(feature = "dns-over-https")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-https")))]
     pub fn google_https() -> Self {
-        Self::from_ips_https(GOOGLE_IPS, 53, "dns.google".to_string(), true)
+        Self::from_ips_https(GOOGLE_IPS, 443, "dns.google".to_string(), true)
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
@@ -808,7 +819,10 @@ impl Default for ResolverOpts {
             positive_max_ttl: None,
             negative_max_ttl: None,
             num_concurrent_reqs: 2,
-            preserve_intermediates: false,
+
+            // Defaults to `true` to match the behavior of dig and nslookup.
+            preserve_intermediates: true,
+
             try_tcp_on_error: false,
         }
     }

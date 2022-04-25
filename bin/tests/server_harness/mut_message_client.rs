@@ -1,7 +1,7 @@
 use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::{DnsHandle, DnsRequest};
 #[cfg(feature = "dnssec")]
-use trust_dns_client::rr::rdata::opt::EdnsOption;
+use trust_dns_client::{op::Edns, rr::rdata::opt::EdnsOption};
 use trust_dns_server::authority::LookupOptions;
 
 #[derive(Clone)]
@@ -35,7 +35,7 @@ impl<C: ClientHandle + Unpin> DnsHandle for MutMessageHandle<C> {
         #[cfg(feature = "dnssec")]
         {
             // mutable block
-            let edns = request.edns_mut();
+            let edns = request.extensions_mut().get_or_insert_with(Edns::new);
             edns.set_dnssec_ok(true);
             edns.options_mut()
                 .insert(EdnsOption::DAU(self.lookup_options.supported_algorithms()));

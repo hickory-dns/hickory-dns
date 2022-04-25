@@ -270,6 +270,8 @@ pub mod lookup;
 pub mod lookup_ip;
 #[doc(hidden)]
 pub mod name_server;
+#[cfg(feature = "dns-over-quic")]
+mod quic;
 #[cfg(feature = "tokio-runtime")]
 mod resolver;
 pub mod system_conf;

@@ -71,7 +71,12 @@ struct Opts {
     quad9: bool,
 
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
-    #[clap(short = 'n', long, require_value_delimiter = true)]
+    #[clap(
+        short = 'n',
+        long,
+        use_value_delimiter = true,
+        require_value_delimiter = true
+    )]
     nameserver: Vec<SocketAddr>,
 
     /// Specify the IP address to connect from.

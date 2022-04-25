@@ -207,7 +207,7 @@ impl DnsResponse {
                     .map(|soa| (record.ttl(), soa))
             })
             .next()
-            .map(|(ttl, soa)| (ttl as u32).min(soa.minimum()).max(0))
+            .map(|(ttl, soa)| (ttl as u32).min(soa.minimum()))
     }
 
     /// Does the response contain any records matching the query name and type?
@@ -281,6 +281,11 @@ impl DnsResponse {
             (ResponseCode::NoError, false, true, _, false, _) => Some(NegativeType::Referral),
             _ => None,
         }
+    }
+
+    /// Take the inner Message from the response
+    pub fn into_inner(self) -> Message {
+        self.0
     }
 }
 

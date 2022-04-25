@@ -156,9 +156,9 @@ where
     .set_op_code(OpCode::Query)
     .set_recursion_desired(true)
     .set_edns(edns)
-    .edns_mut()
-    .set_max_payload(1232)
-    .set_version(0);
+    .extensions_mut()
+    .as_mut()
+    .map(|edns| edns.set_max_payload(1232).set_version(0));
 
     let response = client.send(msg).remove(0).expect("Query failed");
 
@@ -174,9 +174,14 @@ where
     assert_eq!(record.name(), &name);
     assert_eq!(record.rr_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
-    assert!(response.edns().is_some());
+    assert!(response.extensions().is_some());
     assert_eq!(
-        response.edns().unwrap().option(EdnsCode::Subnet).unwrap(),
+        response
+            .extensions()
+            .as_ref()
+            .unwrap()
+            .option(EdnsCode::Subnet)
+            .unwrap(),
         &EdnsOption::Unknown(EdnsCode::Subnet.into(), vec![0, 1, 16, 0, 1, 2])
     );
 
@@ -228,7 +233,11 @@ where
         .expect("Query failed");
 
     println!("response records: {:?}", response);
-    assert!(response.edns().expect("edns not here").dnssec_ok());
+    assert!(response
+        .extensions()
+        .as_ref()
+        .expect("edns not here")
+        .dnssec_ok());
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);

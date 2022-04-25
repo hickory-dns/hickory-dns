@@ -143,3 +143,9 @@ updates:
   - dependency-name: data-encoding
     versions:
     - 2.3.2
+- package-ecosystem: github-actions
+  directory: "/"
+  schedule:
+    interval: weekly
+    time: "13:00"
+  open-pull-requests-limit: 10

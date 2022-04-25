@@ -29,6 +29,8 @@ use tokio_rustls::client::TlsStream as TokioTlsStream;
 use proto::https::{HttpsClientConnect, HttpsClientStream};
 #[cfg(feature = "mdns")]
 use proto::multicast::{MdnsClientConnect, MdnsClientStream, MdnsQueryType};
+#[cfg(feature = "dns-over-quic")]
+use proto::quic::{QuicClientConnect, QuicClientStream};
 use proto::{
     self,
     error::ProtoError,
@@ -196,6 +198,22 @@ where
                 );
                 ConnectionConnect::Https(exchange)
             }
+            #[cfg(feature = "dns-over-quic")]
+            Protocol::Quic => {
+                let socket_addr = config.socket_addr;
+                let bind_addr = config.bind_addr;
+                let tls_dns_name = config.tls_dns_name.clone().unwrap_or_default();
+                #[cfg(feature = "dns-over-rustls")]
+                let client_config = config.tls_config.clone();
+
+                let exchange = crate::quic::new_quic_stream(
+                    socket_addr,
+                    bind_addr,
+                    tls_dns_name,
+                    client_config,
+                );
+                ConnectionConnect::Quic(exchange)
+            }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
                 let socket_addr = config.socket_addr;
@@ -267,6 +285,8 @@ pub(crate) enum ConnectionConnect<R: RuntimeProvider> {
     ),
     #[cfg(feature = "dns-over-https")]
     Https(DnsExchangeConnect<HttpsClientConnect<R::Tcp>, HttpsClientStream, TokioTime>),
+    #[cfg(feature = "dns-over-quic")]
+    Quic(DnsExchangeConnect<QuicClientConnect, QuicClientStream, TokioTime>),
     #[cfg(feature = "mdns")]
     Mdns(
         DnsExchangeConnect<
@@ -307,6 +327,12 @@ impl<R: RuntimeProvider> Future for ConnectionFuture<R> {
             }
             #[cfg(feature = "dns-over-https")]
             ConnectionConnect::Https(ref mut conn) => {
+                let (conn, bg) = ready!(conn.poll_unpin(cx))?;
+                self.spawner.spawn_bg(bg);
+                GenericConnection(conn)
+            }
+            #[cfg(feature = "dns-over-quic")]
+            ConnectionConnect::Quic(ref mut conn) => {
                 let (conn, bg) = ready!(conn.poll_unpin(cx))?;
                 self.spawner.spawn_bg(bg);
                 GenericConnection(conn)

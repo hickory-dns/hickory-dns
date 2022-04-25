@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-resolver"
-version = "0.21.1"
+version = "0.21.2"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -47,6 +47,8 @@ dns-over-tls = []
 # This requires some TLS library, currently only rustls is supported
 dns-over-https-rustls = ["trust-dns-proto/dns-over-https-rustls", "dns-over-rustls", "dns-over-https"]
 dns-over-https = ["trust-dns-proto/dns-over-https"]
+
+dns-over-quic = ["rustls/quic", "dns-over-rustls", "trust-dns-proto/dns-over-quic"]
 
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]

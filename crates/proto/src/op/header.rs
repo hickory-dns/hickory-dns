@@ -47,7 +47,7 @@ use crate::{
 ///
 /// ```
 ///
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Hash)]
 pub struct Header {
     id: u16,
     message_type: MessageType,
@@ -69,10 +69,11 @@ impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
-            "{id}:{flags}:{code:?}:{answers}/{authorities}/{additionals}",
+            "{id}:{flags}:{code:?}:{op_code}:{answers}/{authorities}/{additionals}",
             id = self.id,
             flags = self.flags(),
             code = self.response_code,
+            op_code = self.op_code,
             answers = self.answer_count,
             authorities = self.name_server_count,
             additionals = self.additional_count,
@@ -81,7 +82,7 @@ impl fmt::Display for Header {
 }
 
 /// Message types are either Query (also Update) or Response
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 pub enum MessageType {
     /// Queries are Client requests, these are either Queries or Updates
     Query,
@@ -101,7 +102,7 @@ impl fmt::Display for MessageType {
 }
 
 /// All the flags of the request/response header
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Flags {
     authoritative: bool,
     truncation: bool,

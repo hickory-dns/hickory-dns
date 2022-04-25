@@ -5,6 +5,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.21.2
+
+### Added
+
+- (proto) add PartialEq+Hash derives, #1661 by @leshow
+
+### Fixed
+
+- (server) fix panic when tcp connect goes away before handling, #1668
+- (server) crates/server, InMemoryStore: Use a RwLock instead of a Mutex to manage inner storage, #1665 by @erikh
+- (all) fix audit regex failure, #1658
+- (resolver) Stop searching for additional records when encountering a name already seen, #1657 by @Mossop
+- (proto) fix time txt parsing in SOA records, #1656
+
+### Removed
+
+- (all) remove old crates (the ones moved into proto, tag v0.21.1 can get if needed for crates.io), #1655
+
+### Changed
+
+- (resolver) keep any address records included in the response to an NS query, #1672 by @db48x
+- (resolver) force forwarder to preserve_intermediates, #1660 by @vlmutolo
+- (resolver) make constructors for AsyncResolver with custom providers public, #1654 by @Noah-Kennedy
+
 ## 0.21.1
 
 ### Fixed

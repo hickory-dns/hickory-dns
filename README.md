@@ -21,9 +21,6 @@ This repo consists of multiple crates:
 | **Client** | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server. |
 | **Server** | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `named` binary for running in a daemon form. |
 | **Resolver** | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
-| **Rustls** | [![](https://img.shields.io/crates/v/trust-dns-rustls.svg)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls) Implementation of DNS over TLS protocol using the rustls and ring libraries. |
-| **NativeTls** | [![](https://img.shields.io/crates/v/trust-dns-native-tls.svg)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls) Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries |
-| **OpenSsl** | [![](https://img.shields.io/crates/v/trust-dns-openssl.svg)](https://crates.io/crates/trust_dns_openssl) [![trust-dns-openssl](https://docs.rs/trust-dns-openssl/badge.svg)](https://docs.rs/trust-dns-openssl) Implementation of DNS over TLS protocol using OpenSSL |
 
 # Goals
 
@@ -342,6 +339,14 @@ $> cargo build --release --features dns-over-rustls
     Because of all the security advisories out there for BIND.
 Using Rust semantics it should be possible to develop a high performance and
 safe DNS Server that is more resilient to attacks.
+
+- What is the MSRV (minimum stable Rust version) policy?
+
+    Trust-DNS will work to support backward compatibility with three Rust versions.
+For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
+version is only increased as necessary, so it's possible that the MSRV is older
+than this policy states. Additionally, the MSRV is only supported for the `no-default-features`
+build due to it being an intractable issue of trying to enforce this policy on dependencies.
 
 ## Community
 

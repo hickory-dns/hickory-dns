@@ -199,8 +199,8 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     ))
     .unwrap()
     .iter()
-    .cloned()
     .next()
+    .cloned()
     .unwrap();
     assert_eq!(&Name::from_str("a.isi.edu").unwrap(), a_record.name());
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?

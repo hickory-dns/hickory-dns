@@ -173,7 +173,7 @@ dependencies = [
 
 [[package]]
 name = "async-std-resolver"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "async-std",
  "async-trait",
@@ -272,6 +272,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c59e7af012c713f529e7a3ee57ce9b31ddd858d4b512923602f74608b009631"
 
 [[package]]
+name = "byteorder"
+version = "1.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
 name = "bytes"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -301,11 +307,14 @@ version = "3.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5177fac1ab67102d8989464efd043c6ff44191b1557ec1ddd489b4f7e1447e77"
 dependencies = [
+ "atty",
  "bitflags",
  "clap_derive",
  "indexmap",
  "lazy_static",
  "os_str_bytes",
+ "strsim",
+ "termcolor",
  "textwrap",
 ]
 
@@ -591,6 +600,15 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro-nested",
  "slab",
+]
+
+[[package]]
+name = "fxhash"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c31b6d751ae2c7f11320402d34e41349dd1016f8d5d45e48c4312bc8625af50c"
+dependencies = [
+ "byteorder",
 ]
 
 [[package]]
@@ -1109,6 +1127,60 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
+name = "quinn"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d147472bc9a09f13b06c044787b6683cdffa02e2865b7f0fb53d67c49ed2988e"
+dependencies = [
+ "bytes",
+ "futures-channel",
+ "futures-util",
+ "fxhash",
+ "quinn-proto",
+ "quinn-udp",
+ "rustls",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "webpki 0.22.0",
+]
+
+[[package]]
+name = "quinn-proto"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2b1562bf4998b0c6d1841a4742b7103bb82cdde61374833de826bab9e8ad498"
+dependencies = [
+ "bytes",
+ "fxhash",
+ "rand",
+ "ring",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pemfile 0.2.1",
+ "slab",
+ "thiserror",
+ "tinyvec",
+ "tracing",
+ "webpki 0.22.0",
+]
+
+[[package]]
+name = "quinn-udp"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df185e5e5f7611fa6e628ed8f9633df10114b03bbaecab186ec55822c44ac727"
+dependencies = [
+ "futures-util",
+ "libc",
+ "mio",
+ "quinn-proto",
+ "socket2",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1178,9 +1250,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.5.4"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d07a8629359eb56f1e2fb1652bb04212c072a87ba68546a04065d525673ac461"
+checksum = "1a11647b6b25ff05a515cb92c365cec08801e83423a235b51e231e1808747286"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1262,10 +1334,31 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustls-pemfile"
-version = "0.3.0"
+name = "rustls-native-certs"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ee86d63972a7c661d1536fefe8c3c8407321c3df668891286de28abcd087360"
+checksum = "5ca9ebdfa27d3fc180e42879037b5338ab1c040c06affd00d8338598e7800943"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile 0.2.1",
+ "schannel",
+ "security-framework",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eebeaeb360c87bfb72e84abdb3447159c0eaececf1bef2aecd65a8be949d1c9"
+dependencies = [
+ "base64",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7522c9de787ff061458fe9a829dc790a3f5b22dc571694fc5883f448b94d9a9"
 dependencies = [
  "base64",
 ]
@@ -1385,6 +1478,12 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "strsim"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
 
 [[package]]
 name = "syn"
@@ -1580,7 +1679,19 @@ checksum = "09adeb8c97449311ccd28a427f96fb563e7fd31aabf994189879d9da2394b89d"
 dependencies = [
  "cfg-if",
  "pin-project-lite",
+ "tracing-attributes",
  "tracing-core",
+]
+
+[[package]]
+name = "tracing-attributes"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e65ce065b4b5c53e73bb28912318cb8c9e9ad3921f1d669eb0e68b4c8143a2b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1594,7 +1705,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "clap",
  "env_logger",
@@ -1614,7 +1725,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-client"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "cfg-if",
  "data-encoding",
@@ -1638,7 +1749,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-compatibility"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "data-encoding",
  "env_logger",
@@ -1650,15 +1761,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-dns-https"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
-]
-
-[[package]]
 name = "trust-dns-integration"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "async-trait",
  "env_logger",
@@ -1679,22 +1783,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-dns-native-tls"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
-]
-
-[[package]]
-name = "trust-dns-openssl"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
-]
-
-[[package]]
 name = "trust-dns-proto"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "async-trait",
  "backtrace",
@@ -1716,10 +1806,11 @@ dependencies = [
  "log",
  "native-tls",
  "openssl",
+ "quinn",
  "rand",
  "ring",
  "rustls",
- "rustls-pemfile",
+ "rustls-pemfile 1.0.0",
  "serde",
  "smallvec",
  "socket2",
@@ -1737,7 +1828,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "cfg-if",
  "env_logger",
@@ -1762,15 +1853,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "trust-dns-rustls"
-version = "0.21.1"
-dependencies = [
- "trust-dns-proto",
-]
-
-[[package]]
 name = "trust-dns-server"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "async-trait",
  "bytes",
@@ -1799,7 +1883,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-util"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "clap",
  "console",
@@ -1807,10 +1891,13 @@ dependencies = [
  "env_logger",
  "log",
  "openssl",
+ "rustls",
  "tokio",
  "trust-dns-client",
  "trust-dns-proto",
  "trust-dns-resolver",
+ "webpki 0.22.0",
+ "webpki-roots 0.22.1",
 ]
 
 [[package]]

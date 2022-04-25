@@ -187,6 +187,13 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let message = SerialMessage::new(bytes, self.name_server);
         let bind_addr = self.bind_addr;
 
+        debug!(
+            "final message: {}",
+            message
+                .to_message()
+                .expect("bizarre we just made this message")
+        );
+
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
             Box::pin(send_serial_message::<S>(

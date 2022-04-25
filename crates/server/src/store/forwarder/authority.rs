@@ -56,7 +56,27 @@ impl ForwardAuthority {
         info!("loading forwarder config: {}", origin);
 
         let name_servers = config.name_servers.clone();
-        let options = config.options.unwrap_or_default();
+        let mut options = config.options.unwrap_or_default();
+
+        // See RFC 1034, Section 4.3.2:
+        // "If the data at the node is a CNAME, and QTYPE doesn't match
+        // CNAME, copy the CNAME RR into the answer section of the response,
+        // change QNAME to the canonical name in the CNAME RR, and go
+        // back to step 1."
+        //
+        // Essentially, it's saying that servers (including forwarders)
+        // should emit any found CNAMEs in a response ("copy the CNAME
+        // RR into the answer section"). This is the behavior that
+        // preserve_intemediates enables when set to true, and disables
+        // when set to false. So we set it to true.
+        if !options.preserve_intermediates {
+            log::warn!(
+                "preserve_intermediates set to false, which is invalid \
+                for a forwarder; switching to true"
+            );
+            options.preserve_intermediates = true;
+        }
+
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
         let resolver = TokioAsyncResolver::new(config, options, TokioHandle)

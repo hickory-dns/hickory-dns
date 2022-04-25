@@ -34,7 +34,7 @@ fn test_example_https_toml_startup() {
 
     const ALPN_H2: &[u8] = b"h2";
 
-    named_test_harness("dns_over_https.toml", move |_, _, _, https_port| {
+    named_test_harness("dns_over_https.toml", move |_, _, _, https_port, _| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
         println!("using server src path: {}", server_path);
@@ -72,7 +72,7 @@ fn test_example_https_toml_startup() {
         let mut client_config = ClientConfig::builder()
             .with_safe_default_cipher_suites()
             .with_safe_default_kx_groups()
-            .with_protocol_versions(&[&rustls::version::TLS12])
+            .with_safe_default_protocol_versions()
             .unwrap()
             .with_root_certificates(root_store)
             .with_no_client_auth();

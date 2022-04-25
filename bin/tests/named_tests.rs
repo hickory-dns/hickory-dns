@@ -33,7 +33,7 @@ use trust_dns_proto::iocompat::AsyncIoTokioAsStd;
 
 #[test]
 fn test_example_toml_startup() {
-    named_test_harness("example.toml", |_, tcp_port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -64,7 +64,7 @@ fn test_example_toml_startup() {
 
 #[test]
 fn test_ipv4_only_toml_startup() {
-    named_test_harness("ipv4_only.toml", |_, tcp_port, _, _| {
+    named_test_harness("ipv4_only.toml", |_, tcp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -127,7 +127,7 @@ fn test_ipv4_only_toml_startup() {
 #[ignore]
 #[test]
 fn test_ipv4_and_ipv6_toml_startup() {
-    named_test_harness("ipv4_and_ipv6.toml", |_, tcp_port, _, _| {
+    named_test_harness("ipv4_and_ipv6.toml", |_, tcp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -157,7 +157,7 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
 #[test]
 fn test_nodata_where_name_exists() {
-    named_test_harness("example.toml", |_, tcp_port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _, _| {
         let io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -182,7 +182,7 @@ fn test_nodata_where_name_exists() {
 
 #[test]
 fn test_nxdomain_where_no_name_exists() {
-    named_test_harness("example.toml", |_, tcp_port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _, _| {
         let io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -207,7 +207,7 @@ fn test_nxdomain_where_no_name_exists() {
 
 #[test]
 fn test_server_continues_on_bad_data_udp() {
-    named_test_harness("example.toml", |udp_port, _, _, _| {
+    named_test_harness("example.toml", |udp_port, _, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -245,7 +245,7 @@ fn test_server_continues_on_bad_data_udp() {
 
 #[test]
 fn test_server_continues_on_bad_data_tcp() {
-    named_test_harness("example.toml", |_, tcp_port, _, _| {
+    named_test_harness("example.toml", |_, tcp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
@@ -287,7 +287,7 @@ fn test_forward() {
 
     //env_logger::init();
 
-    named_test_harness("example_forwarder.toml", |_, tcp_port, _, _| {
+    named_test_harness("example_forwarder.toml", |_, tcp_port, _, _, _| {
         let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(
             Ipv4Addr::new(127, 0, 0, 1).into(),
