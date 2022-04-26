@@ -41,12 +41,17 @@ extern crate clap;
 extern crate log;
 
 use std::{
+    env,
+    fmt::Display,
+    io::{self, Write},
     net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use clap::{Arg, ArgMatches};
+use env_logger::fmt::Formatter;
+use time::OffsetDateTime;
 use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
@@ -55,6 +60,7 @@ use tokio::{
 use trust_dns_client::rr::Name;
 #[cfg(feature = "dns-over-tls")]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
+use trust_dns_server::server::ServerFuture;
 #[cfg(feature = "resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "sqlite")]
@@ -67,7 +73,6 @@ use trust_dns_server::{
         StoreConfig,
     },
 };
-use trust_dns_server::{logger, server::ServerFuture};
 
 #[cfg(feature = "dnssec")]
 use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
@@ -378,11 +383,11 @@ fn main() {
 
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     if args.flag_quiet {
-        logger::quiet();
+        quiet();
     } else if args.flag_debug {
-        logger::debug();
+        debug();
     } else {
-        logger::default();
+        default();
     }
 
     info!("Trust-DNS {} starting", trust_dns_client::version());
@@ -727,4 +732,82 @@ fn banner() {
     info!("    |    |    |  |   \\     |         |  |  |  |   \\   ");
     info!("    o    o    o--o  o-o    o          o-o  o  o  o-o  ");
     info!("");
+}
+
+fn format<L, M, LN, A>(
+    fmt: &mut Formatter,
+    level: L,
+    module: M,
+    line: LN,
+    args: A,
+) -> io::Result<()>
+where
+    L: Display,
+    M: Display,
+    LN: Display,
+    A: Display,
+{
+    let now = OffsetDateTime::now_utc();
+    let now_secs = now.unix_timestamp();
+    writeln!(fmt, "{}:{}:{}:{}:{}", now_secs, level, module, line, args)
+}
+
+fn plain_formatter(fmt: &mut Formatter, record: &log::Record<'_>) -> io::Result<()> {
+    format(
+        fmt,
+        record.level(),
+        record.module_path().unwrap_or("None"),
+        record.line().unwrap_or(0),
+        record.args(),
+    )
+}
+
+fn get_env() -> String {
+    env::var("RUST_LOG").unwrap_or_default()
+}
+
+fn all_trust_dns(level: &str) -> String {
+    format!(
+        ",named={level},trust_dns_client={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level},trust_dns_https={level}",
+        level = level
+    )
+}
+
+/// appends trust-dns-server debug to RUST_LOG
+pub fn debug() {
+    let mut rust_log = get_env();
+    rust_log.push_str(&all_trust_dns("debug"));
+    logger(&rust_log);
+}
+
+/// appends trust-dns-server info to RUST_LOG
+pub fn default() {
+    let mut rust_log = get_env();
+    rust_log.push_str(&all_trust_dns("info"));
+    logger(&rust_log);
+}
+
+/// appends trust-dns-server error to RUST_LOG
+pub fn quiet() {
+    let mut rust_log = get_env();
+    rust_log.push_str(&all_trust_dns("error"));
+    logger(&rust_log);
+}
+
+/// only uses the RUST_LOG environment variable.
+pub fn env() {
+    let rust_log = get_env();
+    logger(&rust_log);
+}
+
+/// see env_logger docs
+fn logger(config: &str) {
+    let mut builder = env_logger::Builder::new();
+
+    let log_formatter = plain_formatter;
+
+    builder.format(log_formatter);
+    builder.parse_filters(config);
+    builder.target(env_logger::Target::Stdout);
+    builder.init();
 }
