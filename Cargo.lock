@@ -1860,7 +1860,6 @@ dependencies = [
  "bytes",
  "cfg-if",
  "enum-as-inner",
- "env_logger",
  "futures-executor",
  "futures-util",
  "h2",
