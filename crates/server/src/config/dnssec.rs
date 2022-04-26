@@ -379,7 +379,7 @@ pub fn load_cert(
 ) -> Result<(Vec<Certificate>, PrivateKey), String> {
     use log::{info, warn};
 
-    use crate::proto::rustls::tls_server::{read_cert, read_key_from_der, read_key_from_pkcs8};
+    use crate::proto::rustls::tls_server::{read_cert, read_key, read_key_from_der};
 
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let cert_type = tls_cert_config.get_cert_type();
@@ -408,7 +408,7 @@ pub fn load_cert(
                 warn!("Password for key supplied, but Rustls does not support encrypted PKCS8");
             }
 
-            read_key_from_pkcs8(&private_key_path)?
+            read_key(&private_key_path)?
         }
         (Some(private_key_path), PrivateKeyType::Der) => {
             info!("loading TLS DER key from: {}", private_key_path.display());

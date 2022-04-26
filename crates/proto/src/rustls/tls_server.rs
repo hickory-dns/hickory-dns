@@ -11,9 +11,8 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-use log::warn;
 use rustls::{self, Certificate, PrivateKey, ServerConfig};
-use rustls_pemfile::{certs, pkcs8_private_keys};
+use rustls_pemfile::{certs, read_one, Item};
 
 use crate::error::{ProtoError, ProtoResult};
 
@@ -35,29 +34,18 @@ pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<Certificate>> {
 }
 
 /// Reads a private key from a pkcs8 formatted, and possibly encoded file
-pub fn read_key_from_pkcs8(path: &Path) -> ProtoResult<PrivateKey> {
+pub fn read_key(path: &Path) -> ProtoResult<PrivateKey> {
     let mut file = BufReader::new(File::open(path)?);
 
-    let mut keys = match pkcs8_private_keys(&mut file) {
-        Ok(keys) => keys.into_iter().map(PrivateKey).collect::<Vec<_>>(),
-        Err(_) => {
-            return Err(ProtoError::from(format!(
-                "failed to read keys from: {}",
-                path.display()
-            )))
-        }
-    };
-
-    match keys.len() {
-        0 => return Err(format!("no keys available in: {}", path.display()).into()),
-        1 => (),
-        _ => warn!(
-            "ignoring other than the first key in file: {}",
-            path.display()
-        ),
+    loop {
+        match read_one(&mut file)? {
+            Some(Item::ECKey(key)) => return Ok(PrivateKey(key)),
+            Some(Item::RSAKey(key)) => return Ok(PrivateKey(key)),
+            Some(Item::PKCS8Key(key)) => return Ok(PrivateKey(key)),
+            Some(_) => continue,
+            None => return Err(format!("no keys available in: {}", path.display()).into()),
+        };
     }
-
-    Ok(keys.swap_remove(0))
 }
 
 /// Reads a private key from a der formatted file
