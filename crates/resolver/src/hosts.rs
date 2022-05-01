@@ -109,69 +109,73 @@ fn hosts_path() -> std::path::PathBuf {
 #[cfg_attr(docsrs, doc(cfg(any(unix, windows))))]
 pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     use std::fs::File;
-    use std::io::{BufRead, BufReader};
 
-    use proto::rr::domain::TryParseIp;
-
-    let mut hosts = Hosts {
-        by_name: HashMap::new(),
-    };
-
-    // lines in the file should have the form `addr host1 host2 host3 ...`
-    // line starts with `#` will be regarded with comments and ignored,
-    // also empty line also will be ignored,
-    // if line only include `addr` without `host` will be ignored,
-    // file will parsed to map in the form `Name -> LookUp`.
     let file = File::open(path)?;
+    Ok(Hosts::default().read_hosts_conf(file))
+}
 
-    for line in BufReader::new(file).lines() {
-        // Remove comments from the line
-        let line = line
-            .as_ref()
-            .map(|line| line.split('#').next().unwrap().trim())
-            .unwrap_or_default();
-        if line.is_empty() {
-            continue;
-        }
+impl Hosts {
+    /// parse configuration from `src`
+    pub fn read_hosts_conf(mut self, src: impl io::Read) -> Self {
+        use std::io::{BufRead, BufReader};
 
-        let fields: Vec<_> = line.split_whitespace().collect();
-        if fields.len() < 2 {
-            continue;
-        }
-        let addr = if let Some(a) = fields[0].try_parse_ip() {
-            a
-        } else {
-            warn!("could not parse an IP from hosts file");
-            continue;
-        };
+        use proto::rr::domain::TryParseIp;
 
-        for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
-            if let Ok(name) = Name::from_str(&domain) {
-                let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
+        // lines in the src should have the form `addr host1 host2 host3 ...`
+        // line starts with `#` will be regarded with comments and ignored,
+        // also empty line also will be ignored,
+        // if line only include `addr` without `host` will be ignored,
+        // the src will be parsed to map in the form `Name -> LookUp`.
 
-                match addr {
-                    RData::A(..) => {
-                        let query = Query::query(name.clone(), RecordType::A);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
-                        hosts.insert(name.clone(), RecordType::A, lookup);
-                    }
-                    RData::AAAA(..) => {
-                        let query = Query::query(name.clone(), RecordType::AAAA);
-                        let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
-                        hosts.insert(name.clone(), RecordType::AAAA, lookup);
-                    }
-                    _ => {
-                        warn!("unsupported IP type from Hosts file: {:#?}", addr);
-                        continue;
-                    }
-                };
+        for line in BufReader::new(src).lines() {
+            // Remove comments from the line
+            let line = line
+                .as_ref()
+                .map(|line| line.split('#').next().unwrap().trim())
+                .unwrap_or_default();
+            if line.is_empty() {
+                continue;
+            }
 
-                // TODO: insert reverse lookup as well.
+            let fields: Vec<_> = line.split_whitespace().collect();
+            if fields.len() < 2 {
+                continue;
+            }
+            let addr = if let Some(a) = fields[0].try_parse_ip() {
+                a
+            } else {
+                warn!("could not parse an IP from hosts file");
+                continue;
             };
-        }
-    }
 
-    Ok(hosts)
+            for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
+                if let Ok(name) = Name::from_str(&domain) {
+                    let record = Record::from_rdata(name.clone(), dns_lru::MAX_TTL, addr.clone());
+
+                    match addr {
+                        RData::A(..) => {
+                            let query = Query::query(name.clone(), RecordType::A);
+                            let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                            self.insert(name.clone(), RecordType::A, lookup);
+                        }
+                        RData::AAAA(..) => {
+                            let query = Query::query(name.clone(), RecordType::AAAA);
+                            let lookup = Lookup::new_with_max_ttl(query, Arc::from([record]));
+                            self.insert(name.clone(), RecordType::AAAA, lookup);
+                        }
+                        _ => {
+                            warn!("unsupported IP type from Hosts file: {:#?}", addr);
+                            continue;
+                        }
+                    };
+
+                    // TODO: insert reverse lookup as well.
+                };
+            }
+        }
+
+        self
+    }
 }
 
 #[cfg(not(any(unix, windows)))]
