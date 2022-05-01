@@ -436,6 +436,11 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
         .await
     }
 
+    /// Customizes the static hosts used in this resolver.
+    pub fn set_hosts(&mut self, hosts: Option<Hosts>) {
+        self.hosts = hosts.map(|hosts| Arc::new(hosts));
+    }
+
     lookup_fn!(
         reverse_lookup,
         lookup::ReverseLookup,
