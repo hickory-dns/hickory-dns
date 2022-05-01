@@ -37,7 +37,7 @@ fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, Reso
     parse_resolv_conf(&data)
 }
 
-fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, ResolverOpts)> {
+pub fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, ResolverOpts)> {
     let parsed_conf = resolv_conf::Config::parse(&data).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
