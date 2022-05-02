@@ -438,7 +438,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> AsyncR
 
     /// Customizes the static hosts used in this resolver.
     pub fn set_hosts(&mut self, hosts: Option<Hosts>) {
-        self.hosts = hosts.map(|hosts| Arc::new(hosts));
+        self.hosts = hosts.map(Arc::new);
     }
 
     lookup_fn!(

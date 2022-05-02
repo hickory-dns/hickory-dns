@@ -19,7 +19,7 @@ mod unix;
 #[cfg(unix)]
 #[cfg(feature = "system-config")]
 #[cfg_attr(docsrs, doc(cfg(all(feature = "system-config", unix))))]
-pub use self::unix::{read_system_conf, parse_resolv_conf};
+pub use self::unix::{parse_resolv_conf, read_system_conf};
 
 #[cfg(windows)]
 #[cfg(feature = "system-config")]
