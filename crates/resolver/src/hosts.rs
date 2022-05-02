@@ -89,34 +89,9 @@ impl Hosts {
             _ => warn!("unsupported IP type from Hosts file"),
         }
     }
-}
 
-#[cfg(unix)]
-fn hosts_path() -> &'static str {
-    "/etc/hosts"
-}
-
-#[cfg(windows)]
-fn hosts_path() -> std::path::PathBuf {
-    let system_root =
-        std::env::var_os("SystemRoot").expect("Environtment variable SystemRoot not found");
-    let system_root = Path::new(&system_root);
-    system_root.join("System32\\drivers\\etc\\hosts")
-}
-
-/// parse configuration from `path`
-#[cfg(any(unix, windows))]
-#[cfg_attr(docsrs, doc(cfg(any(unix, windows))))]
-pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
-    use std::fs::File;
-
-    let file = File::open(path)?;
-    Ok(Hosts::default().read_hosts_conf(file))
-}
-
-impl Hosts {
     /// parse configuration from `src`
-    pub fn read_hosts_conf(mut self, src: impl io::Read) -> Self {
+    pub fn read_hosts_conf(mut self, src: impl io::Read) -> io::Result<Self> {
         use std::io::{BufRead, BufReader};
 
         use proto::rr::domain::TryParseIp;
@@ -129,10 +104,8 @@ impl Hosts {
 
         for line in BufReader::new(src).lines() {
             // Remove comments from the line
-            let line = line
-                .as_ref()
-                .map(|line| line.split('#').next().unwrap().trim())
-                .unwrap_or_default();
+            let line = line?;
+            let line = line.split('#').next().unwrap().trim();
             if line.is_empty() {
                 continue;
             }
@@ -174,8 +147,31 @@ impl Hosts {
             }
         }
 
-        self
+        Ok(self)
     }
+}
+
+#[cfg(unix)]
+fn hosts_path() -> &'static str {
+    "/etc/hosts"
+}
+
+#[cfg(windows)]
+fn hosts_path() -> std::path::PathBuf {
+    let system_root =
+        std::env::var_os("SystemRoot").expect("Environtment variable SystemRoot not found");
+    let system_root = Path::new(&system_root);
+    system_root.join("System32\\drivers\\etc\\hosts")
+}
+
+/// parse configuration from `path`
+#[cfg(any(unix, windows))]
+#[cfg_attr(docsrs, doc(cfg(any(unix, windows))))]
+pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
+    use std::fs::File;
+
+    let file = File::open(path)?;
+    Hosts::default().read_hosts_conf(file)
 }
 
 #[cfg(not(any(unix, windows)))]
