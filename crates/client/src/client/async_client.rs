@@ -13,8 +13,8 @@ use std::time::Duration;
 
 use futures_util::ready;
 use futures_util::stream::{Stream, StreamExt};
-use tracing::debug;
 use rand;
+use tracing::debug;
 use trust_dns_proto::op::Edns;
 
 use crate::client::Signer;

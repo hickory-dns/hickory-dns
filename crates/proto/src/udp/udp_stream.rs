@@ -14,9 +14,9 @@ use std::task::{Context, Poll};
 use async_trait::async_trait;
 use futures_util::stream::Stream;
 use futures_util::{future::Future, ready, TryFutureExt};
-use tracing::debug;
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
+use tracing::{debug, warn};
 
 use crate::xfer::{BufDnsStreamHandle, SerialMessage, StreamReceiver};
 use crate::Time;
@@ -172,10 +172,9 @@ impl<S: UdpSocket + Send + 'static> Stream for UdpStream<S> {
             // TODO: shouldn't this return the error to send to the sender?
             if let Err(e) = ready!(socket.poll_send_to(cx, message.bytes(), addr)) {
                 // Drop the UDP packet and continue
-                log::warn!(
+                warn!(
                     "error sending message to {} on udp_socket, dropping response: {}",
-                    addr,
-                    e
+                    addr, e
                 );
             }
 

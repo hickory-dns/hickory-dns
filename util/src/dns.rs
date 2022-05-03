@@ -25,7 +25,6 @@ use std::net::SocketAddr;
 use std::{sync::Arc, time::SystemTime};
 
 use clap::{ArgEnum, Args, Parser, Subcommand};
-use log::warn;
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
     client::{HandshakeSignatureValid, ServerCertVerified},
@@ -33,6 +32,7 @@ use rustls::{
     Certificate, ClientConfig, OwnedTrustAnchor, RootCertStore,
 };
 use tokio::net::{TcpStream as TokioTcpStream, UdpSocket};
+use tracing::Level;
 
 use trust_dns_client::{
     client::{AsyncClient, ClientHandle},
@@ -219,25 +219,18 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // enable logging early
     let log_level = if opts.debug {
-        log::LevelFilter::Debug
+        Some(Level::DEBUG)
     } else if opts.info {
-        log::LevelFilter::Info
+        Some(Level::INFO)
     } else if opts.warn {
-        log::LevelFilter::Warn
+        Some(Level::WARN)
     } else if opts.error {
-        log::LevelFilter::Error
+        Some(Level::ERROR)
     } else {
-        log::LevelFilter::Off
+        None
     };
 
-    // Get query term
-    env_logger::builder()
-        .filter_module("trust_dns_resolver", log_level)
-        .filter_module("trust_dns_proto", log_level)
-        .filter_module("trust_dns_client", log_level)
-        .write_style(env_logger::WriteStyle::Auto)
-        .format_indent(Some(4))
-        .init();
+    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // TODO: need to cleanup all of ClientHandle and the Client in general to make it dynamically usable.
     match opts.protocol {

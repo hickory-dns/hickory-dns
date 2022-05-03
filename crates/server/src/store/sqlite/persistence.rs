@@ -11,10 +11,10 @@ use std::iter::Iterator;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
-use tracing::error;
 use rusqlite::types::ToSql;
 use rusqlite::{self, Connection};
 use time;
+use tracing::error;
 
 use crate::error::{PersistenceErrorKind, PersistenceResult};
 use crate::proto::rr::Record;

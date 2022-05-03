@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::FutureExt;
-use tracing::{debug, warn};
 use tokio::time::Sleep;
+use tracing::{debug, warn};
 
 /// This wraps the underlying Stream in a timeout.
 ///

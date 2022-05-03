@@ -57,8 +57,7 @@ fn args() -> ArgMatches {
 
 /// Run the pem_to_public_dnskey program
 pub fn main() {
-    let subscriber = tracing_subscriber::FmtSubscriber::builder().finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
     let matches = args();
 

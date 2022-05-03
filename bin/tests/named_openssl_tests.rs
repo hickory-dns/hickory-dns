@@ -11,9 +11,6 @@
 // TODO: enable this test for rustls as well using below config
 // #![cfg(feature = "dns-over-tls")]
 
-#[macro_use]
-extern crate log;
-
 mod server_harness;
 
 use std::env;
