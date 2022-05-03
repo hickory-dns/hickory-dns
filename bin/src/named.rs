@@ -39,23 +39,26 @@
 extern crate clap;
 
 use std::{
-    env,
-    fmt::Display,
-    io::{self, Write},
+    env, fmt,
     net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use clap::{Arg, ArgMatches};
-use env_logger::fmt::Formatter;
 use time::OffsetDateTime;
 use tokio::{
     net::{TcpListener, UdpSocket},
     runtime,
 };
+use tracing::{debug, error, info, warn, Event, Subscriber};
+use tracing_subscriber::{
+    fmt::{format, FmtContext, FormatEvent, FormatFields, FormattedFields},
+    layer::SubscriberExt,
+    registry::LookupSpan,
+    util::SubscriberInitExt,
+};
 
-use tracing::{debug, error, info};
 use trust_dns_client::rr::Name;
 #[cfg(feature = "dns-over-tls")]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
@@ -152,9 +155,7 @@ async fn load_zone(
     let is_dnssec_enabled = zone_config.is_dnssec_enabled();
 
     if zone_config.is_update_allowed() {
-        tracing::warn!(
-            "allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]"
-        );
+        warn!("allow_update is deprecated in [[zones]] section, it belongs in [[zones.stores]]");
     }
 
     // load the zone
@@ -162,9 +163,7 @@ async fn load_zone(
         #[cfg(feature = "sqlite")]
         Some(StoreConfig::Sqlite(ref config)) => {
             if zone_path.is_some() {
-                tracing::warn!(
-                    "ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]"
-                );
+                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
             }
 
             let mut authority = SqliteAuthority::try_from_config(
@@ -183,9 +182,7 @@ async fn load_zone(
         }
         Some(StoreConfig::File(ref config)) => {
             if zone_path.is_some() {
-                tracing::warn!(
-                    "ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]"
-                );
+                warn!("ignoring [[zones.file]] instead using [[zones.stores.zone_file_path]]");
             }
 
             let mut authority = FileAuthority::try_from_config(
@@ -209,7 +206,7 @@ async fn load_zone(
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
-            tracing::warn!(
+            warn!(
                 "using deprecated SQLite load configuration, please move to [[zones.stores]] form"
             );
             let zone_file_path = zone_path.ok_or("file is a necessary parameter of zone_config")?;
@@ -579,9 +576,7 @@ fn config_tls(
         .collect();
 
     if tls_sockaddrs.is_empty() {
-        tracing::warn!(
-            "a tls certificate was specified, but no TLS addresses configured to listen on"
-        );
+        warn!("a tls certificate was specified, but no TLS addresses configured to listen on");
     }
 
     for tls_listener in &tls_sockaddrs {
@@ -634,9 +629,7 @@ fn config_https(
         .collect();
 
     if https_sockaddrs.is_empty() {
-        tracing::warn!(
-            "a tls certificate was specified, but no HTTPS addresses configured to listen on"
-        );
+        warn!("a tls certificate was specified, but no HTTPS addresses configured to listen on");
     }
 
     for https_listener in &https_sockaddrs {
@@ -743,80 +736,100 @@ fn banner() {
     info!("");
 }
 
-fn format<L, M, LN, A>(
-    fmt: &mut Formatter,
-    level: L,
-    module: M,
-    line: LN,
-    args: A,
-) -> io::Result<()>
-where
-    L: Display,
-    M: Display,
-    LN: Display,
-    A: Display,
-{
-    let now = OffsetDateTime::now_utc();
-    let now_secs = now.unix_timestamp();
-    writeln!(fmt, "{}:{}:{}:{}:{}", now_secs, level, module, line, args)
-}
+struct TdnsFormatter;
 
-fn plain_formatter(fmt: &mut Formatter, record: &log::Record<'_>) -> io::Result<()> {
-    format(
-        fmt,
-        record.level(),
-        record.module_path().unwrap_or("None"),
-        record.line().unwrap_or(0),
-        record.args(),
-    )
+impl<S, N> FormatEvent<S, N> for TdnsFormatter
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &FmtContext<'_, S, N>,
+        mut writer: format::Writer<'_>,
+        event: &Event<'_>,
+    ) -> fmt::Result {
+        let now = OffsetDateTime::now_utc();
+        let now_secs = now.unix_timestamp();
+
+        // Format values from the event's's metadata:
+        let metadata = event.metadata();
+        write!(
+            &mut writer,
+            "{}:{}:{}",
+            now_secs,
+            metadata.level(),
+            metadata.target()
+        )?;
+
+        if let Some(line) = metadata.line() {
+            write!(&mut writer, ":{}", line)?;
+        }
+
+        // Format all the spans in the event's span context.
+        if let Some(scope) = ctx.event_scope() {
+            for span in scope.from_root() {
+                write!(writer, ":{}", span.name())?;
+
+                let ext = span.extensions();
+                let fields = &ext
+                    .get::<FormattedFields<N>>()
+                    .expect("will never be `None`");
+
+                // Skip formatting the fields if the span had no fields.
+                if !fields.is_empty() {
+                    write!(writer, "{{{}}}", fields)?;
+                }
+            }
+        }
+
+        // Write fields on the event
+        write!(writer, ":")?;
+        ctx.field_format().format_fields(writer.by_ref(), event)?;
+
+        writeln!(writer)
+    }
 }
 
 fn get_env() -> String {
     env::var("RUST_LOG").unwrap_or_default()
 }
 
-fn all_trust_dns(level: &str) -> String {
+fn all_trust_dns(level: impl ToString) -> String {
     format!(
-        ",named={level},trust_dns_client={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level},trust_dns_https={level}",
-        level = level
+        "named={level},trust_dns_client={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level},{env}",
+        level = level.to_string().to_lowercase(),
+        env = get_env()
     )
 }
 
 /// appends trust-dns-server debug to RUST_LOG
 pub fn debug() {
-    let mut rust_log = get_env();
-    rust_log.push_str(&all_trust_dns("debug"));
-    logger(&rust_log);
+    logger(tracing::Level::DEBUG);
 }
 
 /// appends trust-dns-server info to RUST_LOG
 pub fn default() {
-    let mut rust_log = get_env();
-    rust_log.push_str(&all_trust_dns("info"));
-    logger(&rust_log);
+    logger(tracing::Level::INFO);
 }
 
 /// appends trust-dns-server error to RUST_LOG
 pub fn quiet() {
-    let mut rust_log = get_env();
-    rust_log.push_str(&all_trust_dns("error"));
-    logger(&rust_log);
+    logger(tracing::Level::ERROR);
 }
 
-/// only uses the RUST_LOG environment variable.
-pub fn env() {
-    let rust_log = get_env();
-    logger(&rust_log);
-}
+// TODO: add dep on util crate, share logging config...
+fn logger(level: tracing::Level) {
+    // Setup tracing for logging based on input
+    let subscriber = tracing_subscriber::EnvFilter::builder()
+        .with_default_directive(tracing::Level::WARN.into())
+        .parse(all_trust_dns(level))
+        .expect("failed to configure tracing/logging");
 
-/// see env_logger docs
-fn logger(config: &str) {
-    let mut builder = env_logger::Builder::new();
+    let formatter = tracing_subscriber::fmt::layer().event_format(TdnsFormatter);
 
-    let log_formatter = plain_formatter;
-
-    builder.format(log_formatter);
-    builder.parse_filters(config);
-    builder.target(env_logger::Target::Stdout);
-    builder.init();
+    tracing_subscriber::registry()
+        .with(formatter)
+        .with(subscriber)
+        .init();
 }

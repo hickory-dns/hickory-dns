@@ -9,8 +9,8 @@
 use std::error::Error;
 
 use futures_util::stream::Stream;
-use tracing::debug;
 use rand;
+use tracing::debug;
 
 use crate::op::{Message, MessageType, OpCode, Query};
 use crate::xfer::{DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};

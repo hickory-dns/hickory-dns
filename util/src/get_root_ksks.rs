@@ -39,8 +39,7 @@ fn args() -> ArgMatches {
 
 /// Run the get_root_ksks program
 pub fn main() {
-    let subscriber = tracing_subscriber::FmtSubscriber::builder().finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
     let _matches = args();
 

@@ -134,13 +134,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    if let Some(log_level) = log_level {
-        let subscriber = tracing_subscriber::FmtSubscriber::builder()
-            .with_max_level(log_level)
-            .finish();
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("setting default subscriber failed");
-    }
+    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // read system configuration
     let (sys_config, sys_options): (Option<ResolverConfig>, Option<ResolverOpts>) = if opts.system {

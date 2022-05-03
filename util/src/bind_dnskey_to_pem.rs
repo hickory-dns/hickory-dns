@@ -29,6 +29,7 @@ use clap::{Arg, ArgMatches, Command};
 use data_encoding::BASE64;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
+use tracing::{info, warn, Level};
 
 use trust_dns_client::rr::dnssec::Algorithm;
 
@@ -58,15 +59,14 @@ fn args() -> ArgMatches {
 
 /// Run the bind_dnskey_to_pem program
 pub fn main() {
-    let subscriber = tracing_subscriber::FmtSubscriber::builder().finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(Level::INFO));
 
     let matches = args();
 
     let key_path = matches.value_of("key").unwrap();
     let output_path = matches.value_of("output").unwrap();
 
-    log::info!("Reading private key: {}", key_path);
+    tracing::info!("Reading private key: {}", key_path);
 
     let key_file = File::open(key_path).expect("private key file could not be opened");
 
@@ -83,7 +83,7 @@ pub fn main() {
         panic!("Private-key-format line not found: {}", next_line);
     }
     if "v1.2" != value {
-        println!("WARNING: un-tested version {:?}", value);
+        warn!("WARNING: un-tested version {:?}", value);
     }
 
     // algorithm
@@ -111,7 +111,7 @@ pub fn main() {
         _ => panic!("Algorithm currently not supported: {:?}", algorithm),
     };
 
-    log::info!("Writing private key to pem: {}", output_path);
+    info!("Writing private key to pem: {}", output_path);
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)

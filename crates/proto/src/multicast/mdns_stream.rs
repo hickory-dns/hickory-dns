@@ -15,11 +15,11 @@ use std::task::{Context, Poll};
 use futures_util::stream::{Stream, StreamExt};
 use futures_util::{future, future::Future, ready, FutureExt, TryFutureExt};
 use lazy_static::lazy_static;
-use tracing::{debug, trace};
 use rand;
 use rand::distributions::{uniform::Uniform, Distribution};
 use socket2::{self, Socket};
 use tokio::net::UdpSocket;
+use tracing::{debug, trace};
 
 use crate::multicast::MdnsQueryType;
 use crate::udp::UdpStream;

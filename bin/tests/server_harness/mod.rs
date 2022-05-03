@@ -14,7 +14,7 @@ use std::time::*;
 use regex::Regex;
 use tokio::runtime::Runtime;
 
-use tracing::info;
+use tracing::{info, warn};
 use trust_dns_client::client::*;
 use trust_dns_client::proto::xfer::DnsResponse;
 use trust_dns_client::rr::*;
@@ -84,7 +84,7 @@ where
 
                 let mut named = named_killer.lock().unwrap();
                 if let Err(e) = named.kill() {
-                    tracing::warn!("warning: failed to kill named: {:?}", e);
+                    warn!("warning: failed to kill named: {:?}", e);
                 }
             };
 

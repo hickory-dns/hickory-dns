@@ -8,8 +8,8 @@
 use std::convert::{TryFrom, TryInto};
 
 use bytes::{Bytes, BytesMut};
-use log::debug;
 use quinn::{RecvStream, SendStream, VarInt};
+use tracing::debug;
 
 use crate::{
     error::{ProtoError, ProtoErrorKind},
