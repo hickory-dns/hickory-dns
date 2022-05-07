@@ -15,11 +15,13 @@ fn get_env() -> String {
 }
 
 fn get_levels<T: ToString>(bin: &str, level: Option<T>) -> String {
-    let trust_dns_crates = level.map(|level| format!(
-        "{bin}={level},trust_dns_util={level},trust_dns_client={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level}",
-        bin = bin,
-        level = level.to_string().to_lowercase(),
-    ));
+    let trust_dns_crates = level.map(|level| {
+        format!(
+            "{bin}={level},trust_dns={level}",
+            bin = bin,
+            level = level.to_string().to_lowercase(),
+        )
+    });
 
     if let Some(trust_dns_crates) = trust_dns_crates {
         format!(

@@ -121,14 +121,7 @@ impl Config {
     /// specify the log level which should be used, ["Trace", "Debug", "Info", "Warn", "Error"]
     pub fn get_log_level(&self) -> tracing::Level {
         if let Some(ref level_str) = self.log_level {
-            match level_str as &str {
-                "Trace" => tracing::Level::TRACE,
-                "Debug" => tracing::Level::DEBUG,
-                "Info" => tracing::Level::INFO,
-                "Warn" => tracing::Level::WARN,
-                "Error" => tracing::Level::ERROR,
-                _ => tracing::Level::INFO,
-            }
+            tracing::Level::from_str(level_str).unwrap_or(tracing::Level::INFO)
         } else {
             tracing::Level::INFO
         }

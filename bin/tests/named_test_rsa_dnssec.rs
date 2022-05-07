@@ -74,6 +74,7 @@ async fn standard_tcp_conn(
 }
 
 fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
+    // TODO: look into the `test-log` crate for enabling logging during tests
     // use trust_dns_client::logger;
     // use tracing::LogLevel;
     // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);

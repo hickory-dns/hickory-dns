@@ -797,7 +797,7 @@ fn get_env() -> String {
 
 fn all_trust_dns(level: impl ToString) -> String {
     format!(
-        "named={level},trust_dns_client={level},trust_dns_server={level},trust_dns_proto={level},trust_dns_resolver={level},{env}",
+        "named={level},trust_dns={level},{env}",
         level = level.to_string().to_lowercase(),
         env = get_env()
     )
@@ -821,7 +821,7 @@ pub fn quiet() {
 // TODO: add dep on util crate, share logging config...
 fn logger(level: tracing::Level) {
     // Setup tracing for logging based on input
-    let subscriber = tracing_subscriber::EnvFilter::builder()
+    let filter = tracing_subscriber::EnvFilter::builder()
         .with_default_directive(tracing::Level::WARN.into())
         .parse(all_trust_dns(level))
         .expect("failed to configure tracing/logging");
@@ -830,6 +830,6 @@ fn logger(level: tracing::Level) {
 
     tracing_subscriber::registry()
         .with(formatter)
-        .with(subscriber)
+        .with(filter)
         .init();
 }
