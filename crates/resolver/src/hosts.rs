@@ -11,6 +11,7 @@ use proto::op::Query;
 use proto::rr::{Name, RecordType};
 #[cfg(any(unix, windows))]
 use proto::rr::{RData, Record};
+use tracing::warn;
 
 use crate::dns_lru;
 use crate::lookup::Lookup;

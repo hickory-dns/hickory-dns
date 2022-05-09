@@ -11,7 +11,7 @@ use std::{
     time::Duration,
 };
 
-use futures_util::{future, lock::Mutex, StreamExt};
+use futures_util::{future, StreamExt};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{Certificate, PrivateKey};
 use tokio::{net, task::JoinHandle};
