@@ -260,7 +260,7 @@ where
                     Ok(response)
                 }
                 Err(e) if opts.try_tcp_on_error || e.is_no_connections() => {
-                    debug!("error received, retrying over TCP");
+                    debug!("error from UDP, retrying over TCP: {}", e);
                     Err(e)
                 }
                 result => return result,

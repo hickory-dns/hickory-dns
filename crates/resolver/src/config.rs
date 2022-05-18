@@ -419,6 +419,21 @@ pub struct NameServerConfig {
     pub bind_addr: Option<SocketAddr>,
 }
 
+impl NameServerConfig {
+    /// Constructs a Nameserver configuration with some basic defaults
+    pub fn new(socket_addr: SocketAddr, protocol: Protocol) -> Self {
+        Self {
+            socket_addr,
+            protocol,
+            trust_nx_responses: true,
+            tls_dns_name: None,
+            #[cfg(feature = "dns-over-rustls")]
+            tls_config: None,
+            bind_addr: None,
+        }
+    }
+}
+
 impl fmt::Display for NameServerConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:", self.protocol)?;
@@ -806,6 +821,8 @@ pub struct ResolverOpts {
     ///
     /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
     pub recursion_desired: bool,
+    /// This is true by default, disabling this is useful for requesting single records, but may prevent successful resolution.
+    pub authentic_data: bool,
 }
 
 impl Default for ResolverOpts {
@@ -835,6 +852,7 @@ impl Default for ResolverOpts {
 
             try_tcp_on_error: false,
             recursion_desired: true,
+            authentic_data: false,
         }
     }
 }

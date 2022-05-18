@@ -85,8 +85,13 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Self {
+impl<E> From<E> for Error
+where
+    E: Into<ErrorKind>,
+{
+    fn from(error: E) -> Self {
+        let kind: ErrorKind = error.into();
+
         Self {
             kind: Box::new(kind),
             #[cfg(feature = "backtrace")]
@@ -104,15 +109,6 @@ impl From<&'static str> for Error {
 impl From<String> for Error {
     fn from(msg: String) -> Self {
         ErrorKind::Msg(msg).into()
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        match e.kind() {
-            io::ErrorKind::TimedOut => ErrorKind::Timeout.into(),
-            _ => ErrorKind::from(e).into(),
-        }
     }
 }
 
