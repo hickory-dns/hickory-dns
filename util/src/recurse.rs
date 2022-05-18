@@ -30,11 +30,11 @@ use clap::Parser;
 use console::style;
 
 use trust_dns_recursor::Recursor;
-use trust_dns_resolver::config::{
-    NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts,
+use trust_dns_resolver::{
+    config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
+    proto::rr::RecordType,
+    Name, TokioAsyncResolver,
 };
-use trust_dns_resolver::proto::rr::RecordType;
-use trust_dns_resolver::TokioAsyncResolver;
 
 /// A CLI interface for the trust-dns-recursor.
 ///
@@ -44,7 +44,7 @@ use trust_dns_resolver::TokioAsyncResolver;
 #[clap(name = "recurse")]
 struct Opts {
     /// Name to attempt to resolve, this is assumed to be fully-qualified
-    domainname: String,
+    domainname: Name,
 
     /// Type of query to issue, e.g. A, AAAA, NS, etc.
     #[clap(short = 't', long = "type", default_value = "A")]
@@ -97,7 +97,7 @@ struct Opts {
 
     /// Path to a hints file
     #[clap(short = 'f', long)]
-    hints: PathBuf,
+    hints: Option<PathBuf>,
 }
 
 /// Run the resolve programf
@@ -107,25 +107,18 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // enable logging early
     let log_level = if opts.debug {
-        log::LevelFilter::Debug
+        Some(tracing::Level::DEBUG)
     } else if opts.info {
-        log::LevelFilter::Info
+        Some(tracing::Level::INFO)
     } else if opts.warn {
-        log::LevelFilter::Warn
+        Some(tracing::Level::WARN)
     } else if opts.error {
-        log::LevelFilter::Error
+        Some(tracing::Level::ERROR)
     } else {
-        log::LevelFilter::Off
+        None
     };
 
-    // Get query term
-    env_logger::builder()
-        .filter_module("trust_dns_recursor", log_level)
-        .filter_module("trust_dns_resolver", log_level)
-        .filter_module("trust_dns_proto", log_level)
-        .write_style(env_logger::WriteStyle::Auto)
-        .format_indent(Some(4))
-        .init();
+    trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // Configure all the name servers
     let mut hints = NameServerConfigGroup::new();
@@ -177,7 +170,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
 
     // query parameters
-    let name = &opts.domainname;
+    let name = opts.domainname;
     let ty = opts.ty;
 
     let mut recursor = Recursor::new(hints)?;
@@ -185,21 +178,29 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // execute query
     println!(
         "Recursing for {name} {ty} from hints",
-        name = style(name).yellow(),
+        name = style(&name).yellow(),
         ty = style(ty).yellow(),
     );
 
     let now = Instant::now();
-    let lookup = recursor.resolve(name.to_string(), ty, now).await?;
+    let lookup = recursor.resolve(name, ty, now).await?;
 
     // report response, TODO: better display of errors
     println!(
         "{} for query {:?}",
         style("Success").green(),
-        style(lookup).blue()
+        style(&lookup).blue()
     );
 
-    for r in lookup.records_without_rrsigs() {
+    let answers = lookup.answers();
+    let nameservers = lookup.name_servers();
+    let additionals = lookup.additionals();
+    let records = answers
+        .iter()
+        .chain(nameservers.iter())
+        .chain(additionals.iter());
+
+    for r in records.filter(|r| r.record_type() == ty) {
         print!(
             "\t{name} {ttl} {class} {ty}",
             name = style(r.name()).blue(),

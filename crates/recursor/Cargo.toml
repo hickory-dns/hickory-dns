@@ -67,6 +67,7 @@ path = "src/lib.rs"
 
 [dependencies]
 async-trait = "0.1.43"
+async-recursion = "1.0.0"
 backtrace = { version = "0.3.50", optional = true }
 bytes = "1"
 cfg-if = "1"
@@ -75,7 +76,9 @@ futures-executor = { version = "0.3.5", default-features = false, features = ["s
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 h2 = { version = "0.3.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
+lru-cache = "0.1.2"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
+parking_lot = "0.12"
 rusqlite = { version = "0.27.0", features = ["bundled", "time"], optional = true }
 rustls = { version = "0.20", optional = true }
 serde = { version = "1.0.114", features = ["derive"] }
