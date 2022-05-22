@@ -52,12 +52,14 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Debug
 #[cfg(feature = "tokio-runtime")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-runtime")))]
 impl NameServer<TokioConnection, TokioConnectionProvider> {
+    /// A shortcut for constructing a nameserver usable in the Tokio runtime
     pub fn new(config: NameServerConfig, options: ResolverOpts, runtime: TokioHandle) -> Self {
         Self::new_with_provider(config, options, TokioConnectionProvider::new(runtime))
     }
 }
 
 impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameServer<C, P> {
+    /// Construct a new Nameserver with the configuration and options. The connection provider will create UDP and TCP sockets
     pub fn new_with_provider(
         config: NameServerConfig,
         options: ResolverOpts,
@@ -169,6 +171,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         }
     }
 
+    /// Specifies that thie NameServer will treat negative responses as permanent failures and will not retry
     pub fn trust_nx_responses(&self) -> bool {
         self.config.trust_nx_responses
     }

@@ -23,7 +23,6 @@ use proto::rr::domain::usage::{
     ResolverUsage, DEFAULT, INVALID, IN_ADDR_ARPA_127, IP6_ARPA_1, LOCAL,
     LOCALHOST as LOCALHOST_usage, ONION,
 };
-use proto::rr::rdata::SOA;
 use proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse, FirstAnswer};
 
@@ -269,7 +268,7 @@ where
         is_dnssec: bool,
         valid_nsec: bool,
         query: Query,
-        soa: Option<SOA>,
+        soa: Option<Record>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
@@ -310,7 +309,7 @@ where
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
 
         // need to capture these before the subsequent and destructive record processing
-        let soa = response.soa();
+        let soa = response.soa().cloned();
         let negative_ttl = response.negative_ttl();
         let response_code = response.response_code();
 
