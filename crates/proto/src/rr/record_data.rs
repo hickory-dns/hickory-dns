@@ -989,6 +989,11 @@ impl RData {
             _ => None,
         }
     }
+
+    /// Returns true if
+    pub fn is_soa(&self) -> bool {
+        matches!(self, RData::SOA(..))
+    }
 }
 
 impl fmt::Display for RData {

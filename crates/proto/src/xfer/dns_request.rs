@@ -32,8 +32,7 @@ pub struct DnsRequestOptions {
 impl Default for DnsRequestOptions {
     fn default() -> Self {
         #[allow(deprecated)]
-        DnsRequestOptions {
-            max_request_depth: 26,
+        Self {
             expects_multiple_responses: false,
             use_edns: false,
             recursion_desired: true,

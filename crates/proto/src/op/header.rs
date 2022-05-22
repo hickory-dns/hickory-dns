@@ -69,8 +69,9 @@ impl fmt::Display for Header {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
-            "{id}:{flags}:{code:?}:{op_code}:{answers}/{authorities}/{additionals}",
+            "{id}:{message_type}:{flags}:{code:?}:{op_code}:{answers}/{authorities}/{additionals}",
             id = self.id,
+            message_type = self.message_type,
             flags = self.flags(),
             code = self.response_code,
             op_code = self.op_code,

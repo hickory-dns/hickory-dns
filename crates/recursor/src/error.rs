@@ -9,15 +9,16 @@
 
 #![deny(missing_docs)]
 
-use std::{fmt, io, sync};
+use std::{fmt, io};
 
 use enum_as_inner::EnumAsInner;
 use thiserror::Error;
+use trust_dns_resolver::Name;
 
 #[cfg(feature = "backtrace")]
 use crate::proto::{trace, ExtBacktrace};
 use crate::{
-    proto::error::{ProtoError, ProtoErrorKind},
+    proto::error::ProtoError,
     resolver::error::{ResolveError, ResolveErrorKind},
 };
 
@@ -33,6 +34,10 @@ pub enum ErrorKind {
     #[error("{0}")]
     Msg(String),
 
+    /// An name error of some kind happened
+    #[error("forward response: {0}")]
+    Forward(Name),
+
     /// An error got returned from IO
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
@@ -43,7 +48,7 @@ pub enum ErrorKind {
 
     /// An error got returned by the trust-dns-proto crate
     #[error("proto error: {0}")]
-    Resolve(#[from] ResolveError),
+    Resolve(ResolveError),
 
     /// A request timed out
     #[error("request timed out")]
@@ -127,11 +132,16 @@ impl From<Error> for String {
     }
 }
 
-#[cfg(feature = "wasm-bindgen")]
-#[cfg_attr(docsrs, doc(cfg(feature = "wasm-bindgen")))]
-impl From<Error> for wasm_bindgen_crate::JsValue {
-    fn from(e: Error) -> Self {
-        js_sys::Error::new(&e.to_string()).into()
+impl From<ResolveError> for Error {
+    fn from(e: ResolveError) -> Self {
+        if let ResolveErrorKind::NoRecordsFound { soa, .. } = e.kind() {
+            match soa {
+                Some(soa) => ErrorKind::Forward(soa.name().clone()).into(),
+                _ => ErrorKind::Resolve(e).into(),
+            }
+        } else {
+            ErrorKind::Resolve(e).into()
+        }
     }
 }
 
@@ -141,9 +151,10 @@ impl Clone for ErrorKind {
         match *self {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
-            Io(ref io) => Self::from(std::io::Error::from(io.kind())),
-            Proto(ref proto) => Self::from(proto.clone()),
-            Resolve(ref resolve) => Self::from(resolve.clone()),
+            Forward(ref ns) => Forward(ns.clone()),
+            Io(ref io) => Io(std::io::Error::from(io.kind())),
+            Proto(ref proto) => Proto(proto.clone()),
+            Resolve(ref resolve) => Resolve(resolve.clone()),
             Timeout => Self::Timeout,
         }
     }

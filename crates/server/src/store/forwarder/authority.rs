@@ -8,7 +8,6 @@
 use std::io;
 
 use tracing::{debug, info};
-use trust_dns_proto::xfer::DnsRequestOptions;
 
 use crate::{
     authority::{

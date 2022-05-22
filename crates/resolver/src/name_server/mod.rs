@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! A module with associated items for working with nameservers
+
 mod connection_provider;
 #[allow(clippy::module_inception)]
 mod name_server;
