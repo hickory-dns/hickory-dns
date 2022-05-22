@@ -413,6 +413,14 @@ impl Message {
         self.header.response_code()
     }
 
+    /// Returns the query from this Message.
+    ///
+    /// In almost all cases, a Message will only contain one query. This is a convenience function to get the single query.
+    /// See the alternative `queries*` methods for the raw set of queries in the Message
+    pub fn query(&self) -> Option<&Query> {
+        self.queries.first()
+    }
+
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```
@@ -1078,12 +1086,17 @@ impl fmt::Display for Message {
 
         writeln!(f, "; query")?;
         write_query(self.queries(), f)?;
-        writeln!(f, "; answers {}", self.answer_count())?;
-        write_slice(self.answers(), f)?;
-        writeln!(f, "; nameservers {}", self.name_server_count())?;
-        write_slice(self.name_servers(), f)?;
-        writeln!(f, "; additionals {}", self.additional_count())?;
-        write_slice(self.additionals(), f)?;
+
+        if self.header().message_type() == MessageType::Response
+            || self.header().op_code() == OpCode::Update
+        {
+            writeln!(f, "; answers {}", self.answer_count())?;
+            write_slice(self.answers(), f)?;
+            writeln!(f, "; nameservers {}", self.name_server_count())?;
+            write_slice(self.name_servers(), f)?;
+            writeln!(f, "; additionals {}", self.additional_count())?;
+            write_slice(self.additionals(), f)?;
+        }
 
         Ok(())
     }

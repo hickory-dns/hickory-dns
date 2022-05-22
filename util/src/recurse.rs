@@ -1,4 +1,4 @@
-// Copyright 2015-2020 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -22,18 +22,19 @@
 
 use std::{
     net::{IpAddr, SocketAddr},
-    path::{Path, PathBuf},
+    path::PathBuf,
     time::Instant,
 };
 
 use clap::Parser;
 use console::style;
 
+use trust_dns_client::op::Query;
 use trust_dns_recursor::Recursor;
 use trust_dns_resolver::{
-    config::{NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts},
+    config::{NameServerConfig, NameServerConfigGroup, Protocol},
     proto::rr::RecordType,
-    Name, TokioAsyncResolver,
+    Name,
 };
 
 /// A CLI interface for the trust-dns-recursor.
@@ -156,24 +157,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (udp && ns.protocol == Protocol::Udp) || (tcp && ns.protocol == Protocol::Tcp)
     });
 
-    let name_servers =
-        hints
-            .iter()
-            .map(|n| format!("{}", n))
-            .fold(String::new(), |mut names, n| {
-                if !names.is_empty() {
-                    names.push_str(", ")
-                }
-
-                names.push_str(&n);
-                names
-            });
-
     // query parameters
     let name = opts.domainname;
     let ty = opts.ty;
 
-    let mut recursor = Recursor::new(hints)?;
+    let recursor = Recursor::new(hints)?;
 
     // execute query
     println!(
@@ -183,7 +171,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let now = Instant::now();
-    let lookup = recursor.resolve(name, ty, now).await?;
+    let query = Query::query(name, ty);
+    let lookup = recursor.resolve(query, now).await?;
 
     // report response, TODO: better display of errors
     println!(
@@ -192,15 +181,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         style(&lookup).blue()
     );
 
-    let answers = lookup.answers();
-    let nameservers = lookup.name_servers();
-    let additionals = lookup.additionals();
-    let records = answers
-        .iter()
-        .chain(nameservers.iter())
-        .chain(additionals.iter());
-
-    for r in records.filter(|r| r.record_type() == ty) {
+    for r in lookup.record_iter().filter(|r| r.record_type() == ty) {
         print!(
             "\t{name} {ttl} {class} {ty}",
             name = style(r.name()).blue(),

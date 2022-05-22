@@ -258,7 +258,7 @@ pub extern crate trust_dns_proto as proto;
 mod async_resolver;
 pub mod caching_client;
 pub mod config;
-mod dns_lru;
+pub mod dns_lru;
 pub mod dns_sd;
 pub mod error;
 mod hosts;

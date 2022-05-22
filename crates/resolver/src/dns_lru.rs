@@ -7,6 +7,7 @@
 
 //! An LRU cache designed for work with DNS lookups
 
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -44,8 +45,9 @@ impl LruValue {
     }
 }
 
+/// And LRU eviction cache specifically for storing DNS records
 #[derive(Clone, Debug)]
-pub(crate) struct DnsLru {
+pub struct DnsLru {
     cache: Arc<Mutex<LruCache<Query, LruValue>>>,
     /// A minimum TTL value for positive responses.
     ///
@@ -93,7 +95,7 @@ pub(crate) struct DnsLru {
 ///   shouldn't cause any issue as this will never be used in serialization,
 ///   but understand that this would be outside the standard range.
 #[derive(Copy, Clone, Debug, Default)]
-pub(crate) struct TtlConfig {
+pub struct TtlConfig {
     /// An optional minimum TTL value for positive responses.
     ///
     /// Positive responses with TTLs under `positive_min_ttl` will use
@@ -117,7 +119,8 @@ pub(crate) struct TtlConfig {
 }
 
 impl TtlConfig {
-    pub(crate) fn from_opts(opts: &config::ResolverOpts) -> Self {
+    /// Construct the LRU based on the ResolverOpts configuration
+    pub fn from_opts(opts: &config::ResolverOpts) -> Self {
         Self {
             positive_min_ttl: opts.positive_min_ttl,
             negative_min_ttl: opts.negative_min_ttl,
@@ -128,7 +131,13 @@ impl TtlConfig {
 }
 
 impl DnsLru {
-    pub(crate) fn new(capacity: usize, ttl_cfg: TtlConfig) -> Self {
+    /// Construct a new cache
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity` - size in number of records, this can be the max size of 2048 (record size) * `capacity`
+    /// * `ttl_cfg` - force minimums and maximums for cached records
+    pub fn new(capacity: usize, ttl_cfg: TtlConfig) -> Self {
         let TtlConfig {
             positive_min_ttl,
             negative_min_ttl,
@@ -183,6 +192,54 @@ impl DnsLru {
                 valid_until,
             },
         );
+
+        lookup
+    }
+
+    /// inserts a record based on the name and type.
+    ///
+    /// # Arguments
+    ///
+    /// * `original_query` - is used for matching the records that should be returned
+    /// * `records` - the records will be partitioned by type and name for storage in the cache
+    /// * `now` - current time for use in associating TTLs
+    ///
+    /// # Return
+    ///
+    /// This should always return some records, but will be None if there are no records or the original_query matches none
+    pub fn insert_records(
+        &self,
+        original_query: Query,
+        records: impl Iterator<Item = Record>,
+        now: Instant,
+    ) -> Option<Lookup> {
+        // collect all records by name
+        let records = records.fold(
+            HashMap::<Query, Vec<(Record, u32)>>::new(),
+            |mut map, record| {
+                let mut query = Query::query(record.name().clone(), record.record_type());
+                query.set_query_class(record.dns_class());
+
+                let ttl = record.ttl();
+
+                map.entry(query)
+                    .or_insert_with(Vec::default)
+                    .push((record, ttl));
+
+                map
+            },
+        );
+
+        // now insert by record type and name
+        let mut lookup = None;
+        for (query, records_and_ttl) in records {
+            let is_query = original_query == query;
+            let inserted = self.insert(query, records_and_ttl, now);
+
+            if is_query {
+                lookup = Some(inserted)
+            }
+        }
 
         lookup
     }
@@ -260,8 +317,8 @@ impl DnsLru {
         error
     }
 
-    /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
-    pub(crate) fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ResolveError>> {
+    /// Based on the query, see if there are any records available
+    pub fn get(&self, query: &Query, now: Instant) -> Option<Result<Lookup, ResolveError>> {
         let mut out_of_date = false;
         let mut cache = self.cache.lock();
         let lookup = cache.get_mut(query).and_then(|value| {

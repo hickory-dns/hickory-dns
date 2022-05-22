@@ -12,10 +12,10 @@ use std::{fmt, io, sync};
 
 use thiserror::Error;
 use tracing::debug;
+use trust_dns_proto::rr::Record;
 
 use crate::proto::error::{ProtoError, ProtoErrorKind};
 use crate::proto::op::{Query, ResponseCode};
-use crate::proto::rr::rdata::SOA;
 use crate::proto::xfer::retry_dns_handle::RetryableError;
 use crate::proto::xfer::DnsResponse;
 #[cfg(feature = "backtrace")]
@@ -42,12 +42,12 @@ pub enum ResolveErrorKind {
     NoConnections,
 
     /// No records were found for a query
-    #[error("no record found for {query}")]
+    #[error("no record found for {:?}", query)]
     NoRecordsFound {
         /// The query for which no records were found.
         query: Box<Query>,
-        /// If an SOA is present, then this is an authoritative response.
-        soa: Option<Box<SOA>>,
+        /// If an SOA is present, then this is an authoritative response or a referral to another nameserver, see the negative_type field.
+        soa: Option<Box<Record>>,
         /// negative ttl, as determined from DnsResponse::negative_ttl
         ///  this will only be present if the SOA was also present.
         negative_ttl: Option<u32>,
@@ -111,7 +111,7 @@ pub struct ResolveError {
 impl ResolveError {
     pub(crate) fn nx_error(
         query: Query,
-        soa: Option<SOA>,
+        soa: Option<Record>,
         negative_ttl: Option<u32>,
         response_code: ResponseCode,
         trusted: bool,
@@ -145,7 +145,7 @@ impl ResolveError {
 
     /// A conversion to determine if the response is an error
     pub fn from_response(response: DnsResponse, trust_nx: bool) -> Result<DnsResponse, Self> {
-        debug!("Response:{}", response.header());
+        debug!("Response:{}", *response);
 
         match response.response_code() {
             response_code @ ResponseCode::ServFail
@@ -167,7 +167,7 @@ impl ResolveError {
             | response_code @ ResponseCode::BADTRUNC
             | response_code @ ResponseCode::BADCOOKIE => {
                 let mut response = response;
-                let soa = response.soa();
+                let soa = response.soa().cloned();
                 let query = response.take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
                     query: Box::new(query),
@@ -188,7 +188,7 @@ impl ResolveError {
                 // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
 
                 let mut response = response;
-                let soa = response.soa();
+                let soa = response.soa().cloned();
                 let negative_ttl = response.negative_ttl();
                 let trusted = if response_code == ResponseCode::NoError { false } else { trust_nx };
                 let query = response.take_queries().drain(..).next().unwrap_or_default();

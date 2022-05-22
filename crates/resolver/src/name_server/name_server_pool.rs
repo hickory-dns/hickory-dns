@@ -47,7 +47,7 @@ pub struct NameServerPool<
 #[cfg(test)]
 #[cfg(feature = "tokio-runtime")]
 impl NameServerPool<TokioConnection, TokioConnectionProvider> {
-    pub(crate) fn from_config(
+    pub(crate) fn tokio_from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
         runtime: TokioHandle,
@@ -113,7 +113,7 @@ where
 
     /// Construct a NameServerPool from a set of name server configs
     pub fn from_config(
-        mut name_servers: NameServerConfigGroup,
+        name_servers: NameServerConfigGroup,
         options: &ResolverOpts,
         conn_provider: P,
     ) -> Self {
@@ -493,7 +493,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let io_loop = Runtime::new().unwrap();
-        let mut pool = NameServerPool::<_, TokioConnectionProvider>::from_config(
+        let mut pool = NameServerPool::<_, TokioConnectionProvider>::tokio_from_config(
             &resolver_config,
             &ResolverOpts::default(),
             TokioHandle,
