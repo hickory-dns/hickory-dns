@@ -34,7 +34,7 @@ pub enum ErrorKind {
     #[error("{0}")]
     Msg(String),
 
-    /// An name error of some kind happened
+    /// Upstream DNS authority returned a Referral to another nameserver
     #[error("forward response: {0}")]
     Forward(Name),
 

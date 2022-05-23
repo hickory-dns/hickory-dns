@@ -2,25 +2,7 @@
 
 Trust-DNS Recursor is a library which implements recursive resolution for DNS.
 
-This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. It does not require any
-
-## Features
-
-- Dynamic Update with sqlite journaling backend (SIG0)
-- DNSSEC online signing (NSEC not NSEC3)
-- DNS over TLS (DoT)
-- DNS over HTTPS (DoH)
-- Forwarding stub resolver
-- ANAME resolution, for zone mapping aliass to A and AAAA records
-- Additionals section generation for aliasing record types
-
-## Future goals
-
-- Distributed dynamic DNS updates, with consensus
-- mTLS based authorization for Dynamic Updates
-- Online NSEC creation for queries
-- Full hint based resolving
-- Maybe NSEC3 and/or NSEC5 support
+This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. It does not require any recursive resolve to find records in DNS.
 
 ## Minimum Rust Version
 
