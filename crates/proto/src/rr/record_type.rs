@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! record type definitions
+#![allow(clippy::use_self)]
 
 use std::cmp::Ordering;
 use std::convert::From;

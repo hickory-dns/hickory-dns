@@ -1,3 +1,10 @@
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 use std::fmt;
 
 /// For tracking purposes of inbound requests, which protocol was used
@@ -21,12 +28,12 @@ pub enum Protocol {
 impl fmt::Display for Protocol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let s = match self {
-            Protocol::Udp => "UDP",
-            Protocol::Tcp => "TCP",
-            Protocol::Tls => "TLS",
-            Protocol::Dtls => "DTLS",
-            Protocol::Https => "HTTPS",
-            Protocol::Quic => "QUIC",
+            Self::Udp => "UDP",
+            Self::Tcp => "TCP",
+            Self::Tls => "TLS",
+            Self::Dtls => "DTLS",
+            Self::Https => "HTTPS",
+            Self::Quic => "QUIC",
         };
 
         f.write_str(s)

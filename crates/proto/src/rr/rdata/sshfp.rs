@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 //! SSHFP records for SSH public key fingerprints
+#![allow(clippy::use_self)]
+
 use std::fmt;
 
 #[cfg(feature = "serde-config")]

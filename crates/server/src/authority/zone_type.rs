@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(deprecated)]
+#![allow(deprecated, clippy::use_self)]
 
 use serde::{Deserialize, Serialize};
 
@@ -33,7 +33,7 @@ impl ZoneType {
     pub fn is_authoritative(self) -> bool {
         matches!(
             self,
-            ZoneType::Primary | ZoneType::Secondary | ZoneType::Master | ZoneType::Slave
+            Self::Primary | Self::Secondary | Self::Master | Self::Slave
         )
     }
 }

@@ -7,7 +7,7 @@
 
 // needed for the derive statements on algorithm
 //   this issue in rustc would help narrow the statement: https://github.com/rust-lang/rust/issues/62398
-#![allow(deprecated)]
+#![allow(deprecated, clippy::use_self)]
 
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -160,7 +160,7 @@ impl Algorithm {
         match self {
             Self::RSAMD5 => Some(16),                                       // 128 bits
             Self::DSA | Self::RSASHA1 | Self::RSASHA1NSEC3SHA1 => Some(20), // 160 bits
-            Self::RSASHA256 | Self::ECDSAP256SHA256 | Algorithm::ED25519 => Some(32), // 256 bits
+            Self::RSASHA256 | Self::ECDSAP256SHA256 | Self::ED25519 => Some(32), // 256 bits
             Self::ECDSAP384SHA384 => Some(48),
             Self::RSASHA512 => Some(64), // 512 bites
             Self::Unknown(_) => None,
@@ -176,16 +176,16 @@ impl Algorithm {
     /// Convert to string form
     pub fn as_str(self) -> &'static str {
         match self {
-            Algorithm::RSAMD5 => "RSAMD5",
-            Algorithm::DSA => "DSA",
-            Algorithm::RSASHA1 => "RSASHA1",
-            Algorithm::RSASHA256 => "RSASHA256",
-            Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
-            Algorithm::RSASHA512 => "RSASHA512",
-            Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
-            Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
-            Algorithm::ED25519 => "ED25519",
-            Algorithm::Unknown(_) => "Unknown",
+            Self::RSAMD5 => "RSAMD5",
+            Self::DSA => "DSA",
+            Self::RSASHA1 => "RSASHA1",
+            Self::RSASHA256 => "RSASHA256",
+            Self::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
+            Self::RSASHA512 => "RSASHA512",
+            Self::ECDSAP256SHA256 => "ECDSAP256SHA256",
+            Self::ECDSAP384SHA384 => "ECDSAP384SHA384",
+            Self::ED25519 => "ED25519",
+            Self::Unknown(_) => "Unknown",
         }
     }
 }

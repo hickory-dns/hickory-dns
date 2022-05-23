@@ -93,8 +93,8 @@ pub enum MessageType {
 impl fmt::Display for MessageType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let s = match self {
-            MessageType::Query => "QUERY",
-            MessageType::Response => "RESPONSE",
+            Self::Query => "QUERY",
+            Self::Response => "RESPONSE",
         };
 
         f.write_str(s)

@@ -6,8 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! record data enum variants
-
-#![allow(deprecated)] // allows us to deprecate RData types
+#![allow(deprecated, clippy::use_self)] // allows us to deprecate RData types
 
 use std::cmp::Ordering;
 #[cfg(test)]
@@ -905,88 +904,88 @@ impl RData {
     /// ```
     pub fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
-            RData::A(address) => rdata::a::emit(encoder, address),
-            RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
-            RData::ANAME(ref name) => {
+            Self::A(address) => rdata::a::emit(encoder, address),
+            Self::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
+            Self::ANAME(ref name) => {
                 encoder.with_canonical_names(|encoder| rdata::name::emit(encoder, name))
             }
-            RData::CAA(ref caa) => {
+            Self::CAA(ref caa) => {
                 encoder.with_canonical_names(|encoder| rdata::caa::emit(encoder, caa))
             }
             // to_lowercase for rfc4034 and rfc6840
-            RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
+            Self::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
                 rdata::name::emit(encoder, name)
             }
-            RData::CSYNC(ref csync) => rdata::csync::emit(encoder, csync),
-            RData::HINFO(ref hinfo) => rdata::hinfo::emit(encoder, hinfo),
-            RData::HTTPS(ref svcb) => rdata::svcb::emit(encoder, svcb),
-            RData::ZERO => Ok(()),
+            Self::CSYNC(ref csync) => rdata::csync::emit(encoder, csync),
+            Self::HINFO(ref hinfo) => rdata::hinfo::emit(encoder, hinfo),
+            Self::HTTPS(ref svcb) => rdata::svcb::emit(encoder, svcb),
+            Self::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
-            RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
-            RData::NAPTR(ref naptr) => {
+            Self::MX(ref mx) => rdata::mx::emit(encoder, mx),
+            Self::NAPTR(ref naptr) => {
                 encoder.with_canonical_names(|encoder| rdata::naptr::emit(encoder, naptr))
             }
-            RData::NULL(ref null) => rdata::null::emit(encoder, null),
-            RData::OPENPGPKEY(ref openpgpkey) => {
+            Self::NULL(ref null) => rdata::null::emit(encoder, null),
+            Self::OPENPGPKEY(ref openpgpkey) => {
                 encoder.with_canonical_names(|encoder| rdata::openpgpkey::emit(encoder, openpgpkey))
             }
-            RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
+            Self::OPT(ref opt) => rdata::opt::emit(encoder, opt),
             // to_lowercase for rfc4034 and rfc6840
-            RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
+            Self::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840
-            RData::SRV(ref srv) => {
+            Self::SRV(ref srv) => {
                 encoder.with_canonical_names(|encoder| rdata::srv::emit(encoder, srv))
             }
-            RData::SSHFP(ref sshfp) => {
+            Self::SSHFP(ref sshfp) => {
                 encoder.with_canonical_names(|encoder| rdata::sshfp::emit(encoder, sshfp))
             }
-            RData::SVCB(ref svcb) => rdata::svcb::emit(encoder, svcb),
-            RData::TLSA(ref tlsa) => {
+            Self::SVCB(ref svcb) => rdata::svcb::emit(encoder, svcb),
+            Self::TLSA(ref tlsa) => {
                 encoder.with_canonical_names(|encoder| rdata::tlsa::emit(encoder, tlsa))
             }
-            RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
+            Self::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
-            RData::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
+            Self::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
+            Self::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
         }
     }
 
     /// Converts this to a Recordtype
     pub fn to_record_type(&self) -> RecordType {
         match *self {
-            RData::A(..) => RecordType::A,
-            RData::AAAA(..) => RecordType::AAAA,
-            RData::ANAME(..) => RecordType::ANAME,
-            RData::CAA(..) => RecordType::CAA,
-            RData::CNAME(..) => RecordType::CNAME,
-            RData::CSYNC(..) => RecordType::CSYNC,
-            RData::HINFO(..) => RecordType::HINFO,
-            RData::HTTPS(..) => RecordType::HTTPS,
-            RData::MX(..) => RecordType::MX,
-            RData::NAPTR(..) => RecordType::NAPTR,
-            RData::NS(..) => RecordType::NS,
-            RData::NULL(..) => RecordType::NULL,
-            RData::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
-            RData::OPT(..) => RecordType::OPT,
-            RData::PTR(..) => RecordType::PTR,
-            RData::SOA(..) => RecordType::SOA,
-            RData::SRV(..) => RecordType::SRV,
-            RData::SSHFP(..) => RecordType::SSHFP,
-            RData::SVCB(..) => RecordType::SVCB,
-            RData::TLSA(..) => RecordType::TLSA,
-            RData::TXT(..) => RecordType::TXT,
+            Self::A(..) => RecordType::A,
+            Self::AAAA(..) => RecordType::AAAA,
+            Self::ANAME(..) => RecordType::ANAME,
+            Self::CAA(..) => RecordType::CAA,
+            Self::CNAME(..) => RecordType::CNAME,
+            Self::CSYNC(..) => RecordType::CSYNC,
+            Self::HINFO(..) => RecordType::HINFO,
+            Self::HTTPS(..) => RecordType::HTTPS,
+            Self::MX(..) => RecordType::MX,
+            Self::NAPTR(..) => RecordType::NAPTR,
+            Self::NS(..) => RecordType::NS,
+            Self::NULL(..) => RecordType::NULL,
+            Self::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
+            Self::OPT(..) => RecordType::OPT,
+            Self::PTR(..) => RecordType::PTR,
+            Self::SOA(..) => RecordType::SOA,
+            Self::SRV(..) => RecordType::SRV,
+            Self::SSHFP(..) => RecordType::SSHFP,
+            Self::SVCB(..) => RecordType::SVCB,
+            Self::TLSA(..) => RecordType::TLSA,
+            Self::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
-            RData::Unknown { code, .. } => RecordType::Unknown(code),
-            RData::ZERO => RecordType::ZERO,
+            Self::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
+            Self::Unknown { code, .. } => RecordType::Unknown(code),
+            Self::ZERO => RecordType::ZERO,
         }
     }
 
     /// If this is an A or AAAA record type, then an IpAddr will be returned
     pub fn to_ip_addr(&self) -> Option<IpAddr> {
         match *self {
-            RData::A(a) => Some(IpAddr::from(a)),
-            RData::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
+            Self::A(a) => Some(IpAddr::from(a)),
+            Self::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
             _ => None,
         }
     }
@@ -999,34 +998,34 @@ impl fmt::Display for RData {
         }
 
         match *self {
-            RData::A(address) => w(f, address),
-            RData::AAAA(ref address) => w(f, address),
-            RData::ANAME(ref name) => w(f, name),
-            RData::CAA(ref caa) => w(f, caa),
+            Self::A(address) => w(f, address),
+            Self::AAAA(ref address) => w(f, address),
+            Self::ANAME(ref name) => w(f, name),
+            Self::CAA(ref caa) => w(f, caa),
             // to_lowercase for rfc4034 and rfc6840
-            RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
-            RData::CSYNC(ref csync) => w(f, csync),
-            RData::HINFO(ref hinfo) => w(f, hinfo),
-            RData::HTTPS(ref svcb) => w(f, svcb),
-            RData::ZERO => Ok(()),
+            Self::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
+            Self::CSYNC(ref csync) => w(f, csync),
+            Self::HINFO(ref hinfo) => w(f, hinfo),
+            Self::HTTPS(ref svcb) => w(f, svcb),
+            Self::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
-            RData::MX(ref mx) => w(f, mx),
-            RData::NAPTR(ref naptr) => w(f, naptr),
-            RData::NULL(ref null) => w(f, null),
-            RData::OPENPGPKEY(ref openpgpkey) => w(f, openpgpkey),
+            Self::MX(ref mx) => w(f, mx),
+            Self::NAPTR(ref naptr) => w(f, naptr),
+            Self::NULL(ref null) => w(f, null),
+            Self::OPENPGPKEY(ref openpgpkey) => w(f, openpgpkey),
             // Opt has no display representation
-            RData::OPT(_) => Err(fmt::Error),
+            Self::OPT(_) => Err(fmt::Error),
             // to_lowercase for rfc4034 and rfc6840
-            RData::SOA(ref soa) => w(f, soa),
+            Self::SOA(ref soa) => w(f, soa),
             // to_lowercase for rfc4034 and rfc6840
-            RData::SRV(ref srv) => w(f, srv),
-            RData::SSHFP(ref sshfp) => w(f, sshfp),
-            RData::SVCB(ref svcb) => w(f, svcb),
-            RData::TLSA(ref tlsa) => w(f, tlsa),
-            RData::TXT(ref txt) => w(f, txt),
+            Self::SRV(ref srv) => w(f, srv),
+            Self::SSHFP(ref sshfp) => w(f, sshfp),
+            Self::SVCB(ref svcb) => w(f, svcb),
+            Self::TLSA(ref tlsa) => w(f, tlsa),
+            Self::TXT(ref txt) => w(f, txt),
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => w(f, rdata),
-            RData::Unknown { ref rdata, .. } => w(f, rdata),
+            Self::DNSSEC(ref rdata) => w(f, rdata),
+            Self::Unknown { ref rdata, .. } => w(f, rdata),
         }
     }
 }

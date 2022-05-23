@@ -16,6 +16,7 @@
  */
 
 //! NSEC3 related record types
+#![allow(clippy::use_self)]
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -154,7 +155,7 @@ impl Nsec3HashAlgorithm {
     pub fn hash(self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match self {
             // if there ever is more than just SHA1 support, this should be a genericized method
-            Nsec3HashAlgorithm::SHA1 => {
+            Self::SHA1 => {
                 let mut buf: Vec<u8> = Vec::new();
                 {
                     let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut buf);
