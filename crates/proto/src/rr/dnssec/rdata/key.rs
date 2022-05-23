@@ -15,6 +15,8 @@
  */
 
 //! public key record data for signing zone records
+#![allow(clippy::use_self)]
+
 use std::fmt;
 
 #[cfg(feature = "serde-config")]

@@ -619,10 +619,7 @@ impl NegativeType {
     pub fn is_authoritative(&self) -> bool {
         matches!(
             self,
-            NegativeType::NameErrorType1
-                | NegativeType::NameErrorType2
-                | NegativeType::NoDataType1
-                | NegativeType::NoDataType2
+            Self::NameErrorType1 | Self::NameErrorType2 | Self::NoDataType1 | Self::NoDataType2
         )
     }
 }

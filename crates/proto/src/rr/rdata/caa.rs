@@ -19,6 +19,7 @@
 //! certificate mis-issue.  This document defines the syntax of the CAA
 //! record and rules for processing CAA records by certificate issuers.
 //! ```
+#![allow(clippy::use_self)]
 
 use std::fmt;
 use std::str;
@@ -248,31 +249,31 @@ impl Property {
     /// Convert to string form
     pub fn as_str(&self) -> &str {
         match *self {
-            Property::Issue => "issue",
-            Property::IssueWild => "issuewild",
-            Property::Iodef => "iodef",
-            Property::Unknown(ref property) => property,
+            Self::Issue => "issue",
+            Self::IssueWild => "issuewild",
+            Self::Iodef => "iodef",
+            Self::Unknown(ref property) => property,
         }
     }
 
     /// true if the property is `issue`
     pub fn is_issue(&self) -> bool {
-        matches!(*self, Property::Issue)
+        matches!(*self, Self::Issue)
     }
 
     /// true if the property is `issueworld`
     pub fn is_issuewild(&self) -> bool {
-        matches!(*self, Property::IssueWild)
+        matches!(*self, Self::IssueWild)
     }
 
     /// true if the property is `iodef`
     pub fn is_iodef(&self) -> bool {
-        matches!(*self, Property::Iodef)
+        matches!(*self, Self::Iodef)
     }
 
     /// true if the property is not known to Trust-DNS
     pub fn is_unknown(&self) -> bool {
-        matches!(*self, Property::Unknown(_))
+        matches!(*self, Self::Unknown(_))
     }
 }
 
@@ -826,10 +827,10 @@ pub fn emit(encoder: &mut BinEncoder<'_>, caa: &CAA) -> ProtoResult<()> {
 impl fmt::Display for Property {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let s = match self {
-            Property::Issue => "issue",
-            Property::IssueWild => "issuewild",
-            Property::Iodef => "iodef",
-            Property::Unknown(s) => s,
+            Self::Issue => "issue",
+            Self::IssueWild => "issuewild",
+            Self::Iodef => "iodef",
+            Self::Unknown(s) => s,
         };
 
         f.write_str(s)

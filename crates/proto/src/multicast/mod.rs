@@ -44,25 +44,25 @@ impl MdnsQueryType {
     /// This will be sending packets, i.e. a standard UDP socket will be created
     pub fn sender(self) -> bool {
         match self {
-            MdnsQueryType::Passive => false,
-            MdnsQueryType::OneShot | MdnsQueryType::OneShotJoin => true,
-            MdnsQueryType::Continuous => true,
+            Self::Passive => false,
+            Self::OneShot | Self::OneShotJoin => true,
+            Self::Continuous => true,
         }
     }
 
     /// Returns true if this process can bind to *:5353
     pub fn bind_on_5353(self) -> bool {
         match self {
-            MdnsQueryType::OneShot | MdnsQueryType::OneShotJoin | MdnsQueryType::Passive => false,
-            MdnsQueryType::Continuous => true,
+            Self::OneShot | Self::OneShotJoin | Self::Passive => false,
+            Self::Continuous => true,
         }
     }
 
     /// Returns true if this mDNS client should join, listen, on the multicast address
     pub fn join_multicast(self) -> bool {
         match self {
-            MdnsQueryType::OneShot => false,
-            MdnsQueryType::Continuous | MdnsQueryType::OneShotJoin | MdnsQueryType::Passive => true,
+            Self::OneShot => false,
+            Self::Continuous | Self::OneShotJoin | Self::Passive => true,
         }
     }
 }

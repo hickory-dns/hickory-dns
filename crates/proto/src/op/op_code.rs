@@ -47,10 +47,10 @@ pub enum OpCode {
 impl fmt::Display for OpCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let s = match self {
-            OpCode::Query => "QUERY",
-            OpCode::Status => "STATUS",
-            OpCode::Notify => "NOTIFY",
-            OpCode::Update => "UPDATE",
+            Self::Query => "QUERY",
+            Self::Status => "STATUS",
+            Self::Notify => "NOTIFY",
+            Self::Update => "UPDATE",
         };
 
         f.write_str(s)
