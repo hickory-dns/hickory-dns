@@ -62,7 +62,6 @@ use tracing_subscriber::{
 use trust_dns_client::rr::Name;
 #[cfg(feature = "dns-over-tls")]
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
-use trust_dns_server::server::ServerFuture;
 #[cfg(feature = "resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
 #[cfg(feature = "sqlite")]
@@ -75,6 +74,7 @@ use trust_dns_server::{
         StoreConfig,
     },
 };
+use trust_dns_server::{server::ServerFuture, store::recursor::RecursiveAuthority};
 
 #[cfg(feature = "dnssec")]
 use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};
@@ -202,6 +202,13 @@ async fn load_zone(
             let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
 
             Box::new(Arc::new(forwarder)) as Box<dyn AuthorityObject>
+        }
+        #[cfg(feature = "recursor")]
+        Some(StoreConfig::Recursor(ref config)) => {
+            let recursor = RecursiveAuthority::try_from_config(zone_name, zone_type, config);
+            let authority = recursor.await?;
+
+            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {

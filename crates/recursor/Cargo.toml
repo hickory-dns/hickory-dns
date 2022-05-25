@@ -59,6 +59,8 @@ dns-over-tls = []
 tls-openssl = ["dns-over-openssl"]
 tls = ["dns-over-openssl"]
 
+serde-config = ["serde", "trust-dns-proto/serde-config"]
+
 testing = []
 
 [lib]
@@ -81,7 +83,7 @@ openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 parking_lot = "0.12"
 rusqlite = { version = "0.27.0", features = ["bundled", "time"], optional = true }
 rustls = { version = "0.20", optional = true }
-serde = { version = "1.0.114", features = ["derive"] }
+serde = { version = "1.0.114", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 time = "0.3"
 tracing = "0.1.30"

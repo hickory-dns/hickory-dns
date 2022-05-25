@@ -8,9 +8,12 @@
 ;           file                /domain/named.cache 
 ;           on server           FTP.INTERNIC.NET
 ;       -OR-                    RS.INTERNIC.NET
+;; 
+;;      See also, https://www.internic.net/domain/named.root
+;; 
 ;
-;       last update:     February 16, 2022
-;       related version of root zone:     2022021601
+;       last update:     May 12, 2022
+;       related version of root zone:     2022051201
 ; 
 ; FORMERLY NS.INTERNIC.NET 
 ;
