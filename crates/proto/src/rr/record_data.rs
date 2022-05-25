@@ -982,7 +982,13 @@ impl RData {
     }
 
     /// If this is an A or AAAA record type, then an IpAddr will be returned
+    #[deprecated(note = "use as_ip_addr instead")]
     pub fn to_ip_addr(&self) -> Option<IpAddr> {
+        self.as_ip_addr()
+    }
+
+    /// If this is an A or AAAA record type, then an IpAddr will be returned
+    pub fn as_ip_addr(&self) -> Option<IpAddr> {
         match *self {
             Self::A(a) => Some(IpAddr::from(a)),
             Self::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
