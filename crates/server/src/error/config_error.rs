@@ -27,12 +27,16 @@ pub enum ErrorKind {
     /// An error occurred while decoding toml data
     #[error("toml decode error: {0}")]
     TomlDecode(#[from] toml::de::Error),
+
+    /// An error occurred while parsing a zone file
+    #[error("failed to parse hints zone file: {0}")]
+    ZoneParse(#[from] trust_dns_client::error::ParseError),
 }
 
 /// The error type for errors that get returned in the crate
 #[derive(Debug)]
 pub struct Error {
-    kind: ErrorKind,
+    kind: Box<ErrorKind>,
     #[cfg(feature = "backtrace")]
     backtrack: Option<ExtBacktrace>,
 }
@@ -61,24 +65,17 @@ impl fmt::Display for Error {
     }
 }
 
-impl From<ErrorKind> for Error {
-    fn from(kind: ErrorKind) -> Self {
+impl<E> From<E> for Error
+where
+    E: Into<ErrorKind>,
+{
+    fn from(error: E) -> Self {
+        let kind: ErrorKind = error.into();
+
         Self {
-            kind,
+            kind: Box::new(kind),
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
-    }
-}
-
-impl From<io::Error> for Error {
-    fn from(e: io::Error) -> Self {
-        ErrorKind::from(e).into()
-    }
-}
-
-impl From<toml::de::Error> for Error {
-    fn from(e: toml::de::Error) -> Self {
-        ErrorKind::from(e).into()
     }
 }

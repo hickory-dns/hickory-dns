@@ -7,8 +7,8 @@ edition = "2018"
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-Trust-DNS is a safe and secure DNS server with DNSec support.
- Eventually this could be a replacement for BIND9. The DNSSec support allows
+Trust-DNS is a safe and secure DNS server with DNSEC support.
+ Eventually this could be a replacement for BIND9. The DNSSEC support allows
  for live signing of all records, in it does not currently support
  records signed offline. The server supports dynamic DNS with SIG0 authenticated
  requests. Trust-DNS is based on the Tokio and Futures libraries, which means
@@ -46,6 +46,7 @@ default = ["sqlite", "resolver"]
 dnssec-openssl = ["dnssec", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-server/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-server/dnssec-ring"]
 dnssec = []
+recursor = ["trust-dns-server/recursor"]
 resolver = ["trust-dns-server/resolver"]
 sqlite = ["trust-dns-server/sqlite"]
 
@@ -68,8 +69,13 @@ tls = ["dns-over-openssl"]
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["trust-dns-client/mtls"]
 
+## DEPRECATED
 [[bin]]
 name = "named"
+path = "src/named.rs"
+
+[[bin]]
+name = "trust-dns"
 path = "src/named.rs"
 
 [dependencies]
