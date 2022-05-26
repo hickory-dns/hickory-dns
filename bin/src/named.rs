@@ -205,7 +205,8 @@ async fn load_zone(
         }
         #[cfg(feature = "recursor")]
         Some(StoreConfig::Recursor(ref config)) => {
-            let recursor = RecursiveAuthority::try_from_config(zone_name, zone_type, config);
+            let recursor =
+                RecursiveAuthority::try_from_config(zone_name, zone_type, config, Some(zone_dir));
             let authority = recursor.await?;
 
             Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>

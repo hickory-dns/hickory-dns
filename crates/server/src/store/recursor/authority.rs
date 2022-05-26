@@ -5,9 +5,12 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
+use std::{io, path::Path, time::Instant};
 
 use tracing::{debug, info};
+use trust_dns_client::op::Query;
+
+pub use trust_dns_resolver::lookup::Lookup;
 
 use crate::{
     authority::{
@@ -37,13 +40,14 @@ impl RecursiveAuthority {
         origin: Name,
         _zone_type: ZoneType,
         config: &RecursiveConfig,
+        root_dir: Option<&Path>,
     ) -> Result<Self, String> {
         info!("loading recursor config: {}", origin);
 
         // read the hints
         let hint_addrs = config
-            .read_hints()
-            .map_err(|e| format!("failed to read hints file: {}", e))?;
+            .read_hints(root_dir)
+            .map_err(|e| format!("failed to read hints {}: {}", config.hints.display(), e))?;
 
         // Configure all the name servers
         let mut hints = NameServerConfigGroup::new();
@@ -115,7 +119,14 @@ impl Authority for RecursiveAuthority {
     ) -> Result<Self::Lookup, LookupError> {
         debug!("recursive lookup: {} {}", name, rtype);
 
-        todo!();
+        let query = Query::query(name.into(), rtype);
+        let now = Instant::now();
+
+        self.recursor
+            .resolve(query, now)
+            .await
+            .map(RecursiveLookup)
+            .map_err(Into::into)
     }
 
     async fn search(
@@ -143,18 +154,18 @@ impl Authority for RecursiveAuthority {
     }
 }
 
-pub struct RecursiveLookup();
+pub struct RecursiveLookup(Lookup);
 
 impl LookupObject for RecursiveLookup {
     fn is_empty(&self) -> bool {
-        todo!()
+        self.0.is_empty()
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Record> + Send + 'a> {
-        todo!()
+        Box::new(self.0.record_iter())
     }
 
     fn take_additionals(&mut self) -> Option<Box<dyn LookupObject>> {
-        todo!()
+        None
     }
 }
