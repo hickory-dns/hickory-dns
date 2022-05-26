@@ -6,17 +6,19 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::{
+    borrow::{Borrow, Cow},
     fs::File,
     io::Read,
     net::{IpAddr, SocketAddr},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use serde::Deserialize;
 use trust_dns_client::{
-    rr::{RData, Record, RecordSet},
+    rr::{DNSClass, RData, Record, RecordSet},
     serialize::txt::{Lexer, Parser},
 };
+use trust_dns_resolver::Name;
 
 use crate::error::ConfigError;
 
@@ -28,22 +30,31 @@ pub struct RecursiveConfig {
 }
 
 impl RecursiveConfig {
-    pub(crate) fn read_hints(&self) -> Result<Vec<SocketAddr>, ConfigError> {
-        let mut hints = File::open(&self.hints)?;
+    pub(crate) fn read_hints(
+        &self,
+        root_dir: Option<&Path>,
+    ) -> Result<Vec<SocketAddr>, ConfigError> {
+        let path = if let Some(root_dir) = root_dir {
+            Cow::Owned(root_dir.join(&self.hints))
+        } else {
+            Cow::Borrowed(&self.hints)
+        };
+
+        let mut hints = File::open(path.as_ref())?;
         let mut hints_str = String::new();
         hints.read_to_string(&mut hints_str)?;
 
         let lexer = Lexer::new(&hints_str);
         let mut parser = Parser::new();
 
-        let (_zone, hints_zone) = parser.parse(lexer, None, None)?;
+        let (_zone, hints_zone) = parser.parse(lexer, Some(Name::root()), Some(DNSClass::IN))?;
 
         // TODO: we may want to deny some of the root nameservers, for reasons...
         Ok(hints_zone
             .values()
             .flat_map(RecordSet::records_without_rrsigs)
             .filter_map(Record::data)
-            .filter_map(RData::as_ip_addr) // we only want IPs
+            .filter_map(RData::to_ip_addr) // we only want IPs
             .map(|ip| SocketAddr::from((ip, 53))) // all the hints only have tradition DNS ports
             .collect())
     }
