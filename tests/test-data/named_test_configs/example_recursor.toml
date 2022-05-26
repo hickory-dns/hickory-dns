@@ -27,9 +27,9 @@ file = "default/0.zone"
 
 [[zones]]
 ## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
-##  specifying something other than '.' here, will restrict this forwarder to only queries
+##  specifying something other than '.' here, will restrict this recursor to only queries
 ##  where the search name is a subzone of the name, e.g. if zone is "example.com.", then
-##  queries for "www.example.com" or "example.com" would be forwarded.
+##  queries for "www.example.com" or "example.com" would be recursively queried.
 zone = "."
 
 ## zone_type: Primary, Secondary, Hint, Forward
@@ -37,4 +37,4 @@ zone_type = "Hint"
 
 ## remember the port, defaults: 53 for Udp & Tcp, 853 for Tls and 443 for Https.
 ##   Tls and/or Https require features dns-over-tls and/or dns-over-https
-stores = { type = "recursor", hints = "default/roots.zone" }
+stores = { type = "recursor", hints = "default/root.zone" }
