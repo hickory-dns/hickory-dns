@@ -10,7 +10,7 @@ use std::{io, path::Path, time::Instant};
 use tracing::{debug, info};
 use trust_dns_client::op::Query;
 
-pub use trust_dns_resolver::lookup::Lookup;
+pub(crate) use trust_dns_resolver::lookup::Lookup;
 
 use crate::{
     authority::{
