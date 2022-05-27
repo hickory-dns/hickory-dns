@@ -51,7 +51,7 @@ pub use trust_dns_proto as proto;
 #[cfg(feature = "recursor")]
 #[cfg_attr(docsrs, doc(cfg(feature = "recursor")))]
 pub use trust_dns_recursor as recursor;
-#[cfg(feature = "resolver")]
+#[cfg(feature = "trust-dns-resolver")]
 #[cfg_attr(docsrs, doc(cfg(feature = "resolver")))]
 pub use trust_dns_resolver as resolver;
 
