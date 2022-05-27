@@ -64,17 +64,19 @@ use trust_dns_client::rr::Name;
 use trust_dns_server::config::dnssec::{self, TlsCertConfig};
 #[cfg(feature = "resolver")]
 use trust_dns_server::store::forwarder::ForwardAuthority;
+#[cfg(feature = "recursor")]
+use trust_dns_server::store::recursor::RecursiveAuthority;
 #[cfg(feature = "sqlite")]
 use trust_dns_server::store::sqlite::{SqliteAuthority, SqliteConfig};
 use trust_dns_server::{
     authority::{AuthorityObject, Catalog, ZoneType},
     config::{Config, ZoneConfig},
+    server::ServerFuture,
     store::{
         file::{FileAuthority, FileConfig},
         StoreConfig,
     },
 };
-use trust_dns_server::{server::ServerFuture, store::recursor::RecursiveAuthority};
 
 #[cfg(feature = "dnssec")]
 use {trust_dns_client::rr::rdata::key::KeyUsage, trust_dns_server::authority::DnssecAuthority};

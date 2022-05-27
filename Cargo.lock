@@ -1903,6 +1903,7 @@ dependencies = [
 name = "trust-dns-resolver"
 version = "0.21.2"
 dependencies = [
+ "backtrace",
  "cfg-if",
  "futures-executor",
  "futures-util",
