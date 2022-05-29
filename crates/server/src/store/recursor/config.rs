@@ -6,10 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::{
-    borrow::{Borrow, Cow},
+    borrow::Cow,
     fs::File,
     io::Read,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     path::{Path, PathBuf},
 };
 
