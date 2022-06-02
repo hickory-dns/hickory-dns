@@ -2,7 +2,7 @@
 name = "trust-dns-recursor"
 version = "0.21.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
-edition = "2021"
+edition = "2018"
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
@@ -40,7 +40,7 @@ codecov = { repository = "bluejekyll/trust-dns", branch = "main", service = "git
 maintenance = { status = "actively-developed" }
 
 [features]
-backtrace = ["dep:backtrace", "trust-dns-proto/backtrace", "trust-dns-resolver/backtrace"]
+#backtrace = ["dep:backtrace", "trust-dns-proto/backtrace", "trust-dns-resolver/backtrace"]
 
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
@@ -71,7 +71,7 @@ path = "src/lib.rs"
 [dependencies]
 async-trait = "0.1.43"
 async-recursion = "1.0.0"
-backtrace = { version = "0.3.50", optional = true }
+#backtrace = { version = "0.3.50", optional = true }
 bytes = "1"
 cfg-if = "1"
 enum-as-inner = "0.5"

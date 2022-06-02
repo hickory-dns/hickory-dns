@@ -254,11 +254,11 @@ impl Recursor {
                     ErrorKind::Forward(name) => {
                         // if we already had this name, don't try again
                         if &zone == name {
-                            debug!("zone previously searched for {name}");
+                            debug!("zone previously searched for {}", name);
                             break 'max_forward;
                         };
 
-                        debug!("ns forwarded to {name}");
+                        debug!("ns forwarded to {}", name);
                         zone = name.clone();
                     }
                     _ => return Err(e),
@@ -318,7 +318,7 @@ impl Recursor {
         let parent_zone = zone.base_name();
 
         let nameserver_pool = if parent_zone.is_root() {
-            debug!("using hints for {zone} nameservers");
+            debug!("using hints for {} nameservers", zone);
             self.hints.clone()
         } else {
             self.get_ns_pool_for_zone(parent_zone, request_time).await?
@@ -379,7 +379,7 @@ impl Recursor {
                 }
 
                 if !had_glue {
-                    debug!("glue not found for {ns_data}");
+                    debug!("glue not found for {}", ns_data);
                     need_ips_for_names.push(ns_data);
                 }
             }
@@ -388,7 +388,7 @@ impl Recursor {
         // collect missing IP addresses, select over them all, get the addresses
         // make it configurable to query for all records?
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
-            debug!("need glue for {zone}");
+            debug!("need glue for {}", zone);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
                 let a_query = Query::query((*name).clone(), RecordType::A);
                 self.resolve(a_query, request_time).boxed()
@@ -420,7 +420,7 @@ impl Recursor {
                         }
                     }
                     Err(e) => {
-                        warn!("resolve failed {e}");
+                        warn!("resolve failed {}", e);
                     }
                 }
             }
