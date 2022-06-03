@@ -48,12 +48,13 @@ dnssec = []
 sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
-dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls",  "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls", "tokio-rustls"]
+dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls",  "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "tokio-openssl", "trust-dns-resolver/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls", "tokio-rustls"]
+dns-over-native-tls = ["dns-over-tls", "trust-dns-proto/dns-over-native-tls", "trust-dns-resolver/dns-over-native-tls"]
+dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -89,8 +90,6 @@ thiserror = "1.0.20"
 time = "0.3"
 tracing = "0.1.30"
 tokio = { version = "1.0", features = ["net"] }
-tokio-openssl = { version = "0.6.0", optional = true }
-tokio-rustls = { version = "0.23.0", optional = true }
 toml = "0.5"
 trust-dns-proto = { version = "0.21.1", path = "../proto" }
 trust-dns-resolver = { version = "0.21.1", path = "../resolver"}
