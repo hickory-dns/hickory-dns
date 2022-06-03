@@ -1889,8 +1889,6 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
- "tokio-openssl",
- "tokio-rustls",
  "toml",
  "tracing",
  "tracing-subscriber",
