@@ -51,6 +51,8 @@ sqlite = ["rusqlite"]
 dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls",  "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls"]
 dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
 
+dns-over-quic = ["rustls/quic", "dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
+
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-native-tls = ["dns-over-tls", "trust-dns-proto/dns-over-native-tls", "trust-dns-resolver/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
