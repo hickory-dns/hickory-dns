@@ -414,7 +414,7 @@ run_task = { name = "all", fork = true }
 description = "Run all with --features=mdns"
 dependencies = ["install-openssl"]
 workspace = false
-env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/resolver;crates/async-std-resolver;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
+env = { FEATURES = "--features=mdns", CARGO_MAKE_WORKSPACE_SKIP_MEMBERS = "crates/recursor;crates/resolver;crates/async-std-resolver;crates/server;bin;tests/compatibility-tests;tests/integration-tests;util" }
 run_task = { name = "all", fork = true }
 
 [tasks.async-std]
