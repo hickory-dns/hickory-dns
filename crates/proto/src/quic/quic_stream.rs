@@ -143,7 +143,7 @@ impl QuicStream {
         // sent over DoQ connections MUST be encoded as a 2-octet length field followed by the message content as specified in [RFC1035].
         let bytes_len = u16::try_from(bytes.len())
             .map_err(|_e| ProtoErrorKind::MaxBufferSizeExceeded(bytes.len()))?;
-        let len = bytes_len.to_ne_bytes().to_vec();
+        let len = bytes_len.to_be_bytes().to_vec();
         let len = Bytes::from(len);
 
         debug!("received packet len: {} bytes: {:x?}", bytes_len, bytes);
@@ -179,7 +179,7 @@ impl QuicStream {
         // following above, the data should be first the length, followed by the message(s)
         let mut len = [0u8; 2];
         self.receive_stream.read_exact(&mut len).await?;
-        let len = u16::from_ne_bytes(len) as usize;
+        let len = u16::from_be_bytes(len) as usize;
 
         // RFC: DoQ Queries and Responses are sent on QUIC streams, which in theory can carry up to 2^62 bytes.
         //  However, DNS messages are restricted in practice to a maximum size of 65535 bytes. This maximum size
