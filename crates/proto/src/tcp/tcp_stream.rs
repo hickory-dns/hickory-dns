@@ -331,10 +331,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
 
                         // will return if the socket will block
                         // the length is 16 bits
-                        let len: [u8; 2] = [
-                            (buffer.len() >> 8 & 0xFF) as u8,
-                            (buffer.len() & 0xFF) as u8,
-                        ];
+                        let len = u16::to_be_bytes(buffer.len() as u16);
 
                         debug!("sending message len: {} to: {}", buffer.len(), dst);
                         *send_state = Some(WriteTcpState::LenBytes {
@@ -390,8 +387,7 @@ impl<S: DnsTcpStream> Stream for TcpStream<S> {
                         debug!("remain ReadTcpState::LenBytes: {}", pos);
                         None
                     } else {
-                        let length =
-                            u16::from(bytes[0]) << 8 & 0xFF00 | u16::from(bytes[1]) & 0x00FF;
+                        let length = u16::from_be_bytes(*bytes);
                         debug!("got length: {}", length);
                         let mut bytes = vec![0; length as usize];
                         bytes.resize(length as usize, 0);
