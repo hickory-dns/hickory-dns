@@ -196,6 +196,7 @@ impl QuicClientStreamBuilder {
         if crypto_config.alpn_protocols.is_empty() {
             crypto_config.alpn_protocols = vec![quic_stream::DOQ_ALPN.to_vec()];
         }
+        let early_data_enabled = crypto_config.enable_early_data;
 
         let mut client_config = ClientConfig::new(Arc::new(crypto_config));
         client_config.transport = self.transport_config;
@@ -205,7 +206,14 @@ impl QuicClientStreamBuilder {
         let connecting = endpoint.connect(name_server, &dns_name)?;
         // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
 
-        let connection = connecting.await?;
+        let connection = if early_data_enabled {
+            match connecting.into_0rtt() {
+                Ok((new_connection, _)) => new_connection,
+                Err(connecting) => connecting.await?,
+            }
+        } else {
+            connecting.await?
+        };
         let NewConnection {
             connection: quic_connection,
             ..
