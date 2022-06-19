@@ -742,9 +742,8 @@ impl Default for LookupIpStrategy {
 #[non_exhaustive]
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
-    ///  that must appear before a query is assumed to include the TLD. The default is one, which
-    ///  means that `www` would never be assumed to be a TLD, and would always be appended to either
-    ///  the search
+    ///  before a query is assumed to include the TLD. The default is one, which means that `www`
+    ///  would never be assumed to be a TLD, and would always be appended to either the search
     pub ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
     pub timeout: Duration,
