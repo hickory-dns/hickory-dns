@@ -164,6 +164,9 @@ impl Authority for ForwardAuthority {
     }
 }
 
+/// A structure that holders the results of a forwarding lookup.
+///
+/// This exposes an interator interface for consumption downstream.
 pub struct ForwardLookup(ResolverLookup);
 
 impl LookupObject for ForwardLookup {
