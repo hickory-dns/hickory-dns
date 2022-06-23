@@ -13,4 +13,5 @@ mod authority;
 mod config;
 
 pub use self::authority::ForwardAuthority;
+pub use self::authority::ForwardLookup;
 pub use self::config::ForwardConfig;
