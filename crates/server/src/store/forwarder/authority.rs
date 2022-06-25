@@ -164,7 +164,10 @@ impl Authority for ForwardAuthority {
     }
 }
 
-pub struct ForwardLookup(ResolverLookup);
+/// A structure that holds the results of a forwarding lookup.
+///
+/// This exposes an interator interface for consumption downstream.
+pub struct ForwardLookup(pub ResolverLookup);
 
 impl LookupObject for ForwardLookup {
     fn is_empty(&self) -> bool {
