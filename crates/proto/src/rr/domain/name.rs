@@ -1891,8 +1891,7 @@ mod tests {
 
         let error = n
             .append_domain(&sfx)
-            .err()
-            .expect("should have errored, too long");
+            .expect_err("should have errored, too long");
 
         match error.kind() {
             ProtoErrorKind::Message("labels exceed maximum length of 255") => (),

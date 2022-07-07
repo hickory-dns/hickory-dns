@@ -288,7 +288,7 @@ struct Args {
     pub(crate) flag_quic_port: Option<u16>,
 }
 
-impl<'a> From<ArgMatches> for Args {
+impl From<ArgMatches> for Args {
     fn from(matches: ArgMatches) -> Args {
         Args {
             flag_quiet: matches.is_present(QUIET_ARG),
