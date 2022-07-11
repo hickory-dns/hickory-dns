@@ -116,8 +116,8 @@ where
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let mut request = request.into();
 
-        // backstop, this might need to be configurable at some point
-        if self.request_depth > 26 {
+        // backstop
+        if self.request_depth > request.options().max_request_depth {
             return Box::pin(stream::once(future::err(Self::Error::from(
                 ProtoError::from("exceeded max validation depth"),
             ))));
