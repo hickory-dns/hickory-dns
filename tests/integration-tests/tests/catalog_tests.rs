@@ -12,7 +12,7 @@ use trust_dns_server::{
     store::in_memory::InMemoryAuthority,
 };
 
-use trust_dns_integration::{authority::create_example, *};
+use trust_dns_integration::{example_authority::create_example, *};
 
 #[allow(clippy::unreadable_literal)]
 pub fn create_test() -> InMemoryAuthority {
