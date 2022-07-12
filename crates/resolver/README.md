@@ -77,7 +77,7 @@ Currently the root key is hardcoded into the system. This gives validation of
  appear to rate limit the connections, validating RRSIG records back to the root
  can require a significant number of additional queries for those records.
 
-Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-rustls` must be enabled.
+Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
 
 ## Testing the resolver via CLI with resolve
 
