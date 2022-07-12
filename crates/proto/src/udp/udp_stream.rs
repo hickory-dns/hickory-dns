@@ -282,7 +282,7 @@ impl UdpSocket for tokio::net::UdpSocket {
 
     /// setups up a "client" udp connection that will only receive packets from the associated address
     ///
-    /// if the addr is ipv4 then it will bind local addr to 0.0.0.0:0, ipv6 [::]0
+    /// if the addr is ipv4 then it will bind local addr to 0.0.0.0:0, ipv6 \[::\]0
     async fn connect(addr: SocketAddr) -> io::Result<Self> {
         let bind_addr: SocketAddr = match addr {
             SocketAddr::V4(_addr) => (Ipv4Addr::UNSPECIFIED, 0).into(),

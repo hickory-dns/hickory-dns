@@ -177,7 +177,7 @@ impl Header {
     /// Construct a new header based off the request header. This copies over the RD (recursion-desired)
     ///   and CD (checking-disabled), as well as the op_code and id of the request.
     ///
-    /// See https://datatracker.ietf.org/doc/html/rfc6895#section-2
+    /// See <https://datatracker.ietf.org/doc/html/rfc6895#section-2>
     ///
     /// ```text
     /// The AA, TC, RD, RA, and CD bits are each theoretically meaningful
