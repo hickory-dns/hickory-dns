@@ -117,7 +117,7 @@ where
         let mut request = request.into();
 
         // backstop, this might need to be configurable at some point
-        if self.request_depth > 20 {
+        if self.request_depth > 26 {
             return Box::pin(stream::once(future::err(Self::Error::from(
                 ProtoError::from("exceeded max validation depth"),
             ))));
