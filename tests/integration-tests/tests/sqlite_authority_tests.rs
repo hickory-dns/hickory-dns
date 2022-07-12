@@ -20,13 +20,13 @@ use trust_dns_server::store::sqlite::{Journal, SqliteAuthority};
 const TEST_HEADER: &Header = &Header::new();
 
 fn create_example() -> SqliteAuthority {
-    let authority = trust_dns_integration::authority::create_example();
+    let authority = trust_dns_integration::example_authority::create_example();
     SqliteAuthority::new(authority, true, false)
 }
 
 #[cfg(feature = "dnssec")]
 fn create_secure_example() -> SqliteAuthority {
-    let authority = trust_dns_integration::authority::create_secure_example();
+    let authority = trust_dns_integration::example_authority::create_secure_example();
     SqliteAuthority::new(authority, true, true)
 }
 

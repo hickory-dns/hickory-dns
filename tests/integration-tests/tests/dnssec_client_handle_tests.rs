@@ -21,7 +21,7 @@ use trust_dns_proto::udp::{UdpClientConnect, UdpClientStream};
 use trust_dns_proto::DnssecDnsHandle;
 use trust_dns_server::authority::{Authority, Catalog};
 
-use trust_dns_integration::authority::create_secure_example;
+use trust_dns_integration::example_authority::create_secure_example;
 use trust_dns_integration::TestClientStream;
 
 #[test]

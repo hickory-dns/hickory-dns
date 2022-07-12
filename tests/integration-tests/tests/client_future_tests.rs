@@ -36,7 +36,7 @@ use trust_dns_proto::{iocompat::AsyncIoTokioAsStd, xfer::FirstAnswer, DnsHandle}
 use trust_dns_server::authority::{Authority, Catalog};
 
 use trust_dns_integration::{
-    authority::create_example, NeverReturnsClientStream, TestClientStream,
+    example_authority::create_example, NeverReturnsClientStream, TestClientStream,
 };
 
 #[test]
