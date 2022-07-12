@@ -21,7 +21,7 @@ use trust_dns_proto::xfer::DnsRequestSender;
 use trust_dns_server::authority::{Authority, Catalog};
 use trust_dns_server::ServerFuture;
 
-use trust_dns_integration::authority::create_example;
+use trust_dns_integration::example_authority::create_example;
 
 #[cfg(feature = "dns-over-rustls")]
 use rustls::RootCertStore;

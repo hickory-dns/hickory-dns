@@ -22,7 +22,7 @@ use trust_dns_client::{
     error::ClientErrorKind,
     rr::rdata::opt::{EdnsCode, EdnsOption},
 };
-use trust_dns_integration::authority::create_example;
+use trust_dns_integration::example_authority::create_example;
 use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::op::*;

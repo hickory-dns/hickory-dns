@@ -25,7 +25,7 @@ use trust_dns_server::{
     store::in_memory::InMemoryAuthority,
 };
 
-use trust_dns_integration::{authority::create_example, mock_client::*, TestClientStream};
+use trust_dns_integration::{example_authority::create_example, mock_client::*, TestClientStream};
 
 #[test]
 fn test_lookup() {

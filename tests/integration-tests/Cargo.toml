@@ -84,7 +84,7 @@ tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] 
 trust-dns-client= { version = "0.21.1", path = "../../crates/client" }
 trust-dns-proto = { version = "0.21.1", path = "../../crates/proto", features = ["testing"] }
 trust-dns-resolver = { version = "0.21.1", path = "../../crates/resolver" }
-# TODO: fixup tests to not require openssl
+trust-dns-recursor = { version = "0.21.1", path = "../../crates/recursor" }
 trust-dns-server = { version = "0.21.1", path = "../../crates/server", features = ["testing"] }
 webpki-roots = { version = "0.22", optional = true }
 
