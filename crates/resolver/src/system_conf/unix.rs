@@ -52,7 +52,7 @@ fn into_resolver_config(
     parsed_config: resolv_conf::Config,
 ) -> io::Result<(ResolverConfig, ResolverOpts)> {
     let domain = if let Some(domain) = parsed_config.get_system_domain() {
-        Some(Name::from_str(domain.as_str())?)
+        Name::from_str(domain.as_str()).ok()
     } else {
         None
     };
