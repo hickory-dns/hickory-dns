@@ -84,7 +84,7 @@ futures-util = { version = "0.3.5", default-features = false, features = ["std"]
 h2 = { version = "0.3.0", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
-rusqlite = { version = "0.27.0", features = ["bundled", "time"], optional = true }
+rusqlite = { version = "0.28.0", features = ["bundled", "time"], optional = true }
 rustls = { version = "0.20", optional = true }
 serde = { version = "1.0.114", features = ["derive"] }
 thiserror = "1.0.20"
