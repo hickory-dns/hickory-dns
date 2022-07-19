@@ -163,6 +163,7 @@ where
                 .queries()
                 .first()
                 .map_or(DNSClass::IN, Query::query_class);
+            let options = *request.options();
 
             return Box::pin(
                 self.handle
@@ -175,7 +176,7 @@ where
                             message_response.id(),
                             handle.trust_anchor.len(),
                         );
-                        verify_rrsets(handle.clone(), message_response, dns_class)
+                        verify_rrsets(handle.clone(), message_response, dns_class, options)
                     })
                     .and_then(move |verified_message| {
                         // at this point all of the message is verified.
@@ -227,6 +228,7 @@ async fn verify_rrsets<H, E>(
     handle: DnssecDnsHandle<H>,
     message_result: DnsResponse,
     dns_class: DNSClass,
+    options: DnsRequestOptions,
 ) -> Result<DnsResponse, E>
 where
     H: DnsHandle<Error = E> + Sync + Unpin,
@@ -312,7 +314,8 @@ where
             record_type,
             rrsigs.len()
         );
-        rrsets_to_verify.push(verify_rrset(handle.clone_with_context(), rrset, rrsigs).boxed());
+        rrsets_to_verify
+            .push(verify_rrset(handle.clone_with_context(), rrset, rrsigs, options).boxed());
     }
 
     // spawn a select_all over this vec, these are the individual RRSet validators
@@ -426,6 +429,7 @@ async fn verify_rrset<H, E>(
     handle: DnssecDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
+    options: DnsRequestOptions,
 ) -> Result<Rrset, E>
 where
     H: DnsHandle<Error = E> + Sync + Unpin,
@@ -439,16 +443,16 @@ where
             debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
             // TODO: validate that this DNSKEY is stronger than the one lower in the chain,
             //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
-            return verify_dnskey_rrset(handle.clone_with_context(), rrset).await;
+            return verify_dnskey_rrset(handle.clone_with_context(), rrset, options).await;
         }
     }
 
     // standard validation path
-    let rrset = verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs).await?;
+    let rrset = verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs, options).await?;
 
     // validation of DNSKEY records
     match rrset.record_type {
-        RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset).await,
+        RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset, options).await,
         _ => Ok(rrset),
     }
 }
@@ -458,7 +462,11 @@ where
 /// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
-async fn verify_dnskey_rrset<H, E>(mut handle: DnssecDnsHandle<H>, rrset: Rrset) -> Result<Rrset, E>
+async fn verify_dnskey_rrset<H, E>(
+    mut handle: DnssecDnsHandle<H>,
+    rrset: Rrset,
+    options: DnsRequestOptions,
+) -> Result<Rrset, E>
 where
     H: DnsHandle<Error = E> + Sync + Unpin,
     E: From<ProtoError> + Error + Clone + Send + Unpin + 'static,
@@ -509,10 +517,7 @@ where
 
     // need to get DS records for each DNSKEY
     let ds_message = handle
-        .lookup(
-            Query::query(rrset.name.clone(), RecordType::DS),
-            DnsRequestOptions::default(),
-        )
+        .lookup(Query::query(rrset.name.clone(), RecordType::DS), options)
         .first_answer()
         .await?;
     let valid_keys = rrset
@@ -638,6 +643,7 @@ async fn verify_default_rrset<H, E>(
     handle: &DnssecDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
+    options: DnsRequestOptions,
 ) -> Result<Rrset, E>
 where
     H: DnsHandle<Error = E> + Sync + Unpin,
@@ -734,7 +740,7 @@ where
             handle
                 .lookup(
                     Query::query(sig.signer_name().clone(), RecordType::DNSKEY),
-                    DnsRequestOptions::default()
+                    options,
                 )
                 .first_answer()
                 .and_then(move |message|
