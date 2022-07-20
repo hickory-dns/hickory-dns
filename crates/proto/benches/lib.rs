@@ -1,3 +1,4 @@
+#![cfg(nightly)]
 #![feature(test)]
 
 extern crate test;
