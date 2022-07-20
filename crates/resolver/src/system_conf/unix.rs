@@ -52,6 +52,10 @@ fn into_resolver_config(
     parsed_config: resolv_conf::Config,
 ) -> io::Result<(ResolverConfig, ResolverOpts)> {
     let domain = if let Some(domain) = parsed_config.get_system_domain() {
+        // The system domain name maybe appear to be valid to the resolv_conf
+        // crate but actually be invalid. For example, if the hostname is "matt.schulte's computer"
+        // In order to prevent a hostname which macOS or Windows would consider
+        // valid from returning an error here we turn parse errors to options
         Name::from_str(domain.as_str()).ok()
     } else {
         None
