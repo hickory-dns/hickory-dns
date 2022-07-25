@@ -99,7 +99,7 @@ impl Lookup {
         self.records.len()
     }
 
-    #[cfg(test)]
+    /// Returns the records list
     pub fn records(&self) -> &[Record] {
         self.records.as_ref()
     }
@@ -603,6 +603,26 @@ pub mod tests {
             .map(|r| r.to_ip_addr().unwrap())
             .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_lookup_slice() {
+        assert_eq!(
+            Record::data(
+                &block_on(LookupFuture::lookup(
+                    vec![Name::root()],
+                    RecordType::A,
+                    DnsRequestOptions::default(),
+                    CachingClient::new(0, mock(vec![v4_message()]), false),
+                ))
+                .unwrap()
+                .records()[0]
+            )
+            .unwrap()
+            .to_ip_addr()
+            .unwrap(),
+            Ipv4Addr::new(127, 0, 0, 1)
         );
     }
 
