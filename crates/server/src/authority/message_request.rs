@@ -281,7 +281,7 @@ impl Queries {
             // We don't generally support more than one query, but this will at least give us one
             // cache entry.
             first_query: self.queries.get(0),
-            original: self.original.as_ref(),
+            cached_serialized: self.original.as_ref(),
         }
     }
 
@@ -313,7 +313,7 @@ impl WireQuery {
         QueriesEmitAndCount {
             length: 1,
             first_query: Some(&self.query),
-            original: self.original.as_ref(),
+            cached_serialized: self.original.as_ref(),
         }
     }
 }
@@ -324,13 +324,13 @@ pub(crate) struct QueriesEmitAndCount<'q> {
     /// Use the first query, if it exists, to pre-populate the string compression cache
     first_query: Option<&'q LowerQuery>,
     /// The cached rendering of the original (wire-format) queries
-    original: &'q [u8],
+    cached_serialized: &'q [u8],
 }
 
 impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
         let original_offset = encoder.offset();
-        encoder.emit_vec(self.original)?;
+        encoder.emit_vec(self.cached_serialized)?;
         if !encoder.is_canonical_names() {
             if let Some(query) = self.first_query {
                 encoder.store_label_pointer(
