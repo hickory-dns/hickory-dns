@@ -278,6 +278,9 @@ impl Queries {
     pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
         QueriesEmitAndCount {
             length: self.queries.len(),
+            // We don't generally support more than one query, but this will at least give us one
+            // cache entry.
+            first_query: self.queries.get(0),
             original: self.original.as_ref(),
         }
     }
@@ -309,19 +312,33 @@ impl WireQuery {
     pub(crate) fn as_emit_and_count(&self) -> QueriesEmitAndCount<'_> {
         QueriesEmitAndCount {
             length: 1,
+            first_query: Some(&self.query),
             original: self.original.as_ref(),
         }
     }
 }
 
 pub(crate) struct QueriesEmitAndCount<'q> {
+    /// Number of queries in this segment
     length: usize,
+    /// Use the first query, if it exists, to pre-populate the string compression cache
+    first_query: Option<&'q LowerQuery>,
+    /// The cached rendering of the original (wire-format) queries
     original: &'q [u8],
 }
 
 impl<'q> EmitAndCount for QueriesEmitAndCount<'q> {
     fn emit(&mut self, encoder: &mut BinEncoder<'_>) -> ProtoResult<usize> {
+        let original_offset = encoder.offset();
         encoder.emit_vec(self.original)?;
+        if !encoder.is_canonical_names() {
+            if let Some(query) = self.first_query {
+                encoder.store_label_pointer(
+                    original_offset,
+                    original_offset + query.original().name().len(),
+                )
+            }
+        }
         Ok(self.length)
     }
 }
