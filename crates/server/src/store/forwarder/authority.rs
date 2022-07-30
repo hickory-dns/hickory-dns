@@ -37,7 +37,7 @@ impl ForwardAuthority {
     /// TODO: change this name to create or something
     #[allow(clippy::new_without_default)]
     #[doc(hidden)]
-    pub async fn new(runtime: TokioHandle) -> Result<Self, String> {
+    pub fn new(runtime: TokioHandle) -> Result<Self, String> {
         let resolver = TokioAsyncResolver::from_system_conf(runtime)
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
@@ -48,7 +48,7 @@ impl ForwardAuthority {
     }
 
     /// Read the Authority for the origin from the specified configuration
-    pub async fn try_from_config(
+    pub fn try_from_config(
         origin: Name,
         _zone_type: ZoneType,
         config: &ForwardConfig,

@@ -199,10 +199,9 @@ async fn load_zone(
         }
         #[cfg(feature = "resolver")]
         Some(StoreConfig::Forward(ref config)) => {
-            let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config);
-            let authority = forwarder.await?;
+            let forwarder = ForwardAuthority::try_from_config(zone_name, zone_type, config)?;
 
-            Box::new(Arc::new(authority)) as Box<dyn AuthorityObject>
+            Box::new(Arc::new(forwarder)) as Box<dyn AuthorityObject>
         }
         #[cfg(feature = "sqlite")]
         None if zone_config.is_update_allowed() => {
