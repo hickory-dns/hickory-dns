@@ -190,7 +190,7 @@ impl<R: RuntimeProvider> AsyncResolver<GenericConnection, GenericConnectionProvi
     }
 
     /// Flushes/Removes all entries from the cache
-    pub async fn clear_cache(&mut self) {
+    pub fn clear_cache(&self) {
         self.client_cache.clear_cache();
     }
 }

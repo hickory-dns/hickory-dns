@@ -477,7 +477,7 @@ where
     }
 
     /// Flushes/Removes all entries from the cache
-    pub fn clear_cache(&mut self) {
+    pub fn clear_cache(&self) {
         self.lru.clear();
     }
 }
