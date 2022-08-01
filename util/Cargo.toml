@@ -71,7 +71,7 @@ path = "src/resolve.rs"
 
 [dependencies]
 clap = { version = "3.1", default-features = false, features = ["std", "cargo", "derive", "color", "suggestions"] }
-console = "0.15.0"
+console = "0.15.1"
 data-encoding = "2.2.0"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rustls = { version = "0.20.0", features = ["dangerous_configuration"], optional = true }
