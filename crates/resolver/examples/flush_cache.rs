@@ -41,17 +41,12 @@ async fn tokio_main() {
     .expect("failed to create resolver");
 
     // Create some futures representing name lookups.
-    let names = [
-        "trust-dns.org.",
-        "coredump.ch.",
-        "estada.ch.",
-        "wikipedia.org.",
-    ];
+    let names = ["trust-dns.org.", "estada.ch.", "wikipedia.org."];
 
     let first_resolve = resolve_list(&names, &*resolver).await;
     let cached_resolve = resolve_list(&names, &*resolver).await;
 
-    resolver.clear_cache().await;
+    resolver.clear_cache();
     let second_resolve = resolve_list(&names, &*resolver).await;
 
     println!("first_resolve: {first_resolve:?}");
@@ -89,9 +84,14 @@ async fn resolve_list<
 
     // Go through the list of resolution operations in parallel and wait for them to complete.
     for (name, lookup) in futures {
-        let ips = lookup.await.expect("unable to spawn resolver");
-        println!("{} resolved to {:?}\n", name, ips);
+        let txts = lookup.await.expect("unable to spawn resolver").map(|txt| {
+            txt.iter()
+                .map(|rdata| rdata.to_string())
+                .collect::<Vec<_>>()
+        });
+        println!("  {} returned to {:?}", name, txts);
     }
+    println!();
     start_time.elapsed()
 }
 
