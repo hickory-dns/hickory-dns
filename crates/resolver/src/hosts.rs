@@ -3,13 +3,11 @@
 use std::collections::HashMap;
 use std::io;
 use std::path::Path;
-#[cfg(any(unix, windows))]
 use std::str::FromStr;
 use std::sync::Arc;
 
 use proto::op::Query;
 use proto::rr::{Name, RecordType};
-#[cfg(any(unix, windows))]
 use proto::rr::{RData, Record};
 use tracing::warn;
 
@@ -99,7 +97,6 @@ impl Hosts {
     }
 
     /// parse configuration from `src`
-    #[cfg(any(unix, windows))]
     pub fn read_hosts_conf(mut self, src: impl io::Read) -> io::Result<Self> {
         use std::io::{BufRead, BufReader};
 
