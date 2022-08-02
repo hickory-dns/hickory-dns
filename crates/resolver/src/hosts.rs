@@ -35,8 +35,15 @@ impl Hosts {
     /// Creates a new configuration from the system hosts file,
     /// only works for Windows and Unix-like OSes,
     /// will return empty configuration on others
+    #[cfg(any(unix, windows))]
     pub fn new() -> Self {
         read_hosts_conf(hosts_path()).unwrap_or_default()
+    }
+
+    /// Creates a default configuration for non Windows or Unix-like OSes
+    #[cfg(not(any(unix, windows)))]
+    pub fn new() -> Self {
+        Hosts::default()
     }
 
     /// Look up the addresses for the given host from the system hosts file.
@@ -92,6 +99,7 @@ impl Hosts {
     }
 
     /// parse configuration from `src`
+    #[cfg(any(unix, windows))]
     pub fn read_hosts_conf(mut self, src: impl io::Read) -> io::Result<Self> {
         use std::io::{BufRead, BufReader};
 
@@ -173,14 +181,6 @@ pub(crate) fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 
     let file = File::open(path)?;
     Hosts::default().read_hosts_conf(file)
-}
-
-#[cfg(not(any(unix, windows)))]
-pub fn read_hosts_conf<P: AsRef<Path>>(_path: P) -> io::Result<Hosts> {
-    Err(io::Error::new(
-        io::ErrorKind::Other,
-        "Only Windows or Unix-like hosts file is supported".to_string(),
-    ))
 }
 
 #[cfg(any(unix, windows))]
