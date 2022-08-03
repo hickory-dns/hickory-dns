@@ -14,7 +14,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - TBD (in tokio impl): DNSSec validation
 - Generic Record Type Lookup
 - CNAME chain resolution
-- *experimental* mDNS support (enable with `mdns` feature)
+- _experimental_ mDNS support (enable with `mdns` feature)
 - TBD (in tokio impl): DNS over TLS (utilizing `native-tls`, `rustls`, and `openssl`; `native-tls` or `rustls` are recommended)
 - TBD (in tokio impl): DNS over HTTPS (currently only supports `rustls`)
 

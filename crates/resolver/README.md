@@ -14,7 +14,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - DNSSec validation
 - Generic Record Type Lookup
 - CNAME chain resolution
-- *experimental* mDNS support (enable with `mdns` feature)
+- _experimental_ mDNS support (enable with `mdns` feature)
 - DNS over TLS (utilizing `native-tls`, `rustls`, and `openssl`; `native-tls` or `rustls` are recommended)
 - DNS over HTTPS (currently only supports `rustls`)
 
@@ -72,10 +72,10 @@ let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts:
 ## DNSSec status
 
 Currently the root key is hardcoded into the system. This gives validation of
- DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
- Because caching is not yet enabled, it has been noticed that some DNS servers
- appear to rate limit the connections, validating RRSIG records back to the root
- can require a significant number of additional queries for those records.
+DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
+Because caching is not yet enabled, it has been noticed that some DNS servers
+appear to rate limit the connections, validating RRSIG records back to the root
+can require a significant number of additional queries for those records.
 
 Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
 
