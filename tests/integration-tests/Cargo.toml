@@ -86,7 +86,7 @@ trust-dns-proto = { version = "0.21.1", path = "../../crates/proto", features = 
 trust-dns-resolver = { version = "0.21.1", path = "../../crates/resolver" }
 # TODO: fixup tests to not require openssl
 trust-dns-server = { version = "0.21.1", path = "../../crates/server", features = ["testing"] }
-webpki-roots = { version = "0.21", optional = true }
+webpki-roots = { version = "0.22", optional = true }
 
 [dev-dependencies]
 futures = { version = "0.3.5", features = ["thread-pool"] }
