@@ -14,13 +14,13 @@ ground up.
 
 This repo consists of multiple crates:
 
-| Library | Description |
-|---------|-------------|
-| **Trust-DNS** | [![](https://img.shields.io/crates/v/trust-dns.svg)](https://crates.io/crates/trust-dns) Binaries for running a DNS authoritative server. |
-| **Proto** | [![](https://img.shields.io/crates/v/trust-dns-proto.svg)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Trust-DNS libraries, not intended for end-user use. |
-| **Client** | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server. |
-| **Server** | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `named` binary for running in a daemon form. |
-| **Resolver** | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+| Library       | Description                                                                                                                                                                                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Trust-DNS** | [![](https://img.shields.io/crates/v/trust-dns.svg)](https://crates.io/crates/trust-dns) Binaries for running a DNS authoritative server.                                                                                                                                                                                                  |
+| **Proto**     | [![](https://img.shields.io/crates/v/trust-dns-proto.svg)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) Raw DNS library, exposes an unstable API and only for use by the other Trust-DNS libraries, not intended for end-user use.           |
+| **Client**    | [![](https://img.shields.io/crates/v/trust-dns-client.svg)](https://crates.io/crates/trust-dns-client) [![trust-dns-client](https://docs.rs/trust-dns-client/badge.svg)](https://docs.rs/trust-dns-client) Used for sending `query`, `update`, and `notify` messages directly to a DNS server.                                             |
+| **Server**    | [![](https://img.shields.io/crates/v/trust-dns-server.svg)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) Use to host DNS records, this also has a `named` binary for running in a daemon form.                                           |
+| **Resolver**  | [![](https://img.shields.io/crates/v/trust-dns-resolver.svg)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
 
 # Goals
 
@@ -42,48 +42,48 @@ The Resolver will properly follow CNAME chains as well as SRV record lookups. Th
 
 ## Client
 
-The Trust-DNS Client is intended to be used for operating against a DNS server directly. It can be used for verifying records or updating records for servers that support SIG0 and dynamic update. The Client is also capable of validating DNSSEC. As of now NSEC3 validation is not yet supported, though NSEC is. There are two interfaces that can be used, the async/await compatible AsyncClient  and a blocking Client for ease of use. Today, Tokio is required for the executor Runtime.
+The Trust-DNS Client is intended to be used for operating against a DNS server directly. It can be used for verifying records or updating records for servers that support SIG0 and dynamic update. The Client is also capable of validating DNSSEC. As of now NSEC3 validation is not yet supported, though NSEC is. There are two interfaces that can be used, the async/await compatible AsyncClient and a blocking Client for ease of use. Today, Tokio is required for the executor Runtime.
 
 ### Unique client side implementations
 
 These are standards supported by the DNS protocol. The client implements them
- as high level interfaces, which is a bit more rare.
+as high level interfaces, which is a bit more rare.
 
-| Feature | Description |
-|---------|-------------|
-| [SyncDnssecClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SyncDnssecClient.html) | DNSSec validation |
-| [create](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.create) | atomic create of a record, with authenticated request |
-| [append](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.append) | verify existence of a record and append to it |
-| [compare_and_swap](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap |
-| [delete_by_rdata](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_by_rdata) | delete a specific record |
-| [delete_rrset](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_rrset) | delete an entire record set |
-| [delete_all](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_all) | delete all records sets with a given name |
-| [notify](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.notify) | notify server that it should reload a zone |
+| Feature                                                                                                         | Description                                           |
+| --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [SyncDnssecClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SyncDnssecClient.html)              | DNSSec validation                                     |
+| [create](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
+| [append](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
+| [compare_and_swap](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
+| [delete_by_rdata](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_by_rdata)   | delete a specific record                              |
+| [delete_rrset](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_rrset)         | delete an entire record set                           |
+| [delete_all](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_all)             | delete all records sets with a given name             |
+| [notify](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.notify)                     | notify server that it should reload a zone            |
 
 ## Server
 
 The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
- There currently is no way to limit TCP and AXFR operations, so it is still not
- recommended to put into production as TCP can be used to DOS the service.
- Zone file parsing is complete and supported. There is currently no forking
- option, and the server is not yet threaded (although it is implemented with
- async IO, so threading may not be a huge benefit). There is still a lot of work
- to do before a server can be trusted with this externally. Running it behind a
- firewall on a private network would be safe.
+There currently is no way to limit TCP and AXFR operations, so it is still not
+recommended to put into production as TCP can be used to DOS the service.
+Zone file parsing is complete and supported. There is currently no forking
+option, and the server is not yet threaded (although it is implemented with
+async IO, so threading may not be a huge benefit). There is still a lot of work
+to do before a server can be trusted with this externally. Running it behind a
+firewall on a private network would be safe.
 
 Zone signing support is complete, to insert a key store a pem encoded rsa file
- in the same directory as the initial zone file with the `.key` suffix. *Note*:
- this must be only readable by the current user. If one is not present one will
- be created and written to the correct location. This also acts as the initial
- key for dynamic update SIG(0) validation. To get the public key, the `DNSKEY`
- record for the zone can be queried. This is needed to provide to other
- upstream servers to create the `DS` key. Dynamic DNS is also complete,
- if enabled, a journal file will be stored next to the zone file with the
- `jrnl` suffix. *Note*: if the key is changed or updated, it is currently the
- operators responsibility to remove the only public key from the zone, this
- allows for the `DNSKEY` to exist for some unspecified period of time during
- key rotation. Rotating the key currently is not available online and requires
- a restart of the server process.
+in the same directory as the initial zone file with the `.key` suffix. _Note_:
+this must be only readable by the current user. If one is not present one will
+be created and written to the correct location. This also acts as the initial
+key for dynamic update SIG(0) validation. To get the public key, the `DNSKEY`
+record for the zone can be queried. This is needed to provide to other
+upstream servers to create the `DS` key. Dynamic DNS is also complete,
+if enabled, a journal file will be stored next to the zone file with the
+`jrnl` suffix. _Note_: if the key is changed or updated, it is currently the
+operators responsibility to remove the only public key from the zone, this
+allows for the `DNSKEY` to exist for some unspecified period of time during
+key rotation. Rotating the key currently is not available online and requires
+a restart of the server process.
 
 ### DNS-over-TLS and DNS-over-HTTPS on the Server
 
@@ -100,10 +100,10 @@ To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or 
 ## DNSSec status
 
 Currently the root key is hardcoded into the system. This gives validation of
- DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
- Because caching is not yet enabled, it has been noticed that some DNS servers
- appear to rate limit the connections, validating RRSIG records back to the root
- can require a significant number of additional queries for those records.
+DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
+Because caching is not yet enabled, it has been noticed that some DNS servers
+appear to rate limit the connections, validating RRSIG records back to the root
+can require a significant number of additional queries for those records.
 
 Zones will be automatically resigned on any record updates via dynamic DNS. To enable DNSSEC, one of the features `dnssec-openssl` or `dnssec-ring` must be enabled.
 
@@ -189,7 +189,7 @@ presume that the trust-dns repos have already been synced to the local system:
 ### Debian-based (includes Ubuntu & Raspbian): using apt-get
 
 ```
-  # note for openssl that a minimum version of 1.0.2 is required for TLS, 
+  # note for openssl that a minimum version of 1.0.2 is required for TLS,
   #  if this is an issue, TLS can be disabled (on the client), see below.
   $ apt-get install openssl
   $ apt-get install libssl-dev pkg-config
@@ -201,9 +201,9 @@ Trust-DNS uses `cargo-make` for build workflow management. While running `cargo 
 
 - Default tests
 
-    These are good for running on local systems. They will create sockets for
-    local tests, but will not attempt to access remote systems. Tests can also
-    be run from the crate directory, i.e. `client` or `server` and `cargo test`
+  These are good for running on local systems. They will create sockets for
+  local tests, but will not attempt to access remote systems. Tests can also
+  be run from the crate directory, i.e. `client` or `server` and `cargo test`
 
 ```shell
 cargo make
@@ -211,7 +211,7 @@ cargo make
 
 - Default feature tests
 
-    Trust-DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
+  Trust-DNS has many features, to quickly test with them or without, there are three targets supported, `default`, `no-default-features`, `all-features`:
 
 ```shell
 cargo make all-features
@@ -219,7 +219,7 @@ cargo make all-features
 
 - Individual feature tests
 
-    Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `cargo-make`:
+  Trust-DNS has many features, each individual feature can be tested in dependently, see individual crates for all their features, here is a not necessarily up to date list: `dns-over-rustls`, `dns-over-https-rustls`, `dns-over-native-tls`, `dns-over-openssl`, `dns-dnssec-openssl`, `dns-dnssec-openssl`, `dns-dnssec-ring`, `mdns`. Each feature can be tested with itself as the task target for `cargo-make`:
 
 ```shell
 cargo make dns-over-https-rustls
@@ -227,7 +227,7 @@ cargo make dns-over-https-rustls
 
 - Benchmarks
 
-    Waiting on benchmarks to stabilize in mainline Rust.
+  Waiting on benchmarks to stabilize in mainline Rust.
 
 ## Building
 
@@ -297,25 +297,25 @@ Success for query name: www.example.com. type: A class: IN
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
 - `dnssec-openssl`
-    It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSec validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
+  It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSec validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
 
 - `dnssec-ring`
-    Ring support can be used for RSA and ED25519 DNSSec validation.
+  Ring support can be used for RSA and ED25519 DNSSec validation.
 
 - `dns-over-native-tls`
-    Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
+  Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
 
 - `dns-over-openssl`
-    Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
+  Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
 
 - `dns-over-rustls`
-    Uses `rustls` for DNS-over-TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
+  Uses `rustls` for DNS-over-TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
 
 - `dns-over-https-rustls`
-    Uses `rustls` for DNS-over-HTTPS (and DNS-over-TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
+  Uses `rustls` for DNS-over-HTTPS (and DNS-over-TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
 
-- `mdns` *EXPERIMENTAL*
-    Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.
+- `mdns` _EXPERIMENTAL_
+  Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.
 
 Using custom features in dependencies:
 
@@ -336,17 +336,19 @@ $> cargo build --release --features dns-over-rustls
 
 - Why are you building another DNS server?
 
-    Because of all the security advisories out there for BIND.
-Using Rust semantics it should be possible to develop a high performance and
-safe DNS Server that is more resilient to attacks.
+      Because of all the security advisories out there for BIND.
+
+  Using Rust semantics it should be possible to develop a high performance and
+  safe DNS Server that is more resilient to attacks.
 
 - What is the MSRV (minimum stable Rust version) policy?
 
-    Trust-DNS will work to support backward compatibility with three Rust versions.
-For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
-version is only increased as necessary, so it's possible that the MSRV is older
-than this policy states. Additionally, the MSRV is only supported for the `no-default-features`
-build due to it being an intractable issue of trying to enforce this policy on dependencies.
+      Trust-DNS will work to support backward compatibility with three Rust versions.
+
+  For example, if `1.50` is the current release, then the MSRV will be `1.47`. The
+  version is only increased as necessary, so it's possible that the MSRV is older
+  than this policy states. Additionally, the MSRV is only supported for the `no-default-features`
+  build due to it being an intractable issue of trying to enforce this policy on dependencies.
 
 ## Community
 
