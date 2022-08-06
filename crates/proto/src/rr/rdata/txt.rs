@@ -124,6 +124,12 @@ pub fn emit(encoder: &mut BinEncoder<'_>, txt: &TXT) -> ProtoResult<()> {
 }
 
 impl fmt::Display for TXT {
+    /// Format a [TXT] with lossy conversion of invalid utf8.
+    ///
+    /// Invalid utf8 will be converted to:
+    /// `U+FFFD REPLACEMENT CHARACTER`, which looks like this: �
+    ///
+    /// According to Rustc [alloc::string::String::from_utf8_lossy].
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for txt in self.txt_data.iter() {
             f.write_str(&String::from_utf8_lossy(txt))?;
@@ -154,6 +160,30 @@ mod tests {
         let restrict = Restrict::new(bytes.len() as u16);
         let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
+    }
+
+    /// Scenario
+    ///
+    /// Give invalid utf8 and valid ut8.
+    /// Shall return incorrect utf8 char for invalid utf8 known as:
+    /// `U+FFFD REPLACEMENT CHARACTER` looks `�`.
+    /// And correct utf8 output untouched.
+    #[test]
+    fn fmt_invalid_and_valid_utf8() {
+        // "Invalid utf8 <bytes garbage>."
+        let first_bytes = b"Invalid utf8 <\xF0\x90\x80>.";
+        // "Valid utf8 <🤣>"
+        let second_bytes = b" Valid utf8 <\xF0\x9F\xA4\xA3>";
+        let rdata: Vec<&[u8]> = vec![first_bytes, second_bytes];
+        let txt = TXT::from_bytes(rdata);
+
+        let tested = format!("{}", txt);
+        assert_eq!(
+            tested.as_bytes(),
+            // "Invalid utf8 <�> Valid utf8 <🤣>"
+            b"Invalid utf8 <\xEF\xBF\xBD>. Valid utf8 <\xF0\x9F\xA4\xA3>",
+            "Utf8 lossy conversion error! Mismatch between input and expected"
+        );
     }
 
     #[test]
