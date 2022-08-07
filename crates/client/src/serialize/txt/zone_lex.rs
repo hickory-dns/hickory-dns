@@ -150,15 +150,17 @@ impl<'a> Lexer<'a> {
                                 ))
                             })?;
 
-                            return match dollar.as_str() {
-                                "INCLUDE" => Ok(Some(Token::Include)),
-                                "ORIGIN" => Ok(Some(Token::Origin)),
-                                "TTL" => Ok(Some(Token::Ttl)),
-                                _ => Err(LexerErrorKind::UnrecognizedDollar(
-                                    char_data.take().unwrap_or_else(|| "".into()),
-                                )
-                                .into()),
-                            };
+                            return Ok(Some(match dollar.as_str() {
+                                "INCLUDE" => Token::Include,
+                                "ORIGIN" => Token::Origin,
+                                "TTL" => Token::Ttl,
+                                _ => {
+                                    return Err(LexerErrorKind::UnrecognizedDollar(
+                                        char_data.take().unwrap_or_else(|| "".into()),
+                                    )
+                                    .into())
+                                }
+                            }));
                         }
                     }
                 }
