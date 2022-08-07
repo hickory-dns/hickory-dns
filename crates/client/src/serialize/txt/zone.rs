@@ -300,10 +300,11 @@ impl Parser {
     ) -> ParseResult<()> {
         // call out to parsers for difference record types
         // all tokens as part of the Record should be chardata...
+        let rtype = rtype.ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("record type not specified"))
+        })?;
         let rdata = RData::parse(
-            rtype.ok_or_else(|| {
-                ParseError::from(ParseErrorKind::Message("record type not specified"))
-            })?,
+            rtype,
             record_parts.iter().map(AsRef::as_ref),
             origin.as_ref(),
         )?;
@@ -316,14 +317,14 @@ impl Parser {
         record.set_name(current_name.clone().ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("record name not specified"))
         })?);
-        record.set_rr_type(rtype.unwrap());
+        record.set_rr_type(rtype);
         record.set_dns_class(class.ok_or_else(|| {
             ParseError::from(ParseErrorKind::Message("record class not specified"))
         })?);
 
         // slightly annoying, need to grab the TTL, then move rdata into the record,
         //  then check the Type again and have custom add logic.
-        match rtype.unwrap() {
+        match rtype {
             RecordType::SOA => {
                 // TTL for the SOA is set internally...
                 // expire is for the SOA, minimum is default for records
@@ -351,7 +352,7 @@ impl Parser {
 
         // add to the map
         let key = RrKey::new(LowerName::new(record.name()), record.rr_type());
-        match rtype.unwrap() {
+        match rtype {
             RecordType::SOA => {
                 let set = record.into();
                 if records.insert(key, set).is_some() {
