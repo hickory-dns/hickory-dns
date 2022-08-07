@@ -103,11 +103,7 @@ impl<'a> Lexer<'a> {
                 State::Comment { is_list } => {
                     match ch {
                         Some('\r') | Some('\n') => {
-                            if is_list {
-                                self.state = State::List;
-                            } else {
-                                self.state = State::EOL;
-                            }
+                            self.state = if is_list { State::List } else { State::EOL };
                         } // out of the comment
                         Some(_) => {
                             self.txt.next();
