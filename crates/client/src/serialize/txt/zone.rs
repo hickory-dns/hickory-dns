@@ -335,7 +335,8 @@ impl Parser {
                         *ttl = Some(soa.minimum());
                     } // TODO: should this only set it if it's not set?
                 } else {
-                    panic!("Invalid RData here, expected SOA: {:?}", rdata);
+                    let msg = format!("Invalid RData here, expected SOA: {:?}", rdata);
+                    return ParseResult::Err(ParseError::from(ParseErrorKind::Msg(msg)));
                 }
             }
             _ => {
