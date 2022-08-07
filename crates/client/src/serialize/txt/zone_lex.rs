@@ -66,9 +66,7 @@ impl<'a> Lexer<'a> {
                             char_data_vec = Some(Vec::new());
                             self.state = State::List;
                         }
-                        Some(')') => {
-                            return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
-                        }
+                        Some(ch @ ')') => return Err(LexerErrorKind::IllegalCharacter(ch).into()),
                         Some('$') => {
                             self.txt.next();
                             char_data = Some(String::new());
@@ -142,9 +140,9 @@ impl<'a> Lexer<'a> {
                 State::Dollar => {
                     match ch {
                         // even this is a little broad for what's actually possible in a dollar...
-                        Some('A'..='Z') => {
+                        Some(ch @ 'A'..='Z') => {
                             self.txt.next();
-                            Self::push_to_str(&mut char_data, ch.unwrap())?;
+                            Self::push_to_str(&mut char_data, ch)?;
                         }
                         // finishes the Dollar...
                         Some(_) | None => {
@@ -198,8 +196,8 @@ impl<'a> Lexer<'a> {
                 },
                 State::CharData { is_list } => {
                     match ch {
-                        Some(')') if !is_list => {
-                            return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
+                        Some(ch @ ')') if !is_list => {
+                            return Err(LexerErrorKind::IllegalCharacter(ch).into())
                         }
                         Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
                             if is_list {
@@ -260,7 +258,7 @@ impl<'a> Lexer<'a> {
                         self.state = State::StartLine;
                         return Ok(Some(Token::EOL));
                     }
-                    Some(_) => return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()),
+                    Some(ch) => return Err(LexerErrorKind::IllegalCharacter(ch).into()),
                     None => return Err(LexerErrorKind::EOF.into()),
                 },
                 // to exhaust all cases, this should never be run...
