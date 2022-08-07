@@ -36,7 +36,7 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
     let mut record_types: Vec<RecordType> = Vec::new();
 
     for token in tokens {
-        let record_type: RecordType = RecordType::from_str(token).unwrap();
+        let record_type: RecordType = RecordType::from_str(token)?;
         record_types.push(record_type);
     }
 
