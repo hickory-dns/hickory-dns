@@ -254,9 +254,15 @@ impl<S: UdpSocket> Future for NextRandomUdpSocket<S> {
                         debug!("created socket successfully");
                         return Poll::Ready(Ok(socket));
                     }
-                    Poll::Ready(Err(err)) => {
-                        debug!("unable to bind port, attempt: {}: {}", attempt, err)
-                    }
+                    Poll::Ready(Err(err)) => match err.kind() {
+                        io::ErrorKind::AddrInUse => {
+                            debug!("unable to bind port, attempt: {}: {}", attempt, err);
+                        }
+                        _ => {
+                            debug!("failed to bind port: {}", err);
+                            return Poll::Ready(Err(err));
+                        }
+                    },
                     Poll::Pending => debug!("unable to bind port, attempt: {}", attempt),
                 }
             }
