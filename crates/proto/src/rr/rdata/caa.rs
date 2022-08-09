@@ -23,6 +23,7 @@
 
 use std::fmt;
 use std::str;
+use std::str::FromStr;
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -837,6 +838,19 @@ impl fmt::Display for Property {
     }
 }
 
+impl FromStr for Property {
+    type Err = ProtoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "issue" => Property::Issue,
+            "issuewild" => Property::IssueWild,
+            "iodef" => Property::Iodef,
+            _ => return Err(ProtoErrorKind::Message("invalid tag in CAA record").into()),
+        })
+    }
+}
+
 impl fmt::Display for Value {
     // https://datatracker.ietf.org/doc/html/rfc6844#section-5.1.1
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
@@ -887,6 +901,101 @@ impl fmt::Display for CAA {
             tag = self.tag,
             value = self.value
         )
+    }
+}
+
+impl FromStr for CAA {
+    type Err = ProtoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split(' ');
+        let critical = match parts.next() {
+            Some("1") => true,
+            Some("0") => false,
+            Some(_) => {
+                return Err(ProtoErrorKind::Message("invalid critical value in CAA record").into())
+            }
+            None => {
+                return Err(ProtoErrorKind::Message("missing critical value in CAA record").into())
+            }
+        };
+
+        let tag = match parts.next() {
+            Some(s) => Property::from_str(s)?,
+            None => return Err(ProtoErrorKind::Message("missing tag in CAA record").into()),
+        };
+
+        let value = match parts.next() {
+            Some(part) => part
+                .strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .ok_or(ProtoErrorKind::Message("invalid value in CAA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing value in CAA record").into()),
+        };
+
+        if parts.next().is_some() {
+            return Err(
+                ProtoErrorKind::Message("unexpected data after value in CAA record").into(),
+            );
+        }
+
+        if let Property::Iodef = tag {
+            return Ok(Self::new_iodef(
+                critical,
+                Url::from_str(value)
+                    .map_err(|_| ProtoErrorKind::Message("invalid URL in CAA record"))?,
+            ));
+        }
+
+        let value = value.trim();
+        let (domain, params) = match value.split_once(';') {
+            Some((domain, params)) => (domain, params),
+            None => (value, ""),
+        };
+
+        let name = match domain.trim().is_empty() {
+            true => None,
+            false => Some(
+                Name::from_str(domain)
+                    .map_err(|_| ProtoErrorKind::Message("invalid domain in CAA record"))?,
+            ),
+        };
+
+        let options = params
+            .split(';')
+            .filter_map(|param| {
+                if param.is_empty() {
+                    return None;
+                }
+
+                let mut parts = param.split('=');
+                let key = match parts.next() {
+                    Some(part) => part,
+                    None => {
+                        return Some(Err(ProtoErrorKind::Message(
+                            "missing key in CAA record options",
+                        )))
+                    }
+                };
+
+                let value = match parts.next() {
+                    Some(part) => part,
+                    None => {
+                        return Some(Err(ProtoErrorKind::Message(
+                            "missing value in CAA record options",
+                        )))
+                    }
+                };
+
+                Some(Ok(KeyValue::new(key, value)))
+            })
+            .collect::<Result<Vec<_>, ProtoErrorKind>>()?;
+
+        Ok(match tag {
+            Property::Issue => Self::new_issue(critical, name, options),
+            Property::IssueWild => Self::new_issuewild(critical, name, options),
+            _ => unreachable!(),
+        })
     }
 }
 

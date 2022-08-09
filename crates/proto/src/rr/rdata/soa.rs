@@ -17,6 +17,7 @@
 //! start of authority record defining ownership and defaults for the zone
 
 use std::fmt;
+use std::str::FromStr;
 
 #[cfg(feature = "serde-config")]
 use serde::{Deserialize, Serialize};
@@ -325,6 +326,66 @@ impl fmt::Display for SOA {
             expire = self.expire,
             min = self.minimum
         )
+    }
+}
+
+// Keep this in sync with the `Display` impl above!
+impl FromStr for SOA {
+    type Err = ProtoError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut parts = s.split(' ');
+        let mname = match parts.next() {
+            Some(part) => Name::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing mname in SOA record").into()),
+        };
+
+        let rname = match parts.next() {
+            Some(part) => Name::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing rname in SOA record").into()),
+        };
+
+        let serial = match parts.next() {
+            Some(part) => u32::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing serial in SOA record").into()),
+        };
+
+        let refresh = match parts.next() {
+            Some(part) => i32::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing refresh in SOA record").into()),
+        };
+
+        let retry = match parts.next() {
+            Some(part) => i32::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing retry in SOA record").into()),
+        };
+
+        let expire = match parts.next() {
+            Some(part) => i32::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing expire in SOA record").into()),
+        };
+
+        let minimum = match parts.next() {
+            Some(part) => u32::from_str(part)
+                .map_err(|_| ProtoErrorKind::Message("invalid mname in SOA record"))?,
+            None => return Err(ProtoErrorKind::Message("missing minimum in SOA record").into()),
+        };
+
+        if parts.next().is_some() {
+            return Err(
+                ProtoErrorKind::Message("unexpected data after minimum in SOA record").into(),
+            );
+        }
+
+        Ok(Self::new(
+            mname, rname, serial, refresh, retry, expire, minimum,
+        ))
     }
 }
 
