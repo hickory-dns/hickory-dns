@@ -116,7 +116,7 @@ impl FileAuthority {
             .map_err(|e| format!("failed to read {}: {:?}", zone_path.display(), e))?;
         let reader = BufReader::new(file);
         for line in reader.lines() {
-            let content = line.unwrap();
+            let content = line.map_err(|err| format!("failed to read line: {:?}", err))?;
             let mut lexer = Lexer::new(&content);
 
             match (lexer.next_token(), lexer.next_token(), lexer.next_token()) {
