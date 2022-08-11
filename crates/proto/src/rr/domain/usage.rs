@@ -23,9 +23,9 @@ lazy_static! {
 lazy_static! {
     static ref ARPA: Name = Name::from_ascii("arpa.").unwrap();
     /// zone for ipv4 reverse addresses
-    pub static ref IN_ADDR_ARPA: Name = Name::from_ascii("in-addr").unwrap().append_domain(&*ARPA).unwrap();
+    pub static ref IN_ADDR_ARPA: Name = Name::from_ascii("in-addr").unwrap().append_domain(&ARPA).unwrap();
     /// zone for ipv6 reverse addresses
-    pub static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&*ARPA).unwrap();
+    pub static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&ARPA).unwrap();
 }
 
 lazy_static! {
@@ -44,10 +44,10 @@ lazy_static! {
     pub static ref LOCALHOST: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap());
 
     /// 127.in-addr.arpa. usage; 127/8 is reserved for loopback
-    pub static ref IN_ADDR_ARPA_127: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("127").unwrap().append_domain(&*IN_ADDR_ARPA).unwrap());
+    pub static ref IN_ADDR_ARPA_127: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("127").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
 
     /// 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa. usage; 1/128 is the only address in ipv6 loopback
-    pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&*IP6_ARPA).unwrap());
+    pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&IP6_ARPA).unwrap());
 }
 
 lazy_static! {
@@ -84,14 +84,14 @@ lazy_static! {
     //  the mDNS IPv4 link-local multicast address 224.0.0.251.
 
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IN_ADDR_ARPA_169_254: ZoneUsage = ZoneUsage::local(Name::from_ascii("254.169").unwrap().append_domain(&*IN_ADDR_ARPA).unwrap());
+    pub static ref IN_ADDR_ARPA_169_254: ZoneUsage = ZoneUsage::local(Name::from_ascii("254.169").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
 
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_8: ZoneUsage = ZoneUsage::local(Name::from_ascii("8.e.f").unwrap().append_domain(&*IP6_ARPA).unwrap());
+    pub static ref IP6_ARPA_FE_8: ZoneUsage = ZoneUsage::local(Name::from_ascii("8.e.f").unwrap().append_domain(&IP6_ARPA).unwrap());
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_9: ZoneUsage = ZoneUsage::local(Name::from_ascii("9.e.f").unwrap().append_domain(&*IP6_ARPA).unwrap());
+    pub static ref IP6_ARPA_FE_9: ZoneUsage = ZoneUsage::local(Name::from_ascii("9.e.f").unwrap().append_domain(&IP6_ARPA).unwrap());
     /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
-    pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().append_domain(&*IP6_ARPA).unwrap());
+    pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().append_domain(&IP6_ARPA).unwrap());
 }
 
 lazy_static! {

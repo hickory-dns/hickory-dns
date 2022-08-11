@@ -547,7 +547,7 @@ mod tests {
             0x00, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00,
         ];
 
-        let mut decoder: BinDecoder<'_> = BinDecoder::new(&*bytes);
+        let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
         let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
         assert!(
             read_rdata.is_ok(),
