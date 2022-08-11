@@ -42,13 +42,9 @@ impl Journal {
     /// Constructs a new Journal opening a Sqlite connection to the file at the specified path
     pub fn from_file(journal_file: &Path) -> PersistenceResult<Self> {
         let result = Self::new(Connection::open(journal_file)?);
-        match result {
-            Ok(mut journal) => {
-                journal.schema_up().unwrap();
-                Ok(journal)
-            }
-            Err(err) => Err(err),
-        }
+        let mut journal = result?;
+        journal.schema_up()?;
+        Ok(journal)
     }
 
     /// Returns a reference to the Sqlite Connection
