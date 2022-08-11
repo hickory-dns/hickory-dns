@@ -122,7 +122,7 @@ where
             }
         }
 
-        info!("signing zone: {}", zone_config.get_zone().unwrap());
+        info!("signing zone: {}", zone_config.get_zone()?);
         authority.secure_zone().await.expect("failed to sign zone");
     }
     Ok(())
@@ -257,10 +257,7 @@ async fn load_zone(
         }
     };
 
-    info!(
-        "zone successfully loaded: {}",
-        zone_config.get_zone().unwrap()
-    );
+    info!("zone successfully loaded: {}", zone_config.get_zone()?);
     Ok(authority)
 }
 
