@@ -121,7 +121,7 @@ impl<'a> BinDecoder<'a> {
 
     /// Peed one byte forward, without moving the current index forward
     pub fn peek(&self) -> Option<Restrict<u8>> {
-        Some(Restrict::new(*self.remaining.get(0)?))
+        Some(Restrict::new(*self.remaining.first()?))
     }
 
     /// Returns the current index in the buffer
