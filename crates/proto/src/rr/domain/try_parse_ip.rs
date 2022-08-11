@@ -28,7 +28,7 @@ impl TryParseIp for str {
 
 impl TryParseIp for String {
     fn try_parse_ip(&self) -> Option<RData> {
-        (&self[..]).try_parse_ip()
+        (self[..]).try_parse_ip()
     }
 }
 
