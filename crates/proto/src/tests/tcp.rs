@@ -34,10 +34,11 @@ fn tcp_server_setup(
             println!("Thread Killer has been awoken, killing process");
             std::process::exit(-1);
         })
-        .unwrap();
+        .expect("Thread spawning failed");
 
     // TODO: need a timeout on listen
-    let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
+    let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0))
+        .expect("Unable to bind a TCP socket");
     let server_addr = server.local_addr().unwrap();
 
     // an in and out server
