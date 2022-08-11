@@ -362,7 +362,7 @@ impl<K: HasPrivate> KeyPair<K> {
             #[cfg(feature = "openssl")]
             KeyPair::RSA(ref pkey) | KeyPair::EC(ref pkey) => {
                 let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
-                let mut signer = Signer::new(digest_type, pkey).unwrap();
+                let mut signer = Signer::new(digest_type, pkey)?;
                 signer.update(tbs.as_ref())?;
                 signer.sign_to_vec().map_err(Into::into).and_then(|bytes| {
                     if let KeyPair::RSA(_) = *self {
@@ -435,7 +435,7 @@ impl<K: HasPrivate> KeyPair<K> {
             #[cfg(feature = "ring")]
             KeyPair::ECDSA(ref ec_key) => {
                 let rng = rand::SystemRandom::new();
-                Ok(ec_key.sign(&rng, tbs.as_ref()).unwrap().as_ref().to_vec())
+                Ok(ec_key.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
