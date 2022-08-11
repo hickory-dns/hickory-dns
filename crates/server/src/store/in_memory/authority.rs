@@ -1032,7 +1032,7 @@ impl Authority for InMemoryAuthority {
                     // evaluate any cnames for additional inclusion
                     let additionals_root_chain_type: Option<(_, _)> = answer
                         .as_ref()
-                        .and_then(|a| maybe_next_name(&*a, query_type))
+                        .and_then(|a| maybe_next_name(a, query_type))
                         .and_then(|(search_name, search_type)| {
                             inner
                                 .additional_search(
