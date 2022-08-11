@@ -236,17 +236,17 @@ impl Stream for DnsResponseReceiver {
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
             *self = match *self.as_mut() {
-                DnsResponseReceiver::Receiver(ref mut receiver) => {
+                Self::Receiver(ref mut receiver) => {
                     let receiver = Pin::new(receiver);
                     let future = ready!(receiver
                         .poll(cx)
                         .map_err(|_| ProtoError::from("receiver was canceled")))?;
                     Self::Received(future)
                 }
-                DnsResponseReceiver::Received(ref mut stream) => {
+                Self::Received(ref mut stream) => {
                     return stream.poll_next_unpin(cx);
                 }
-                DnsResponseReceiver::Err(ref mut err) => return Poll::Ready(err.take().map(Err)),
+                Self::Err(ref mut err) => return Poll::Ready(err.take().map(Err)),
             };
         }
     }
