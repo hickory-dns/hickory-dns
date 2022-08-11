@@ -193,17 +193,17 @@ impl<C: DnsHandle<Error = ResolveError> + Sync, P: ConnectionProvider<Conn = C>>
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
-            LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
+            Self::Retry(ref c) => c.is_verifying_dnssec(),
             #[cfg(feature = "dnssec")]
-            LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
+            Self::Secure(ref c) => c.is_verifying_dnssec(),
         }
     }
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {
         match *self {
-            LookupEither::Retry(ref mut c) => c.send(request),
+            Self::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
-            LookupEither::Secure(ref mut c) => c.send(request),
+            Self::Secure(ref mut c) => c.send(request),
         }
     }
 }

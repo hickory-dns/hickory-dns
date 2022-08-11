@@ -79,7 +79,7 @@ impl AuthLookup {
     pub fn unwrap_records(self) -> LookupRecords {
         match self {
             // TODO: this is ugly, what about the additionals?
-            AuthLookup::Records { answers, .. } => answers,
+            Self::Records { answers, .. } => answers,
             _ => LookupRecords::default(),
         }
     }
@@ -87,7 +87,7 @@ impl AuthLookup {
     /// Takes the additional records, leaving behind None
     pub fn take_additionals(&mut self) -> Option<LookupRecords> {
         match self {
-            AuthLookup::Records {
+            Self::Records {
                 ref mut additionals,
                 ..
             } => additionals.take(),

@@ -380,7 +380,7 @@ pub(crate) enum Local {
 
 impl Local {
     fn is_local(&self) -> bool {
-        matches!(*self, Local::ResolveStream(..))
+        matches!(*self, Self::ResolveStream(..))
     }
 
     /// Takes the stream
@@ -390,7 +390,7 @@ impl Local {
     /// Panics if this is in fact a Local::NotMdns
     fn take_stream(self) -> Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>> {
         match self {
-            Local::ResolveStream(future) => future,
+            Self::ResolveStream(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
         }
     }
@@ -402,7 +402,7 @@ impl Local {
     /// Panics if this is in fact a Local::ResolveStream
     fn take_request(self) -> DnsRequest {
         match self {
-            Local::NotMdns(request) => request,
+            Self::NotMdns(request) => request,
             _ => panic!("Local queries must be polled, see take_future()"),
         }
     }
@@ -413,9 +413,9 @@ impl Stream for Local {
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match *self {
-            Local::ResolveStream(ref mut ns) => ns.as_mut().poll_next(cx),
+            Self::ResolveStream(ref mut ns) => ns.as_mut().poll_next(cx),
             // TODO: making this a panic for now
-            Local::NotMdns(..) => panic!("Local queries that are not mDNS should not be polled"), //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
+            Self::NotMdns(..) => panic!("Local queries that are not mDNS should not be polled"), //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
         }
     }
 }

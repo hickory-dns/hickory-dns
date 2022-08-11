@@ -105,8 +105,7 @@ impl AsyncClient {
         S: DnsClientStream + 'static + Unpin,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        let a = Self::connect(mp).await;
-        a
+        Self::connect(mp).await
     }
 
     /// Returns a future, which itself wraps a future which is awaiting connection.
