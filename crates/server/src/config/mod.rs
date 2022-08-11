@@ -11,7 +11,7 @@ pub mod dnssec;
 
 use std::fs::File;
 use std::io::Read;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{AddrParseError, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -75,19 +75,13 @@ impl Config {
     }
 
     /// set of listening ipv4 addresses (for TCP and UDP)
-    pub fn get_listen_addrs_ipv4(&self) -> Vec<Ipv4Addr> {
-        self.listen_addrs_ipv4
-            .iter()
-            .map(|s| s.parse().unwrap())
-            .collect()
+    pub fn get_listen_addrs_ipv4(&self) -> Result<Vec<Ipv4Addr>, AddrParseError> {
+        self.listen_addrs_ipv4.iter().map(|s| s.parse()).collect()
     }
 
     /// set of listening ipv6 addresses (for TCP and UDP)
-    pub fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> {
-        self.listen_addrs_ipv6
-            .iter()
-            .map(|s| s.parse().unwrap())
-            .collect()
+    pub fn get_listen_addrs_ipv6(&self) -> Result<Vec<Ipv6Addr>, AddrParseError> {
+        self.listen_addrs_ipv6.iter().map(|s| s.parse()).collect()
     }
 
     /// port on which to listen for connections on specified addresses
