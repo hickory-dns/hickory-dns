@@ -414,7 +414,7 @@ async fn lookup<'a, R: ResponseHandler + Unpin>(
     );
 
     let (response_header, sections) = build_response(
-        &*authority,
+        authority,
         request_info,
         request.id(),
         request.header(),

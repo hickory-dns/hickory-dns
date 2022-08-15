@@ -16,7 +16,7 @@ use crate::store::forwarder::ForwardConfig;
 use crate::store::sqlite::SqliteConfig;
 
 /// Enumeration over all Store configurations
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, Eq, PartialEq, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]

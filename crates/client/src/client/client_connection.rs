@@ -69,10 +69,10 @@ impl MessageFinalizer for Signer {
         match self {
             #[cfg(feature = "dnssec")]
             #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-            Signer::Sig0(s0) => s0.finalize_message(message, time),
+            Self::Sig0(s0) => s0.finalize_message(message, time),
             #[cfg(feature = "dnssec")]
             #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
-            Signer::TSIG(tsig) => tsig.finalize_message(message, time),
+            Self::TSIG(tsig) => tsig.finalize_message(message, time),
             _ => unreachable!("the feature `dnssec` is required for Message signing"),
         }
     }

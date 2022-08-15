@@ -24,7 +24,7 @@ use crate::client::rr::{
 };
 
 /// Key pair configuration for DNSSec keys for signing a zone
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, Eq, PartialEq, Debug)]
 pub struct KeyConfig {
     /// file path to the key
     pub key_path: String,
@@ -168,7 +168,7 @@ impl KeyConfig {
 }
 
 /// Certificate format of the file being read
-#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
+#[derive(Deserialize, Eq, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum CertType {
@@ -185,7 +185,7 @@ impl Default for CertType {
 }
 
 /// Format of the private key file to read
-#[derive(Deserialize, PartialEq, Debug, Clone, Copy)]
+#[derive(Deserialize, Eq, PartialEq, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum PrivateKeyType {
@@ -202,7 +202,7 @@ impl Default for PrivateKeyType {
 }
 
 /// Configuration for a TLS certificate
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, Eq, PartialEq, Debug)]
 pub struct TlsCertConfig {
     path: String,
     endpoint_name: String,

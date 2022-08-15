@@ -44,7 +44,7 @@ impl Default for DnsRequestOptions {
 /// A DNS request object
 ///
 /// This wraps a DNS Message for requests. It also has request options associated for controlling certain features of the DNS protocol handlers.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct DnsRequest {
     message: Message,
     options: DnsRequestOptions,
