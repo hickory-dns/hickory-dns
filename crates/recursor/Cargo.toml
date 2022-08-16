@@ -45,7 +45,6 @@ maintenance = { status = "actively-developed" }
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
-sqlite = ["rusqlite"]
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls",  "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls"]
@@ -85,7 +84,6 @@ http = { version = "0.2", optional = true }
 lru-cache = "0.1.2"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 parking_lot = "0.12"
-rusqlite = { version = "0.27.0", features = ["bundled", "time"], optional = true }
 rustls = { version = "0.20", optional = true }
 serde = { version = "1.0.114", features = ["derive"], optional = true }
 thiserror = "1.0.20"
