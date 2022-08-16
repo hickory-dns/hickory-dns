@@ -847,20 +847,11 @@ where
             return Poll::Ready(None);
         }
 
-        let message = if let Some(response) = ready!(self.state.inner().poll_next_unpin(cx)) {
-            Some(match response {
-                Ok(ok) => {
-                    if let Err(e) = self.state.process(ok.answers()) {
-                        Err(e)
-                    } else {
-                        Ok(ok)
-                    }
-                }
-                Err(e) => Err(e.into()),
-            })
-        } else {
-            None
-        };
+        let message = ready!(self.state.inner().poll_next_unpin(cx)).map(|response| {
+            let ok = response?;
+            self.state.process(ok.answers())?;
+            Ok(ok)
+        });
         Poll::Ready(message)
     }
 }
