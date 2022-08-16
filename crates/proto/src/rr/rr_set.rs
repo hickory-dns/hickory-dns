@@ -17,7 +17,7 @@ use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 use crate::rr::dnssec::SupportedAlgorithms;
 
 /// Set of resource records associated to a name and type
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecordSet {
     name: Name,
     record_type: RecordType,
@@ -446,7 +446,7 @@ impl RecordSet {
 
 /// Consumes `RecordSet` giving public access to fields of `RecordSet` so they can
 /// be destructured and taken by value
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RecordSetParts {
     pub name: Name,
     pub record_type: RecordType,
