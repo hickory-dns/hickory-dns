@@ -8,7 +8,7 @@
 use serde::Deserialize;
 
 /// Configuration for file based zones
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Eq, Debug)]
 pub struct FileConfig {
     /// path to the zone file
     pub zone_file_path: String,

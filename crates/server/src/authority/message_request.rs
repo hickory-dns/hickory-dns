@@ -233,7 +233,7 @@ impl<'q> BinDecodable<'q> for MessageRequest {
 }
 
 /// A set of Queries with the associated serialized data
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Queries {
     queries: Vec<LowerQuery>,
     original: Box<[u8]>,

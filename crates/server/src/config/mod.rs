@@ -154,7 +154,7 @@ impl FromStr for Config {
 }
 
 /// Configuration for a zone
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Eq, Debug)]
 pub struct ZoneConfig {
     /// name of the zone
     pub zone: String, // TODO: make Domain::Name decodable

@@ -13,7 +13,7 @@ use crate::rr::{DNSClass, LowerName, RecordType};
 use crate::serialize::binary::*;
 
 /// Identical to [crate::op::Query], except that the Name is guaranteed to be in lower case form
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct LowerQuery {
     name: LowerName,
     original: Query,
