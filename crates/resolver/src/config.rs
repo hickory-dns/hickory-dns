@@ -738,7 +738,7 @@ pub enum ServerOrderingStrategy {
     /// Servers are ordered based on collected query statistics. The ordering
     /// may vary over time.
     Default,
-    /// The order provided to the reoslver is used. The ordering does not vary
+    /// The order provided to the resolver is used. The ordering does not vary
     /// over time.
     Strict,
 }
