@@ -20,6 +20,8 @@ use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
 
+const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
+
 #[derive(Clone)]
 struct MockConnProvider<O: OnSend> {
     on_send: O,
@@ -54,7 +56,16 @@ fn mock_nameserver(
     messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
 ) -> MockedNameServer<DefaultOnSend> {
-    mock_nameserver_on_send_nx(messages, options, DefaultOnSend, false)
+    mock_nameserver_on_send_nx(messages, options, DefaultOnSend, DEFAULT_SERVER_ADDR, false)
+}
+
+#[cfg(test)]
+fn mock_nameserver_with_addr(
+    messages: Vec<Result<DnsResponse, ResolveError>>,
+    addr: IpAddr,
+    options: ResolverOpts,
+) -> MockedNameServer<DefaultOnSend> {
+    mock_nameserver_on_send_nx(messages, options, DefaultOnSend, addr, false)
 }
 
 #[cfg(test)]
@@ -63,7 +74,13 @@ fn mock_nameserver_trust_nx(
     options: ResolverOpts,
     trust_nx_responses: bool,
 ) -> MockedNameServer<DefaultOnSend> {
-    mock_nameserver_on_send_nx(messages, options, DefaultOnSend, trust_nx_responses)
+    mock_nameserver_on_send_nx(
+        messages,
+        options,
+        DefaultOnSend,
+        DEFAULT_SERVER_ADDR,
+        trust_nx_responses,
+    )
 }
 
 #[cfg(test)]
@@ -72,7 +89,7 @@ fn mock_nameserver_on_send<O: OnSend + Unpin>(
     options: ResolverOpts,
     on_send: O,
 ) -> MockedNameServer<O> {
-    mock_nameserver_on_send_nx(messages, options, on_send, false)
+    mock_nameserver_on_send_nx(messages, options, on_send, DEFAULT_SERVER_ADDR, false)
 }
 
 #[cfg(test)]
@@ -80,6 +97,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
     on_send: O,
+    addr: IpAddr,
     trust_nx_responses: bool,
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
@@ -89,7 +107,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
 
     NameServer::from_conn(
         NameServerConfig {
-            socket_addr: SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0),
+            socket_addr: SocketAddr::new(addr, 0),
             protocol: Protocol::Udp,
             tls_dns_name: None,
             trust_nx_responses,
@@ -433,6 +451,64 @@ fn test_distrust_nx_responses() {
             response_code
         );
     }
+}
+
+#[test]
+fn test_strict_server_order() {
+    use trust_dns_proto::rr::Record;
+
+    let mut options = ResolverOpts::default();
+
+    options.num_concurrent_reqs = 1;
+    options.server_ordering_strategy = ServerOrderingStrategy::Strict;
+
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+    let preferred_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
+    let secondary_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
+
+    let preferred_server_records = vec![preferred_record; 10];
+    let secondary_server_records = vec![secondary_record; 10];
+
+    let to_dns_response = |records: Vec<Record>| -> Vec<Result<DnsResponse, ResolveError>> {
+        records
+            .iter()
+            .map(|record| Ok(message(query.clone(), vec![record.clone()], vec![], vec![]).into()))
+            .collect()
+    };
+
+    // Specify different IP addresses for each name server to ensure that they
+    // are considered separately.
+    let preferred_nameserver = mock_nameserver_with_addr(
+        to_dns_response(preferred_server_records.clone()),
+        Ipv4Addr::new(128, 0, 0, 1).into(),
+        Default::default(),
+    );
+    let secondary_nameserver = mock_nameserver_with_addr(
+        to_dns_response(secondary_server_records.clone()),
+        Ipv4Addr::new(129, 0, 0, 1).into(),
+        Default::default(),
+    );
+
+    let mut pool = mock_nameserver_pool(
+        vec![preferred_nameserver, secondary_nameserver],
+        vec![],
+        None,
+        options,
+    );
+
+    // The returned records should consistently be from the preferred name
+    // server until the configured records are exhausted. Subsequently, the
+    // secondary server should be used.
+    preferred_server_records.into_iter().chain(secondary_server_records.into_iter()).for_each(
+        |expected_record| {
+            let request = message(query.clone(), vec![], vec![], vec![]);
+            let future = pool.send(request).first_answer();
+
+            let response = block_on(future).unwrap();
+            assert_eq!(response.answers()[0], expected_record);
+        },
+    );
 }
 
 #[test]
