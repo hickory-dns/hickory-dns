@@ -731,6 +731,25 @@ impl Default for LookupIpStrategy {
     }
 }
 
+/// The strategy for establishing the query order of name servers in a pool.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde-config", derive(Serialize, Deserialize))]
+pub enum ServerOrderingStrategy {
+    /// Servers are ordered based on collected query statistics. The ordering
+    /// may vary over time.
+    Default,
+    /// The order provided to the reoslver is used. The ordering does not vary
+    /// over time.
+    Strict,
+}
+
+impl Default for ServerOrderingStrategy {
+    /// Returns [`ServerOrderingStrategy::Default`] as the default.
+    fn default() -> Self {
+        Self::Default
+    }
+}
+
 /// Configuration for the Resolver
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(
@@ -797,6 +816,8 @@ pub struct ResolverOpts {
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,
+    /// The server ordering strategy that the resolver should use.
+    pub server_ordering_strategy: ServerOrderingStrategy,
 }
 
 impl Default for ResolverOpts {
@@ -825,6 +846,7 @@ impl Default for ResolverOpts {
             preserve_intermediates: true,
 
             try_tcp_on_error: false,
+            server_ordering_strategy: ServerOrderingStrategy::default(),
         }
     }
 }

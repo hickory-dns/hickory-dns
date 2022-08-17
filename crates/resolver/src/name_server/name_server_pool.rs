@@ -19,7 +19,7 @@ use proto::xfer::{DnsHandle, DnsRequest, DnsResponse, FirstAnswer};
 use proto::Time;
 use tracing::debug;
 
-use crate::config::{ResolverConfig, ResolverOpts};
+use crate::config::{ResolverConfig, ResolverOpts, ServerOrderingStrategy};
 use crate::error::{ResolveError, ResolveErrorKind};
 #[cfg(feature = "mdns")]
 use crate::name_server;
@@ -180,10 +180,13 @@ where
     ) -> Result<DnsResponse, ResolveError> {
         let mut conns: Vec<NameServer<C, P>> = conns.to_vec();
 
-        // select the highest priority connection
-        //   reorder the connections based on current view...
-        //   this reorders the inner set
-        conns.sort_unstable();
+        match opts.server_ordering_strategy {
+            // select the highest priority connection
+            //   reorder the connections based on current view...
+            //   this reorders the inner set
+            ServerOrderingStrategy::Default => conns.sort_unstable(),
+            ServerOrderingStrategy::Strict => {}
+        }
         let request_loop = request.clone();
 
         parallel_conn_loop(conns, request_loop, opts).await
