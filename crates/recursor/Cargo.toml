@@ -80,7 +80,6 @@ enum-as-inner = "0.5"
 futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
 h2 = { version = "0.3.0", features = ["stream"], optional = true }
-http = { version = "0.2", optional = true }
 lru-cache = "0.1.2"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 parking_lot = "0.12"
