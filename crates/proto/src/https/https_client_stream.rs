@@ -404,7 +404,7 @@ where
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
             let next = match *self {
-                HttpsClientConnectState::ConnectTcp {
+                Self::ConnectTcp {
                     name_server,
                     bind_addr,
                     ref mut tls,
@@ -417,7 +417,7 @@ where
                         tls: tls.take(),
                     }
                 }
-                HttpsClientConnectState::TcpConnecting {
+                Self::TcpConnecting {
                     ref mut connect,
                     name_server,
                     ref mut tls,
@@ -446,7 +446,7 @@ where
                         )))),
                     }
                 }
-                HttpsClientConnectState::TlsConnecting {
+                Self::TlsConnecting {
                     ref name_server_name,
                     name_server,
                     ref mut tls,
@@ -463,7 +463,7 @@ where
                         handshake: Box::pin(handshake),
                     }
                 }
-                HttpsClientConnectState::H2Handshake {
+                Self::H2Handshake {
                     ref name_server_name,
                     name_server,
                     ref mut handshake,
@@ -487,10 +487,10 @@ where
                         is_shutdown: false,
                     }))
                 }
-                HttpsClientConnectState::Connected(ref mut conn) => {
+                Self::Connected(ref mut conn) => {
                     return Poll::Ready(Ok(conn.take().expect("cannot poll after complete")))
                 }
-                HttpsClientConnectState::Errored(ref mut err) => {
+                Self::Errored(ref mut err) => {
                     return Poll::Ready(Err(err.take().expect("cannot poll after complete")))
                 }
             };

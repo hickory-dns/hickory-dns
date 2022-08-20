@@ -105,8 +105,7 @@ impl AsyncClient {
         S: DnsClientStream + 'static + Unpin,
     {
         let mp = DnsMultiplexer::with_timeout(stream, stream_handle, timeout_duration, signer);
-        let a = Self::connect(mp).await;
-        a
+        Self::connect(mp).await
     }
 
     /// Returns a future, which itself wraps a future which is awaiting connection.
@@ -788,15 +787,12 @@ impl<R> ClientStreamXfrState<R> {
                     }
                     1 => {
                         *self = Ended;
-                        if answers.last().unwrap(/* answers is not empty */).rr_type()
-                            == RecordType::SOA
-                        {
-                            Ok(())
-                        } else {
-                            Err(ClientErrorKind::Message(
+                        match answers.last().map(|r| r.rr_type()) {
+                            Some(RecordType::SOA) => Ok(()),
+                            _ => Err(ClientErrorKind::Message(
                                 "invalid zone transfer, contains trailing records",
                             )
-                            .into())
+                            .into()),
                         }
                     }
                     _ => {
@@ -851,20 +847,11 @@ where
             return Poll::Ready(None);
         }
 
-        let message = if let Some(response) = ready!(self.state.inner().poll_next_unpin(cx)) {
-            Some(match response {
-                Ok(ok) => {
-                    if let Err(e) = self.state.process(ok.answers()) {
-                        Err(e)
-                    } else {
-                        Ok(ok)
-                    }
-                }
-                Err(e) => Err(e.into()),
-            })
-        } else {
-            None
-        };
+        let message = ready!(self.state.inner().poll_next_unpin(cx)).map(|response| {
+            let ok = response?;
+            self.state.process(ok.answers())?;
+            Ok(ok)
+        });
         Poll::Ready(message)
     }
 }

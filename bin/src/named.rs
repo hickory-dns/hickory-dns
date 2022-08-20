@@ -122,7 +122,7 @@ where
             }
         }
 
-        info!("signing zone: {}", zone_config.get_zone().unwrap());
+        info!("signing zone: {}", zone_config.get_zone()?);
         authority.secure_zone().await.expect("failed to sign zone");
     }
     Ok(())
@@ -257,10 +257,7 @@ async fn load_zone(
         }
     };
 
-    info!(
-        "zone successfully loaded: {}",
-        zone_config.get_zone().unwrap()
-    );
+    info!("zone successfully loaded: {}", zone_config.get_zone()?);
     Ok(authority)
 }
 
@@ -428,8 +425,12 @@ fn main() {
 
     // TODO: support all the IPs asked to listen on...
     // TODO:, there should be the option to listen on any port, IP and protocol option...
-    let v4addr = config.get_listen_addrs_ipv4();
-    let v6addr = config.get_listen_addrs_ipv6();
+    let v4addr = config
+        .get_listen_addrs_ipv4()
+        .expect("Error with parsing provided by configuration Ipv4");
+    let v6addr = config
+        .get_listen_addrs_ipv6()
+        .expect("Error with parsing provided by configuration Ipv6");
     let mut listen_addrs: Vec<IpAddr> = v4addr
         .into_iter()
         .map(IpAddr::V4)

@@ -35,8 +35,8 @@ fn test_read_config() {
     let config: Config = Config::read_config(&path).unwrap();
 
     assert_eq!(config.get_listen_port(), 53);
-    assert_eq!(config.get_listen_addrs_ipv4(), Vec::<Ipv4Addr>::new());
-    assert_eq!(config.get_listen_addrs_ipv6(), Vec::<Ipv6Addr>::new());
+    assert_eq!(config.get_listen_addrs_ipv4(), Ok(Vec::<Ipv4Addr>::new()));
+    assert_eq!(config.get_listen_addrs_ipv6(), Ok(Vec::<Ipv6Addr>::new()));
     assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(5));
     assert_eq!(config.get_log_level(), tracing::Level::INFO);
     assert_eq!(config.get_directory(), Path::new("/var/named"));
@@ -111,7 +111,7 @@ fn test_parse_toml() {
     let config: Config = "listen_addrs_ipv4 = [\"0.0.0.0\"]".parse().unwrap();
     assert_eq!(
         config.get_listen_addrs_ipv4(),
-        vec![Ipv4Addr::new(0, 0, 0, 0)]
+        Ok(vec![Ipv4Addr::new(0, 0, 0, 0)])
     );
 
     let config: Config = "listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]"
@@ -119,22 +119,22 @@ fn test_parse_toml() {
         .unwrap();
     assert_eq!(
         config.get_listen_addrs_ipv4(),
-        vec![Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(127, 0, 0, 1)]
+        Ok(vec![Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(127, 0, 0, 1)])
     );
 
     let config: Config = "listen_addrs_ipv6 = [\"::0\"]".parse().unwrap();
     assert_eq!(
         config.get_listen_addrs_ipv6(),
-        vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)]
+        Ok(vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)])
     );
 
     let config: Config = "listen_addrs_ipv6 = [\"::0\", \"::1\"]".parse().unwrap();
     assert_eq!(
         config.get_listen_addrs_ipv6(),
-        vec![
+        Ok(vec![
             Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0),
             Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
-        ]
+        ])
     );
 
     let config: Config = "tcp_request_timeout = 25".parse().unwrap();

@@ -27,45 +27,45 @@ use radix_trie::{Trie, TrieKey};
 // ```
 lazy_static! {
     /// 10.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&*IN_ADDR_ARPA).unwrap());
+    pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
 
-    static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().append_domain(&*IN_ADDR_ARPA).unwrap();
+    static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().append_domain(&IN_ADDR_ARPA).unwrap();
 
     /// 16.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 17.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_17: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("17").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_17: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("17").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 18.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_18: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("18").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_18: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("18").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 19.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_19: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("19").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_19: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("19").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 20.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 21.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 22.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 23.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 24.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 25.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_25: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("25").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_25: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("25").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 26.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 27.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 28.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 29.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 30.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_30: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("30").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_30: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("30").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
     /// 31.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_31: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("31").unwrap().append_domain(&*IN_ADDR_ARPA_172).unwrap());
+    pub static ref IN_ADDR_ARPA_172_31: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("31").unwrap().append_domain(&IN_ADDR_ARPA_172).unwrap());
 
     /// 168.192.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&*IN_ADDR_ARPA).unwrap());
+    pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&IN_ADDR_ARPA).unwrap());
 }
 
 // example., example.com., example.net., and example.org.

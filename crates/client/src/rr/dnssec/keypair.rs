@@ -126,7 +126,7 @@ impl<K: HasPublic> KeyPair<K> {
         match *self {
             // see from_vec() RSA sections for reference
             #[cfg(feature = "openssl")]
-            KeyPair::RSA(ref pkey) => {
+            Self::RSA(ref pkey) => {
                 let mut bytes: Vec<u8> = Vec::new();
                 // TODO: make these expects a try! and Err()
                 let rsa: OpenSslRsa<K> = pkey
@@ -150,7 +150,7 @@ impl<K: HasPublic> KeyPair<K> {
             }
             // see from_vec() ECDSA sections for reference
             #[cfg(feature = "openssl")]
-            KeyPair::EC(ref pkey) => {
+            Self::EC(ref pkey) => {
                 // TODO: make these expects a try! and Err()
                 let ec_key: EcKey<K> = pkey
                     .ec_key()
@@ -169,15 +169,15 @@ impl<K: HasPublic> KeyPair<K> {
                 Ok(bytes)
             }
             #[cfg(feature = "ring")]
-            KeyPair::ECDSA(ref ec_key) => {
+            Self::ECDSA(ref ec_key) => {
                 let mut bytes: Vec<u8> = ec_key.public_key().as_ref().to_vec();
                 bytes.remove(0);
                 Ok(bytes)
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
+            Self::ED25519(ref ed_key) => Ok(ed_key.public_key().as_ref().to_vec()),
             #[cfg(not(feature = "openssl"))]
-            KeyPair::Phantom(..) => panic!("Phantom disallowed"),
+            Self::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
         }
@@ -360,12 +360,12 @@ impl<K: HasPrivate> KeyPair<K> {
 
         match *self {
             #[cfg(feature = "openssl")]
-            KeyPair::RSA(ref pkey) | KeyPair::EC(ref pkey) => {
+            Self::RSA(ref pkey) | Self::EC(ref pkey) => {
                 let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
-                let mut signer = Signer::new(digest_type, pkey).unwrap();
+                let mut signer = Signer::new(digest_type, pkey)?;
                 signer.update(tbs.as_ref())?;
                 signer.sign_to_vec().map_err(Into::into).and_then(|bytes| {
-                    if let KeyPair::RSA(_) = *self {
+                    if let Self::RSA(_) = *self {
                         return Ok(bytes);
                     }
 
@@ -433,14 +433,14 @@ impl<K: HasPrivate> KeyPair<K> {
                 })
             }
             #[cfg(feature = "ring")]
-            KeyPair::ECDSA(ref ec_key) => {
+            Self::ECDSA(ref ec_key) => {
                 let rng = rand::SystemRandom::new();
-                Ok(ec_key.sign(&rng, tbs.as_ref()).unwrap().as_ref().to_vec())
+                Ok(ec_key.sign(&rng, tbs.as_ref())?.as_ref().to_vec())
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
+            Self::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(feature = "openssl"))]
-            KeyPair::Phantom(..) => panic!("Phantom disallowed"),
+            Self::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }

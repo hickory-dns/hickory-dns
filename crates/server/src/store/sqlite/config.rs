@@ -8,7 +8,7 @@
 use serde::Deserialize;
 
 /// Configuration for zone file for sqlite based zones
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Eq, Debug)]
 pub struct SqliteConfig {
     /// path to initial zone file
     pub zone_file_path: String,

@@ -44,12 +44,12 @@ impl LookupError {
 
     /// This is a non-existent domain name
     pub fn is_nx_domain(&self) -> bool {
-        matches!(*self, LookupError::ResponseCode(ResponseCode::NXDomain))
+        matches!(*self, Self::ResponseCode(ResponseCode::NXDomain))
     }
 
     /// This is a non-existent domain name
     pub fn is_refused(&self) -> bool {
-        matches!(*self, LookupError::ResponseCode(ResponseCode::Refused))
+        matches!(*self, Self::ResponseCode(ResponseCode::Refused))
     }
 }
 

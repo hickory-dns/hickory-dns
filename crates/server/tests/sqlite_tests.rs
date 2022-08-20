@@ -25,7 +25,7 @@ fn test_init_journal() {
     let version = journal.schema_up().unwrap();
     assert_eq!(version, CURRENT_VERSION);
     assert_eq!(
-        Journal::select_schema_version(&*journal.conn()).unwrap(),
+        Journal::select_schema_version(&journal.conn()).unwrap(),
         CURRENT_VERSION
     );
 }

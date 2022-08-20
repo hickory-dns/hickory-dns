@@ -10,7 +10,7 @@ use serde::Deserialize;
 use crate::resolver::config::{NameServerConfigGroup, ResolverOpts};
 
 /// Configuration for file based zones
-#[derive(Clone, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Deserialize, PartialEq, Eq, Debug)]
 pub struct ForwardConfig {
     /// upstream name_server configurations
     pub name_servers: NameServerConfigGroup,
