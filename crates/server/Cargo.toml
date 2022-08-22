@@ -46,6 +46,7 @@ backtrace = ["trust-dns-proto/backtrace"]
 dnssec-openssl = ["dnssec", "openssl", "trust-dns-client/dnssec-openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
+# Recursive Resolution is Experimental!
 recursor = ["trust-dns-recursor"]
 resolver = ["trust-dns-resolver"]
 sqlite = ["rusqlite"]

@@ -24,18 +24,18 @@ use trust_dns_resolver::{
     error::ResolveError,
     lookup::Lookup,
     name_server::NameServerPool,
-    Name, TokioConnectionProvider, TokioHandle,
+    Name, TokioConnection, TokioConnectionProvider, TokioHandle,
 };
 
 use crate::{recursor_pool::RecursorPool, Error, ErrorKind};
 
 /// Set of nameservers by the zone name
-type NameServerCache = LruCache<Name, RecursorPool>;
+type NameServerCache<C, P> = LruCache<Name, RecursorPool<C, P>>;
 
 /// A top down recursive resolver which operates off a list of "hints", this is often the root nodes.
 pub struct Recursor {
-    hints: RecursorPool,
-    name_server_cache: Mutex<NameServerCache>,
+    hints: RecursorPool<TokioConnection, TokioConnectionProvider>,
+    name_server_cache: Mutex<NameServerCache<TokioConnection, TokioConnectionProvider>>,
     record_cache: DnsLru,
 }
 
@@ -273,7 +273,12 @@ impl Recursor {
         Ok(response)
     }
 
-    async fn lookup(&self, query: Query, ns: RecursorPool, now: Instant) -> Result<Lookup, Error> {
+    async fn lookup(
+        &self,
+        query: Query,
+        ns: RecursorPool<TokioConnection, TokioConnectionProvider>,
+        now: Instant,
+    ) -> Result<Lookup, Error> {
         if let Some(lookup) = self.record_cache.get(&query, now) {
             debug!("cached data {:?}", lookup);
             return lookup.map_err(Into::into);
@@ -309,7 +314,7 @@ impl Recursor {
         &self,
         zone: Name,
         request_time: Instant,
-    ) -> Result<RecursorPool, Error> {
+    ) -> Result<RecursorPool<TokioConnection, TokioConnectionProvider>, Error> {
         // TODO: need to check TTLs here.
         if let Some(ns) = self.name_server_cache.lock().get_mut(&zone) {
             return Ok(ns.clone());

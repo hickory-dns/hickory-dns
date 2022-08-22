@@ -1,8 +1,8 @@
 # Overview
 
-Trust-DNS Recursor is a library which implements recursive resolution for DNS.
+Trust-DNS Recursor is a library which implements recursive resolution for DNS. This is currently experimental, test coverage is low and full scope of tests haven't been determined yet.
 
-This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. It does not require any recursive resolve to find records in DNS.
+This library can be used to perform DNS resolution beginning with a set of root (hints) authorities. It does not require an upstream recursive resolver to find records in DNS.
 
 ## Minimum Rust Version
 

@@ -47,6 +47,7 @@ dnssec-openssl = ["dnssec", "trust-dns-client/dnssec-openssl", "trust-dns-proto/
 dnssec-ring = ["dnssec", "trust-dns-client/dnssec-ring", "trust-dns-proto/dnssec-ring", "trust-dns-server/dnssec-ring"]
 dnssec = []
 recursor = ["trust-dns-server/recursor"]
+# Recursive Resolution is Experimental!
 resolver = ["trust-dns-server/resolver"]
 sqlite = ["trust-dns-server/sqlite"]
 
