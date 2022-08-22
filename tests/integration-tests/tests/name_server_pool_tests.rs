@@ -454,13 +454,13 @@ fn test_distrust_nx_responses() {
 }
 
 #[test]
-fn test_strict_server_order() {
+fn test_user_provided_server_order() {
     use trust_dns_proto::rr::Record;
 
     let mut options = ResolverOpts::default();
 
     options.num_concurrent_reqs = 1;
-    options.server_ordering_strategy = ServerOrderingStrategy::Strict;
+    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
 
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
@@ -500,15 +500,16 @@ fn test_strict_server_order() {
     // The returned records should consistently be from the preferred name
     // server until the configured records are exhausted. Subsequently, the
     // secondary server should be used.
-    preferred_server_records.into_iter().chain(secondary_server_records.into_iter()).for_each(
-        |expected_record| {
+    preferred_server_records
+        .into_iter()
+        .chain(secondary_server_records.into_iter())
+        .for_each(|expected_record| {
             let request = message(query.clone(), vec![], vec![], vec![]);
             let future = pool.send(request).first_answer();
 
             let response = block_on(future).unwrap();
             assert_eq!(response.answers()[0], expected_record);
-        },
-    );
+        });
 }
 
 #[test]

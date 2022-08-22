@@ -737,16 +737,16 @@ impl Default for LookupIpStrategy {
 pub enum ServerOrderingStrategy {
     /// Servers are ordered based on collected query statistics. The ordering
     /// may vary over time.
-    Default,
+    QueryStatistics,
     /// The order provided to the resolver is used. The ordering does not vary
     /// over time.
-    Strict,
+    UserProvidedOrder,
 }
 
 impl Default for ServerOrderingStrategy {
-    /// Returns [`ServerOrderingStrategy::Default`] as the default.
+    /// Returns [`ServerOrderingStrategy::QueryStatistics`] as the default.
     fn default() -> Self {
-        Self::Default
+        Self::QueryStatistics
     }
 }
 

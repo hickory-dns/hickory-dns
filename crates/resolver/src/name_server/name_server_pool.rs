@@ -184,8 +184,8 @@ where
             // select the highest priority connection
             //   reorder the connections based on current view...
             //   this reorders the inner set
-            ServerOrderingStrategy::Default => conns.sort_unstable(),
-            ServerOrderingStrategy::Strict => {}
+            ServerOrderingStrategy::QueryStatistics => conns.sort_unstable(),
+            ServerOrderingStrategy::UserProvidedOrder => {}
         }
         let request_loop = request.clone();
 
