@@ -23,7 +23,7 @@ use trust_dns_proto::{
 use trust_dns_resolver::{
     error::{ResolveError, ResolveErrorKind},
     name_server::NameServerPool,
-    Name, TokioConnection, TokioConnectionProvider,
+    ConnectionProvider, Name, TokioConnection, TokioConnectionProvider,
 };
 
 /// Active request cache
@@ -49,13 +49,16 @@ impl Future for SharedLookup {
 }
 
 #[derive(Clone)]
-pub(crate) struct RecursorPool {
+pub(crate) struct RecursorPool<
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static,
+    P: ConnectionProvider<Conn = C> + Send + 'static,
+> {
     zone: Name,
-    ns: NameServerPool<TokioConnection, TokioConnectionProvider>,
+    ns: NameServerPool<C, P>,
     active_requests: Arc<Mutex<ActiveRequests>>,
 }
 
-impl RecursorPool {
+impl RecursorPool<TokioConnection, TokioConnectionProvider> {
     pub(crate) fn from(
         zone: Name,
         ns: NameServerPool<TokioConnection, TokioConnectionProvider>,
@@ -68,7 +71,13 @@ impl RecursorPool {
             active_requests,
         }
     }
+}
 
+impl<C, P> RecursorPool<C, P>
+where
+    C: DnsHandle<Error = ResolveError> + Send + Sync + 'static,
+    P: ConnectionProvider<Conn = C> + Send + 'static,
+{
     pub(crate) fn zone(&self) -> &Name {
         &self.zone
     }

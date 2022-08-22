@@ -42,20 +42,20 @@ maintenance = { status = "actively-developed" }
 [features]
 #backtrace = ["dep:backtrace", "trust-dns-proto/backtrace", "trust-dns-resolver/backtrace"]
 
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
+dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl", "trust-dns-resolver/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring", "trust-dns-resolver/dnssec-ring"]
 dnssec = []
 
 # TODO: Need to figure out how to be consistent with ring/openssl usage...
 dns-over-https-rustls = ["dns-over-https", "trust-dns-proto/dns-over-https-rustls",  "trust-dns-resolver/dns-over-https-rustls", "dns-over-rustls"]
-dns-over-https = ["h2", "http", "trust-dns-proto/dns-over-https"]
+dns-over-https = ["trust-dns-proto/dns-over-https"]
 
-dns-over-quic = ["rustls/quic", "dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
+dns-over-quic = ["dns-over-rustls", "trust-dns-proto/dns-over-quic", "trust-dns-resolver/dns-over-quic"]
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
 dns-over-native-tls = ["dns-over-tls", "trust-dns-proto/dns-over-native-tls", "trust-dns-resolver/dns-over-native-tls"]
 dns-over-openssl = ["dns-over-tls", "dnssec-openssl", "trust-dns-proto/dns-over-openssl", "trust-dns-resolver/dns-over-openssl"]
-dns-over-rustls = ["dns-over-tls", "dnssec-ring", "rustls", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
+dns-over-rustls = ["dns-over-tls", "dnssec-ring", "trust-dns-proto/dns-over-rustls", "trust-dns-resolver/dns-over-rustls"]
 dns-over-tls = []
 
 # This is a deprecated feature...
@@ -79,12 +79,8 @@ cfg-if = "1"
 enum-as-inner = "0.5"
 futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
 futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-h2 = { version = "0.3.0", features = ["stream"], optional = true }
-http = { version = "0.2", optional = true }
 lru-cache = "0.1.2"
-openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 parking_lot = "0.12"
-rustls = { version = "0.20", optional = true }
 serde = { version = "1.0.114", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 time = "0.3"
@@ -92,7 +88,7 @@ tracing = "0.1.30"
 tokio = { version = "1.0", features = ["net"] }
 toml = "0.5"
 trust-dns-proto = { version = "0.21.1", path = "../proto" }
-trust-dns-resolver = { version = "0.21.1", path = "../resolver"}
+trust-dns-resolver = { version = "0.21.1", path = "../resolver" }
 
 [dev-dependencies]
 tokio = { version="1.0", features = ["macros", "rt"] }
