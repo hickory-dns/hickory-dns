@@ -40,7 +40,7 @@ use trust_dns_resolver::{
 /// A CLI interface for the trust-dns-recursor.
 ///
 /// This utility directly uses the trust-dns-recursor to perform a recursive lookup
-///   starting with a sent of hints or root dns servers.
+///   starting with a set of root dns servers, aka hints.
 #[derive(Debug, Parser)]
 #[clap(name = "recurse")]
 struct Opts {
@@ -96,9 +96,9 @@ struct Opts {
     #[clap(long)]
     error: bool,
 
-    /// Path to a hints file
-    #[clap(short = 'f', long)]
-    hints: Option<PathBuf>,
+    /// Path to a roots file
+    #[clap(short = 'r', long)]
+    roots: Option<PathBuf>,
 }
 
 /// Run the resolve programf
@@ -122,10 +122,10 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     trust_dns_util::logger(env!("CARGO_BIN_NAME"), log_level);
 
     // Configure all the name servers
-    let mut hints = NameServerConfigGroup::new();
+    let mut roots = NameServerConfigGroup::new();
 
     for socket_addr in &opts.nameserver {
-        hints.push(NameServerConfig {
+        roots.push(NameServerConfig {
             socket_addr: *socket_addr,
             protocol: Protocol::Tcp,
             tls_dns_name: None,
@@ -135,7 +135,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
             bind_addr: opts.bind.map(|ip| SocketAddr::new(ip, 0)),
         });
 
-        hints.push(NameServerConfig {
+        roots.push(NameServerConfig {
             socket_addr: *socket_addr,
             protocol: Protocol::Udp,
             tls_dns_name: None,
@@ -152,8 +152,8 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let udp = opts.udp || !opts.tcp;
     let tcp = opts.tcp || !opts.udp;
 
-    hints.retain(|ns| (ipv4 && ns.socket_addr.is_ipv4()) || (ipv6 && ns.socket_addr.is_ipv6()));
-    hints.retain(|ns| {
+    roots.retain(|ns| (ipv4 && ns.socket_addr.is_ipv4()) || (ipv6 && ns.socket_addr.is_ipv6()));
+    roots.retain(|ns| {
         (udp && ns.protocol == Protocol::Udp) || (tcp && ns.protocol == Protocol::Tcp)
     });
 
@@ -161,11 +161,11 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let name = opts.domainname;
     let ty = opts.ty;
 
-    let recursor = Recursor::new(hints)?;
+    let recursor = Recursor::new(roots)?;
 
     // execute query
     println!(
-        "Recursing for {name} {ty} from hints",
+        "Recursing for {name} {ty} from roots",
         name = style(&name).yellow(),
         ty = style(ty).yellow(),
     );

@@ -38,7 +38,6 @@ use trust_dns_server::{
 
 pub mod example_authority;
 pub mod mock_client;
-pub mod test_authority;
 #[cfg(feature = "dns-over-rustls")]
 pub mod tls_client_connection;
 

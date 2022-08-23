@@ -8,10 +8,11 @@
 //! Integration tests for the recursor. These integration tests setup scenarios to verify that the recursor is able
 //!  to recursively resolve various real world scenarios. As new scenarios are discovered, they should be added here.
 
-
-
 /// Tests a basic recursive resolution `a.recursive.test.` , `.` -> `test.` -> `recursive.test.` -> `a.recursive.test.`
 ///
 /// There are three authorities needed for this test `.` which contains the `test` nameserver, `recursive.test` which is
 ///  target zone containing `a.recursive.test.`.
-fn test_basic_recursion() {}
+#[test]
+fn test_basic_recursion() {
+    // TBD
+}
