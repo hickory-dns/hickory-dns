@@ -29,7 +29,7 @@ pub enum ErrorKind {
     TomlDecode(#[from] toml::de::Error),
 
     /// An error occurred while parsing a zone file
-    #[error("failed to parse hints zone file: {0}")]
+    #[error("failed to parse the zone file: {0}")]
     ZoneParse(#[from] trust_dns_client::error::ParseError),
 }
 

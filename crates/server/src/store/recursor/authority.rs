@@ -44,15 +44,15 @@ impl RecursiveAuthority {
     ) -> Result<Self, String> {
         info!("loading recursor config: {}", origin);
 
-        // read the hints
-        let hint_addrs = config
-            .read_hints(root_dir)
-            .map_err(|e| format!("failed to read hints {}: {}", config.hints.display(), e))?;
+        // read the roots
+        let root_addrs = config
+            .read_roots(root_dir)
+            .map_err(|e| format!("failed to read roots {}: {}", config.roots.display(), e))?;
 
         // Configure all the name servers
-        let mut hints = NameServerConfigGroup::new();
-        for socket_addr in hint_addrs {
-            hints.push(NameServerConfig {
+        let mut roots = NameServerConfigGroup::new();
+        for socket_addr in root_addrs {
+            roots.push(NameServerConfig {
                 socket_addr,
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
@@ -62,7 +62,7 @@ impl RecursiveAuthority {
                 bind_addr: None, // TODO: need to support bind addresses
             });
 
-            hints.push(NameServerConfig {
+            roots.push(NameServerConfig {
                 socket_addr,
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
@@ -74,7 +74,7 @@ impl RecursiveAuthority {
         }
 
         let recursor =
-            Recursor::new(hints).map_err(|e| format!("failed to initialize recursor: {}", e))?;
+            Recursor::new(roots).map_err(|e| format!("failed to initialize recursor: {}", e))?;
 
         Ok(Self {
             origin: origin.into(),

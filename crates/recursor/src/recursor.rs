@@ -32,34 +32,36 @@ use crate::{recursor_pool::RecursorPool, Error, ErrorKind};
 /// Set of nameservers by the zone name
 type NameServerCache<C, P> = LruCache<Name, RecursorPool<C, P>>;
 
-/// A top down recursive resolver which operates off a list of "hints", this is often the root nodes.
+/// A top down recursive resolver which operates off a list of roots for initial recursive requests.
+///
+/// This is the well known root nodes, refered to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
 pub struct Recursor {
-    hints: RecursorPool<TokioConnection, TokioConnectionProvider>,
+    roots: RecursorPool<TokioConnection, TokioConnectionProvider>,
     name_server_cache: Mutex<NameServerCache<TokioConnection, TokioConnectionProvider>>,
     record_cache: DnsLru,
 }
 
 impl Recursor {
-    /// Construct a new recursor using the list of NameServerConfigs for the hint list
+    /// Construct a new recursor using the list of NameServerConfigs for the root node list
     ///
     /// # Panics
     ///
-    /// This will panic if the hints are empty.
-    pub fn new(hints: impl Into<NameServerConfigGroup>) -> Result<Self, ResolveError> {
+    /// This will panic if the roots are empty.
+    pub fn new(roots: impl Into<NameServerConfigGroup>) -> Result<Self, ResolveError> {
         // configure the trust-dns-resolver
-        let hints: NameServerConfigGroup = hints.into();
+        let roots: NameServerConfigGroup = roots.into();
 
-        assert!(!hints.is_empty(), "hints must not be empty");
+        assert!(!roots.is_empty(), "roots must not be empty");
 
         let opts = recursor_opts();
-        let hints =
-            NameServerPool::from_config(hints, &opts, TokioConnectionProvider::new(TokioHandle));
-        let hints = RecursorPool::from(Name::root(), hints);
+        let roots =
+            NameServerPool::from_config(roots, &opts, TokioConnectionProvider::new(TokioHandle));
+        let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Mutex::new(NameServerCache::new(100)); // TODO: make this configurable
         let record_cache = DnsLru::new(100, TtlConfig::default());
 
         Ok(Self {
-            hints,
+            roots,
             name_server_cache,
             record_cache,
         })
@@ -323,8 +325,8 @@ impl Recursor {
         let parent_zone = zone.base_name();
 
         let nameserver_pool = if parent_zone.is_root() {
-            debug!("using hints for {} nameservers", zone);
-            self.hints.clone()
+            debug!("using roots for {} nameservers", zone);
+            self.roots.clone()
         } else {
             self.get_ns_pool_for_zone(parent_zone, request_time).await?
         };

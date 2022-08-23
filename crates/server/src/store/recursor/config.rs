@@ -25,37 +25,37 @@ use crate::error::ConfigError;
 /// Configuration for file based zones
 #[derive(Clone, Deserialize, PartialEq, Debug)]
 pub struct RecursiveConfig {
-    /// File with hints
-    pub hints: PathBuf,
+    /// File with roots, aka hints
+    pub roots: PathBuf,
 }
 
 impl RecursiveConfig {
-    pub(crate) fn read_hints(
+    pub(crate) fn read_roots(
         &self,
         root_dir: Option<&Path>,
     ) -> Result<Vec<SocketAddr>, ConfigError> {
         let path = if let Some(root_dir) = root_dir {
-            Cow::Owned(root_dir.join(&self.hints))
+            Cow::Owned(root_dir.join(&self.roots))
         } else {
-            Cow::Borrowed(&self.hints)
+            Cow::Borrowed(&self.roots)
         };
 
-        let mut hints = File::open(path.as_ref())?;
-        let mut hints_str = String::new();
-        hints.read_to_string(&mut hints_str)?;
+        let mut roots = File::open(path.as_ref())?;
+        let mut roots_str = String::new();
+        roots.read_to_string(&mut roots_str)?;
 
-        let lexer = Lexer::new(&hints_str);
+        let lexer = Lexer::new(&roots_str);
         let mut parser = Parser::new();
 
-        let (_zone, hints_zone) = parser.parse(lexer, Some(Name::root()), Some(DNSClass::IN))?;
+        let (_zone, roots_zone) = parser.parse(lexer, Some(Name::root()), Some(DNSClass::IN))?;
 
         // TODO: we may want to deny some of the root nameservers, for reasons...
-        Ok(hints_zone
+        Ok(roots_zone
             .values()
             .flat_map(RecordSet::records_without_rrsigs)
             .filter_map(Record::data)
             .filter_map(RData::to_ip_addr) // we only want IPs
-            .map(|ip| SocketAddr::from((ip, 53))) // all the hints only have tradition DNS ports
+            .map(|ip| SocketAddr::from((ip, 53))) // all the roots only have tradition DNS ports
             .collect())
     }
 }
