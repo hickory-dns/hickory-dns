@@ -23,7 +23,7 @@ use trust_dns_resolver::Name;
 use crate::error::ConfigError;
 
 /// Configuration for file based zones
-#[derive(Clone, Deserialize, PartialEq, Debug)]
+#[derive(Clone, Deserialize, Eq, PartialEq, Debug)]
 pub struct RecursiveConfig {
     /// File with roots, aka hints
     pub roots: PathBuf,
