@@ -313,7 +313,7 @@ description = "Run cargo audit on all crates"
 workspace = false
 dependencies = ["check", "install-audit"]
 command = "cargo"
-args = ["audit", "--deny", "warnings", "--ignore", "RUSTSEC-2021-0139"]
+args = ["audit", "--deny", "warnings"]
 
 [tasks.cleanliness]
 description = "Runs clippy, fmt, and audit"
