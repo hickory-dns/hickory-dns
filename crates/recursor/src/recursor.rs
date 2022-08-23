@@ -9,7 +9,6 @@ use std::{net::SocketAddr, time::Instant};
 
 use async_recursion::async_recursion;
 use futures_util::{future::select_all, FutureExt};
-
 use lru_cache::LruCache;
 use parking_lot::Mutex;
 use tracing::{debug, info, warn};
@@ -234,11 +233,10 @@ impl Recursor {
         }
 
         // not in cache, let's look for an ns record for lookup
-        let zone = if query.query_type() == RecordType::NS {
-            query.name().base_name()
-        } else {
+        let zone = match query.query_type() {
+            RecordType::NS => query.name().base_name(),
             // look for the NS records "inside" the zone
-            query.name().clone()
+            _ => query.name().clone(),
         };
 
         let mut zone = zone;
@@ -246,7 +244,7 @@ impl Recursor {
 
         // max number of forwarding processes
         'max_forward: for _ in 0..20 {
-            match self.get_ns_pool_for_zone(zone.clone(), request_time).await {
+            match self.ns_pool_for_zone(zone.clone(), request_time).await {
                 Ok(found) => {
                     // found the nameserver
                     ns = Some(found);
@@ -312,7 +310,7 @@ impl Recursor {
     }
 
     #[async_recursion]
-    async fn get_ns_pool_for_zone(
+    async fn ns_pool_for_zone(
         &self,
         zone: Name,
         request_time: Instant,
@@ -328,7 +326,7 @@ impl Recursor {
             debug!("using roots for {} nameservers", zone);
             self.roots.clone()
         } else {
-            self.get_ns_pool_for_zone(parent_zone, request_time).await?
+            self.ns_pool_for_zone(parent_zone, request_time).await?
         };
 
         // TODO: check for cached ns pool for this zone
