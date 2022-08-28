@@ -150,7 +150,7 @@ async fn test_catalog_lookup() {
     let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
-    assert_eq!(answers.first().unwrap().rr_type(), RecordType::A);
+    assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
         &RData::A(Ipv4Addr::new(93, 184, 216, 34))
@@ -184,7 +184,7 @@ async fn test_catalog_lookup() {
     let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
-    assert_eq!(answers.first().unwrap().rr_type(), RecordType::A);
+    assert_eq!(answers.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
         &RData::A(Ipv4Addr::new(94, 184, 216, 34))
@@ -228,7 +228,7 @@ async fn test_catalog_lookup_soa() {
     let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
-    assert_eq!(answers.first().unwrap().rr_type(), RecordType::SOA);
+    assert_eq!(answers.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
         &RData::SOA(SOA::new(
@@ -247,12 +247,12 @@ async fn test_catalog_lookup_soa() {
     ns.sort();
 
     assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(ns.first().unwrap().record_type(), RecordType::NS);
     assert_eq!(
         ns.first().unwrap().data().unwrap(),
         &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
     );
-    assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(ns.last().unwrap().record_type(), RecordType::NS);
     assert_eq!(
         ns.last().unwrap().data().unwrap(),
         &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
@@ -293,7 +293,7 @@ async fn test_catalog_nx_soa() {
     let ns: &[Record] = result.name_servers();
 
     assert_eq!(ns.len(), 1);
-    assert_eq!(ns.first().unwrap().rr_type(), RecordType::SOA);
+    assert_eq!(ns.first().unwrap().record_type(), RecordType::SOA);
     assert_eq!(
         ns.first().unwrap().data().unwrap(),
         &RData::SOA(SOA::new(
@@ -557,7 +557,7 @@ async fn test_cname_additionals() {
 
     let answers: &[Record] = result.answers();
     assert_eq!(answers.len(), 1);
-    assert_eq!(answers.first().unwrap().rr_type(), RecordType::CNAME);
+    assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
         &RData::CNAME(Name::from_str("www.example.com.").unwrap())
@@ -565,7 +565,7 @@ async fn test_cname_additionals() {
 
     let additionals: &[Record] = result.additionals();
     assert!(!additionals.is_empty());
-    assert_eq!(additionals.first().unwrap().rr_type(), RecordType::A);
+    assert_eq!(additionals.first().unwrap().record_type(), RecordType::A);
     assert_eq!(
         additionals.first().unwrap().data().unwrap(),
         &RData::A(Ipv4Addr::new(93, 184, 216, 34))
@@ -604,7 +604,7 @@ async fn test_multiple_cname_additionals() {
 
     let answers: &[Record] = result.answers();
     assert_eq!(answers.len(), 1);
-    assert_eq!(answers.first().unwrap().rr_type(), RecordType::CNAME);
+    assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
         &RData::CNAME(Name::from_str("alias.example.com.").unwrap())
@@ -613,7 +613,10 @@ async fn test_multiple_cname_additionals() {
     // we should have the intermediate record
     let additionals: &[Record] = result.additionals();
     assert!(!additionals.is_empty());
-    assert_eq!(additionals.first().unwrap().rr_type(), RecordType::CNAME);
+    assert_eq!(
+        additionals.first().unwrap().record_type(),
+        RecordType::CNAME
+    );
     assert_eq!(
         additionals.first().unwrap().data().unwrap(),
         &RData::CNAME(Name::from_str("www.example.com.").unwrap())
@@ -622,7 +625,7 @@ async fn test_multiple_cname_additionals() {
     // final record should be the actual
     let additionals: &[Record] = result.additionals();
     assert!(!additionals.is_empty());
-    assert_eq!(additionals.last().unwrap().rr_type(), RecordType::A);
+    assert_eq!(additionals.last().unwrap().record_type(), RecordType::A);
     assert_eq!(
         additionals.last().unwrap().data().unwrap(),
         &RData::A(Ipv4Addr::new(93, 184, 216, 34))

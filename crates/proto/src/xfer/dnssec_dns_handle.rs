@@ -249,7 +249,7 @@ where
                                            is_dnssec(rr, RecordType::DNSKEY) ||
                                            is_dnssec(rr, RecordType::DS))
         })
-        .map(|rr| (rr.name().clone(), rr.rr_type()))
+        .map(|rr| (rr.name().clone(), rr.record_type()))
     {
         rrset_types.insert(rrset);
     }
@@ -278,7 +278,7 @@ where
             .iter()
             .chain(message_result.name_servers())
             .chain(message_result.additionals())
-            .filter(|rr| rr.rr_type() == record_type && rr.name() == &name)
+            .filter(|rr| rr.record_type() == record_type && rr.name() == &name)
             .cloned()
             .collect();
 
@@ -323,7 +323,7 @@ where
 }
 
 fn is_dnssec(rr: &Record, dnssec_type: RecordType) -> bool {
-    rr.rr_type().is_dnssec() && dnssec_type.is_dnssec() && rr.record_type() == dnssec_type
+    rr.record_type().is_dnssec() && dnssec_type.is_dnssec() && rr.record_type() == dnssec_type
 }
 
 async fn verify_all_rrsets<F, E>(
@@ -393,19 +393,19 @@ where
         .take_answers()
         .into_iter()
         .chain(message_result.take_additionals().into_iter())
-        .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.rr_type())))
+        .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.record_type())))
         .collect::<Vec<Record>>();
 
     let name_servers = message_result
         .take_name_servers()
         .into_iter()
-        .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.rr_type())))
+        .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.record_type())))
         .collect::<Vec<Record>>();
 
     let additionals = message_result
         .take_additionals()
         .into_iter()
-        .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.rr_type())))
+        .filter(|record| verified_rrsets.contains(&(record.name().clone(), record.record_type())))
         .collect::<Vec<Record>>();
 
     // add the filtered records back to the message

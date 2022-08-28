@@ -280,14 +280,14 @@ impl RecordSet {
     /// TODO: make a default add without serial number for basic usage
     pub fn insert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(record.name(), &self.name);
-        assert_eq!(record.rr_type(), self.record_type);
+        assert_eq!(record.record_type(), self.record_type);
 
         // RFC 2136                       DNS Update                     April 1997
         //
         // 1.1.5. The following RR types cannot be appended to an RRset.  If the
         //  following comparison rules are met, then an attempt to add the new RR
         //  will result in the replacement of the previous RR:
-        match record.rr_type() {
+        match record.record_type() {
             // SOA    compare only NAME, CLASS and TYPE -- it is not possible to
             //         have more than one SOA per zone, even if any of the data
             //         fields differ.
@@ -401,9 +401,11 @@ impl RecordSet {
     /// True if a record was removed.
     pub fn remove(&mut self, record: &Record, serial: u32) -> bool {
         assert_eq!(record.name(), &self.name);
-        assert!(record.rr_type() == self.record_type || record.rr_type() == RecordType::ANY);
+        assert!(
+            record.record_type() == self.record_type || record.record_type() == RecordType::ANY
+        );
 
-        match record.rr_type() {
+        match record.record_type() {
             // never delete the last NS record
             RecordType::NS => {
                 if self.records.len() <= 1 {
@@ -484,7 +486,7 @@ impl From<Record> for RecordSet {
     fn from(record: Record) -> Self {
         Self {
             name: record.name().clone(),
-            record_type: record.rr_type(),
+            record_type: record.record_type(),
             dns_class: record.dns_class(),
             ttl: record.ttl(),
             records: vec![record],

@@ -349,7 +349,7 @@ impl Parser {
         record.set_data(Some(rdata));
 
         // add to the map
-        let key = RrKey::new(LowerName::new(record.name()), record.rr_type());
+        let key = RrKey::new(LowerName::new(record.name()), record.record_type());
         match rtype {
             RecordType::SOA => {
                 let set = record.into();
@@ -361,7 +361,7 @@ impl Parser {
                 // add a Vec if it's not there, then add the record to the list
                 let set = records
                     .entry(key)
-                    .or_insert_with(|| RecordSet::new(record.name(), record.rr_type(), 0));
+                    .or_insert_with(|| RecordSet::new(record.name(), record.record_type(), 0));
                 set.insert(record, 0);
             }
         }

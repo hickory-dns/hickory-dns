@@ -51,7 +51,7 @@ async fn test_search() {
         .unwrap();
     if !result.is_empty() {
         let record = result.iter().next().unwrap();
-        assert_eq!(record.rr_type(), RecordType::A);
+        assert_eq!(record.record_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
         assert_eq!(
             record.data().unwrap(),
@@ -84,7 +84,7 @@ async fn test_search_www() {
         .unwrap();
     if !result.is_empty() {
         let record = result.iter().next().unwrap();
-        assert_eq!(record.rr_type(), RecordType::A);
+        assert_eq!(record.record_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
         assert_eq!(
             record.data().unwrap(),
@@ -921,7 +921,9 @@ async fn test_zone_signing() {
         .unwrap();
 
     assert!(
-        results.iter().any(|r| r.rr_type() == RecordType::DNSKEY),
+        results
+            .iter()
+            .any(|r| r.record_type() == RecordType::DNSKEY),
         "must contain a DNSKEY"
     );
 
@@ -935,10 +937,10 @@ async fn test_zone_signing() {
         .unwrap();
 
     for record in &results {
-        if record.rr_type() == RecordType::RRSIG {
+        if record.record_type() == RecordType::RRSIG {
             continue;
         }
-        if record.rr_type() == RecordType::DNSKEY {
+        if record.record_type() == RecordType::DNSKEY {
             continue;
         }
 
@@ -955,10 +957,10 @@ async fn test_zone_signing() {
         assert!(
             inner_results
                 .iter()
-                .any(|r| r.rr_type() == RecordType::RRSIG
+                .any(|r| r.record_type() == RecordType::RRSIG
                     && r.name() == record.name()
                     && if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.data().unwrap() {
-                        rrsig.type_covered() == record.rr_type()
+                        rrsig.type_covered() == record.record_type()
                     } else {
                         false
                     }),

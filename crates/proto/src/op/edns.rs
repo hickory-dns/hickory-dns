@@ -130,7 +130,7 @@ impl Edns {
 // FIXME: this should be a TryFrom
 impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
-        assert!(value.rr_type() == RecordType::OPT);
+        assert!(value.record_type() == RecordType::OPT);
 
         let rcode_high: u8 = ((value.ttl() & 0xFF00_0000u32) >> 24) as u8;
         let version: u8 = ((value.ttl() & 0x00FF_0000u32) >> 16) as u8;

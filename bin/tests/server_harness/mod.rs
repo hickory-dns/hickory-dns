@@ -280,7 +280,7 @@ pub fn query_all_dnssec(
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSKEY)
+        .filter(|r| r.record_type() == RecordType::DNSKEY)
         .map(|r| {
             if let Some(RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey))) = r.data() {
                 dnskey.clone()
@@ -296,7 +296,7 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::RRSIG)
+        .filter(|r| r.record_type() == RecordType::RRSIG)
         .map(|r| {
             if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = r.data() {
                 rrsig.clone()
