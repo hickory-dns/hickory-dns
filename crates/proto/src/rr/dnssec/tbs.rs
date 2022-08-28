@@ -94,7 +94,7 @@ pub fn rrset_tbs(
     // collect only the records for this rrset
     for record in records {
         if dns_class == record.dns_class()
-            && type_covered == record.rr_type()
+            && type_covered == record.record_type()
             && name == record.name()
         {
             rrset.push(record);

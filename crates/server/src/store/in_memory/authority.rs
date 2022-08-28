@@ -632,11 +632,10 @@ impl InnerInMemory {
             return false;
         }
 
-        let rr_key = RrKey::new(record.name().into(), record.rr_type());
-        let records: &mut Arc<RecordSet> = self
-            .records
-            .entry(rr_key)
-            .or_insert_with(|| Arc::new(RecordSet::new(record.name(), record.rr_type(), serial)));
+        let rr_key = RrKey::new(record.name().into(), record.record_type());
+        let records: &mut Arc<RecordSet> = self.records.entry(rr_key).or_insert_with(|| {
+            Arc::new(RecordSet::new(record.name(), record.record_type(), serial))
+        });
 
         // because this is and Arc, we need to clone and then replace the entry
         let mut records_clone = RecordSet::clone(&*records);

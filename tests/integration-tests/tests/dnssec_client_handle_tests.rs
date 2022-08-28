@@ -59,7 +59,7 @@ where
     assert!(!response.answers().is_empty());
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);
-    assert_eq!(record.rr_type(), RecordType::A);
+    assert_eq!(record.record_type(), RecordType::A);
     assert_eq!(record.dns_class(), DNSClass::IN);
 
     if let RData::A(ref address) = *record.data().unwrap() {

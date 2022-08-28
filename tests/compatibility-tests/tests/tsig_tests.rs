@@ -70,7 +70,7 @@ fn test_create() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = client
-        .query(record.name(), record.dns_class(), record.rr_type())
+        .query(record.name(), record.dns_class(), record.record_type())
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);

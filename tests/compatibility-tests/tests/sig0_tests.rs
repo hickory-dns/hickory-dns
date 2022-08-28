@@ -46,7 +46,7 @@ fn test_get() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert_eq!(result.answers()[0].rr_type(), RecordType::A);
+    assert_eq!(result.answers()[0].record_type(), RecordType::A);
 
     let rdata = result.answers()[0].data();
     if let Some(RData::A(address)) = rdata {
@@ -112,7 +112,7 @@ fn test_create() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = client
-        .query(record.name(), record.dns_class(), record.rr_type())
+        .query(record.name(), record.dns_class(), record.record_type())
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);

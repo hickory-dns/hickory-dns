@@ -76,7 +76,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         .next()
         .cloned()
         .unwrap();
-    assert_eq!(RecordType::SOA, soa_record.rr_type());
+    assert_eq!(RecordType::SOA, soa_record.record_type());
     assert_eq!(&Name::from_str("isi.edu").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
@@ -151,7 +151,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         assert_eq!(&Name::from_str("isi.edu").unwrap(), record.name());
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
-        assert_eq!(RecordType::NS, record.rr_type());
+        assert_eq!(RecordType::NS, record.record_type());
         if let Some(RData::NS(nsdname)) = record.data() {
             assert_eq!(name, *nsdname);
         } else {
@@ -182,7 +182,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         assert_eq!(&Name::from_str("isi.edu").unwrap(), record.name());
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
-        assert_eq!(RecordType::MX, record.rr_type());
+        assert_eq!(RecordType::MX, record.record_type());
         if let Some(RData::MX(ref rdata)) = record.data() {
             assert_eq!(num, rdata.preference());
             assert_eq!(name, rdata.exchange());
@@ -205,7 +205,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     assert_eq!(&Name::from_str("a.isi.edu").unwrap(), a_record.name());
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
     assert_eq!(DNSClass::IN, a_record.dns_class());
-    assert_eq!(RecordType::A, a_record.rr_type());
+    assert_eq!(RecordType::A, a_record.record_type());
     if let Some(RData::A(ref address)) = a_record.data() {
         assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 103u8), address);
     } else {

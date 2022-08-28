@@ -770,7 +770,7 @@ impl<R> ClientStreamXfrState<R> {
             } => {
                 let soa_count = answers
                     .iter()
-                    .filter(|a| a.rr_type() == RecordType::SOA)
+                    .filter(|a| a.record_type() == RecordType::SOA)
                     .count();
                 match soa_count {
                     0 => {
@@ -782,7 +782,7 @@ impl<R> ClientStreamXfrState<R> {
                     }
                     1 => {
                         *self = Ended;
-                        match answers.last().map(|r| r.rr_type()) {
+                        match answers.last().map(|r| r.record_type()) {
                             Some(RecordType::SOA) => Ok(()),
                             _ => Err(ClientErrorKind::Message(
                                 "invalid zone transfer, contains trailing records",
@@ -806,7 +806,7 @@ impl<R> ClientStreamXfrState<R> {
             } => {
                 let even = answers
                     .iter()
-                    .fold(even, |even, a| even ^ (a.rr_type() == RecordType::SOA));
+                    .fold(even, |even, a| even ^ (a.record_type() == RecordType::SOA));
                 if even {
                     if let Some(serial) = get_serial(answers.last().unwrap()) {
                         if serial == expected_serial {

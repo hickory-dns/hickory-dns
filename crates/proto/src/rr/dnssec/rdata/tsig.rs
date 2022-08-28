@@ -734,7 +734,7 @@ pub fn signed_bitmessage_to_buf(
     // parse a tsig record
     let sig = Record::read(&mut decoder)?;
     let tsig = if let (RecordType::TSIG, Some(RData::DNSSEC(DNSSECRData::TSIG(tsig_data)))) =
-        (sig.rr_type(), sig.data())
+        (sig.record_type(), sig.data())
     {
         tsig_data
     } else {

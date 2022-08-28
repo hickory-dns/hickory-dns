@@ -339,7 +339,7 @@ impl Message {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::SIG, record.rr_type());
+        assert_eq!(RecordType::SIG, record.record_type());
         self.signature.push(record);
         self
     }
@@ -350,7 +350,7 @@ impl Message {
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn add_tsig(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::TSIG, record.rr_type());
+        assert_eq!(RecordType::TSIG, record.record_type());
         self.signature.push(record);
         self
     }
@@ -674,7 +674,7 @@ impl Message {
                 } // SIG0 must be last
                 records.push(record)
             } else {
-                match record.rr_type() {
+                match record.record_type() {
                     #[cfg(feature = "dnssec")]
                     RecordType::SIG => {
                         saw_sig0 = true;
@@ -745,7 +745,7 @@ impl Message {
 
         // append all records to message
         for fin in finals {
-            match fin.rr_type() {
+            match fin.record_type() {
                 // SIG0's are special, and come at the very end of the message
                 #[cfg(feature = "dnssec")]
                 RecordType::SIG => self.add_sig0(fin),

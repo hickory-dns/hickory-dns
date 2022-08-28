@@ -23,6 +23,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::domain::Name;
+use crate::rr::record_data::RecordData;
+use crate::rr::{RData, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -212,6 +214,30 @@ impl SOA {
     /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
     pub fn minimum(&self) -> u32 {
         self.minimum
+    }
+}
+
+impl RecordData for SOA {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::SOA(soa) => Ok(soa),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::SOA(soa) => Ok(soa),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::SOA
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::SOA(self)
     }
 }
 
