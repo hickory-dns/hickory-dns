@@ -84,7 +84,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 Useful for testing trust-dns-resolver and it's features via an independent CLI.
 
 ```shell
-$ cargo install --bin resolve trust-dns-util
+cargo install --bin resolve trust-dns-util
 ```
 
 ### example
@@ -98,7 +98,7 @@ Success for query name: www.example.com. type: A class: IN
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.57`
+The current minimum rustc version for this project is `1.59`
 
 ## Versioning
 

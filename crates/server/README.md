@@ -24,7 +24,7 @@ This library contains basic implementations for DNS zone hosting. It is capable 
 
 ## Minimum Rust Version
 
-The current minimum rustc version for this project is `1.57`
+The current minimum rustc version for this project is `1.59`
 
 ## Versioning
 

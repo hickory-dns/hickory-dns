@@ -38,6 +38,7 @@ All notes should be prepended with the location of the change, e.g. `(proto)` or
 
 ### Changed
 
+- (all) Minimum Rust Version now 1.59 #1771 by bluejekyll
 - (client) Parser panic to result #1758 by darnuria
 - (client) Avoid 3 unwrap() call inc Parser::flush_record. #1757 by @darnuria
 - (client) Cleanup lex #1756 by darnuria
