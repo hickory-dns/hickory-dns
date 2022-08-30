@@ -5,6 +5,58 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 All notes should be prepended with the location of the change, e.g. `(proto)` or `(resolver)`.
 
+## 0.22.0
+
+### Removed
+
+- (deps) don't pull in env_logger if we aren't actually a binary #1701 by @Noah-Kennedy
+
+### Added
+
+- (resolver) Add option to use a provided name server order #1766 by @nhurley3
+- (proto) Add invalid utf8 output test for TXT::fmt. #1755 by darnuria
+- (proto) Support 0-RTT in DNS over QUIC #1716 by msoxzw
+- (recursor) *new* A Trust DNS based Recursor!!! #1710 by @bluejekyll
+- (resolver) Allow customizing the static hosts configuration #1705 by @fantix
+- (proto/server) Support loading pkcs#1 private key as well #1704 by @lisongmin
+- (util) Trust `dns` client cli (like `dig`) #1680 by @bluejekyll
+
+### Fixed
+
+- (proto) Only retry UDP socket bind if it returned EADDRINUSE #1761 by @peterthejohnston
+- (all) Add necessary conditional compilation cfgs #1752 by @trevor-crypto
+- (server) Populate name_pointers correctly via MessageResponseBuilder request #1744 by @jeff-hiner
+- (resolver) Do not fail parse_resolv_conf on invalid hostname #1740 by @schultetwin1
+- (all) doc: Fix warnings reported by cargo doc #1737 by @wiktor-k
+- (proto) Use `u16::*_be_bytes` represent length field (fixes DoQ) #1715 by @msoxzw
+- (proto) Prevent invalid 0-length labels via from_raw_bytes #1700 by @jonasbb
+- (proto/server) Drop UDP packets on send failure #1696 by @jeff-hiner
+- (all) removed `.max(0)`, unnecessary with `u32`'s #1691 by @bluejekyll
+- (server) sanitize all addresses received by the server before attempting any r… #1690 by @bluejekyll
+- (server) Remove forced (unecessary) Mutex from handler #1679 by @jeff-hiner
+- (proto) Fix `SvcParamKey::Unknown` parsing #1678 by @jeff-hiner
+
+### Changed
+
+- (client) Parser panic to result #1758 by darnuria
+- (client) Avoid 3 unwrap() call inc Parser::flush_record. #1757 by @darnuria
+- (client) Cleanup lex #1756 by darnuria
+- (resovler) Make maximum request depth configurable #1749 by @wiktor-k
+- (server) Clean up ForwardAuthority api #1748 by @chotchki
+- (resolver) Relax mut requirements for resolver.clear_cache() and add cache flushing example #1747 by @dns2utf8
+- (resolver) Lookup access Records list directly #1746 by @izissise
+- (proto) Pass DnsRequestOptions to DNSSEC validating routines #1742 by @wiktor-k
+- (proto) Increase the maximum request depth to 26 #1736 by @wiktor-k
+- (server) Mark ForwardLookup as public #1729 by @chotchki
+- (all) upgrade windows openssl version to 1_1_1p #1728 by @bluejekyll
+- (all) Converted to `tracing` from `log` #1706 by @erikh and @bluejekyll
+- (server) Move logger setup code into binary #1703 by @djc
+- (proto) ignore errors when disconnected #1695 by @edevil
+- (server) RequestInfo derives Clone trait. #1693 by @humb1t
+- (proto/server) make doq transport settings more consistent with RFC #1682 by @bluejekyll
+- (all) Included githubactions in the dependabot config #1681 by @naveensrinivasan
+- (proto) deprecated `edns` methods on request and replaced with `extensions` and better scemantics #1675 by @leshow
+
 ## 0.21.2
 
 ### Added
