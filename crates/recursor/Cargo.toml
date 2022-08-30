@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-recursor"
-version = "0.21.1"
+version = "0.22.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 edition = "2018"
 
@@ -87,8 +87,8 @@ time = "0.3"
 tracing = "0.1.30"
 tokio = { version = "1.0", features = ["net"] }
 toml = "0.5"
-trust-dns-proto = { version = "0.21.1", path = "../proto" }
-trust-dns-resolver = { version = "0.21.1", path = "../resolver" }
+trust-dns-proto = { version = "0.22.0", path = "../proto" }
+trust-dns-resolver = { version = "0.22.0", path = "../resolver" }
 
 [dev-dependencies]
 tokio = { version="1.0", features = ["macros", "rt"] }
