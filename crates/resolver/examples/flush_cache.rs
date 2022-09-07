@@ -20,7 +20,7 @@ async fn tokio_main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            TokioAsyncResolver::from_system_conf(TokioHandle)
+            TokioAsyncResolver::from_system_conf(TokioHandle::default())
         }
 
         // For other operating systems, we can use one of the preconfigured definitions

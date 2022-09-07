@@ -53,8 +53,11 @@ impl Recursor {
         assert!(!roots.is_empty(), "roots must not be empty");
 
         let opts = recursor_opts();
-        let roots =
-            NameServerPool::from_config(roots, &opts, TokioConnectionProvider::new(TokioHandle));
+        let roots = NameServerPool::from_config(
+            roots,
+            &opts,
+            TokioConnectionProvider::new(TokioHandle::default()),
+        );
         let roots = RecursorPool::from(Name::root(), roots);
         let name_server_cache = Mutex::new(NameServerCache::new(100)); // TODO: make this configurable
         let record_cache = DnsLru::new(100, TtlConfig::default());
@@ -435,7 +438,7 @@ impl Recursor {
         let ns = NameServerPool::from_config(
             config_group,
             &recursor_opts(),
-            TokioConnectionProvider::new(TokioHandle),
+            TokioConnectionProvider::new(TokioHandle::default()),
         );
         let ns = RecursorPool::from(zone.clone(), ns);
 
