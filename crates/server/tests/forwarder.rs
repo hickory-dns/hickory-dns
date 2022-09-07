@@ -17,7 +17,8 @@ use trust_dns_server::{
 #[test]
 fn test_lookup() {
     let runtime = Runtime::new().expect("failed to create Tokio Runtime");
-    let forwarder = ForwardAuthority::new(TokioHandle).expect("failed to create forwarder");
+    let forwarder =
+        ForwardAuthority::new(TokioHandle::default()).expect("failed to create forwarder");
 
     let lookup = runtime
         .block_on(forwarder.lookup(

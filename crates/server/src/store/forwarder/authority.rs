@@ -78,7 +78,7 @@ impl ForwardAuthority {
 
         let config = ResolverConfig::from_parts(None, vec![], name_servers);
 
-        let resolver = TokioAsyncResolver::new(config, options, TokioHandle)
+        let resolver = TokioAsyncResolver::new(config, options, TokioHandle::default())
             .map_err(|e| format!("error constructing new Resolver: {}", e))?;
 
         info!("forward resolver configured: {}: ", origin);
