@@ -379,12 +379,14 @@ impl Stream for ConnectionResponse {
 #[allow(unreachable_pub)]
 pub mod tokio_runtime {
     use super::*;
+    use std::sync::{Arc, Mutex};
     use tokio::net::UdpSocket as TokioUdpSocket;
+    use tokio::task::JoinSet;
 
     /// A handle to the Tokio runtime
     #[derive(Clone, Default)]
     pub struct TokioHandle {
-        join_set: std::sync::Arc<std::sync::Mutex<tokio::task::JoinSet<Result<(), ProtoError>>>>,
+        join_set: Arc<Mutex<JoinSet<Result<(), ProtoError>>>>,
     }
 
     impl Spawn for TokioHandle {
