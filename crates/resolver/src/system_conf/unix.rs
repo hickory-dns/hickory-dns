@@ -41,7 +41,7 @@ pub fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig,
     let parsed_conf = resolv_conf::Config::parse(&data).map_err(|e| {
         io::Error::new(
             io::ErrorKind::Other,
-            format!("Error parsing resolv.conf: {:?}", e),
+            format!("Error parsing resolv.conf: {}", e),
         )
     })?;
     into_resolver_config(parsed_conf)
@@ -93,7 +93,7 @@ fn into_resolver_config(
         search.push(Name::from_str_relaxed(&search_domain).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
-                format!("Error parsing resolv.conf: {:?}", e),
+                format!("Error parsing resolv.conf: {}", e),
             )
         })?);
     }
