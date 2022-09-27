@@ -50,8 +50,12 @@ struct Opts {
     ty: RecordType,
 
     /// Happy eye balls lookup, ipv4 and ipv6
-    #[clap(short = 'e', long = "happy", conflicts_with("ty"))]
+    #[clap(short = 'e', long = "happy", conflicts_with_all(&["reverse", "ty"]))]
     happy: bool,
+
+    /// Reverse DNS lookup
+    #[clap(short = 'r', long = "reverse", conflicts_with_all(&["happy", "ty"]))]
+    reverse: bool,
 
     /// Use system configuration, e.g. /etc/resolv.conf, instead of defaults
     #[clap(short = 's', long = "system")]
@@ -225,18 +229,31 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let resolver = TokioAsyncResolver::tokio(config, options)?;
 
     // execute query
-    println!(
-        "Querying for {name} {ty} from {ns}",
-        name = style(name).yellow(),
-        ty = style(ty).yellow(),
-        ns = style(name_servers).blue()
-    );
-
     let lookup = if opts.happy {
+        println!(
+            "Querying for {name} {ty} from {ns}",
+            name = style(name).yellow(),
+            ty = style("A+AAAA").yellow(),
+            ns = style(name_servers).blue()
+        );
         let lookup = resolver.lookup_ip(name.to_string()).await?;
-
         lookup.into()
+    } else if opts.reverse {
+        let v4addr = name.parse::<IpAddr>()?;
+        println!(
+            "Querying {reverse} for {name} from {ns}",
+            reverse = style("reverse").yellow(),
+            name = style(name).yellow(),
+            ns = style(name_servers).blue()
+        );
+        resolver.reverse_lookup(v4addr).await?.into()
     } else {
+        println!(
+            "Querying for {name} {ty} from {ns}",
+            name = style(name).yellow(),
+            ty = style(ty).yellow(),
+            ns = style(name_servers).blue()
+        );
         resolver.lookup(name.to_string(), ty).await?
     };
 
