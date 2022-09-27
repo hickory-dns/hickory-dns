@@ -429,6 +429,12 @@ macro_rules! lookup_type {
             }
         }
 
+        impl From<$l> for Lookup {
+            fn from(revlookup: $l) -> Self {
+                revlookup.0
+            }
+        }
+
         /// An iterator over the Lookup type
         pub struct $i<'i>(LookupIter<'i>);
 
