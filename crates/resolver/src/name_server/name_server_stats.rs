@@ -6,125 +6,295 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
+use std::sync::{Arc, atomic::{self, AtomicU32}};
 
-use std::sync::atomic::{self, AtomicUsize};
+use parking_lot::Mutex;
+use rand::Rng as _;
+
+#[cfg(test)]
+use tokio::time::{Duration, Instant};
+#[cfg(not(test))]
+use std::time::{Duration, Instant};
 
 pub(crate) struct NameServerStats {
-    successes: AtomicUsize,
-    failures: AtomicUsize,
-    // TODO: incorporate latency
+   /// The smoothed round-trip time (SRTT).
+   ///
+   /// This value represents an exponentially weighted moving average (EWMA) of
+   /// recorded latencies. The algorithm for computing this value is based on
+   /// the following:
+   ///
+   /// https://en.wikipedia.org/wiki/Moving_average#Application_to_measuring_computer_performance
+   ///
+   /// It is also partially inspired by the BIND and PowerDNS implementations:
+   ///
+   /// - https://github.com/isc-projects/bind9/blob/7bf8a7ab1b280c1021bf1e762a239b07aac3c591/lib/dns/adb.c#L3487
+   /// - https://github.com/PowerDNS/pdns/blob/7c5f9ae6ae4fb17302d933eaeebc8d6f0249aab2/pdns/syncres.cc#L123
+   ///
+   /// The algorithm for computing and using this value can be summarized as
+   /// follows:
+   ///
+   /// 1. The value is initialized to a random value that represents a very low
+   ///    latency.
+   /// 2. If the round-trip time (RTT) was successfully measured for a query,
+   ///    then it is incorporated into the EWMA using the formula linked above.
+   /// 3. If the RTT could not be measured (i.e. due to a connection failure),
+   ///    then a constant penalty factor is applied to the EWMA.
+   /// 4. When comparing EWMA values, a time-based decay is applied to each
+   ///    value. Note that this decay is only applied at read time.
+   ///
+   /// For the original discussion regarding this algorithm, see
+   /// https://github.com/bluejekyll/trust-dns/issues/1702.
+   srtt_microseconds: AtomicU32,
+
+
+   /// The last time the `srtt_microseconds` value was updated.
+   last_update: Arc<Mutex<Option<Instant>>>,
 }
 
 impl Default for NameServerStats {
-    fn default() -> Self {
-        Self::new(0, 0)
-    }
+   fn default() -> Self {
+       // Initialize the SRTT to a randomly generated value that represents a
+       // very low RTT. Such a value helps ensure that each server is attempted
+       // early.
+       Self::new(rand::thread_rng().gen_range(1..32))
+   }
+}
+
+/// Returns an exponentially weighted value in the range of 0.0 < x < 1.0
+///
+/// Computes the value using the following formula:
+///
+/// e<sup>(-t<sub>now</sub> - t<sub>last</sub>) / weight</sup>
+///
+/// As the duration since the `last_update` approaches the provided `weight`,
+/// the returned value decreases.
+fn compute_srtt_factor(last_update: Instant, weight: u32) -> f64 {
+   let exponent = (-last_update.elapsed().as_secs_f64().max(1.0)) / f64::from(weight);
+   exponent.exp()
 }
 
 impl NameServerStats {
-    pub(crate) fn new(successes: usize, failures: usize) -> Self {
-        Self {
-            successes: AtomicUsize::new(successes),
-            failures: AtomicUsize::new(failures),
-        }
-    }
+   const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
+   const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
 
-    pub(crate) fn next_success(&self) {
-        self.successes.fetch_add(1, atomic::Ordering::Release);
-    }
+   pub(crate) fn new(initial_srtt: u32) -> Self {
+       Self {
+           srtt_microseconds: AtomicU32::new(initial_srtt),
+           last_update: Arc::new(Mutex::new(None)),
+       }
+   }
 
-    pub(crate) fn next_failure(&self) {
-        self.failures.fetch_add(1, atomic::Ordering::Release);
-    }
+   /// Records the measured `rtt` for a particular query.
+   pub(crate) fn record_rtt(&self, rtt: Duration) {
+       // If the cast on the result does overflow (it shouldn't), then the
+       // value is saturated to u32::MAX, which is above the `MAX_SRTT_MICROS`
+       // limit (meaning that any potential overflow is inconsequential).
+       // See https://github.com/rust-lang/rust/issues/10184.
+       self.update_srtt(rtt.as_micros() as u32, |cur_srtt_microseconds, last_update| {
+           // An arbitrarily low weight is used when computing the factor
+           // to ensure that recent RTT measurements are weighted more
+           // heavily.
+           let factor = compute_srtt_factor(last_update, 3);
+           let new_srtt = (1.0 - factor) * (rtt.as_micros() as f64) + factor * f64::from(cur_srtt_microseconds);
+           new_srtt.round() as u32
+       });
+   }
 
-    fn noload_eq(
-        self_successes: usize,
-        other_successes: usize,
-        self_failures: usize,
-        other_failures: usize,
-    ) -> bool {
-        self_successes == other_successes && self_failures == other_failures
-    }
+   /// Records a connection failure for a particular query.
+   pub(crate) fn record_connection_failure(&self) {
+       self.update_srtt(Self::CONNECTION_FAILURE_PENALTY, |cur_srtt_microseconds, _last_update| {
+           cur_srtt_microseconds.saturating_add(Self::CONNECTION_FAILURE_PENALTY)
+       });
+   }
+
+   /// Returns the raw SRTT value.
+   ///
+   /// Prefer to use `decayed_srtt` when ordering name servers.
+   fn srtt_microseconds(&self) -> u32 {
+       self.srtt_microseconds.load(atomic::Ordering::Acquire)
+   }
+
+   /// Returns the SRTT value after applying a time based decay.
+   ///
+   /// Prefer to use this value when ordering name servers. Applying a decay
+   /// helps distribute query load and detect positive network changes.
+   fn decayed_srtt(&self) -> f64 {
+       let srtt = f64::from(self.srtt_microseconds.load(atomic::Ordering::Acquire));
+       self.last_update.lock().map_or(srtt, |last_update| {
+           // In general, if the time between queries is relatively short, then
+           // the server ordering algorithm will approximate a spike
+           // distribution where the servers with the lowest latencies are
+           // chosen much more frequently. Conversely, if the time between
+           // queries is relatively long, then the query distribution will be
+           // more uniform. A larger weight widens the window in which servers
+           // with historically lower latencies will be heavily preferred. On
+           // the other hand, a larger weight may also increase the time it
+           // takes to recover from a failure or to observe positive changes in
+           // latency.
+           srtt * compute_srtt_factor(last_update, 180)
+       })
+   }
+
+   fn update_srtt(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
+       let last_update = self.last_update.lock().replace(Instant::now());
+       let _ = self.srtt_microseconds.fetch_update(atomic::Ordering::SeqCst, atomic::Ordering::SeqCst, move |cur_srtt_microseconds| {
+           Some(last_update.map_or(default, |last_update| update_fn(cur_srtt_microseconds, last_update)).min(Self::MAX_SRTT_MICROS))
+       });
+   }
 }
 
 impl PartialEq for NameServerStats {
-    fn eq(&self, other: &Self) -> bool {
-        let self_successes = self.successes.load(atomic::Ordering::Acquire);
-        let other_successes = other.successes.load(atomic::Ordering::Acquire);
+   fn eq(&self, other: &Self) -> bool {
+       let self_srtt = self.srtt_microseconds();
+       let other_srtt = other.srtt_microseconds();
 
-        let self_failures = self.failures.load(atomic::Ordering::Acquire);
-        let other_failures = other.failures.load(atomic::Ordering::Acquire);
-
-        // if they are literally equal, just return
-        Self::noload_eq(
-            self_successes,
-            other_successes,
-            self_failures,
-            other_failures,
-        )
-    }
+       self_srtt == other_srtt
+   }
 }
 
 impl Eq for NameServerStats {}
 
 impl Ord for NameServerStats {
-    /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
-    fn cmp(&self, other: &Self) -> Ordering {
-        let self_successes = self.successes.load(atomic::Ordering::Acquire);
-        let other_successes = other.successes.load(atomic::Ordering::Acquire);
+   /// Custom implementation of Ord for NameServer which incorporates the
+   /// performance of the connection into it's ranking.
+   fn cmp(&self, other: &Self) -> Ordering {
+       let self_srtt = self.decayed_srtt();
+       let other_srtt = other.decayed_srtt();
 
-        let self_failures = self.failures.load(atomic::Ordering::Acquire);
-        let other_failures = other.failures.load(atomic::Ordering::Acquire);
-
-        // if they are literally equal, just return
-        if Self::noload_eq(
-            self_successes,
-            other_successes,
-            self_failures,
-            other_failures,
-        ) {
-            return Ordering::Equal;
-        }
-
-        // TODO: track latency and use lowest latency connection...
-
-        // invert failure comparison, i.e. the one with the least failures, wins
-        if self_failures <= other_failures {
-            return Ordering::Greater;
-        }
-
-        // at this point we'll go with the lesser of successes to make sure there is balance
-        self_successes.cmp(&other_successes)
-    }
+       self_srtt.total_cmp(&other_srtt)
+   }
 }
 
 impl PartialOrd for NameServerStats {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
+   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+       Some(self.cmp(other))
+   }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+   use super::*;
 
-    fn is_send_sync<S: Sync + Send>() -> bool {
-        true
-    }
+   fn is_send_sync<S: Sync + Send>() -> bool {
+       true
+   }
 
-    #[test]
-    fn stats_are_sync() {
-        assert!(is_send_sync::<NameServerStats>());
-    }
+   #[test]
+   fn stats_are_sync() {
+       assert!(is_send_sync::<NameServerStats>());
+   }
 
-    #[test]
-    fn test_state_cmp() {
-        let nil = NameServerStats::new(0, 0);
-        let successes = NameServerStats::new(1, 0);
-        let failures = NameServerStats::new(0, 1);
+   #[tokio::test(start_paused = true)]
+   async fn test_stats_cmp() {
+       let server_a = NameServerStats::new(10);
+       let server_b = NameServerStats::new(20);
 
-        assert_eq!(nil.cmp(&nil), Ordering::Equal);
-        assert_eq!(nil.cmp(&successes), Ordering::Greater);
-        assert_eq!(successes.cmp(&failures), Ordering::Greater);
-    }
+       // No RTTs or failures have been recorded. The initial SRTTs should be
+       // compared.
+       assert_eq!(server_a.cmp(&server_b), Ordering::Less);
+
+       // Server A was used. Unused server B should now be preferred.
+       server_a.record_rtt(Duration::from_millis(30));
+       tokio::time::advance(Duration::from_secs(5)).await;
+       assert_eq!(server_a.cmp(&server_b), Ordering::Greater);
+
+       // Both servers have been used. Server A has a lower SRTT and should be
+       // preferred.
+       server_b.record_rtt(Duration::from_millis(50));
+       tokio::time::advance(Duration::from_secs(5)).await;
+       assert_eq!(server_a.cmp(&server_b), Ordering::Less);
+
+       // Server A experiences a connection failure, which results in Server B
+       // being preferred.
+       server_a.record_connection_failure();
+       tokio::time::advance(Duration::from_secs(5)).await;
+       assert_eq!(server_a.cmp(&server_b), Ordering::Greater);
+
+       // Server A should eventually recover and once again be preferred.
+       while server_a.cmp(&server_b) != Ordering::Less {
+           server_b.record_rtt(Duration::from_millis(50));
+           tokio::time::advance(Duration::from_secs(5)).await;
+       }
+
+       server_a.record_rtt(Duration::from_millis(30));
+       tokio::time::advance(Duration::from_secs(3)).await;
+       assert_eq!(server_a.cmp(&server_b), Ordering::Less);
+   }
+
+   #[tokio::test(start_paused = true)]
+   async fn test_record_rtt() {
+       let server = NameServerStats::new(10);
+
+       let first_rtt = Duration::from_millis(50);
+       server.record_rtt(first_rtt);
+
+       // The first recorded RTT should replace the initial value.
+       assert_eq!(server.srtt_microseconds(), first_rtt.as_micros() as u32);
+
+       tokio::time::advance(Duration::from_secs(3)).await;
+
+       // Subsequent RTTs should factor in previously recorded values.
+       server.record_rtt(Duration::from_millis(100));
+       assert_eq!(server.srtt_microseconds(), 81606);
+   }
+
+   #[test]
+   fn test_record_rtt_maximum_value() {
+       let server = NameServerStats::new(10);
+
+       server.record_rtt(Duration::MAX);
+       // Updates to the SRTT are capped at a maximum value.
+       assert_eq!(server.srtt_microseconds(), NameServerStats::MAX_SRTT_MICROS);
+   }
+
+   #[tokio::test(start_paused = true)]
+   async fn test_record_connection_failure() {
+       let server = NameServerStats::new(10);
+
+       // Verify that the SRTT value is initially replaced with the penalty and
+       // subsequent failures result in the penalty being added.
+       for failure_count in 1..4 {
+           server.record_connection_failure();
+           assert_eq!(server.srtt_microseconds(), NameServerStats::CONNECTION_FAILURE_PENALTY.checked_mul(failure_count).expect("checked_mul overflow"));
+           tokio::time::advance(Duration::from_secs(3)).await;
+       }
+
+       // Verify that the `last_update` timestamp was updated for a connection
+       // failure and is used in subsequent calculations.
+       server.record_rtt(Duration::from_millis(50));
+       assert_eq!(server.srtt_microseconds(), 197152);
+   }
+
+   #[test]
+   fn test_record_connection_failure_maximum_value() {
+       let server = NameServerStats::new(10);
+
+       let num_failures = (NameServerStats::MAX_SRTT_MICROS / NameServerStats::CONNECTION_FAILURE_PENALTY) + 1;
+       for _ in 0..num_failures {
+           server.record_connection_failure();
+       }
+
+       // Updates to the SRTT are capped at a maximum value.
+       assert_eq!(server.srtt_microseconds(), NameServerStats::MAX_SRTT_MICROS);
+   }
+
+   #[tokio::test(start_paused = true)]
+   async fn test_decayed_srtt() {
+       let initial_srtt = 10;
+       let server = NameServerStats::new(initial_srtt);
+
+       // No decay should be applied to the initial value.
+       assert_eq!(server.decayed_srtt() as u32, initial_srtt);
+
+       tokio::time::advance(Duration::from_secs(5)).await;
+       server.record_rtt(Duration::from_millis(100));
+
+       // The decay function should assume a minimum of one second has elapsed
+       // since the last update.
+       tokio::time::advance(Duration::from_millis(500)).await;
+       assert_eq!(server.decayed_srtt() as u32, 99445);
+
+       tokio::time::advance(Duration::from_secs(5)).await;
+       assert_eq!(server.decayed_srtt() as u32, 96990);
+   }
 }
