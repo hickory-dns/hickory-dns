@@ -171,7 +171,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         }
     }
 
-    /// Specifies that thie NameServer will treat negative responses as permanent failures and will not retry
+    /// Specifies that this NameServer will treat negative responses as permanent failures and will not retry
     pub fn trust_nx_responses(&self) -> bool {
         self.config.trust_nx_responses
     }

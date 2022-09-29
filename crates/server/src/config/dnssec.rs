@@ -245,7 +245,7 @@ impl TlsCertConfig {
 }
 
 /// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
-/// these will be lookedup by $file.{key_name}.pem, for backward compatibility
+/// these will be looked up by $file.{key_name}.pem, for backward compatibility
 /// with previous versions of Trust-DNS, if enable_dnssec is enabled but
 /// supported_algorithms is not specified, it will default to "RSASHA256" and
 /// look for the $file.pem for the key. To control key length, or other options

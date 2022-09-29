@@ -951,7 +951,7 @@ fn test_timeout_query(mut client: AsyncClient, io_loop: Runtime) {
         .unwrap_err();
 
     // test that we don't have any thing funky with registering new timeouts, etc...
-    //   it would be cool if we could maintain a different error here, but shutdown is problably ok.
+    //   it would be cool if we could maintain a different error here, but shutdown is probably ok.
     //
     // match err.kind() {
     //     &ClientErrorKind::Timeout => (),

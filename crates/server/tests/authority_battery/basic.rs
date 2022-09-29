@@ -45,7 +45,7 @@ pub fn test_soa<A: Authority<Lookup = AuthLookup>>(authority: A) {
     match lookup
         .into_iter()
         .next()
-        .expect("SOA record not found in authity")
+        .expect("SOA record not found in authority")
         .data()
     {
         Some(RData::SOA(soa)) => {
@@ -67,7 +67,7 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A) {
     match lookup
         .into_iter()
         .next()
-        .expect("NS record not found in authity")
+        .expect("NS record not found in authority")
         .data()
     {
         Some(RData::NS(name)) => assert_eq!(Name::from_str("bbb.example.com.").unwrap(), *name),
@@ -482,7 +482,7 @@ pub fn test_dots_in_name<A: Authority<Lookup = AuthLookup>>(authority: A) {
         *lookup
             .into_iter()
             .next()
-            .expect("A record not found in authity")
+            .expect("A record not found in authority")
             .data()
             .and_then(RData::as_a)
             .expect("wrong rdata type returned"),

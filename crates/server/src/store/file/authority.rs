@@ -99,7 +99,7 @@ impl FileAuthority {
     /// Read given file line by line and recursively invokes reader for
     /// $INCLUDE directives
     ///
-    /// TODO: it looks hacky as far we effectively duplicate parser's functionallity
+    /// TODO: it looks hacky as far we effectively duplicate parser's functionality
     /// (at least partially) and performing lexing twice.
     /// Better solution requires us to change lexer to deal
     /// with Lines-like iterator instead of String buf (or capability to combine a few
@@ -287,7 +287,7 @@ impl Authority for FileAuthority {
     ///
     /// # Return value
     ///
-    /// Returns a vectory containing the results of the query, it will be empty if not found. If
+    /// Returns a vector containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
     async fn search(
         &self,
@@ -393,7 +393,7 @@ mod tests {
         match lookup
             .into_iter()
             .next()
-            .expect("A record not found in authity")
+            .expect("A record not found in authority")
             .data()
         {
             Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 1), *ip),
@@ -411,7 +411,7 @@ mod tests {
         match include_lookup
             .into_iter()
             .next()
-            .expect("A record not found in authity")
+            .expect("A record not found in authority")
             .data()
         {
             Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 5), *ip),

@@ -104,7 +104,7 @@ impl Config {
         self.quic_listen_port.unwrap_or(DEFAULT_QUIC_PORT)
     }
 
-    /// default timeout for all TCP connections before forceably shutdown
+    /// default timeout for all TCP connections before forcibly shutdown
     pub fn get_tcp_request_timeout(&self) -> Duration {
         Duration::from_secs(
             self.tcp_request_timeout

@@ -662,7 +662,7 @@ impl fmt::Display for TsigAlgorithm {
 /// * `message` - the message to authenticate. Should not be modified after calling message_tbs
 /// except for adding the TSIG record
 /// * `pre_tsig` - TSIG rrdata, possibly with missing mac. Should not be modified in any other way
-/// after callin message_tbs
+/// after calling message_tbs
 /// * `key_name` - name of they key, should be the same as the name known by the remove
 /// server/client
 pub fn message_tbs<M: BinEncodable>(
@@ -822,7 +822,7 @@ mod tests {
             vec![],
         ));
         test_encode_decode(TSIG::new(
-            TsigAlgorithm::Unknown(Name::from_ascii("unkown_algorithm").unwrap()),
+            TsigAlgorithm::Unknown(Name::from_ascii("unknown_algorithm").unwrap()),
             123456789,
             60,
             vec![],

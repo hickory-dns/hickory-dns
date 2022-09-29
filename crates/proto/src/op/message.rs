@@ -19,7 +19,7 @@ use crate::{
     xfer::DnsResponse,
 };
 
-/// The basic request and response datastructure, used for all DNS protocols.
+/// The basic request and response data structure, used for all DNS protocols.
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -871,7 +871,7 @@ pub trait MessageFinalizer: Send + Sync + 'static {
         current_time: u32,
     ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)>;
 
-    /// Return whether the message require futher processing before being sent
+    /// Return whether the message requires further processing before being sent
     /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
     fn should_finalize_message(&self, message: &Message) -> bool {
         [OpCode::Update, OpCode::Notify].contains(&message.op_code())
@@ -1179,7 +1179,7 @@ fn test_legit_message() {
     let buf: Vec<u8> = vec![
     0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
     0x00,0x01,0x00,0x01, // 1 query, 1 answer,
-    0x00,0x00,0x00,0x00, // 0 namesservers, 0 additional record
+    0x00,0x00,0x00,0x00, // 0 nameservers, 0 additional record
 
     0x03,b'w',b'w',b'w', // query --- www.example.com
     0x07,b'e',b'x',b'a', //

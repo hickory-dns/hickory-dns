@@ -67,7 +67,7 @@ pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<
 /// * `original_ttl` - Original TTL is the TTL as specified in the SOA zones RRSet associated record
 /// * `sig_expiration` - the epoch seconds of when this hashed signature will expire
 /// * `key_inception` - the epoch seconds of when this hashed signature will be valid
-/// * `signer_name` - label of the etity responsible for signing this hash
+/// * `signer_name` - label of the entity responsible for signing this hash
 /// * `records` - RRSet to hash
 ///
 /// # Returns
