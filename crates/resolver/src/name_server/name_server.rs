@@ -138,10 +138,15 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         request: R,
     ) -> Result<DnsResponse, ResolveError> {
         let mut client = self.connected_mut_client().await?;
+        let now = std::time::Instant::now();
         let response = client.send(request).first_answer().await;
+        let rtt = now.elapsed();
 
         match response {
             Ok(response) => {
+                // Record the measured latency.
+                self.stats.record_rtt(rtt);
+
                 // First evaluate if the message succeeded.
                 let response =
                     ResolveError::from_response(response, self.config.trust_nx_responses)?;
@@ -152,8 +157,6 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                 // take the remote edns options and store them
                 self.state.establish(remote_edns);
 
-                // record the success
-                self.stats.next_success();
                 Ok(response)
             }
             Err(error) => {
@@ -163,7 +166,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
                 self.state.fail(Instant::now());
 
                 // record the failure
-                self.stats.next_failure();
+                self.stats.record_connection_failure();
 
                 // These are connection failures, not lookup failures, that is handled in the resolver layer
                 Err(error)
@@ -203,17 +206,6 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Ord fo
         // if they are literally equal, just return
         if self == other {
             return Ordering::Equal;
-        }
-
-        // otherwise, run our evaluation to determine the next to be returned from the Heap
-        //   this will prefer established connections, we should try other connections after
-        //   some number to make sure that all are used. This is more important for when
-        //   latency is started to be used.
-        match self.state.cmp(&other.state) {
-            Ordering::Equal => (),
-            o => {
-                return o;
-            }
         }
 
         self.stats.cmp(&other.stats)
