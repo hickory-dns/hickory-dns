@@ -357,7 +357,7 @@ impl NextRandomUdpSocket {
 }
 
 impl Future for NextRandomUdpSocket {
-    // TODO: clean this up, the RandomUdpSocket shouldnt' care about the query type
+    // TODO: clean this up, the RandomUdpSocket shouldn't care about the query type
     type Output = io::Result<Option<std::net::UdpSocket>>;
 
     /// polls until there is an available next random UDP port.

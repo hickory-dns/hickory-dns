@@ -28,7 +28,7 @@ use super::Token;
 
 /// Extension on RData for text parsing
 pub trait RDataParser: Sized {
-    /// Attempts to parse a streem of tokenized strs into the RData of the specified record type
+    /// Attempts to parse a stream of tokenized strs into the RData of the specified record type
     fn parse<'i, I: Iterator<Item = &'i str>>(
         record_type: RecordType,
         tokens: I,

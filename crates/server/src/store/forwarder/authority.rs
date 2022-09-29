@@ -66,7 +66,7 @@ impl ForwardAuthority {
         // Essentially, it's saying that servers (including forwarders)
         // should emit any found CNAMEs in a response ("copy the CNAME
         // RR into the answer section"). This is the behavior that
-        // preserve_intemediates enables when set to true, and disables
+        // preserve_intermediates enables when set to true, and disables
         // when set to false. So we set it to true.
         if !options.preserve_intermediates {
             tracing::warn!(
@@ -162,7 +162,7 @@ impl Authority for ForwardAuthority {
 
 /// A structure that holds the results of a forwarding lookup.
 ///
-/// This exposes an interator interface for consumption downstream.
+/// This exposes an iterator interface for consumption downstream.
 pub struct ForwardLookup(pub ResolverLookup);
 
 impl LookupObject for ForwardLookup {

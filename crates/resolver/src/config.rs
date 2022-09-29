@@ -832,7 +832,7 @@ pub struct ResolverOpts {
     /// Where more than one nameserver is configured, this configures the resolver to send queries
     /// to a number of servers in parallel. Defaults to 2; 0 or 1 will execute requests serially.
     pub num_concurrent_reqs: usize,
-    /// Preserve all intermediate records in the lookup response, suchas CNAME records
+    /// Preserve all intermediate records in the lookup response, such as CNAME records
     pub preserve_intermediates: bool,
     /// Try queries over TCP if they fail over UDP.
     pub try_tcp_on_error: bool,

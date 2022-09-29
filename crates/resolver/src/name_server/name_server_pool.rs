@@ -36,7 +36,7 @@ pub struct NameServerPool<
     C: DnsHandle<Error = ResolveError> + Send + Sync + 'static,
     P: ConnectionProvider<Conn = C> + Send + 'static,
 > {
-    // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
+    // TODO: switch to FuturesMutex (Mutex will have some undesirable locking)
     datagram_conns: Arc<[NameServer<C, P>]>, /* All NameServers must be the same type */
     stream_conns: Arc<[NameServer<C, P>]>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]

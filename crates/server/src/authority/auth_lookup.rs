@@ -317,7 +317,7 @@ impl LookupRecords {
         }
     }
 
-    /// Construct a new LookupRecords over a set of ResordSets
+    /// Construct a new LookupRecords over a set of RecordSets
     pub fn many(lookup_options: LookupOptions, mut records: Vec<Arc<RecordSet>>) -> Self {
         // we're reversing the records because they are output in reverse order, via pop()
         records.reverse();

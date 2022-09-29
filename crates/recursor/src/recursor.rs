@@ -33,7 +33,7 @@ type NameServerCache<C, P> = LruCache<Name, RecursorPool<C, P>>;
 
 /// A top down recursive resolver which operates off a list of roots for initial recursive requests.
 ///
-/// This is the well known root nodes, refered to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
+/// This is the well known root nodes, referred to as hints in RFCs. See the IANA [Root Servers](https://www.iana.org/domains/root/servers) list.
 pub struct Recursor {
     roots: RecursorPool<TokioConnection, TokioConnectionProvider>,
     name_server_cache: Mutex<NameServerCache<TokioConnection, TokioConnectionProvider>>,
@@ -69,7 +69,7 @@ impl Recursor {
         })
     }
 
-    /// Permform a recursive resolution
+    /// Perform a recursive resolution
     ///
     /// [RFC 1034](https://datatracker.ietf.org/doc/html/rfc1034#section-5.3.3), Domain Concepts and Facilities, November 1987
     ///

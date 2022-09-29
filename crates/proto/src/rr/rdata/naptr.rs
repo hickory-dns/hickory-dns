@@ -167,7 +167,7 @@ impl NAPTR {
     ///      As stated in the DDDS algorithm, The regular expressions MUST NOT
     ///      be used in a cumulative fashion, that is, they should only be
     ///      applied to the original string held by the client, never to the
-    ///      domain name p  roduced by a previous NAPTR rewrite.  The latter is
+    ///      domain name produced by a previous NAPTR rewrite.  The latter is
     ///      tempting in some applications but experience has shown such use to
     ///      be extremely fault sensitive, very error prone, and extremely
     ///      difficult to debug.

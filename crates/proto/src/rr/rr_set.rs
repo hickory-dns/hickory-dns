@@ -454,7 +454,7 @@ pub struct RecordSetParts {
     pub ttl: u32,
     pub records: Vec<Record>,
     pub rrsigs: Vec<Record>,
-    pub serial: u32, // serial number at which this record was modifie,
+    pub serial: u32, // serial number at which this record was modified,
 }
 
 impl From<RecordSet> for RecordSetParts {
@@ -592,7 +592,7 @@ pub enum RrsetRecords<'r> {
 }
 
 impl<'r> RrsetRecords<'r> {
-    /// This is a best effort emptyness check
+    /// This is a best effort emptiness check
     pub fn is_empty(&self) -> bool {
         matches!(*self, RrsetRecords::Empty)
     }

@@ -220,7 +220,7 @@ where
 
 /// A wrapper for a future DnsExchange connection.
 ///
-/// DnsExchangeConnect is clonable, making it possible to share this if the connection
+/// DnsExchangeConnect is cloneable, making it possible to share this if the connection
 ///  will be shared across threads.
 ///
 /// The future will return a tuple of the DnsExchange (for sending messages) and a background

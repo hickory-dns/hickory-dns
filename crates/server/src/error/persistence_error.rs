@@ -38,7 +38,7 @@ pub enum ErrorKind {
     #[error("proto error: {0}")]
     Proto(#[from] ProtoError),
 
-    /// An error got returned from the rusqlite crate
+    /// An error got returned from the sqlite crate
     #[cfg(feature = "sqlite")]
     #[cfg_attr(docsrs, doc(cfg(feature = "sqlite")))]
     #[error("sqlite error: {0}")]

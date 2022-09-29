@@ -126,7 +126,7 @@ pub enum ResponseCode {
     // 3841-4095    Reserved for Private Use                        [RFC6895]
     // 4096-65534   Unassigned
     // 65535        Reserved, can be allocated by Standards Action  [RFC6895]
-    /// An unknown or unregisterd response code was received.
+    /// An unknown or unregistered response code was received.
     Unknown(u16),
 }
 
