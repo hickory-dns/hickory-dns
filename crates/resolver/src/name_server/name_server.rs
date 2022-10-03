@@ -138,7 +138,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
         request: R,
     ) -> Result<DnsResponse, ResolveError> {
         let mut client = self.connected_mut_client().await?;
-        let now = std::time::Instant::now();
+        let now = Instant::now();
         let response = client.send(request).first_answer().await;
         let rtt = now.elapsed();
 

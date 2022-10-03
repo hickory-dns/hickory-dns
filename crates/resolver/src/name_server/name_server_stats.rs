@@ -92,18 +92,15 @@ impl NameServerStats {
         // value is saturated to u32::MAX, which is above the `MAX_SRTT_MICROS`
         // limit (meaning that any potential overflow is inconsequential).
         // See https://github.com/rust-lang/rust/issues/10184.
-        self.update_srtt(
-            rtt.as_micros() as u32,
-            |cur_srtt_microseconds, last_update| {
-                // An arbitrarily low weight is used when computing the factor
-                // to ensure that recent RTT measurements are weighted more
-                // heavily.
-                let factor = compute_srtt_factor(last_update, 3);
-                let new_srtt = (1.0 - factor) * (rtt.as_micros() as f64)
-                    + factor * f64::from(cur_srtt_microseconds);
-                new_srtt.round() as u32
-            },
-        );
+        self.update_srtt(rtt.as_micros() as u32, |cur_srtt_microseconds, last_update| {
+            // An arbitrarily low weight is used when computing the factor
+            // to ensure that recent RTT measurements are weighted more
+            // heavily.
+            let factor = compute_srtt_factor(last_update, 3);
+            let new_srtt = (1.0 - factor) * (rtt.as_micros() as f64)
+                + factor * f64::from(cur_srtt_microseconds);
+            new_srtt.round() as u32
+        });
     }
 
     /// Records a connection failure for a particular query.
@@ -125,8 +122,12 @@ impl NameServerStats {
 
     /// Returns the SRTT value after applying a time based decay.
     ///
-    /// Prefer to use this value when ordering name servers. Applying a decay
-    /// helps distribute query load and detect positive network changes.
+    /// The decay exponentially decreases the SRTT value. The primary reasons
+    /// for applying a downwards decay are twofold:
+    ///
+    /// 1. It helps distribute query load.
+    /// 2. It helps detect positive network changes. For example, decreases in
+    ///    latency or a server that has recovered from a failure.
     fn decayed_srtt(&self) -> f64 {
         let srtt = f64::from(self.srtt_microseconds.load(atomic::Ordering::Acquire));
         self.last_update.lock().map_or(srtt, |last_update| {
@@ -144,6 +145,11 @@ impl NameServerStats {
         })
     }
 
+    /// Updates the SRTT value.
+    ///
+    /// If the `last_update` value has not been set, then uses the `default`
+    /// value to update the SRTT. Otherwise, invokes the `update_fn` with the
+    /// current SRTT value and the `last_update` timestamp.
     fn update_srtt(&self, default: u32, update_fn: impl Fn(u32, Instant) -> u32) {
         let last_update = self.last_update.lock().replace(Instant::now());
         let _ = self.srtt_microseconds.fetch_update(
@@ -164,10 +170,7 @@ impl NameServerStats {
 
 impl PartialEq for NameServerStats {
     fn eq(&self, other: &Self) -> bool {
-        let self_srtt = self.srtt_microseconds();
-        let other_srtt = other.srtt_microseconds();
-
-        self_srtt == other_srtt
+        self.srtt_microseconds() == other.srtt_microseconds()
     }
 }
 
@@ -191,10 +194,7 @@ impl Ord for NameServerStats {
     /// Custom implementation of Ord for NameServer which incorporates the
     /// performance of the connection into it's ranking.
     fn cmp(&self, other: &Self) -> Ordering {
-        let self_srtt = self.decayed_srtt();
-        let other_srtt = other.decayed_srtt();
-
-        total_cmp(self_srtt, other_srtt)
+        total_cmp(self.decayed_srtt(), other.decayed_srtt())
     }
 }
 
