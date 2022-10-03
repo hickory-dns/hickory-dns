@@ -111,7 +111,7 @@ use crate::serialize::binary::*;
 ///            11: If both bits are one, the "no key" value, there is no key
 ///                information and the RR stops after the algorithm octet.
 ///                By the use of this "no key" value, a signed KEY RR can
-///                authenticatably assert that, for example, a zone is not
+///                authentically assert that, for example, a zone is not
 ///                secured.  See section 3.4 below.
 ///
 ///    Bits 2 is reserved and must be zero.
@@ -834,7 +834,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &KEY) -> ProtoResult<()> {
 ///    [RFC 1033].
 ///
 ///    The flag field is represented as an unsigned integer or a sequence of
-///    mnemonics as follows separated by instances of the verticle bar ("|")
+///    mnemonics as follows separated by instances of the vertical bar ("|")
 ///    character:
 ///
 ///      BIT  Mnemonic  Explanation
@@ -862,7 +862,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &KEY) -> ProtoResult<()> {
 ///    zero.
 ///
 ///    The protocol octet can be represented as either an unsigned integer
-///    or symbolicly.  The following initial symbols are defined:
+///    or symbolically.  The following initial symbols are defined:
 ///
 ///         000    NONE
 ///         001    TLS

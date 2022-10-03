@@ -62,7 +62,7 @@ async fn test_search() {
     }
 }
 
-/// this is a litte more interesting b/c it requires a recursive lookup for the origin
+/// this is a little more interesting b/c it requires a recursive lookup for the origin
 #[tokio::test]
 async fn test_search_www() {
     let example = create_example();

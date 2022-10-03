@@ -66,7 +66,7 @@ impl KeyFormat {
                 };
 
                 Ok(KeyPair::from_rsa(key)
-                    .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
+                    .map_err(|e| format!("could not translate RSA to KeyPair: {}", e))?)
             }
             Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => match self {
                 #[cfg(feature = "openssl")]
@@ -75,7 +75,7 @@ impl KeyFormat {
                         .map_err(|e| format!("error reading EC as DER: {}", e))?;
 
                     Ok(KeyPair::from_ec_key(key)
-                        .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
+                        .map_err(|e| format!("could not translate RSA to KeyPair: {}", e))?)
                 }
                 #[cfg(feature = "openssl")]
                 Self::Pem => {
@@ -85,7 +85,7 @@ impl KeyFormat {
                         })?;
 
                     Ok(KeyPair::from_ec_key(key)
-                        .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))?)
+                        .map_err(|e| format!("could not translate RSA to KeyPair: {}", e))?)
                 }
                 #[cfg(feature = "ring")]
                 Self::Pkcs8 => {

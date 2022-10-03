@@ -28,7 +28,7 @@ use tinyvec::TinyVec;
 pub struct Name {
     is_fqdn: bool,
     label_data: TinyVec<[u8; 32]>,
-    // This 24 is chosen because TinyVec accomodates an inline buffer up to 24 bytes without
+    // This 24 is chosen because TinyVec accommodates an inline buffer up to 24 bytes without
     // increasing its stack footprint
     label_ends: TinyVec<[u8; 24]>,
 }

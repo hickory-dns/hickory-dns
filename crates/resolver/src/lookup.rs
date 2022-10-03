@@ -672,7 +672,7 @@ pub mod tests {
             assert_eq!(**query, Query::query(Name::root(), RecordType::A));
             assert_eq!(*negative_ttl, None);
         } else {
-            panic!("wrong error recieved");
+            panic!("wrong error received");
         }
     }
 

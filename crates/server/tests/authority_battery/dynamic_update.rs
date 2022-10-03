@@ -65,7 +65,7 @@ pub fn test_create<A: Authority<Lookup = AuthLookup>>(mut authority: A, keys: &[
         match lookup
             .into_iter()
             .next()
-            .expect("A record not found in authity")
+            .expect("A record not found in authority")
             .data()
         {
             Some(RData::A(ip)) => assert_eq!(Ipv4Addr::new(127, 0, 0, 10), *ip),

@@ -24,7 +24,7 @@ use crate::rr::{Name, RData, Record};
 pub struct TSigner(Arc<TSignerInner>);
 
 struct TSignerInner {
-    key: Vec<u8>, // TODO this might want to be some sort of auto-zeroing on drop buffer, as it's cryptographic matterial
+    key: Vec<u8>, // TODO this might want to be some sort of auto-zeroing on drop buffer, as it's cryptographic material
     algorithm: TsigAlgorithm,
     signer_name: Name,
     fudge: u16,
@@ -110,7 +110,7 @@ impl TSigner {
     /// * a byte buffer containing the hash of this message. Need to be passed back when
     /// authenticating next message
     /// * a Range of time that is acceptable
-    /// * the time the signature was emited. It must be greater or equal to the time of previous
+    /// * the time the signature was emitted. It must be greater or equal to the time of previous
     /// messages, if any
     pub fn verify_message_byte(
         &self,

@@ -639,7 +639,7 @@ fn test_concurrent_requests_2_conns() {
     let future = pool.send(request).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timout doesn't work, not clear why...
+    //   TODO: for some reason this timeout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
@@ -679,7 +679,7 @@ fn test_concurrent_requests_more_than_conns() {
     let future = pool.send(request).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timout doesn't work, not clear why...
+    //   TODO: for some reason this timeout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
@@ -718,7 +718,7 @@ fn test_concurrent_requests_1_conn() {
     let future = pool.send(request).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timout doesn't work, not clear why...
+    //   TODO: for some reason this timeout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
@@ -757,7 +757,7 @@ fn test_concurrent_requests_0_conn() {
     let future = pool.send(request).first_answer();
 
     // there's no actual network traffic happening, 1 sec should be plenty
-    //   TODO: for some reason this timout doesn't work, not clear why...
+    //   TODO: for some reason this timeout doesn't work, not clear why...
     // let future = Timeout::new(future, Duration::from_secs(1));
 
     let response = block_on(future).unwrap();
