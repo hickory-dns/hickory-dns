@@ -92,15 +92,18 @@ impl NameServerStats {
         // value is saturated to u32::MAX, which is above the `MAX_SRTT_MICROS`
         // limit (meaning that any potential overflow is inconsequential).
         // See https://github.com/rust-lang/rust/issues/10184.
-        self.update_srtt(rtt.as_micros() as u32, |cur_srtt_microseconds, last_update| {
-            // An arbitrarily low weight is used when computing the factor
-            // to ensure that recent RTT measurements are weighted more
-            // heavily.
-            let factor = compute_srtt_factor(last_update, 3);
-            let new_srtt = (1.0 - factor) * (rtt.as_micros() as f64)
-                + factor * f64::from(cur_srtt_microseconds);
-            new_srtt.round() as u32
-        });
+        self.update_srtt(
+            rtt.as_micros() as u32,
+            |cur_srtt_microseconds, last_update| {
+                // An arbitrarily low weight is used when computing the factor
+                // to ensure that recent RTT measurements are weighted more
+                // heavily.
+                let factor = compute_srtt_factor(last_update, 3);
+                let new_srtt = (1.0 - factor) * (rtt.as_micros() as f64)
+                    + factor * f64::from(cur_srtt_microseconds);
+                new_srtt.round() as u32
+            },
+        );
     }
 
     /// Records a connection failure for a particular query.
