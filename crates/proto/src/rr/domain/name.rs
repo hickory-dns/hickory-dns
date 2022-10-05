@@ -110,7 +110,7 @@ impl Name {
         LabelIter {
             name: self,
             start: 0,
-            end: self.label_ends.len(),
+            end: self.label_ends.len() as u8,
         }
     }
 
@@ -928,8 +928,8 @@ impl LabelEnc for LabelEncUtf8 {
 /// An iterator over labels in a name
 pub struct LabelIter<'a> {
     name: &'a Name,
-    start: usize,
-    end: usize,
+    start: u8,
+    end: u8,
 }
 
 impl<'a> Iterator for LabelIter<'a> {
@@ -940,17 +940,17 @@ impl<'a> Iterator for LabelIter<'a> {
             return None;
         }
 
-        let end = *self.name.label_ends.get(self.start)?;
+        let end = *self.name.label_ends.get(self.start as usize)?;
         let start = match self.start {
             0 => 0,
-            _ => self.name.label_ends[self.start - 1],
+            _ => self.name.label_ends[(self.start - 1) as usize],
         };
         self.start += 1;
         Some(&self.name.label_data[start as usize..end as usize])
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.end.saturating_sub(self.start);
+        let len = self.end.saturating_sub(self.start) as usize;
         (len, Some(len))
     }
 }
@@ -965,10 +965,10 @@ impl<'a> DoubleEndedIterator for LabelIter<'a> {
 
         self.end -= 1;
 
-        let end = *self.name.label_ends.get(self.end)?;
+        let end = *self.name.label_ends.get(self.end as usize)?;
         let start = match self.end {
             0 => 0,
-            _ => self.name.label_ends[self.end - 1],
+            _ => self.name.label_ends[(self.end - 1) as usize],
         };
 
         Some(&self.name.label_data[start as usize..end as usize])
