@@ -35,6 +35,20 @@ pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display {
     /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
     fn try_from_rdata(data: RData) -> Result<Self, RData>;
 
+    /// Read the RecordData from the data stream.
+    ///
+    /// * `decoder` - data stream from which the RData will be read
+    /// * `record_type` - specifies the RecordType that has already been read from the stream
+    /// * `length` - the data length that should be read from the stream for this RecordData
+    fn read(
+        decoder: &mut BinDecoder<'_>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self>;
+
+    /// Writes this type to the data stream
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()>;
+
     /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
     fn try_borrow(data: &RData) -> Result<&Self, &RData>;
 
@@ -718,8 +732,59 @@ impl RData {
         buf
     }
 
+    /// Converts this to a Recordtype
+    pub fn to_record_type(&self) -> RecordType {
+        match *self {
+            Self::A(..) => RecordType::A,
+            Self::AAAA(..) => RecordType::AAAA,
+            Self::ANAME(..) => RecordType::ANAME,
+            Self::CAA(..) => RecordType::CAA,
+            Self::CNAME(..) => RecordType::CNAME,
+            Self::CSYNC(..) => RecordType::CSYNC,
+            Self::HINFO(..) => RecordType::HINFO,
+            Self::HTTPS(..) => RecordType::HTTPS,
+            Self::MX(..) => RecordType::MX,
+            Self::NAPTR(..) => RecordType::NAPTR,
+            Self::NS(..) => RecordType::NS,
+            Self::NULL(..) => RecordType::NULL,
+            Self::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
+            Self::OPT(..) => RecordType::OPT,
+            Self::PTR(..) => RecordType::PTR,
+            Self::SOA(..) => RecordType::SOA,
+            Self::SRV(..) => RecordType::SRV,
+            Self::SSHFP(..) => RecordType::SSHFP,
+            Self::SVCB(..) => RecordType::SVCB,
+            Self::TLSA(..) => RecordType::TLSA,
+            Self::TXT(..) => RecordType::TXT,
+            #[cfg(feature = "dnssec")]
+            Self::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
+            Self::Unknown { code, .. } => RecordType::Unknown(code),
+            Self::ZERO => RecordType::ZERO,
+        }
+    }
+
+    /// If this is an A or AAAA record type, then an IpAddr will be returned
+    pub fn to_ip_addr(&self) -> Option<IpAddr> {
+        match *self {
+            Self::A(a) => Some(IpAddr::from(a)),
+            Self::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
+            _ => None,
+        }
+    }
+
+    /// Returns true if
+    pub fn is_soa(&self) -> bool {
+        matches!(self, RData::SOA(..))
+    }
+}
+
+impl RecordData for RData {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        Ok(data)
+    }
+
     /// Read the RData from the given Decoder
-    pub fn read(
+    fn read(
         decoder: &mut BinDecoder<'_>,
         record_type: RecordType,
         rdata_length: Restrict<u16>,
@@ -799,7 +864,7 @@ impl RData {
             }
             RecordType::SOA => {
                 trace!("reading SOA");
-                rdata::soa::read(decoder).map(Self::SOA)
+                SOA::read(decoder, record_type, rdata_length).map(Self::SOA)
             }
             RecordType::SRV => {
                 trace!("reading SRV");
@@ -916,7 +981,7 @@ impl RData {
     ///   DNAME, and A6.
     ///   ...
     /// ```
-    pub fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
             Self::A(address) => rdata::a::emit(encoder, address),
             Self::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
@@ -945,7 +1010,7 @@ impl RData {
             }
             Self::OPT(ref opt) => rdata::opt::emit(encoder, opt),
             // to_lowercase for rfc4034 and rfc6840
-            Self::SOA(ref soa) => rdata::soa::emit(encoder, soa),
+            Self::SOA(ref soa) => soa.emit(encoder),
             // to_lowercase for rfc4034 and rfc6840
             Self::SRV(ref srv) => {
                 encoder.with_canonical_names(|encoder| rdata::srv::emit(encoder, srv))
@@ -962,57 +1027,6 @@ impl RData {
             Self::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
             Self::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
         }
-    }
-
-    /// Converts this to a Recordtype
-    pub fn to_record_type(&self) -> RecordType {
-        match *self {
-            Self::A(..) => RecordType::A,
-            Self::AAAA(..) => RecordType::AAAA,
-            Self::ANAME(..) => RecordType::ANAME,
-            Self::CAA(..) => RecordType::CAA,
-            Self::CNAME(..) => RecordType::CNAME,
-            Self::CSYNC(..) => RecordType::CSYNC,
-            Self::HINFO(..) => RecordType::HINFO,
-            Self::HTTPS(..) => RecordType::HTTPS,
-            Self::MX(..) => RecordType::MX,
-            Self::NAPTR(..) => RecordType::NAPTR,
-            Self::NS(..) => RecordType::NS,
-            Self::NULL(..) => RecordType::NULL,
-            Self::OPENPGPKEY(..) => RecordType::OPENPGPKEY,
-            Self::OPT(..) => RecordType::OPT,
-            Self::PTR(..) => RecordType::PTR,
-            Self::SOA(..) => RecordType::SOA,
-            Self::SRV(..) => RecordType::SRV,
-            Self::SSHFP(..) => RecordType::SSHFP,
-            Self::SVCB(..) => RecordType::SVCB,
-            Self::TLSA(..) => RecordType::TLSA,
-            Self::TXT(..) => RecordType::TXT,
-            #[cfg(feature = "dnssec")]
-            Self::DNSSEC(ref rdata) => DNSSECRData::to_record_type(rdata),
-            Self::Unknown { code, .. } => RecordType::Unknown(code),
-            Self::ZERO => RecordType::ZERO,
-        }
-    }
-
-    /// If this is an A or AAAA record type, then an IpAddr will be returned
-    pub fn to_ip_addr(&self) -> Option<IpAddr> {
-        match *self {
-            Self::A(a) => Some(IpAddr::from(a)),
-            Self::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
-            _ => None,
-        }
-    }
-
-    /// Returns true if
-    pub fn is_soa(&self) -> bool {
-        matches!(self, RData::SOA(..))
-    }
-}
-
-impl RecordData for RData {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        Ok(data)
     }
 
     fn try_borrow(data: &RData) -> Result<&Self, &RData> {

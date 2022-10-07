@@ -22,7 +22,7 @@ use crate::{
             rdata::{DNSSECRData, DNSKEY, KEY, SIG},
             tbs, Algorithm, KeyPair, Private, TBS,
         },
-        {DNSClass, Name, RData, RecordType},
+        {DNSClass, Name, RData, RecordData, RecordType},
     },
     serialize::binary::BinEncoder,
 };

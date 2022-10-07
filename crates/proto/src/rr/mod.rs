@@ -33,7 +33,7 @@ pub mod type_bit_map;
 
 pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name, TryParseIp};
-pub use self::record_data::RData;
+pub use self::record_data::{RData, RecordData};
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
 #[allow(deprecated)]
