@@ -25,7 +25,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::dns_class::DNSClass;
-use crate::rr::rdata::NULL;
 #[allow(deprecated)]
 use crate::rr::IntoRecordSet;
 use crate::rr::Name;
@@ -46,9 +45,6 @@ use super::record_data::RecordData;
 /// significant fifteen bits of this field.
 /// ```
 const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
-
-const NULL_RDATA: &RData = &RData::NULL(NULL::new());
-
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
 /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
@@ -360,10 +356,9 @@ impl<R: RecordData> Record<R> {
     }
 }
 
-// FIXME: make RecordParts typed
 /// Consumes `Record` giving public access to fields of `Record` so they can
 /// be destructured and taken by value
-pub struct RecordParts {
+pub struct RecordParts<R: RecordData = RData> {
     /// label names
     pub name_labels: Name,
     /// record type
@@ -373,15 +368,15 @@ pub struct RecordParts {
     /// time to live
     pub ttl: u32,
     /// rdata
-    pub rdata: Option<RData>,
+    pub rdata: Option<R>,
     /// mDNS cache flush
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub mdns_cache_flush: bool,
 }
 
-impl From<Record> for RecordParts {
-    fn from(record: Record) -> Self {
+impl<R: RecordData> From<Record<R>> for RecordParts<R> {
+    fn from(record: Record<R>) -> Self {
         cfg_if::cfg_if! {
             if #[cfg(feature = "mdns")] {
                 let Record {
@@ -422,7 +417,7 @@ impl IntoRecordSet for Record {
     }
 }
 
-impl BinEncodable for Record {
+impl<R: RecordData> BinEncodable for Record<R> {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         self.name_labels.emit(encoder)?;
         self.rr_type.emit(encoder)?;
@@ -461,7 +456,7 @@ impl BinEncodable for Record {
     }
 }
 
-impl<'r> BinDecodable<'r> for Record {
+impl<'r, R: RecordData> BinDecodable<'r> for Record<R> {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
@@ -539,7 +534,7 @@ impl<'r> BinDecodable<'r> for Record {
             //                according to the TYPE and CLASS of the resource record.
             // Adding restrict to the rdata length because it's used for many calculations later
             //  and must be validated before hand
-            Some(RData::read(decoder, record_type, Restrict::new(rd_length))?)
+            Some(R::read(decoder, record_type, Restrict::new(rd_length))?)
         };
 
         Ok(Self {
@@ -911,7 +906,7 @@ mod tests {
         const RR_CLASS_OFFSET: usize = 1 /* empty name */ +
             std::mem::size_of::<u16>() /* rr_type */;
 
-        let mut record = Record::new();
+        let mut record = Record::<RData>::new();
         record.set_mdns_cache_flush(true);
 
         let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
@@ -925,7 +920,7 @@ mod tests {
 
         let mut decoder = BinDecoder::new(&vec_bytes);
 
-        let got = Record::read(&mut decoder).unwrap();
+        let got = Record::<RData>::read(&mut decoder).unwrap();
 
         assert_eq!(got.dns_class(), DNSClass::IN);
         assert!(got.mdns_cache_flush());

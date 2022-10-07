@@ -225,6 +225,57 @@ impl RecordData for SOA {
         }
     }
 
+    fn read(
+        decoder: &mut BinDecoder<'_>,
+        record_type: RecordType,
+        _length: Restrict<u16>,
+    ) -> ProtoResult<SOA> {
+        assert_eq!(RecordType::SOA, record_type);
+
+        Ok(SOA {
+            mname: Name::read(decoder)?,
+            rname: Name::read(decoder)?,
+            serial: decoder.read_u32()?.unverified(/*any u32 is valid*/),
+            refresh: decoder.read_i32()?.unverified(/*any i32 is valid*/),
+            retry: decoder.read_i32()?.unverified(/*any i32 is valid*/),
+            expire: decoder.read_i32()?.unverified(/*any i32 is valid*/),
+            minimum: decoder.read_u32()?.unverified(/*any u32 is valid*/),
+        })
+    }
+
+    /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+    ///
+    /// This is accurate for all currently known name records.
+    ///
+    /// ```text
+    /// 6.2.  Canonical RR Form
+    ///
+    ///    For the purposes of DNS security, the canonical form of an RR is the
+    ///    wire format of the RR where:
+    ///
+    ///    ...
+    ///
+    ///    3.  if the type of the RR is NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR,
+    ///        HINFO, MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX,
+    ///        SRV, DNAME, A6, RRSIG, or (rfc6840 removes NSEC), all uppercase
+    ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
+    ///        by the corresponding lowercase US-ASCII letters;
+    /// ```
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let is_canonical_names = encoder.is_canonical_names();
+
+        self.mname
+            .emit_with_lowercase(encoder, is_canonical_names)?;
+        self.rname
+            .emit_with_lowercase(encoder, is_canonical_names)?;
+        encoder.emit_u32(self.serial)?;
+        encoder.emit_i32(self.refresh)?;
+        encoder.emit_i32(self.retry)?;
+        encoder.emit_i32(self.expire)?;
+        encoder.emit_u32(self.minimum)?;
+        Ok(())
+    }
+
     fn try_borrow(data: &RData) -> Result<&Self, &RData> {
         match data {
             RData::SOA(soa) => Ok(soa),
@@ -239,50 +290,6 @@ impl RecordData for SOA {
     fn into_rdata(self) -> RData {
         RData::SOA(self)
     }
-}
-
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<SOA> {
-    Ok(SOA {
-        mname: Name::read(decoder)?,
-        rname: Name::read(decoder)?,
-        serial: decoder.read_u32()?.unverified(/*any u32 is valid*/),
-        refresh: decoder.read_i32()?.unverified(/*any i32 is valid*/),
-        retry: decoder.read_i32()?.unverified(/*any i32 is valid*/),
-        expire: decoder.read_i32()?.unverified(/*any i32 is valid*/),
-        minimum: decoder.read_u32()?.unverified(/*any u32 is valid*/),
-    })
-}
-
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
-///
-/// This is accurate for all currently known name records.
-///
-/// ```text
-/// 6.2.  Canonical RR Form
-///
-///    For the purposes of DNS security, the canonical form of an RR is the
-///    wire format of the RR where:
-///
-///    ...
-///
-///    3.  if the type of the RR is NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR,
-///        HINFO, MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX,
-///        SRV, DNAME, A6, RRSIG, or (rfc6840 removes NSEC), all uppercase
-///        US-ASCII letters in the DNS names contained within the RDATA are replaced
-///        by the corresponding lowercase US-ASCII letters;
-/// ```
-pub fn emit(encoder: &mut BinEncoder<'_>, soa: &SOA) -> ProtoResult<()> {
-    let is_canonical_names = encoder.is_canonical_names();
-
-    soa.mname.emit_with_lowercase(encoder, is_canonical_names)?;
-    soa.rname.emit_with_lowercase(encoder, is_canonical_names)?;
-    encoder.emit_u32(soa.serial)?;
-    encoder.emit_i32(soa.refresh)?;
-    encoder.emit_i32(soa.retry)?;
-    encoder.emit_i32(soa.expire)?;
-    encoder.emit_u32(soa.minimum)?;
-    Ok(())
 }
 
 /// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
@@ -376,13 +383,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
+        let len = bytes.len() as u16;
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder).expect("Decoding error");
+        let read_rdata =
+            SOA::read(&mut decoder, RecordType::SOA, Restrict::new(len)).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }
