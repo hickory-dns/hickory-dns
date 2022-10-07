@@ -398,6 +398,31 @@ mod tests {
         assert_eq!(Label::from_utf8("🦀").unwrap().to_ascii(), "xn--zs9h");
     }
 
+    fn assert_panic_label_too_long(error: ProtoResult<Label>, len: usize) {
+        assert!(error.is_err());
+        match *error.unwrap_err().kind() {
+            ProtoErrorKind::LabelBytesTooLong(n) if n == len => (),
+            ProtoErrorKind::LabelBytesTooLong(_) => {
+                panic!("LabelTooLongError error don't report the size of the label provided.")
+            }
+            _ => panic!("Should have returned a LabelTooLongError"),
+        }
+    }
+
+    #[test]
+    fn test_label_too_long_raw() {
+        let label_too_long = b"alwaystestingcodewithatoolonglabeltoolongtofitin63bytesisagoodhabit";
+        let error = Label::from_raw_bytes(label_too_long);
+        assert_panic_label_too_long(error, label_too_long.len());
+    }
+
+    #[test]
+    fn test_label_too_long_ascii() {
+        let label_too_long = "alwaystestingcodewithatoolonglabeltoolongtofitin63bytesisagoodhabit";
+        let error = Label::from_ascii(label_too_long);
+        assert_panic_label_too_long(error, label_too_long.len());
+    }
+
     #[test]
     fn test_decoding() {
         assert_eq!(Label::from_raw_bytes(b"abc").unwrap().to_string(), "abc");
