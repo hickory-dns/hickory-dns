@@ -51,7 +51,7 @@ impl Name {
         self.label_data.extend_from_slice(label);
         self.label_ends.push(self.label_data.len() as u8);
         if self.len() > 255 {
-            return Err("labels exceed maximum length of 255".into());
+            return Err(ProtoErrorKind::DomainNameTooLong(self.len()).into());
         };
         Ok(())
     }
@@ -167,7 +167,7 @@ impl Name {
         let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
 
         if labels.len() > 255 {
-            return Err("labels exceed maximum length of 255".into());
+            return Err(ProtoErrorKind::DomainNameTooLong(labels.len()).into());
         };
         if !errors.is_empty() {
             return Err(format!("error converting some labels: {:?}", errors).into());
@@ -1894,7 +1894,7 @@ mod tests {
             .expect_err("should have errored, too long");
 
         match error.kind() {
-            ProtoErrorKind::Message("labels exceed maximum length of 255") => (),
+            ProtoErrorKind::DomainNameTooLong(_) => (),
             _ => panic!("expected too long message"),
         }
     }
