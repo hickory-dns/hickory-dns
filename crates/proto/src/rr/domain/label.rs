@@ -75,6 +75,10 @@ impl Label {
     ///
     /// This will return an Error if the label is not an ascii string
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
+        if s.len() > 63 {
+            return Err(ProtoErrorKind::LabelBytesTooLong(s.len()).into());
+        }
+
         if s.as_bytes() == WILDCARD {
             return Ok(Self::wildcard());
         }
