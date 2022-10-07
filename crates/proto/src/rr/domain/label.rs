@@ -44,7 +44,7 @@ impl Label {
             return Err("Label requires a minimum length of 1".into());
         }
         if bytes.len() > 63 {
-            return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
+            return Err(ProtoErrorKind::LabelBytesTooLong(bytes.len()).into());
         };
         Ok(Self(TinyVec::from(bytes)))
     }
