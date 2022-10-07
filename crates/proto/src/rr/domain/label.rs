@@ -63,7 +63,10 @@ impl Label {
         match idna::Config::default()
             .use_std3_ascii_rules(true)
             .transitional_processing(true)
-            .verify_dns_length(true)
+            // length don't exceding 63 is done in `from_ascii`
+            // on puny encoded string
+            // idna error are opaque so early failure is not possible.
+            .verify_dns_length(false)
             .to_ascii(s)
         {
             Ok(puny) => Self::from_ascii(&puny),
@@ -399,14 +402,53 @@ mod tests {
     }
 
     fn assert_panic_label_too_long(error: ProtoResult<Label>, len: usize) {
+        // poor man debug since ProtoResult don't implement Partial Eq due to ssl errors.
+        eprintln!("{:?}", error);
         assert!(error.is_err());
         match *error.unwrap_err().kind() {
             ProtoErrorKind::LabelBytesTooLong(n) if n == len => (),
-            ProtoErrorKind::LabelBytesTooLong(_) => {
-                panic!("LabelTooLongError error don't report the size of the label provided.")
+            ProtoErrorKind::LabelBytesTooLong(e) => {
+                panic!(
+                    "LabelTooLongError error don't report expected size {} of the label provided.",
+                    e
+                )
             }
             _ => panic!("Should have returned a LabelTooLongError"),
         }
+    }
+
+    #[test]
+    fn test_label_too_long_ascii_with_utf8() {
+        let label_too_long = "alwaystestingcodewithatoolonglabeltoolongtofitin63bytesisagoodhabit";
+        let error = Label::from_utf8(label_too_long);
+        assert_panic_label_too_long(error, label_too_long.len());
+    }
+
+    #[test]
+    fn test_label_too_long_utf8_puny_emoji() {
+        // too long only puny 65
+        let emoji_case = "💜🦀🏖️🖥️😨🚀✨🤖💚🦾🦿😱😨✉️👺📚💻🗓️🤡🦀😈🚀💀⚡🦄";
+        let error = Label::from_utf8(emoji_case);
+        assert_panic_label_too_long(error, 64);
+    }
+
+    #[test]
+    fn test_label_too_long_utf8_puny_emoji_mixed() {
+        // too long mixed 65
+        // Something international to say
+        // "Hello I like automn coffee 🦀 interresting"
+        let emoji_case = "こんにちは-I-mögen-jesień-café-🦀-intéressant";
+        let error = Label::from_utf8(emoji_case);
+        assert_panic_label_too_long(error, 65);
+    }
+
+    #[test]
+    fn test_label_too_long_utf8_puny_mixed() {
+        // edge case 64 octet long.
+        // xn--testwithalonglabelinutf8tofitin63octetsisagoodhabit-f2106cqb
+        let edge_case = "🦀testwithalonglabelinutf8tofitin63octetsisagoodhabit🦀";
+        let error = Label::from_utf8(edge_case);
+        assert_panic_label_too_long(error, 64);
     }
 
     #[test]
