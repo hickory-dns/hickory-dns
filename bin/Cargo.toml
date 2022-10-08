@@ -81,7 +81,7 @@ name = "trust-dns"
 path = "src/named.rs"
 
 [dependencies]
-clap = { version = "4.0", default-features = false, features = ["std", "cargo"] }
+clap = { version = "4.0", default-features = false, features = ["std", "cargo", "help", "usage"] }
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 rustls = { version = "0.20", optional = true }
 time = "0.3"

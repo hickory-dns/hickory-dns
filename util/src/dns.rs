@@ -24,7 +24,7 @@ use std::net::SocketAddr;
 #[cfg(feature = "dns-over-rustls")]
 use std::{sync::Arc, time::SystemTime};
 
-use clap::{ArgEnum, Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 #[cfg(feature = "dns-over-rustls")]
 use rustls::{
     client::{HandshakeSignatureValid, ServerCertVerified},
@@ -57,11 +57,11 @@ struct Opts {
     nameserver: SocketAddr,
 
     /// Protocol type to use for the communication
-    #[clap(short = 'p', long, default_value = "udp", arg_enum)]
+    #[clap(short = 'p', long, default_value = "udp", value_enum)]
     protocol: Protocol,
 
     /// TLS endpoint name, i.e. the name in the certificate presented by the remote server
-    #[clap(short = 't', long, required_if_eq_any = &[("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
+    #[clap(short = 't', long, required_if_eq_any = [("protocol", "tls"), ("protocol", "https"), ("protocol", "quic")])]
     tls_dns_name: Option<String>,
 
     /// For TLS, HTTPS, and QUIC a custom ALPN code can be supplied
@@ -69,7 +69,7 @@ struct Opts {
     /// Defaults: none for TLS (`dot` has been suggested), `h2` for HTTPS, and `doq` for QUIC
     #[clap(short = 'a',
         long,
-        default_value_ifs = &[("protocol", Some("tls"), None), ("protocol", Some("https"), Some("h2")), ("protocol", Some("quic"), Some("doq"))]
+        default_value_ifs = [("protocol", "tls", None), ("protocol", "https", Some("h2")), ("protocol", "quic", Some("doq"))]
     )]
     alpn: Option<String>,
 
@@ -108,7 +108,7 @@ struct Opts {
     command: Command,
 }
 
-#[derive(Clone, Debug, ArgEnum)]
+#[derive(Clone, Debug, ValueEnum)]
 enum Protocol {
     Udp,
     Tcp,
