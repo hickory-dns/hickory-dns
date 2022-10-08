@@ -52,12 +52,8 @@ struct Opts {
     ty: RecordType,
 
     /// Specify a nameserver to use, ip and port e.g. 8.8.8.8:53 or \[2001:4860:4860::8888\]:53 (port required)
-    #[clap(
-        short = 'n',
-        long,
-        use_value_delimiter = true,
-        require_value_delimiter = true
-    )]
+    /// ip:port are delimited by a comma like 8.8.8.8:53,1.1.1.1:53
+    #[clap(short = 'n', long, use_value_delimiter = true, value_delimiter(','))]
     nameserver: Vec<SocketAddr>,
 
     /// Specify the IP address to connect from.

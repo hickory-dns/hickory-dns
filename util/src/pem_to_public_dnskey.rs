@@ -41,6 +41,7 @@ fn args() -> ArgMatches {
                 .value_name("PEM_KEY_FILE")
                 .help("Input PEM FILE from which to read the public key")
                 .required(true)
+                .num_args(1)
                 .index(1),
         )
         .arg(
@@ -48,7 +49,8 @@ fn args() -> ArgMatches {
                 .value_name("OUTPUT_FILE")
                 .long("output")
                 .short('o')
-                .takes_value(true)
+                .num_args(1)
+                .required(false)
                 .help("Output FILE to write to")
                 .default_value("out.dnskey"),
         )
@@ -61,8 +63,8 @@ pub fn main() {
 
     let matches = args();
 
-    let key_path = matches.value_of("key").unwrap();
-    let output_path = matches.value_of("output").unwrap();
+    let key_path = matches.get_one::<String>("key").unwrap();
+    let output_path = matches.get_one::<String>("output").unwrap();
 
     info!("Reading key from pem: {}", key_path);
 

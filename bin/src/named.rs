@@ -297,27 +297,26 @@ struct Args {
 impl From<ArgMatches> for Args {
     fn from(matches: ArgMatches) -> Args {
         Args {
-            flag_quiet: matches.is_present(QUIET_ARG),
-            flag_debug: matches.is_present(DEBUG_ARG),
+            flag_quiet: matches.contains_id(QUIET_ARG),
+            flag_debug: matches.contains_id(DEBUG_ARG),
             flag_config: matches
-                .value_of(CONFIG_ARG)
-                .map(ToString::to_string)
-                .expect("config path should have had default"),
-            flag_zonedir: matches.value_of(ZONEDIR_ARG).map(ToString::to_string),
-            flag_port: matches
-                .value_of(PORT_ARG)
-                .map(|s| s.parse().expect("bad port argument")),
-            flag_tls_port: matches
-                .value_of(TLS_PORT_ARG)
-                .map(|s| s.parse().expect("bad tls-port argument")),
-            flag_https_port: matches
-                .value_of(HTTPS_PORT_ARG)
-                .map(|s| s.parse().expect("bad https-port argument")),
-            flag_quic_port: matches
-                .value_of(QUIC_PORT_ARG)
-                .map(|s| s.parse().expect("bad quic-port argument")),
+                .get_one::<String>(CONFIG_ARG)
+                .expect("config path should have had default")
+                .to_string(),
+            flag_zonedir: matches
+                .get_one::<String>(ZONEDIR_ARG)
+                .map(ToString::to_string),
+            flag_port: matches.get_one(PORT_ARG).copied(),
+            flag_tls_port: matches.get_one(TLS_PORT_ARG).copied(),
+            flag_https_port: matches.get_one(HTTPS_PORT_ARG).copied(),
+            flag_quic_port: matches.get_one(QUIC_PORT_ARG).copied(),
         }
     }
+}
+
+fn parse_port(s: &str) -> Result<u16, String> {
+    s.parse()
+        .map_err(|_| format!("`{}` isn't a port number", s))
 }
 
 /// Main method for running the named server.
@@ -331,6 +330,8 @@ fn main() {
             Arg::new(QUIET_ARG)
                 .long(QUIET_ARG)
                 .short('q')
+                .action(clap::ArgAction::SetTrue)
+                .required(false)
                 .help("Disable INFO messages, WARN and ERROR will remain")
                 .conflicts_with(DEBUG_ARG),
         )
@@ -338,6 +339,8 @@ fn main() {
             Arg::new(DEBUG_ARG)
                 .long(DEBUG_ARG)
                 .short('d')
+                .action(clap::ArgAction::SetTrue)
+                .required(false)
                 .help("Turn on DEBUG messages (default is only INFO)")
                 .conflicts_with(QUIET_ARG),
         )
@@ -345,6 +348,7 @@ fn main() {
             Arg::new(CONFIG_ARG)
                 .long(CONFIG_ARG)
                 .short('c')
+                .required(false)
                 .help("Path to configuration file")
                 .value_name("FILE")
                 .default_value("/etc/named.toml"),
@@ -353,6 +357,7 @@ fn main() {
             Arg::new(ZONEDIR_ARG)
                 .long(ZONEDIR_ARG)
                 .short('z')
+                .required(false)
                 .help("Path to the root directory for all zone files, see also config toml")
                 .value_name("DIR"),
         )
@@ -360,18 +365,24 @@ fn main() {
             Arg::new(PORT_ARG)
                 .long(PORT_ARG)
                 .short('p')
+                .value_parser(parse_port)
+                .required(false)
                 .help("Listening port for DNS queries, overrides any value in config file")
                 .value_name(PORT_ARG),
         )
         .arg(
             Arg::new(TLS_PORT_ARG)
                 .long(TLS_PORT_ARG)
+                .required(false)
+                .value_parser(parse_port)
                 .help("Listening port for DNS over TLS queries, overrides any value in config file")
                 .value_name(TLS_PORT_ARG),
         )
         .arg(
             Arg::new(HTTPS_PORT_ARG)
+                .value_parser(parse_port)
                 .long(HTTPS_PORT_ARG)
+                .required(false)
                 .help(
                     "Listening port for DNS over HTTPS queries, overrides any value in config file",
                 )
@@ -379,7 +390,9 @@ fn main() {
         )
         .arg(
             Arg::new(QUIC_PORT_ARG)
+                .value_parser(parse_port)
                 .long(QUIC_PORT_ARG)
+                .required(false)
                 .help(
                     "Listening port for DNS over QUIC queries, overrides any value in config file",
                 )

@@ -41,6 +41,7 @@ fn args() -> ArgMatches {
         .arg(
             Arg::new("key")
                 .value_name("PRIVATE_KEY_FILE")
+                .num_args(1)
                 .help("Input FILE from which to read the DNSSec private key")
                 .required(true)
                 .index(1),
@@ -50,7 +51,8 @@ fn args() -> ArgMatches {
                 .value_name("OUTPUT_FILE")
                 .long("output")
                 .short('o')
-                .takes_value(true)
+                .num_args(1)
+                .required(false)
                 .help("Output FILE to write to")
                 .default_value("out.pem"),
         )
@@ -63,8 +65,8 @@ pub fn main() {
 
     let matches = args();
 
-    let key_path = matches.value_of("key").unwrap();
-    let output_path = matches.value_of("output").unwrap();
+    let key_path = matches.get_one::<String>("key").unwrap();
+    let output_path = matches.get_one::<String>("output").unwrap();
 
     tracing::info!("Reading private key: {}", key_path);
 
