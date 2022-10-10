@@ -58,7 +58,7 @@ impl Default for NameServerStats {
         // Initialize the SRTT to a randomly generated value that represents a
         // very low RTT. Such a value helps ensure that each server is attempted
         // early.
-        Self::new(rand::thread_rng().gen_range(1..32))
+        Self::new(Duration::from_micros(rand::thread_rng().gen_range(1..32)))
     }
 }
 
@@ -79,9 +79,9 @@ impl NameServerStats {
     const CONNECTION_FAILURE_PENALTY: u32 = Duration::from_millis(150).as_micros() as u32;
     const MAX_SRTT_MICROS: u32 = Duration::from_secs(5).as_micros() as u32;
 
-    pub(crate) fn new(initial_srtt: u32) -> Self {
+    pub(crate) fn new(initial_srtt: Duration) -> Self {
         Self {
-            srtt_microseconds: AtomicU32::new(initial_srtt),
+            srtt_microseconds: AtomicU32::new(initial_srtt.as_micros() as u32),
             last_update: Arc::new(Mutex::new(None)),
         }
     }
@@ -119,8 +119,10 @@ impl NameServerStats {
     /// Returns the raw SRTT value.
     ///
     /// Prefer to use `decayed_srtt` when ordering name servers.
-    fn srtt_microseconds(&self) -> u32 {
-        self.srtt_microseconds.load(atomic::Ordering::Acquire)
+    fn srtt(&self) -> Duration {
+        Duration::from_micros(u64::from(
+            self.srtt_microseconds.load(atomic::Ordering::Acquire),
+        ))
     }
 
     /// Returns the SRTT value after applying a time based decay.
@@ -173,7 +175,7 @@ impl NameServerStats {
 
 impl PartialEq for NameServerStats {
     fn eq(&self, other: &Self) -> bool {
-        self.srtt_microseconds() == other.srtt_microseconds()
+        self.srtt() == other.srtt()
     }
 }
 
@@ -222,8 +224,8 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn test_stats_cmp() {
-        let server_a = NameServerStats::new(10);
-        let server_b = NameServerStats::new(20);
+        let server_a = NameServerStats::new(Duration::from_micros(10));
+        let server_b = NameServerStats::new(Duration::from_micros(20));
 
         // No RTTs or failures have been recorded. The initial SRTTs should be
         // compared.
@@ -259,43 +261,49 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn test_record_rtt() {
-        let server = NameServerStats::new(10);
+        let server = NameServerStats::new(Duration::from_micros(10));
 
         let first_rtt = Duration::from_millis(50);
         server.record_rtt(first_rtt);
 
         // The first recorded RTT should replace the initial value.
-        assert_eq!(server.srtt_microseconds(), first_rtt.as_micros() as u32);
+        assert_eq!(server.srtt(), first_rtt);
 
         tokio::time::advance(Duration::from_secs(3)).await;
 
         // Subsequent RTTs should factor in previously recorded values.
         server.record_rtt(Duration::from_millis(100));
-        assert_eq!(server.srtt_microseconds(), 81606);
+        assert_eq!(server.srtt(), Duration::from_micros(81606));
     }
 
     #[test]
     fn test_record_rtt_maximum_value() {
-        let server = NameServerStats::new(10);
+        let server = NameServerStats::new(Duration::from_micros(10));
 
         server.record_rtt(Duration::MAX);
         // Updates to the SRTT are capped at a maximum value.
-        assert_eq!(server.srtt_microseconds(), NameServerStats::MAX_SRTT_MICROS);
+        assert_eq!(
+            server.srtt(),
+            Duration::from_micros(NameServerStats::MAX_SRTT_MICROS.into())
+        );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_record_connection_failure() {
-        let server = NameServerStats::new(10);
+        let server = NameServerStats::new(Duration::from_micros(10));
 
         // Verify that the SRTT value is initially replaced with the penalty and
         // subsequent failures result in the penalty being added.
         for failure_count in 1..4 {
             server.record_connection_failure();
             assert_eq!(
-                server.srtt_microseconds(),
-                NameServerStats::CONNECTION_FAILURE_PENALTY
-                    .checked_mul(failure_count)
-                    .expect("checked_mul overflow")
+                server.srtt(),
+                Duration::from_micros(
+                    NameServerStats::CONNECTION_FAILURE_PENALTY
+                        .checked_mul(failure_count)
+                        .expect("checked_mul overflow")
+                        .into()
+                )
             );
             tokio::time::advance(Duration::from_secs(3)).await;
         }
@@ -303,12 +311,12 @@ mod tests {
         // Verify that the `last_update` timestamp was updated for a connection
         // failure and is used in subsequent calculations.
         server.record_rtt(Duration::from_millis(50));
-        assert_eq!(server.srtt_microseconds(), 197152);
+        assert_eq!(server.srtt(), Duration::from_micros(197152));
     }
 
     #[test]
     fn test_record_connection_failure_maximum_value() {
-        let server = NameServerStats::new(10);
+        let server = NameServerStats::new(Duration::from_micros(10));
 
         let num_failures =
             (NameServerStats::MAX_SRTT_MICROS / NameServerStats::CONNECTION_FAILURE_PENALTY) + 1;
@@ -317,16 +325,19 @@ mod tests {
         }
 
         // Updates to the SRTT are capped at a maximum value.
-        assert_eq!(server.srtt_microseconds(), NameServerStats::MAX_SRTT_MICROS);
+        assert_eq!(
+            server.srtt(),
+            Duration::from_micros(NameServerStats::MAX_SRTT_MICROS.into())
+        );
     }
 
     #[tokio::test(start_paused = true)]
     async fn test_decayed_srtt() {
         let initial_srtt = 10;
-        let server = NameServerStats::new(initial_srtt);
+        let server = NameServerStats::new(Duration::from_micros(initial_srtt));
 
         // No decay should be applied to the initial value.
-        assert_eq!(server.decayed_srtt() as u32, initial_srtt);
+        assert_eq!(server.decayed_srtt() as u32, initial_srtt as u32);
 
         tokio::time::advance(Duration::from_secs(5)).await;
         server.record_rtt(Duration::from_millis(100));
