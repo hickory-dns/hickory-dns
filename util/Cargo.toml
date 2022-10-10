@@ -79,7 +79,7 @@ console = "0.15.0"
 data-encoding = "2.2.0"
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 rustls = { version = "0.20.0", features = ["dangerous_configuration"], optional = true }
-tracing = "0.1.30"
+tracing = "0.1.37"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
 trust-dns-client = { version = "0.22.0", path = "../crates/client" }
 trust-dns-proto = { version = "0.22.0", path = "../crates/proto" }

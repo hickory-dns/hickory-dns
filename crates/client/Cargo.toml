@@ -82,7 +82,7 @@ rustls = { version = "0.20.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 time = "0.3"
-tracing = "0.1.30"
+tracing = "0.1.37"
 tokio = { version = "1.0", features = ["rt"] }
 trust-dns-proto = { version = "0.22.0", path = "../proto"}
 webpki = { version = "0.22.0", optional = true }

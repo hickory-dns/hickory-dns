@@ -84,7 +84,7 @@ parking_lot = "0.12"
 serde = { version = "1.0.114", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 time = "0.3"
-tracing = "0.1.30"
+tracing = "0.1.37"
 tokio = { version = "1.0", features = ["net"] }
 toml = "0.5"
 trust-dns-proto = { version = "0.22.0", path = "../proto" }
