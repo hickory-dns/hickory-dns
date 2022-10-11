@@ -31,9 +31,14 @@ mod rr_key;
 mod rr_set;
 pub mod type_bit_map;
 
+use std::fmt;
+
+use crate::error::ProtoResult;
+use crate::serialize::binary::{BinDecoder, BinEncoder, Restrict};
+
 pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name, TryParseIp};
-pub use self::record_data::{RData, RecordData};
+pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
 #[allow(deprecated)]
@@ -42,3 +47,33 @@ pub use self::rr_set::RecordSet;
 pub use self::rr_set::RrsetRecords;
 pub use lower_name::LowerName;
 pub use rr_key::RrKey;
+
+/// RecordData that is stored in a DNS Record.
+pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display {
+    /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
+    fn try_from_rdata(data: RData) -> Result<Self, RData>;
+
+    /// Read the RecordData from the data stream.
+    ///
+    /// * `decoder` - data stream from which the RData will be read
+    /// * `record_type` - specifies the RecordType that has already been read from the stream
+    /// * `length` - the data length that should be read from the stream for this RecordData
+    fn read(
+        decoder: &mut BinDecoder<'_>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self>;
+
+    /// Writes this type to the data stream
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()>;
+
+    /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
+    fn try_borrow(data: &RData) -> Result<&Self, &RData>;
+
+    // FIXME: make a new AnyRecordType trait
+    /// Get the associated RecordType for the RData
+    fn record_type(&self) -> RecordType;
+
+    /// Converts this RecordData into generic RData
+    fn into_rdata(self) -> RData;
+}

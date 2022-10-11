@@ -40,10 +40,50 @@
 //! "10.2.0.52" or "192.0.5.6").
 //! ```
 
-use std::net::Ipv4Addr;
+pub use std::net::Ipv4Addr;
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordType};
 use crate::serialize::binary::*;
+
+impl RecordData for Ipv4Addr {
+    fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {
+        match data {
+            RData::A(ipv4) => Ok(ipv4),
+            _ => Err(data),
+        }
+    }
+
+    fn read(
+        decoder: &mut BinDecoder<'_>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        assert_eq!(record_type, RecordType::A);
+        assert!(length.verify(|r| *r == 4).is_valid());
+
+        read(decoder)
+    }
+
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        emit(encoder, *self)
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::A(ipv4) => Ok(ipv4),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::A
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::A(self)
+    }
+}
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv4Addr> {
