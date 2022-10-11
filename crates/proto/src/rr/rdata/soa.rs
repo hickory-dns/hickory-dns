@@ -23,8 +23,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::domain::Name;
-use crate::rr::record_data::RecordData;
-use crate::rr::{RData, RecordType};
+use crate::rr::{RData, RecordData, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)

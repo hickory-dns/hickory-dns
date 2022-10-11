@@ -29,11 +29,10 @@ use crate::rr::dns_class::DNSClass;
 use crate::rr::IntoRecordSet;
 use crate::rr::Name;
 use crate::rr::RData;
+use crate::rr::RecordData;
 use crate::rr::RecordSet;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
-
-use super::record_data::RecordData;
 
 #[cfg(feature = "mdns")]
 /// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)

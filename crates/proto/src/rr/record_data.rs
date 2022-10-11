@@ -19,46 +19,16 @@ use enum_as_inner::EnumAsInner;
 use tracing::{trace, warn};
 
 use super::domain::Name;
-use super::rdata;
 use super::rdata::{
     CAA, CSYNC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
 };
 use super::record_type::RecordType;
+use super::{rdata, RecordData};
 use crate::error::*;
 use crate::serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
-
-/// RecordData that is stored in a DNS Record.
-pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display {
-    /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
-    fn try_from_rdata(data: RData) -> Result<Self, RData>;
-
-    /// Read the RecordData from the data stream.
-    ///
-    /// * `decoder` - data stream from which the RData will be read
-    /// * `record_type` - specifies the RecordType that has already been read from the stream
-    /// * `length` - the data length that should be read from the stream for this RecordData
-    fn read(
-        decoder: &mut BinDecoder<'_>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self>;
-
-    /// Writes this type to the data stream
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()>;
-
-    /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
-    fn try_borrow(data: &RData) -> Result<&Self, &RData>;
-
-    // FIXME: make a new AnyRecordType trait
-    /// Get the associated RecordType for the RData
-    fn record_type(&self) -> RecordType;
-
-    /// Converts this RecordData into generic RData
-    fn into_rdata(self) -> RData;
-}
 
 /// Record data enum variants
 ///
