@@ -229,10 +229,10 @@ impl RecordData for SOA {
         decoder: &mut BinDecoder<'_>,
         record_type: RecordType,
         _length: Restrict<u16>,
-    ) -> ProtoResult<SOA> {
+    ) -> ProtoResult<Self> {
         assert_eq!(RecordType::SOA, record_type);
 
-        Ok(SOA {
+        Ok(Self {
             mname: Name::read(decoder)?,
             rname: Name::read(decoder)?,
             serial: decoder.read_u32()?.unverified(/*any u32 is valid*/),
