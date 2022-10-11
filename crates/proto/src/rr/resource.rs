@@ -197,7 +197,7 @@ impl<R: RecordData> Record<R> {
 
     /// Converts this Record into a generic version of RData
     pub fn into_record_of_rdata(self) -> Record<RData> {
-        let Record {
+        let Self {
             name_labels,
             rr_type,
             dns_class,
@@ -277,13 +277,7 @@ impl<R: RecordData> Record<R> {
     ///                 For example, the if the TYPE is A and the CLASS is IN,
     ///                 the RDATA field is a 4 octet ARPA Internet address.
     /// ```
-    #[allow(deprecated)]
     pub fn set_data(&mut self, rdata: Option<R>) -> &mut Self {
-        // debug_assert!(
-        //     !(matches!(&rdata, Some(RData::ZERO))
-        //         && matches!(&rdata, Some(RData::NULL(null)) if null.anything().is_empty())),
-        //     "pass None rather than ZERO or NULL"
-        // );
         self.rdata = rdata;
         self
     }
