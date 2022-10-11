@@ -481,6 +481,12 @@ mod tests {
     }
 
     #[test]
+    fn test_from_ascii_adversial_utf8() {
+        let expect_err = Label::from_ascii("🦀");
+        assert!(expect_err.is_err());
+    }
+
+    #[test]
     fn test_to_lowercase() {
         assert_ne!(Label::from_ascii("ABC").unwrap().to_string(), "abc");
         assert_ne!(Label::from_ascii("abcDEF").unwrap().to_string(), "abcdef");
