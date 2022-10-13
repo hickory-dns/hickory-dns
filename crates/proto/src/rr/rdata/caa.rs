@@ -8,7 +8,7 @@
 //! allows a DNS domain name holder to specify one or more Certification
 //! Authorities (CAs) authorized to issue certificates for that domain.
 //!
-//! [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844)
+//! [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659)
 //!
 //! ```text
 //! The Certification Authority Authorization (CAA) DNS Resource Record
@@ -34,7 +34,7 @@ use url::Url;
 
 /// The CAA RR Type
 ///
-/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-3)
+/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659)
 ///
 /// ```text
 /// 3.  The CAA RR Type
@@ -279,8 +279,8 @@ impl Property {
 
 impl From<String> for Property {
     fn from(tag: String) -> Self {
-        // RFC6488 section 5.1 states that "Matching of tag values is case
-        // insensitive."
+        // [RFC 8659 section 4.1-11](https://www.rfc-editor.org/rfc/rfc8659#section-4.1-11)
+        // states that "Matching of tag values is case insensitive."
         let lower = tag.to_ascii_lowercase();
         match &lower as &str {
             "issue" => return Self::Issue,
@@ -400,7 +400,7 @@ enum ParseNameKeyPairState {
 
 /// Reads the issuer field according to the spec
 ///
-/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.2)
+/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659)
 ///
 /// ```text
 /// 5.2.  CAA issue Property
@@ -469,8 +469,7 @@ enum ParseNameKeyPairState {
 ///
 /// Updated parsing rules:
 ///
-/// [RFC 6844bis, CAA Resource Record, May 2018](https://tools.ietf.org/html/draft-ietf-lamps-rfc6844bis-00)
-/// [RFC 6844, CAA Record Extensions, May 2018](https://tools.ietf.org/html/draft-ietf-acme-caa-04)
+/// [RFC8659] Canonical presentation form and ABNF](https://www.rfc-editor.org/rfc/rfc8659#name-canonical-presentation-form)
 ///
 /// This explicitly allows `-` in key names, diverging from the original RFC. To support this, key names will
 /// allow `-` as non-starting characters. Additionally, this significantly relaxes the characters allowed in the value
@@ -595,7 +594,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 
 /// Incident Object Description Exchange Format
 ///
-/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.4)
+/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.4)
 ///
 /// ```text
 /// 5.4.  CAA iodef Property
@@ -628,7 +627,7 @@ pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
 
 /// Issuer key and value pairs.
 ///
-/// See [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.2)
+/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.2)
 /// for more explanation.
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -659,7 +658,7 @@ impl KeyValue {
 
 /// Read the binary CAA format
 ///
-/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.1)
+/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.1)
 ///
 /// ```text
 /// 5.1.  Syntax
@@ -838,7 +837,7 @@ impl fmt::Display for Property {
 }
 
 impl fmt::Display for Value {
-    // https://datatracker.ietf.org/doc/html/rfc6844#section-5.1.1
+    // https://www.rfc-editor.org/rfc/rfc8659#section-4.1.1
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str("\"")?;
 
