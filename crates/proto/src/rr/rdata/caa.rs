@@ -502,7 +502,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                 match char::from(*ch) {
                     // gobble ';', ' ', and tab
                     ';' | ' ' | '\u{0009}' => state = ParseNameKeyPairState::BeforeKey(key_values),
-                    ch if ch.is_alphanumeric() && ch != '=' => {
+                    ch if ch.is_ascii_alphanumeric() && ch != '=' => {
                         // We found the beginning of a new Key
                         let mut key = String::new();
                         key.push(ch);
@@ -532,7 +532,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         }
                     }
                     // push onto the existing key
-                    ch if (ch.is_alphanumeric() || (!first_char && ch == '-'))
+                    ch if (ch.is_ascii_alphanumeric() || (!first_char && ch == '-'))
                         && ch != '='
                         && ch != ';' =>
                     {
@@ -1145,5 +1145,21 @@ mod tests {
             two_options.to_string(),
             "0 issue \"example.com one=1; two=2\""
         );
+    }
+
+    #[test]
+    fn test_unicode_kv() {
+        const MESSAGE: &[u8] = &[
+            32, 5, 105, 115, 115, 117, 101, 103, 103, 103, 102, 71, 46, 110, 110, 115, 115, 117,
+            48, 110, 45, 59, 32, 32, 255, 61, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+            255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+        ];
+
+        let mut decoder = BinDecoder::new(MESSAGE);
+        let err = read(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap_err();
+        match err.kind() {
+            ProtoErrorKind::Msg(msg) => assert_eq!(msg, "bad character in CAA issuer key: ÿ"),
+            _ => panic!("unexpected error: {:?}", err),
+        }
     }
 }
