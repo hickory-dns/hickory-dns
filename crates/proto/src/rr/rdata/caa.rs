@@ -1119,7 +1119,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tostring() {
+    fn test_to_string() {
         let deny = CAA::new_issue(false, None, vec![]);
         assert_eq!(deny.to_string(), "0 issue \";\"");
 
@@ -1156,6 +1156,13 @@ mod tests {
             flag_set.to_string(),
             "128 issue \"example.com; one=1; two=2\""
         );
+
+        let empty_domain = CAA::new_issue(
+            false,
+            None,
+            vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+        );
+        assert_eq!(empty_domain.to_string(), "0 issue \"; one=1; two=2\"");
 
         // Examples from RFC 6844, with added quotes
         assert_eq!(
