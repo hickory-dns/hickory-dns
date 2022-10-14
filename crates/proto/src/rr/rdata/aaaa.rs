@@ -35,7 +35,47 @@
 use std::net::Ipv6Addr;
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordType};
 use crate::serialize::binary::*;
+
+impl RecordData for Ipv6Addr {
+    fn try_from_rdata(data: RData) -> Result<Self, crate::rr::RData> {
+        match data {
+            RData::AAAA(ipv4) => Ok(ipv4),
+            _ => Err(data),
+        }
+    }
+
+    fn read(
+        decoder: &mut BinDecoder<'_>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        assert_eq!(record_type, RecordType::AAAA);
+        assert!(length.verify(|r| *r == 16).is_valid());
+
+        read(decoder)
+    }
+
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        emit(encoder, self)
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::AAAA(ipv6) => Ok(ipv6),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::A
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::AAAA(self)
+    }
+}
 
 /// Read the RData from the given Decoder
 #[allow(clippy::many_single_char_names)]
