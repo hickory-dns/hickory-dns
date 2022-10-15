@@ -239,7 +239,7 @@ pub enum Property {
     ///    Certification Practices or Certificate Policy, or that a
     ///    Certificate Evaluator may use to report observation of a possible
     ///    policy violation. The Incident Object Description Exchange Format
-    ///    (IODEF) format is used [RFC5070](https://tools.ietf.org/html/rfc5070).
+    ///    (IODEF) format is used [RFC7970](https://www.rfc-editor.org/rfc/rfc7970).
     Iodef,
     /// Unknown format to Trust-DNS
     Unknown(String),
@@ -604,7 +604,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 ///    that violate the security policy of the issuer or the domain name
 ///    holder.
 ///
-///    The Incident Object Description Exchange Format (IODEF) [RFC5070] is
+///    The Incident Object Description Exchange Format (IODEF) [RFC7970](https://www.rfc-editor.org/info/rfc7970) is
 ///    used to present the incident report in machine-readable form.
 ///
 ///    The iodef property takes a URL as its parameter.  The URL scheme type
