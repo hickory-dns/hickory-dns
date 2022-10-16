@@ -494,6 +494,7 @@ mod tests {
     use crate::{
         op::{Message, Query},
         rr::{rdata::SRV, RData, Record, RecordType},
+        serialize::binary::BinDecodable,
     };
     use crate::{rr::Name, serialize::binary::BinDecoder};
 
@@ -643,5 +644,12 @@ mod tests {
         assert_eq!(bytes.len(), 130);
         // check re-serializing
         assert!(Message::from_vec(&bytes).is_ok());
+    }
+
+    #[test]
+    fn test_fuzzed() {
+        const MESSAGE: &[u8] = include_bytes!("../../../tests/test-data/fuzz-long.rdata");
+        let msg = Message::from_bytes(MESSAGE).unwrap();
+        msg.to_bytes().unwrap();
     }
 }
