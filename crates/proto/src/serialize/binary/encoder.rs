@@ -63,26 +63,6 @@ mod private {
             Ok(())
         }
 
-        /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
-        ///
-        /// and reserves the additional space in the buffer
-        pub(crate) fn enforced_write<F>(&mut self, additional: usize, writer: F) -> ProtoResult<()>
-        where
-            F: FnOnce(&mut Vec<u8>),
-        {
-            let expected_len = self.buffer.len() + additional;
-
-            if expected_len > self.max_size {
-                Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into())
-            } else {
-                self.buffer.reserve(additional);
-                writer(self.buffer);
-
-                debug_assert_eq!(self.buffer.len(), expected_len);
-                Ok(())
-            }
-        }
-
         pub(crate) fn reserve(&mut self, offset: usize, len: usize) -> ProtoResult<()> {
             let end = offset + len;
             if end > self.max_size {
@@ -291,16 +271,7 @@ impl<'a> BinEncoder<'a> {
 
     /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
-        if self.offset < self.buffer.len() {
-            let offset = self.offset;
-            self.buffer.enforced_write(0, |buffer| {
-                *buffer
-                    .get_mut(offset)
-                    .expect("could not get index at offset") = b
-            })?;
-        } else {
-            self.buffer.enforced_write(1, |buffer| buffer.push(b))?;
-        }
+        self.buffer.write(self.offset, &[b])?;
         self.offset += 1;
         Ok(())
     }
