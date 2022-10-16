@@ -63,6 +63,16 @@ mod private {
             }
         }
 
+        pub(crate) fn reserve(&mut self, offset: usize, len: usize) -> ProtoResult<()> {
+            let end = offset + len;
+            if end > self.max_size {
+                return Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into());
+            }
+
+            self.buffer.resize(end, 0);
+            Ok(())
+        }
+
         /// truncates are always safe
         pub(crate) fn truncate(&mut self, len: usize) {
             self.buffer.truncate(len)
@@ -399,8 +409,7 @@ impl<'a> BinEncoder<'a> {
         let len = T::size_of();
 
         // resize the buffer
-        self.buffer
-            .enforced_write(len, |buffer| buffer.resize(index + len, 0))?;
+        self.buffer.reserve(self.offset, len)?;
 
         // update the offset
         self.offset += len;
