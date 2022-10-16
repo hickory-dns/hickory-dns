@@ -441,20 +441,6 @@ impl ZoneUsage {
         }
     }
 
-    /// Constructs a new Default, with all no restrictions
-    pub fn default() -> Self {
-        Self::new(
-            Name::root(),
-            UserUsage::Normal,
-            AppUsage::Normal,
-            ResolverUsage::Normal,
-            CacheUsage::Normal,
-            AuthUsage::Normal,
-            OpUsage::Normal,
-            RegistryUsage::Normal,
-        )
-    }
-
     /// Restrictions for reverse zones
     pub fn reverse(name: Name) -> Self {
         Self::new(
@@ -577,6 +563,22 @@ impl ZoneUsage {
     /// Returns the RegistryUsage of this zone
     pub fn registry(&self) -> RegistryUsage {
         self.registry
+    }
+}
+
+/// Constructs a new Default, with all no restrictions
+impl Default for ZoneUsage {
+    fn default() -> Self {
+        Self::new(
+            Name::root(),
+            UserUsage::Normal,
+            AppUsage::Normal,
+            ResolverUsage::Normal,
+            CacheUsage::Normal,
+            AuthUsage::Normal,
+            OpUsage::Normal,
+            RegistryUsage::Normal,
+        )
     }
 }
 
