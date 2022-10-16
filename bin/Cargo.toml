@@ -81,7 +81,11 @@ name = "trust-dns"
 path = "src/named.rs"
 
 [dependencies]
-clap = { version = "4.0", default-features = false, features = ["std", "cargo", "help", "usage"] }
+# clap features:
+# - suggestion for advanced help with error in cli
+# - derive for clap derive api
+# - help to generate --help
+clap = { version = "4.0", default-features = false, features = ["std", "cargo", "help", "derive", "suggestions"] }
 futures = { version = "0.3.5", default-features = false, features = ["std"] }
 rustls = { version = "0.20", optional = true }
 time = "0.3"

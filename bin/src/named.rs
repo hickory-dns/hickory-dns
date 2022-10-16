@@ -35,9 +35,6 @@
 )]
 #![recursion_limit = "128"]
 
-#[macro_use]
-extern crate clap;
-
 use std::{
     env, fmt,
     net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},
@@ -45,7 +42,7 @@ use std::{
     sync::Arc,
 };
 
-use clap::{Arg, ArgMatches};
+use clap::Parser;
 use time::OffsetDateTime;
 use tokio::{
     net::{TcpListener, UdpSocket},
@@ -271,52 +268,53 @@ async fn load_zone(
     Ok(authority)
 }
 
-// argument name constants for the CLI options
-const QUIET_ARG: &str = "quiet";
-const DEBUG_ARG: &str = "debug";
-const CONFIG_ARG: &str = "config";
-const ZONEDIR_ARG: &str = "zonedir";
-const PORT_ARG: &str = "port";
-const TLS_PORT_ARG: &str = "tls-port";
-const HTTPS_PORT_ARG: &str = "https-port";
-const QUIC_PORT_ARG: &str = "quic-port";
+/// Cli struct for all options managed with clap derive api.
+#[derive(Debug, Parser)]
+#[clap(name = "Trust-DNS named server", version, about)]
+struct Cli {
+    /// Disable INFO messages, WARN and ERROR will remain
+    #[clap(short = 'q', long = "quiet", conflicts_with = "debug")]
+    pub(crate) quiet: bool,
 
-/// Args struct for all options
-#[allow(dead_code)]
-struct Args {
-    pub(crate) flag_quiet: bool,
-    pub(crate) flag_debug: bool,
-    pub(crate) flag_config: String,
-    pub(crate) flag_zonedir: Option<String>,
-    pub(crate) flag_port: Option<u16>,
-    pub(crate) flag_tls_port: Option<u16>,
-    pub(crate) flag_https_port: Option<u16>,
-    pub(crate) flag_quic_port: Option<u16>,
-}
+    /// Turn on `DEBUG` messages (default is only `INFO`)
+    #[clap(short = 'd', long = "debug", conflicts_with = "quiet")]
+    pub(crate) debug: bool,
 
-impl From<ArgMatches> for Args {
-    fn from(matches: ArgMatches) -> Args {
-        Args {
-            flag_quiet: matches.contains_id(QUIET_ARG),
-            flag_debug: matches.contains_id(DEBUG_ARG),
-            flag_config: matches
-                .get_one::<String>(CONFIG_ARG)
-                .expect("config path should have had default")
-                .to_string(),
-            flag_zonedir: matches
-                .get_one::<String>(ZONEDIR_ARG)
-                .map(ToString::to_string),
-            flag_port: matches.get_one(PORT_ARG).copied(),
-            flag_tls_port: matches.get_one(TLS_PORT_ARG).copied(),
-            flag_https_port: matches.get_one(HTTPS_PORT_ARG).copied(),
-            flag_quic_port: matches.get_one(QUIC_PORT_ARG).copied(),
-        }
-    }
-}
+    /// Path to configuration file of named server,
+    /// by default `/etc/named.toml`
+    #[clap(
+        short = 'c',
+        long = "config",
+        default_value = "/etc/named.toml",
+        value_name = "NAME",
+        value_hint=clap::ValueHint::FilePath,
+    )]
+    pub(crate) config: PathBuf,
 
-fn parse_port(s: &str) -> Result<u16, String> {
-    s.parse()
-        .map_err(|_| format!("`{}` isn't a port number", s))
+    /// Path to the root directory for all zone files,
+    /// see also config toml
+    #[clap(short = 'z', long = "zonedir", value_name = "DIR", value_hint=clap::ValueHint::DirPath)]
+    pub(crate) zonedir: Option<PathBuf>,
+
+    /// Listening port for DNS queries,
+    /// overrides any value in config file
+    #[clap(short = 'p', long = "port", value_name = "PORT")]
+    pub(crate) port: Option<u16>,
+
+    /// Listening port for DNS over TLS queries,
+    /// overrides any value in config file
+    #[clap(long = "tls-port", value_name = "TLS-PORT")]
+    pub(crate) tls_port: Option<u16>,
+
+    /// Listening port for DNS over HTTPS queries,
+    /// overrides any value in config file
+    #[clap(long = "https-port", value_name = "HTTPS-PORT")]
+    pub(crate) https_port: Option<u16>,
+
+    /// Listening port for DNS over QUIC queries,
+    /// overrides any value in config file
+    #[clap(long = "quic-port", value_name = "QUIC-PORT")]
+    pub(crate) quic_port: Option<u16>,
 }
 
 /// Main method for running the named server.
@@ -324,88 +322,11 @@ fn parse_port(s: &str) -> Result<u16, String> {
 /// `Note`: Tries to avoid panics, in favor of always starting.
 #[allow(unused_mut)]
 fn main() {
-    // TODO: rewrite arg parsing to use claps new struct macro parsing
-    let args = command!()
-        .arg(
-            Arg::new(QUIET_ARG)
-                .long(QUIET_ARG)
-                .short('q')
-                .action(clap::ArgAction::SetTrue)
-                .required(false)
-                .help("Disable INFO messages, WARN and ERROR will remain")
-                .conflicts_with(DEBUG_ARG),
-        )
-        .arg(
-            Arg::new(DEBUG_ARG)
-                .long(DEBUG_ARG)
-                .short('d')
-                .action(clap::ArgAction::SetTrue)
-                .required(false)
-                .help("Turn on DEBUG messages (default is only INFO)")
-                .conflicts_with(QUIET_ARG),
-        )
-        .arg(
-            Arg::new(CONFIG_ARG)
-                .long(CONFIG_ARG)
-                .short('c')
-                .required(false)
-                .help("Path to configuration file")
-                .value_name("FILE")
-                .default_value("/etc/named.toml"),
-        )
-        .arg(
-            Arg::new(ZONEDIR_ARG)
-                .long(ZONEDIR_ARG)
-                .short('z')
-                .required(false)
-                .help("Path to the root directory for all zone files, see also config toml")
-                .value_name("DIR"),
-        )
-        .arg(
-            Arg::new(PORT_ARG)
-                .long(PORT_ARG)
-                .short('p')
-                .value_parser(parse_port)
-                .required(false)
-                .help("Listening port for DNS queries, overrides any value in config file")
-                .value_name(PORT_ARG),
-        )
-        .arg(
-            Arg::new(TLS_PORT_ARG)
-                .long(TLS_PORT_ARG)
-                .required(false)
-                .value_parser(parse_port)
-                .help("Listening port for DNS over TLS queries, overrides any value in config file")
-                .value_name(TLS_PORT_ARG),
-        )
-        .arg(
-            Arg::new(HTTPS_PORT_ARG)
-                .value_parser(parse_port)
-                .long(HTTPS_PORT_ARG)
-                .required(false)
-                .help(
-                    "Listening port for DNS over HTTPS queries, overrides any value in config file",
-                )
-                .value_name(HTTPS_PORT_ARG),
-        )
-        .arg(
-            Arg::new(QUIC_PORT_ARG)
-                .value_parser(parse_port)
-                .long(QUIC_PORT_ARG)
-                .required(false)
-                .help(
-                    "Listening port for DNS over QUIC queries, overrides any value in config file",
-                )
-                .value_name(QUIC_PORT_ARG),
-        )
-        .get_matches();
-
-    let args: Args = args.into();
-
+    let args = Cli::parse();
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
-    if args.flag_quiet {
+    if args.quiet {
         quiet();
-    } else if args.flag_debug {
+    } else if args.debug {
         debug();
     } else {
         default();
@@ -414,14 +335,14 @@ fn main() {
     info!("Trust-DNS {} starting", trust_dns_client::version());
     // start up the server for listening
 
-    let flag_config = args.flag_config.clone();
-    let config_path = Path::new(&flag_config);
+    let config = args.config.clone();
+    let config_path = Path::new(&config);
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path)
         .unwrap_or_else(|e| panic!("could not read config {}: {:?}", config_path.display(), e));
     let directory_config = config.get_directory().to_path_buf();
-    let flag_zonedir = args.flag_zonedir.clone();
-    let zone_dir: PathBuf = flag_zonedir
+    let zonedir = args.zonedir.clone();
+    let zone_dir: PathBuf = zonedir
         .as_ref()
         .map(PathBuf::from)
         .unwrap_or_else(|| directory_config.clone());
@@ -459,7 +380,7 @@ fn main() {
         .map(IpAddr::V4)
         .chain(v6addr.into_iter().map(IpAddr::V6))
         .collect();
-    let listen_port: u16 = args.flag_port.unwrap_or_else(|| config.get_listen_port());
+    let listen_port: u16 = args.port.unwrap_or_else(|| config.get_listen_port());
     let tcp_request_timeout = config.get_tcp_request_timeout();
 
     if listen_addrs.is_empty() {
@@ -580,7 +501,7 @@ fn main() {
 
 #[cfg(feature = "dns-over-tls")]
 fn config_tls(
-    args: &Args,
+    args: &Cli,
     server: &mut ServerFuture<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
@@ -591,7 +512,7 @@ fn config_tls(
     use futures::TryFutureExt;
 
     let tls_listen_port: u16 = args
-        .flag_tls_port
+        .tls_port
         .unwrap_or_else(|| config.get_tls_listen_port());
     let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
@@ -633,7 +554,7 @@ fn config_tls(
 
 #[cfg(feature = "dns-over-https")]
 fn config_https(
-    args: &Args,
+    args: &Cli,
     server: &mut ServerFuture<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
@@ -644,7 +565,7 @@ fn config_https(
     use futures::TryFutureExt;
 
     let https_listen_port: u16 = args
-        .flag_https_port
+        .https_port
         .unwrap_or_else(|| config.get_https_listen_port());
     let https_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
@@ -692,7 +613,7 @@ fn config_https(
 
 #[cfg(feature = "dns-over-quic")]
 fn config_quic(
-    args: &Args,
+    args: &Cli,
     server: &mut ServerFuture<Catalog>,
     config: &Config,
     tls_cert_config: &TlsCertConfig,
@@ -703,7 +624,7 @@ fn config_quic(
     use futures::TryFutureExt;
 
     let quic_listen_port: u16 = args
-        .flag_quic_port
+        .quic_port
         .unwrap_or_else(|| config.get_quic_listen_port());
     let quic_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
