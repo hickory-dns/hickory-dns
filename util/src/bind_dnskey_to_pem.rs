@@ -23,9 +23,10 @@
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufRead, BufReader, Lines, Write};
+use std::path::PathBuf;
 use std::str::FromStr;
 
-use clap::{Arg, ArgMatches, Command};
+use clap::Parser;
 use data_encoding::BASE64;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
@@ -33,42 +34,43 @@ use tracing::{info, warn, Level};
 
 use trust_dns_client::rr::dnssec::Algorithm;
 
-fn args() -> ArgMatches {
-    Command::new("Trust-DNS dnskey-to-pem")
-        .version(trust_dns_client::version())
-        .author("Benjamin Fry <benjaminfry@me.com>")
-        .about("Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format")
-        .arg(
-            Arg::new("key")
-                .value_name("PRIVATE_KEY_FILE")
-                .num_args(1)
-                .help("Input FILE from which to read the DNSSec private key")
-                .required(true)
-                .index(1),
-        )
-        .arg(
-            Arg::new("output")
-                .value_name("OUTPUT_FILE")
-                .long("output")
-                .short('o')
-                .num_args(1)
-                .required(false)
-                .help("Output FILE to write to")
-                .default_value("out.pem"),
-        )
-        .get_matches()
+/// Cli struct for all options managed with clap derive api.
+#[derive(Debug, Parser)]
+#[clap(
+    name = "Trust-DNS dnskey-to-pem",
+    version,
+    about = "Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format",
+    author = "Benjamin Fry <benjaminfry@me.com>"
+)]
+struct Cli {
+    /// Input FILE from which to read the DNSSec private key
+    #[arg(
+        long = "key",
+        value_name = "PRIVATE_KEY_FILE",
+        value_hint=clap::ValueHint::FilePath,
+    )]
+    pub(crate) key: PathBuf,
+
+    /// Output FILE to write to default `out.pem`
+    #[arg(
+        short = 'o',
+        long = "output",
+        default_value = "out.pem",
+        value_name = "NAME",
+        value_hint=clap::ValueHint::FilePath,
+    )]
+    pub(crate) output: PathBuf,
 }
 
 /// Run the bind_dnskey_to_pem program
 pub fn main() {
     trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(Level::INFO));
 
-    let matches = args();
+    let args = Cli::parse();
+    let key_path = args.key;
+    let output_path = args.output;
 
-    let key_path = matches.get_one::<String>("key").unwrap();
-    let output_path = matches.get_one::<String>("output").unwrap();
-
-    tracing::info!("Reading private key: {}", key_path);
+    tracing::info!("Reading private key: {}", key_path.display());
 
     let key_file = File::open(key_path).expect("private key file could not be opened");
 
@@ -113,15 +115,15 @@ pub fn main() {
         _ => panic!("Algorithm currently not supported: {:?}", algorithm),
     };
 
-    info!("Writing private key to pem: {}", output_path);
+    info!("Writing private key to pem: {}", output_path.display());
     let mut file = OpenOptions::new()
         .create_new(true)
         .write(true)
-        .open(output_path)
-        .unwrap_or_else(|_| panic!("could not create file: {}", output_path));
+        .open(&output_path)
+        .unwrap_or_else(|_| panic!("could not create file: {}", output_path.display()));
 
     file.write_all(&pem_bytes)
-        .unwrap_or_else(|_| panic!("could not write to file: {}", output_path));
+        .unwrap_or_else(|_| panic!("could not write to file: {}", output_path.display()));
 }
 
 fn split_field_value(line: &str) -> (&str, &str) {
