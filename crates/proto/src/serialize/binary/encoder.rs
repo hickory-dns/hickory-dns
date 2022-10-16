@@ -43,6 +43,26 @@ mod private {
             self.max_size = max as usize;
         }
 
+        pub(crate) fn write(&mut self, offset: usize, data: &[u8]) -> ProtoResult<()> {
+            debug_assert!(offset <= self.buffer.len());
+            if offset + data.len() > self.max_size {
+                return Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into());
+            }
+
+            if offset == self.buffer.len() {
+                self.buffer.extend(data);
+                return Ok(());
+            }
+
+            let end = offset + data.len();
+            if end > self.buffer.len() {
+                self.buffer.resize(end, 0);
+            }
+
+            self.buffer[offset..end].copy_from_slice(data);
+            Ok(())
+        }
+
         /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
         ///
         /// and reserves the additional space in the buffer
@@ -333,26 +353,8 @@ impl<'a> BinEncoder<'a> {
     }
 
     fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
-        // replacement case, the necessary space should have been reserved already...
-        if self.offset < self.buffer.len() {
-            let offset = self.offset;
-
-            self.buffer.enforced_write(0, |buffer| {
-                let mut offset = offset;
-                for b in data {
-                    *buffer
-                        .get_mut(offset)
-                        .expect("could not get index at offset for slice") = *b;
-                    offset += 1;
-                }
-            })?;
-        } else {
-            self.buffer
-                .enforced_write(data.len(), |buffer| buffer.extend_from_slice(data))?;
-        }
-
+        self.buffer.write(self.offset, data)?;
         self.offset += data.len();
-
         Ok(())
     }
 
