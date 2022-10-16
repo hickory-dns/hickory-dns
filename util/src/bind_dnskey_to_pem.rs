@@ -56,7 +56,7 @@ struct Cli {
         short = 'o',
         long = "output",
         default_value = "out.pem",
-        value_name = "NAME",
+        value_name = "OUTPUT_FILE",
         value_hint=clap::ValueHint::FilePath,
     )]
     pub(crate) output: PathBuf,
@@ -72,7 +72,12 @@ pub fn main() {
 
     tracing::info!("Reading private key: {}", key_path.display());
 
-    let key_file = File::open(key_path).expect("private key file could not be opened");
+    let key_file = File::open(&key_path).unwrap_or_else(|_| {
+        panic!(
+            "private key file <{}> could not be opened",
+            key_path.display()
+        )
+    });
 
     let mut lines = BufReader::new(key_file).lines();
 
