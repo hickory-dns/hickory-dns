@@ -22,53 +22,58 @@
 
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
+use std::path::PathBuf;
 
-use clap::{Arg, ArgMatches, Command};
+use clap::Parser;
 use openssl::pkey::PKey;
 use tracing::info;
 
 use trust_dns_client::rr::dnssec::{KeyPair, Public};
 
-fn args() -> ArgMatches {
-    Command::new("Trust-DNS pem-to-public-dnskey")
-        .version(trust_dns_client::version())
-        .author("Benjamin Fry <benjaminfry@me.com>")
-        .about(
-            "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",
-        )
-        .arg(
-            Arg::new("key")
-                .value_name("PEM_KEY_FILE")
-                .help("Input PEM FILE from which to read the public key")
-                .required(true)
-                .num_args(1)
-                .index(1),
-        )
-        .arg(
-            Arg::new("output")
-                .value_name("OUTPUT_FILE")
-                .long("output")
-                .short('o')
-                .num_args(1)
-                .required(false)
-                .help("Output FILE to write to")
-                .default_value("out.dnskey"),
-        )
-        .get_matches()
+/// Cli struct for all options managed with clap derive api.
+#[derive(Debug, Parser)]
+#[clap(
+    name = "Trust-DNS pem-to-public-dnskey",
+    version,
+    about = "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in Trust-DNS.",
+    author = "Benjamin Fry <benjaminfry@me.com>"
+)]
+struct Cli {
+    /// Input PEM FILE from which to read the public key
+    #[arg(
+        long = "key",
+        value_name = "PEM_KEY_FILE",
+        value_hint=clap::ValueHint::FilePath,
+    )]
+    pub(crate) key: PathBuf,
+
+    /// Output FILE to write the dnskey defaults to `out.dnskey`
+    #[arg(
+        short = 'o',
+        long = "output",
+        default_value = "out.pem",
+        value_name = "OUTPUT_FILE",
+        value_hint=clap::ValueHint::FilePath,
+    )]
+    pub(crate) output: PathBuf,
 }
 
 /// Run the pem_to_public_dnskey program
 pub fn main() {
     trust_dns_util::logger(env!("CARGO_BIN_NAME"), Some(tracing::Level::INFO));
 
-    let matches = args();
+    let args = Cli::parse();
+    let key_path = args.key;
+    let output_path = args.output;
 
-    let key_path = matches.get_one::<String>("key").unwrap();
-    let output_path = matches.get_one::<String>("output").unwrap();
+    info!("Reading key from pem: {}", key_path.display());
 
-    info!("Reading key from pem: {}", key_path);
-
-    let mut key_file = File::open(key_path).expect("private key file could not be opened");
+    let mut key_file = File::open(&key_path).unwrap_or_else(|_| {
+        panic!(
+            "private key file <{}> could not be opened",
+            key_path.display()
+        )
+    });
 
     let pkey = read_pem(&mut key_file);
     let key_pair = into_key_pair(pkey);
@@ -80,7 +85,7 @@ pub fn main() {
     let mut public_key_file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(output_path)
+        .open(&output_path)
         .expect("could not open public_key file for writing");
 
     public_key_file
