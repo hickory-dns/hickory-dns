@@ -25,13 +25,13 @@ mod private {
     use crate::error::{ProtoErrorKind, ProtoResult};
 
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
-    pub(crate) struct MaximalBuf<'a> {
+    pub(super) struct MaximalBuf<'a> {
         max_size: usize,
         buffer: &'a mut Vec<u8>,
     }
 
     impl<'a> MaximalBuf<'a> {
-        pub(crate) fn new(max_size: u16, buffer: &'a mut Vec<u8>) -> Self {
+        pub(super) fn new(max_size: u16, buffer: &'a mut Vec<u8>) -> Self {
             MaximalBuf {
                 max_size: max_size as usize,
                 buffer,
@@ -39,11 +39,11 @@ mod private {
         }
 
         /// Sets the maximum size to enforce
-        pub(crate) fn set_max_size(&mut self, max: u16) {
+        pub(super) fn set_max_size(&mut self, max: u16) {
             self.max_size = max as usize;
         }
 
-        pub(crate) fn write(&mut self, offset: usize, data: &[u8]) -> ProtoResult<()> {
+        pub(super) fn write(&mut self, offset: usize, data: &[u8]) -> ProtoResult<()> {
             debug_assert!(offset <= self.buffer.len());
             if offset + data.len() > self.max_size {
                 return Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into());
@@ -63,7 +63,7 @@ mod private {
             Ok(())
         }
 
-        pub(crate) fn reserve(&mut self, offset: usize, len: usize) -> ProtoResult<()> {
+        pub(super) fn reserve(&mut self, offset: usize, len: usize) -> ProtoResult<()> {
             let end = offset + len;
             if end > self.max_size {
                 return Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into());
@@ -74,22 +74,22 @@ mod private {
         }
 
         /// truncates are always safe
-        pub(crate) fn truncate(&mut self, len: usize) {
+        pub(super) fn truncate(&mut self, len: usize) {
             self.buffer.truncate(len)
         }
 
         /// returns the length of the underlying buffer
-        pub(crate) fn len(&self) -> usize {
+        pub(super) fn len(&self) -> usize {
             self.buffer.len()
         }
 
         /// Immutable reads are always safe
-        pub(crate) fn buffer(&'a self) -> &'a [u8] {
+        pub(super) fn buffer(&'a self) -> &'a [u8] {
             self.buffer as &'a [u8]
         }
 
         /// Returns a reference to the internal buffer
-        pub(crate) fn into_bytes(self) -> &'a Vec<u8> {
+        pub(super) fn into_bytes(self) -> &'a Vec<u8> {
             self.buffer
         }
     }
