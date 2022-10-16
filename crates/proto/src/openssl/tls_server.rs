@@ -28,7 +28,7 @@ pub fn read_cert_pkcs12(
     path: &Path,
     password: Option<&str>,
 ) -> ProtoResult<((X509, Option<Stack<X509>>), PKey<Private>)> {
-    let mut file = File::open(&path).map_err(|e| {
+    let mut file = File::open(path).map_err(|e| {
         ProtoError::from(format!(
             "error opening pkcs12 cert file: {}: {}",
             path.display(),
@@ -66,7 +66,7 @@ pub fn read_cert_pkcs12(
 ///
 /// If the password is specified, then it will be used to decode the Certificate
 pub fn read_cert_pem(path: &Path) -> ProtoResult<(X509, Option<Stack<X509>>)> {
-    let mut file = File::open(&path).map_err(|e| {
+    let mut file = File::open(path).map_err(|e| {
         ProtoError::from(format!(
             "error opening cert file: {}: {}",
             path.display(),
