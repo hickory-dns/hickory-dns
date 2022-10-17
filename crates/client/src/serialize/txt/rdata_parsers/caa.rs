@@ -102,13 +102,88 @@ pub(crate) fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResu
 
 #[cfg(test)]
 mod tests {
+    use crate::serialize::txt::parse_rdata::RDataParser;
+    use trust_dns_proto::rr::{rdata::caa::KeyValue, Name, RData, RecordType};
+
     use super::*;
 
+    fn test_to_string_parse_is_reversible(expected_rdata: CAA, input_string: &str) {
+        let expected_rdata_string = expected_rdata.to_string();
+        assert_eq!(
+            input_string, expected_rdata_string,
+            "input string does not match expected_rdata.to_string()"
+        );
+
+        match RData::try_from_str(RecordType::CAA, input_string).expect("CAA rdata parse failed") {
+            RData::CAA(parsed_rdata) => assert_eq!(
+                expected_rdata,
+                parsed_rdata,
+                "CAA rdata was not parsed as expected. input={:?} expected_rdata={:?} parsed_rdata={:?}",
+                input_string,
+                expected_rdata,
+                parsed_rdata,
+            ),
+            parsed_rdata => panic!("Parsed RData is not CAA: {:?}", parsed_rdata),
+        }
+    }
     #[test]
     fn test_parsing() {
         //nocerts       CAA 0 issue \";\"
         assert!(parse(vec!["0", "issue", ";"].into_iter()).is_ok());
+
         // certs         CAA 0 issuewild \"example.net\"
         assert!(parse(vec!["0", "issue", "example.net"].into_iter()).is_ok());
+
+        // issuer critical = true
+        test_to_string_parse_is_reversible(CAA::new_issue(true, None, vec![]), "128 issue \";\"");
+
+        // deny
+        test_to_string_parse_is_reversible(CAA::new_issue(false, None, vec![]), "0 issue \";\"");
+
+        // only hostname
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![],
+            ),
+            "0 issue \"example.com\"",
+        );
+
+        // hostname and one parameter
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![KeyValue::new("one", "1")],
+            ),
+            "0 issue \"example.com; one=1\"",
+        );
+
+        // hostname and two parameters
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+            ),
+            "0 issue \"example.com; one=1; two=2\"",
+        );
+
+        // no hostname and one parameter
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(false, None, vec![KeyValue::new("one", "1")]),
+            "0 issue \"; one=1\"",
+        );
+
+        // no hostname and two parameters
+        test_to_string_parse_is_reversible(
+            CAA::new_issue(
+                false,
+                None,
+                vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+            ),
+            "0 issue \"; one=1; two=2\"",
+        );
     }
 }
