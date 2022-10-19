@@ -1018,7 +1018,10 @@ impl<'r> BinDecodable<'r> for Unknown {
 
 impl BinEncodable for Unknown {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        encoder.emit_character_data(&self.0)?;
+        // draft-ietf-dnsop-svcb-https-11#appendix-A: The algorithm is the same as used by
+        // <character-string> in RFC 1035, although the output length in this
+        // document is not limited to 255 octets.
+        encoder.emit_character_data_unrestricted(&self.0)?;
 
         Ok(())
     }
@@ -1246,5 +1249,21 @@ mod tests {
             0, 0, 7, 7, 0, 0, 0, 0, 0, 0, 0,
         ];
         assert!(crate::op::Message::from_vec(BUF).is_err());
+    }
+
+    #[test]
+    fn test_unrestricted_output_size() {
+        let svcb = SVCB::new(
+            8224,
+            Name::from_utf8(".").unwrap(),
+            vec![(
+                SvcParamKey::Unknown(8224),
+                SvcParamValue::Unknown(Unknown(vec![32; 257])),
+            )],
+        );
+
+        let mut buf = Vec::new();
+        let mut encoder = BinEncoder::new(&mut buf);
+        emit(&mut encoder, &svcb).unwrap();
     }
 }
