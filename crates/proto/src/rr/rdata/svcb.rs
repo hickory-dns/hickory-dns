@@ -1183,9 +1183,6 @@ mod tests {
         emit(&mut encoder, &rdata).expect("failed to emit SVCB");
         let bytes = encoder.into_bytes();
 
-        println!("svcb: {}", rdata);
-        println!("bytes: {:?}", bytes);
-
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let read_rdata =
             read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
