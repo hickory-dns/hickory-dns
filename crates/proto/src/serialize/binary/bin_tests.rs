@@ -42,7 +42,7 @@ fn read_character_data() {
 #[test]
 fn emit_character_data() {
     test_emit_data_set(get_character_data(), |ref mut e, d| {
-        e.emit_character_data(&d)
+        e.emit_character_data(d)
     });
 }
 

@@ -20,7 +20,7 @@ use crate::error::{ProtoError, ProtoResult};
 ///
 /// If the password is specified, then it will be used to decode the Certificate
 pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<Certificate>> {
-    let mut cert_file = File::open(&cert_path)
+    let mut cert_file = File::open(cert_path)
         .map_err(|e| format!("error opening cert file: {:?}: {}", cert_path, e))?;
 
     let mut reader = BufReader::new(&mut cert_file);
