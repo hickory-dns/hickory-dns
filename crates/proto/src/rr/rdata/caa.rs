@@ -853,7 +853,7 @@ impl fmt::Display for Value {
             Value::Url(url) => write!(f, "{}", url)?,
             Value::Unknown(v) => match str::from_utf8(v) {
                 Ok(text) => write!(f, "{}", text)?,
-                Err(_) => write!(f, "{:?}", v)?,
+                Err(_) => return Err(fmt::Error),
             },
         }
 
