@@ -843,15 +843,11 @@ impl fmt::Display for Value {
 
         match self {
             Value::Issuer(name, values) => {
-                if name.is_none() && values.is_empty() {
-                    write!(f, ";")?;
-                } else {
-                    if let Some(name) = name {
-                        write!(f, "{}", name)?;
-                    }
-                    for value in values.iter() {
-                        write!(f, "; {}", value)?;
-                    }
+                if let Some(name) = name {
+                    write!(f, "{}", name)?;
+                }
+                for value in values.iter() {
+                    write!(f, "; {}", value)?;
                 }
             }
             Value::Url(url) => write!(f, "{}", url)?,
@@ -1121,7 +1117,7 @@ mod tests {
     #[test]
     fn test_to_string() {
         let deny = CAA::new_issue(false, None, vec![]);
-        assert_eq!(deny.to_string(), "0 issue \";\"");
+        assert_eq!(deny.to_string(), "0 issue \"\"");
 
         let empty_options = CAA::new_issue(
             false,

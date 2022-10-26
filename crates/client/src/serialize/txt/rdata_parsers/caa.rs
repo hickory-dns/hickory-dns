@@ -135,10 +135,10 @@ mod tests {
         assert!(parse(vec!["0", "issue", "example.net"].into_iter()).is_ok());
 
         // issuer critical = true
-        test_to_string_parse_is_reversible(CAA::new_issue(true, None, vec![]), "128 issue \";\"");
+        test_to_string_parse_is_reversible(CAA::new_issue(true, None, vec![]), "128 issue \"\"");
 
         // deny
-        test_to_string_parse_is_reversible(CAA::new_issue(false, None, vec![]), "0 issue \";\"");
+        test_to_string_parse_is_reversible(CAA::new_issue(false, None, vec![]), "0 issue \"\"");
 
         // only hostname
         test_to_string_parse_is_reversible(
