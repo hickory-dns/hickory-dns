@@ -639,8 +639,15 @@ impl TsigAlgorithm {
         Ok(len)
     }
 
-    /// Return true if cryptographic operations needed for using this algorithm are supported,
-    /// false otherwise
+    /// Return `true` if cryptographic operations needed for using this algorithm are supported,
+    /// `false` otherwise
+    ///
+    /// ## Supported
+    ///
+    /// - HmacSha256
+    /// - HmacSha384
+    /// - HmacSha512
+    /// - HmacSha512_256
     pub fn supported(&self) -> bool {
         use TsigAlgorithm::*;
         matches!(self, HmacSha256 | HmacSha384 | HmacSha512)
