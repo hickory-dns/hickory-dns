@@ -5,7 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! tsigner is a structure for computing tsig messasignuthentication code for dns transactions
+//! Trust dns implementation of Secret Key Transaction Authentication for DNS (TSIG)
+//! [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945) November 2020
+//!
+//! Current deviation from RFC in implementation as of 2022-10-28
+//!
+//! - Mac checking don't support HMAC truncation with TSIG (pedantic constant time verification)
+//! - Time checking not in TSIG implementation but in caller
+
 use tracing::debug;
 
 use crate::proto::error::{ProtoError, ProtoResult};
