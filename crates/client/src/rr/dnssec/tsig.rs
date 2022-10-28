@@ -14,6 +14,7 @@
 //! - Time checking not in TSIG implementation but in caller
 
 use tracing::debug;
+use trust_dns_proto::error::ProtoErrorKind;
 
 use crate::proto::error::{ProtoError, ProtoResult};
 use crate::proto::rr::dnssec::rdata::tsig::{
@@ -60,7 +61,7 @@ impl TSigner {
                 fudge,
             })))
         } else {
-            Err(ProtoError::from("unsupported mac algorithm"))
+            Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(algorithm).into())
         }
     }
 
@@ -135,7 +136,7 @@ impl TSigner {
         // https://tools.ietf.org/html/rfc8945#section-5.2
         // 1.  Check key
         if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
-            return Err(ProtoError::from("tsig validation error: wrong key"));
+            return Err(ProtoErrorKind::TsigWrongKey.into());
         }
 
         // 2.  Check MAC

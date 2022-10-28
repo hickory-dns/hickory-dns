@@ -522,7 +522,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
             HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
             HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
-            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         let mac = hmac::sign(&key, message);
@@ -547,7 +547,7 @@ impl TsigAlgorithm {
             HmacSha256 => Signer::new(MessageDigest::sha256(), &key)?,
             HmacSha384 => Signer::new(MessageDigest::sha384(), &key)?,
             HmacSha512 => Signer::new(MessageDigest::sha512(), &key)?,
-            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         signer.update(message)?;
@@ -575,7 +575,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::Key::new(hmac::HMAC_SHA256, key),
             HmacSha384 => hmac::Key::new(hmac::HMAC_SHA384, key),
             HmacSha512 => hmac::Key::new(hmac::HMAC_SHA512, key),
-            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         hmac::verify(&key, message, tag).map_err(|_| ProtoErrorKind::HmacInvalid().into())
@@ -616,7 +616,7 @@ impl TsigAlgorithm {
             HmacSha256 => hmac::HMAC_SHA256.digest_algorithm().output_len,
             HmacSha384 => hmac::HMAC_SHA384.digest_algorithm().output_len,
             HmacSha512 => hmac::HMAC_SHA512.digest_algorithm().output_len,
-            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         Ok(len)
@@ -633,7 +633,7 @@ impl TsigAlgorithm {
             HmacSha256 => MessageDigest::sha256().size(),
             HmacSha384 => MessageDigest::sha384().size(),
             HmacSha512 => MessageDigest::sha512().size(),
-            _ => return Err(ProtoError::from("unsupported mac algorithm")),
+            _ => return Err(ProtoErrorKind::TsigUnsupportedMacAlgorithm(self.clone()).into()),
         };
 
         Ok(len)
