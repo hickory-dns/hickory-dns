@@ -90,7 +90,7 @@ pub enum ResponseCode {
     NXRRSet,
 
     /// Server Not Authoritative for zone [RFC 2136](https://tools.ietf.org/html/rfc2136)
-    /// or Not Authorized [RFC 2845](https://tools.ietf.org/html/rfc2845)
+    /// or Not Authorized [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
     NotAuth,
 
     /// Name not contained in zone [RFC 2136](https://tools.ietf.org/html/rfc2136)
@@ -99,13 +99,13 @@ pub enum ResponseCode {
     /// Bad OPT Version [RFC 6891](https://tools.ietf.org/html/rfc6891#section-9)
     BADVERS,
 
-    /// TSIG Signature Failure [RFC 2845](https://tools.ietf.org/html/rfc2845)
+    /// TSIG Signature Failure [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
     BADSIG,
 
-    /// Key not recognized [RFC 2845](https://tools.ietf.org/html/rfc2845)
+    /// Key not recognized [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
     BADKEY,
 
-    /// Signature out of time window [RFC 2845](https://tools.ietf.org/html/rfc2845)
+    /// Signature out of time window [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
     BADTIME,
 
     /// Bad TKEY Mode [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
