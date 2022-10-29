@@ -843,20 +843,18 @@ impl fmt::Display for Value {
 
         match self {
             Value::Issuer(name, values) => {
-                match name {
-                    Some(name) => write!(f, "{}", name)?,
-                    None => write!(f, ";")?,
+                if let Some(name) = name {
+                    write!(f, "{}", name)?;
                 }
-
-                if let Some(value) = values.first() {
-                    write!(f, " {}", value)?;
-                    for value in &values[1..] {
-                        write!(f, "; {}", value)?;
-                    }
+                for value in values.iter() {
+                    write!(f, "; {}", value)?;
                 }
             }
             Value::Url(url) => write!(f, "{}", url)?,
-            Value::Unknown(v) => write!(f, "{:?}", v)?,
+            Value::Unknown(v) => match str::from_utf8(v) {
+                Ok(text) => write!(f, "{}", text)?,
+                Err(_) => return Err(fmt::Error),
+            },
         }
 
         f.write_str("\"")
@@ -877,7 +875,7 @@ impl fmt::Display for KeyValue {
 // FIXME: this needs to be verified to be correct, add tests...
 impl fmt::Display for CAA {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        let critical = if self.issuer_critical { "1" } else { "0" };
+        let critical = if self.issuer_critical { "128" } else { "0" };
 
         write!(
             f,
@@ -1117,9 +1115,9 @@ mod tests {
     }
 
     #[test]
-    fn test_tostring() {
+    fn test_to_string() {
         let deny = CAA::new_issue(false, None, vec![]);
-        assert_eq!(deny.to_string(), "0 issue \";\"");
+        assert_eq!(deny.to_string(), "0 issue \"\"");
 
         let empty_options = CAA::new_issue(
             false,
@@ -1133,7 +1131,7 @@ mod tests {
             Some(Name::parse("example.com", None).unwrap()),
             vec![KeyValue::new("one", "1")],
         );
-        assert_eq!(one_option.to_string(), "0 issue \"example.com one=1\"");
+        assert_eq!(one_option.to_string(), "0 issue \"example.com; one=1\"");
 
         let two_options = CAA::new_issue(
             false,
@@ -1142,8 +1140,59 @@ mod tests {
         );
         assert_eq!(
             two_options.to_string(),
-            "0 issue \"example.com one=1; two=2\""
+            "0 issue \"example.com; one=1; two=2\""
         );
+
+        let flag_set = CAA::new_issue(
+            true,
+            Some(Name::parse("example.com", None).unwrap()),
+            vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+        );
+        assert_eq!(
+            flag_set.to_string(),
+            "128 issue \"example.com; one=1; two=2\""
+        );
+
+        let empty_domain = CAA::new_issue(
+            false,
+            None,
+            vec![KeyValue::new("one", "1"), KeyValue::new("two", "2")],
+        );
+        assert_eq!(empty_domain.to_string(), "0 issue \"; one=1; two=2\"");
+
+        // Examples from RFC 6844, with added quotes
+        assert_eq!(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("ca.example.net", None).unwrap()),
+                vec![KeyValue::new("account", "230123")]
+            )
+            .to_string(),
+            "0 issue \"ca.example.net; account=230123\""
+        );
+        assert_eq!(
+            CAA::new_issue(
+                false,
+                Some(Name::parse("ca.example.net", None).unwrap()),
+                vec![KeyValue::new("policy", "ev")]
+            )
+            .to_string(),
+            "0 issue \"ca.example.net; policy=ev\""
+        );
+        assert_eq!(
+            CAA::new_iodef(false, Url::parse("mailto:security@example.com").unwrap()).to_string(),
+            "0 iodef \"mailto:security@example.com\""
+        );
+        assert_eq!(
+            CAA::new_iodef(false, Url::parse("http://iodef.example.com/").unwrap()).to_string(),
+            "0 iodef \"http://iodef.example.com/\""
+        );
+        let unknown = CAA {
+            issuer_critical: true,
+            tag: Property::from("tbs".to_string()),
+            value: Value::Unknown("Unknown".as_bytes().to_vec()),
+        };
+        assert_eq!(unknown.to_string(), "128 tbs \"Unknown\"");
     }
 
     #[test]
