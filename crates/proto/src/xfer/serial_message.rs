@@ -9,6 +9,7 @@ use std::net::SocketAddr;
 
 use crate::error::ProtoResult;
 use crate::op::Message;
+use std::convert::TryInto;
 
 /// A DNS message in serialized form, with either the target address or source address
 pub struct SerialMessage {
@@ -26,6 +27,13 @@ impl SerialMessage {
     /// Get a reference to the bytes
     pub fn bytes(&self) -> &[u8] {
         &self.message
+    }
+
+    /// see `Header::id()`
+    pub fn id(&self) -> Option<u16> {
+        self.message
+            .get(0..2)
+            .map(|bytes| u16::from_be_bytes(bytes.try_into().unwrap()))
     }
 
     /// Get the source or destination address (context dependent)

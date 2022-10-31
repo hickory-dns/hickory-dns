@@ -299,35 +299,43 @@ async fn send_serial_message<S: UdpSocket + Send>(
 
         // TODO: match query strings from request and response?
 
-        match response.to_message() {
-            Ok(message) => {
-                if msg_id == message.id() {
-                    debug!("received message id: {}", message.id());
-                    if let Some(mut verifier) = verifier {
-                        return verifier(response.bytes());
-                    } else {
-                        return Ok(DnsResponse::from(message));
+        if let Some(response_id) = response.id() {
+            if response_id == msg_id {
+                match response.to_message() {
+                    Ok(message) => {
+                        debug!("received message id: {}", msg_id);
+                        if let Some(mut verifier) = verifier {
+                            return verifier(response.bytes());
+                        } else {
+                            return Ok(DnsResponse::from(message));
+                        }
                     }
-                } else {
-                    // on wrong id, attempted poison?
-                    warn!(
-                        "expected message id: {} got: {}, dropped",
-                        msg_id,
-                        message.id()
-                    );
+                    Err(e) => {
+                        // on errors deserializing, continue
+                        warn!(
+                            "dropped malformed message waiting for id: {} err: {}",
+                            msg_id, e
+                        );
 
-                    continue;
+                        continue;
+                    }
                 }
-            }
-            Err(e) => {
-                // on errors deserializing, continue
+            } else {
+                // on wrong id, attempted poison?
                 warn!(
-                    "dropped malformed message waiting for id: {} err: {}",
-                    msg_id, e
+                    "expected message id: {} got: {}, dropped",
+                    msg_id, response_id
                 );
 
                 continue;
             }
+        } else {
+            warn!(
+                "dropped malformed message waiting for id: {} err: insufficient data",
+                msg_id
+            );
+
+            continue;
         }
     }
 }
