@@ -43,7 +43,7 @@ where
     marker: PhantomData<(S, M)>,
 }
 
-impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
+impl<S: Send, M> UdpClientStream<S, NoopMessageFinalizer, M> {
     /// it is expected that the resolver wrapper will be responsible for creating and managing
     ///  new UdpClients such that each new client would have a random port (reduce chance of cache
     ///  poisoning)
@@ -53,7 +53,7 @@ impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
     /// a tuple of a Future Stream which will handle sending and receiving messages, and a
     ///  handle which can be used to send messages into the stream.
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(name_server: SocketAddr) -> UdpClientConnect<S, NoopMessageFinalizer> {
+    pub fn new(name_server: SocketAddr) -> UdpClientConnect<S, NoopMessageFinalizer, M> {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
@@ -66,7 +66,7 @@ impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
     pub fn with_timeout(
         name_server: SocketAddr,
         timeout: Duration,
-    ) -> UdpClientConnect<S, NoopMessageFinalizer> {
+    ) -> UdpClientConnect<S, NoopMessageFinalizer, M> {
         Self::with_bind_addr_and_timeout(name_server, None, timeout)
     }
 
@@ -81,12 +81,12 @@ impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
         name_server: SocketAddr,
         bind_addr: Option<SocketAddr>,
         timeout: Duration,
-    ) -> UdpClientConnect<S, NoopMessageFinalizer> {
+    ) -> UdpClientConnect<S, NoopMessageFinalizer, M> {
         Self::with_timeout_and_signer_and_bind_addr(name_server, timeout, None, bind_addr)
     }
 }
 
-impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
+impl<S: Send, MF: MessageFinalizer<M>, M> UdpClientStream<S, MF, M> {
     /// Constructs a new TcpStream for a client to the specified SocketAddr.
     ///
     /// # Arguments
@@ -97,13 +97,13 @@ impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
         name_server: SocketAddr,
         timeout: Duration,
         signer: Option<Arc<MF>>,
-    ) -> UdpClientConnect<S, MF> {
+    ) -> UdpClientConnect<S, MF, M> {
         UdpClientConnect {
             name_server,
             bind_addr: None,
             timeout,
             signer,
-            marker: PhantomData::<S>,
+            marker: PhantomData,
         }
     }
 
@@ -119,13 +119,13 @@ impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
         timeout: Duration,
         signer: Option<Arc<MF>>,
         bind_addr: Option<SocketAddr>,
-    ) -> UdpClientConnect<S, MF> {
+    ) -> UdpClientConnect<S, MF, M> {
         UdpClientConnect {
             name_server,
             bind_addr,
             timeout,
             signer,
-            marker: PhantomData::<S>,
+            marker: PhantomData,
         }
     }
 }
@@ -230,24 +230,25 @@ impl<S: Send, MF: MessageFinalizer<M>, M> Stream for UdpClientStream<S, MF, M> {
 }
 
 /// A future that resolves to an UdpClientStream
-pub struct UdpClientConnect<S, MF = NoopMessageFinalizer>
+pub struct UdpClientConnect<S, MF = NoopMessageFinalizer, M = Message>
 where
     S: Send,
-    MF: MessageFinalizer,
+    MF: MessageFinalizer<M>,
 {
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     timeout: Duration,
     signer: Option<Arc<MF>>,
-    marker: PhantomData<S>,
+    marker: PhantomData<(S, M)>,
 }
 
-impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
-    type Output = Result<UdpClientStream<S, MF>, ProtoError>;
+impl<S: Send + Unpin, MF: MessageFinalizer<M>, M: Unpin> Future for UdpClientConnect<S, MF, M> {
+    type Output = Result<UdpClientStream<S, MF, M>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let _: &mut Self = &mut self;
         // TODO: this doesn't need to be a future?
-        Poll::Ready(Ok(UdpClientStream::<S, MF> {
+        Poll::Ready(Ok(UdpClientStream::<S, MF, M> {
             name_server: self.name_server,
             bind_addr: self.bind_addr,
             is_shutdown: false,
