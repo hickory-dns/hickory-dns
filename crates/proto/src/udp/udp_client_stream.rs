@@ -30,17 +30,17 @@ use crate::Time;
 /// This stream will create a new UDP socket for every request. This is to avoid potential cache
 ///   poisoning during use by UDP based attacks.
 #[must_use = "futures do nothing unless polled"]
-pub struct UdpClientStream<S, MF = NoopMessageFinalizer>
+pub struct UdpClientStream<S, MF = NoopMessageFinalizer, M = Message>
 where
     S: Send,
-    MF: MessageFinalizer,
+    MF: MessageFinalizer<M>,
 {
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     timeout: Duration,
     is_shutdown: bool,
     signer: Option<Arc<MF>>,
-    marker: PhantomData<S>,
+    marker: PhantomData<(S, M)>,
 }
 
 impl<S: Send> UdpClientStream<S, NoopMessageFinalizer> {
@@ -130,7 +130,7 @@ impl<S: Send, MF: MessageFinalizer> UdpClientStream<S, MF> {
     }
 }
 
-impl<S: Send, MF: MessageFinalizer> Display for UdpClientStream<S, MF> {
+impl<S: Send, MF: MessageFinalizer<M>, M> Display for UdpClientStream<S, MF, M> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "UDP({})", self.name_server)
     }
@@ -144,10 +144,12 @@ fn random_query_id() -> u16 {
     Standard.sample(&mut rand)
 }
 
-impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
-    for UdpClientStream<S, MF>
+impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer<M>, M: Send + Unpin + 'static>
+    DnsRequestSender<M> for UdpClientStream<S, MF, M>
+where
+    DnsResponse<M>: TryFrom<Vec<u8>, Error = ProtoError>,
 {
-    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, mut message: DnsRequest) -> DnsResponseStream<M> {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -167,7 +169,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let mut verifier = None;
         if let Some(ref signer) = self.signer {
             if signer.should_finalize_message(&message) {
-                match message.finalize::<MF, Message>(signer.borrow(), now) {
+                match message.finalize::<MF, M>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
@@ -195,9 +197,9 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
                 .expect("bizarre we just made this message")
         );
 
-        S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
+        S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse<M>, ProtoError>> + Send>>>(
             self.timeout,
-            Box::pin(send_serial_message::<S, Message>(
+            Box::pin(send_serial_message::<S, M>(
                 message, message_id, verifier, bind_addr,
             )),
         )
@@ -214,7 +216,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 }
 
 // TODO: is this impl necessary? there's nothing being driven here...
-impl<S: Send, MF: MessageFinalizer> Stream for UdpClientStream<S, MF> {
+impl<S: Send, MF: MessageFinalizer<M>, M> Stream for UdpClientStream<S, MF, M> {
     type Item = Result<(), ProtoError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
