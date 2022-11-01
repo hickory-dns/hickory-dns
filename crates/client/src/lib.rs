@@ -228,10 +228,11 @@
 //! use std::str::FromStr;
 //! use tokio::net::TcpStream as TokioTcpStream;
 //! use trust_dns_client::client::{AsyncClient, ClientHandle};
+//! use trust_dns_client::op::Message;
 //! use trust_dns_client::proto::iocompat::AsyncIoTokioAsStd;
 //! use trust_dns_client::rr::{DNSClass, Name, RData, RecordType};
 //! use trust_dns_client::tcp::TcpClientStream;
-//!
+
 //! #[tokio::main]
 //! async fn main() {
 //!     // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
@@ -243,7 +244,7 @@
 //!     //   the client is a handle to an unbounded queue for sending requests via the
 //!     //   background. The background must be scheduled to run before the client can
 //!     //   send any dns requests
-//!     let client = AsyncClient::new(stream, sender, None);
+//!     let client = AsyncClient::<Message>::new(stream, sender, None);
 //!
 //!     // await the connection to be established
 //!     let (mut client, bg) = client.await.expect("connection failed");

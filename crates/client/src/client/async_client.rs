@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::convert::TryFrom;
+use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -45,12 +47,19 @@ pub type ClientFuture = AsyncClient;
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[derive(Clone)]
-pub struct AsyncClient {
-    exchange: DnsExchange,
+pub struct AsyncClient<M = Message>
+where
+    M: Clone,
+{
+    exchange: DnsExchange<M>,
     use_edns: bool,
 }
 
-impl AsyncClient {
+impl<M: Clone + Send + Unpin + 'static> AsyncClient<M>
+where
+    DnsResponse<M>: TryFrom<Vec<u8>>,
+    <DnsResponse<M> as TryFrom<Vec<u8>>>::Error: fmt::Display + Into<ProtoError>,
+{
     /// Spawns a new AsyncClient Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -67,7 +76,7 @@ impl AsyncClient {
     ) -> Result<
         (
             Self,
-            DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
+            DnsExchangeBackground<DnsMultiplexer<S, Signer, M>, TokioTime, M>,
         ),
         ProtoError,
     >
@@ -96,7 +105,7 @@ impl AsyncClient {
     ) -> Result<
         (
             Self,
-            DnsExchangeBackground<DnsMultiplexer<S, Signer>, TokioTime>,
+            DnsExchangeBackground<DnsMultiplexer<S, Signer, M>, TokioTime, M>,
         ),
         ProtoError,
     >
@@ -119,9 +128,9 @@ impl AsyncClient {
     ///  If it is None, then another thread has already run the background.
     pub async fn connect<F, S>(
         connect_future: F,
-    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime>), ProtoError>
+    ) -> Result<(Self, DnsExchangeBackground<S, TokioTime, M>), ProtoError>
     where
-        S: DnsRequestSender,
+        S: DnsRequestSender<M>,
         F: Future<Output = Result<S, ProtoError>> + 'static + Send + Unpin,
     {
         let result = DnsExchange::connect(connect_future).await;
@@ -140,8 +149,8 @@ impl AsyncClient {
     }
 }
 
-impl DnsHandle for AsyncClient {
-    type Response = DnsExchangeSend;
+impl<M: Clone + Send + 'static> DnsHandle<M> for AsyncClient<M> {
+    type Response = DnsExchangeSend<M>;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(&mut self, request: R) -> Self::Response {

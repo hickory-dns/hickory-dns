@@ -20,6 +20,7 @@ use trust_dns_client::op::ResponseCode;
 use trust_dns_client::rr::*;
 use trust_dns_client::tcp::TcpClientStream;
 use trust_dns_client::udp::UdpClientStream;
+use trust_dns_proto::op::Message;
 
 // TODO: Needed for when TLS tests are added back
 // #[cfg(feature = "dns-over-openssl")]
@@ -81,7 +82,7 @@ fn test_ipv4_only_toml_startup() {
             tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
-        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let client = AsyncClient::<Message>::new(Box::new(stream), sender, None);
 
         assert!(io_loop.block_on(client).is_err());
         //let (client, bg) = io_loop.block_on(client).expect("client failed to connect");
@@ -161,7 +162,7 @@ fn test_nodata_where_name_exists() {
             tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
-        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let client = AsyncClient::<Message>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -186,7 +187,7 @@ fn test_nxdomain_where_no_name_exists() {
             tcp_port.expect("no tcp_port"),
         );
         let (stream, sender) = TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(addr);
-        let client = AsyncClient::new(Box::new(stream), sender, None);
+        let client = AsyncClient::<Message>::new(Box::new(stream), sender, None);
         let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
         trust_dns_proto::spawn_bg(&io_loop, bg);
 

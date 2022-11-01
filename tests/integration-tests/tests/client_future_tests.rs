@@ -82,7 +82,7 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let stream = UdpClientStream::<TokioUdpSocket>::new(addr);
-    let client = AsyncClient::connect(stream);
+    let client = AsyncClient::<Message>::connect(stream);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -266,7 +266,7 @@ fn test_notify() {
     catalog.upsert(authority.origin().clone(), Box::new(Arc::new(authority)));
 
     let (stream, sender) = TestClientStream::new(Arc::new(StdMutex::new(catalog)));
-    let client = AsyncClient::new(stream, sender, None);
+    let client = AsyncClient::<Message>::new(stream, sender, None);
     let (mut client, bg) = io_loop.block_on(client).expect("client failed to connect");
     trust_dns_proto::spawn_bg(&io_loop, bg);
 
@@ -1009,7 +1009,7 @@ fn test_timeout_query_tcp() {
         addr,
         std::time::Duration::from_millis(1),
     );
-    let client = AsyncClient::with_timeout(
+    let client = AsyncClient::<Message>::with_timeout(
         Box::new(stream),
         sender,
         std::time::Duration::from_millis(1),
