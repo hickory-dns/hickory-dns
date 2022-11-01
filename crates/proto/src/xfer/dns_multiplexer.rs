@@ -10,7 +10,10 @@
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::fmt::{self, Display};
+use std::marker::PhantomData;
 use std::marker::Unpin;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -86,23 +89,23 @@ impl<M> ActiveRequest<M> {
 ///  implementations. This should be used for underlying protocols that do not natively support
 ///  multiplexed sessions.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexer<S, MF>
+pub struct DnsMultiplexer<S, MF, M = Message>
 where
     S: DnsClientStream + 'static,
-    MF: MessageFinalizer,
+    MF: MessageFinalizer<M>,
 {
     stream: S,
     timeout_duration: Duration,
     stream_handle: BufDnsStreamHandle,
-    active_requests: HashMap<u16, ActiveRequest>,
+    active_requests: HashMap<u16, ActiveRequest<M>>,
     signer: Option<Arc<MF>>,
     is_shutdown: bool,
 }
 
-impl<S, MF> DnsMultiplexer<S, MF>
+impl<S, MF, M> DnsMultiplexer<S, MF, M>
 where
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer,
+    MF: MessageFinalizer<M>,
 {
     /// Spawns a new DnsMultiplexer Stream. This uses a default timeout of 5 seconds for all requests.
     ///
@@ -117,7 +120,7 @@ where
         stream: F,
         stream_handle: BufDnsStreamHandle,
         signer: Option<Arc<MF>>,
-    ) -> DnsMultiplexerConnect<F, S, MF>
+    ) -> DnsMultiplexerConnect<F, S, MF, M>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
@@ -139,7 +142,7 @@ where
         stream_handle: BufDnsStreamHandle,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
-    ) -> DnsMultiplexerConnect<F, S, MF>
+    ) -> DnsMultiplexerConnect<F, S, MF, M>
     where
         F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     {
@@ -148,6 +151,7 @@ where
             stream_handle: Some(stream_handle),
             timeout_duration,
             signer,
+            marker: PhantomData,
         }
     }
 
@@ -213,25 +217,27 @@ where
 
 /// A wrapper for a future DnsExchange connection
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsMultiplexerConnect<F, S, MF>
+pub struct DnsMultiplexerConnect<F, S, MF, M = Message>
 where
     F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     S: Stream<Item = Result<SerialMessage, ProtoError>> + Unpin,
-    MF: MessageFinalizer + Send + Sync + 'static,
+    MF: MessageFinalizer<M> + Send + Sync + 'static,
 {
     stream: F,
     stream_handle: Option<BufDnsStreamHandle>,
     timeout_duration: Duration,
     signer: Option<Arc<MF>>,
+    marker: PhantomData<M>,
 }
 
-impl<F, S, MF> Future for DnsMultiplexerConnect<F, S, MF>
+impl<F, S, MF, M> Future for DnsMultiplexerConnect<F, S, MF, M>
 where
     F: Future<Output = Result<S, ProtoError>> + Send + Unpin + 'static,
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
+    MF: MessageFinalizer<M> + Send + Sync + 'static,
+    M: Unpin,
 {
-    type Output = Result<DnsMultiplexer<S, MF>, ProtoError>;
+    type Output = Result<DnsMultiplexer<S, MF, M>, ProtoError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let stream: S = ready!(self.stream.poll_unpin(cx))?;
@@ -250,22 +256,25 @@ where
     }
 }
 
-impl<S, MF> Display for DnsMultiplexer<S, MF>
+impl<S, MF, M> Display for DnsMultiplexer<S, MF, M>
 where
     S: DnsClientStream + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
+    MF: MessageFinalizer<M> + Send + Sync + 'static,
 {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(formatter, "{}", self.stream)
     }
 }
 
-impl<S, MF> DnsRequestSender for DnsMultiplexer<S, MF>
+impl<S, MF, M> DnsRequestSender<M> for DnsMultiplexer<S, MF, M>
 where
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
+    MF: MessageFinalizer<M> + Send + Sync + 'static,
+    M: Send + 'static,
+    DnsResponse<M>: TryFrom<Vec<u8>>,
+    <DnsResponse<M> as TryFrom<Vec<u8>>>::Error: Display,
 {
-    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream {
+    fn send_message(&mut self, request: DnsRequest) -> DnsResponseStream<M> {
         if self.is_shutdown {
             panic!("can not send messages after stream is shutdown")
         }
@@ -293,7 +302,7 @@ where
         let mut verifier = None;
         if let Some(ref signer) = self.signer {
             if signer.should_finalize_message(&request) {
-                match request.finalize::<MF, Message>(signer.borrow(), now) {
+                match request.finalize::<MF, M>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);
@@ -356,10 +365,12 @@ where
     }
 }
 
-impl<S, MF> Stream for DnsMultiplexer<S, MF>
+impl<S, MF, M> Stream for DnsMultiplexer<S, MF, M>
 where
     S: DnsClientStream + Unpin + 'static,
-    MF: MessageFinalizer + Send + Sync + 'static,
+    MF: MessageFinalizer<M> + Send + Sync + 'static,
+    DnsResponse<M>: TryFrom<Vec<u8>>,
+    <DnsResponse<M> as TryFrom<Vec<u8>>>::Error: Display,
 {
     type Item = Result<(), ProtoError>;
 
@@ -394,9 +405,9 @@ where
                                             .try_send(verifier(buffer.bytes())),
                                     );
                                 } else {
-                                    match buffer.to_message() {
+                                    match buffer.into_parts().0.try_into() {
                                         Ok(message) => ignore_send(
-                                            active_request.completion.try_send(Ok(message.into())),
+                                            active_request.completion.try_send(Ok(message)),
                                         ),
                                         Err(e) => debug!("error decoding message: {}", e),
                                     }
