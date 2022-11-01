@@ -7,6 +7,7 @@
 
 //! UDP based DNS client connection for Client impls
 
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,6 +17,9 @@ use crate::proto::udp::{UdpClientConnect, UdpClientStream};
 use crate::client::ClientConnection;
 use crate::client::Signer;
 use crate::error::*;
+use crate::op::Message;
+use crate::op::MessageFinalizer;
+use crate::proto::xfer::DnsRequestSender;
 
 use tokio::net::UdpSocket;
 
@@ -23,13 +27,14 @@ use tokio::net::UdpSocket;
 ///
 /// Use with `trust_dns_client::client::Client` impls
 #[derive(Clone, Copy)]
-pub struct UdpClientConnection {
+pub struct UdpClientConnection<M = Message> {
     name_server: SocketAddr,
     bind_addr: Option<SocketAddr>,
     timeout: Duration,
+    marker: PhantomData<M>,
 }
 
-impl UdpClientConnection {
+impl<M> UdpClientConnection<M> {
     /// Creates a new client connection. With a default timeout of 5 seconds
     ///
     /// # Arguments
@@ -60,13 +65,18 @@ impl UdpClientConnection {
             name_server,
             bind_addr,
             timeout,
+            marker: PhantomData,
         })
     }
 }
 
-impl ClientConnection for UdpClientConnection {
-    type Sender = UdpClientStream<UdpSocket, Signer>;
-    type SenderFuture = UdpClientConnect<UdpSocket, Signer>;
+impl<M: Send + Sync + Unpin + 'static> ClientConnection for UdpClientConnection<M>
+where
+    Signer: MessageFinalizer<M>,
+    UdpClientStream<tokio::net::UdpSocket, Signer, M>: DnsRequestSender,
+{
+    type Sender = UdpClientStream<UdpSocket, Signer, M>;
+    type SenderFuture = UdpClientConnect<UdpSocket, Signer, M>;
 
     fn new_stream(&self, signer: Option<Arc<Signer>>) -> Self::SenderFuture {
         UdpClientStream::with_timeout_and_signer_and_bind_addr(
