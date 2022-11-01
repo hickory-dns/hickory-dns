@@ -147,8 +147,11 @@ pub trait DnsRequestSender<M = Message>:
 
 /// Used for associating a name_server to a DnsRequestStreamHandle
 #[derive(Clone)]
-pub struct BufDnsRequestStreamHandle {
-    sender: mpsc::Sender<OneshotDnsRequest>,
+pub struct BufDnsRequestStreamHandle<M = Message>
+where
+    M: Clone,
+{
+    sender: mpsc::Sender<OneshotDnsRequest<M>>,
 }
 
 macro_rules! try_oneshot {
@@ -165,8 +168,8 @@ macro_rules! try_oneshot {
     };
 }
 
-impl DnsHandle for BufDnsRequestStreamHandle {
-    type Response = DnsResponseReceiver;
+impl<M: Clone + Send + 'static> DnsHandle<M> for BufDnsRequestStreamHandle<M> {
+    type Response = DnsResponseReceiver<M>;
     type Error = ProtoError;
 
     fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
