@@ -153,10 +153,14 @@ impl DnsHandle for AsyncClient {
     }
 }
 
-impl<T> ClientHandle for T where T: DnsHandle<Error = ProtoError> {}
+impl<T, M: Clone> ClientHandle<M> for T where T: DnsHandle<M, Error = ProtoError> {}
 
 /// A trait for implementing high level functions of DNS.
-pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
+pub trait ClientHandle<M = Message>:
+    'static + Clone + DnsHandle<M, Error = ProtoError> + Send
+where
+    M: Clone,
+{
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
@@ -172,7 +176,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         name: Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
         let mut options = DnsRequestOptions::default();
@@ -246,7 +250,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M>
     where
         R: Into<RecordSet>,
     {
@@ -328,7 +332,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         &mut self,
         rrset: R,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M>
     where
         R: Into<RecordSet>,
     {
@@ -377,7 +381,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         rrset: R,
         zone_origin: Name,
         must_exist: bool,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M>
     where
         R: Into<RecordSet>,
     {
@@ -433,7 +437,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         current: C,
         new: N,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M>
     where
         C: Into<RecordSet>,
         N: Into<RecordSet>,
@@ -486,7 +490,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         &mut self,
         rrset: R,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response>
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M>
     where
         R: Into<RecordSet>,
     {
@@ -534,7 +538,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         &mut self,
         record: Record,
         zone_origin: Name,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M> {
         assert!(zone_origin.zone_of(record.name()));
         let message = update_message::delete_rrset(record, zone_origin, self.is_using_edns());
 
@@ -570,7 +574,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         name_of_records: Name,
         zone_origin: Name,
         dns_class: DNSClass,
-    ) -> ClientResponse<<Self as DnsHandle>::Response> {
+    ) -> ClientResponse<<Self as DnsHandle<M>>::Response, M> {
         assert!(zone_origin.zone_of(&name_of_records));
         let message = update_message::delete_all(
             name_of_records,
@@ -594,7 +598,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
         &mut self,
         zone_origin: Name,
         last_soa: Option<SOA>,
-    ) -> ClientStreamXfr<<Self as DnsHandle>::Response> {
+    ) -> ClientStreamXfr<<Self as DnsHandle<M>>::Response, M> {
         let ixfr = last_soa.is_some();
         let message = update_message::zone_transfer(zone_origin, last_soa);
 
