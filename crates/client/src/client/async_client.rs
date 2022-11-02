@@ -1090,4 +1090,65 @@ mod tests {
 
         assert!(stream.next().await.is_none());
     }
+
+    #[tokio::test]
+    async fn async_client() {
+        use std::net::Ipv4Addr;
+        use std::str::FromStr;
+        use tokio::net::TcpStream as TokioTcpStream;
+        use crate::client::{AsyncClient, ClientHandle};
+        use crate::proto::iocompat::AsyncIoTokioAsStd;
+        use crate::rr::{DNSClass, Name, RData, RecordType};
+        use crate::tcp::TcpClientStream;
+
+        // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
+        let (stream, sender) =
+            TcpClientStream::<AsyncIoTokioAsStd<TokioTcpStream>>::new(([8, 8, 8, 8], 53).into());
+
+        // Create a new client, the bg is a background future which handles
+        //   the multiplexing of the DNS requests to the server.
+        //   the client is a handle to an unbounded queue for sending requests via the
+        //   background. The background must be scheduled to run before the client can
+        //   send any dns requests
+        let client = AsyncClient::new(stream, sender, None);
+
+        // await the connection to be established
+        let (mut client, bg) = client.await.expect("connection failed");
+
+        // make sure to run the background task
+        tokio::spawn(bg);
+
+        // Create a query future
+        let query1 = client.query(
+            Name::from_str("www.example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::A,
+        );
+
+        // wait for its response
+        let response1: DnsResponse<Message> = query1.await.unwrap();
+
+        // validate it's what we expected
+        if let Some(RData::A(addr)) = response1.answers()[0].data() {
+            assert_eq!(*addr, Ipv4Addr::new(93, 184, 216, 34));
+        }
+
+        /*
+        // Create a query future
+        let query2 = client.query(
+            Name::from_str("www.example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::A,
+        );
+
+        // wait for its response
+        let response2: DnsResponse<SerialMessage> = query1.await.unwrap();
+        let response2 = response2.to_message().unwrap();
+
+        // validate it's what we expected
+        if let Some(RData::A(addr)) = response2.answers()[0].data() {
+            assert_eq!(*addr, Ipv4Addr::new(93, 184, 216, 34));
+        }
+        */
+    }
 }
