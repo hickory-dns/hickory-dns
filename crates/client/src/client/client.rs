@@ -23,6 +23,7 @@ use trust_dns_proto::xfer::DnsRequest;
 use crate::client::async_client::ClientStreamXfr;
 use crate::client::{AsyncClient, ClientConnection, ClientHandle, Signer};
 use crate::error::*;
+use crate::op::Message;
 use crate::proto::{
     error::ProtoError,
     xfer::{DnsExchangeSend, DnsHandle, DnsResponse},
@@ -68,11 +69,17 @@ pub(crate) type NewFutureObj<H> = Pin<
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `AsyncClient` API).
 #[allow(unreachable_code)]
-pub trait Client {
+pub trait Client<M = Message>
+where
+    M: Clone,
+{
     /// The result stream that will resolve into a DnsResponse
-    type Response: Stream<Item = Result<DnsResponse, ProtoError>> + 'static + Send + Unpin;
+    type Response: Stream<Item = Result<DnsResponse<M>, ProtoError>> + 'static + Send + Unpin;
     /// The AsyncClient type used
-    type Handle: DnsHandle<Response = Self::Response, Error = ProtoError> + 'static + Send + Unpin;
+    type Handle: DnsHandle<M, Response = Self::Response, Error = ProtoError>
+        + 'static
+        + Send
+        + Unpin;
 
     /// Return the inner Futures items
     ///
@@ -99,7 +106,7 @@ pub trait Client {
     fn send<R: Into<DnsRequest> + Unpin + Send + 'static>(
         &self,
         msg: R,
-    ) -> Vec<ClientResult<DnsResponse>> {
+    ) -> Vec<ClientResult<DnsResponse<M>>> {
         let (mut client, runtime) = match self.spawn_client() {
             Ok(c_r) => c_r,
             Err(e) => return vec![Err(e)],
@@ -122,7 +129,7 @@ pub trait Client {
         name: &Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResult<DnsResponse> {
+    ) -> ClientResult<DnsResponse<M>> {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.query(name.clone(), query_class, query_type))
@@ -142,7 +149,7 @@ pub trait Client {
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
-    ) -> ClientResult<DnsResponse>
+    ) -> ClientResult<DnsResponse<M>>
     where
         R: Into<RecordSet>,
     {
@@ -184,7 +191,7 @@ pub trait Client {
     /// * `zone_origin` - the zone name to update, i.e. SOA name
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-    fn create<R>(&self, rrset: R, zone_origin: Name) -> ClientResult<DnsResponse>
+    fn create<R>(&self, rrset: R, zone_origin: Name) -> ClientResult<DnsResponse<M>>
     where
         R: Into<RecordSet>,
     {
@@ -227,7 +234,12 @@ pub trait Client {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-    fn append<R>(&self, rrset: R, zone_origin: Name, must_exist: bool) -> ClientResult<DnsResponse>
+    fn append<R>(
+        &self,
+        rrset: R,
+        zone_origin: Name,
+        must_exist: bool,
+    ) -> ClientResult<DnsResponse<M>>
     where
         R: Into<RecordSet>,
     {
@@ -282,7 +294,7 @@ pub trait Client {
         current: CR,
         new: NR,
         zone_origin: Name,
-    ) -> ClientResult<DnsResponse>
+    ) -> ClientResult<DnsResponse<M>>
     where
         CR: Into<RecordSet>,
         NR: Into<RecordSet>,
@@ -327,7 +339,7 @@ pub trait Client {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_by_rdata<R>(&self, record: R, zone_origin: Name) -> ClientResult<DnsResponse>
+    fn delete_by_rdata<R>(&self, record: R, zone_origin: Name) -> ClientResult<DnsResponse<M>>
     where
         R: Into<RecordSet>,
     {
@@ -371,7 +383,7 @@ pub trait Client {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
+    fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse<M>> {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.delete_rrset(record, zone_origin))
@@ -406,7 +418,7 @@ pub trait Client {
         name_of_records: Name,
         zone_origin: Name,
         dns_class: DNSClass,
-    ) -> ClientResult<DnsResponse> {
+    ) -> ClientResult<DnsResponse<M>> {
         let (mut client, runtime) = self.spawn_client()?;
 
         runtime.block_on(client.delete_all(name_of_records, zone_origin, dns_class))
@@ -423,7 +435,7 @@ pub trait Client {
         &self,
         name: &Name,
         last_soa: Option<SOA>,
-    ) -> ClientResult<BlockingStream<ClientStreamXfr<<Self as Client>::Response>>> {
+    ) -> ClientResult<BlockingStream<ClientStreamXfr<<Self as Client<M>>::Response, M>>> {
         let (mut client, runtime) = self.spawn_client()?;
 
         Ok(BlockingStream {
