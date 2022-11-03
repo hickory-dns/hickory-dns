@@ -17,6 +17,7 @@ use futures_util::stream::{Fuse, Peekable, Stream, StreamExt};
 use tracing::{debug, warn};
 
 use crate::error::*;
+use crate::op::Message;
 use crate::Time;
 
 mod dns_exchange;
@@ -125,13 +126,15 @@ impl DnsStreamHandle for BufDnsStreamHandle {
 /// The underlying Stream implementation should yield `Some(())` whenever it is ready to send a message,
 ///   NotReady, if it is not ready to send a message, and `Err` or `None` in the case that the stream is
 ///   done, and should be shutdown.
-pub trait DnsRequestSender: Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static {
+pub trait DnsRequestSender<M = Message>:
+    Stream<Item = Result<(), ProtoError>> + Send + Unpin + 'static
+{
     /// Send a message, and return a stream of response
     ///
     /// # Return
     ///
     /// A stream which will resolve to SerialMessage responses
-    fn send_message(&mut self, message: DnsRequest) -> DnsResponseStream;
+    fn send_message(&mut self, message: DnsRequest) -> DnsResponseStream<M>;
 
     /// Allows the upstream user to inform the underling stream that it should shutdown.
     ///
