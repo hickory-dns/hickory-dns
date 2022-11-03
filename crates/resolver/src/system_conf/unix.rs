@@ -90,7 +90,7 @@ fn into_resolver_config(
     // search
     let mut search = vec![];
     for search_domain in parsed_config.get_last_search_or_domain() {
-        search.push(Name::from_str_relaxed(&search_domain).map_err(|e| {
+        search.push(Name::from_str_relaxed(search_domain).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
                 format!("Error parsing resolv.conf: {}", e),

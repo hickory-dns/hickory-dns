@@ -355,7 +355,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_result(lookup);
     } else {
         let duration = Duration::from_secs_f32(opts.interval);
-        let fd = File::open(&opts.inputfile.as_ref().unwrap())?;
+        let fd = File::open(opts.inputfile.as_ref().unwrap())?;
         let reader = BufReader::new(fd);
         let mut taskset = JoinSet::new();
         let mut timer = tokio::time::interval(duration);
