@@ -608,15 +608,15 @@ where
 
 /// A stream result of a Client Request
 #[must_use = "stream do nothing unless polled"]
-pub struct ClientStreamingResponse<R>(pub(crate) R)
+pub struct ClientStreamingResponse<R, M = Message>(pub(crate) R)
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    R: Stream<Item = Result<DnsResponse<M>, ProtoError>> + Send + Unpin + 'static;
 
-impl<R> Stream for ClientStreamingResponse<R>
+impl<R, M> Stream for ClientStreamingResponse<R, M>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse<M>, ProtoError>> + Send + Unpin + 'static,
 {
-    type Item = Result<DnsResponse, ClientError>;
+    type Item = Result<DnsResponse<M>, ClientError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         Poll::Ready(ready!(self.0.poll_next_unpin(cx)).map(|r| r.map_err(ClientError::from)))
