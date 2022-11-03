@@ -129,27 +129,27 @@ impl<M: Clone> Stream for DnsExchangeSend<M> {
 ///
 /// It must be spawned before any DNS messages are sent.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeBackground<S, TE>
+pub struct DnsExchangeBackground<S, TE, M = Message>
 where
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender<M> + 'static + Send + Unpin,
 {
     io_stream: S,
-    outbound_messages: Peekable<mpsc::Receiver<OneshotDnsRequest>>,
+    outbound_messages: Peekable<mpsc::Receiver<OneshotDnsRequest<M>>>,
     marker: PhantomData<TE>,
 }
 
-impl<S, TE> DnsExchangeBackground<S, TE>
+impl<S, TE, M> DnsExchangeBackground<S, TE, M>
 where
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender<M> + 'static + Send + Unpin,
 {
-    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<mpsc::Receiver<OneshotDnsRequest>>) {
+    fn pollable_split(&mut self) -> (&mut S, &mut Peekable<mpsc::Receiver<OneshotDnsRequest<M>>>) {
         (&mut self.io_stream, &mut self.outbound_messages)
     }
 }
 
-impl<S, TE> Future for DnsExchangeBackground<S, TE>
+impl<S, TE, M> Future for DnsExchangeBackground<S, TE, M>
 where
-    S: DnsRequestSender + 'static + Send + Unpin,
+    S: DnsRequestSender<M> + 'static + Send + Unpin,
     TE: Time + Unpin,
 {
     type Output = Result<(), ProtoError>;
