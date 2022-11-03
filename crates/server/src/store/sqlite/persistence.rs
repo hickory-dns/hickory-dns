@@ -94,7 +94,7 @@ impl Journal {
                                             record)
                                           \
                                             VALUES ($1, $2, $3, $4)",
-            &[
+            [
                 &client_id as &dyn ToSql,
                 &soa_serial,
                 &timestamp,
@@ -150,23 +150,20 @@ impl Journal {
         )?;
 
         let record_opt: Option<Result<(i64, Record), rusqlite::Error>> = stmt
-            .query_and_then(
-                &[&row_id],
-                |row| -> Result<(i64, Record), rusqlite::Error> {
-                    let row_id: i64 = row.get(0)?;
-                    let record_bytes: Vec<u8> = row.get(1)?;
-                    let mut decoder = BinDecoder::new(&record_bytes);
+            .query_and_then([&row_id], |row| -> Result<(i64, Record), rusqlite::Error> {
+                let row_id: i64 = row.get(0)?;
+                let record_bytes: Vec<u8> = row.get(1)?;
+                let mut decoder = BinDecoder::new(&record_bytes);
 
-                    // todo add location to this...
-                    match Record::read(&mut decoder) {
-                        Ok(record) => Ok((row_id, record)),
-                        Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!(
-                            "could not decode: {}",
-                            decode_error
-                        ))),
-                    }
-                },
-            )?
+                // todo add location to this...
+                match Record::read(&mut decoder) {
+                    Ok(record) => Ok((row_id, record)),
+                    Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!(
+                        "could not decode: {}",
+                        decode_error
+                    ))),
+                }
+            })?
             .next();
 
         //
@@ -226,7 +223,7 @@ impl Journal {
             .conn
             .lock()
             .expect("conn poisoned")
-            .execute("UPDATE tdns_schema SET version = $1", &[&new_version])?;
+            .execute("UPDATE tdns_schema SET version = $1", [&new_version])?;
 
         //
         assert_eq!(count, 1);

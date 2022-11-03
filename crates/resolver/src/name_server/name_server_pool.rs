@@ -402,6 +402,7 @@ mod mdns {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum Local {
     #[allow(dead_code)]
     ResolveStream(Pin<Box<dyn Stream<Item = Result<DnsResponse, ResolveError>> + Send>>),

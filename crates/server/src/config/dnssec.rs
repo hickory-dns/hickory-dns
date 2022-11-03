@@ -280,7 +280,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<SigSigner, String
     let key: KeyPair<Private> = {
         info!("reading key: {:?}", key_path);
 
-        let mut file = File::open(&key_path)
+        let mut file = File::open(key_path)
             .map_err(|e| format!("error opening private key file: {:?}: {}", key_path, e))?;
 
         let mut key_bytes = Vec::with_capacity(256);
