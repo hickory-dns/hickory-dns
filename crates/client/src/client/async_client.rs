@@ -646,16 +646,16 @@ where
 /// Accept messages until the end of a zone transfer. For AXFR, it search for a starting and an
 /// ending SOA. For IXFR, it do so taking into account there will be other SOA inbetween
 #[must_use = "stream do nothing unless polled"]
-pub struct ClientStreamXfr<R>
+pub struct ClientStreamXfr<R, M = Message>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse<M>, ProtoError>> + Send + Unpin + 'static,
 {
     state: ClientStreamXfrState<R>,
 }
 
-impl<R> ClientStreamXfr<R>
+impl<R, M> ClientStreamXfr<R, M>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse<M>, ProtoError>> + Send + Unpin + 'static,
 {
     fn new(inner: R, maybe_incr: bool) -> Self {
         Self {
