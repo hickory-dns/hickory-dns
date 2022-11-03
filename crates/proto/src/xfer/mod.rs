@@ -215,10 +215,13 @@ impl OneshotDnsRequest {
     }
 }
 
-struct OneshotDnsResponse(oneshot::Sender<DnsResponseStream>);
+struct OneshotDnsResponse<M = Message>(oneshot::Sender<DnsResponseStream<M>>);
 
-impl OneshotDnsResponse {
-    fn send_response(self, serial_response: DnsResponseStream) -> Result<(), DnsResponseStream> {
+impl<M> OneshotDnsResponse<M> {
+    fn send_response(
+        self,
+        serial_response: DnsResponseStream<M>,
+    ) -> Result<(), DnsResponseStream<M>> {
         self.0.send(serial_response)
     }
 }
