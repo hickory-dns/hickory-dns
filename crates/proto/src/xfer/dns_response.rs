@@ -127,7 +127,7 @@ type TimeoutFuture = Pin<
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.
 #[derive(Clone, Debug)]
-pub struct DnsResponse(Message);
+pub struct DnsResponse<M = Message>(M);
 
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
@@ -279,22 +279,24 @@ impl DnsResponse {
             _ => None,
         }
     }
+}
 
+impl<M> DnsResponse<M> {
     /// Take the inner Message from the response
-    pub fn into_inner(self) -> Message {
+    pub fn into_inner(self) -> M {
         self.0
     }
 }
 
-impl Deref for DnsResponse {
-    type Target = Message;
+impl<M> Deref for DnsResponse<M> {
+    type Target = M;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for DnsResponse {
+impl<M> DerefMut for DnsResponse<M> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
