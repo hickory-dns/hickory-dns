@@ -189,13 +189,13 @@ impl DnsHandle for BufDnsRequestStreamHandle {
 
 // TODO: this future should return the origin message in the response on errors
 /// A OneshotDnsRequest creates a channel for a response to message
-pub struct OneshotDnsRequest {
+pub struct OneshotDnsRequest<M = Message> {
     dns_request: DnsRequest,
-    sender_for_response: oneshot::Sender<DnsResponseStream>,
+    sender_for_response: oneshot::Sender<DnsResponseStream<M>>,
 }
 
-impl OneshotDnsRequest {
-    fn oneshot(dns_request: DnsRequest) -> (Self, oneshot::Receiver<DnsResponseStream>) {
+impl<M> OneshotDnsRequest<M> {
+    fn oneshot(dns_request: DnsRequest) -> (Self, oneshot::Receiver<DnsResponseStream<M>>) {
         let (sender_for_response, receiver) = oneshot::channel();
 
         (
@@ -207,7 +207,7 @@ impl OneshotDnsRequest {
         )
     }
 
-    fn into_parts(self) -> (DnsRequest, OneshotDnsResponse) {
+    fn into_parts(self) -> (DnsRequest, OneshotDnsResponse<M>) {
         (
             self.dns_request,
             OneshotDnsResponse(self.sender_for_response),
