@@ -117,8 +117,10 @@ enum DnsResponseStreamInner {
     Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
 }
 
-type TimeoutFuture = Pin<
-    Box<dyn Future<Output = Result<Result<DnsResponse, ProtoError>, io::Error>> + Send + 'static>,
+type TimeoutFuture<M = Message> = Pin<
+    Box<
+        dyn Future<Output = Result<Result<DnsResponse<M>, ProtoError>, io::Error>> + Send + 'static,
+    >,
 >;
 
 // TODO: this needs to have the IP addr of the remote system...
