@@ -262,7 +262,7 @@ mod tests {
 
         assert!(question.signature().is_empty());
         question
-            .finalize(&signer, time_begin as u32)
+            .finalize::<TSigner, Message>(&signer, time_begin as u32)
             .expect("should have signed");
         assert!(!question.signature().is_empty());
 
@@ -292,7 +292,7 @@ mod tests {
 
         assert!(question.signature().is_empty());
         question
-            .finalize(&signer, time_begin as u32)
+            .finalize::<TSigner, Message>(&signer, time_begin as u32)
             .expect("should have signed");
         assert!(!question.signature().is_empty());
 

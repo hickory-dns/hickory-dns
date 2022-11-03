@@ -12,6 +12,7 @@ use crate::op::Message;
 use std::convert::TryInto;
 
 /// A DNS message in serialized form, with either the target address or source address
+#[derive(Clone)]
 pub struct SerialMessage {
     // TODO: change to Bytes? this would be more compatible with some underlying libraries
     message: Vec<u8>,

@@ -324,6 +324,14 @@ impl TryFrom<Vec<u8>> for DnsResponse {
     }
 }
 
+impl TryFrom<Vec<u8>> for DnsResponse<Vec<u8>> {
+    type Error = ProtoError;
+    fn try_from(buffer: Vec<u8>) -> Result<Self, ProtoError> {
+        Message::from_vec(&buffer)?;
+        Ok(Self(buffer))
+    }
+}
+
 /// ```text
 /// [RFC 2308](https://tools.ietf.org/html/rfc2308#section-2) DNS NCACHE March 1998
 ///

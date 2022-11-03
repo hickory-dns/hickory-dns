@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::borrow::Borrow;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::{self, Display};
 use std::marker::PhantomData;
 use std::net::SocketAddr;
@@ -196,7 +197,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
 
         S::Time::timeout::<Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>>(
             self.timeout,
-            Box::pin(send_serial_message::<S>(
+            Box::pin(send_serial_message::<S, Message>(
                 message, message_id, verifier, bind_addr,
             )),
         )
@@ -255,12 +256,15 @@ impl<S: Send + Unpin, MF: MessageFinalizer> Future for UdpClientConnect<S, MF> {
     }
 }
 
-async fn send_serial_message<S: UdpSocket + Send>(
+async fn send_serial_message<S: UdpSocket + Send, M>(
     msg: SerialMessage,
     msg_id: u16,
-    verifier: Option<MessageVerifier>,
+    verifier: Option<MessageVerifier<M>>,
     bind_addr: Option<SocketAddr>,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse<M>, ProtoError>
+where
+    DnsResponse<M>: TryFrom<Vec<u8>, Error = ProtoError>,
+{
     let name_server = msg.addr();
     let socket: S = NextRandomUdpSocket::new(&name_server, &bind_addr).await?;
     let bytes = msg.bytes();
@@ -301,13 +305,13 @@ async fn send_serial_message<S: UdpSocket + Send>(
 
         if let Some(response_id) = response.id() {
             if response_id == msg_id {
-                match response.to_message() {
-                    Ok(message) => {
+                match response.bytes().to_vec().try_into() {
+                    Ok(dns_response) => {
                         debug!("received message id: {}", msg_id);
                         if let Some(mut verifier) = verifier {
                             return verifier(response.bytes());
                         } else {
-                            return Ok(DnsResponse::from(message));
+                            return Ok(dns_response);
                         }
                     }
                     Err(e) => {
