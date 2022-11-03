@@ -110,11 +110,11 @@ where
     }
 }
 
-enum DnsResponseStreamInner {
-    Timeout(TimeoutFuture),
-    Receiver(mpsc::Receiver<ProtoResult<DnsResponse>>),
+enum DnsResponseStreamInner<M = Message> {
+    Timeout(TimeoutFuture<M>),
+    Receiver(mpsc::Receiver<ProtoResult<DnsResponse<M>>>),
     Error(Option<ProtoError>),
-    Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>),
+    Boxed(Pin<Box<dyn Future<Output = Result<DnsResponse<M>, ProtoError>> + Send>>),
 }
 
 type TimeoutFuture<M = Message> = Pin<
