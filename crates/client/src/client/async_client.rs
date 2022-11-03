@@ -621,15 +621,15 @@ where
 
 /// A future result of a Client Request
 #[must_use = "futures do nothing unless polled"]
-pub struct ClientResponse<R>(pub(crate) R)
+pub struct ClientResponse<R, M = Message>(pub(crate) R)
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static;
+    R: Stream<Item = Result<DnsResponse<M>, ProtoError>> + Send + Unpin + 'static;
 
-impl<R> Future for ClientResponse<R>
+impl<R, M> Future for ClientResponse<R, M>
 where
-    R: Stream<Item = Result<DnsResponse, ProtoError>> + Send + Unpin + 'static,
+    R: Stream<Item = Result<DnsResponse<M>, ProtoError>> + Send + Unpin + 'static,
 {
-    type Output = Result<DnsResponse, ClientError>;
+    type Output = Result<DnsResponse<M>, ClientError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         Poll::Ready(
