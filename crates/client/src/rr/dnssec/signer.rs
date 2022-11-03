@@ -512,13 +512,13 @@ impl SigSigner {
     }
 }
 
-impl MessageFinalizer for SigSigner {
+impl<M> MessageFinalizer<M> for SigSigner {
     #[cfg(feature = "dnssec")]
     fn finalize_message(
         &self,
         message: &Message,
         current_time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier<M>>)> {
         debug!("signing message: {:?}", message);
         let key_tag: u16 = self.calculate_key_tag()?;
 
@@ -571,7 +571,7 @@ impl MessageFinalizer for SigSigner {
         &self,
         _: &Message,
         _: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier<M>>)> {
         Err(
             ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
                 .into(),
@@ -646,7 +646,9 @@ mod tests {
 
         // now test that the sig0 record works correctly.
         assert!(question.sig0().is_empty());
-        question.finalize(&signer, 0).expect("should have signed");
+        question
+            .finalize::<signer::SigSigner, Message>(&signer, 0)
+            .expect("should have signed");
         assert!(!question.sig0().is_empty());
 
         let sig = signer.sign_message(&question, &pre_sig0);

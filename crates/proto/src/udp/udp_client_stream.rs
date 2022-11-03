@@ -19,7 +19,7 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
-use crate::op::{MessageFinalizer, MessageVerifier};
+use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 use crate::Time;
@@ -166,7 +166,7 @@ impl<S: UdpSocket + Send + 'static, MF: MessageFinalizer> DnsRequestSender
         let mut verifier = None;
         if let Some(ref signer) = self.signer {
             if signer.should_finalize_message(&message) {
-                match message.finalize::<MF>(signer.borrow(), now) {
+                match message.finalize::<MF, Message>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);

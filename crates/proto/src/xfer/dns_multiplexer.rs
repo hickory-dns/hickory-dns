@@ -25,7 +25,7 @@ use rand::distributions::{Distribution, Standard};
 use tracing::{debug, warn};
 
 use crate::error::*;
-use crate::op::{MessageFinalizer, MessageVerifier};
+use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::xfer::{
     ignore_send, BufDnsStreamHandle, DnsClientStream, DnsRequest, DnsRequestSender, DnsResponse,
     DnsResponseStream, SerialMessage, CHANNEL_BUFFER_SIZE,
@@ -293,7 +293,7 @@ where
         let mut verifier = None;
         if let Some(ref signer) = self.signer {
             if signer.should_finalize_message(&request) {
-                match request.finalize::<MF>(signer.borrow(), now) {
+                match request.finalize::<MF, Message>(signer.borrow(), now) {
                     Ok(answer_verifier) => verifier = answer_verifier,
                     Err(e) => {
                         debug!("could not sign message: {}", e);

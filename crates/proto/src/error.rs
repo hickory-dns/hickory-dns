@@ -9,6 +9,7 @@
 
 #![deny(missing_docs)]
 
+use std::convert::Infallible;
 use std::{fmt, io, sync};
 
 #[cfg(not(feature = "openssl"))]
@@ -346,6 +347,12 @@ where
             #[cfg(feature = "backtrace")]
             backtrack: trace!(),
         }
+    }
+}
+
+impl From<Infallible> for ProtoError {
+    fn from(_: Infallible) -> Self {
+        unreachable!();
     }
 }
 

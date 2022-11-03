@@ -20,6 +20,8 @@ use crate::proto::rr::dnssec::rdata::tsig::{
     make_tsig_record, message_tbs, signed_bitmessage_to_buf, TsigAlgorithm, TSIG,
 };
 use crate::proto::rr::dnssec::rdata::DNSSECRData;
+use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -176,12 +178,16 @@ impl TSigner {
     }
 }
 
-impl MessageFinalizer for TSigner {
+impl<M> MessageFinalizer<M> for TSigner
+where
+    DnsResponse<M>: TryFrom<Vec<u8>>,
+    <DnsResponse<M> as TryFrom<Vec<u8>>>::Error: Into<ProtoError>,
+{
     fn finalize_message(
         &self,
         message: &Message,
         current_time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier<M>>)> {
         debug!("signing message: {:?}", message);
         let current_time = current_time as u64;
 
@@ -212,7 +218,7 @@ impl MessageFinalizer for TSigner {
             {
                 signature = last_sig;
                 remote_time = rt;
-                Message::from_vec(dns_response).map(DnsResponse::from)
+                dns_response.to_vec().try_into().map_err(Into::into)
             } else {
                 Err(ProtoError::from("tsig validation error: outdated response"))
             }

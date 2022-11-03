@@ -7,6 +7,7 @@
 
 //! `DnsResponse` wraps a `Message` and any associated connection details
 
+use std::convert::TryFrom;
 use std::future::Future;
 use std::io;
 use std::ops::{Deref, DerefMut};
@@ -313,6 +314,13 @@ impl From<DnsResponse> for Message {
 impl From<Message> for DnsResponse {
     fn from(message: Message) -> Self {
         Self(message)
+    }
+}
+
+impl TryFrom<Vec<u8>> for DnsResponse {
+    type Error = ProtoError;
+    fn try_from(buffer: Vec<u8>) -> Result<Self, Self::Error> {
+        Ok(Self(Message::from_vec(&buffer)?))
     }
 }
 

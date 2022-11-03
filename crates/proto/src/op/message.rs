@@ -734,13 +734,13 @@ impl Message {
     ///
     /// Subsequent to calling this, the Message should not change.
     #[allow(clippy::match_single_binding)]
-    pub fn finalize<MF: MessageFinalizer>(
+    pub fn finalize<MF: MessageFinalizer<M>, M>(
         &mut self,
         finalizer: &MF,
         inception_time: u32,
-    ) -> ProtoResult<Option<MessageVerifier>> {
+    ) -> ProtoResult<Option<MessageVerifier<M>>> {
         debug!("finalizing message: {:?}", self);
-        let (finals, verifier): (Vec<Record>, Option<MessageVerifier>) =
+        let (finals, verifier): (Vec<Record>, Option<MessageVerifier<M>>) =
             finalizer.finalize_message(self, inception_time)?;
 
         // append all records to message
@@ -853,7 +853,7 @@ pub type MessageVerifier<M = Message> = Box<dyn FnMut(&[u8]) -> ProtoResult<DnsR
 ///
 /// An example of this is a SIG0 signer, which needs the final form of the message,
 ///  but then needs to attach additional data to the body of the message.
-pub trait MessageFinalizer: Send + Sync + 'static {
+pub trait MessageFinalizer<M = Message>: Send + Sync + 'static {
     /// The message taken in should be processed and then return [`Record`]s which should be
     ///  appended to the additional section of the message.
     ///
@@ -869,7 +869,7 @@ pub trait MessageFinalizer: Send + Sync + 'static {
         &self,
         message: &Message,
         current_time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)>;
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier<M>>)>;
 
     /// Return whether the message requires further processing before being sent
     /// By default, returns true for AXFR and IXFR queries, and Update and Notify messages
@@ -895,12 +895,12 @@ impl NoopMessageFinalizer {
     }
 }
 
-impl MessageFinalizer for NoopMessageFinalizer {
+impl<M> MessageFinalizer<M> for NoopMessageFinalizer {
     fn finalize_message(
         &self,
         _: &Message,
         _: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier<M>>)> {
         panic!("Misused NoopMessageFinalizer, None should be used instead")
     }
 

@@ -13,12 +13,13 @@
 // limitations under the License.
 
 //! Trait for client connections
+use std::convert::TryFrom;
 use std::future::Future;
 use std::sync::Arc;
 
 use trust_dns_proto::{error::ProtoError, xfer::DnsRequestSender};
 
-use crate::op::{MessageFinalizer, MessageVerifier};
+use crate::op::{DnsResponse, MessageFinalizer, MessageVerifier};
 #[cfg(feature = "dnssec")]
 #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
 use crate::rr::dnssec::tsig::TSigner;
@@ -59,13 +60,17 @@ impl From<TSigner> for Signer {
     }
 }
 
-impl MessageFinalizer for Signer {
+impl<M> MessageFinalizer<M> for Signer
+where
+    DnsResponse<M>: TryFrom<Vec<u8>>,
+    <DnsResponse<M> as TryFrom<Vec<u8>>>::Error: Into<ProtoError>,
+{
     #[allow(unreachable_patterns, unused_variables)]
     fn finalize_message(
         &self,
         message: &Message,
         time: u32,
-    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<MessageVerifier<M>>)> {
         match self {
             #[cfg(feature = "dnssec")]
             #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
