@@ -35,20 +35,20 @@ use crate::Time;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
-struct ActiveRequest {
+struct ActiveRequest<M = Message> {
     // the completion is the channel for a response to the original request
-    completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
+    completion: mpsc::Sender<Result<DnsResponse<M>, ProtoError>>,
     request_id: u16,
     timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
-    verifier: Option<MessageVerifier>,
+    verifier: Option<MessageVerifier<M>>,
 }
 
-impl ActiveRequest {
+impl<M> ActiveRequest<M> {
     fn new(
-        completion: mpsc::Sender<Result<DnsResponse, ProtoError>>,
+        completion: mpsc::Sender<Result<DnsResponse<M>, ProtoError>>,
         request_id: u16,
         timeout: Box<dyn Future<Output = ()> + Send + Unpin>,
-        verifier: Option<MessageVerifier>,
+        verifier: Option<MessageVerifier<M>>,
     ) -> Self {
         Self {
             completion,
