@@ -19,6 +19,7 @@ use tracing::{debug, warn};
 use crate::error::*;
 use crate::xfer::dns_handle::DnsHandle;
 use crate::xfer::DnsResponseReceiver;
+use crate::xfer::Message;
 use crate::xfer::{
     BufDnsRequestStreamHandle, DnsRequest, DnsRequestSender, DnsResponse, OneshotDnsRequest,
     CHANNEL_BUFFER_SIZE,
@@ -107,13 +108,16 @@ impl DnsHandle for DnsExchange {
 
 /// A Stream that will resolve to Responses after sending the request
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsExchangeSend {
-    result: DnsResponseReceiver,
-    _sender: BufDnsRequestStreamHandle,
+pub struct DnsExchangeSend<M = Message>
+where
+    M: Clone,
+{
+    result: DnsResponseReceiver<M>,
+    _sender: BufDnsRequestStreamHandle<M>,
 }
 
-impl Stream for DnsExchangeSend {
-    type Item = Result<DnsResponse, ProtoError>;
+impl<M: Clone> Stream for DnsExchangeSend<M> {
+    type Item = Result<DnsResponse<M>, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // as long as there is no result, poll the exchange
