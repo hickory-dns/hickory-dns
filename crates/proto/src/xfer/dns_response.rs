@@ -22,19 +22,19 @@ use crate::op::{Message, ResponseCode};
 use crate::rr::{RData, Record, RecordType};
 
 /// A stream returning DNS responses
-pub struct DnsResponseStream {
-    inner: DnsResponseStreamInner,
+pub struct DnsResponseStream<M = Message> {
+    inner: DnsResponseStreamInner<M>,
     done: bool,
 }
 
-impl DnsResponseStream {
-    fn new(inner: DnsResponseStreamInner) -> Self {
+impl<M> DnsResponseStream<M> {
+    fn new(inner: DnsResponseStreamInner<M>) -> Self {
         Self { inner, done: false }
     }
 }
 
-impl Stream for DnsResponseStream {
-    type Item = Result<DnsResponse, ProtoError>;
+impl<M> Stream for DnsResponseStream<M> {
+    type Item = Result<DnsResponse<M>, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         use DnsResponseStreamInner::*;
@@ -81,31 +81,31 @@ impl Stream for DnsResponseStream {
     }
 }
 
-impl From<TimeoutFuture> for DnsResponseStream {
-    fn from(f: TimeoutFuture) -> Self {
+impl<M> From<TimeoutFuture<M>> for DnsResponseStream<M> {
+    fn from(f: TimeoutFuture<M>) -> Self {
         Self::new(DnsResponseStreamInner::Timeout(f))
     }
 }
 
-impl From<mpsc::Receiver<ProtoResult<DnsResponse>>> for DnsResponseStream {
-    fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse>>) -> Self {
+impl<M> From<mpsc::Receiver<ProtoResult<DnsResponse<M>>>> for DnsResponseStream<M> {
+    fn from(receiver: mpsc::Receiver<ProtoResult<DnsResponse<M>>>) -> Self {
         Self::new(DnsResponseStreamInner::Receiver(receiver))
     }
 }
 
-impl From<ProtoError> for DnsResponseStream {
+impl<M> From<ProtoError> for DnsResponseStream<M> {
     fn from(e: ProtoError) -> Self {
         Self::new(DnsResponseStreamInner::Error(Some(e)))
     }
 }
 
-impl<F> From<Pin<Box<F>>> for DnsResponseStream
+impl<F, M> From<Pin<Box<F>>> for DnsResponseStream<M>
 where
-    F: Future<Output = Result<DnsResponse, ProtoError>> + Send + 'static,
+    F: Future<Output = Result<DnsResponse<M>, ProtoError>> + Send + 'static,
 {
     fn from(f: Pin<Box<F>>) -> Self {
         Self::new(DnsResponseStreamInner::Boxed(
-            f as Pin<Box<dyn Future<Output = Result<DnsResponse, ProtoError>> + Send>>,
+            f as Pin<Box<dyn Future<Output = Result<DnsResponse<M>, ProtoError>> + Send>>,
         ))
     }
 }
