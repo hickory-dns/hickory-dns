@@ -227,17 +227,17 @@ impl<M> OneshotDnsResponse<M> {
 }
 
 /// A Stream that wraps a oneshot::Receiver<Stream> and resolves to items in the inner Stream
-pub enum DnsResponseReceiver {
+pub enum DnsResponseReceiver<M = Message> {
     /// The receiver
-    Receiver(oneshot::Receiver<DnsResponseStream>),
+    Receiver(oneshot::Receiver<DnsResponseStream<M>>),
     /// The stream once received
-    Received(DnsResponseStream),
+    Received(DnsResponseStream<M>),
     /// Error during the send operation
     Err(Option<ProtoError>),
 }
 
-impl Stream for DnsResponseReceiver {
-    type Item = Result<DnsResponse, ProtoError>;
+impl<M> Stream for DnsResponseReceiver<M> {
+    type Item = Result<DnsResponse<M>, ProtoError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         loop {
