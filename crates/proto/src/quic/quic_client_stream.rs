@@ -15,7 +15,7 @@ use std::{
 };
 
 use futures_util::{future::FutureExt, stream::Stream};
-use quinn::{ClientConfig, Connection, Endpoint, NewConnection, OpenBi, TransportConfig, VarInt};
+use quinn::{ClientConfig, Connection, Endpoint, TransportConfig, VarInt};
 use rustls::{version::TLS13, ClientConfig as TlsClientConfig};
 
 use crate::{
@@ -52,8 +52,11 @@ impl QuicClientStream {
         QuicClientStreamBuilder::default()
     }
 
-    async fn inner_send(stream: OpenBi, message: DnsRequest) -> Result<DnsResponse, ProtoError> {
-        let (send_stream, recv_stream) = stream.await?;
+    async fn inner_send(
+        connection: Connection,
+        message: DnsRequest,
+    ) -> Result<DnsResponse, ProtoError> {
+        let (send_stream, recv_stream) = connection.open_bi().await?;
 
         // RFC: The mapping specified here requires that the client selects a separate
         //  QUIC stream for each query. The server then uses the same stream to provide all the response messages for that query.
@@ -115,9 +118,7 @@ impl DnsRequestSender for QuicClientStream {
             panic!("can not send messages after stream is shutdown")
         }
 
-        let connection = self.quic_connection.open_bi();
-
-        Box::pin(Self::inner_send(connection, message)).into()
+        Box::pin(Self::inner_send(self.quic_connection.clone(), message)).into()
     }
 
     fn shutdown(&mut self) {
@@ -189,7 +190,7 @@ impl QuicClientStreamBuilder {
         let socket = socket.into_std()?;
 
         let endpoint_config = quic_config::endpoint();
-        let (mut endpoint, _incoming) = Endpoint::new(endpoint_config, None, socket)?;
+        let mut endpoint = Endpoint::new(endpoint_config, None, socket, quinn::TokioRuntime)?;
 
         // ensure the ALPN protocol is set correctly
         let mut crypto_config = self.crypto_config;
@@ -199,14 +200,14 @@ impl QuicClientStreamBuilder {
         let early_data_enabled = crypto_config.enable_early_data;
 
         let mut client_config = ClientConfig::new(Arc::new(crypto_config));
-        client_config.transport = self.transport_config;
+        client_config.transport_config(self.transport_config.clone());
 
         endpoint.set_default_client_config(client_config);
 
         let connecting = endpoint.connect(name_server, &dns_name)?;
         // TODO: for Client/Dynamic update, don't use RTT, for queries, do use it.
 
-        let connection = if early_data_enabled {
+        let quic_connection = if early_data_enabled {
             match connecting.into_0rtt() {
                 Ok((new_connection, _)) => new_connection,
                 Err(connecting) => connecting.await?,
@@ -214,10 +215,6 @@ impl QuicClientStreamBuilder {
         } else {
             connecting.await?
         };
-        let NewConnection {
-            connection: quic_connection,
-            ..
-        } = connection;
 
         Ok(QuicClientStream {
             quic_connection,
