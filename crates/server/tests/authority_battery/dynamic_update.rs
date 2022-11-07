@@ -29,7 +29,9 @@ fn update_authority<A: Authority<Lookup = AuthLookup>>(
     key: &SigSigner,
     authority: &mut A,
 ) -> UpdateResult<bool> {
-    message.finalize(key, 1).expect("failed to sign message");
+    message
+        .finalize::<SigSigner, Message>(key, 1)
+        .expect("failed to sign message");
     let message = message.to_bytes().unwrap();
     let request = MessageRequest::from_bytes(&message).unwrap();
 
