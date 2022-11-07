@@ -1093,13 +1093,13 @@ mod tests {
 
     #[tokio::test]
     async fn async_client() {
-        use std::net::Ipv4Addr;
-        use std::str::FromStr;
-        use tokio::net::TcpStream as TokioTcpStream;
         use crate::client::{AsyncClient, ClientHandle};
         use crate::proto::iocompat::AsyncIoTokioAsStd;
         use crate::rr::{DNSClass, Name, RData, RecordType};
         use crate::tcp::TcpClientStream;
+        use std::net::Ipv4Addr;
+        use std::str::FromStr;
+        use tokio::net::TcpStream as TokioTcpStream;
 
         // Since we used UDP in the previous examples, let's change things up a bit and use TCP here
         let (stream, sender) =
