@@ -43,6 +43,9 @@ lazy_static! {
             .unwrap()
             .with_root_certificates(root_store)
             .with_no_client_auth();
+        
+        // the port (853) of dot is for dns dedicated, sni is unnecessary. (ISP block by the SNI name)
+        client_config.enable_sni = false;
 
         client_config.alpn_protocols.push(ALPN_H2.to_vec());
 
