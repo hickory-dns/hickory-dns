@@ -386,12 +386,8 @@ where
                             found_name = true;
                             return Some((r, ttl));
                         }
-                        // CNAME evaluation, it's an A/AAAA lookup and the record is from the CNAME lookup chain.
-                        if client.preserve_intermediates
-                            && r.rr_type() == RecordType::CNAME
-                            && (query.query_type() == RecordType::A
-                                || query.query_type() == RecordType::AAAA)
-                        {
+                        // CNAME evaluation, the record is from the CNAME lookup chain.
+                        if client.preserve_intermediates && r.rr_type() == RecordType::CNAME {
                             return Some((r, ttl));
                         }
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
