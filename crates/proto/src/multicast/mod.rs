@@ -7,10 +7,14 @@
 
 //! Multicast protocol related components for DNS
 
+#[cfg(feature = "tokio-runtime")]
 mod mdns_client_stream;
+#[cfg(feature = "tokio-runtime")]
 mod mdns_stream;
 
+#[cfg(feature = "tokio-runtime")]
 pub use self::mdns_client_stream::{MdnsClientConnect, MdnsClientStream};
+#[cfg(feature = "tokio-runtime")]
 pub use self::mdns_stream::{MdnsStream, MDNS_IPV4, MDNS_IPV6};
 
 /// See [rfc6762](https://tools.ietf.org/html/rfc6762#section-5) details on these different types.
