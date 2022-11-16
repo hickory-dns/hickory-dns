@@ -127,10 +127,17 @@ type TimeoutFuture = Pin<
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.
 #[derive(Clone, Debug)]
-pub struct DnsResponse(Message);
+pub struct DnsResponse {
+    message: Message,
+    buffer: Option<Vec<u8>>,
+}
 
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
+    /// Constructs a new DnsResponse
+    pub fn new(message: Message, buffer: Option<Vec<u8>>) -> Self {
+        Self { message, buffer }
+    }
     /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.
     pub fn soa(&self) -> Option<&Record> {
         self.name_servers()
@@ -280,9 +287,24 @@ impl DnsResponse {
         }
     }
 
+    /// Borrow the inner buffer from the response
+    pub fn as_buffer(&self) -> Option<&[u8]> {
+        self.buffer.as_deref()
+    }
+
+    /// Take the inner buffer from the response
+    pub fn into_buffer(self) -> Option<Vec<u8>> {
+        self.buffer
+    }
+
     /// Take the inner Message from the response
     pub fn into_message(self) -> Message {
-        self.0
+        self.message
+    }
+
+    /// Take the inner Message and buffer from the response
+    pub fn into_parts(self) -> (Message, Option<Vec<u8>>) {
+        (self.message, self.buffer)
     }
 }
 
@@ -290,19 +312,22 @@ impl Deref for DnsResponse {
     type Target = Message;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.message
     }
 }
 
 impl From<DnsResponse> for Message {
     fn from(response: DnsResponse) -> Self {
-        response.0
+        response.message
     }
 }
 
 impl From<Message> for DnsResponse {
     fn from(message: Message) -> Self {
-        Self(message)
+        Self {
+            message,
+            buffer: None,
+        }
     }
 }
 
