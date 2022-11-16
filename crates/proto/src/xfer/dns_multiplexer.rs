@@ -394,9 +394,9 @@ where
                                             .try_send(verifier(buffer.bytes())),
                                     );
                                 } else {
-                                    ignore_send(
-                                        active_request.completion.try_send(Ok(message.into())),
-                                    );
+                                    ignore_send(active_request.completion.try_send(Ok(
+                                        DnsResponse::new(message, Some(buffer.into_parts().0)),
+                                    )));
                                 }
                             }
                             Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),

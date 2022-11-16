@@ -307,7 +307,7 @@ async fn send_serial_message<S: UdpSocket + Send>(
                     if let Some(mut verifier) = verifier {
                         return verifier(&buffer);
                     } else {
-                        return Ok(DnsResponse::from(message));
+                        return Ok(DnsResponse::new(message, Some(buffer)));
                     }
                 } else {
                     // on wrong id, attempted poison?
