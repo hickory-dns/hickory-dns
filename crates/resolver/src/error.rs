@@ -166,9 +166,8 @@ impl ResolveError {
             | response_code @ ResponseCode::BADALG
             | response_code @ ResponseCode::BADTRUNC
             | response_code @ ResponseCode::BADCOOKIE => {
-                let mut response = response;
                 let soa = response.soa().cloned();
-                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
                     query: Box::new(query),
                     soa: soa.map(Box::new),
@@ -187,7 +186,6 @@ impl ResolveError {
                 // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
                 // let valid_until = if response.authoritative() { now + response.negative_ttl() };
 
-                let mut response = response;
                 let soa = response.soa().cloned();
                 let negative_ttl = response.negative_ttl();
                 // Note: improperly configured servers may do recursive lookups and return bad SOA
@@ -195,7 +193,7 @@ impl ResolveError {
                 // Such servers should be marked not trusted, as they may break reverse lookups
                 // for local hosts.
                 let trusted = trust_nx && soa.is_some();
-                let query = response.take_queries().drain(..).next().unwrap_or_default();
+                let query = response.into_message().take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
                     query: Box::new(query),
                     soa: soa.map(Box::new),

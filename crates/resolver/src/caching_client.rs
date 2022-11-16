@@ -302,7 +302,7 @@ where
         options: DnsRequestOptions,
         is_dnssec: bool,
         query: &Query,
-        mut response: DnsResponse,
+        response: DnsResponse,
         mut preserved_records: Vec<(Record, u32)>,
     ) -> Result<Records, ResolveError> {
         // initial ttl is what CNAMES for min usage
@@ -358,6 +358,7 @@ where
                 };
 
             // take all answers. // TODO: following CNAMES?
+            let mut response = response.into_message();
             let answers = response.take_answers();
             let additionals = response.take_additionals();
             let name_servers = response.take_name_servers();
@@ -715,7 +716,7 @@ mod tests {
     fn test_single_srv_query_response() {
         let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
 
-        let mut message = srv_message().unwrap();
+        let mut message = srv_message().unwrap().into_message();
         message.add_answer(Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
             86400,
@@ -734,7 +735,7 @@ mod tests {
             ),
         ]);
 
-        let client = mock(vec![error(), Ok(message)]);
+        let client = mock(vec![error(), Ok(message.into())]);
         let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
@@ -816,7 +817,7 @@ mod tests {
     fn test_single_ns_query_response() {
         let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
 
-        let mut message = ns_message().unwrap();
+        let mut message = ns_message().unwrap().into_message();
         message.add_answer(Record::from_rdata(
             Name::from_str("www.example.com.").unwrap(),
             86400,
@@ -835,7 +836,7 @@ mod tests {
             ),
         ]);
 
-        let client = mock(vec![error(), Ok(message)]);
+        let client = mock(vec![error(), Ok(message.into())]);
         let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
@@ -999,7 +1000,7 @@ mod tests {
     fn test_no_error_on_dot_local_no_mdns() {
         let cache = DnsLru::new(1, dns_lru::TtlConfig::default());
 
-        let mut message = srv_message().unwrap();
+        let mut message = srv_message().unwrap().into_message();
         message.add_query(Query::query(
             Name::from_ascii("www.example.local.").unwrap(),
             RecordType::A,
@@ -1010,7 +1011,7 @@ mod tests {
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         ));
 
-        let client = mock(vec![error(), Ok(message)]);
+        let client = mock(vec![error(), Ok(message.into())]);
         let mut client = CachingClient::with_cache(cache, client, false);
 
         assert!(block_on(client.lookup(
