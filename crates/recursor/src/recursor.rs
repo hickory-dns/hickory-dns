@@ -293,7 +293,8 @@ impl Recursor {
         // TODO: should we change DnsHandle to always be a single response? And build a totally custom handler for other situations?
         // TODO: check if data is "authentic"
         match response.await {
-            Ok(mut r) => {
+            Ok(r) => {
+                let mut r = r.into_message();
                 info!("response: {}", r.header());
                 let records = r
                     .take_answers()

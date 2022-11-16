@@ -256,7 +256,7 @@ where
 
     // there was no data returned in that message
     if rrset_types.is_empty() {
-        let mut message_result = message_result;
+        let mut message_result = message_result.into_message();
 
         // there were no returned results, double check by dropping all the results
         message_result.take_answers();
@@ -383,7 +383,7 @@ where
     }
 
     // validated not none above...
-    let mut message_result = message_result;
+    let mut message_result = message_result.into_message();
 
     // take all the rrsets from the Message, filter down each set to the validated rrsets
     // TODO: does the section in the message matter here?
@@ -414,7 +414,7 @@ where
     message_result.insert_additionals(additionals);
 
     // breaks out of the loop... and returns the filtered Message.
-    Ok(message_result)
+    Ok(message_result.into())
 }
 
 /// Generic entrypoint to verify any RRSET against the provided signatures.
