@@ -477,7 +477,7 @@ async fn handle_request(
         }
     };
 
-    let response = response.into_inner();
+    let response = response.into_message();
     println!("; received response");
     println!("{response}", response = response);
     Ok(())

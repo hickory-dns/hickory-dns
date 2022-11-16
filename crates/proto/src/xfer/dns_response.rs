@@ -281,7 +281,7 @@ impl DnsResponse {
     }
 
     /// Take the inner Message from the response
-    pub fn into_inner(self) -> Message {
+    pub fn into_message(self) -> Message {
         self.0
     }
 }
