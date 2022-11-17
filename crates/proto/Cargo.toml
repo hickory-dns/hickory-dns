@@ -38,7 +38,7 @@ maintenance = { status = "actively-developed" }
 
 [features]
 dns-over-tls = []
-dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "webpki"]
+dns-over-rustls = ["dns-over-tls", "rustls", "rustls-pemfile", "tokio-rustls", "webpki", "tokio-runtime"]
 dns-over-native-tls = ["dns-over-tls", "native-tls", "tokio-native-tls", "tokio-runtime"]
 dns-over-openssl = ["dns-over-tls", "openssl", "tokio-openssl", "tokio-runtime"]
 
