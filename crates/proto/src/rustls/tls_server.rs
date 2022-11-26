@@ -34,6 +34,12 @@ pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<Certificate>> {
 }
 
 /// Reads a private key from a pkcs8 formatted, and possibly encoded file
+///
+/// ## Accepted formats
+///
+/// - A Sec1-encoded plaintext private key; as specified in RFC5915
+/// - A DER-encoded plaintext RSA private key; as specified in PKCS#1/RFC3447
+/// - DER-encoded plaintext private key; as specified in PKCS#8/RFC5958
 pub fn read_key(path: &Path) -> ProtoResult<PrivateKey> {
     let mut file = BufReader::new(File::open(path)?);
 
