@@ -178,32 +178,32 @@ jobs:
       - name: cargo audit
         run: cargo make audit
 
-  # Build and run bind to test our compatibility with standard name servers
-  compatibility:
-    name: compatibility
-    # wait for the cache from all-features
-    needs: platform-matrix
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
+  # # Build and run bind to test our compatibility with standard name servers
+  # compatibility:
+  #   name: compatibility
+  #   # wait for the cache from all-features
+  #   needs: platform-matrix
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: davidB/rust-cargo-make@v1
-        with:
-          version: ${{ env.CARGO_MAKE_VERSION }}
+  #     - uses: actions-rs/toolchain@v1
+  #       with:
+  #         profile: minimal
+  #         toolchain: stable
+  #         override: true
+  #     - uses: davidB/rust-cargo-make@v1
+  #       with:
+  #         version: ${{ env.CARGO_MAKE_VERSION }}
 
-      - name: target/bind cache
-        uses: actions/cache@v3
-        with:
-          path: target/bind
-          key: ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
-            ${{ runner.os }}-bind
+  #     - name: target/bind cache
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: target/bind
+  #         key: ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-bind-${{ hashFiles('**/Makefile.toml') }}
+  #           ${{ runner.os }}-bind
 
-      - name: cargo make bind-compatibility
-        run: cargo make bind-compatibility
+  #     - name: cargo make bind-compatibility
+  #       run: cargo make bind-compatibility
