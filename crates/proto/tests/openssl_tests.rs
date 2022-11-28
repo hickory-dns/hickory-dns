@@ -43,6 +43,7 @@ use trust_dns_proto::openssl::TlsStreamBuilder;
 //  but not 3?
 // #[cfg(not(target_os = "linux"))]
 #[test]
+#[ignore] // see https://github.com/bluejekyll/trust-dns/issues/1838
 fn test_tls_client_stream_ipv4() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), false)
 }
@@ -56,6 +57,7 @@ fn test_tls_client_stream_ipv4_mtls() {
 }
 
 #[test]
+#[ignore] // see https://github.com/bluejekyll/trust-dns/issues/1838
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)

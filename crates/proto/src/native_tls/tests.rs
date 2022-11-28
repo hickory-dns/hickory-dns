@@ -40,7 +40,8 @@ use crate::{iocompat::AsyncIoTokioAsStd, DnsStreamHandle};
 //  but not 3?
 // #[cfg(not(target_os = "linux"))]
 #[test]
-#[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
+#[ignore] // see https://github.com/bluejekyll/trust-dns/issues/1838
+#[cfg(not(target_os = "macos"))] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
 fn test_tls_client_stream_ipv4() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), false)
 }
@@ -54,9 +55,9 @@ fn test_tls_client_stream_ipv4_mtls() {
 }
 
 #[test]
-#[cfg_attr(target_os = "macos", ignore)] // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
+#[ignore] // see https://github.com/bluejekyll/trust-dns/issues/1838
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
-#[cfg(not(target_os = "macos"))] // certificates are failing on macOS now
+#[cfg(not(target_os = "macos"))] // certificates are failing on macOS now && // TODO: add back once https://github.com/sfackler/rust-native-tls/issues/143 is fixed
 fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
 }
