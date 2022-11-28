@@ -65,8 +65,8 @@ if ${TDNS_BIND_PATH}/sbin/named -v ; then exit 0 ; fi
 
 ## This must run after OpenSSL installation
 
-echo installing python-ply
-if apt-get --version ; then sudo apt-get install -y python-ply ; fi
+echo installing python3-ply
+if apt-get --version ; then sudo apt-get install -y python3-ply ; fi
 
 if openssl version ; then WITH_OPENSSL="--with-openssl=$(dirname $(dirname $(which openssl)))" ; fi
 
