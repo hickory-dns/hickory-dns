@@ -34,6 +34,12 @@ pub fn read_cert(cert_path: &Path) -> ProtoResult<Vec<Certificate>> {
 }
 
 /// Reads a private key from a pkcs8 formatted, and possibly encoded file
+///
+/// ## Accepted formats
+///
+/// - A Sec1-encoded plaintext private key; as specified in RFC5915
+/// - A DER-encoded plaintext RSA private key; as specified in PKCS#1/RFC3447
+/// - DER-encoded plaintext private key; as specified in PKCS#8/RFC5958
 pub fn read_key(path: &Path) -> ProtoResult<PrivateKey> {
     let mut file = BufReader::new(File::open(path)?);
 
@@ -57,18 +63,31 @@ pub fn read_key_from_der(path: &Path) -> ProtoResult<PrivateKey> {
     Ok(PrivateKey(buf))
 }
 
-/// Reads a private key from a pem formatted file
+/// Attempts to read a private key from a PEM formatted file.
+///
+/// ## Accepted formats
+///
+/// - DER-encoded plaintext RSA private key; as specified in PKCS#1/RFC3447
+/// - DER-encoded plaintext RSA private key; as specified in PKCS#8/RFC5958 default with openssl v3
+///
+/// ## Errors
+///
+/// Returns a [ProtoError] in either cases:
+///
+/// - Unable to open key at given `path`
+/// - Encountered an IO error
+/// - Unable to read key: either no key or no key found in the right format
 pub fn read_key_from_pem(path: &Path) -> ProtoResult<PrivateKey> {
     let file = File::open(path)?;
     let mut file = BufReader::new(file);
 
-    let mut keys = rustls_pemfile::rsa_private_keys(&mut file)
-        .map_err(|_| format!("Error reading RSA key from: {}", path.display()))?;
-    let key = keys
-        .pop()
-        .ok_or_else(|| format!("No RSA keys in file: {}", path.display()))?;
-
-    Ok(PrivateKey(key))
+    loop {
+        match rustls_pemfile::read_one(&mut file)? {
+            None => return Err(format!("No RSA keys in file: {}", path.display()).into()),
+            Some(Item::RSAKey(key)) | Some(Item::PKCS8Key(key)) => return Ok(PrivateKey(key)),
+            Some(_) => continue,
+        }
+    }
 }
 
 /// Construct the new Acceptor with the associated pkcs12 data

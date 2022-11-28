@@ -62,7 +62,7 @@ async fn test_quic_stream() {
     .map_err(|e| format!("error reading cert: {}", e))
     .unwrap();
     let key = tls_server::read_key_from_pem(Path::new(&format!(
-        "{}/tests/test-data/cert-key.pem",
+        "{}/tests/test-data/cert.key",
         server_path
     )))
     .unwrap();
