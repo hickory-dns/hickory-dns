@@ -218,7 +218,7 @@ fn test_server_www_tls() {
     .map_err(|e| format!("error reading cert: {}", e))
     .unwrap();
     let key = tls_server::read_key_from_pem(Path::new(&format!(
-        "{}/tests/test-data/cert-key.pem",
+        "{}/tests/test-data/cert.key",
         server_path
     )))
     .unwrap();
