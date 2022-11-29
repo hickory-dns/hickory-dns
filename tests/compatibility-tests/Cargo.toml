@@ -13,7 +13,7 @@ Trust-DNS compatability testing library.
 
 # These URLs point to more information about the repository
 documentation = "https://docs.rs/trust-dns"
-homepage = "http://www.trust-dns.org/index.html"
+homepage = "https://www.trust-dns.org/index.html"
 repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
