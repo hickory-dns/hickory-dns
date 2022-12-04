@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use trust_dns_client::rr::{LowerName, RecordType};
 use trust_dns_client::rr::{Name, RrKey};
-use trust_dns_server::authority::ZoneType;
+use trust_dns_server::authority::{ZoneType, Authority, LookupOptions};
 use trust_dns_server::store::file::{FileAuthority, FileConfig};
 
 #[macro_use]
@@ -49,8 +49,8 @@ fn test_all_lines_are_loaded() {
     assert!(authority.records_get_mut().get(&rrkey).is_some())
 }
 
-#[test]
-pub fn test_ttl_wilcard() {
+#[tokio::test]
+async fn test_ttl_wilcard() {
     let config = FileConfig {
         zone_file_path: "../../tests/test-data/named_test_configs/default/test.local.zone"
             .to_string(),
@@ -74,10 +74,13 @@ pub fn test_ttl_wilcard() {
     };
     assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
 
-    // This one related to a wildcard don't pass arround $TTL
-    let rrkey = RrKey {
-        record_type: RecordType::A,
-        name: LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap()),
-    };
-    assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
+    // // This one related to a wildcard don't pass arround $TTL
+    let name = LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap());
+    let rr = authority.lookup(&name, RecordType::A, LookupOptions::default()).await.unwrap();
+    let data = rr.into_iter()
+    .next()
+    .expect("A record not found in authority");
+
+    assert_eq!(data.rr_type(), RecordType::A);
+    assert_eq!(data.ttl(), 120);
 }
