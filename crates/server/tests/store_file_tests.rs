@@ -48,3 +48,36 @@ fn test_all_lines_are_loaded() {
     };
     assert!(authority.records_get_mut().get(&rrkey).is_some())
 }
+
+#[test]
+pub fn test_ttl_wilcard() {
+    let config = FileConfig {
+        zone_file_path: "../../tests/test-data/named_test_configs/default/test.local.zone"
+            .to_string(),
+    };
+
+    let zone_name = LowerName::from_str("test.local.").unwrap();
+
+    let mut authority = FileAuthority::try_from_config(
+        Name::from(zone_name.clone()),
+        ZoneType::Primary,
+        false,
+        None,
+        &config,
+    )
+    .unwrap();
+
+    // This one pass.
+    let rrkey = RrKey {
+        record_type: RecordType::A,
+        name: LowerName::from(Name::from_ascii("simple.test.local.").unwrap()),
+    };
+    assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
+
+    // This one related to a wildcard don't pass arround $TTL
+    let rrkey = RrKey {
+        record_type: RecordType::A,
+        name: LowerName::from(Name::from_ascii("x.wc.test.local.").unwrap()),
+    };
+    assert_eq!(authority.records_get_mut().get(&rrkey).unwrap().ttl(), 120);
+}
