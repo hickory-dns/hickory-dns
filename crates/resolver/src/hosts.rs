@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn test_read_hosts_conf() {
         let path = format!("{}/hosts", tests_dir());
-        let hosts = read_hosts_conf(&path).unwrap();
+        let hosts = read_hosts_conf(path).unwrap();
 
         let name = Name::from_str("localhost").unwrap();
         let rdatas = hosts
