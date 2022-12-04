@@ -1,0 +1,5 @@
+$TTL 120
+@ IN SOA ns.test.local. nobody.example.com. (2022120201 3600 1800 604800 60)
+ns IN A 127.0.0.1
+simple IN A 10.0.0.1
+*.wc IN A 10.0.0.2
