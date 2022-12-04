@@ -187,7 +187,7 @@ impl MessageFinalizer for TSigner {
 
         let pre_tsig = TSIG::new(
             self.0.algorithm.clone(),
-            current_time as u64,
+            current_time,
             self.0.fudge,
             Vec::new(),
             message.id(),
