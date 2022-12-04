@@ -127,7 +127,7 @@ pub struct Parser;
 impl Parser {
     /// Returns a new Zone file parser
     pub fn new() -> Self {
-        Parser
+        Self
     }
 
     /// Parse a file from the Lexer

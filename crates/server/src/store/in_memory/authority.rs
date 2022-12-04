@@ -92,7 +92,7 @@ impl InMemoryAuthority {
             .map(SOA::serial)
             .ok_or_else(|| format!("SOA record must be present: {}", origin))?;
 
-        let iter = records.into_iter().map(|(_key, record)| record);
+        let iter = records.into_values();
 
         // add soa to the records
         for rrset in iter {
