@@ -103,7 +103,7 @@ trust-dns-recursor = { version = "0.22.0", path = "../recursor", features = ["se
 trust-dns-resolver = { version = "0.22.0", path = "../resolver", features = ["serde-config"], optional = true }
 
 [dev-dependencies]
-tokio = { version="1.21", features = ["macros", "rt"] }
+tokio = { version = "1.21", features = ["macros", "rt"] }
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]

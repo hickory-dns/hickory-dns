@@ -86,13 +86,13 @@ serde = { version = "1.0.114", features = ["derive"], optional = true }
 thiserror = "1.0.20"
 time = "0.3"
 tracing = "0.1.30"
-tokio = { version = "1.0", features = ["net"] }
+tokio = { version = "1.21", features = ["net"] }
 toml = "0.5"
 trust-dns-proto = { version = "0.22.0", path = "../proto" }
 trust-dns-resolver = { version = "0.22.0", path = "../resolver" }
 
 [dev-dependencies]
-tokio = { version="1.0", features = ["macros", "rt"] }
+tokio = { version = "1.21", features = ["macros", "rt"] }
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]
