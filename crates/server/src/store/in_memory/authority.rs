@@ -8,7 +8,6 @@
 //! All authority related types
 
 use std::{
-    borrow::Borrow,
     collections::{BTreeMap, HashSet},
     ops::DerefMut,
     sync::Arc,
@@ -42,6 +41,8 @@ use crate::{
     },
     server::RequestInfo,
 };
+#[cfg(feature = "dnssec")]
+use std::borrow::Borrow;
 #[cfg(all(feature = "dnssec", feature = "testing"))]
 use std::ops::Deref;
 
@@ -427,7 +428,7 @@ impl InnerInMemory {
             // we need to change the name to the query name in the result set since this was a wildcard
             .map(|rrset| {
                 let mut new_answer =
-                    RecordSet::new(name.borrow(), rrset.record_type(), rrset.ttl());
+                    RecordSet::with_ttl(Name::from(name), rrset.record_type(), rrset.ttl());
 
                 let records;
                 let _rrsigs: Vec<&Record>;
