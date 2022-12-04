@@ -65,7 +65,7 @@ lazy_static! {
                 }
             };
 
-            let &(ref lock, ref cvar) = &*pair2;
+            let (lock, cvar) = &*pair2;
             let mut started = lock.lock().unwrap();
 
             let resolver = resolver.expect("failed to create trust-dns-resolver");
@@ -78,7 +78,7 @@ lazy_static! {
         });
 
         // Wait for the thread to start up.
-        let &(ref lock, ref cvar) = &*pair;
+        let (lock, cvar) = &*pair;
         let mut resolver = lock.lock().unwrap();
         while resolver.is_none() {
             resolver = cvar.wait(resolver).unwrap();
