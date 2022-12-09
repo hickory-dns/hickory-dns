@@ -199,7 +199,7 @@ impl FromStr for RecordType {
     /// ```
     fn from_str(str: &str) -> ProtoResult<Self> {
         // TODO missing stuff?
-        debug_assert!(str.chars().all(|x| char::is_digit(x, 36)));
+        debug_assert!(str.chars().all(|x| !char::is_ascii_lowercase(&x)));
         match str {
             "A" => Ok(Self::A),
             "AAAA" => Ok(Self::AAAA),
@@ -543,5 +543,11 @@ mod tests {
             assert_eq!(rtype.to_string().to_ascii_uppercase().as_str(), *name);
             assert!(rtypes.insert(rtype));
         }
+    }
+
+    #[test]
+    fn check_record_type_parse_wont_panic_with_symbols() {
+        let dns_class = "a-b-c".to_ascii_uppercase().parse::<RecordType>();
+        assert!(matches!(&dns_class, Err(ProtoError { .. })));
     }
 }

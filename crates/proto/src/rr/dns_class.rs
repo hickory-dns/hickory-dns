@@ -53,7 +53,7 @@ impl FromStr for DNSClass {
     /// assert_eq!(DNSClass::IN, var);
     /// ```
     fn from_str(str: &str) -> ProtoResult<Self> {
-        debug_assert!(str.chars().all(|x| char::is_ascii_uppercase(&x)));
+        debug_assert!(str.chars().all(|x| !char::is_ascii_lowercase(&x)));
         match str {
             "IN" => Ok(Self::IN),
             "CH" => Ok(Self::CH),
@@ -170,24 +170,34 @@ impl Display for DNSClass {
     }
 }
 
-#[test]
-fn test_order() {
-    let ordered = vec![
-        DNSClass::IN,
-        DNSClass::CH,
-        DNSClass::HS,
-        DNSClass::NONE,
-        DNSClass::ANY,
-    ];
-    let mut unordered = vec![
-        DNSClass::NONE,
-        DNSClass::HS,
-        DNSClass::CH,
-        DNSClass::IN,
-        DNSClass::ANY,
-    ];
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_order() {
+        let ordered = vec![
+            DNSClass::IN,
+            DNSClass::CH,
+            DNSClass::HS,
+            DNSClass::NONE,
+            DNSClass::ANY,
+        ];
+        let mut unordered = vec![
+            DNSClass::NONE,
+            DNSClass::HS,
+            DNSClass::CH,
+            DNSClass::IN,
+            DNSClass::ANY,
+        ];
 
-    unordered.sort();
+        unordered.sort();
 
-    assert_eq!(unordered, ordered);
+        assert_eq!(unordered, ordered);
+    }
+
+    #[test]
+    fn check_dns_class_parse_wont_panic_with_symbols() {
+        let dns_class = "a-b-c".to_ascii_uppercase().parse::<DNSClass>();
+        assert!(matches!(&dns_class, Err(ProtoError { .. })));
+    }
 }

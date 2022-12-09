@@ -472,14 +472,19 @@ mod tests {
         let domain = Name::from_str("parameter.origin.org.").unwrap();
 
         let zone_data = r#"$ORIGIN parsed.zone.origin.org.
- a-only 60 IN A 1.2.3.4
+ faulty-record-type 60 IN A 1.2.3.4
 "#;
 
         let lexer = Lexer::new(zone_data);
         let result = Parser::new().parse(lexer, Some(domain), None);
         assert!(
-            result.is_err(),
-            "whitespace not allowed in beginning of hostname line: {:#?}",
+            result.is_err()
+                & result
+                    .as_ref()
+                    .unwrap_err()
+                    .to_string()
+                    .contains("FAULTY-RECORD-TYPE"),
+            "unexpected success: {:#?}",
             result
         );
     }
