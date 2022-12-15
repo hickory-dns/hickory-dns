@@ -13,7 +13,7 @@ Trust-DNS is a safe and secure DNS library. This is the foundational DNS protoco
 
 # These URLs point to more information about the repository
 documentation = "https://docs.rs/trust-dns-proto"
-homepage = "https://www.trust-dns.org/index.html"
+homepage = "https://trust-dns.org/"
 repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
