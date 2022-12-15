@@ -1,4 +1,4 @@
-//! hash functions for DNSSec operations
+//! hash functions for DNSSEC operations
 
 use super::rdata::{sig, DNSSECRData, SIG};
 use crate::error::*;

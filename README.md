@@ -51,7 +51,7 @@ as high level interfaces, which is a bit more rare.
 
 | Feature                                                                                                         | Description                                           |
 | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [SyncDnssecClient](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html)              | DNSSec validation                                     |
+| [SyncDnssecClient](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/struct.SyncDnssecClient.html)              | DNSSEC validation                                     |
 | [create](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.create)                     | atomic create of a record, with authenticated request |
 | [append](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.append)                     | verify existence of a record and append to it         |
 | [compare_and_swap](https://docs.rs/trust-dns-client/latest/trust_dns_client/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap           |
@@ -97,7 +97,7 @@ To use with the `Client`, the `TlsClientConnection` or `HttpsClientConnection` s
 
 To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
 
-## DNSSec status
+## DNSSEC status
 
 Currently the root key is hardcoded into the system. This gives validation of
 DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
@@ -297,10 +297,10 @@ Success for query name: www.example.com. type: A class: IN
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
 - `dnssec-openssl`
-  It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSec validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
+  It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSEC validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
 
 - `dnssec-ring`
-  Ring support can be used for RSA and ED25519 DNSSec validation.
+  Ring support can be used for RSA and ED25519 DNSSEC validation.
 
 - `dns-over-native-tls`
   Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.

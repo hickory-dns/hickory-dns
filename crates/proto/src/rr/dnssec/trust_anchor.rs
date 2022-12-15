@@ -23,7 +23,7 @@ use crate::rr::dnssec::PublicKey;
 const ROOT_ANCHOR_ORIG: &[u8] = include_bytes!("roots/19036.rsa");
 const ROOT_ANCHOR_2018: &[u8] = include_bytes!("roots/20326.rsa");
 
-/// The root set of trust anchors for validating DNSSec, anything in this set will be trusted
+/// The root set of trust anchors for validating DNSSEC, anything in this set will be trusted
 #[derive(Clone)]
 pub struct TrustAnchor {
     // TODO: these should also store some information, or more specifically, metadata from the signed

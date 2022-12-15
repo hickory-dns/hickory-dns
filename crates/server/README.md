@@ -2,7 +2,7 @@
 
 Trust-DNS Server is a library which implements the zone authoritory functionality.
 
-This library contains basic implementations for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSec RRSIG records associated with all records in a zone. There is also a `named` binary that can be generated from the library with `cargo install trust-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
+This library contains basic implementations for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSEC RRSIG records associated with all records in a zone. There is also a `named` binary that can be generated from the library with `cargo install trust-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
 
 ## Features
 

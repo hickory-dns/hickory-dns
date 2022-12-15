@@ -1,4 +1,4 @@
-## Example configuration for all supported (including ring) signing options for DNSSec.
+## Example configuration for all supported (including ring) signing options for DNSSEC.
 
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases

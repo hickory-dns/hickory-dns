@@ -37,7 +37,7 @@ impl RecordSet {
     /// * `record_type` - `RecordType` of this `RecordSet`, all records in the `RecordSet` must be of the
     ///                   specified `RecordType`.
     /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
-    ///              signing for DNSSec after updates.
+    ///              signing for DNSSEC after updates.
     ///
     /// # Return value
     ///
@@ -270,7 +270,7 @@ impl RecordSet {
     ///
     /// * `record` - `Record` asserts that the `name` and `record_type` match the `RecordSet`.
     /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
-    ///              signing for DNSSec after updates. The serial will only be updated if the
+    ///              signing for DNSSEC after updates. The serial will only be updated if the
     ///              record was added.
     ///
     /// # Return value
@@ -393,7 +393,7 @@ impl RecordSet {
     /// * `record` - `Record` asserts that the `name` and `record_type` match the `RecordSet`. Removes
     ///              any `record` if the record data, `RData`, match.
     /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
-    ///              signing for DNSSec after updates. The serial will only be updated if the
+    ///              signing for DNSSEC after updates. The serial will only be updated if the
     ///              record was added.
     ///
     /// # Return value

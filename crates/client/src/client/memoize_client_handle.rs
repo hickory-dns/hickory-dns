@@ -25,7 +25,7 @@ use crate::op::Query;
 ///
 /// This wraps a ClientHandle, changing the implementation `send()` to store the response against
 ///  the Message.Query that was sent. This should reduce network traffic especially during things
-///  like DNSSec validation. *Warning* this will currently cache for the life of the Client.
+///  like DNSSEC validation. *Warning* this will currently cache for the life of the Client.
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {

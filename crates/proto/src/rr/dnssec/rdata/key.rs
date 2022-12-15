@@ -578,8 +578,8 @@ pub enum Protocol {
     /// Reserved for use with email
     #[deprecated = "Deprecated by RFC3445"]
     Email,
-    /// Reserved for use with DNSSec (Trust-DNS only supports DNSKEY with DNSSec)
-    DNSSec,
+    /// Reserved for use with DNSSEC (Trust-DNS only supports DNSKEY with DNSSEC)
+    DNSSEC,
     /// Reserved to refer to the Oakley/IPSEC
     #[deprecated = "Deprecated by RFC3445"]
     IPSec,
@@ -593,7 +593,7 @@ pub enum Protocol {
 
 impl Default for Protocol {
     fn default() -> Self {
-        Self::DNSSec
+        Self::DNSSEC
     }
 }
 
@@ -603,7 +603,7 @@ impl From<u8> for Protocol {
             0 => Self::Reserved,
             1 => Self::TLS,
             2 => Self::Email,
-            3 => Self::DNSSec,
+            3 => Self::DNSSEC,
             4 => Self::IPSec,
             255 => Self::All,
             _ => Self::Other(field),
@@ -617,7 +617,7 @@ impl From<Protocol> for u8 {
             Protocol::Reserved => 0,
             Protocol::TLS => 1,
             Protocol::Email => 2,
-            Protocol::DNSSec => 3,
+            Protocol::DNSSEC => 3,
             Protocol::IPSec => 4,
             Protocol::All => 255,
             Protocol::Other(field) => field,

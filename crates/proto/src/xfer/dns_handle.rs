@@ -34,7 +34,7 @@ pub trait DnsHandle: 'static + Clone + Send + Sync + Unpin {
     /// Error of the response, generally this will be `ProtoError`
     type Error: From<ProtoError> + Error + Clone + Send + Unpin + 'static;
 
-    /// Only returns true if and only if this DNS handle is validating DNSSec.
+    /// Only returns true if and only if this DNS handle is validating DNSSEC.
     ///
     /// If the DnsHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
     fn is_verifying_dnssec(&self) -> bool {

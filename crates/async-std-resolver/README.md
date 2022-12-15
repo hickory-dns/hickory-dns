@@ -11,7 +11,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - NameServer pools with performance based priority usage
 - Caching of query results
 - NxDomain/NoData caching (negative caching)
-- TBD (in tokio impl): DNSSec validation
+- TBD (in tokio impl): DNSSEC validation
 - Generic Record Type Lookup
 - CNAME chain resolution
 - _experimental_ mDNS support (enable with `mdns` feature)

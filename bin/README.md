@@ -2,7 +2,7 @@
 
 Trust-DNS provides a binary for hosting or forwarding DNS zones.
 
-This a named implementation for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSec RRSIG records associated with all records in a zone. There is also a `named` binary that can be generated from the library with `cargo install trust-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
+This a named implementation for DNS zone hosting. It is capable of performing signing all records in the zone for server DNSSEC RRSIG records associated with all records in a zone. There is also a `named` binary that can be generated from the library with `cargo install trust-dns`. Dynamic updates are supported via `SIG0` (an mTLS authentication method is under development).
 
 ## Features
 
@@ -24,7 +24,7 @@ To use with the `Client`, the `TlsClientConnection` or `HttpsClientConnection` s
 
 To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
 
-## DNSSec status
+## DNSSEC status
 
 Currently the root key is hardcoded into the system. This gives validation of
  DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.

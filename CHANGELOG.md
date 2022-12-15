@@ -510,7 +510,7 @@ bound for implementing the `Connect` trait.
 
 - Trust-DNS Proto crate to separate server management from base operations #222
 - Trust-DNS Util crate for dnssec management tools (@briansmith)
-- Integration tests for Server to validate all supported DNSSec key types
+- Integration tests for Server to validate all supported DNSSEC key types
 - *breaking* Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates (replaces `openssl` and `ring` features)
 - Clarified `tls` feature with `tls-openssl`, and `tls` in server (in preparation for `tls-rustls`)
 - Support for rfc6844, CAA record type #234
@@ -556,13 +556,13 @@ bound for implementing the `Connect` trait.
 
 ### Added
 
-- RSA and ECDSA validation with *ring* for DNSSec, removes dependency on openssl (@briansmith)
+- RSA and ECDSA validation with *ring* for DNSSEC, removes dependency on openssl (@briansmith)
 - `lookup` to `ClientHandle`, simpler form with `Query`
 - `query` to `Query` for ease of Query creation
 
 ### Changed
 
-- Large celanup of signing and verification paths in DNSSec (@briansmith)
+- Large celanup of signing and verification paths in DNSSEC (@briansmith)
 - *breaking* changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>`
 
 ## 0.11.2 (Client/Server)
@@ -898,7 +898,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Added
 
-- SecureClientHandle, for future based DNSSec validation.
+- SecureClientHandle, for future based DNSSEC validation.
 - ClientFuture, futures based client implementation, #32
 
 ### Fixed
@@ -939,7 +939,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Resolver no longer depends on Client
 - *breaking* Resolver no longer returns io:Errors, use `From<ResolveError>` for `io::Error`
 - Resolver is now `Send`
-- DNSSec now disabled by default in Resolver, see `dnssec-ring` or `dnssec-openssl` features #268
+- DNSSEC now disabled by default in Resolver, see `dnssec-ring` or `dnssec-openssl` features #268
 - CNAME chaining was cleaned up #271 (@briansmith)
 - On hostname parsing to IpAddr, return without lookup #302 (@cssivision)
 - Change default `LookupIpStrategy` from `Ipv4AndIpv6` to `Ipv4thenIpv6` #301 (@cssivision)
@@ -1078,9 +1078,9 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 - Updated rust-openssl to 0.7.8 which include new RSA creation bindings
 - NSEC resolver validation
 - NSEC3 parsing support
-- DNSSec validation of RRSIG and DNSKEY records back to root cert
+- DNSSEC validation of RRSIG and DNSKEY records back to root cert
 - Integration with OpenSSL (depends on fork until rust-openssl 0.7.6+ is cut)
-- Binary serialization and deserialization of all DNSSec RFC4034 record types
+- Binary serialization and deserialization of all DNSSEC RFC4034 record types
 - EDNS support
 - Coveralls support added
 - Partial implementation of SIG0 support for dynamic update
@@ -1109,7 +1109,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Added
 
-- Support for DNSSec validation
+- Support for DNSSEC validation
 - LRU Cache
 
 ## 0.4.0 (Client/Server 2015-10-17)
