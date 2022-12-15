@@ -17,10 +17,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use futures_util::{future::Future, stream::Stream};
 use tracing::{debug, warn};
 
-use crate::op::Message;
 use crate::error::ProtoError;
 use crate::op::message::NoopMessageFinalizer;
-use crate::op::{MessageFinalizer, MessageVerifier};
+use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::udp::udp_stream::{NextRandomUdpSocket, UdpSocket};
 use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
 use crate::Time;
@@ -290,8 +289,7 @@ async fn send_serial_message<S: UdpSocket + Send>(
         if src != request_target {
             warn!(
                 "ignoring response from {} because it does not match name_server: {}.",
-                src,
-                request_target,
+                src, request_target,
             );
 
             // await an answer from the correct NameServer
