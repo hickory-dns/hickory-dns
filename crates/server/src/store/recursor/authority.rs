@@ -56,7 +56,7 @@ impl RecursiveAuthority {
                 socket_addr,
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
-                trust_nx_responses: false,
+                trust_negative_responses: false,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
                 bind_addr: None, // TODO: need to support bind addresses
@@ -66,7 +66,7 @@ impl RecursiveAuthority {
                 socket_addr,
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
-                trust_nx_responses: false,
+                trust_negative_responses: false,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
                 bind_addr: None,

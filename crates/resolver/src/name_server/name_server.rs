@@ -149,7 +149,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
 
                 // First evaluate if the message succeeded.
                 let response =
-                    ResolveError::from_response(response, self.config.trust_nx_responses)?;
+                    ResolveError::from_response(response, self.config.trust_negative_responses)?;
 
                 // TODO: consider making message::take_edns...
                 let remote_edns = response.extensions().clone();
@@ -176,7 +176,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> NameSe
 
     /// Specifies that this NameServer will treat negative responses as permanent failures and will not retry
     pub fn trust_nx_responses(&self) -> bool {
-        self.config.trust_nx_responses
+        self.config.trust_negative_responses
     }
 }
 
@@ -236,7 +236,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<Conn = C>> Eq for
 pub(crate) fn mdns_nameserver<C, P>(
     options: ResolverOpts,
     conn_provider: P,
-    trust_nx_responses: bool,
+    trust_negative_responses: bool,
 ) -> NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError>,
@@ -246,7 +246,7 @@ where
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
         tls_dns_name: None,
-        trust_nx_responses,
+        trust_negative_responses,
         #[cfg(feature = "dns-over-rustls")]
         tls_config: None,
         bind_addr: None,
@@ -278,7 +278,7 @@ mod tests {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
             tls_dns_name: None,
-            trust_nx_responses: false,
+            trust_negative_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
             bind_addr: None,
@@ -317,7 +317,7 @@ mod tests {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
             protocol: Protocol::Udp,
             tls_dns_name: None,
-            trust_nx_responses: false,
+            trust_negative_responses: false,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
             bind_addr: None,
