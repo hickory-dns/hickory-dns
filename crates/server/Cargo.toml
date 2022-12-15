@@ -19,7 +19,7 @@ Trust-DNS is a safe and secure DNS server with DNSSEC support.
 
 # These URLs point to more information about the repository
 documentation = "https://docs.rs/trust-dns-server"
-homepage = "https://www.trust-dns.org/index.html"
+homepage = "https://trust-dns.org/"
 repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
