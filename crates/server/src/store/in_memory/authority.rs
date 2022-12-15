@@ -590,7 +590,7 @@ impl InnerInMemory {
 
         #[cfg(not(feature = "dnssec"))]
         fn is_nsec(_upsert_type: RecordType, _occupied_type: RecordType) -> bool {
-            // TODO: we should make the DNSSec RecordTypes always visible
+            // TODO: we should make the DNSSEC RecordTypes always visible
             false
         }
 

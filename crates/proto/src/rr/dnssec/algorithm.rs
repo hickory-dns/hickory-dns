@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::*;
 use crate::serialize::binary::*;
 
-/// DNSSec signing and validation algorithms.
+/// DNSSEC signing and validation algorithms.
 ///
 /// For [reference](http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml)
 ///  the iana documents have all the officially registered algorithms.

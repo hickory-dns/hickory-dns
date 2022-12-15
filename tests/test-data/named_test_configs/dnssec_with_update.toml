@@ -1,4 +1,4 @@
-## Example configuration for supported OpenSSL DNSSec signing options.
+## Example configuration for supported OpenSSL DNSSEC signing options.
 
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases

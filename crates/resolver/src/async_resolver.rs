@@ -596,7 +596,7 @@ pub mod testing {
         thread_two.join().expect("thread_two failed");
     }
 
-    /// Test IP lookup from URLs with DNSSec validation.
+    /// Test IP lookup from URLs with DNSSEC validation.
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     pub fn sec_lookup_test<E: Executor + Send + 'static, R: RuntimeProvider>(
@@ -636,7 +636,7 @@ pub mod testing {
         }
     }
 
-    /// Test IP lookup from domains that exist but unsigned with DNSSec validation.
+    /// Test IP lookup from domains that exist but unsigned with DNSSEC validation.
     #[allow(deprecated)]
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]

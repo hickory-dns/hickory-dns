@@ -186,7 +186,7 @@ impl ZoneConfig {
     /// * `file` - relative to Config base path, to the zone file
     /// * `allow_update` - enable dynamic updates
     /// * `allow_axfr` - enable AXFR transfers
-    /// * `enable_dnssec` - enable signing of the zone for DNSSec
+    /// * `enable_dnssec` - enable signing of the zone for DNSSEC
     /// * `keys` - list of private and public keys used to sign a zone
     pub fn new(
         zone: String,

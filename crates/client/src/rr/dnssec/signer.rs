@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! signer is a structure for performing many of the signing processes of the DNSSec specification
+//! signer is a structure for performing many of the signing processes of the DNSSEC specification
 use tracing::debug;
 
 #[cfg(feature = "dnssec")]
@@ -24,7 +24,7 @@ use {
     crate::serialize::binary::BinEncoder,
 };
 
-/// Use for performing signing and validation of DNSSec based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
+/// Use for performing signing and validation of DNSSEC based components. The SigSigner can be used for singing requests and responses with SIG0, or DNSSEC RRSIG records. The format is based on the SIG record type.
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
 ///
@@ -300,7 +300,7 @@ impl SigSigner {
     }
 
     /// Version of Signer for signing RRSIGs and SIG0 records.
-    #[deprecated(note = "use SIG0 or DNSSec constructors")]
+    #[deprecated(note = "use SIG0 or DNSSEC constructors")]
     pub fn new(
         algorithm: Algorithm,
         key: KeyPair<Private>,
@@ -311,7 +311,7 @@ impl SigSigner {
     ) -> Self {
         let dnskey = key
             .to_dnskey(algorithm)
-            .expect("something went wrong, use one of the SIG0 or DNSSec constructors");
+            .expect("something went wrong, use one of the SIG0 or DNSSEC constructors");
 
         Self {
             key_rdata: dnskey.into(),

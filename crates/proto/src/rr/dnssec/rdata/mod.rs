@@ -533,7 +533,7 @@ pub enum DNSSECRData {
     /// ```
     TSIG(TSIG),
 
-    /// Unknown or unsupported DNSSec record data
+    /// Unknown or unsupported DNSSEC record data
     Unknown {
         /// RecordType code
         code: u16,

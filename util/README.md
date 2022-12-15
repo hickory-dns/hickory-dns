@@ -81,7 +81,7 @@ OPTIONS:
     -o, --output <OUTPUT_FILE>    Output FILE to write to [default: out.pem]
 
 ARGS:
-    <PRIVATE_KEY_FILE>    Input FILE from which to read the DNSSec private key
+    <PRIVATE_KEY_FILE>    Input FILE from which to read the DNSSEC private key
 ```
 
 

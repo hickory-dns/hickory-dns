@@ -191,7 +191,7 @@ where
         };
 
         // TODO: take all records and cache them?
-        //  if it's DNSSec they must be signed, otherwise?
+        //  if it's DNSSEC they must be signed, otherwise?
         let records: Result<Records, ResolveError> = match response_message {
             // this is the only cacheable form
             Err(ResolveError {
@@ -253,7 +253,7 @@ where
     ///  and a record for the name, regardless of CNAME presence, what have you
     ///  ultimately does not exist.
     ///
-    /// This also handles empty responses in the same way. When performing DNSSec enabled queries, we should
+    /// This also handles empty responses in the same way. When performing DNSSEC enabled queries, we should
     ///  never enter here, and should never cache unless verified requests.
     ///
     /// TODO: should this should be expanded to do a forward lookup? Today, this will fail even if there are
@@ -262,7 +262,7 @@ where
     /// # Arguments
     ///
     /// * `message` - message to extract SOA, etc, from for caching failed requests
-    /// * `valid_nsec` - species that in DNSSec mode, this request is safe to cache
+    /// * `valid_nsec` - species that in DNSSEC mode, this request is safe to cache
     /// * `negative_ttl` - this should be the SOA minimum for negative ttl
     fn handle_nxdomain(
         is_dnssec: bool,
@@ -439,7 +439,7 @@ where
             })
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
-            // Note on DNSSec, in secure_client_handle, if verify_nsec fails then the request fails.
+            // Note on DNSSEC, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
             Err(Self::handle_nxdomain(
                 is_dnssec,

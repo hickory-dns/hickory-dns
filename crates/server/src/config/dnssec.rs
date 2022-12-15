@@ -23,7 +23,7 @@ use crate::client::rr::{
     domain::IntoName,
 };
 
-/// Key pair configuration for DNSSec keys for signing a zone
+/// Key pair configuration for DNSSEC keys for signing a zone
 #[derive(Deserialize, PartialEq, Eq, Debug)]
 pub struct KeyConfig {
     /// file path to the key

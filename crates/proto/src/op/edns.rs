@@ -34,7 +34,7 @@ pub struct Edns {
     rcode_high: u8,
     // Indicates the implementation level of the setter. (from TTL)
     version: u8,
-    // Is DNSSec supported (from TTL)
+    // Is DNSSEC supported (from TTL)
     dnssec_ok: bool,
     // max payload size, minimum of 512, (from RR CLASS)
     max_payload: u16,
@@ -70,7 +70,7 @@ impl Edns {
         self.version
     }
 
-    /// Specifies that DNSSec is supported for this Client or Server
+    /// Specifies that DNSSEC is supported for this Client or Server
     pub fn dnssec_ok(&self) -> bool {
         self.dnssec_ok
     }
@@ -107,7 +107,7 @@ impl Edns {
         self
     }
 
-    /// Set to true if DNSSec is supported
+    /// Set to true if DNSSEC is supported
     pub fn set_dnssec_ok(&mut self, dnssec_ok: bool) -> &mut Self {
         self.dnssec_ok = dnssec_ok;
         self

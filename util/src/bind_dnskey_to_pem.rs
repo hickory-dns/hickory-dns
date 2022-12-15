@@ -43,7 +43,7 @@ use trust_dns_client::rr::dnssec::Algorithm;
     author = "Benjamin Fry <benjaminfry@me.com>"
 )]
 struct Cli {
-    /// Input FILE from which to read the DNSSec private key
+    /// Input FILE from which to read the DNSSEC private key
     #[arg(
         long = "key",
         value_name = "PRIVATE_KEY_FILE",

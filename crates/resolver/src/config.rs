@@ -795,7 +795,7 @@ pub struct ResolverOpts {
     pub check_names: bool,
     /// Enable edns, for larger records
     pub edns0: bool,
-    /// Use DNSSec to validate the request
+    /// Use DNSSEC to validate the request
     pub validate: bool,
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
     pub ip_strategy: LookupIpStrategy,

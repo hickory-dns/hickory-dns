@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSec signatures.
+//! The `DnssecDnsHandle` is used to validate all DNS responses for correct DNSSEC signatures.
 
 use std::clone::Clone;
 use std::collections::HashSet;
@@ -38,7 +38,7 @@ struct Rrset {
     pub(crate) records: Vec<Record>,
 }
 
-/// Performs DNSSec validation of all DNS responses from the wrapped DnsHandle
+/// Performs DNSSEC validation of all DNS responses from the wrapped DnsHandle
 ///
 /// This wraps a DnsHandle, changing the implementation `send()` to validate all
 ///  message responses for Query operations. Update operation responses are not validated by

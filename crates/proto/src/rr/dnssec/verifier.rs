@@ -1,4 +1,4 @@
-//! Verifier is a structure for performing many of the signing processes of the DNSSec specification
+//! Verifier is a structure for performing many of the signing processes of the DNSSEC specification
 
 use crate::error::*;
 use crate::rr::dnssec::rdata::{DNSKEY, KEY, SIG};

@@ -262,13 +262,13 @@ impl Header {
         self
     }
 
-    /// Specifies that the data is authentic, i.e. the resolver believes all data to be valid through DNSSec
+    /// Specifies that the data is authentic, i.e. the resolver believes all data to be valid through DNSSEC
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.authentic_data = authentic_data;
         self
     }
 
-    /// Used during recursive resolution to specified if a resolver should or should not validate DNSSec signatures
+    /// Used during recursive resolution to specified if a resolver should or should not validate DNSSEC signatures
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.checking_disabled = checking_disabled;
         self
