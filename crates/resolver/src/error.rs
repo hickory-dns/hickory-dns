@@ -185,12 +185,16 @@ impl ResolveError {
             response_code @ ResponseCode::NoError
             if !response.contains_answer() && !response.truncated() => {
                 // TODO: if authoritative, this is cacheable, store a TTL (currently that requires time, need a "now" here)
-                // let valid_until = if response.is_authoritative() { now + response.get_negative_ttl() };
+                // let valid_until = if response.authoritative() { now + response.negative_ttl() };
 
                 let mut response = response;
                 let soa = response.soa().cloned();
                 let negative_ttl = response.negative_ttl();
-                let trusted = if response_code == ResponseCode::NoError { false } else { trust_nx };
+                // Note: improperly configured servers may do recursive lookups and return bad SOA
+                // records here via AS112 (blackhole-1.iana.org. etc)
+                // Such servers should be marked not trusted, as they may break reverse lookups
+                // for local hosts.
+                let trusted = trust_nx && soa.is_some();
                 let query = response.take_queries().drain(..).next().unwrap_or_default();
                 let error_kind = ResolveErrorKind::NoRecordsFound {
                     query: Box::new(query),

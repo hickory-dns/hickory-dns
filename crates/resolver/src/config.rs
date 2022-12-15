@@ -400,16 +400,18 @@ pub struct NameServerConfig {
     pub tls_dns_name: Option<String>,
     /// Whether to trust `NXDOMAIN` responses from upstream nameservers.
     ///
-    /// When this is `true`, and an empty `NXDOMAIN` response is received, the
-    /// query will not be retried against other configured name servers.
+    /// When this is `true`, and an empty `NXDOMAIN` response or `NOERROR`
+    /// with an empty answers set is received, the
+    /// query will not be retried against other configured name servers if
+    /// the response has the Authoritative flag set.
     ///
-    /// (On an empty `NoError` response, or a response with any other error
+    /// (On a response with any other error
     /// response code, the query will still be retried regardless of this
     /// configuration setting.)
     ///
     /// Defaults to false.
     #[cfg_attr(feature = "serde-config", serde(default))]
-    pub trust_nx_responses: bool,
+    pub trust_negative_responses: bool,
     #[cfg(feature = "dns-over-rustls")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dns-over-rustls")))]
     #[cfg_attr(feature = "serde-config", serde(skip))]
@@ -425,7 +427,7 @@ impl NameServerConfig {
         Self {
             socket_addr,
             protocol,
-            trust_nx_responses: true,
+            trust_negative_responses: true,
             tls_dns_name: None,
             #[cfg(feature = "dns-over-rustls")]
             tls_config: None,
@@ -502,7 +504,7 @@ impl NameServerConfigGroup {
     /// Configure a NameServer address and port
     ///
     /// This will create UDP and TCP connections, using the same port.
-    pub fn from_ips_clear(ips: &[IpAddr], port: u16, trust_nx_responses: bool) -> Self {
+    pub fn from_ips_clear(ips: &[IpAddr], port: u16, trust_negative_responses: bool) -> Self {
         let mut name_servers = Self::with_capacity(ips.len());
 
         for ip in ips {
@@ -510,7 +512,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
-                trust_nx_responses,
+                trust_negative_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
                 bind_addr: None,
@@ -519,7 +521,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol: Protocol::Tcp,
                 tls_dns_name: None,
-                trust_nx_responses,
+                trust_negative_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
                 bind_addr: None,
@@ -538,7 +540,7 @@ impl NameServerConfigGroup {
         port: u16,
         tls_dns_name: String,
         protocol: Protocol,
-        trust_nx_responses: bool,
+        trust_negative_responses: bool,
     ) -> Self {
         assert!(protocol.is_encrypted());
 
@@ -549,7 +551,7 @@ impl NameServerConfigGroup {
                 socket_addr: SocketAddr::new(*ip, port),
                 protocol,
                 tls_dns_name: Some(tls_dns_name.clone()),
-                trust_nx_responses,
+                trust_negative_responses,
                 #[cfg(feature = "dns-over-rustls")]
                 tls_config: None,
                 bind_addr: None,
@@ -570,9 +572,15 @@ impl NameServerConfigGroup {
         ips: &[IpAddr],
         port: u16,
         tls_dns_name: String,
-        trust_nx_responses: bool,
+        trust_negative_responses: bool,
     ) -> Self {
-        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Tls, trust_nx_responses)
+        Self::from_ips_encrypted(
+            ips,
+            port,
+            tls_dns_name,
+            Protocol::Tls,
+            trust_negative_responses,
+        )
     }
 
     /// Configure a NameServer address and port for DNS-over-HTTPS
@@ -584,9 +592,15 @@ impl NameServerConfigGroup {
         ips: &[IpAddr],
         port: u16,
         tls_dns_name: String,
-        trust_nx_responses: bool,
+        trust_negative_responses: bool,
     ) -> Self {
-        Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Https, trust_nx_responses)
+        Self::from_ips_encrypted(
+            ips,
+            port,
+            tls_dns_name,
+            Protocol::Https,
+            trust_negative_responses,
+        )
     }
 
     /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).

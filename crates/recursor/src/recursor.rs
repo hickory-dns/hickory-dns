@@ -378,8 +378,8 @@ impl Recursor {
                     let mut udp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Udp);
                     let mut tcp = NameServerConfig::new(SocketAddr::from((ip, 53)), Protocol::Tcp);
 
-                    udp.trust_nx_responses = true;
-                    tcp.trust_nx_responses = true;
+                    udp.trust_negative_responses = true;
+                    tcp.trust_negative_responses = true;
 
                     config_group.push(udp);
                     config_group.push(tcp);

@@ -14,7 +14,7 @@ use futures::stream::{once, Stream};
 use futures::{future, Future};
 
 use trust_dns_client::op::{Message, Query};
-use trust_dns_client::rr::{Name, RData, Record};
+use trust_dns_client::rr::{rdata::SOA, Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
@@ -80,6 +80,11 @@ pub fn cname_record(name: Name, cname: Name) -> Record {
 
 pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
     Record::from_rdata(name, 86400, RData::A(ip))
+}
+
+pub fn soa_record(name: Name, mname: Name) -> Record {
+    let soa = SOA::new(mname, Default::default(), 1, 3600, 60, 86400, 3600);
+    Record::from_rdata(name, 86400, RData::SOA(soa))
 }
 
 pub fn message(

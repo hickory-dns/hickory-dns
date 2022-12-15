@@ -10,14 +10,14 @@ use std::task::Poll;
 use futures::executor::block_on;
 use futures::{future, Future};
 
-use trust_dns_client::op::Query;
+use trust_dns_client::op::{Query, ResponseCode};
 use trust_dns_client::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::xfer::{DnsHandle, DnsResponse, FirstAnswer};
 use trust_dns_proto::TokioTime;
 use trust_dns_resolver::config::*;
-use trust_dns_resolver::error::ResolveError;
+use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
 use trust_dns_resolver::name_server::{ConnectionProvider, NameServer, NameServerPool};
 
 const DEFAULT_SERVER_ADDR: IpAddr = IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1));
@@ -72,14 +72,14 @@ fn mock_nameserver_with_addr(
 fn mock_nameserver_trust_nx(
     messages: Vec<Result<DnsResponse, ResolveError>>,
     options: ResolverOpts,
-    trust_nx_responses: bool,
+    trust_negative_responses: bool,
 ) -> MockedNameServer<DefaultOnSend> {
     mock_nameserver_on_send_nx(
         messages,
         options,
         DefaultOnSend,
         DEFAULT_SERVER_ADDR,
-        trust_nx_responses,
+        trust_negative_responses,
     )
 }
 
@@ -98,7 +98,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
     options: ResolverOpts,
     on_send: O,
     addr: IpAddr,
-    trust_nx_responses: bool,
+    trust_negative_responses: bool,
 ) -> MockedNameServer<O> {
     let conn_provider = MockConnProvider {
         on_send: on_send.clone(),
@@ -110,7 +110,7 @@ fn mock_nameserver_on_send_nx<O: OnSend + Unpin>(
             socket_addr: SocketAddr::new(addr, 0),
             protocol: Protocol::Udp,
             tls_dns_name: None,
-            trust_nx_responses,
+            trust_negative_responses,
             #[cfg(any(feature = "dns-over-rustls", feature = "dns-over-https-rustls"))]
             tls_config: None,
             bind_addr: None,
@@ -275,9 +275,6 @@ fn test_datagram_fails_to_stream() {
 
 #[test]
 fn test_tcp_fallback_only_on_truncated() {
-    use trust_dns_proto::op::ResponseCode;
-    use trust_dns_resolver::error::{ResolveError, ResolveErrorKind};
-
     // Lookup to UDP should fail with an error, and the resolver should not then try the query over
     // TCP, because the default behavior is only to retry if the response was truncated.
 
@@ -350,12 +347,14 @@ fn test_local_mdns() {
 
 #[test]
 fn test_trust_nx_responses_fails() {
-    use trust_dns_proto::op::ResponseCode;
-    use trust_dns_resolver::error::ResolveErrorKind;
-
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
-    let mut nx_message = message(query.clone(), vec![], vec![], vec![]);
+    // NXDOMAIN responses are only trusted if there's a SOA record, so make sure we return one.
+    let soa_record = soa_record(
+        query.name().clone(),
+        Name::from_str("example.com.").unwrap(),
+    );
+    let mut nx_message = message(query.clone(), vec![], vec![soa_record], vec![]);
     nx_message.set_response_code(ResponseCode::NXDomain);
 
     let success_msg = message(
@@ -395,9 +394,62 @@ fn test_trust_nx_responses_fails() {
 }
 
 #[test]
-fn test_distrust_nx_responses() {
-    use trust_dns_proto::op::ResponseCode;
+fn test_noerror_doesnt_leak() {
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
+    let soa_record = soa_record(
+        query.name().clone(),
+        Name::from_str("example.com.").unwrap(),
+    );
+    let udp_message = message(query.clone(), vec![], vec![soa_record], vec![]);
+
+    let incorrect_success_msg = message(
+        query.clone(),
+        vec![v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2))],
+        vec![],
+        vec![],
+    );
+
+    let udp_nameserver =
+        mock_nameserver_trust_nx(vec![Ok(udp_message.into())], Default::default(), true);
+    // Provide a fake A record; if this nameserver is queried the test should fail.
+    let second_nameserver = mock_nameserver_trust_nx(
+        vec![Ok(incorrect_success_msg.into())],
+        Default::default(),
+        true,
+    );
+
+    let mut options = ResolverOpts::default();
+    options.num_concurrent_reqs = 1;
+    options.server_ordering_strategy = ServerOrderingStrategy::UserProvidedOrder;
+    let mut pool = mock_nameserver_pool(
+        vec![udp_nameserver, second_nameserver],
+        vec![],
+        None,
+        options,
+    );
+
+    // lookup should only hit the first server
+    let request = message(query, vec![], vec![], vec![]);
+    let future = pool.send(request).first_answer();
+
+    match block_on(future).unwrap_err().kind() {
+        ResolveErrorKind::NoRecordsFound {
+            soa,
+            response_code,
+            trusted,
+            ..
+        } => {
+            assert_eq!(response_code, &ResponseCode::NoError);
+            assert!(soa.is_some());
+            assert!(trusted);
+        }
+        x => panic!("Expected NoRecordsFound, got {:?}", x),
+    }
+}
+
+#[test]
+fn test_distrust_nx_responses() {
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     const RETRYABLE_ERRORS: [ResponseCode; 9] = [
@@ -514,9 +566,6 @@ fn test_user_provided_server_order() {
 
 #[test]
 fn test_return_error_from_highest_priority_nameserver() {
-    use trust_dns_proto::op::ResponseCode;
-    use trust_dns_resolver::error::ResolveErrorKind;
-
     let query = Query::query(Name::from_str("www.example.").unwrap(), RecordType::A);
 
     const ERROR_RESPONSE_CODES: [ResponseCode; 4] = [
