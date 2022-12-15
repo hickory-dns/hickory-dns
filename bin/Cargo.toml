@@ -73,10 +73,6 @@ tls = ["dns-over-openssl"]
 
 ## DEPRECATED
 [[bin]]
-name = "named"
-path = "src/named.rs"
-
-[[bin]]
 name = "trust-dns"
 path = "src/named.rs"
 
