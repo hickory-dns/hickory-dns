@@ -43,7 +43,7 @@ where
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     println!("using server src path: {}", server_path);
 
-    let mut command = Command::new(&format!("{}/target/debug/named", server_path));
+    let mut command = Command::new(&format!("{}/target/debug/trust-dns", server_path));
     command
         .stdout(Stdio::piped())
         .env(
