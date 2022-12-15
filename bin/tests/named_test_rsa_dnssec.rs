@@ -203,7 +203,7 @@ fn test_dnssec_restart_with_update_journal() {
     let server_path = env::var("TDNS_WORKSPACE_ROOT").unwrap_or_else(|_| "..".to_owned());
     let server_path = Path::new(&server_path);
     let journal =
-        server_path.join("tests/test-data/named_test_configs/example.com_dnsec_update.jrnl");
+        server_path.join("tests/test-data/named_test_configs/example.com_dnssec_update.jrnl");
     std::fs::remove_file(&journal).ok();
 
     generic_test(
