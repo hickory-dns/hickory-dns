@@ -71,7 +71,6 @@ tls = ["dns-over-openssl"]
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["trust-dns-client/mtls"]
 
-## DEPRECATED
 [[bin]]
 name = "trust-dns"
 path = "src/named.rs"
