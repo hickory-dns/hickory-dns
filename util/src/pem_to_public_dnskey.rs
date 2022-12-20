@@ -85,7 +85,7 @@ pub fn main() {
     let mut public_key_file = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(&output_path)
+        .open(output_path)
         .expect("could not open public_key file for writing");
 
     public_key_file

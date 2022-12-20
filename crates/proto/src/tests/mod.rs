@@ -1,5 +1,7 @@
 //! Tests for TCP and UDP stream and client
 
+#![allow(clippy::print_stdout)] // this is a test module
+
 mod tcp;
 mod udp;
 

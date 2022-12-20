@@ -96,6 +96,7 @@ impl Resolver {
     /// # Returns
     ///
     /// A new `Resolver` or an error if there was an error with the configuration.
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> io::Result<Self> {
         Self::new(ResolverConfig::default(), ResolverOpts::default())
     }
