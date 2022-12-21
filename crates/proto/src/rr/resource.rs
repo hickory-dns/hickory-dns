@@ -34,6 +34,8 @@ use crate::rr::RecordSet;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
 
+use super::RecordDataDecodable;
+
 #[cfg(feature = "mdns")]
 /// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
 /// ```text
@@ -79,6 +81,7 @@ const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 /// ```
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Eq, Debug, Clone)]
+// TODO: make Record carry a lifetime for more efficient storage options in the future
 pub struct Record<R: RecordData = RData> {
     name_labels: Name,
     rr_type: RecordType,
@@ -152,6 +155,7 @@ impl<R: RecordData> Record<R> {
     }
 
     /// Attempts to convert the generic `RData` based Record into this one with the interior `R`
+    #[allow(clippy::result_large_err)]
     pub fn try_from(record: Record<RData>) -> Result<Self, Record<RData>> {
         let Record {
             name_labels,
@@ -449,7 +453,7 @@ impl<R: RecordData> BinEncodable for Record<R> {
     }
 }
 
-impl<'r, R: RecordData> BinDecodable<'r> for Record<R> {
+impl<'r, R: RecordData + RecordDataDecodable<'r>> BinDecodable<'r> for Record<R> {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
@@ -527,7 +531,11 @@ impl<'r, R: RecordData> BinDecodable<'r> for Record<R> {
             //                according to the TYPE and CLASS of the resource record.
             // Adding restrict to the rdata length because it's used for many calculations later
             //  and must be validated before hand
-            Some(R::read(decoder, record_type, Restrict::new(rd_length))?)
+            Some(R::read_data(
+                decoder,
+                record_type,
+                Restrict::new(rd_length),
+            )?)
         };
 
         Ok(Self {

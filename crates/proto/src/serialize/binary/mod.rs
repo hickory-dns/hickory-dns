@@ -83,7 +83,7 @@ impl BinEncodable for i32 {
 }
 
 impl<'r> BinDecodable<'r> for i32 {
-    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         decoder
             .read_i32()
             .map(Restrict::unverified)
@@ -114,24 +114,57 @@ impl BinEncodable for Vec<u8> {
 
 impl BinEncodable for Ipv4Addr {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        crate::rr::rdata::a::emit(encoder, *self)
+        let segments = self.octets();
+
+        encoder.emit(segments[0])?;
+        encoder.emit(segments[1])?;
+        encoder.emit(segments[2])?;
+        encoder.emit(segments[3])?;
+        Ok(())
     }
 }
 
 impl<'r> BinDecodable<'r> for Ipv4Addr {
-    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
-        crate::rr::rdata::a::read(decoder)
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        // TODO: would this be more efficient as a single u32 read?
+        Ok(Self::new(
+            decoder.pop()?.unverified(/*valid as any u8*/),
+            decoder.pop()?.unverified(/*valid as any u8*/),
+            decoder.pop()?.unverified(/*valid as any u8*/),
+            decoder.pop()?.unverified(/*valid as any u8*/),
+        ))
     }
 }
 
 impl BinEncodable for Ipv6Addr {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        crate::rr::rdata::aaaa::emit(encoder, self)
+        let segments = self.segments();
+
+        // TODO: this might be more efficient as a single write of the array
+        encoder.emit_u16(segments[0])?;
+        encoder.emit_u16(segments[1])?;
+        encoder.emit_u16(segments[2])?;
+        encoder.emit_u16(segments[3])?;
+        encoder.emit_u16(segments[4])?;
+        encoder.emit_u16(segments[5])?;
+        encoder.emit_u16(segments[6])?;
+        encoder.emit_u16(segments[7])?;
+        Ok(())
     }
 }
 
 impl<'r> BinDecodable<'r> for Ipv6Addr {
-    fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Self> {
-        crate::rr::rdata::aaaa::read(decoder)
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        // TODO: would this be more efficient as two u64 reads?
+        let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let c: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let d: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let e: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let f: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let g: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+        let h: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+
+        Ok(Self::new(a, b, c, d, e, f, g, h))
     }
 }
