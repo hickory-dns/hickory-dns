@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::*;
 use crate::serialize::binary::*;
 
-/// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
+/// [RFC 7929](https://www.rfc-editor.org/rfc/rfc7929#section-2.1)
 ///
 /// ```text
 /// The RDATA portion of an OPENPGPKEY resource record contains a single
@@ -60,7 +60,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, openpgpkey: &OPENPGPKEY) -> ProtoResul
 
 /// Parse the RData from a set of tokens.
 ///
-/// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.3)
+/// [RFC 7929](https://www.rfc-editor.org/rfc/rfc7929#section-2.3)
 ///
 /// ```text
 /// 2.3.  The OPENPGPKEY RDATA Presentation Format

@@ -133,7 +133,7 @@ impl TSigner {
             unreachable!("tsig::signed_message_to_buff always returns a TSIG record")
         };
 
-        // https://tools.ietf.org/html/rfc8945#section-5.2
+        // https://www.rfc-editor.org/rfc/rfc8945#section-5.2
         // 1.  Check key
         if record.name() != &self.0.signer_name || tsig.algorithm() != &self.0.algorithm {
             return Err(ProtoErrorKind::TsigWrongKey.into());

@@ -17,7 +17,7 @@ pub use self::mdns_client_stream::{MdnsClientConnect, MdnsClientStream};
 #[cfg(feature = "tokio-runtime")]
 pub use self::mdns_stream::{MdnsStream, MDNS_IPV4, MDNS_IPV6};
 
-/// See [rfc6762](https://tools.ietf.org/html/rfc6762#section-5) details on these different types.
+/// See [rfc6762](https://www.rfc-editor.org/rfc/rfc6762#section-5) details on these different types.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MdnsQueryType {
     /// The querier using this socket will only perform standard DNS queries over multicast. (clients only)
@@ -25,7 +25,7 @@ pub enum MdnsQueryType {
     /// Effectively treats mDNS as essentially no different than any other DNS query; one request followed by one response.
     ///   Only one UDP socket will be created.
     OneShot,
-    /// The querier is fully compliant with [rfc6762](https://tools.ietf.org/html/rfc6762#section-5). (servers, clients)
+    /// The querier is fully compliant with [rfc6762](https://www.rfc-editor.org/rfc/rfc6762#section-5). (servers, clients)
     ///
     /// mDNS capable clients will sent messages with many queries, and they will expect many responses. Two UDP sockets will be
     ///   created, one for receiving multicast traffic, the other used for sending queries and direct responses. This requires

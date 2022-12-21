@@ -17,7 +17,7 @@ use crate::{
 
 /// Metadata for the `Message` struct.
 ///
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// 4.1.1. Header section format
@@ -395,7 +395,7 @@ impl Header {
         self.recursion_available
     }
 
-    /// [RFC 4035, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4035#section-3.1.6)
+    /// [RFC 4035, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4035#section-3.1.6)
     ///
     /// ```text
     ///

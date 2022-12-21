@@ -18,7 +18,7 @@ use super::sshfp;
 use crate::error::*;
 use crate::serialize::binary::*;
 
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
+/// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.1)
 ///
 /// ```text
 /// 2.1.  TLSA RDATA Wire Format
@@ -46,7 +46,7 @@ pub struct TLSA {
     cert_data: Vec<u8>,
 }
 
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.1)
+/// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.1.1)
 ///
 /// ```text
 /// 2.1.1.  The Certificate Usage Field
@@ -165,7 +165,7 @@ impl From<CertUsage> for u8 {
     }
 }
 
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.1)
+/// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.1.1)
 ///
 /// ```text
 /// 2.1.2.  The Selector Field
@@ -186,10 +186,10 @@ impl From<CertUsage> for u8 {
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Selector {
-    /// Full certificate: the Certificate binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
+    /// Full certificate: the Certificate binary structure as defined in [RFC5280](https://www.rfc-editor.org/rfc/rfc5280)
     Full,
 
-    /// SubjectPublicKeyInfo: DER-encoded binary structure as defined in [RFC5280](https://tools.ietf.org/html/rfc5280)
+    /// SubjectPublicKeyInfo: DER-encoded binary structure as defined in [RFC5280](https://www.rfc-editor.org/rfc/rfc5280)
     Spki,
 
     /// Unassigned at the time of this writing
@@ -221,7 +221,7 @@ impl From<Selector> for u8 {
     }
 }
 
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.3)
+/// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.1.3)
 ///
 /// ```text
 /// 2.1.3.  The Matching Type Field
@@ -248,10 +248,10 @@ pub enum Matching {
     /// Exact match on selected content
     Raw,
 
-    /// SHA-256 hash of selected content [RFC6234](https://tools.ietf.org/html/rfc6234)
+    /// SHA-256 hash of selected content [RFC6234](https://www.rfc-editor.org/rfc/rfc6234)
     Sha256,
 
-    /// SHA-512 hash of selected content [RFC6234](https://tools.ietf.org/html/rfc6234)
+    /// SHA-512 hash of selected content [RFC6234](https://www.rfc-editor.org/rfc/rfc6234)
     Sha512,
 
     /// Unassigned at the time of this writing
@@ -288,7 +288,7 @@ impl From<Matching> for u8 {
 impl TLSA {
     /// Constructs a new TLSA
     ///
-    /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2)
+    /// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2)
     ///
     /// ```text
     /// 2.  The TLSA Resource Record
@@ -382,7 +382,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, tlsa: &TLSA) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
+/// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.2)
 ///
 /// ```text
 /// 2.2.  TLSA RR Presentation Format

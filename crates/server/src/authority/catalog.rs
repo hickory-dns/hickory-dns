@@ -201,7 +201,7 @@ impl Catalog {
 
     /// Update the zone given the Update request.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     /// 3.1 - Process Zone Section

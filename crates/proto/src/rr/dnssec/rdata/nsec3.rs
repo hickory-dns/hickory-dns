@@ -27,7 +27,7 @@ use crate::rr::type_bit_map::*;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
 
-/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3), NSEC3, March 2008
+/// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3), NSEC3, March 2008
 ///
 /// ```text
 /// 3.  The NSEC3 Resource Record
@@ -143,7 +143,7 @@ impl NSEC3 {
         }
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.1), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.1.1), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.1.  Hash Algorithm
@@ -158,7 +158,7 @@ impl NSEC3 {
         self.hash_algorithm
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.2), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.1.2), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.2.  Flags
@@ -183,7 +183,7 @@ impl NSEC3 {
         self.opt_out
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.3), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.1.3), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.3.  Iterations
@@ -199,7 +199,7 @@ impl NSEC3 {
         self.iterations
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.5), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.1.5), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.5.  Salt
@@ -212,7 +212,7 @@ impl NSEC3 {
         &self.salt
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.7), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.1.7), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.7.  Next Hashed Owner Name
@@ -231,7 +231,7 @@ impl NSEC3 {
         &self.next_hashed_owner_name
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.1.8), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.1.8), NSEC3, March 2008
     ///
     /// ```text
     /// 3.1.8.  Type Bit Maps
@@ -326,7 +326,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC3) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.3), NSEC3, March 2008
+/// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-3.3), NSEC3, March 2008
 ///
 /// ```text
 /// 3.3.  Presentation Format

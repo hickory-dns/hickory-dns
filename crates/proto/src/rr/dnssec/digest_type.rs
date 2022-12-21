@@ -37,13 +37,13 @@ use super::Digest;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[non_exhaustive]
 pub enum DigestType {
-    /// [RFC 3658](https://tools.ietf.org/html/rfc3658)
+    /// [RFC 3658](https://www.rfc-editor.org/rfc/rfc3658)
     SHA1,
-    /// [RFC 4509](https://tools.ietf.org/html/rfc4509)
+    /// [RFC 4509](https://www.rfc-editor.org/rfc/rfc4509)
     SHA256,
-    /// [RFC 5933](https://tools.ietf.org/html/rfc5933)
+    /// [RFC 5933](https://www.rfc-editor.org/rfc/rfc5933)
     GOSTR34_11_94,
-    /// [RFC 6605](https://tools.ietf.org/html/rfc6605)
+    /// [RFC 6605](https://www.rfc-editor.org/rfc/rfc6605)
     SHA384,
     /// Undefined
     SHA512,

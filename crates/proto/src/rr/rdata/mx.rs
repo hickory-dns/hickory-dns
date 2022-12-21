@@ -25,7 +25,7 @@ use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
 
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// 3.3.9. MX RDATA format
@@ -67,7 +67,7 @@ impl MX {
         }
     }
 
-    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
     ///
     /// ```text
     /// PREFERENCE      A 16 bit integer which specifies the preference given to
@@ -78,7 +78,7 @@ impl MX {
         self.preference
     }
 
-    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+    /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
     ///
     /// ```text
     /// EXCHANGE        A <domain-name> which specifies a host willing to act as
@@ -97,7 +97,7 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<MX> {
     ))
 }
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
 ///
 /// ```text
 /// 6.2.  Canonical RR Form
@@ -121,7 +121,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, mx: &MX) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+/// [RFC 1033](https://www.rfc-editor.org/rfc/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
 
 /// ```text
 ///   MX (Mail Exchanger)  (See RFC-974 for more details.)

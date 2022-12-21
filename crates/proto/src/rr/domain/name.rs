@@ -468,7 +468,7 @@ impl Name {
         Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
     }
 
-    // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
+    // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://www.rfc-editor.org/rfc/rfc6762#appendix-F
     /// Will convert the string to a name using IDNA, punycode, to encode the UTF8 as necessary
     ///
     /// When making names IDNA compatible, there is a side-effect of lowercasing the name.

@@ -25,7 +25,7 @@ use crate::error::*;
 use crate::rr::dnssec::Nsec3HashAlgorithm;
 use crate::serialize::binary::*;
 
-/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4), NSEC3, March 2008
+/// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-4), NSEC3, March 2008
 ///
 /// ```text
 /// 4.  The NSEC3PARAM Resource Record
@@ -106,7 +106,7 @@ impl NSEC3PARAM {
         }
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.1), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-4.1.1), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.1.  Hash Algorithm
@@ -121,7 +121,7 @@ impl NSEC3PARAM {
         self.hash_algorithm
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.2), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-4.1.2), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.2.  Flag Fields
@@ -137,7 +137,7 @@ impl NSEC3PARAM {
         self.opt_out
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.3), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-4.1.3), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.3.  Iterations
@@ -152,7 +152,7 @@ impl NSEC3PARAM {
         self.iterations
     }
 
-    /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4.1.5), NSEC3, March 2008
+    /// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-4.1.5), NSEC3, March 2008
     ///
     /// ```text
     /// 4.1.5.  Salt
@@ -205,7 +205,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC3PARAM) -> ProtoResult<()>
     Ok(())
 }
 
-/// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-4), NSEC3, March 2008
+/// [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155#section-4), NSEC3, March 2008
 ///
 /// ```text
 /// 4.3.  Presentation Format

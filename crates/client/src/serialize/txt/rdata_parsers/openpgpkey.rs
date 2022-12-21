@@ -12,7 +12,7 @@ use crate::rr::rdata::OPENPGPKEY;
 
 /// Parse the RData from a set of tokens.
 ///
-/// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.3)
+/// [RFC 7929](https://www.rfc-editor.org/rfc/rfc7929#section-2.3)
 ///
 /// ```text
 /// 2.3.  The OPENPGPKEY RDATA Presentation Format

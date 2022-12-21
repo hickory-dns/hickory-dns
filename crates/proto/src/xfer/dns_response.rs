@@ -141,7 +141,7 @@ impl DnsResponse {
     /// Looks in the authority section for an SOA record from the response, and returns the negative_ttl, None if not available.
     ///
     /// ```text
-    /// [RFC 2308](https://tools.ietf.org/html/rfc2308#section-5) DNS NCACHE March 1998
+    /// [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308#section-5) DNS NCACHE March 1998
     ///
     /// 5 - Caching Negative Answers
     ///
@@ -313,7 +313,7 @@ impl From<Message> for DnsResponse {
 }
 
 /// ```text
-/// [RFC 2308](https://tools.ietf.org/html/rfc2308#section-2) DNS NCACHE March 1998
+/// [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308#section-2) DNS NCACHE March 1998
 ///
 ///
 /// 2 - Negative Responses

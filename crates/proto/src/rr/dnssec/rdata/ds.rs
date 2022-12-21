@@ -28,7 +28,7 @@ use crate::serialize::binary::*;
 use crate::rr::dnssec::rdata::DNSKEY;
 use crate::rr::Name;
 
-/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
+/// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-5)
 ///
 /// ```text
 /// 5.1.  DS RDATA Wire Format
@@ -107,7 +107,7 @@ impl DS {
         }
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-5.1.1)
     ///
     /// ```text
     /// 5.1.1.  The Key Tag Field
@@ -122,7 +122,7 @@ impl DS {
         self.key_tag
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-5.1.1)
     ///
     /// ```text
     /// 5.1.2.  The Algorithm Field
@@ -138,7 +138,7 @@ impl DS {
         self.algorithm
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-5.1.1)
     ///
     /// ```text
     /// 5.1.3.  The Digest Type Field
@@ -151,7 +151,7 @@ impl DS {
         self.digest_type
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-5.1.1)
     ///
     /// ```text
     /// 5.1.4.  The Digest Field
@@ -228,7 +228,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &DS) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.3)
+/// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-5.3)
 ///
 /// ```text
 /// 5.3.  The DS RR Presentation Format

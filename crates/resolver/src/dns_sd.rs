@@ -29,14 +29,14 @@ use crate::AsyncResolver;
 pub trait DnsSdHandle {
     /// List all services available
     ///
-    /// <https://tools.ietf.org/html/rfc6763#section-4.1>
+    /// <https://www.rfc-editor.org/rfc/rfc6763#section-4.1>
     ///
     /// For registered service types, see: <https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml>
     fn list_services(&self, name: Name) -> ListServicesFuture;
 
     /// Retrieve service information
     ///
-    /// <https://tools.ietf.org/html/rfc6763#section-6>
+    /// <https://www.rfc-editor.org/rfc/rfc6763#section-6>
     fn service_info(&self, name: Name) -> ServiceInfoFuture;
 }
 
@@ -131,7 +131,7 @@ pub struct ServiceInfo(TxtLookup);
 impl ServiceInfo {
     /// Returns this as a map, this allocates a new hashmap
     ///
-    /// This converts the DNS-SD TXT record into a map following the rules specified in <https://tools.ietf.org/html/rfc6763#section-6.4>
+    /// This converts the DNS-SD TXT record into a map following the rules specified in <https://www.rfc-editor.org/rfc/rfc6763#section-6.4>
     pub fn to_map(&self) -> HashMap<Cow<'_, str>, Option<Cow<'_, str>>> {
         self.0
             .iter()

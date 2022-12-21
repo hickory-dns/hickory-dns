@@ -110,7 +110,7 @@ where
         mut client: Self,
         preserved_records: Vec<(Record, u32)>,
     ) -> Result<Lookup, ResolveError> {
-        // see https://tools.ietf.org/html/rfc6761
+        // see https://www.rfc-editor.org/rfc/rfc6761
         //
         // ```text
         // Name resolution APIs and libraries SHOULD recognize localhost
@@ -247,7 +247,7 @@ where
         self.lru.get(query, Instant::now())
     }
 
-    /// See https://tools.ietf.org/html/rfc2308
+    /// See https://www.rfc-editor.org/rfc/rfc2308
     ///
     /// For now we will regard NXDomain to strictly mean the query failed
     ///  and a record for the name, regardless of CNAME presence, what have you
@@ -438,7 +438,7 @@ where
                 min_ttl: cname_ttl,
             })
         } else {
-            // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
+            // TODO: review See https://www.rfc-editor.org/rfc/rfc2308 for NoData section
             // Note on DNSSEC, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
             Err(Self::handle_nxdomain(

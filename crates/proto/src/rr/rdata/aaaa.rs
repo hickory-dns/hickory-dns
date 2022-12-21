@@ -16,7 +16,7 @@
 
 //! IPv6 address record data
 //!
-//! [RFC 3596, DNS Extensions to Support IPv6, October 2003](https://tools.ietf.org/html/rfc3596)
+//! [RFC 3596, DNS Extensions to Support IPv6, October 2003](https://www.rfc-editor.org/rfc/rfc3596)
 //!
 //! ```text
 //! 2.1 AAAA record type

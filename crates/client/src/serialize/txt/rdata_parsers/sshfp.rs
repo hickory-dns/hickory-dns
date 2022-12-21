@@ -12,7 +12,7 @@ use crate::rr::rdata::{sshfp, SSHFP};
 
 /// Parse the RData from a set of Tokens
 ///
-/// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.2)
+/// [RFC 4255](https://www.rfc-editor.org/rfc/rfc4255#section-3.2)
 ///
 /// ```text
 /// 3.2.  Presentation Format of the SSHFP RR

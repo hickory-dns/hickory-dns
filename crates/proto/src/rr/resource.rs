@@ -34,7 +34,7 @@ use crate::rr::RecordType;
 use crate::serialize::binary::*;
 
 #[cfg(feature = "mdns")]
-/// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+/// From [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762#section-10.2)
 /// ```text
 /// The cache-flush bit is the most significant bit of the second
 /// 16-bit word of a resource record in a Resource Record Section of a
@@ -47,7 +47,7 @@ const MDNS_ENABLE_CACHE_FLUSH: u16 = 1 << 15;
 const NULL_RDATA: &RData = &RData::NULL(NULL::new());
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
-/// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
+/// [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
 ///
 /// ```text
 /// 4.1.3. Resource record format
@@ -234,7 +234,7 @@ impl Record {
     }
 
     /// Changes mDNS cache-flush bit
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+    /// See [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762#section-10.2)
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn set_mdns_cache_flush(&mut self, flag: bool) -> &mut Self {
@@ -284,7 +284,7 @@ impl Record {
     }
 
     /// Returns if the mDNS cache-flush bit is set or not
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-10.2)
+    /// See [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762#section-10.2)
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn mdns_cache_flush(&self) -> bool {
@@ -500,7 +500,7 @@ impl<'r> BinDecodable<'r> for Record {
     }
 }
 
-/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+/// [RFC 1033](https://www.rfc-editor.org/rfc/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
 ///
 /// ```text
 ///   RESOURCE RECORDS
@@ -563,7 +563,7 @@ impl fmt::Display for Record {
 
 impl PartialEq for Record {
     /// Equality or records, as defined by
-    ///  [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    ///  [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///   1.1.1. Two RRs are considered equal if their NAME, CLASS, TYPE,
@@ -594,7 +594,7 @@ macro_rules! compare_or_equal {
 
 impl Ord for Record {
     /// Canonical ordering as defined by
-    ///  [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+    ///  [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
     ///
     /// ```text
     /// 6.2.  Canonical RR Form
@@ -639,7 +639,7 @@ impl Ord for Record {
 
 impl PartialOrd<Self> for Record {
     /// Canonical ordering as defined by
-    ///  [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+    ///  [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
     ///
     /// ```text
     /// 6.2.  Canonical RR Form

@@ -16,7 +16,7 @@ use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
 
-/// [RFC 3403 DDDS DNS Database, October 2002](https://tools.ietf.org/html/rfc3403#section-4)
+/// [RFC 3403 DDDS DNS Database, October 2002](https://www.rfc-editor.org/rfc/rfc3403#section-4)
 ///
 /// ```text
 /// 4.1 Packet Format
@@ -233,7 +233,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, naptr: &NAPTR) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 2915](https://tools.ietf.org/html/rfc2915), NAPTR DNS RR, September 2000
+/// [RFC 2915](https://www.rfc-editor.org/rfc/rfc2915), NAPTR DNS RR, September 2000
 ///
 /// ```text
 /// Master File Format

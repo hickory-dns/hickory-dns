@@ -131,7 +131,7 @@ impl UpdateMessage for Message {
 /// Sends a record to create on the server, this will fail if the record exists (atomicity
 ///  depends on the server)
 ///
-/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+/// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
 ///
 /// ```text
 ///  2.4.3 - RRset Does Not Exist
@@ -200,7 +200,7 @@ pub fn create(rrset: RecordSet, zone_origin: Name, use_edns: bool) -> Message {
 /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
 ///  depends on the server)
 ///
-/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+/// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
 ///
 /// ```text
 /// 2.4.1 - RRset Exists (Value Independent)
@@ -364,7 +364,7 @@ pub fn compare_and_swap(
 
 /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
 ///
-/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+/// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
 ///
 /// ```text
 /// 2.4.1 - RRset Exists (Value Independent)
@@ -436,7 +436,7 @@ pub fn delete_by_rdata(mut rrset: RecordSet, zone_origin: Name, use_edns: bool) 
 
 /// Deletes an entire rrset, optionally require the rrset to exist.
 ///
-/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+/// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
 ///
 /// ```text
 /// 2.4.1 - RRset Exists (Value Independent)
@@ -508,7 +508,7 @@ pub fn delete_rrset(mut record: Record, zone_origin: Name, use_edns: bool) -> Me
 
 /// Deletes all records at the specified name
 ///
-/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+/// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
 ///
 /// ```text
 /// 2.5.3 - Delete All RRsets From A Name

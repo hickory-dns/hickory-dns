@@ -29,7 +29,7 @@ use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
 };
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
 /// ```text
 /// 2.  The DNSKEY Resource Record
@@ -115,7 +115,7 @@ impl DNSKEY {
         }
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.1.1)
     ///
     /// ```text
     /// 2.1.1.  The Flags Field
@@ -134,7 +134,7 @@ impl DNSKEY {
         self.zone_key
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.1.1)
     ///
     /// ```text
     /// 2.1.1.  The Flags Field
@@ -155,7 +155,7 @@ impl DNSKEY {
         self.secure_entry_point
     }
 
-    /// [RFC 5011, Trust Anchor Update, September 2007](https://tools.ietf.org/html/rfc5011#section-3)
+    /// [RFC 5011, Trust Anchor Update, September 2007](https://www.rfc-editor.org/rfc/rfc5011#section-3)
     ///
     /// ```text
     /// RFC 5011                  Trust Anchor Update             September 2007
@@ -169,7 +169,7 @@ impl DNSKEY {
         self.revoke
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.3)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.1.3)
     ///
     /// ```text
     /// 2.1.3.  The Algorithm Field
@@ -182,7 +182,7 @@ impl DNSKEY {
         self.algorithm
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.1.4)
     ///
     /// ```text
     /// 2.1.4.  The Public Key Field
@@ -266,7 +266,7 @@ impl DNSKEY {
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// RFC 2535                DNS Security Extensions               March 1999
@@ -404,7 +404,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &DNSKEY) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.2)
+/// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.2)
 ///
 /// ```text
 /// 2.2.  The DNSKEY RR Presentation Format

@@ -25,7 +25,7 @@ use crate::rr::record_type::RecordType;
 use crate::rr::{Name, Record};
 use crate::serialize::binary::*;
 
-/// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.2)
+/// [RFC 8945, Secret Key Transaction Authentication for DNS](https://www.rfc-editor.org/rfc/rfc8945#section-4.2)
 ///
 /// ```text
 ///   4.2.  TSIG Record Format
@@ -151,7 +151,7 @@ pub struct TSIG {
 
 /// Algorithm used to authenticate communication
 ///
-/// [RFC8945 Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-6)
+/// [RFC8945 Secret Key Transaction Authentication for DNS](https://www.rfc-editor.org/rfc/rfc8945#section-6)
 /// ```text
 ///      +==========================+================+=================+
 ///      | Algorithm Name           | Implementation | Use             |
@@ -207,7 +207,7 @@ pub enum TsigAlgorithm {
 impl TSIG {
     /// Constructs a new TSIG
     ///
-    /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.1)
+    /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://www.rfc-editor.org/rfc/rfc8945#section-4.1)
     ///
     /// ```text
     /// 4.1.  TSIG RR Type
@@ -771,7 +771,7 @@ pub fn signed_bitmessage_to_buf(
 
 /// Helper function to make a TSIG record from the name of the key, and the TSIG RData
 pub fn make_tsig_record(name: Name, rdata: TSIG) -> Record {
-    // https://tools.ietf.org/html/rfc8945#section-4.2
+    // https://www.rfc-editor.org/rfc/rfc8945#section-4.2
 
     let mut tsig = Record::new();
 

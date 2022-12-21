@@ -19,7 +19,7 @@ use crate::https::HttpsResult;
 /// Create a new Request for an http/2 dns-message request
 ///
 /// ```text
-/// https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
+/// https://datatracker.ietf.org/doc/html/draft-ietf-doh-dns-over-https-10#section-5.1
 /// The URI Template defined in this document is processed without any
 /// variables when the HTTP method is POST.  When the HTTP method is GET
 /// the single variable "dns" is defined as the content of the DNS

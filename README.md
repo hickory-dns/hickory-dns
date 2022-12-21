@@ -109,59 +109,59 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 ## RFCs implemented
 
-- [RFC 8499](https://tools.ietf.org/html/rfc8499): No more master/slave, in honor of [Juneteenth](https://en.wikipedia.org/wiki/Juneteenth)
+- [RFC 8499](https://www.rfc-editor.org/rfc/rfc8499): No more master/slave, in honor of [Juneteenth](https://en.wikipedia.org/wiki/Juneteenth)
 
 ### Basic operations
 
-- [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (see the Resolver for caching)
-- [RFC 2308](https://tools.ietf.org/html/rfc2308): Negative Caching of DNS Queries (see the Resolver)
-- [RFC 2782](https://tools.ietf.org/html/rfc2782): Service location
-- [RFC 3596](https://tools.ietf.org/html/rfc3596): IPv6
-- [RFC 6891](https://tools.ietf.org/html/rfc6891): Extension Mechanisms for DNS
-- [RFC 6761](https://tools.ietf.org/html/rfc6761): Special-Use Domain Names (resolver)
-- [RFC 6762](https://tools.ietf.org/html/rfc6762): mDNS Multicast DNS (experimental feature: `mdns`)
-- [RFC 6763](https://tools.ietf.org/html/rfc6763): DNS-SD Service Discovery (experimental feature: `mdns`)
-- [RFC ANAME](https://tools.ietf.org/html/draft-ietf-dnsop-aname-02): Address-specific DNS aliases (`ANAME`)
+- [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035): Base DNS spec (see the Resolver for caching)
+- [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308): Negative Caching of DNS Queries (see the Resolver)
+- [RFC 2782](https://www.rfc-editor.org/rfc/rfc2782): Service location
+- [RFC 3596](https://www.rfc-editor.org/rfc/rfc3596): IPv6
+- [RFC 6891](https://www.rfc-editor.org/rfc/rfc6891): Extension Mechanisms for DNS
+- [RFC 6761](https://www.rfc-editor.org/rfc/rfc6761): Special-Use Domain Names (resolver)
+- [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762): mDNS Multicast DNS (experimental feature: `mdns`)
+- [RFC 6763](https://www.rfc-editor.org/rfc/rfc6763): DNS-SD Service Discovery (experimental feature: `mdns`)
+- [RFC ANAME](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-aname-02): Address-specific DNS aliases (`ANAME`)
 
 ### Update operations
 
-- [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
-- [RFC 7477](https://tools.ietf.org/html/rfc7477): Child-to-Parent Synchronization in DNS
+- [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136): Dynamic Update
+- [RFC 7477](https://www.rfc-editor.org/rfc/rfc7477): Child-to-Parent Synchronization in DNS
 
 ### Secure DNS operations
 
-- [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update
-- [RFC 4034](https://tools.ietf.org/html/rfc4034): DNSSEC Resource Records
-- [RFC 4035](https://tools.ietf.org/html/rfc4035): Protocol Modifications for DNSSEC
-- [RFC 4509](https://tools.ietf.org/html/rfc4509): SHA-256 in DNSSEC Delegation Signer
-- [RFC 5702](https://tools.ietf.org/html/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
-- [RFC 6844](https://tools.ietf.org/html/rfc6844): DNS Certification Authority Authorization (CAA) Resource Record
-- [RFC 6698](https://tools.ietf.org/html/rfc6698): The DNS-Based Authentication of Named Entities (DANE) Transport Layer Security (TLS) Protocol: TLSA
-- [RFC 6840](https://tools.ietf.org/html/rfc6840): Clarifications and Implementation Notes for DNSSEC
-- [RFC 6844](https://tools.ietf.org/html/rfc6844): DNS Certification Authority Authorization Resource Record
-- [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
-- [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
-- [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
-- [RFC DoH](https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-14): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
+- [RFC 3007](https://www.rfc-editor.org/rfc/rfc3007): Secure Dynamic Update
+- [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034): DNSSEC Resource Records
+- [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035): Protocol Modifications for DNSSEC
+- [RFC 4509](https://www.rfc-editor.org/rfc/rfc4509): SHA-256 in DNSSEC Delegation Signer
+- [RFC 5702](https://www.rfc-editor.org/rfc/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
+- [RFC 6844](https://www.rfc-editor.org/rfc/rfc6844): DNS Certification Authority Authorization (CAA) Resource Record
+- [RFC 6698](https://www.rfc-editor.org/rfc/rfc6698): The DNS-Based Authentication of Named Entities (DANE) Transport Layer Security (TLS) Protocol: TLSA
+- [RFC 6840](https://www.rfc-editor.org/rfc/rfc6840): Clarifications and Implementation Notes for DNSSEC
+- [RFC 6844](https://www.rfc-editor.org/rfc/rfc6844): DNS Certification Authority Authorization Resource Record
+- [RFC 6944](https://www.rfc-editor.org/rfc/rfc6944): DNSKEY Algorithm Implementation Status
+- [RFC 6975](https://www.rfc-editor.org/rfc/rfc6975): Signaling Cryptographic Algorithm Understanding
+- [RFC 7858](https://www.rfc-editor.org/rfc/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
+- [RFC DoH](https://datatracker.ietf.org/doc/html/draft-ietf-doh-dns-over-https-14): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
 
 ## RFCs in progress or not yet implemented
 
 ### Basic operations
 
-- [RFC 2317](https://tools.ietf.org/html/rfc2317): Classless IN-ADDR.ARPA delegation
+- [RFC 2317](https://www.rfc-editor.org/rfc/rfc2317): Classless IN-ADDR.ARPA delegation
 
 ### Update operations
 
-- [RFC 1995](https://tools.ietf.org/html/rfc1995): Incremental Zone Transfer
-- [RFC 1996](https://tools.ietf.org/html/rfc1996): Notify secondaries of update
-- [Update Leases](https://tools.ietf.org/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
-- [Long-Lived Queries](https://tools.ietf.org/html/draft-sekar-dns-llq-01): Notify with bells
+- [RFC 1995](https://www.rfc-editor.org/rfc/rfc1995): Incremental Zone Transfer
+- [RFC 1996](https://www.rfc-editor.org/rfc/rfc1996): Notify secondaries of update
+- [Update Leases](https://datatracker.ietf.org/doc/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
+- [Long-Lived Queries](https://datatracker.ietf.org/doc/html/draft-sekar-dns-llq-01): Notify with bells
 
 ### Secure DNS operations
 
-- [RFC 5155](https://tools.ietf.org/html/rfc5155): DNSSEC Hashed Authenticated Denial of Existence
+- [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155): DNSSEC Hashed Authenticated Denial of Existence
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
-- [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
+- [S/MIME](https://datatracker.ietf.org/doc/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
 
 # Usage
 

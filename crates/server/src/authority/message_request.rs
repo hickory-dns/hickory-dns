@@ -122,7 +122,7 @@ impl MessageRequest {
         &self.additionals
     }
 
-    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
+    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://www.rfc-editor.org/rfc/rfc6891#section-6.1.1)
     ///
     /// ```text
     /// 6.1.1.  Basic Elements

@@ -25,7 +25,7 @@ use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
 
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// 3.3.13. SOA RDATA format
@@ -228,7 +228,7 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<SOA> {
     })
 }
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
 ///
 /// This is accurate for all currently known name records.
 ///
@@ -259,7 +259,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, soa: &SOA) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+/// [RFC 1033](https://www.rfc-editor.org/rfc/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
 ///
 /// ```text
 /// SOA  (Start Of Authority)

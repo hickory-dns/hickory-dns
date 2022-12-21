@@ -419,7 +419,7 @@ pub enum DNSSECRData {
     /// ```
     SIG(SIG),
 
-    /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://tools.ietf.org/html/rfc8945#section-4.2)
+    /// [RFC 8945, Secret Key Transaction Authentication for DNS](https://www.rfc-editor.org/rfc/rfc8945#section-4.2)
     ///
     /// ```text
     /// 4.2.  TSIG Record Format

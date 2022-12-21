@@ -28,7 +28,7 @@ use {
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
 ///
-/// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
+/// [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035), DNSSEC Protocol Modifications, March 2005
 ///
 /// ```text
 /// 5.3.  Authenticating an RRset with an RRSIG RR
@@ -370,7 +370,7 @@ impl SigSigner {
     // TODO: move this to DNSKEY/KEY?
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
-    /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
+    /// [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
     ///
     /// ```text
     /// RFC 2535                DNS Security Extensions               March 1999
@@ -436,7 +436,7 @@ impl SigSigner {
     ///
     /// * `message` - the message to sign
     ///
-    /// [rfc2535](https://tools.ietf.org/html/rfc2535#section-4.1.8.1), Domain Name System Security Extensions, 1999
+    /// [rfc2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.8.1), Domain Name System Security Extensions, 1999
     ///
     /// ```text
     /// 4.1.8.1 Calculating Transaction and Request SIGs

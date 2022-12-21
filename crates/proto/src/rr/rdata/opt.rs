@@ -35,7 +35,7 @@ use crate::rr::dnssec::SupportedAlgorithms;
 /// These allow for additional information to be associated with the DNS request that otherwise
 /// would require changes to the DNS protocol.
 ///
-/// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6)
+/// [RFC 6891, EDNS(0) Extensions, April 2013](https://www.rfc-editor.org/rfc/rfc6891#section-6)
 ///
 /// ```text
 /// 6.1.  OPT Record Definition
@@ -321,43 +321,43 @@ enum OptReadState {
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EdnsCode {
-    /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
+    /// [RFC 6891, Reserved](https://www.rfc-editor.org/rfc/rfc6891)
     Zero,
 
-    /// [RFC 8764l, Apple's Long-Lived Queries, Optional](https://tools.ietf.org/html/rfc8764)
+    /// [RFC 8764l, Apple's Long-Lived Queries, Optional](https://www.rfc-editor.org/rfc/rfc8764)
     LLQ,
 
     /// [UL On-hold](http://files.dns-sd.org/draft-sekar-dns-ul.txt)
     UL,
 
-    /// [RFC 5001, NSID](https://tools.ietf.org/html/rfc5001)
+    /// [RFC 5001, NSID](https://www.rfc-editor.org/rfc/rfc5001)
     NSID,
     // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
-    /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
+    /// [RFC 6975, DNSSEC Algorithm Understood](https://www.rfc-editor.org/rfc/rfc6975)
     DAU,
 
-    /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
+    /// [RFC 6975, DS Hash Understood](https://www.rfc-editor.org/rfc/rfc6975)
     DHU,
 
-    /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
+    /// [RFC 6975, NSEC3 Hash Understood](https://www.rfc-editor.org/rfc/rfc6975)
     N3U,
 
-    /// [RFC 7871, Client Subnet, Optional](https://tools.ietf.org/html/rfc7871)
+    /// [RFC 7871, Client Subnet, Optional](https://www.rfc-editor.org/rfc/rfc7871)
     Subnet,
 
-    /// [RFC 7314, EDNS EXPIRE, Optional](https://tools.ietf.org/html/rfc7314)
+    /// [RFC 7314, EDNS EXPIRE, Optional](https://www.rfc-editor.org/rfc/rfc7314)
     Expire,
 
-    /// [RFC 7873, DNS Cookies](https://tools.ietf.org/html/rfc7873)
+    /// [RFC 7873, DNS Cookies](https://www.rfc-editor.org/rfc/rfc7873)
     Cookie,
 
-    /// [RFC 7828, edns-tcp-keepalive](https://tools.ietf.org/html/rfc7828)
+    /// [RFC 7828, edns-tcp-keepalive](https://www.rfc-editor.org/rfc/rfc7828)
     Keepalive,
 
-    /// [RFC 7830, The EDNS(0) Padding](https://tools.ietf.org/html/rfc7830)
+    /// [RFC 7830, The EDNS(0) Padding](https://www.rfc-editor.org/rfc/rfc7830)
     Padding,
 
-    /// [RFC 7901, CHAIN Query Requests in DNS, Optional](https://tools.ietf.org/html/rfc7901)
+    /// [RFC 7901, CHAIN Query Requests in DNS, Optional](https://www.rfc-editor.org/rfc/rfc7901)
     Chain,
 
     /// Unknown, used to deal with unknown or unsupported codes
@@ -418,17 +418,17 @@ impl From<EdnsCode> for u16 {
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 #[non_exhaustive]
 pub enum EdnsOption {
-    /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
+    /// [RFC 6975, DNSSEC Algorithm Understood](https://www.rfc-editor.org/rfc/rfc6975)
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DAU(SupportedAlgorithms),
 
-    /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
+    /// [RFC 6975, DS Hash Understood](https://www.rfc-editor.org/rfc/rfc6975)
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     DHU(SupportedAlgorithms),
 
-    /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
+    /// [RFC 6975, NSEC3 Hash Understood](https://www.rfc-editor.org/rfc/rfc6975)
     #[cfg(feature = "dnssec")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dnssec")))]
     N3U(SupportedAlgorithms),

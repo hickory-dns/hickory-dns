@@ -40,7 +40,7 @@ use crate::serialize::binary::*;
 /// when talking between machines or operating systems of the same type.
 /// ```
 ///
-/// [rfc1035]: https://tools.ietf.org/html/rfc1035
+/// [rfc1035]: https://www.rfc-editor.org/rfc/rfc1035
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct HINFO {
@@ -114,7 +114,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, hinfo: &HINFO) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 1033](https://tools.ietf.org/html/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
+/// [RFC 1033](https://www.rfc-editor.org/rfc/rfc1033), DOMAIN OPERATIONS GUIDE, November 1987
 ///
 /// ```text
 /// HINFO (Host Info)

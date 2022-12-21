@@ -372,7 +372,7 @@ impl Parser {
     }
 
     /// parses the string following the rules from:
-    ///  <https://tools.ietf.org/html/rfc2308> (NXCaching RFC) and
+    ///  <https://www.rfc-editor.org/rfc/rfc2308> (NXCaching RFC) and
     ///  <http://www.zytrax.com/books/dns/apa/time.html>
     ///
     /// default is seconds

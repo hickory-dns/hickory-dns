@@ -34,7 +34,7 @@ use super::dnssec::rdata::DNSSECRData;
 
 /// Record data enum variants
 ///
-/// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
+/// [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
 ///
 /// ```text
 /// 3.3. Standard RRs
@@ -210,7 +210,7 @@ pub enum RData {
     /// when talking between machines or operating systems of the same type.
     /// ```
     ///
-    /// `HINFO` is also used by [RFC 8482](https://tools.ietf.org/html/rfc8482)
+    /// `HINFO` is also used by [RFC 8482](https://www.rfc-editor.org/rfc/rfc8482)
     HINFO(HINFO),
 
     /// [RFC draft-ietf-dnsop-svcb-https-03, DNS SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-8)
@@ -261,7 +261,7 @@ pub enum RData {
     /// ```
     MX(MX),
 
-    /// [RFC 3403 DDDS DNS Database, October 2002](https://tools.ietf.org/html/rfc3403#section-4)
+    /// [RFC 3403 DDDS DNS Database, October 2002](https://www.rfc-editor.org/rfc/rfc3403#section-4)
     ///
     /// ```text
     /// 4.1 Packet Format
@@ -415,7 +415,7 @@ pub enum RData {
     /// ```
     NS(Name),
 
-    /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
+    /// [RFC 7929](https://www.rfc-editor.org/rfc/rfc7929#section-2.1)
     ///
     /// ```text
     /// The RDATA portion of an OPENPGPKEY resource record contains a single
@@ -553,7 +553,7 @@ pub enum RData {
     /// ```
     SRV(SRV),
 
-    /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
+    /// [RFC 4255](https://www.rfc-editor.org/rfc/rfc4255#section-3.1)
     ///
     /// ```text
     /// 3.1.  The SSHFP RDATA Format
@@ -611,8 +611,8 @@ pub enum RData {
     /// ```
     ///
     /// The algorithm and fingerprint type values have been updated in
-    /// [RFC 6594](https://tools.ietf.org/html/rfc6594) and
-    /// [RFC 7479](https://tools.ietf.org/html/rfc7479).
+    /// [RFC 6594](https://www.rfc-editor.org/rfc/rfc6594) and
+    /// [RFC 7479](https://www.rfc-editor.org/rfc/rfc7479).
     SSHFP(SSHFP),
 
     /// [RFC draft-ietf-dnsop-svcb-https-03, DNS SVCB and HTTPS RRs](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2)
@@ -640,7 +640,7 @@ pub enum RData {
     /// ```
     SVCB(SVCB),
 
-    /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
+    /// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.1)
     ///
     /// ```text
     ///                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
@@ -835,7 +835,7 @@ impl RData {
         result
     }
 
-    /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+    /// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
     ///
     /// ```text
     /// 6.2.  Canonical RR Form
@@ -853,7 +853,7 @@ impl RData {
     /// ```
     ///
     /// Canonical name form for all non-1035 records:
-    ///   [RFC 3579](https://tools.ietf.org/html/rfc3597)
+    ///   [RFC 3579](https://www.rfc-editor.org/rfc/rfc3597)
     /// ```text
     ///  4.  Domain Name Compression
     ///

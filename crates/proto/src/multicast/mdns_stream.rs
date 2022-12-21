@@ -81,7 +81,7 @@ impl MdnsStream {
     /// This method is available for specifying a custom Multicast address to use.
     ///
     /// In general this operates nearly identically to UDP, except that it automatically joins
-    ///  the default multicast DNS addresses. See <https://tools.ietf.org/html/rfc6762#section-5>
+    ///  the default multicast DNS addresses. See <https://www.rfc-editor.org/rfc/rfc6762#section-5>
     ///  for details.
     ///
     /// When sending ipv6 multicast packets, the interface being used is required,
@@ -389,7 +389,7 @@ impl Future for NextRandomUdpSocket {
             for attempt in 0..10 {
                 let port = rand_port_range.sample(&mut rand);
 
-                // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
+                // see one_shot usage info: https://www.rfc-editor.org/rfc/rfc6762#section-5
                 //  the MDNS_PORT is used to signal to remote processes that this is capable of receiving multicast packets
                 //  i.e. is joined to the multicast address.
                 if port == MDNS_PORT {

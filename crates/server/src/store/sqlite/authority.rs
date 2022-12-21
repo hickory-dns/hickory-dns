@@ -226,7 +226,7 @@ impl SqliteAuthority {
         self.in_memory.serial().await
     }
 
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///
@@ -423,7 +423,7 @@ impl SqliteAuthority {
         Ok(())
     }
 
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///
@@ -535,7 +535,7 @@ impl SqliteAuthority {
         Err(ResponseCode::Refused)
     }
 
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///
@@ -632,7 +632,7 @@ impl SqliteAuthority {
 
     /// Updates the specified records according to the update section.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///
@@ -862,7 +862,7 @@ impl Authority for SqliteAuthority {
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///

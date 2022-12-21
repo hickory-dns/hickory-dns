@@ -26,7 +26,7 @@ use crate::rr::record_type::RecordType;
 use crate::serialize::binary::*;
 
 #[cfg(feature = "mdns")]
-/// From [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
+/// From [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762#section-5.4)
 /// ```text
 // To avoid large floods of potentially unnecessary responses in these
 // cases, Multicast DNS defines the top bit in the class field of a DNS
@@ -36,7 +36,7 @@ const MDNS_UNICAST_RESPONSE: u16 = 1 << 15;
 
 /// Query struct for looking up resource records, basically a resource record without RDATA.
 ///
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// 4.1.2. Question section format
@@ -117,7 +117,7 @@ impl Query {
     }
 
     /// Changes mDNS unicast-response bit
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
+    /// See [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762#section-5.4)
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn set_mdns_unicast_response(&mut self, flag: bool) -> &mut Self {
@@ -156,7 +156,7 @@ impl Query {
     }
 
     /// Returns if the mDNS unicast-response bit is set or not
-    /// See [RFC 6762](https://tools.ietf.org/html/rfc6762#section-5.4)
+    /// See [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762#section-5.4)
     #[cfg(feature = "mdns")]
     #[cfg_attr(docsrs, doc(cfg(feature = "mdns")))]
     pub fn mdns_unicast_response(&self) -> bool {

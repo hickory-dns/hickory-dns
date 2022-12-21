@@ -182,7 +182,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
     /// Sends a NOTIFY message to the remote system
     ///
-    /// [RFC 1996](https://tools.ietf.org/html/rfc1996), DNS NOTIFY, August 1996
+    /// [RFC 1996](https://www.rfc-editor.org/rfc/rfc1996), DNS NOTIFY, August 1996
     ///
     ///
     /// ```text
@@ -283,7 +283,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
             .set_query_type(query_type);
         message.add_query(query);
 
-        // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
+        // add the notify message, see https://www.rfc-editor.org/rfc/rfc1996, section 3.7
         if let Some(rrset) = rrset {
             message.add_answers(rrset.into());
         }
@@ -294,7 +294,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
     ///  depends on the server)
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///  2.4.3 - RRset Does Not Exist
@@ -341,7 +341,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
     ///  depends on the server)
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     /// 2.4.1 - RRset Exists (Value Independent)
@@ -448,7 +448,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     /// 2.4.1 - RRset Exists (Value Independent)
@@ -498,7 +498,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     /// 2.4.1 - RRset Exists (Value Independent)
@@ -543,7 +543,7 @@ pub trait ClientHandle: 'static + Clone + DnsHandle<Error = ProtoError> + Send {
 
     /// Deletes all records at the specified name
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     /// 2.5.3 - Delete All RRsets From A Name

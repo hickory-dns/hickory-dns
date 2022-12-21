@@ -24,7 +24,7 @@ use crate::error::*;
 use crate::rr::domain::Name;
 use crate::serialize::binary::*;
 
-/// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
+/// [RFC 2782, DNS SRV RR, February 2000](https://www.rfc-editor.org/rfc/rfc2782)
 ///
 /// ```text
 /// Introductory example
@@ -208,7 +208,7 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<SRV> {
     ))
 }
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
 ///
 /// This is accurate for all currently known name records.
 ///
@@ -237,7 +237,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, srv: &SRV) -> ProtoResult<()> {
     Ok(())
 }
 
-/// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
+/// [RFC 2782, DNS SRV RR, February 2000](https://www.rfc-editor.org/rfc/rfc2782)
 ///
 /// ```text
 /// The format of the SRV RR

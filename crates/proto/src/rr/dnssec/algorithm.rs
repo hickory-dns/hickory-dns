@@ -23,7 +23,7 @@ use crate::serialize::binary::*;
 /// For [reference](http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml)
 ///  the iana documents have all the officially registered algorithms.
 ///
-/// [RFC 6944](https://tools.ietf.org/html/rfc6944), DNSSEC DNSKEY Algorithm Status, April 2013
+/// [RFC 6944](https://www.rfc-editor.org/rfc/rfc6944), DNSSEC DNSKEY Algorithm Status, April 2013
 ///
 /// ```text
 ///
@@ -127,11 +127,11 @@ pub enum Algorithm {
     RSASHA256,
     /// RSA public key with SHA512 hash
     RSASHA512,
-    /// [rfc6605](https://tools.ietf.org/html/rfc6605)
+    /// [rfc6605](https://www.rfc-editor.org/rfc/rfc6605)
     ECDSAP256SHA256,
-    /// [rfc6605](https://tools.ietf.org/html/rfc6605)
+    /// [rfc6605](https://www.rfc-editor.org/rfc/rfc6605)
     ECDSAP384SHA384,
-    /// [draft-ietf-curdle-dnskey-eddsa-03](https://tools.ietf.org/html/draft-ietf-curdle-dnskey-eddsa-03)
+    /// [draft-ietf-curdle-dnskey-eddsa-03](https://datatracker.ietf.org/doc/html/draft-ietf-curdle-dnskey-eddsa-03)
     ED25519,
     /// An unknown algorithm identifier
     Unknown(u8),

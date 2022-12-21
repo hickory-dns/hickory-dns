@@ -25,7 +25,7 @@ use crate::rr::dnssec::Algorithm;
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::*;
 
-/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4), Domain Name System Security Extensions, March 1999
+/// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4), Domain Name System Security Extensions, March 1999
 ///
 /// NOTE: RFC 2535 was obsoleted with 4034+, with the exception of the
 ///  usage for UPDATE, which is what this implementation is for.
@@ -57,7 +57,7 @@ use crate::serialize::binary::*;
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ///
 /// ```
-/// [RFC 2931](https://tools.ietf.org/html/rfc2931), DNS Request and Transaction Signatures, September 2000
+/// [RFC 2931](https://www.rfc-editor.org/rfc/rfc2931), DNS Request and Transaction Signatures, September 2000
 ///
 /// NOTE: 2931 updates SIG0 to clarify certain particulars...
 ///
@@ -265,7 +265,7 @@ impl SIG {
         }
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.1), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.1), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.1 Type Covered Field
@@ -276,7 +276,7 @@ impl SIG {
         self.type_covered
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.2), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.2), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.2 Algorithm Number Field
@@ -287,7 +287,7 @@ impl SIG {
         self.algorithm
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.3), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.3), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.3 Labels Field
@@ -323,7 +323,7 @@ impl SIG {
         self.num_labels
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.4), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.4), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.4 Original TTL Field
@@ -344,7 +344,7 @@ impl SIG {
         self.original_ttl
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.5), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.5), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.5 Signature Expiration and Inception Fields
@@ -382,7 +382,7 @@ impl SIG {
         self.sig_inception
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.6), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.6), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.6 Key Tag Field
@@ -402,7 +402,7 @@ impl SIG {
         self.key_tag
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.7), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.7), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.7 Signer's Name Field
@@ -420,7 +420,7 @@ impl SIG {
         &self.signer_name
     }
 
-    /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-4.1.8), Domain Name System Security Extensions, March 1999
+    /// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-4.1.8), Domain Name System Security Extensions, March 1999
     ///
     /// ```text
     /// 4.1.8 Signature Field
@@ -492,7 +492,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
     ))
 }
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
 ///
 /// This is accurate for all currently known name records.
 ///
@@ -550,7 +550,7 @@ pub fn emit_pre_sig(
     Ok(())
 }
 
-/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.2), Domain Name System Security Extensions, March 1999
+/// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-7.2), Domain Name System Security Extensions, March 1999
 ///
 /// ```text
 /// 7.2 Presentation of SIG RRs

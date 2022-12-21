@@ -972,7 +972,7 @@ where
 {
     ///   The presentation "value" SHALL be a comma-separated list
     ///   (Appendix A.1) of one or more IP addresses of the appropriate family
-    ///   in standard textual format [RFC 5952](https://tools.ietf.org/html/rfc5952).  To enable simpler parsing,
+    ///   in standard textual format [RFC 5952](https://www.rfc-editor.org/rfc/rfc5952).  To enable simpler parsing,
     ///   this SvcParamValue MUST NOT contain escape sequences.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         for ip in self.0.iter() {

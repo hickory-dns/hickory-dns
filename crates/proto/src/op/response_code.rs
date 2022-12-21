@@ -23,7 +23,7 @@ use std::fmt::{Display, Formatter};
 
 /// The status code of the response to a query.
 ///
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// RCODE           Response code - this 4 bit field is set as part of
@@ -62,41 +62,41 @@ use std::fmt::{Display, Formatter};
 #[derive(Debug, Eq, PartialEq, PartialOrd, Copy, Clone, Hash)]
 #[allow(dead_code)]
 pub enum ResponseCode {
-    /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// No Error [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     NoError,
 
-    /// Format Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Format Error [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     FormErr,
 
-    /// Server Failure [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Server Failure [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     ServFail,
 
-    /// Non-Existent Domain [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Non-Existent Domain [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     NXDomain,
 
-    /// Not Implemented [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Not Implemented [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     NotImp,
 
-    /// Query Refused [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Query Refused [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     Refused,
 
-    /// Name Exists when it should not [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    /// Name Exists when it should not [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136)
     YXDomain,
 
-    /// RR Set Exists when it should not [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    /// RR Set Exists when it should not [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136)
     YXRRSet,
 
-    /// RR Set that should exist does not [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    /// RR Set that should exist does not [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136)
     NXRRSet,
 
-    /// Server Not Authoritative for zone [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    /// Server Not Authoritative for zone [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136)
     /// or Not Authorized [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
     NotAuth,
 
-    /// Name not contained in zone [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    /// Name not contained in zone [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136)
     NotZone,
 
-    /// Bad OPT Version [RFC 6891](https://tools.ietf.org/html/rfc6891#section-9)
+    /// Bad OPT Version [RFC 6891](https://www.rfc-editor.org/rfc/rfc6891#section-9)
     BADVERS,
 
     /// TSIG Signature Failure [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
@@ -108,19 +108,19 @@ pub enum ResponseCode {
     /// Signature out of time window [RFC 8945](https://www.rfc-editor.org/rfc/rfc8945)
     BADTIME,
 
-    /// Bad TKEY Mode [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
+    /// Bad TKEY Mode [RFC 2930](https://www.rfc-editor.org/rfc/rfc2930#section-2.6)
     BADMODE,
 
-    /// Duplicate key name [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
+    /// Duplicate key name [RFC 2930](https://www.rfc-editor.org/rfc/rfc2930#section-2.6)
     BADNAME,
 
-    /// Algorithm not supported [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
+    /// Algorithm not supported [RFC 2930](https://www.rfc-editor.org/rfc/rfc2930#section-2.6)
     BADALG,
 
-    /// Bad Truncation [RFC 4635](https://tools.ietf.org/html/rfc4635#section-4)
+    /// Bad Truncation [RFC 4635](https://www.rfc-editor.org/rfc/rfc4635#section-4)
     BADTRUNC,
 
-    /// Bad/missing server cookie [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-10)
+    /// Bad/missing server cookie [draft-ietf-dnsop-cookies](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-cookies-10)
     BADCOOKIE,
     // 24-3840      Unassigned
     // 3841-4095    Reserved for Private Use                        [RFC6895]

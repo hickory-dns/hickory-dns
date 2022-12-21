@@ -326,7 +326,7 @@ impl RecordSet {
             //         to have more than one CNAME RR, even if their data fields
             //         differ.
             //
-            // ANAME https://tools.ietf.org/html/draft-ietf-dnsop-aname-02
+            // ANAME https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-aname-02
             //    2.2.  Coexistence with other types
             //
             //   Only one ANAME <target> can be defined per <owner>.  An ANAME RRset

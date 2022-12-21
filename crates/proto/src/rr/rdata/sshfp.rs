@@ -31,7 +31,7 @@ lazy_static! {
     };
 }
 
-/// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.1)
+/// [RFC 4255](https://www.rfc-editor.org/rfc/rfc4255#section-3.1)
 ///
 /// ```text
 /// 3.1.  The SSHFP RDATA Format
@@ -117,9 +117,9 @@ impl SSHFP {
 /// ```
 ///
 /// The algorithm values have been updated in
-/// [RFC 6594](https://tools.ietf.org/html/rfc6594) and
-/// [RFC 7479](https://tools.ietf.org/html/rfc7479) and
-/// [RFC 8709](https://tools.ietf.org/html/rfc8709).
+/// [RFC 6594](https://www.rfc-editor.org/rfc/rfc6594) and
+/// [RFC 7479](https://www.rfc-editor.org/rfc/rfc7479) and
+/// [RFC 8709](https://www.rfc-editor.org/rfc/rfc8709).
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Algorithm {
@@ -193,7 +193,7 @@ impl From<Algorithm> for u8 {
 /// ```
 ///
 /// The fingerprint type values have been updated in
-/// [RFC 6594](https://tools.ietf.org/html/rfc6594).
+/// [RFC 6594](https://www.rfc-editor.org/rfc/rfc6594).
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum FingerprintType {
@@ -252,7 +252,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, sshfp: &SSHFP) -> ProtoResult<()> {
     encoder.emit_vec(sshfp.fingerprint())
 }
 
-/// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.2)
+/// [RFC 4255](https://www.rfc-editor.org/rfc/rfc4255#section-3.2)
 ///
 /// ```text
 /// 3.2.  Presentation Format of the SSHFP RR

@@ -928,7 +928,7 @@ impl Authority for InMemoryAuthority {
 
     /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
     ///
-    /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+    /// [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136), DNS Update, April 1997
     ///
     /// ```text
     ///

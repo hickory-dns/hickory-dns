@@ -35,7 +35,7 @@ use crate::serialize::binary::*;
 ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 /// ```
 ///
-/// [rfc7477]: https://tools.ietf.org/html/rfc7477
+/// [rfc7477]: https://www.rfc-editor.org/rfc/rfc7477
 #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CSYNC {
@@ -72,7 +72,7 @@ impl CSYNC {
         }
     }
 
-    /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2.1), Child-to-Parent Synchronization in DNS, March 2015
+    /// [RFC 7477](https://www.rfc-editor.org/rfc/rfc7477#section-2.1.1.2.1), Child-to-Parent Synchronization in DNS, March 2015
     ///
     /// ```text
     /// 2.1.1.2.1.  The Type Bit Map Field
@@ -91,7 +91,7 @@ impl CSYNC {
         &self.type_bit_maps
     }
 
-    /// [RFC 7477](https://tools.ietf.org/html/rfc7477#section-2.1.1.2), Child-to-Parent Synchronization in DNS, March 2015
+    /// [RFC 7477](https://www.rfc-editor.org/rfc/rfc7477#section-2.1.1.2), Child-to-Parent Synchronization in DNS, March 2015
     ///
     /// ```text
     /// 2.1.1.2.  The Flags Field

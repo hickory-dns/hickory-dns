@@ -7,7 +7,7 @@
 
 //! Reserved zone names.
 //!
-//! see [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+//! see [Special-Use Domain Names](https://www.rfc-editor.org/rfc/rfc6761), RFC 6761 February, 2013
 
 use std::ops::Deref;
 
@@ -31,7 +31,7 @@ lazy_static! {
 lazy_static! {
     /// localhost.
     ///
-    /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+    /// [Special-Use Domain Names](https://www.rfc-editor.org/rfc/rfc6761), RFC 6761 February, 2013
     ///
     /// ```text
     /// 6.3.  Domain Name Reservation Considerations for "localhost."
@@ -53,7 +53,7 @@ lazy_static! {
 lazy_static! {
     /// .local.
     ///
-    /// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
+    /// [Multicast DNS](https://www.rfc-editor.org/rfc/rfc6762), RFC 6762  February 2013
     ///
     /// ```text
     /// This document specifies that the DNS top-level domain ".local." is a
@@ -97,7 +97,7 @@ lazy_static! {
 lazy_static! {
     /// invalid.
     ///
-    /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+    /// [Special-Use Domain Names](https://www.rfc-editor.org/rfc/rfc6761), RFC 6761 February, 2013
     ///
     /// ```text
     /// 6.4.  Domain Name Reservation Considerations for "invalid."
@@ -115,7 +115,7 @@ lazy_static! {
 lazy_static! {
     /// invalid.
     ///
-    /// [The ".onion" Special-Use Domain Name](https://tools.ietf.org/html/rfc7686), RFC 7686 October, 2015
+    /// [The ".onion" Special-Use Domain Name](https://www.rfc-editor.org/rfc/rfc7686), RFC 7686 October, 2015
     ///
     /// ```text
     /// 1.  Introduction

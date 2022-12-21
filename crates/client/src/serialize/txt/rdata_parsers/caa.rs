@@ -26,7 +26,7 @@ use crate::rr::rdata::CAA;
 
 /// Parse the RData from a set of Tokens
 ///
-/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.1)
+/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://www.rfc-editor.org/rfc/rfc6844#section-5.1)
 ///
 /// ```text
 /// 5.1.1.  Canonical Presentation Format

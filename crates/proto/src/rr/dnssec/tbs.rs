@@ -225,7 +225,7 @@ pub fn rrset_tbs_with_sig(
     )
 }
 
-/// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
+/// [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035), DNSSEC Protocol Modifications, March 2005
 ///
 /// ```text
 ///

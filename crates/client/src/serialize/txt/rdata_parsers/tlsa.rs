@@ -18,7 +18,7 @@ fn to_u8(data: &str) -> ParseResult<u8> {
 
 /// Parse the RData from a set of Tokens
 ///
-/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
+/// [RFC 6698, DNS-Based Authentication for TLS](https://www.rfc-editor.org/rfc/rfc6698#section-2.2)
 ///
 /// ```text
 /// 2.2.  TLSA RR Presentation Format

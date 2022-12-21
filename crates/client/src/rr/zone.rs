@@ -9,7 +9,7 @@ use radix_trie::{Trie, TrieKey};
 
 // Reserved reverse IPs
 //
-// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+// [Special-Use Domain Names](https://www.rfc-editor.org/rfc/rfc6761), RFC 6761 February, 2013
 //
 // ```text
 // 6.1.  Domain Name Reservation Considerations for Private Addresses
@@ -70,7 +70,7 @@ lazy_static! {
 
 // example., example.com., example.net., and example.org.
 //
-// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+// [Special-Use Domain Names](https://www.rfc-editor.org/rfc/rfc6761), RFC 6761 February, 2013
 //
 // ```text
 // 6.5.  Domain Name Reservation Considerations for Example Domains
@@ -97,7 +97,7 @@ lazy_static! {
 
 // test.
 //
-// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
+// [Special-Use Domain Names](https://www.rfc-editor.org/rfc/rfc6761), RFC 6761 February, 2013
 //
 // ```text
 // 6.2.  Domain Name Reservation Considerations for "test."

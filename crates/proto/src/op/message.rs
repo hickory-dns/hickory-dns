@@ -21,7 +21,7 @@ use crate::{
 
 /// The basic request and response data structure, used for all DNS protocols.
 ///
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// 4.1. Format
@@ -500,7 +500,7 @@ impl Message {
             .chain(self.additionals.iter())
     }
 
-    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
+    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://www.rfc-editor.org/rfc/rfc6891#section-6.1.1)
     ///
     /// ```text
     /// 6.1.1.  Basic Elements
@@ -574,7 +574,7 @@ impl Message {
         self.edns.as_ref().map_or(0, Edns::version)
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
+    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://www.rfc-editor.org/rfc/rfc2535#section-4)
     ///
     /// ```text
     /// A DNS request may be optionally signed by including one or more SIGs
@@ -594,7 +594,7 @@ impl Message {
         &self.signature
     }
 
-    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
+    /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://www.rfc-editor.org/rfc/rfc2535#section-4)
     ///
     /// ```text
     /// A DNS request may be optionally signed by including one or more SIGs

@@ -13,7 +13,7 @@ use crate::error::*;
 
 /// Operation code for queries, updates, and responses
 ///
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// OPCODE          A four bit field that specifies kind of query in this
@@ -31,16 +31,16 @@ use crate::error::*;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Copy, Clone, Hash)]
 #[allow(dead_code)]
 pub enum OpCode {
-    /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Query request [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     Query,
 
-    /// Status message [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    /// Status message [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035)
     Status,
 
-    /// Notify of change [RFC 1996](https://tools.ietf.org/html/rfc1996)
+    /// Notify of change [RFC 1996](https://www.rfc-editor.org/rfc/rfc1996)
     Notify,
 
-    /// Update message [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    /// Update message [RFC 2136](https://www.rfc-editor.org/rfc/rfc2136)
     Update,
 }
 

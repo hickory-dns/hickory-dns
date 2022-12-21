@@ -25,7 +25,7 @@ use crate::rr::type_bit_map::{decode_type_bit_maps, encode_type_bit_maps};
 use crate::rr::{Name, RecordType};
 use crate::serialize::binary::*;
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-4), DNSSEC Resource Records, March 2005
 ///
 /// ```text
 /// 4.1.  NSEC RDATA Wire Format
@@ -92,7 +92,7 @@ impl NSEC {
         Self::new(next_domain_name, type_bit_maps)
     }
 
-    /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4.1.1), DNSSEC Resource Records, March 2005
+    /// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-4.1.1), DNSSEC Resource Records, March 2005
     ///
     /// ```text
     /// 4.1.1.  The Next Domain Name Field
@@ -117,7 +117,7 @@ impl NSEC {
         &self.next_domain_name
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4.1.2)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-4.1.2)
     ///
     /// ```text
     /// 4.1.2.  The Type Bit Maps Field
@@ -148,7 +148,7 @@ pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoR
     Ok(NSEC::new(next_domain_name, record_types))
 }
 
-/// [RFC 6840](https://tools.ietf.org/html/rfc6840#section-6)
+/// [RFC 6840](https://www.rfc-editor.org/rfc/rfc6840#section-6)
 ///
 /// ```text
 /// 5.1.  Errors in Canonical Form Type Code List
@@ -165,7 +165,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC) -> ProtoResult<()> {
     })
 }
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4.2), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-4.2), DNSSEC Resource Records, March 2005
 ///
 /// ```text
 /// 4.2.  The NSEC RR Presentation Format

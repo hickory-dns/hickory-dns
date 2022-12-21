@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::*;
 use crate::serialize::binary::*;
 
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 ///
 /// ```text
 /// 3.3.10. NULL RDATA format (EXPERIMENTAL)

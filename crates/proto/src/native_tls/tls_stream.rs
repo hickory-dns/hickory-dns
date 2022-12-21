@@ -102,7 +102,7 @@ impl<S: Connect> TlsStreamBuilder<S> {
 
     /// Creates a new TlsStream to the specified name_server
     ///
-    /// [RFC 7858](https://tools.ietf.org/html/rfc7858), DNS over TLS, May 2016
+    /// [RFC 7858](https://www.rfc-editor.org/rfc/rfc7858), DNS over TLS, May 2016
     ///
     /// ```text
     /// 3.2.  TLS Handshake and Authentication

@@ -27,7 +27,7 @@ use crate::rr::dnssec::Algorithm;
 use crate::rr::record_data::RData;
 use crate::serialize::binary::*;
 
-/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3), Domain Name System Security Extensions, March 1999
+/// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-3), Domain Name System Security Extensions, March 1999
 ///
 /// ```text
 /// 3. The KEY Resource Record
@@ -315,7 +315,7 @@ fn test_key_usage() {
     );
 }
 
-/// [RFC 2137](https://tools.ietf.org/html/rfc2137#section-3.1), Secure Domain Name System Dynamic Update, April 1997
+/// [RFC 2137](https://www.rfc-editor.org/rfc/rfc2137#section-3.1), Secure Domain Name System Dynamic Update, April 1997
 ///
 /// ```text
 /// 3.1.1 Update Key Name Scope
@@ -399,7 +399,7 @@ fn test_key_usage() {
 ///    sections 3.1.1 and 3.1.2.
 /// ```
 ///
-/// [RFC 3007](https://tools.ietf.org/html/rfc3007#section-1.5), Secure Dynamic Update, November 2000
+/// [RFC 3007](https://www.rfc-editor.org/rfc/rfc3007#section-1.5), Secure Dynamic Update, November 2000
 ///
 /// ```text
 ///    [RFC2535, section 3.1.2] defines the signatory field of a key as the
@@ -515,7 +515,7 @@ fn test_update_scope() {
     assert_eq!(update_scope, UpdateScope::from(u16::from(update_scope)));
 }
 
-/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3.1.3), Domain Name System Security Extensions, March 1999
+/// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-3.1.3), Domain Name System Security Extensions, March 1999
 ///
 /// ```text
 /// 3.1.3 The Protocol Octet
@@ -561,7 +561,7 @@ fn test_update_scope() {
 ///           different keys for different protocols is encouraged.
 /// ```
 ///
-/// [RFC3445](https://tools.ietf.org/html/rfc3445#section-4), Limiting the KEY Resource Record (RR), December 2002
+/// [RFC3445](https://www.rfc-editor.org/rfc/rfc3445#section-4), Limiting the KEY Resource Record (RR), December 2002
 ///
 /// ```text
 /// All Protocol Octet values except DNSSEC (3) are eliminated
@@ -682,7 +682,7 @@ impl KEY {
         self.protocol
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.3)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.1.3)
     ///
     /// ```text
     /// 2.1.3.  The Algorithm Field
@@ -695,7 +695,7 @@ impl KEY {
         self.algorithm
     }
 
-    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://www.rfc-editor.org/rfc/rfc4034#section-2.1.4)
     ///
     /// ```text
     /// 2.1.4.  The Public Key Field
@@ -825,7 +825,7 @@ pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &KEY) -> ProtoResult<()> {
 
 /// Note that KEY is a deprecated type in DNS
 ///
-/// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-7.1), Domain Name System Security Extensions, March 1999
+/// [RFC 2535](https://www.rfc-editor.org/rfc/rfc2535#section-7.1), Domain Name System Security Extensions, March 1999
 ///
 /// ```text
 /// 7.1 Presentation of KEY RRs

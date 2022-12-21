@@ -190,7 +190,7 @@ impl<K: HasPublic> KeyPair<K> {
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
-    /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
+    /// [RFC 1035](https://www.rfc-editor.org/rfc/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
     ///
     /// ```text
     /// RFC 2535                DNS Security Extensions               March 1999

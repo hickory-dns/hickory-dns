@@ -19,7 +19,7 @@
 //! A generic struct for all {*}NAME pointer RData records, CNAME, NS, and PTR. Here is the text for
 //! CNAME from RFC 1035, Domain Implementation and Specification, November 1987:
 //!
-//! [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+//! [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://www.rfc-editor.org/rfc/rfc1035)
 //!
 //! ```text
 //! 3.3.1. CNAME RDATA format
@@ -48,7 +48,7 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Name> {
     Name::read(decoder)
 }
 
-/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+/// [RFC 4034](https://www.rfc-editor.org/rfc/rfc4034#section-6), DNSSEC Resource Records, March 2005
 ///
 /// This is accurate for all currently known name records.
 ///
