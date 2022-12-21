@@ -34,7 +34,7 @@ pub mod type_bit_map;
 use std::fmt;
 
 use crate::error::ProtoResult;
-use crate::serialize::binary::{BinDecoder, BinEncoder, Restrict};
+use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, Restrict};
 
 pub use self::dns_class::DNSClass;
 pub use self::domain::{IntoName, Name, TryParseIp};
@@ -49,31 +49,43 @@ pub use lower_name::LowerName;
 pub use rr_key::RrKey;
 
 /// RecordData that is stored in a DNS Record.
-pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display {
+pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display + BinEncodable {
     /// Attempts to convert to this RecordData from the RData type, if it is not the correct type the original is returned
+    #[allow(clippy::result_large_err)]
     fn try_from_rdata(data: RData) -> Result<Self, RData>;
-
-    /// Read the RecordData from the data stream.
-    ///
-    /// * `decoder` - data stream from which the RData will be read
-    /// * `record_type` - specifies the RecordType that has already been read from the stream
-    /// * `length` - the data length that should be read from the stream for this RecordData
-    fn read(
-        decoder: &mut BinDecoder<'_>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self>;
-
-    /// Writes this type to the data stream
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()>;
 
     /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
     fn try_borrow(data: &RData) -> Result<&Self, &RData>;
 
-    // FIXME: make a new AnyRecordType trait
     /// Get the associated RecordType for the RData
     fn record_type(&self) -> RecordType;
 
     /// Converts this RecordData into generic RData
     fn into_rdata(self) -> RData;
+}
+
+trait RecordDataDecodable<'r>: Sized {
+    /// Read the RecordData from the data stream.
+    ///
+    /// * `decoder` - data stream from which the RData will be read
+    /// * `record_type` - specifies the RecordType that has already been read from the stream
+    /// * `length` - the data length that should be read from the stream for this RecordData
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self>;
+}
+
+impl<'r, T> RecordDataDecodable<'r> for T
+where
+    T: 'r + BinDecodable<'r> + Sized,
+{
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        _record_type: RecordType,
+        _length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        T::read(decoder)
+    }
 }

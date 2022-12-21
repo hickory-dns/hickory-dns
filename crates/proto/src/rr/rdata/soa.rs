@@ -216,32 +216,7 @@ impl SOA {
     }
 }
 
-impl RecordData for SOA {
-    fn try_from_rdata(data: RData) -> Result<Self, RData> {
-        match data {
-            RData::SOA(soa) => Ok(soa),
-            _ => Err(data),
-        }
-    }
-
-    fn read(
-        decoder: &mut BinDecoder<'_>,
-        record_type: RecordType,
-        _length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert_eq!(RecordType::SOA, record_type);
-
-        Ok(Self {
-            mname: Name::read(decoder)?,
-            rname: Name::read(decoder)?,
-            serial: decoder.read_u32()?.unverified(/*any u32 is valid*/),
-            refresh: decoder.read_i32()?.unverified(/*any i32 is valid*/),
-            retry: decoder.read_i32()?.unverified(/*any i32 is valid*/),
-            expire: decoder.read_i32()?.unverified(/*any i32 is valid*/),
-            minimum: decoder.read_u32()?.unverified(/*any u32 is valid*/),
-        })
-    }
-
+impl BinEncodable for SOA {
     /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
     ///
     /// This is accurate for all currently known name records.
@@ -273,6 +248,29 @@ impl RecordData for SOA {
         encoder.emit_i32(self.expire)?;
         encoder.emit_u32(self.minimum)?;
         Ok(())
+    }
+}
+
+impl<'r> BinDecodable<'r> for SOA {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        Ok(Self {
+            mname: Name::read(decoder)?,
+            rname: Name::read(decoder)?,
+            serial: decoder.read_u32()?.unverified(/*any u32 is valid*/),
+            refresh: decoder.read_i32()?.unverified(/*any i32 is valid*/),
+            retry: decoder.read_i32()?.unverified(/*any i32 is valid*/),
+            expire: decoder.read_i32()?.unverified(/*any i32 is valid*/),
+            minimum: decoder.read_u32()?.unverified(/*any u32 is valid*/),
+        })
+    }
+}
+
+impl RecordData for SOA {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::SOA(soa) => Ok(soa),
+            _ => Err(data),
+        }
     }
 
     fn try_borrow(data: &RData) -> Result<&Self, &RData> {
@@ -364,6 +362,8 @@ impl fmt::Display for SOA {
 mod tests {
     #![allow(clippy::dbg_macro, clippy::print_stdout)]
 
+    use crate::rr::RecordDataDecodable;
+
     use super::*;
 
     #[test]
@@ -389,8 +389,8 @@ mod tests {
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata =
-            SOA::read(&mut decoder, RecordType::SOA, Restrict::new(len)).expect("Decoding error");
+        let read_rdata = SOA::read_data(&mut decoder, RecordType::SOA, Restrict::new(len))
+            .expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

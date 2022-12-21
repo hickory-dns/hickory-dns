@@ -23,6 +23,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::net::{IpAddr, SocketAddr};
+use std::ops::Deref;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -32,7 +33,7 @@ use console::style;
 use tokio::task::JoinSet;
 
 use tokio::time::MissedTickBehavior;
-use trust_dns_client::rr::Record;
+use trust_dns_client::rr::{Record, RecordData};
 use trust_dns_resolver::config::{
     NameServerConfig, NameServerConfigGroup, Protocol, ResolverConfig, ResolverOpts,
 };
@@ -142,7 +143,7 @@ struct Opts {
     interval: f32,
 }
 
-fn print_record(r: &Record) {
+fn print_record<D: RecordData, R: Deref<Target = Record<D>>>(r: &R) {
     print!(
         "\t{name} {ttl} {class} {ty}",
         name = style(r.name()).blue(),
@@ -165,7 +166,7 @@ fn print_ok(lookup: Lookup) {
     );
 
     for r in lookup.record_iter() {
-        print_record(r);
+        print_record(&r);
     }
 }
 

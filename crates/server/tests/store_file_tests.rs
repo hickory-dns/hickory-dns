@@ -96,6 +96,6 @@ async fn test_ttl_wilcard() {
         .next()
         .expect("A record not found in authority");
 
-    assert_eq!(data.rr_type(), RecordType::A);
+    assert_eq!(data.record_type(), RecordType::A);
     assert_eq!(data.ttl(), 120);
 }
