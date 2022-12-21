@@ -85,17 +85,19 @@ allows for the `DNSKEY` to exist for some unspecified period of time during
 key rotation. Rotating the key currently is not available online and requires
 a restart of the server process.
 
-### DNS over TLS and DNS over HTTPS on the Server
+### DNS over QUIC, DNS over TLS and DNS over HTTPS on the Server
 
 Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
-## DNS over TLS and DNS over HTTPS
+## DNS over QUIC, DNS over TLS and DNS over HTTPS
 
-DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires only requires valid DoT or DoH resolvers being registered in order to be used.
+DoQ, DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires only valid DoQ, DoT or DoH resolvers being registered in order to be used.
 
 To use with the `Client`, the `TlsClientConnection` or `HttpsClientConnection` should be used. Similarly, to use with the tokio `AsyncClient` the `TlsClientStream` or `HttpsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is useful for Server authentication and connection privacy.
 
 To enable DoT one of the features `dns-over-native-tls`, `dns-over-openssl`, or `dns-over-rustls` must be enabled, `dns-over-https-rustls` is used for DoH.
+
+To enable DoQ, the feature `dns-over-quic` must be enabled.
 
 ## DNSSEC status
 
@@ -121,7 +123,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 6761](https://www.rfc-editor.org/rfc/rfc6761): Special-Use Domain Names (resolver)
 - [RFC 6762](https://www.rfc-editor.org/rfc/rfc6762): mDNS Multicast DNS (experimental feature: `mdns`)
 - [RFC 6763](https://www.rfc-editor.org/rfc/rfc6763): DNS-SD Service Discovery (experimental feature: `mdns`)
-- [RFC ANAME](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-aname-02): Address-specific DNS aliases (`ANAME`)
+- [Internet Draft (version 04)](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-aname-04): Address-specific DNS aliases (`ANAME`)
 
 ### Update operations
 
@@ -135,14 +137,14 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 - [RFC 4035](https://www.rfc-editor.org/rfc/rfc4035): Protocol Modifications for DNSSEC
 - [RFC 4509](https://www.rfc-editor.org/rfc/rfc4509): SHA-256 in DNSSEC Delegation Signer
 - [RFC 5702](https://www.rfc-editor.org/rfc/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
-- [RFC 6844](https://www.rfc-editor.org/rfc/rfc6844): DNS Certification Authority Authorization (CAA) Resource Record
 - [RFC 6698](https://www.rfc-editor.org/rfc/rfc6698): The DNS-Based Authentication of Named Entities (DANE) Transport Layer Security (TLS) Protocol: TLSA
 - [RFC 6840](https://www.rfc-editor.org/rfc/rfc6840): Clarifications and Implementation Notes for DNSSEC
-- [RFC 6844](https://www.rfc-editor.org/rfc/rfc6844): DNS Certification Authority Authorization Resource Record
+- [RFC 6844](https://www.rfc-editor.org/rfc/rfc6844): DNS Certification Authority Authorization (CAA) Resource Record
 - [RFC 6944](https://www.rfc-editor.org/rfc/rfc6944): DNSKEY Algorithm Implementation Status
 - [RFC 6975](https://www.rfc-editor.org/rfc/rfc6975): Signaling Cryptographic Algorithm Understanding
 - [RFC 7858](https://www.rfc-editor.org/rfc/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
-- [RFC DoH](https://datatracker.ietf.org/doc/html/draft-ietf-doh-dns-over-https-14): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
+- [RFC 8484](https://www.rfc-editor.org/rfc/rfc8484): DNS over HTTPS, DoH (feature: `dns-over-https-rustls`)
+- [RFC 9250](https://www.rfc-editor.org/rfc/rfc9250): DNS over QUIC, DoQ (feature: `dns-over-quic`)
 
 ## RFCs in progress or not yet implemented
 
@@ -154,14 +156,14 @@ Zones will be automatically resigned on any record updates via dynamic DNS. To e
 
 - [RFC 1995](https://www.rfc-editor.org/rfc/rfc1995): Incremental Zone Transfer
 - [RFC 1996](https://www.rfc-editor.org/rfc/rfc1996): Notify secondaries of update
-- [Update Leases](https://datatracker.ietf.org/doc/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
-- [Long-Lived Queries](https://datatracker.ietf.org/doc/html/draft-sekar-dns-llq-01): Notify with bells
+- [Internet Draft (version 03)](https://datatracker.ietf.org/doc/html/draft-sekar-dns-ul-03): Dynamic DNS Update Leases
+- [RFC 8764](https://www.rfc-editor.org/rfc/rfc8764): Notify with bells
 
 ### Secure DNS operations
 
 - [RFC 5155](https://www.rfc-editor.org/rfc/rfc5155): DNSSEC Hashed Authenticated Denial of Existence
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
-- [S/MIME](https://datatracker.ietf.org/doc/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
+- [S/MIME](https://www.rfc-editor.org/rfc/rfc8162): Domain Names For S/MIME
 
 # Usage
 
