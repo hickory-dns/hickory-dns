@@ -561,7 +561,7 @@ impl NameServerConfigGroup {
         name_servers
     }
 
-    /// Configure a NameServer address and port for DNS-over-TLS
+    /// Configure a NameServer address and port for DNS over TLS
     ///
     /// This will create a TLS connections.
     #[cfg(feature = "dns-over-tls")]
@@ -575,7 +575,7 @@ impl NameServerConfigGroup {
         Self::from_ips_encrypted(ips, port, tls_dns_name, Protocol::Tls, trust_nx_responses)
     }
 
-    /// Configure a NameServer address and port for DNS-over-HTTPS
+    /// Configure a NameServer address and port for DNS over HTTPS
     ///
     /// This will create a HTTPS connections.
     #[cfg(feature = "dns-over-https")]

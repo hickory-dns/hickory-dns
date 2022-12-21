@@ -27,7 +27,7 @@ use crate::{
 
 use super::{quic_config, quic_stream};
 
-/// A DNS client connection for DNS-over-QUIC
+/// A DNS client connection for DNS over QUIC
 #[must_use = "futures do nothing unless polled"]
 pub struct QuicClientStream {
     quic_connection: Connection,
@@ -144,7 +144,7 @@ impl Stream for QuicClientStream {
     }
 }
 
-/// A QUIC connection builder for DNS-over-QUIC
+/// A QUIC connection builder for DNS over QUIC
 #[derive(Clone)]
 pub struct QuicClientStreamBuilder {
     crypto_config: TlsClientConfig,

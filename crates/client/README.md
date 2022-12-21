@@ -54,7 +54,7 @@ if let Some(RData::A(ref ip)) = answers[0].data() {
 }
 ```
 
-## DNS-over-TLS and DNS-over-HTTPS
+## DNS over TLS and DNS over HTTPS
 
 DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH).
 

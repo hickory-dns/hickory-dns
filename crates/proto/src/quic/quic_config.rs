@@ -7,7 +7,7 @@
 
 use quinn::{EndpointConfig, TransportConfig, VarInt};
 
-/// Returns a default endpoint configuration for DNS-over-QUIC
+/// Returns a default endpoint configuration for DNS over QUIC
 pub(crate) fn endpoint() -> EndpointConfig {
     // set some better EndpointConfig defaults for DoQ
     let mut endpoint_config = EndpointConfig::default();
@@ -21,7 +21,7 @@ pub(crate) fn endpoint() -> EndpointConfig {
     endpoint_config
 }
 
-/// Returns a default endpoint configuration for DNS-over-QUIC
+/// Returns a default endpoint configuration for DNS over QUIC
 pub(crate) fn transport() -> TransportConfig {
     let mut transport_config = TransportConfig::default();
 

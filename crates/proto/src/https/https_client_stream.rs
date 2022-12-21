@@ -35,7 +35,7 @@ use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, 
 
 const ALPN_H2: &[u8] = b"h2";
 
-/// A DNS client connection for DNS-over-HTTPS
+/// A DNS client connection for DNS over HTTPS
 #[derive(Clone)]
 #[must_use = "futures do nothing unless polled"]
 pub struct HttpsClientStream {
@@ -278,7 +278,7 @@ impl Stream for HttpsClientStream {
     }
 }
 
-/// A HTTPS connection builder for DNS-over-HTTPS
+/// A HTTPS connection builder for DNS over HTTPS
 #[derive(Clone)]
 pub struct HttpsClientStreamBuilder {
     client_config: Arc<ClientConfig>,

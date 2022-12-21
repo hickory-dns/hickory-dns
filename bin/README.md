@@ -15,7 +15,7 @@ This a named implementation for DNS zone hosting. It is capable of performing si
 - ANAME resolution, for zone mapping aliass to A and AAAA records
 - Additionals section generation for aliasing record types
 
-## DNS-over-TLS and DNS-over-HTTPS
+## DNS over TLS and DNS over HTTPS
 
 Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 

@@ -17,7 +17,7 @@ use super::{
     quic_stream::{self, QuicStream},
 };
 
-/// A DNS-over-QUIC Server, see QuicClientStream for the client counterpart
+/// A DNS over QUIC Server, see QuicClientStream for the client counterpart
 pub struct QuicServer {
     endpoint: Endpoint,
 }

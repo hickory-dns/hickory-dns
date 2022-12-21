@@ -85,11 +85,11 @@ allows for the `DNSKEY` to exist for some unspecified period of time during
 key rotation. Rotating the key currently is not available online and requires
 a restart of the server process.
 
-### DNS-over-TLS and DNS-over-HTTPS on the Server
+### DNS over TLS and DNS over HTTPS on the Server
 
 Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/main/tests/test-data/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
-## DNS-over-TLS and DNS-over-HTTPS
+## DNS over TLS and DNS over HTTPS
 
 DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires only requires valid DoT or DoH resolvers being registered in order to be used.
 
@@ -303,16 +303,16 @@ The Client has a few features which can be disabled for different reasons when e
   Ring support can be used for RSA and ED25519 DNSSEC validation.
 
 - `dns-over-native-tls`
-  Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
+  Uses `native-tls` for DNS over TLS implementation, only supported in client and resolver, not server.
 
 - `dns-over-openssl`
-  Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
+  Uses `openssl` for DNS over TLS implementation supported in server and client, resolver does not have default CA chains.
 
 - `dns-over-rustls`
-  Uses `rustls` for DNS-over-TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
+  Uses `rustls` for DNS over TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired. Supported in client, resolver, and server.
 
 - `dns-over-https-rustls`
-  Uses `rustls` for DNS-over-HTTPS (and DNS-over-TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
+  Uses `rustls` for DNS over HTTPS (and DNS over TLS will be enabled) implementation, only supported in client, resolver, and server. This is the best option where a pure Rust toolchain is desired.
 
 - `mdns` _EXPERIMENTAL_
   Enables the experimental mDNS features as well as DNS-SD. This currently has known issues.

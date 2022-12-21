@@ -44,7 +44,7 @@ if address.is_ipv4() {
 }
 ```
 
-## DNS-over-TLS and DNS-over-HTTPS
+## DNS over TLS and DNS over HTTPS
 
 DoT and DoH are supported. This is accomplished through the use of one of `native-tls`, `openssl`, or `rustls` (only `rustls` is currently supported for DoH). The Resolver requires only requires valid DoT or DoH resolvers being registered in order to be used.
 

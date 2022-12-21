@@ -801,7 +801,7 @@ and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Added
 
-- DNS-over-TLS configurations (requires one of `dns-over-native-tls` or `dns-over-rustls` features) #396
+- DNS over TLS configurations (requires one of `dns-over-native-tls` or `dns-over-rustls` features) #396
 - Experimental DNS-SD, service discovery (RFC 6763, `mdns` feature required) #363
 - Experimental mDNS, multicast DNS, known issues persist (RFC 6762, `mdns` feature required) #337
 - Exposed TTLs on `Lookup` objects @hawkw #444
