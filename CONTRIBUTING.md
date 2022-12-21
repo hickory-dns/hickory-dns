@@ -19,7 +19,7 @@ When making submitting PRs please keep refactoring commits separate from functio
 
 ### Test policy
 
-All PRs *must* be passing all tests. Ideally any PR submitted should have more than 85% code coverage, but this is not mandated. When tests are failing, especially on previous branches this is often due to checked in testing keys for the DoH and DoT tests. See **Updating Security Related Tests**.
+All PRs *must* be passing all tests. Ideally any PR submitted should have more than 85% code coverage, but this is not mandated. When tests are failing, especially on previous branches this is often due to checked in testing keys for the DoQ, DoT and DoH tests. See **Updating Security Related Tests**.
 
 ## Releases
 

@@ -8,6 +8,7 @@ This a named implementation for DNS zone hosting. It is capable of performing si
 
 - Dynamic Update with sqlite journaling backend (SIG0)
 - DNSSEC online signing (NSEC not NSEC3)
+- DNS over QUIC (DoQ)
 - DNS over TLS (DoT)
 - DNS over HTTPS (DoH)
 - Forwarding stub resolver

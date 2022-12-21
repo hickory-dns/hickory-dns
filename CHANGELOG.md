@@ -424,7 +424,7 @@ bound for implementing the `Connect` trait.
 - (server) Authority trait for generic Authorities (File, Sqlite, Forwarder) #674
 - (server) ANAME resolutions #720
 - (server) Additional section processing for ANAME, CNAME, MX, NS, and SRV #720
-- (server) Added endpoint name config to DoH and DoT TLS endpoint #714
+- (server) Added endpoint name config to DoQ, DoT and DoH TLS endpoint #714
 - (proto) NAPTR record data (no additional record processing support) #731
 - (server) Added support for wildcard lookups, i.e. `*.example.com` in zone files
 
