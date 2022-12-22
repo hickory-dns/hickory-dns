@@ -29,6 +29,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::domain::Name;
+use crate::rr::RData;
+use crate::rr::RecordData;
+use crate::rr::RecordDataDecodable;
+use crate::rr::RecordType;
 use crate::serialize::binary::*;
 use url::Url;
 
@@ -656,106 +660,6 @@ impl KeyValue {
     }
 }
 
-/// Read the binary CAA format
-///
-/// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.1)
-///
-/// ```text
-/// 5.1.  Syntax
-///
-///   A CAA RR contains a single property entry consisting of a tag-value
-///   pair.  Each tag represents a property of the CAA record.  The value
-///   of a CAA property is that specified in the corresponding value field.
-///
-///   A domain name MAY have multiple CAA RRs associated with it and a
-///   given property MAY be specified more than once.
-///
-///   The CAA data field contains one property entry.  A property entry
-///   consists of the following data fields:
-///
-///   +0-1-2-3-4-5-6-7-|0-1-2-3-4-5-6-7-|
-///   | Flags          | Tag Length = n |
-///   +----------------+----------------+...+---------------+
-///   | Tag char 0     | Tag char 1     |...| Tag char n-1  |
-///   +----------------+----------------+...+---------------+
-///   +----------------+----------------+.....+----------------+
-///   | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
-///   +----------------+----------------+.....+----------------+
-///
-///   Where n is the length specified in the Tag length field and m is the
-///   remaining octets in the Value field (m = d - n - 2) where d is the
-///   length of the RDATA section.
-///
-///   The data fields are defined as follows:
-///
-///   Flags:  One octet containing the following fields:
-///
-///      Bit 0, Issuer Critical Flag:  If the value is set to '1', the
-///         critical flag is asserted and the property MUST be understood
-///         if the CAA record is to be correctly processed by a certificate
-///         issuer.
-///
-///         A Certification Authority MUST NOT issue certificates for any
-///         Domain that contains a CAA critical property for an unknown or
-///         unsupported property tag that for which the issuer critical
-///         flag is set.
-///
-///      Note that according to the conventions set out in [RFC1035], bit 0
-///      is the Most Significant Bit and bit 7 is the Least Significant
-///      Bit. Thus, the Flags value 1 means that bit 7 is set while a value
-///      of 128 means that bit 0 is set according to this convention.
-///
-///      All other bit positions are reserved for future use.
-///
-///      To ensure compatibility with future extensions to CAA, DNS records
-///      compliant with this version of the CAA specification MUST clear
-///      (set to "0") all reserved flags bits.  Applications that interpret
-///      CAA records MUST ignore the value of all reserved flag bits.
-///
-///   Tag Length:  A single octet containing an unsigned integer specifying
-///      the tag length in octets.  The tag length MUST be at least 1 and
-///      SHOULD be no more than 15.
-///
-///   Tag:  The property identifier, a sequence of US-ASCII characters.
-///
-///      Tag values MAY contain US-ASCII characters 'a' through 'z', 'A'
-///      through 'Z', and the numbers 0 through 9.  Tag values SHOULD NOT
-///      contain any other characters.  Matching of tag values is case
-///      insensitive.
-///
-///      Tag values submitted for registration by IANA MUST NOT contain any
-///      characters other than the (lowercase) US-ASCII characters 'a'
-///      through 'z' and the numbers 0 through 9.
-///
-///   Value:  A sequence of octets representing the property value.
-///      Property values are encoded as binary values and MAY employ sub-
-///      formats.
-///
-///      The length of the value field is specified implicitly as the
-///      remaining length of the enclosing Resource Record data field.
-/// ```
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<CAA> {
-    // the spec declares that other flags should be ignored for future compatibility...
-    let issuer_critical: bool =
-        decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
-
-    let tag_len = decoder.read_u8()?;
-    let value_len: Restrict<u16> = rdata_length
-        .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
-        .checked_sub(2)
-        .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
-
-    let tag = read_tag(decoder, tag_len)?;
-    let tag = Property::from(tag);
-    let value = read_value(&tag, decoder, value_len)?;
-
-    Ok(CAA {
-        issuer_critical,
-        tag,
-        value,
-    })
-}
-
 // TODO: change this to return &str
 fn read_tag(decoder: &mut BinDecoder<'_>, len: Restrict<u8>) -> ProtoResult<String> {
     let len = len
@@ -802,25 +706,158 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
     Ok(len as u8)
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, caa: &CAA) -> ProtoResult<()> {
-    let mut flags = 0_u8;
+impl BinEncodable for CAA {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        let mut flags = 0_u8;
 
-    if caa.issuer_critical {
-        flags |= 0b1000_0000;
+        if self.issuer_critical {
+            flags |= 0b1000_0000;
+        }
+
+        encoder.emit(flags)?;
+        // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
+        let mut tag_buf = [0_u8; ::std::u8::MAX as usize];
+        let len = emit_tag(&mut tag_buf, &self.tag)?;
+
+        // now write to the encoder
+        encoder.emit(len)?;
+        encoder.emit_vec(&tag_buf[0..len as usize])?;
+        emit_value(encoder, &self.value)?;
+
+        Ok(())
+    }
+}
+
+impl<'r> RecordDataDecodable<'r> for CAA {
+    /// Read the binary CAA format
+    ///
+    /// [RFC 8659, DNS Certification Authority Authorization, November 2019](https://www.rfc-editor.org/rfc/rfc8659#section-4.1)
+    ///
+    /// ```text
+    /// 5.1.  Syntax
+    ///
+    ///   A CAA RR contains a single property entry consisting of a tag-value
+    ///   pair.  Each tag represents a property of the CAA record.  The value
+    ///   of a CAA property is that specified in the corresponding value field.
+    ///
+    ///   A domain name MAY have multiple CAA RRs associated with it and a
+    ///   given property MAY be specified more than once.
+    ///
+    ///   The CAA data field contains one property entry.  A property entry
+    ///   consists of the following data fields:
+    ///
+    ///   +0-1-2-3-4-5-6-7-|0-1-2-3-4-5-6-7-|
+    ///   | Flags          | Tag Length = n |
+    ///   +----------------+----------------+...+---------------+
+    ///   | Tag char 0     | Tag char 1     |...| Tag char n-1  |
+    ///   +----------------+----------------+...+---------------+
+    ///   +----------------+----------------+.....+----------------+
+    ///   | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
+    ///   +----------------+----------------+.....+----------------+
+    ///
+    ///   Where n is the length specified in the Tag length field and m is the
+    ///   remaining octets in the Value field (m = d - n - 2) where d is the
+    ///   length of the RDATA section.
+    ///
+    ///   The data fields are defined as follows:
+    ///
+    ///   Flags:  One octet containing the following fields:
+    ///
+    ///      Bit 0, Issuer Critical Flag:  If the value is set to '1', the
+    ///         critical flag is asserted and the property MUST be understood
+    ///         if the CAA record is to be correctly processed by a certificate
+    ///         issuer.
+    ///
+    ///         A Certification Authority MUST NOT issue certificates for any
+    ///         Domain that contains a CAA critical property for an unknown or
+    ///         unsupported property tag that for which the issuer critical
+    ///         flag is set.
+    ///
+    ///      Note that according to the conventions set out in [RFC1035], bit 0
+    ///      is the Most Significant Bit and bit 7 is the Least Significant
+    ///      Bit. Thus, the Flags value 1 means that bit 7 is set while a value
+    ///      of 128 means that bit 0 is set according to this convention.
+    ///
+    ///      All other bit positions are reserved for future use.
+    ///
+    ///      To ensure compatibility with future extensions to CAA, DNS records
+    ///      compliant with this version of the CAA specification MUST clear
+    ///      (set to "0") all reserved flags bits.  Applications that interpret
+    ///      CAA records MUST ignore the value of all reserved flag bits.
+    ///
+    ///   Tag Length:  A single octet containing an unsigned integer specifying
+    ///      the tag length in octets.  The tag length MUST be at least 1 and
+    ///      SHOULD be no more than 15.
+    ///
+    ///   Tag:  The property identifier, a sequence of US-ASCII characters.
+    ///
+    ///      Tag values MAY contain US-ASCII characters 'a' through 'z', 'A'
+    ///      through 'Z', and the numbers 0 through 9.  Tag values SHOULD NOT
+    ///      contain any other characters.  Matching of tag values is case
+    ///      insensitive.
+    ///
+    ///      Tag values submitted for registration by IANA MUST NOT contain any
+    ///      characters other than the (lowercase) US-ASCII characters 'a'
+    ///      through 'z' and the numbers 0 through 9.
+    ///
+    ///   Value:  A sequence of octets representing the property value.
+    ///      Property values are encoded as binary values and MAY employ sub-
+    ///      formats.
+    ///
+    ///      The length of the value field is specified implicitly as the
+    ///      remaining length of the enclosing Resource Record data field.
+    /// ```
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<CAA> {
+        assert_eq!(record_type, RecordType::CAA);
+
+        // the spec declares that other flags should be ignored for future compatibility...
+        let issuer_critical: bool =
+            decoder.read_u8()?.unverified(/*used as bitfield*/) & 0b1000_0000 != 0;
+
+        let tag_len = decoder.read_u8()?;
+        let value_len: Restrict<u16> = length
+            .checked_sub(u16::from(tag_len.unverified(/*safe usage here*/)))
+            .checked_sub(2)
+            .map_err(|_| ProtoError::from("CAA tag character(s) out of bounds"))?;
+
+        let tag = read_tag(decoder, tag_len)?;
+        let tag = Property::from(tag);
+        let value = read_value(&tag, decoder, value_len)?;
+
+        Ok(CAA {
+            issuer_critical,
+            tag,
+            value,
+        })
+    }
+}
+
+impl RecordData for CAA {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::CAA(csync) => Ok(csync),
+            _ => Err(data),
+        }
     }
 
-    encoder.emit(flags)?;
-    // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
-    let mut tag_buf = [0_u8; ::std::u8::MAX as usize];
-    let len = emit_tag(&mut tag_buf, &caa.tag)?;
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::CAA(csync) => Ok(csync),
+            _ => Err(data),
+        }
+    }
 
-    // now write to the encoder
-    encoder.emit(len)?;
-    encoder.emit_vec(&tag_buf[0..len as usize])?;
-    emit_value(encoder, &caa.value)?;
+    fn record_type(&self) -> RecordType {
+        RecordType::CAA
+    }
 
-    Ok(())
+    fn into_rdata(self) -> RData {
+        RData::CAA(self)
+    }
 }
 
 impl fmt::Display for Property {
@@ -1018,14 +1055,18 @@ mod tests {
     fn test_encode_decode(rdata: CAA) {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        emit(&mut encoder, &rdata).expect("failed to emit caa");
+        rdata.emit(&mut encoder).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata =
-            read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
+        let read_rdata = CAA::read_data(
+            &mut decoder,
+            RecordType::CAA,
+            Restrict::new(bytes.len() as u16),
+        )
+        .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -1077,7 +1118,7 @@ mod tests {
     fn test_encode(rdata: CAA, encoded: &[u8]) {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        emit(&mut encoder, &rdata).expect("failed to emit caa");
+        rdata.emit(&mut encoder).expect("failed to emit caa");
         let bytes = encoder.into_bytes();
         assert_eq!(bytes as &[u8], encoded);
     }
@@ -1204,7 +1245,12 @@ mod tests {
         ];
 
         let mut decoder = BinDecoder::new(MESSAGE);
-        let err = read(&mut decoder, Restrict::new(MESSAGE.len() as u16)).unwrap_err();
+        let err = CAA::read_data(
+            &mut decoder,
+            RecordType::CAA,
+            Restrict::new(MESSAGE.len() as u16),
+        )
+        .unwrap_err();
         match err.kind() {
             ProtoErrorKind::Msg(msg) => assert_eq!(msg, "bad character in CAA issuer key: ÿ"),
             _ => panic!("unexpected error: {:?}", err),
