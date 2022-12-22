@@ -213,7 +213,10 @@ impl MessageFinalizer for TSigner {
             {
                 signature = last_sig;
                 remote_time = rt;
-                Message::from_vec(dns_response).map(DnsResponse::from)
+                Ok(DnsResponse::new(
+                    Message::from_vec(dns_response)?,
+                    Some(dns_response.to_vec()),
+                ))
             } else {
                 Err(ProtoError::from("tsig validation error: outdated response"))
             }
