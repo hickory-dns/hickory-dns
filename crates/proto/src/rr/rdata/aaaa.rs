@@ -46,21 +46,6 @@ impl RecordData for Ipv6Addr {
         }
     }
 
-    fn read(
-        decoder: &mut BinDecoder<'_>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert_eq!(record_type, RecordType::AAAA);
-        assert!(length.verify(|r| *r == 16).is_valid());
-
-        read(decoder)
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        emit(encoder, self)
-    }
-
     fn try_borrow(data: &RData) -> Result<&Self, &RData> {
         match data {
             RData::AAAA(ipv6) => Ok(ipv6),
@@ -79,32 +64,15 @@ impl RecordData for Ipv6Addr {
 
 /// Read the RData from the given Decoder
 #[allow(clippy::many_single_char_names)]
+#[deprecated(note = "use the BinDecodable::read method instead")]
 pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv6Addr> {
-    let a: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let b: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let c: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let d: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let e: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let f: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let g: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-    let h: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-
-    Ok(Ipv6Addr::new(a, b, c, d, e, f, g, h))
+    <Ipv6Addr as BinDecodable>::read(decoder)
 }
 
 /// Write the RData from the given Decoder
+#[deprecated(note = "use the BinEncodable::emit method instead")]
 pub fn emit(encoder: &mut BinEncoder<'_>, address: &Ipv6Addr) -> ProtoResult<()> {
-    let segments = address.segments();
-
-    encoder.emit_u16(segments[0])?;
-    encoder.emit_u16(segments[1])?;
-    encoder.emit_u16(segments[2])?;
-    encoder.emit_u16(segments[3])?;
-    encoder.emit_u16(segments[4])?;
-    encoder.emit_u16(segments[5])?;
-    encoder.emit_u16(segments[6])?;
-    encoder.emit_u16(segments[7])?;
-    Ok(())
+    BinEncodable::emit(address, encoder)
 }
 
 #[cfg(test)]
@@ -166,11 +134,11 @@ mod tests {
 
     #[test]
     fn test_read() {
-        test_read_data_set(get_data(), |ref mut d| read(d));
+        test_read_data_set(get_data(), |ref mut d| Ipv6Addr::read(d));
     }
 
     #[test]
     fn test_emit() {
-        test_emit_data_set(get_data(), |e, d| emit(e, &d));
+        test_emit_data_set(get_data(), |e, d| d.emit(e));
     }
 }

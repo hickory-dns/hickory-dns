@@ -54,21 +54,6 @@ impl RecordData for Ipv4Addr {
         }
     }
 
-    fn read(
-        decoder: &mut BinDecoder<'_>,
-        record_type: RecordType,
-        length: Restrict<u16>,
-    ) -> ProtoResult<Self> {
-        assert_eq!(record_type, RecordType::A);
-        assert!(length.verify(|r| *r == 4).is_valid());
-
-        read(decoder)
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
-        emit(encoder, *self)
-    }
-
     fn try_borrow(data: &RData) -> Result<&Self, &RData> {
         match data {
             RData::A(ipv4) => Ok(ipv4),
@@ -86,24 +71,15 @@ impl RecordData for Ipv4Addr {
 }
 
 /// Read the RData from the given Decoder
+#[deprecated(note = "use the BinDecodable::read method instead")]
 pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Ipv4Addr> {
-    Ok(Ipv4Addr::new(
-        decoder.pop()?.unverified(/*valid as any u8*/),
-        decoder.pop()?.unverified(/*valid as any u8*/),
-        decoder.pop()?.unverified(/*valid as any u8*/),
-        decoder.pop()?.unverified(/*valid as any u8*/),
-    ))
+    <Ipv4Addr as BinDecodable>::read(decoder)
 }
 
 /// Write the RData from the given Decoder
+#[deprecated(note = "use the BinEncodable::emit method instead")]
 pub fn emit(encoder: &mut BinEncoder<'_>, address: Ipv4Addr) -> ProtoResult<()> {
-    let segments = address.octets();
-
-    encoder.emit(segments[0])?;
-    encoder.emit(segments[1])?;
-    encoder.emit(segments[2])?;
-    encoder.emit(segments[3])?;
-    Ok(())
+    BinEncodable::emit(&address, encoder)
 }
 
 #[cfg(test)]
@@ -131,11 +107,11 @@ mod mytests {
 
     #[test]
     fn test_parse() {
-        test_read_data_set(get_data(), |ref mut d| read(d));
+        test_read_data_set(get_data(), |ref mut d| Ipv4Addr::read(d));
     }
 
     #[test]
     fn test_write_to() {
-        test_emit_data_set(get_data(), |ref mut e, d| emit(e, d));
+        test_emit_data_set(get_data(), |ref mut e, d| d.emit(e));
     }
 }
