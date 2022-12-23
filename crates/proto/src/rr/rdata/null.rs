@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! null record type, generally not used except as an internal tool for representing null data
 use std::fmt;
@@ -21,6 +12,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -68,24 +60,54 @@ impl NULL {
     }
 }
 
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<NULL> {
-    let rdata_length = rdata_length.map(|u| u as usize).unverified(/*any u16 is valid*/);
-    if rdata_length > 0 {
-        let anything = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
-        Ok(NULL::with(anything))
-    } else {
-        Ok(NULL::new())
+impl BinEncodable for NULL {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        for b in self.anything() {
+            encoder.emit(*b)?;
+        }
+
+        Ok(())
     }
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, nil: &NULL) -> ProtoResult<()> {
-    for b in nil.anything() {
-        encoder.emit(*b)?;
+impl<'r> RecordDataDecodable<'r> for NULL {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        _record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        let rdata_length = length.map(|u| u as usize).unverified(/*any u16 is valid*/);
+        if rdata_length > 0 {
+            let anything = decoder.read_vec(rdata_length)?.unverified(/*any byte array is good*/);
+            Ok(Self::with(anything))
+        } else {
+            Ok(Self::new())
+        }
+    }
+}
+
+impl RecordData for NULL {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::NULL(csync) => Ok(csync),
+            _ => Err(data),
+        }
     }
 
-    Ok(())
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::NULL(csync) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::NULL
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::NULL(self)
+    }
 }
 
 impl fmt::Display for NULL {
@@ -106,14 +128,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            NULL::read_data(&mut decoder, RecordType::NULL, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

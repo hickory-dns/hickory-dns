@@ -38,10 +38,9 @@ use enum_as_inner::EnumAsInner;
 use tracing::trace;
 
 use crate::error::*;
-use crate::rr::rdata::null;
 use crate::rr::rdata::NULL;
 use crate::rr::{RData, RecordType};
-use crate::serialize::binary::*;
+use crate::serialize::binary::{BinDecoder, BinEncodable, BinEncoder, Restrict};
 
 pub use self::dnskey::DNSKEY;
 pub use self::ds::DS;
@@ -622,7 +621,7 @@ impl DNSSECRData {
             Self::SIG(ref sig) => encoder.with_canonical_names(|encoder| sig::emit(encoder, sig)),
             Self::TSIG(ref tsig) => tsig::emit(encoder, tsig),
             Self::Unknown { ref rdata, .. } => {
-                encoder.with_canonical_names(|encoder| null::emit(encoder, rdata))
+                encoder.with_canonical_names(|encoder| rdata.emit(encoder))
             }
         }
     }

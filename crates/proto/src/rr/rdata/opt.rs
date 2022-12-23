@@ -1,23 +1,15 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! option record for passing protocol options between the client and server
 #![allow(clippy::use_self)]
 
 use std::collections::HashMap;
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
@@ -27,9 +19,11 @@ use serde::{Deserialize, Serialize};
 use tracing::warn;
 
 use crate::error::{ProtoError, ProtoErrorKind, ProtoResult};
+use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
+use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict};
+
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::SupportedAlgorithms;
-use crate::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict};
 
 /// The OPT record type is used for ExtendedDNS records.
 ///
@@ -221,87 +215,122 @@ impl AsRef<HashMap<EdnsCode, EdnsOption>> for OPT {
     }
 }
 
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<OPT> {
-    let mut state: OptReadState = OptReadState::ReadCode;
-    let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
-    let start_idx = decoder.index();
+impl BinEncodable for OPT {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        for (edns_code, edns_option) in self.as_ref().iter() {
+            encoder.emit_u16(u16::from(*edns_code))?;
+            encoder.emit_u16(edns_option.len())?;
+            edns_option.emit(encoder)?
+        }
+        Ok(())
+    }
+}
 
-    // There is no unsafe direct use of the rdata length after this point
-    let rdata_length =
-        rdata_length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
-    while rdata_length > decoder.index() - start_idx {
-        match state {
-            OptReadState::ReadCode => {
-                state = OptReadState::Code {
-                    code: EdnsCode::from(
-                        decoder.read_u16()?.unverified(/*EdnsCode is verified as safe*/),
-                    ),
-                };
-            }
-            OptReadState::Code { code } => {
-                let length = decoder
-                    .read_u16()?
-                    .map(|u| u as usize)
-                    .verify_unwrap(|u| *u <= rdata_length)
-                    .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
-                // If we know that the length is 0, we can avoid the `OptReadState::Data` state
-                // and directly add the option to the map.
-                // The data state does not process 0-length correctly, since it always reads at
-                // least 1 byte, thus making the length check fail.
-                state = if length == 0 {
-                    options.insert(code, (code, &[] as &[u8]).try_into()?);
-                    OptReadState::ReadCode
-                } else {
-                    OptReadState::Data {
-                        code,
-                        length,
-                        // TODO: this can be replaced with decoder.read_vec(), right?
-                        //  the current version allows for malformed opt to be skipped...
-                        collected: Vec::<u8>::with_capacity(length),
-                    }
-                };
-            }
-            OptReadState::Data {
-                code,
-                length,
-                mut collected,
-            } => {
-                // TODO: can this be replaced by read_slice()?
-                collected.push(decoder.pop()?.unverified(/*byte array is safe*/));
-                if length == collected.len() {
-                    options.insert(code, (code, &collected as &[u8]).try_into()?);
-                    state = OptReadState::ReadCode;
-                } else {
-                    state = OptReadState::Data {
-                        code,
-                        length,
-                        collected,
+impl<'r> RecordDataDecodable<'r> for OPT {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        _record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        let mut state: OptReadState = OptReadState::ReadCode;
+        let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
+        let start_idx = decoder.index();
+
+        // There is no unsafe direct use of the rdata length after this point
+        let rdata_length = length.map(|u| u as usize).unverified(/*rdata length usage is bounded*/);
+        while rdata_length > decoder.index() - start_idx {
+            match state {
+                OptReadState::ReadCode => {
+                    state = OptReadState::Code {
+                        code: EdnsCode::from(
+                            decoder.read_u16()?.unverified(/*EdnsCode is verified as safe*/),
+                        ),
                     };
+                }
+                OptReadState::Code { code } => {
+                    let length = decoder
+                        .read_u16()?
+                        .map(|u| u as usize)
+                        .verify_unwrap(|u| *u <= rdata_length)
+                        .map_err(|_| ProtoError::from("OPT value length exceeds rdata length"))?;
+                    // If we know that the length is 0, we can avoid the `OptReadState::Data` state
+                    // and directly add the option to the map.
+                    // The data state does not process 0-length correctly, since it always reads at
+                    // least 1 byte, thus making the length check fail.
+                    state = if length == 0 {
+                        options.insert(code, (code, &[] as &[u8]).try_into()?);
+                        OptReadState::ReadCode
+                    } else {
+                        OptReadState::Data {
+                            code,
+                            length,
+                            // TODO: this can be replaced with decoder.read_vec(), right?
+                            //  the current version allows for malformed opt to be skipped...
+                            collected: Vec::<u8>::with_capacity(length),
+                        }
+                    };
+                }
+                OptReadState::Data {
+                    code,
+                    length,
+                    mut collected,
+                } => {
+                    // TODO: can this be replaced by read_slice()?
+                    collected.push(decoder.pop()?.unverified(/*byte array is safe*/));
+                    if length == collected.len() {
+                        options.insert(code, (code, &collected as &[u8]).try_into()?);
+                        state = OptReadState::ReadCode;
+                    } else {
+                        state = OptReadState::Data {
+                            code,
+                            length,
+                            collected,
+                        };
+                    }
                 }
             }
         }
-    }
 
-    if state != OptReadState::ReadCode {
-        // there was some problem parsing the data for the options, ignoring them
-        // TODO: should we ignore all of the EDNS data in this case?
-        warn!("incomplete or poorly formatted EDNS options: {:?}", state);
-        options.clear();
-    }
+        if state != OptReadState::ReadCode {
+            // there was some problem parsing the data for the options, ignoring them
+            // TODO: should we ignore all of the EDNS data in this case?
+            warn!("incomplete or poorly formatted EDNS options: {:?}", state);
+            options.clear();
+        }
 
-    // the record data is stored as unstructured data, the expectation is that this will be processed after initial parsing.
-    Ok(OPT::new(options))
+        // the record data is stored as unstructured data, the expectation is that this will be processed after initial parsing.
+        Ok(Self::new(options))
+    }
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, opt: &OPT) -> ProtoResult<()> {
-    for (edns_code, edns_option) in opt.as_ref().iter() {
-        encoder.emit_u16(u16::from(*edns_code))?;
-        encoder.emit_u16(edns_option.len())?;
-        edns_option.emit(encoder)?
+impl RecordData for OPT {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::OPT(csync) => Ok(csync),
+            _ => Err(data),
+        }
     }
-    Ok(())
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::OPT(csync) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::OPT
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::OPT(self)
+    }
+}
+
+impl fmt::Display for OPT {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        fmt::Debug::fmt(self, f)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -736,14 +765,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            OPT::read_data(&mut decoder, RecordType::OPT, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -755,7 +785,11 @@ mod tests {
         ];
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(&bytes);
-        let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = OPT::read_data(
+            &mut decoder,
+            RecordType::OPT,
+            Restrict::new(bytes.len() as u16),
+        );
         assert!(
             read_rdata.is_ok(),
             "error decoding: {:?}",

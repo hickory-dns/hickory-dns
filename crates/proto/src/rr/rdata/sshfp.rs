@@ -1,4 +1,4 @@
-// Copyright 2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -17,6 +17,7 @@ use data_encoding::{Encoding, Specification};
 use lazy_static::lazy_static;
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::*;
 
 lazy_static! {
@@ -232,24 +233,54 @@ impl From<FingerprintType> for u8 {
     }
 }
 
-/// Read the RData from the given decoder.
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<SSHFP> {
-    let algorithm = decoder.read_u8()?.unverified().into();
-    let fingerprint_type = decoder.read_u8()?.unverified().into();
-    let fingerprint_len = rdata_length
-        .map(|l| l as usize)
-        .checked_sub(2)
-        .map_err(|_| ProtoError::from("invalid rdata length in SSHFP"))?
-        .unverified();
-    let fingerprint = decoder.read_vec(fingerprint_len)?.unverified();
-    Ok(SSHFP::new(algorithm, fingerprint_type, fingerprint))
+impl BinEncodable for SSHFP {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_u8(self.algorithm().into())?;
+        encoder.emit_u8(self.fingerprint_type().into())?;
+        encoder.emit_vec(self.fingerprint())
+    }
 }
 
-/// Write the RData using the given encoder.
-pub fn emit(encoder: &mut BinEncoder<'_>, sshfp: &SSHFP) -> ProtoResult<()> {
-    encoder.emit_u8(sshfp.algorithm().into())?;
-    encoder.emit_u8(sshfp.fingerprint_type().into())?;
-    encoder.emit_vec(sshfp.fingerprint())
+impl<'r> RecordDataDecodable<'r> for SSHFP {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        _record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        let algorithm = decoder.read_u8()?.unverified().into();
+        let fingerprint_type = decoder.read_u8()?.unverified().into();
+        let fingerprint_len = length
+            .map(|l| l as usize)
+            .checked_sub(2)
+            .map_err(|_| ProtoError::from("invalid rdata length in SSHFP"))?
+            .unverified();
+        let fingerprint = decoder.read_vec(fingerprint_len)?.unverified();
+        Ok(SSHFP::new(algorithm, fingerprint_type, fingerprint))
+    }
+}
+
+impl RecordData for SSHFP {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::SSHFP(data) => Ok(data),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::SSHFP(data) => Ok(data),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::SSHFP
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::SSHFP(self)
+    }
 }
 
 /// [RFC 4255](https://tools.ietf.org/html/rfc4255#section-3.2)
@@ -320,13 +351,17 @@ mod tests {
     fn test_encode_decode(rdata: SSHFP, result: &[u8]) {
         let mut bytes = Vec::new();
         let mut encoder = BinEncoder::new(&mut bytes);
-        emit(&mut encoder, &rdata).expect("failed to emit SSHFP");
+        rdata.emit(&mut encoder).expect("failed to emit SSHFP");
         let bytes = encoder.into_bytes();
         assert_eq!(bytes, &result);
 
         let mut decoder = BinDecoder::new(result);
-        let read_rdata =
-            read(&mut decoder, Restrict::new(result.len() as u16)).expect("failed to read SSHFP");
+        let read_rdata = SSHFP::read_data(
+            &mut decoder,
+            RecordType::SSHFP,
+            Restrict::new(result.len() as u16),
+        )
+        .expect("failed to read SSHFP");
         assert_eq!(read_rdata, rdata)
     }
 
