@@ -1,4 +1,4 @@
-// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use super::sshfp;
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
@@ -339,47 +340,78 @@ impl TLSA {
     }
 }
 
-/// Read the RData from the given Decoder
-///
-/// ```text
-///                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-///     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-///    |  Cert. Usage  |   Selector    | Matching Type |               /
-///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               /
-///    /                                                               /
-///    /                 Certificate Association Data                  /
-///    /                                                               /
-///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-/// ```
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<TLSA> {
-    let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
-    let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
-    let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
+impl BinEncodable for TLSA {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_u8(self.cert_usage.into())?;
+        encoder.emit_u8(self.selector.into())?;
+        encoder.emit_u8(self.matching.into())?;
+        encoder.emit_vec(&self.cert_data)?;
+        Ok(())
+    }
+}
 
-    // the remaining data is for the cert
-    let cert_len = rdata_length
+impl<'r> RecordDataDecodable<'r> for TLSA {
+    /// Read the RData from the given Decoder
+    ///
+    /// ```text
+    ///                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    ///     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    ///    |  Cert. Usage  |   Selector    | Matching Type |               /
+    ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               /
+    ///    /                                                               /
+    ///    /                 Certificate Association Data                  /
+    ///    /                                                               /
+    ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// ```
+    fn read_data(
+        decoder: &mut BinDecoder<'_>,
+        _record_type: RecordType,
+        rdata_length: Restrict<u16>,
+    ) -> ProtoResult<TLSA> {
+        let cert_usage = decoder.read_u8()?.unverified(/*CertUsage is verified*/).into();
+        let selector = decoder.read_u8()?.unverified(/*Selector is verified*/).into();
+        let matching = decoder.read_u8()?.unverified(/*Matching is verified*/).into();
+
+        // the remaining data is for the cert
+        let cert_len = rdata_length
         .map(|u| u as usize)
         .checked_sub(3)
         .map_err(|_| ProtoError::from("invalid rdata length in TLSA"))?
         .unverified(/*used purely as length safely*/);
-    let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
+        let cert_data = decoder.read_vec(cert_len)?.unverified(/*will fail in usage if invalid*/);
 
-    Ok(TLSA {
-        cert_usage,
-        selector,
-        matching,
-        cert_data,
-    })
+        Ok(Self {
+            cert_usage,
+            selector,
+            matching,
+            cert_data,
+        })
+    }
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, tlsa: &TLSA) -> ProtoResult<()> {
-    encoder.emit_u8(tlsa.cert_usage.into())?;
-    encoder.emit_u8(tlsa.selector.into())?;
-    encoder.emit_u8(tlsa.matching.into())?;
-    encoder.emit_vec(&tlsa.cert_data)?;
-    Ok(())
+impl RecordData for TLSA {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::TLSA(data) => Ok(data),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::TLSA(data) => Ok(data),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::TLSA
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::TLSA(self)
+    }
 }
 
 /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.2)
@@ -503,14 +535,18 @@ mod tests {
     fn test_encode_decode(rdata: TLSA) {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        emit(&mut encoder, &rdata).expect("failed to emit tlsa");
+        rdata.emit(&mut encoder).expect("failed to emit tlsa");
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata =
-            read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
+        let read_rdata = TLSA::read_data(
+            &mut decoder,
+            RecordType::TLSA,
+            Restrict::new(bytes.len() as u16),
+        )
+        .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 

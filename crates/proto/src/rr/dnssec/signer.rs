@@ -14,6 +14,8 @@ use std::time::Duration;
 use crate::error::{ProtoErrorKind, ProtoResult};
 use crate::op::{Message, MessageFinalizer, MessageVerifier};
 use crate::rr::Record;
+use crate::serialize::binary::BinEncodable;
+
 #[cfg(feature = "dnssec")]
 use crate::{
     error::DnsSecResult,

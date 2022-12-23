@@ -818,49 +818,37 @@ impl BinEncodable for RData {
     /// ```
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         match *self {
-            Self::A(ref address) => Ipv4Addr::emit(address, encoder),
-            Self::AAAA(ref address) => Ipv6Addr::emit(address, encoder),
-            Self::ANAME(ref name) => {
-                encoder.with_canonical_names(|encoder| rdata::name::emit(encoder, name))
-            }
-            Self::CAA(ref caa) => {
-                encoder.with_canonical_names(|encoder| rdata::caa::emit(encoder, caa))
-            }
+            Self::A(ref address) => address.emit(encoder),
+            Self::AAAA(ref address) => address.emit(encoder),
+            Self::ANAME(ref name) => encoder.with_canonical_names(|encoder| name.emit(encoder)),
+            Self::CAA(ref caa) => encoder.with_canonical_names(|encoder| caa.emit(encoder)),
             // to_lowercase for rfc4034 and rfc6840
             Self::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
                 rdata::name::emit(encoder, name)
             }
             Self::CSYNC(ref csync) => csync.emit(encoder),
-            Self::HINFO(ref hinfo) => rdata::hinfo::emit(encoder, hinfo),
-            Self::HTTPS(ref svcb) => rdata::svcb::emit(encoder, svcb),
+            Self::HINFO(ref hinfo) => hinfo.emit(encoder),
+            Self::HTTPS(ref svcb) => svcb.emit(encoder),
             Self::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
-            Self::MX(ref mx) => rdata::mx::emit(encoder, mx),
-            Self::NAPTR(ref naptr) => {
-                encoder.with_canonical_names(|encoder| rdata::naptr::emit(encoder, naptr))
-            }
-            Self::NULL(ref null) => rdata::null::emit(encoder, null),
+            Self::MX(ref mx) => mx.emit(encoder),
+            Self::NAPTR(ref naptr) => encoder.with_canonical_names(|encoder| naptr.emit(encoder)),
+            Self::NULL(ref null) => null.emit(encoder),
             Self::OPENPGPKEY(ref openpgpkey) => {
-                encoder.with_canonical_names(|encoder| rdata::openpgpkey::emit(encoder, openpgpkey))
+                encoder.with_canonical_names(|encoder| openpgpkey.emit(encoder))
             }
-            Self::OPT(ref opt) => rdata::opt::emit(encoder, opt),
+            Self::OPT(ref opt) => opt.emit(encoder),
             // to_lowercase for rfc4034 and rfc6840
             Self::SOA(ref soa) => soa.emit(encoder),
             // to_lowercase for rfc4034 and rfc6840
-            Self::SRV(ref srv) => {
-                encoder.with_canonical_names(|encoder| rdata::srv::emit(encoder, srv))
-            }
-            Self::SSHFP(ref sshfp) => {
-                encoder.with_canonical_names(|encoder| rdata::sshfp::emit(encoder, sshfp))
-            }
-            Self::SVCB(ref svcb) => rdata::svcb::emit(encoder, svcb),
-            Self::TLSA(ref tlsa) => {
-                encoder.with_canonical_names(|encoder| rdata::tlsa::emit(encoder, tlsa))
-            }
-            Self::TXT(ref txt) => rdata::txt::emit(encoder, txt),
+            Self::SRV(ref srv) => encoder.with_canonical_names(|encoder| srv.emit(encoder)),
+            Self::SSHFP(ref sshfp) => encoder.with_canonical_names(|encoder| sshfp.emit(encoder)),
+            Self::SVCB(ref svcb) => svcb.emit(encoder),
+            Self::TLSA(ref tlsa) => encoder.with_canonical_names(|encoder| tlsa.emit(encoder)),
+            Self::TXT(ref txt) => txt.emit(encoder),
             #[cfg(feature = "dnssec")]
             Self::DNSSEC(ref rdata) => encoder.with_canonical_names(|encoder| rdata.emit(encoder)),
-            Self::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
+            Self::Unknown { ref rdata, .. } => rdata.emit(encoder),
         }
     }
 }
@@ -876,22 +864,22 @@ impl<'r> RecordDataDecodable<'r> for RData {
         let result = match record_type {
             RecordType::A => {
                 trace!("reading A");
-                rdata::a::read(decoder).map(Self::A)
+                Ipv4Addr::read_data(decoder, record_type, length).map(Self::A)
             }
             RecordType::AAAA => {
                 trace!("reading AAAA");
-                rdata::aaaa::read(decoder).map(Self::AAAA)
+                Ipv6Addr::read_data(decoder, record_type, length).map(Self::AAAA)
             }
             RecordType::ANAME => {
                 trace!("reading ANAME");
-                rdata::name::read(decoder).map(Self::ANAME)
+                Name::read(decoder).map(Self::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
             }
             RecordType::CAA => {
                 trace!("reading CAA");
-                rdata::caa::read(decoder, length).map(Self::CAA)
+                CAA::read_data(decoder, record_type, length).map(Self::CAA)
             }
             RecordType::CNAME => {
                 trace!("reading CNAME");
@@ -903,11 +891,11 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::HINFO => {
                 trace!("reading HINFO");
-                rdata::hinfo::read(decoder).map(Self::HINFO)
+                HINFO::read_data(decoder, record_type, length).map(Self::HINFO)
             }
             RecordType::HTTPS => {
                 trace!("reading HTTPS");
-                rdata::svcb::read(decoder, length).map(Self::HTTPS)
+                SVCB::read_data(decoder, record_type, length).map(Self::HTTPS)
             }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
@@ -918,15 +906,15 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::MX => {
                 trace!("reading MX");
-                rdata::mx::read(decoder).map(Self::MX)
+                MX::read_data(decoder, record_type, length).map(Self::MX)
             }
             RecordType::NAPTR => {
                 trace!("reading NAPTR");
-                rdata::naptr::read(decoder).map(Self::NAPTR)
+                NAPTR::read_data(decoder, record_type, length).map(Self::NAPTR)
             }
             RecordType::NULL => {
                 trace!("reading NULL");
-                rdata::null::read(decoder, length).map(Self::NULL)
+                NULL::read_data(decoder, record_type, length).map(Self::NULL)
             }
             RecordType::NS => {
                 trace!("reading NS");
@@ -934,11 +922,11 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::OPENPGPKEY => {
                 trace!("reading OPENPGPKEY");
-                rdata::openpgpkey::read(decoder, length).map(Self::OPENPGPKEY)
+                OPENPGPKEY::read_data(decoder, record_type, length).map(Self::OPENPGPKEY)
             }
             RecordType::OPT => {
                 trace!("reading OPT");
-                rdata::opt::read(decoder, length).map(Self::OPT)
+                OPT::read_data(decoder, record_type, length).map(Self::OPT)
             }
             RecordType::PTR => {
                 trace!("reading PTR");
@@ -950,29 +938,29 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::SRV => {
                 trace!("reading SRV");
-                rdata::srv::read(decoder).map(Self::SRV)
+                SRV::read_data(decoder, record_type, length).map(Self::SRV)
             }
             RecordType::SSHFP => {
                 trace!("reading SSHFP");
-                rdata::sshfp::read(decoder, length).map(Self::SSHFP)
+                SSHFP::read_data(decoder, record_type, length).map(Self::SSHFP)
             }
             RecordType::SVCB => {
                 trace!("reading SVCB");
-                rdata::svcb::read(decoder, length).map(Self::SVCB)
+                SVCB::read_data(decoder, record_type, length).map(Self::SVCB)
             }
             RecordType::TLSA => {
                 trace!("reading TLSA");
-                rdata::tlsa::read(decoder, length).map(Self::TLSA)
+                TLSA::read_data(decoder, record_type, length).map(Self::TLSA)
             }
             RecordType::TXT => {
                 trace!("reading TXT");
-                rdata::txt::read(decoder, length).map(Self::TXT)
+                TXT::read_data(decoder, record_type, length).map(Self::TXT)
             }
             #[cfg(feature = "dnssec")]
             r if r.is_dnssec() => DNSSECRData::read(decoder, record_type, length).map(Self::DNSSEC),
             record_type => {
                 trace!("reading Unknown record: {}", record_type);
-                rdata::null::read(decoder, length).map(|rdata| Self::Unknown {
+                NULL::read_data(decoder, record_type, length).map(|rdata| Self::Unknown {
                     code: record_type.into(),
                     rdata,
                 })

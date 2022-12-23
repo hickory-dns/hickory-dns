@@ -19,7 +19,7 @@
 use std::fmt;
 
 use crate::error::*;
-use crate::rr::rdata::opt::{self, EdnsCode, EdnsOption};
+use crate::rr::rdata::opt::{EdnsCode, EdnsOption};
 use crate::rr::rdata::OPT;
 use crate::rr::{DNSClass, Name, RData, Record, RecordType};
 
@@ -208,7 +208,7 @@ impl BinEncodable for Edns {
 
         // write the opts as rdata...
         let place = encoder.place::<u16>()?;
-        opt::emit(encoder, &self.options)?;
+        self.options.emit(encoder)?;
         let len = encoder.len_since_place(&place);
         assert!(len <= u16::max_value() as usize);
 

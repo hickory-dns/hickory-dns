@@ -1,4 +1,4 @@
-// Copyright 2015-2021 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -21,9 +21,9 @@ use serde::{Deserialize, Serialize};
 
 use enum_as_inner::EnumAsInner;
 
-use crate::error::*;
-use crate::rr::Name;
+use crate::rr::{Name, RData, RecordData, RecordType};
 use crate::serialize::binary::*;
+use crate::{error::*, rr::RecordDataDecodable};
 
 ///  [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-2.2)
 ///
@@ -1035,87 +1035,118 @@ impl fmt::Display for Unknown {
     }
 }
 
-/// Reads the SVCB record from the decoder.
-///
-/// ```text
-///   Clients MUST consider an RR malformed if:
-///
-///   *  the end of the RDATA occurs within a SvcParam.
-///   *  SvcParamKeys are not in strictly increasing numeric order.
-///   *  the SvcParamValue for an SvcParamKey does not have the expected
-///      format.
-///
-///   Note that the second condition implies that there are no duplicate
-///   SvcParamKeys.
-///
-///   If any RRs are malformed, the client MUST reject the entire RRSet and
-///   fall back to non-SVCB connection establishment.
-/// ```
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<SVCB> {
-    let start_index = decoder.index();
+impl BinEncodable for SVCB {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        self.svc_priority.emit(encoder)?;
+        self.target_name.emit(encoder)?;
 
-    let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
-    let target_name = Name::read(decoder)?;
-
-    let mut remainder_len = rdata_length
-        .map(|len| len as usize)
-        .checked_sub(decoder.index() - start_index)
-        .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
-        .unverified(); // valid len
-    let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
-
-    // must have at least 4 bytes left for the key and the length
-    while remainder_len >= 4 {
-        // a 2 octet field containing the SvcParamKey as an integer in
-        //      network byte order.  (See Section 14.3.2 for the defined values.)
-        let key = SvcParamKey::read(decoder)?;
-
-        // a 2 octet field containing the length of the SvcParamValue as an
-        //      integer between 0 and 65535 in network byte order (but constrained
-        //      by the RDATA and DNS message sizes).
-        let value = SvcParamValue::read(key, decoder)?;
-
-        if let Some(last_key) = svc_params.last().map(|(key, _)| key) {
-            if last_key >= &key {
-                return Err(ProtoError::from("SvcParams out of order"));
+        let mut last_key: Option<SvcParamKey> = None;
+        for (key, param) in self.svc_params.iter() {
+            if let Some(last_key) = last_key {
+                if key <= &last_key {
+                    return Err(ProtoError::from("SvcParams out of order"));
+                }
             }
+
+            key.emit(encoder)?;
+            param.emit(encoder)?;
+
+            last_key = Some(*key);
         }
 
-        svc_params.push((key, value));
-        remainder_len = rdata_length
+        Ok(())
+    }
+}
+
+impl<'r> RecordDataDecodable<'r> for SVCB {
+    /// Reads the SVCB record from the decoder.
+    ///
+    /// ```text
+    ///   Clients MUST consider an RR malformed if:
+    ///
+    ///   *  the end of the RDATA occurs within a SvcParam.
+    ///   *  SvcParamKeys are not in strictly increasing numeric order.
+    ///   *  the SvcParamValue for an SvcParamKey does not have the expected
+    ///      format.
+    ///
+    ///   Note that the second condition implies that there are no duplicate
+    ///   SvcParamKeys.
+    ///
+    ///   If any RRs are malformed, the client MUST reject the entire RRSet and
+    ///   fall back to non-SVCB connection establishment.
+    /// ```
+    fn read_data(
+        decoder: &mut BinDecoder<'_>,
+        _record_type: RecordType,
+        rdata_length: Restrict<u16>,
+    ) -> ProtoResult<SVCB> {
+        let start_index = decoder.index();
+
+        let svc_priority = decoder.read_u16()?.unverified(/*any u16 is valid*/);
+        let target_name = Name::read(decoder)?;
+
+        let mut remainder_len = rdata_length
             .map(|len| len as usize)
             .checked_sub(decoder.index() - start_index)
             .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
             .unverified(); // valid len
-    }
+        let mut svc_params: Vec<(SvcParamKey, SvcParamValue)> = Vec::new();
 
-    Ok(SVCB {
-        svc_priority,
-        target_name,
-        svc_params,
-    })
-}
+        // must have at least 4 bytes left for the key and the length
+        while remainder_len >= 4 {
+            // a 2 octet field containing the SvcParamKey as an integer in
+            //      network byte order.  (See Section 14.3.2 for the defined values.)
+            let key = SvcParamKey::read(decoder)?;
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, svcb: &SVCB) -> ProtoResult<()> {
-    svcb.svc_priority.emit(encoder)?;
-    svcb.target_name.emit(encoder)?;
+            // a 2 octet field containing the length of the SvcParamValue as an
+            //      integer between 0 and 65535 in network byte order (but constrained
+            //      by the RDATA and DNS message sizes).
+            let value = SvcParamValue::read(key, decoder)?;
 
-    let mut last_key: Option<SvcParamKey> = None;
-    for (key, param) in svcb.svc_params.iter() {
-        if let Some(last_key) = last_key {
-            if key <= &last_key {
-                return Err(ProtoError::from("SvcParams out of order"));
+            if let Some(last_key) = svc_params.last().map(|(key, _)| key) {
+                if last_key >= &key {
+                    return Err(ProtoError::from("SvcParams out of order"));
+                }
             }
+
+            svc_params.push((key, value));
+            remainder_len = rdata_length
+                .map(|len| len as usize)
+                .checked_sub(decoder.index() - start_index)
+                .map_err(|len| format!("Bad length for RDATA of SVCB: {len}"))?
+                .unverified(); // valid len
         }
 
-        key.emit(encoder)?;
-        param.emit(encoder)?;
+        Ok(Self {
+            svc_priority,
+            target_name,
+            svc_params,
+        })
+    }
+}
 
-        last_key = Some(*key);
+impl RecordData for SVCB {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::SVCB(data) => Ok(data),
+            _ => Err(data),
+        }
     }
 
-    Ok(())
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::SVCB(data) => Ok(data),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::SVCB
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::SVCB(self)
+    }
 }
 
 /// [draft-ietf-dnsop-svcb-https-03 SVCB and HTTPS RRs for DNS, February 2021](https://datatracker.ietf.org/doc/html/draft-ietf-dnsop-svcb-https-03#section-10.3)
@@ -1182,12 +1213,16 @@ mod tests {
     fn test_encode_decode(rdata: SVCB) {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        emit(&mut encoder, &rdata).expect("failed to emit SVCB");
+        rdata.emit(&mut encoder).expect("failed to emit SVCB");
         let bytes = encoder.into_bytes();
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata =
-            read(&mut decoder, Restrict::new(bytes.len() as u16)).expect("failed to read back");
+        let read_rdata = SVCB::read_data(
+            &mut decoder,
+            RecordType::SVCB,
+            Restrict::new(bytes.len() as u16),
+        )
+        .expect("failed to read back");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -1263,6 +1298,6 @@ mod tests {
 
         let mut buf = Vec::new();
         let mut encoder = BinEncoder::new(&mut buf);
-        emit(&mut encoder, &svcb).unwrap();
+        svcb.emit(&mut encoder).unwrap();
     }
 }

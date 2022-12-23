@@ -1,4 +1,4 @@
-// Copyright 2019 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -12,6 +12,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
@@ -45,17 +46,47 @@ impl OPENPGPKEY {
     }
 }
 
-/// Read the RData from the given decoder.
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<OPENPGPKEY> {
-    let rdata_length = rdata_length.map(usize::from).unverified();
-    let public_key =
-        decoder.read_vec(rdata_length)?.unverified(/*we do not enforce a specific format*/);
-    Ok(OPENPGPKEY::new(public_key))
+impl BinEncodable for OPENPGPKEY {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_vec(self.public_key())
+    }
 }
 
-/// Write the RData using the given encoder
-pub fn emit(encoder: &mut BinEncoder<'_>, openpgpkey: &OPENPGPKEY) -> ProtoResult<()> {
-    encoder.emit_vec(openpgpkey.public_key())
+impl<'r> RecordDataDecodable<'r> for OPENPGPKEY {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        _record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        let rdata_length = length.map(usize::from).unverified();
+        let public_key =
+            decoder.read_vec(rdata_length)?.unverified(/*we do not enforce a specific format*/);
+        Ok(Self::new(public_key))
+    }
+}
+
+impl RecordData for OPENPGPKEY {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::OPENPGPKEY(csync) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::OPENPGPKEY(csync) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::OPENPGPKEY
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::OPENPGPKEY(self)
+    }
 }
 
 /// Parse the RData from a set of tokens.

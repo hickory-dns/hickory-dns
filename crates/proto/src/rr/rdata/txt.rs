@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! text records for storing arbitrary data
 use std::fmt;
@@ -22,6 +13,7 @@ use std::slice::Iter;
 use serde::{Deserialize, Serialize};
 
 use crate::error::*;
+use crate::rr::{RData, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -96,31 +88,60 @@ impl TXT {
     }
 }
 
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<TXT> {
-    let data_len = decoder.len();
-    let mut strings = Vec::with_capacity(1);
+impl BinEncodable for TXT {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        for s in self.txt_data() {
+            encoder.emit_character_data(s)?;
+        }
 
-    // no unsafe usage of rdata length after this point
-    let rdata_length =
-        rdata_length.map(|u| u as usize).unverified(/*used as a higher bound, safely*/);
-    while data_len - decoder.len() < rdata_length {
-        let string =
-            decoder.read_character_data()?.unverified(/*any data should be validate in TXT usage*/);
-        strings.push(string.to_vec().into_boxed_slice());
+        Ok(())
     }
-    Ok(TXT {
-        txt_data: strings.into_boxed_slice(),
-    })
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, txt: &TXT) -> ProtoResult<()> {
-    for s in txt.txt_data() {
-        encoder.emit_character_data(s)?;
+impl<'r> RecordDataDecodable<'r> for TXT {
+    fn read_data(
+        decoder: &mut BinDecoder<'_>,
+        _record_type: RecordType,
+        rdata_length: Restrict<u16>,
+    ) -> ProtoResult<TXT> {
+        let data_len = decoder.len();
+        let mut strings = Vec::with_capacity(1);
+
+        // no unsafe usage of rdata length after this point
+        let rdata_length =
+            rdata_length.map(|u| u as usize).unverified(/*used as a higher bound, safely*/);
+        while data_len - decoder.len() < rdata_length {
+            let string = decoder.read_character_data()?.unverified(/*any data should be validate in TXT usage*/);
+            strings.push(string.to_vec().into_boxed_slice());
+        }
+        Ok(Self {
+            txt_data: strings.into_boxed_slice(),
+        })
+    }
+}
+
+impl RecordData for TXT {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::TXT(data) => Ok(data),
+            _ => Err(data),
+        }
     }
 
-    Ok(())
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::TXT(data) => Ok(data),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::TXT
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::TXT(self)
+    }
 }
 
 impl fmt::Display for TXT {
@@ -167,14 +188,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            TXT::read_data(&mut decoder, RecordType::TXT, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -185,14 +207,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            TXT::read_data(&mut decoder, RecordType::TXT, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }
