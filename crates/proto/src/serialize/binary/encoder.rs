@@ -502,7 +502,10 @@ mod tests {
     use super::*;
     use crate::{
         op::{Message, Query},
-        rr::{rdata::SRV, RData, Record, RecordType},
+        rr::{
+            rdata::{CNAME, SRV},
+            RData, Record, RecordType,
+        },
         serialize::binary::BinDecodable,
     };
     use crate::{rr::Name, serialize::binary::BinDecoder};
@@ -645,7 +648,7 @@ mod tests {
         .add_answer(Record::from_rdata(
             Name::from_str("www.compressme.com").unwrap(),
             0,
-            RData::CNAME(Name::from_str("www.foo.com").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("www.foo.com").unwrap())),
         ));
 
         let bytes = msg.to_vec().unwrap();

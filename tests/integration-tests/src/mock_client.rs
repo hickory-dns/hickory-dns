@@ -16,7 +16,8 @@ use futures::stream::{once, Stream};
 use futures::{future, AsyncRead, AsyncWrite, Future};
 
 use trust_dns_client::op::{Message, Query};
-use trust_dns_client::rr::{rdata::SOA, Name, RData, Record};
+use trust_dns_client::rr::rdata::CNAME;
+use trust_dns_client::rr::{Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::DnsTcpStream;
 use trust_dns_proto::udp::DnsUdpSocket;
@@ -215,7 +216,7 @@ where
 }
 
 pub fn cname_record(name: Name, cname: Name) -> Record {
-    Record::from_rdata(name, 86400, RData::CNAME(cname))
+    Record::from_rdata(name, 86400, RData::CNAME(CNAME(cname)))
 }
 
 pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {

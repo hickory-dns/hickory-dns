@@ -592,6 +592,7 @@ mod tests {
     use openssl::bn::BigNum;
     use openssl::pkey::Private;
     use openssl::rsa::Rsa;
+    use trust_dns_proto::rr::rdata::NS;
 
     use crate::op::{Message, Query};
     use crate::rr::dnssec::rdata::key::KeyUsage;
@@ -696,18 +697,22 @@ mod tests {
                 .set_ttl(86400)
                 .set_rr_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(
-                    Name::parse("a.iana-servers.net.", None).unwrap(),
-                )))
+                .set_data(Some(RData::NS(NS(Name::parse(
+                    "a.iana-servers.net.",
+                    None,
+                )
+                .unwrap()))))
                 .clone(),
             Record::new()
                 .set_name(origin)
                 .set_ttl(86400)
                 .set_rr_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(
-                    Name::parse("b.iana-servers.net.", None).unwrap(),
-                )))
+                .set_data(Some(RData::NS(NS(Name::parse(
+                    "b.iana-servers.net.",
+                    None,
+                )
+                .unwrap()))))
                 .clone(),
         ];
 
@@ -793,6 +798,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[cfg(test)]
     mod tests {
         use openssl::rsa::Rsa;
+        use trust_dns_proto::rr::rdata::{CNAME, NS};
 
         use crate::rr::dnssec::rdata::{DNSSECRData, SIG};
         use crate::rr::dnssec::tbs::*;
@@ -830,18 +836,22 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(
-                        Name::parse("a.iana-servers.net.", None).unwrap(),
-                    )))
+                    .set_data(Some(RData::NS(NS(Name::parse(
+                        "a.iana-servers.net.",
+                        None,
+                    )
+                    .unwrap()))))
                     .clone(),
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(
-                        Name::parse("b.iana-servers.net.", None).unwrap(),
-                    )))
+                    .set_data(Some(RData::NS(NS(Name::parse(
+                        "b.iana-servers.net.",
+                        None,
+                    )
+                    .unwrap()))))
                     .clone(),
             ];
 
@@ -854,45 +864,53 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     .set_ttl(86400)
                     .set_rr_type(RecordType::CNAME)
                     .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::CNAME(
+                    .set_data(Some(RData::CNAME(CNAME(
                         Name::parse("a.iana-servers.net.", None).unwrap(),
-                    )))
+                    ))))
                     .clone(), // different type
                 Record::new()
                     .set_name(Name::parse("www.example.com.", None).unwrap())
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(
-                        Name::parse("a.iana-servers.net.", None).unwrap(),
-                    )))
+                    .set_data(Some(RData::NS(NS(Name::parse(
+                        "a.iana-servers.net.",
+                        None,
+                    )
+                    .unwrap()))))
                     .clone(), // different name
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::CH)
-                    .set_data(Some(RData::NS(
-                        Name::parse("a.iana-servers.net.", None).unwrap(),
-                    )))
+                    .set_data(Some(RData::NS(NS(Name::parse(
+                        "a.iana-servers.net.",
+                        None,
+                    )
+                    .unwrap()))))
                     .clone(), // different class
                 Record::new()
                     .set_name(origin.clone())
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(
-                        Name::parse("a.iana-servers.net.", None).unwrap(),
-                    )))
+                    .set_data(Some(RData::NS(NS(Name::parse(
+                        "a.iana-servers.net.",
+                        None,
+                    )
+                    .unwrap()))))
                     .clone(),
                 Record::new()
                     .set_name(origin)
                     .set_ttl(86400)
                     .set_rr_type(RecordType::NS)
                     .set_dns_class(DNSClass::IN)
-                    .set_data(Some(RData::NS(
-                        Name::parse("b.iana-servers.net.", None).unwrap(),
-                    )))
+                    .set_data(Some(RData::NS(NS(Name::parse(
+                        "b.iana-servers.net.",
+                        None,
+                    )
+                    .unwrap()))))
                     .clone(),
             ];
 

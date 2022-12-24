@@ -40,9 +40,11 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::parse("a.iana-servers.net.", None).unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(Name::parse(
+                "a.iana-servers.net.",
+                None,
+            )
+            .unwrap()))))
             .clone(),
         0,
     );
@@ -52,9 +54,11 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::parse("b.iana-servers.net.", None).unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(Name::parse(
+                "b.iana-servers.net.",
+                None,
+            )
+            .unwrap()))))
             .clone(),
         0,
     );
@@ -165,7 +169,7 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::CNAME(www_name)))
+            .set_data(Some(RData::CNAME(CNAME(www_name))))
             .clone(),
         0,
     );
@@ -177,9 +181,9 @@ pub fn create_example() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::CNAME(
+            .set_data(Some(RData::CNAME(CNAME(
                 Name::from_str("alias.example.com.").unwrap(),
-            )))
+            ))))
             .clone(),
         0,
     );

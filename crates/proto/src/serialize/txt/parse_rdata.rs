@@ -18,11 +18,17 @@
 
 #[cfg(feature = "dnssec")]
 use crate::rr::dnssec::rdata::DNSSECRData;
-use crate::rr::{Name, RData, RecordType};
-use crate::serialize::txt::errors::{ParseError, ParseErrorKind, ParseResult};
-use crate::serialize::txt::rdata_parsers::*;
-
-use crate::serialize::txt::zone_lex::Lexer;
+use crate::{
+    rr::{
+        rdata::{ANAME, CNAME, NS, PTR},
+        Name, RData, RecordType,
+    },
+    serialize::txt::{
+        errors::{ParseError, ParseErrorKind, ParseResult},
+        rdata_parsers::*,
+        zone_lex::Lexer,
+    },
+};
 
 use super::Token;
 
@@ -68,11 +74,11 @@ impl RDataParser for RData {
         let rdata = match record_type {
             RecordType::A => Self::A(a::parse(tokens)?),
             RecordType::AAAA => Self::AAAA(aaaa::parse(tokens)?),
-            RecordType::ANAME => Self::ANAME(name::parse(tokens, origin)?),
+            RecordType::ANAME => Self::ANAME(ANAME(name::parse(tokens, origin)?)),
             RecordType::ANY => return Err(ParseError::from("parsing ANY doesn't make sense")),
             RecordType::AXFR => return Err(ParseError::from("parsing AXFR doesn't make sense")),
             RecordType::CAA => caa::parse(tokens).map(Self::CAA)?,
-            RecordType::CNAME => Self::CNAME(name::parse(tokens, origin)?),
+            RecordType::CNAME => Self::CNAME(CNAME(name::parse(tokens, origin)?)),
             RecordType::CSYNC => csync::parse(tokens).map(Self::CSYNC)?,
             RecordType::HINFO => Self::HINFO(hinfo::parse(tokens)?),
             RecordType::HTTPS => svcb::parse(tokens).map(Self::SVCB)?,
@@ -80,10 +86,10 @@ impl RDataParser for RData {
             RecordType::MX => Self::MX(mx::parse(tokens, origin)?),
             RecordType::NAPTR => Self::NAPTR(naptr::parse(tokens, origin)?),
             RecordType::NULL => Self::NULL(null::parse(tokens)?),
-            RecordType::NS => Self::NS(name::parse(tokens, origin)?),
+            RecordType::NS => Self::NS(NS(name::parse(tokens, origin)?)),
             RecordType::OPENPGPKEY => Self::OPENPGPKEY(openpgpkey::parse(tokens)?),
             RecordType::OPT => return Err(ParseError::from("parsing OPT doesn't make sense")),
-            RecordType::PTR => Self::PTR(name::parse(tokens, origin)?),
+            RecordType::PTR => Self::PTR(PTR(name::parse(tokens, origin)?)),
             RecordType::SOA => Self::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => Self::SRV(srv::parse(tokens, origin)?),
             RecordType::SSHFP => Self::SSHFP(sshfp::parse(tokens)?),
@@ -188,7 +194,7 @@ mod tests {
 
         assert_eq!(
             record,
-            RData::NS(Name::from_str("ns.example.com.").unwrap())
+            RData::NS(NS(Name::from_str("ns.example.com.").unwrap()))
         );
     }
 

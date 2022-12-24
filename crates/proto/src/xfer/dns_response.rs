@@ -646,7 +646,7 @@ impl NegativeType {
 #[cfg(test)]
 mod tests {
     use crate::op::{Message, Query, ResponseCode};
-    use crate::rr::rdata::SOA;
+    use crate::rr::rdata::{CNAME, NS, SOA};
     use crate::rr::RData;
     use crate::rr::{Name, Record, RecordType};
 
@@ -685,15 +685,15 @@ mod tests {
     }
 
     fn an_cname_record() -> Record {
-        Record::from_rdata(an_example(), 88640, RData::CNAME(tripple_xx()))
+        Record::from_rdata(an_example(), 88640, RData::CNAME(CNAME(tripple_xx())))
     }
 
     fn ns1_record() -> Record {
-        Record::from_rdata(xx(), 88640, RData::NS(ns1()))
+        Record::from_rdata(xx(), 88640, RData::NS(NS(ns1())))
     }
 
     fn ns2_record() -> Record {
-        Record::from_rdata(xx(), 88640, RData::NS(ns2()))
+        Record::from_rdata(xx(), 88640, RData::NS(NS(ns2())))
     }
 
     fn ns1_a() -> Record {

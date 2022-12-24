@@ -90,12 +90,13 @@ pub fn test_ns<A: Authority<Lookup = AuthLookup>>(authority: A, keys: &[DNSKEY])
         .partition(|r| r.record_type() == RecordType::NS);
 
     assert_eq!(
-        *ns_records
+        ns_records
             .first()
             .unwrap()
             .data()
             .and_then(RData::as_ns)
-            .unwrap(),
+            .unwrap()
+            .0,
         Name::from_str("bbb.example.com.").unwrap()
     );
 

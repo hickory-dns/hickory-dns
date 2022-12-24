@@ -85,6 +85,8 @@ impl BinEncodable for MX {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
         encoder.emit_u16(self.preference())?;
+
+        // to_lowercase for rfc4034 and rfc6840
         self.exchange()
             .emit_with_lowercase(encoder, is_canonical_names)?;
         Ok(())
@@ -93,7 +95,7 @@ impl BinEncodable for MX {
 
 impl<'r> BinDecodable<'r> for MX {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        Ok(MX::new(
+        Ok(Self::new(
             decoder.read_u16()?.unverified(/*any u16 is valid*/),
             Name::read(decoder)?,
         ))

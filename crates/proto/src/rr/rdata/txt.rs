@@ -103,7 +103,7 @@ impl<'r> RecordDataDecodable<'r> for TXT {
         decoder: &mut BinDecoder<'_>,
         _record_type: RecordType,
         rdata_length: Restrict<u16>,
-    ) -> ProtoResult<TXT> {
+    ) -> ProtoResult<Self> {
         let data_len = decoder.len();
         let mut strings = Vec::with_capacity(1);
 

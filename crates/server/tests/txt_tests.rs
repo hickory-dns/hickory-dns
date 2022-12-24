@@ -153,7 +153,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::NS, record.record_type());
         if let Some(RData::NS(nsdname)) = record.data() {
-            assert_eq!(name, *nsdname);
+            assert_eq!(name, nsdname.0);
         } else {
             panic!("Not an NS record!!!") // valid panic, test code
         }
@@ -311,7 +311,7 @@ tech.   3600    in      soa     ns0.centralnic.net.     hostmaster.centralnic.ne
     .cloned()
     .unwrap();
     if let Some(RData::PTR(ref ptrdname)) = ptr_record.data() {
-        assert_eq!(&Name::from_str("a.isi.edu").unwrap(), ptrdname);
+        assert_eq!(Name::from_str("a.isi.edu").unwrap(), ptrdname.0);
     } else {
         panic!("Not a PTR record!!!") // valid panic, test code
     }

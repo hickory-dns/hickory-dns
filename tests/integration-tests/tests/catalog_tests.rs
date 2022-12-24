@@ -45,9 +45,11 @@ pub fn create_test() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::parse("a.iana-servers.net.", None).unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(Name::parse(
+                "a.iana-servers.net.",
+                None,
+            )
+            .unwrap()))))
             .clone(),
         0,
     );
@@ -57,9 +59,11 @@ pub fn create_test() -> InMemoryAuthority {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::parse("b.iana-servers.net.", None).unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(Name::parse(
+                "b.iana-servers.net.",
+                None,
+            )
+            .unwrap()))))
             .clone(),
         0,
     );
@@ -250,12 +254,12 @@ async fn test_catalog_lookup_soa() {
     assert_eq!(ns.first().unwrap().record_type(), RecordType::NS);
     assert_eq!(
         ns.first().unwrap().data().unwrap(),
-        &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
+        &RData::NS(NS(Name::parse("a.iana-servers.net.", None).unwrap()))
     );
     assert_eq!(ns.last().unwrap().record_type(), RecordType::NS);
     assert_eq!(
         ns.last().unwrap().data().unwrap(),
-        &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
+        &RData::NS(NS(Name::parse("b.iana-servers.net.", None).unwrap()))
     );
 }
 
@@ -417,18 +421,22 @@ async fn test_axfr() {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::parse("a.iana-servers.net.", None).unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(Name::parse(
+                "a.iana-servers.net.",
+                None,
+            )
+            .unwrap()))))
             .clone(),
         Record::new()
             .set_name(origin.clone().into())
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::parse("b.iana-servers.net.", None).unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(Name::parse(
+                "b.iana-servers.net.",
+                None,
+            )
+            .unwrap()))))
             .clone(),
         Record::new()
             .set_name(origin.clone().into())
@@ -560,7 +568,7 @@ async fn test_cname_additionals() {
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
-        &RData::CNAME(Name::from_str("www.example.com.").unwrap())
+        &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
     let additionals: &[Record] = result.additionals();
@@ -607,7 +615,7 @@ async fn test_multiple_cname_additionals() {
     assert_eq!(answers.first().unwrap().record_type(), RecordType::CNAME);
     assert_eq!(
         answers.first().unwrap().data().unwrap(),
-        &RData::CNAME(Name::from_str("alias.example.com.").unwrap())
+        &RData::CNAME(CNAME(Name::from_str("alias.example.com.").unwrap()))
     );
 
     // we should have the intermediate record
@@ -619,7 +627,7 @@ async fn test_multiple_cname_additionals() {
     );
     assert_eq!(
         additionals.first().unwrap().data().unwrap(),
-        &RData::CNAME(Name::from_str("www.example.com.").unwrap())
+        &RData::CNAME(CNAME(Name::from_str("www.example.com.").unwrap()))
     );
 
     // final record should be the actual

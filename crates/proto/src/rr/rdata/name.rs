@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! Record type for all cname like records.
 //!
@@ -39,8 +30,15 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
+use std::fmt;
+use std::ops::Deref;
+
+#[cfg(feature = "serde-config")]
+use serde::{Deserialize, Serialize};
+
 use crate::error::*;
 use crate::rr::domain::Name;
+use crate::rr::{RData, RecordData, RecordType};
 use crate::serialize::binary::*;
 
 /// Read the RData from the given Decoder
@@ -68,9 +66,75 @@ pub fn read(decoder: &mut BinDecoder<'_>) -> ProtoResult<Name> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder<'_>, name_data: &Name) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
+
+    // to_lowercase for rfc4034 and rfc6840
     name_data.emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
 }
+
+macro_rules! name_rdata {
+    ($name: ident) => {
+        #[doc = stringify!(new type for the RecordData of $name)]
+        #[cfg_attr(feature = "serde-config", derive(Deserialize, Serialize))]
+        #[derive(Debug, PartialEq, Eq, Hash, Clone)]
+        pub struct $name(pub Name);
+
+        impl BinEncodable for $name {
+            fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+                emit(encoder, &self.0)
+            }
+        }
+
+        impl<'r> BinDecodable<'r> for $name {
+            fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+                Name::read(decoder).map(Self)
+            }
+        }
+
+        impl RecordData for $name {
+            fn try_from_rdata(data: RData) -> Result<Self, RData> {
+                match data {
+                    RData::$name(data) => Ok(data),
+                    _ => Err(data),
+                }
+            }
+
+            fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+                match data {
+                    RData::$name(data) => Ok(data),
+                    _ => Err(data),
+                }
+            }
+
+            fn record_type(&self) -> RecordType {
+                RecordType::$name
+            }
+
+            fn into_rdata(self) -> RData {
+                RData::$name(self)
+            }
+        }
+
+        impl Deref for $name {
+            type Target = Name;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+                write!(f, "{self}")
+            }
+        }
+    };
+}
+
+name_rdata!(CNAME);
+name_rdata!(NS);
+name_rdata!(PTR);
+name_rdata!(ANAME);
 
 #[test]
 pub fn test() {

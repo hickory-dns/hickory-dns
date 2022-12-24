@@ -18,12 +18,12 @@ use serde::{Deserialize, Serialize};
 use enum_as_inner::EnumAsInner;
 use tracing::{trace, warn};
 
-use super::domain::Name;
 use super::rdata::{
-    CAA, CSYNC, HINFO, MX, NAPTR, NULL, OPENPGPKEY, OPT, SOA, SRV, SSHFP, SVCB, TLSA, TXT,
+    ANAME, CAA, CNAME, CSYNC, HINFO, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA, SRV, SSHFP,
+    SVCB, TLSA, TXT,
 };
 use super::record_type::RecordType;
-use super::{rdata, RecordData, RecordDataDecodable};
+use super::{RecordData, RecordDataDecodable};
 use crate::error::*;
 use crate::serialize::binary::*;
 
@@ -101,7 +101,7 @@ pub enum RData {
     ///
     ///       owner ttl class ANAME target
     /// ```
-    ANAME(Name),
+    ANAME(ANAME),
 
     /// ```text
     /// -- RFC 6844          Certification Authority Authorization     January 2013
@@ -164,7 +164,7 @@ pub enum RData {
     /// choose to restart the query at the canonical name in certain cases.  See
     /// the description of name server logic in [RFC-1034] for details.
     /// ```
-    CNAME(Name),
+    CNAME(CNAME),
 
     /// ```text
     /// 2.1.  The CSYNC Resource Record Format
@@ -411,7 +411,7 @@ pub enum RData {
     /// hosts which are name servers for either Internet (IN) or Hesiod (HS)
     /// class information are normally queried using IN class protocols.
     /// ```
-    NS(Name),
+    NS(NS),
 
     /// [RFC 7929](https://tools.ietf.org/html/rfc7929#section-2.1)
     ///
@@ -472,7 +472,7 @@ pub enum RData {
     /// similar to that performed by CNAME, which identifies aliases.  See the
     /// description of the IN-ADDR.ARPA domain for an example.
     /// ```
-    PTR(Name),
+    PTR(PTR),
 
     /// ```text
     /// 3.3.13. SOA RDATA format
@@ -822,15 +822,13 @@ impl BinEncodable for RData {
             Self::AAAA(ref address) => address.emit(encoder),
             Self::ANAME(ref name) => encoder.with_canonical_names(|encoder| name.emit(encoder)),
             Self::CAA(ref caa) => encoder.with_canonical_names(|encoder| caa.emit(encoder)),
-            // to_lowercase for rfc4034 and rfc6840
-            Self::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
-                rdata::name::emit(encoder, name)
-            }
+            Self::CNAME(ref cname) => cname.emit(encoder),
+            Self::NS(ref ns) => ns.emit(encoder),
+            Self::PTR(ref ptr) => ptr.emit(encoder),
             Self::CSYNC(ref csync) => csync.emit(encoder),
             Self::HINFO(ref hinfo) => hinfo.emit(encoder),
             Self::HTTPS(ref svcb) => svcb.emit(encoder),
             Self::ZERO => Ok(()),
-            // to_lowercase for rfc4034 and rfc6840
             Self::MX(ref mx) => mx.emit(encoder),
             Self::NAPTR(ref naptr) => encoder.with_canonical_names(|encoder| naptr.emit(encoder)),
             Self::NULL(ref null) => null.emit(encoder),
@@ -838,9 +836,7 @@ impl BinEncodable for RData {
                 encoder.with_canonical_names(|encoder| openpgpkey.emit(encoder))
             }
             Self::OPT(ref opt) => opt.emit(encoder),
-            // to_lowercase for rfc4034 and rfc6840
             Self::SOA(ref soa) => soa.emit(encoder),
-            // to_lowercase for rfc4034 and rfc6840
             Self::SRV(ref srv) => encoder.with_canonical_names(|encoder| srv.emit(encoder)),
             Self::SSHFP(ref sshfp) => encoder.with_canonical_names(|encoder| sshfp.emit(encoder)),
             Self::SVCB(ref svcb) => svcb.emit(encoder),
@@ -872,7 +868,7 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::ANAME => {
                 trace!("reading ANAME");
-                Name::read(decoder).map(Self::ANAME)
+                ANAME::read(decoder).map(Self::ANAME)
             }
             rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into());
@@ -883,7 +879,7 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::CNAME => {
                 trace!("reading CNAME");
-                rdata::name::read(decoder).map(Self::CNAME)
+                CNAME::read(decoder).map(Self::CNAME)
             }
             RecordType::CSYNC => {
                 trace!("reading CSYNC");
@@ -918,7 +914,7 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::NS => {
                 trace!("reading NS");
-                rdata::name::read(decoder).map(Self::NS)
+                NS::read(decoder).map(Self::NS)
             }
             RecordType::OPENPGPKEY => {
                 trace!("reading OPENPGPKEY");
@@ -930,7 +926,7 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::PTR => {
                 trace!("reading PTR");
-                rdata::name::read(decoder).map(Self::PTR)
+                PTR::read(decoder).map(Self::PTR)
             }
             RecordType::SOA => {
                 trace!("reading SOA");
@@ -1013,7 +1009,9 @@ impl fmt::Display for RData {
             Self::ANAME(ref name) => w(f, name),
             Self::CAA(ref caa) => w(f, caa),
             // to_lowercase for rfc4034 and rfc6840
-            Self::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => w(f, name),
+            Self::CNAME(ref cname) => w(f, cname),
+            Self::NS(ref ns) => w(f, ns),
+            Self::PTR(ref ptr) => w(f, ptr),
             Self::CSYNC(ref csync) => w(f, csync),
             Self::HINFO(ref hinfo) => w(f, hinfo),
             Self::HTTPS(ref svcb) => w(f, svcb),
@@ -1091,7 +1089,7 @@ mod tests {
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![
             (
-                RData::CNAME(Name::from_str("www.example.com").unwrap()),
+                RData::CNAME(CNAME(Name::from_str("www.example.com").unwrap())),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
                     b'o', b'm', 0,
@@ -1102,14 +1100,14 @@ mod tests {
                 vec![1, 0, 1, b'n', 0],
             ),
             (
-                RData::NS(Name::from_str("www.example.com").unwrap()),
+                RData::NS(NS(Name::from_str("www.example.com").unwrap())),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
                     b'o', b'm', 0,
                 ],
             ),
             (
-                RData::PTR(Name::from_str("www.example.com").unwrap()),
+                RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
                 vec![
                     3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
                     b'o', b'm', 0,
@@ -1183,9 +1181,9 @@ mod tests {
                 Name::from_str("www.example.com").unwrap(),
             )),
             RData::MX(MX::new(256, Name::from_str("n").unwrap())),
-            RData::CNAME(Name::from_str("www.example.com").unwrap()),
-            RData::PTR(Name::from_str("www.example.com").unwrap()),
-            RData::NS(Name::from_str("www.example.com").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("www.example.com").unwrap())),
+            RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
+            RData::NS(NS(Name::from_str("www.example.com").unwrap())),
             RData::SOA(SOA::new(
                 Name::from_str("www.example.com").unwrap(),
                 Name::from_str("xxx.example.com").unwrap(),
@@ -1203,10 +1201,10 @@ mod tests {
             ])),
         ];
         let mut unordered = vec![
-            RData::CNAME(Name::from_str("www.example.com").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("www.example.com").unwrap())),
             RData::MX(MX::new(256, Name::from_str("n").unwrap())),
-            RData::PTR(Name::from_str("www.example.com").unwrap()),
-            RData::NS(Name::from_str("www.example.com").unwrap()),
+            RData::PTR(PTR(Name::from_str("www.example.com").unwrap())),
+            RData::NS(NS(Name::from_str("www.example.com").unwrap())),
             RData::SOA(SOA::new(
                 Name::from_str("www.example.com").unwrap(),
                 Name::from_str("xxx.example.com").unwrap(),
