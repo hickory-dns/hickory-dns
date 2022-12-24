@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use tokio::runtime::Runtime;
-use trust_dns_proto::rr::{Name, RData, Record, RecordType};
+
+use trust_dns_proto::rr::{rdata::CNAME, Name, RData, Record, RecordType};
 use trust_dns_server::{
     authority::{Authority, ZoneType},
     store::in_memory::InMemoryAuthority,
@@ -20,7 +21,7 @@ fn test_cname_loop() {
         Record::from_rdata(
             Name::from_str("foo.example.com.").unwrap(),
             300,
-            RData::CNAME(Name::from_str("foo.example.com.").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap())),
         ),
         0,
     );
@@ -29,7 +30,7 @@ fn test_cname_loop() {
         Record::from_rdata(
             Name::from_str("bar.example.com.").unwrap(),
             300,
-            RData::CNAME(Name::from_str("foo.example.com.").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("foo.example.com.").unwrap())),
         ),
         0,
     );
@@ -38,7 +39,7 @@ fn test_cname_loop() {
         Record::from_rdata(
             Name::from_str("baz.example.com.").unwrap(),
             300,
-            RData::CNAME(Name::from_str("boz.example.com.").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("boz.example.com.").unwrap())),
         ),
         0,
     );
@@ -47,7 +48,7 @@ fn test_cname_loop() {
         Record::from_rdata(
             Name::from_str("boz.example.com.").unwrap(),
             300,
-            RData::CNAME(Name::from_str("biz.example.com.").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("biz.example.com.").unwrap())),
         ),
         0,
     );
@@ -56,7 +57,7 @@ fn test_cname_loop() {
         Record::from_rdata(
             Name::from_str("biz.example.com.").unwrap(),
             300,
-            RData::CNAME(Name::from_str("baz.example.com.").unwrap()),
+            RData::CNAME(CNAME(Name::from_str("baz.example.com.").unwrap())),
         ),
         0,
     );
@@ -75,7 +76,9 @@ fn test_cname_loop() {
     assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
     assert_eq!(
         record.data(),
-        Some(&RData::CNAME(Name::from_str("foo.example.com.").unwrap()))
+        Some(&RData::CNAME(CNAME(
+            Name::from_str("foo.example.com.").unwrap()
+        )))
     );
 
     assert!(
@@ -97,7 +100,9 @@ fn test_cname_loop() {
     assert_eq!(record.name(), &Name::from_str("bar.example.com.").unwrap());
     assert_eq!(
         record.data(),
-        Some(&RData::CNAME(Name::from_str("foo.example.com.").unwrap()))
+        Some(&RData::CNAME(CNAME(
+            Name::from_str("foo.example.com.").unwrap()
+        )))
     );
 
     let additionals = lookup
@@ -109,7 +114,9 @@ fn test_cname_loop() {
     assert_eq!(record.name(), &Name::from_str("foo.example.com.").unwrap());
     assert_eq!(
         record.data(),
-        Some(&RData::CNAME(Name::from_str("foo.example.com.").unwrap()))
+        Some(&RData::CNAME(CNAME(
+            Name::from_str("foo.example.com.").unwrap()
+        )))
     );
 
     let mut lookup = runtime
@@ -126,7 +133,9 @@ fn test_cname_loop() {
     assert_eq!(record.name(), &Name::from_str("baz.example.com.").unwrap());
     assert_eq!(
         record.data(),
-        Some(&RData::CNAME(Name::from_str("boz.example.com.").unwrap()))
+        Some(&RData::CNAME(CNAME(
+            Name::from_str("boz.example.com.").unwrap()
+        )))
     );
 
     let additionals = lookup
@@ -138,12 +147,16 @@ fn test_cname_loop() {
     assert_eq!(record.name(), &Name::from_str("boz.example.com.").unwrap());
     assert_eq!(
         record.data(),
-        Some(&RData::CNAME(Name::from_str("biz.example.com.").unwrap()))
+        Some(&RData::CNAME(CNAME(
+            Name::from_str("biz.example.com.").unwrap()
+        )))
     );
     let record = additionals[1];
     assert_eq!(record.name(), &Name::from_str("biz.example.com.").unwrap());
     assert_eq!(
         record.data(),
-        Some(&RData::CNAME(Name::from_str("baz.example.com.").unwrap()))
+        Some(&RData::CNAME(CNAME(
+            Name::from_str("baz.example.com.").unwrap()
+        )))
     );
 }

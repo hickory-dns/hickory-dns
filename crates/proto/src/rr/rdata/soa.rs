@@ -229,6 +229,7 @@ impl BinEncodable for SOA {
     fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
 
+        // to_lowercase for rfc4034 and rfc6840
         self.mname
             .emit_with_lowercase(encoder, is_canonical_names)?;
         self.rname

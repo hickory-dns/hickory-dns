@@ -41,6 +41,7 @@ pub use self::caa::CAA;
 pub use self::csync::CSYNC;
 pub use self::hinfo::HINFO;
 pub use self::mx::MX;
+pub use self::name::{ANAME, CNAME, NS, PTR};
 pub use self::naptr::NAPTR;
 pub use self::null::NULL;
 pub use self::openpgpkey::OPENPGPKEY;

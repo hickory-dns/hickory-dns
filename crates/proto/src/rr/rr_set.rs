@@ -618,7 +618,7 @@ mod test {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use crate::rr::rdata::SOA;
+    use crate::rr::rdata::{CNAME, NS, SOA};
     use crate::rr::*;
 
     #[test]
@@ -747,14 +747,14 @@ mod test {
             .set_ttl(3600)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::CNAME(cname)))
+            .set_data(Some(RData::CNAME(CNAME(cname))))
             .clone();
         let new_record = Record::new()
             .set_name(name)
             .set_ttl(3600)
             .set_rr_type(RecordType::CNAME)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::CNAME(new_cname)))
+            .set_data(Some(RData::CNAME(CNAME(new_cname))))
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
@@ -837,18 +837,18 @@ mod test {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::from_str("a.iana-servers.net.").unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(
+                Name::from_str("a.iana-servers.net.").unwrap()
+            ))))
             .clone();
         let ns2 = Record::new()
             .set_name(name)
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::NS(
-                Name::from_str("b.iana-servers.net.").unwrap(),
-            )))
+            .set_data(Some(RData::NS(NS(
+                Name::from_str("b.iana-servers.net.").unwrap()
+            ))))
             .clone();
 
         assert!(rr_set.insert(ns1.clone(), 0));

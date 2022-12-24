@@ -595,18 +595,22 @@ mod test {
                 .set_ttl(86400)
                 .set_rr_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(
-                    Name::parse("a.iana-servers.net.", None).unwrap(),
-                )))
+                .set_data(Some(RData::NS(NS(Name::parse(
+                    "a.iana-servers.net.",
+                    None,
+                )
+                .unwrap()))))
                 .clone(),
             Record::new()
                 .set_name(origin.clone())
                 .set_ttl(86400)
                 .set_rr_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
-                .set_data(Some(RData::NS(
-                    Name::parse("b.iana-servers.net.", None).unwrap(),
-                )))
+                .set_data(Some(RData::NS(NS(Name::parse(
+                    "b.iana-servers.net.",
+                    None,
+                )
+                .unwrap()))))
                 .clone(),
             Record::new()
                 .set_name(origin.clone())

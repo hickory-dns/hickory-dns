@@ -869,14 +869,14 @@ fn maybe_next_name(
             .next()
             .and_then(Record::data)
             .and_then(RData::as_aname)
-            .map(LowerName::from)
+            .map(|aname| LowerName::from(&aname.0))
             .map(|name| (name, t)),
         (t @ RecordType::NS, RecordType::NS) => record_set
             .records_without_rrsigs()
             .next()
             .and_then(Record::data)
             .and_then(RData::as_ns)
-            .map(LowerName::from)
+            .map(|ns| LowerName::from(&ns.0))
             .map(|name| (name, t)),
         // CNAME will continue to additional processing for any query type
         (t @ RecordType::CNAME, _) => record_set
@@ -884,7 +884,7 @@ fn maybe_next_name(
             .next()
             .and_then(Record::data)
             .and_then(RData::as_cname)
-            .map(LowerName::from)
+            .map(|cname| LowerName::from(&cname.0))
             .map(|name| (name, t)),
         (t @ RecordType::MX, RecordType::MX) => record_set
             .records_without_rrsigs()

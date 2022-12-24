@@ -219,7 +219,7 @@ impl BinEncodable for NAPTR {
 
 impl<'r> BinDecodable<'r> for NAPTR {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
-        Ok(NAPTR::new(
+        Ok(Self::new(
             decoder.read_u16()?.unverified(/*any u16 is valid*/),
             decoder.read_u16()?.unverified(/*any u16 is valid*/),
             // must be 0-9a-z

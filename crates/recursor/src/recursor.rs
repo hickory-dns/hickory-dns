@@ -354,11 +354,12 @@ impl Recursor {
                 //     .filter_map(Record::data)
                 //     .filter_map(RData::to_ip_addr);
 
-                let cached_a = self
-                    .record_cache
-                    .get(&Query::query(ns_data.clone(), RecordType::A), request_time);
+                let cached_a = self.record_cache.get(
+                    &Query::query(ns_data.0.clone(), RecordType::A),
+                    request_time,
+                );
                 let cached_aaaa = self.record_cache.get(
-                    &Query::query(ns_data.clone(), RecordType::AAAA),
+                    &Query::query(ns_data.0.clone(), RecordType::AAAA),
                     request_time,
                 );
 
@@ -396,12 +397,12 @@ impl Recursor {
         if config_group.is_empty() && !need_ips_for_names.is_empty() {
             debug!("need glue for {}", zone);
             let a_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let a_query = Query::query((*name).clone(), RecordType::A);
+                let a_query = Query::query(name.0.clone(), RecordType::A);
                 self.resolve(a_query, request_time).boxed()
             });
 
             let aaaa_resolves = need_ips_for_names.iter().take(1).map(|name| {
-                let aaaa_query = Query::query((*name).clone(), RecordType::AAAA);
+                let aaaa_query = Query::query(name.0.clone(), RecordType::AAAA);
                 self.resolve(aaaa_query, request_time).boxed()
             });
 

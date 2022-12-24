@@ -214,6 +214,8 @@ impl BinEncodable for SRV {
         encoder.emit_u16(self.priority())?;
         encoder.emit_u16(self.weight())?;
         encoder.emit_u16(self.port())?;
+
+        // to_lowercase for rfc4034 and rfc6840
         self.target()
             .emit_with_lowercase(encoder, is_canonical_names)?;
         Ok(())
@@ -223,7 +225,7 @@ impl BinEncodable for SRV {
 impl<'r> BinDecodable<'r> for SRV {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         // SRV { priority: u16, weight: u16, port: u16, target: Name, },
-        Ok(SRV::new(
+        Ok(Self::new(
             decoder.read_u16()?.unverified(/*any u16 is valid*/),
             decoder.read_u16()?.unverified(/*any u16 is valid*/),
             decoder.read_u16()?.unverified(/*any u16 is valid*/),

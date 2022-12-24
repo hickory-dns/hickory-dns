@@ -27,6 +27,7 @@ use proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 #[cfg(feature = "dnssec")]
 use proto::DnssecDnsHandle;
 use proto::{DnsHandle, RetryDnsHandle};
+use trust_dns_proto::rr::rdata::{NS, PTR};
 
 use crate::caching_client::CachingClient;
 use crate::dns_lru::MAX_TTL;
@@ -481,7 +482,7 @@ lookup_type!(
     ReverseLookupIter,
     ReverseLookupIntoIter,
     RData::PTR,
-    Name
+    PTR
 );
 lookup_type!(
     Ipv4Lookup,
@@ -525,7 +526,7 @@ lookup_type!(
     RData::SOA,
     rdata::SOA
 );
-lookup_type!(NsLookup, NsLookupIter, NsLookupIntoIter, RData::NS, Name);
+lookup_type!(NsLookup, NsLookupIter, NsLookupIntoIter, RData::NS, NS);
 
 #[cfg(test)]
 pub mod tests {
