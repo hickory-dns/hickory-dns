@@ -72,27 +72,27 @@ name = "trust_dns_recursor"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.43"
-async-recursion = "1.0.0"
-#backtrace = { version = "0.3.50", optional = true }
+async-trait = "0.1"
+async-recursion = "1.0"
+# backtrace = { version = "0.3", optional = true }
 bytes = "1"
 cfg-if = "1"
 enum-as-inner = "0.5"
-futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-lru-cache = "0.1.2"
+futures-executor = { version = "0.3", default-features = false, features = ["std"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+lru-cache = "0.1"
 parking_lot = "0.12"
-serde = { version = "1.0.114", features = ["derive"], optional = true }
-thiserror = "1.0.20"
+serde = { version = "1.0", features = ["derive"], optional = true }
+thiserror = "1.0"
 time = "0.3"
-tracing = "0.1.30"
-tokio = { version = "1.0", features = ["net"] }
+tracing = "0.1"
+tokio = { version = "1.23", features = ["net"] }
 toml = "0.5"
 trust-dns-proto = { version = "0.22.0", path = "../proto" }
 trust-dns-resolver = { version = "0.22.0", path = "../resolver" }
 
 [dev-dependencies]
-tokio = { version="1.0", features = ["macros", "rt"] }
+tokio = { version = "1.23", features = ["macros", "rt"] }
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]
