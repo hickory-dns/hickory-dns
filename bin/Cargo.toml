@@ -81,19 +81,19 @@ path = "src/named.rs"
 # - derive for clap derive api
 # - help to generate --help
 clap = { version = "4.0", default-features = false, features = ["std", "cargo", "help", "derive", "suggestions"] }
-futures = { version = "0.3.5", default-features = false, features = ["std"] }
+futures = { version = "0.3", default-features = false, features = ["std"] }
 rustls = { version = "0.20", optional = true }
 time = "0.3"
-tracing = "0.1.30"
+tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
-tokio = { version = "1.21", features = ["time", "rt"] }
+tokio = { version = "1.23", features = ["time", "rt"] }
 trust-dns-client = { version = "0.22.0", path = "../crates/client" }
 trust-dns-proto = { version = "0.22.0", path = "../crates/proto" }
 trust-dns-server = { version = "0.22.0", path = "../crates/server" }
 
 [dev-dependencies]
 native-tls = "0.2"
-regex = "1.3.4"
+regex = "1.7"
 trust-dns-proto = { version = "0.22.0", path = "../crates/proto", features = ["testing", "dns-over-native-tls"] }
 trust-dns-resolver = { version = "0.22.0", path = "../crates/resolver" }
-webpki-roots = "0.22.1"
+webpki-roots = "0.22"
