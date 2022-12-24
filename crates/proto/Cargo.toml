@@ -71,47 +71,47 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
-async-trait = "0.1.43"
-backtrace = { version = "0.3.50", optional = true }
+async-trait = "0.1"
+backtrace = { version = "0.3", optional = true }
 bytes = { version = "1", optional = true }
 cfg-if = "1"
-data-encoding = "2.2.0"
+data-encoding = "2.3"
 enum-as-inner = "0.5"
-futures-channel = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-io = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-h2 = { version = "0.3.0", features = ["stream"], optional = true }
+futures-channel = { version = "0.3", default-features = false, features = ["std"] }
+futures-io = { version = "0.3", default-features = false, features = ["std"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+h2 = { version = "0.3", features = ["stream"], optional = true }
 http = { version = "0.2", optional = true }
-idna = "0.3.0"
-ipnet = "2.3.0"
-js-sys = { version = "0.3.44", optional = true }
-lazy_static = "1.2.0"
+idna = "0.3"
+ipnet = "2.7"
+js-sys = { version = "0.3", optional = true }
+lazy_static = "1.4"
 native-tls = { version = "0.2", optional = true }
 openssl = { version = "0.10", features = ["v102", "v110"], optional = true }
 quinn = { version = "0.9", optional = true }
 rand = "0.8"
 ring = { version = "0.16", optional = true, features = ["std"] }
-rustls = { version = "0.20.0", optional = true }
-rustls-pemfile = { version = "1.0.0", optional = true }
+rustls = { version = "0.20", optional = true }
+rustls-pemfile = { version = "1.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-smallvec = "1.6"
-socket2 = { version = "0.4.0", optional = true }
-thiserror = "1.0.20"
-tinyvec = { version = "1.1.1", features = ["alloc"] }
-tracing = "0.1.30"
-tokio = { version = "1.0", features = ["io-util"], optional = true }
-tokio-native-tls = { version = "0.3.0", optional = true }
-tokio-openssl = { version = "0.6.0", optional = true }
-tokio-rustls = { version = "0.23.0", optional = true, features = ["early-data"] }
-url = "2.3.1"
-wasm-bindgen-crate = { version = "0.2.58", optional = true, package = "wasm-bindgen" }
-webpki = { version = "0.22.0", optional = true }
-webpki-roots = { version = "0.22.1", optional = true }
+smallvec = "1.10"
+socket2 = { version = "0.4", optional = true }
+thiserror = "1.0"
+tinyvec = { version = "1.6", features = ["alloc"] }
+tracing = "0.1"
+tokio = { version = "1.23", features = ["io-util"], optional = true }
+tokio-native-tls = { version = "0.3", optional = true }
+tokio-openssl = { version = "0.6", optional = true }
+tokio-rustls = { version = "0.23", optional = true, features = ["early-data"] }
+url = "2.3"
+wasm-bindgen-crate = { version = "0.2", optional = true, package = "wasm-bindgen" }
+webpki = { version = "0.22", optional = true }
+webpki-roots = { version = "0.22", optional = true }
 
 [dev-dependencies]
-futures-executor = { version = "0.3.5", default-features = false, features = ["std"] }
+futures-executor = { version = "0.3", default-features = false, features = ["std"] }
 openssl = { version = "0.10", features = ["v102", "v110"] }
-tokio = { version = "1.0", features = ["rt", "time", "macros"] }
+tokio = { version = "1.23", features = ["rt", "time", "macros"] }
 tracing-subscriber = { version = "0.3", features = ["std", "fmt", "env-filter"] }
 
 [package.metadata.docs.rs]
