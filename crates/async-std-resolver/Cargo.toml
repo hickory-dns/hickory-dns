@@ -65,14 +65,14 @@ name = "async_std_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-async-std = { version = "1.6", features = ["unstable"] }
-async-trait = "0.1.43"
-futures-io = { version = "0.3.5", default-features = false, features = ["std"] }
-futures-util = { version = "0.3.5", default-features = false, features = ["std"] }
-pin-utils = "0.1.0"
+async-std = { version = "1.12", features = ["unstable"] }
+async-trait = "0.1"
+futures-io = { version = "0.3", default-features = false, features = ["std"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+pin-utils = "0.1"
 trust-dns-resolver = { version = "0.22.0", path = "../resolver", default-features = false }
-socket2 = "0.4.2"
+socket2 = "0.4"
 
 [dev-dependencies]
-async-std = { version = "1.6", features = ["attributes"] }
+async-std = { version = "1.12", features = ["attributes"] }
 trust-dns-resolver = { version = "0.22.0", path = "../resolver", default-features = false, features = ["testing"] }
