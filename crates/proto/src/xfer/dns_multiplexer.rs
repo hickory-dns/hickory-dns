@@ -395,7 +395,7 @@ where
                                     );
                                 } else {
                                     ignore_send(active_request.completion.try_send(Ok(
-                                        DnsResponse::new(message, Some(buffer.into_parts().0)),
+                                        DnsResponse::new(message, buffer.into_parts().0),
                                     )));
                                 }
                             }
