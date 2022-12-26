@@ -1119,10 +1119,8 @@ mod tests {
             assert_eq!(*addr, Ipv4Addr::new(93, 184, 216, 34));
         }
 
-        let message_parsed = Message::from_vec(
-            &buffer.expect("buffer should be included in response from AsyncClient"),
-        )
-        .expect("buffer was parsed already by AsyncClient so we should be able to do it again");
+        let message_parsed = Message::from_vec(&buffer)
+            .expect("buffer was parsed already by AsyncClient so we should be able to do it again");
 
         // validate it's what we expected
         if let Some(RData::A(addr)) = message_parsed.answers()[0].data() {

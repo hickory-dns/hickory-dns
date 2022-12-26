@@ -129,20 +129,20 @@ type TimeoutFuture = Pin<
 #[derive(Clone, Debug)]
 pub struct DnsResponse {
     message: Message,
-    buffer: Option<Vec<u8>>,
+    buffer: Vec<u8>,
 }
 
 // TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
     /// Constructs a new DnsResponse
-    pub fn new(message: Message, buffer: Option<Vec<u8>>) -> Self {
+    pub fn new(message: Message, buffer: Vec<u8>) -> Self {
         Self { message, buffer }
     }
 
     /// Constructs a new DnsResponse with a buffer synthesized from the message
     pub fn from_message(message: Message) -> Result<Self, ProtoError> {
         Ok(Self {
-            buffer: Some(message.to_vec()?),
+            buffer: message.to_vec()?,
             message,
         })
     }
@@ -297,12 +297,12 @@ impl DnsResponse {
     }
 
     /// Borrow the inner buffer from the response
-    pub fn as_buffer(&self) -> Option<&[u8]> {
-        self.buffer.as_deref()
+    pub fn as_buffer(&self) -> &[u8] {
+        &self.buffer
     }
 
     /// Take the inner buffer from the response
-    pub fn into_buffer(self) -> Option<Vec<u8>> {
+    pub fn into_buffer(self) -> Vec<u8> {
         self.buffer
     }
 
@@ -312,7 +312,7 @@ impl DnsResponse {
     }
 
     /// Take the inner Message and buffer from the response
-    pub fn into_parts(self) -> (Message, Option<Vec<u8>>) {
+    pub fn into_parts(self) -> (Message, Vec<u8>) {
         (self.message, self.buffer)
     }
 }

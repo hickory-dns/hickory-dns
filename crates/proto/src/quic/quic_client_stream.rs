@@ -68,8 +68,7 @@ impl QuicClientStream {
         // and MUST indicate through the STREAM FIN mechanism that no further data will be sent on that stream.
         stream.finish().await?;
 
-        let response = stream.receive().await?;
-        Ok(response.into())
+        stream.receive().await
     }
 }
 
