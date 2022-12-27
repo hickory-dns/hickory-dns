@@ -174,7 +174,7 @@ impl HttpsClientStream {
         };
 
         // and finally convert the bytes into a DNS message
-        let message = Message::from_vec(&*response_bytes)?;
+        let message = Message::from_vec(&response_bytes)?;
         Ok(DnsResponse::new(message, response_bytes.to_vec()))
     }
 }
