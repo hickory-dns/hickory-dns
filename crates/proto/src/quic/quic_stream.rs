@@ -14,6 +14,7 @@ use tracing::debug;
 use crate::{
     error::{ProtoError, ProtoErrorKind},
     op::Message,
+    xfer::DnsResponse,
 };
 
 /// ```text
@@ -158,7 +159,7 @@ impl QuicStream {
     }
 
     /// Receive a single packet
-    pub async fn receive(&mut self) -> Result<Message, ProtoError> {
+    pub async fn receive(&mut self) -> Result<DnsResponse, ProtoError> {
         let bytes = self.receive_bytes().await?;
         let message = Message::from_vec(&bytes)?;
 
@@ -170,7 +171,7 @@ impl QuicStream {
             return Err(ProtoErrorKind::QuicMessageIdNot0(message.id()).into());
         }
 
-        Ok(message)
+        Ok(DnsResponse::new(message, Some(bytes.to_vec())))
     }
 
     // TODO: we should change the protocol handlers to work with Messages since some require things like 0 for the Message ID.
