@@ -102,7 +102,7 @@ pub fn message(
 }
 
 pub fn empty() -> Result<DnsResponse, ProtoError> {
-    Ok(Message::new().into())
+    Ok(DnsResponse::from_message(Message::new()).unwrap())
 }
 
 pub fn error<E>(error: E) -> Result<DnsResponse, E> {

@@ -383,7 +383,7 @@ where
     }
 
     // validated not none above...
-    let mut message_result = message_result.into_message();
+    let (mut message_result, message_buffer) = message_result.into_parts();
 
     // take all the rrsets from the Message, filter down each set to the validated rrsets
     // TODO: does the section in the message matter here?
@@ -414,7 +414,7 @@ where
     message_result.insert_additionals(additionals);
 
     // breaks out of the loop... and returns the filtered Message.
-    Ok(message_result.into())
+    Ok(DnsResponse::new(message_result, message_buffer))
 }
 
 /// Generic entrypoint to verify any RRSET against the provided signatures.

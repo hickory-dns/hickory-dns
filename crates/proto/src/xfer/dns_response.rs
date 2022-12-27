@@ -138,6 +138,15 @@ impl DnsResponse {
     pub fn new(message: Message, buffer: Option<Vec<u8>>) -> Self {
         Self { message, buffer }
     }
+
+    /// Constructs a new DnsResponse with a buffer synthesized from the message
+    pub fn from_message(message: Message) -> Result<Self, ProtoError> {
+        Ok(Self {
+            buffer: Some(message.to_vec()?),
+            message,
+        })
+    }
+
     /// Retrieves the SOA from the response. This will only exist if it was an authoritative response.
     pub fn soa(&self) -> Option<&Record> {
         self.name_servers()
@@ -319,15 +328,6 @@ impl Deref for DnsResponse {
 impl From<DnsResponse> for Message {
     fn from(response: DnsResponse) -> Self {
         response.message
-    }
-}
-
-impl From<Message> for DnsResponse {
-    fn from(message: Message) -> Self {
-        Self {
-            message,
-            buffer: None,
-        }
     }
 }
 
@@ -728,7 +728,7 @@ mod tests {
             RData::A([127, 0, 0, 2].into()),
         ));
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
 
         assert!(response.contains_answer())
     }
@@ -745,7 +745,7 @@ mod tests {
         message.add_additional(ns1_a());
         message.add_additional(ns2_a());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(response.contains_answer());
@@ -760,7 +760,7 @@ mod tests {
         message.add_answer(an_cname_record());
         message.add_name_server(soa());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(response.contains_answer());
@@ -774,7 +774,7 @@ mod tests {
         message.add_query(an_query());
         message.add_answer(an_cname_record());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(response.contains_answer());
@@ -792,7 +792,7 @@ mod tests {
         message.add_additional(ns1_a());
         message.add_additional(ns2_a());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(response.contains_answer());
@@ -809,7 +809,7 @@ mod tests {
         message.add_name_server(ns2_record());
         message.add_additional(ns1_a());
         message.add_additional(ns2_a());
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(!response.contains_answer());
@@ -823,7 +823,7 @@ mod tests {
         message.add_query(another_query());
         message.add_name_server(soa());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(!response.contains_answer());
@@ -836,7 +836,7 @@ mod tests {
         message.set_response_code(ResponseCode::NoError);
         message.add_query(another_query());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(!response.contains_answer());
@@ -854,7 +854,7 @@ mod tests {
         message.add_additional(ns1_a());
         message.add_additional(ns2_a());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(response.contains_answer());
@@ -868,7 +868,7 @@ mod tests {
         message.add_additional(ns1_a());
         message.add_additional(ns2_a());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
         let ty = response.negative_type();
 
         assert!(!response.contains_answer());
@@ -882,7 +882,7 @@ mod tests {
         message.add_query(Query::query(an_example(), RecordType::SOA));
         message.add_name_server(soa());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
 
         assert!(response.contains_answer());
     }
@@ -895,7 +895,7 @@ mod tests {
         message.add_name_server(ns1_record());
         message.add_additional(ns1_a());
 
-        let response = DnsResponse::from(message);
+        let response = DnsResponse::from_message(message).unwrap();
 
         assert!(response.contains_answer());
     }

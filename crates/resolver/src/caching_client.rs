@@ -613,7 +613,7 @@ mod tests {
             86400,
             RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
         )]);
-        Ok(message.into())
+        Ok(DnsResponse::from_message(message).unwrap())
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -633,7 +633,7 @@ mod tests {
                 Name::from_str("www.example.com.").unwrap(),
             )),
         )]);
-        Ok(message.into())
+        Ok(DnsResponse::from_message(message).unwrap())
     }
 
     #[allow(clippy::unnecessary_wraps)]
@@ -648,7 +648,7 @@ mod tests {
             86400,
             RData::NS(Name::from_str("www.example.com.").unwrap()),
         )]);
-        Ok(message.into())
+        Ok(DnsResponse::from_message(message).unwrap())
     }
 
     fn no_recursion_on_query_test(query_type: RecordType) {
@@ -735,7 +735,10 @@ mod tests {
             ),
         ]);
 
-        let client = mock(vec![error(), Ok(message.into())]);
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
         let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
@@ -785,7 +788,7 @@ mod tests {
     //         ),
     //     ]);
 
-    //     let mut client = mock(vec![error(), Ok(message.into()), srv_message()]);
+    //     let mut client = mock(vec![error(), Ok(DnsResponse::from_message(message).unwrap()), srv_message()]);
 
     //     let ips = QueryState::lookup(
     //         Query::query(
@@ -836,7 +839,10 @@ mod tests {
             ),
         ]);
 
-        let client = mock(vec![error(), Ok(message.into())]);
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
         let client = CachingClient::with_cache(cache, client, false);
 
         let ips = block_on(CachingClient::inner_lookup(
@@ -879,7 +885,7 @@ mod tests {
             DnsRequestOptions::default(),
             false,
             &Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
-            message.into(),
+            DnsResponse::from_message(message).unwrap(),
             vec![],
         );
 
@@ -1011,7 +1017,10 @@ mod tests {
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
         ));
 
-        let client = mock(vec![error(), Ok(message.into())]);
+        let client = mock(vec![
+            error(),
+            Ok(DnsResponse::from_message(message).unwrap()),
+        ]);
         let mut client = CachingClient::with_cache(cache, client, false);
 
         assert!(block_on(client.lookup(

@@ -171,7 +171,7 @@ mod test {
             if (i > self.retries || self.retries - i == 0) && self.last_succeed {
                 let mut message = Message::new();
                 message.set_id(i);
-                return Box::new(once(ok(message.into())));
+                return Box::new(once(ok(DnsResponse::from_message(message).unwrap())));
             }
 
             self.attempts.fetch_add(1, Ordering::SeqCst);

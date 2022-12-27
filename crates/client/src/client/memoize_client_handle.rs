@@ -137,7 +137,7 @@ mod test {
 
                 *i += 1;
 
-                Ok(message.into())
+                Ok(DnsResponse::from_message(message).unwrap())
             };
 
             Box::pin(stream::once(future))

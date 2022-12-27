@@ -889,9 +889,8 @@ mod tests {
             Ok({
                 let mut m = Message::new();
                 m.insert_answers(r);
-                m
-            }
-            .into())
+                DnsResponse::from_message(m).unwrap()
+            })
         });
         iter(stream)
     }
