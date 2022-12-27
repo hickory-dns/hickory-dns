@@ -30,8 +30,9 @@ use tracing::{debug, warn};
 
 use crate::error::ProtoError;
 use crate::iocompat::AsyncIoStdAsTokio;
+use crate::op::Message;
 use crate::tcp::Connect;
-use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream, SerialMessage};
+use crate::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
 
 const ALPN_H2: &[u8] = b"h2";
 
@@ -61,7 +62,6 @@ impl HttpsClientStream {
         h2: SendRequest<Bytes>,
         message: Bytes,
         name_server_name: Arc<str>,
-        name_server: SocketAddr,
     ) -> Result<DnsResponse, ProtoError> {
         let mut h2 = match h2.ready().await {
             Ok(h2) => h2,
@@ -174,8 +174,8 @@ impl HttpsClientStream {
         };
 
         // and finally convert the bytes into a DNS message
-        let message = SerialMessage::new(response_bytes.to_vec(), name_server).to_message()?;
-        Ok(message.into())
+        let message = Message::from_vec(&*response_bytes)?;
+        Ok(DnsResponse::new(message, Some(response_bytes.to_vec())))
     }
 }
 
@@ -244,7 +244,6 @@ impl DnsRequestSender for HttpsClientStream {
             self.h2.clone(),
             Bytes::from(bytes),
             Arc::clone(&self.name_server_name),
-            self.name_server,
         ))
         .into()
     }
