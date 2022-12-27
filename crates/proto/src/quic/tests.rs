@@ -37,7 +37,7 @@ async fn server_responder(mut server: QuicServer) {
 
             // just response with the same message.
             stream
-                .send(client_message)
+                .send(client_message.into_message())
                 .await
                 .expect("failed to send response")
         }
