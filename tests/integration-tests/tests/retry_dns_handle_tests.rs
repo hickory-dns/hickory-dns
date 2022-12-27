@@ -29,7 +29,9 @@ impl DnsHandle for TestClient {
         if i > self.retries || self.retries - i == 0 {
             let mut message = Message::new();
             message.set_id(i);
-            return Box::new(stream::once(future::ok(message.into())));
+            return Box::new(stream::once(future::ok(
+                DnsResponse::from_message(message).unwrap(),
+            )));
         }
 
         self.attempts.fetch_add(1, Ordering::SeqCst);
@@ -62,8 +64,8 @@ fn dont_retry_on_negative_response() {
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
         .set_response_code(ResponseCode::NoError);
-    let error =
-        ResolveError::from_response(response.into(), false).expect_err("NODATA should be an error");
+    let error = ResolveError::from_response(DnsResponse::from_message(response).unwrap(), false)
+        .expect_err("NODATA should be an error");
     let mut client = RetryDnsHandle::new(
         TestClient {
             retries: 1,
