@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! NSEC record types
 
@@ -24,8 +15,13 @@ use serde::{Deserialize, Serialize};
 use crate::error::*;
 use crate::rr::dnssec::Nsec3HashAlgorithm;
 use crate::rr::type_bit_map::*;
+use crate::rr::RData;
+use crate::rr::RecordData;
+use crate::rr::RecordDataDecodable;
 use crate::rr::RecordType;
 use crate::serialize::binary::*;
+
+use super::DNSSECRData;
 
 /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3), NSEC3, March 2008
 ///
@@ -253,77 +249,110 @@ impl NSEC3 {
     }
 }
 
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<NSEC3> {
-    let start_idx = decoder.index();
+impl BinEncodable for NSEC3 {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit(self.hash_algorithm().into())?;
+        encoder.emit(self.flags())?;
+        encoder.emit_u16(self.iterations())?;
+        encoder.emit(self.salt().len() as u8)?;
+        encoder.emit_vec(self.salt())?;
+        encoder.emit(self.next_hashed_owner_name().len() as u8)?;
+        encoder.emit_vec(self.next_hashed_owner_name())?;
+        encode_type_bit_maps(encoder, self.type_bit_maps())?;
 
-    let hash_algorithm =
-        Nsec3HashAlgorithm::from_u8(decoder.read_u8()?.unverified(/*Algorithm verified as safe*/))?;
-    let flags: u8 = decoder
-        .read_u8()?
-        .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
-        .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
-
-    let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
-
-    // read the salt
-    let salt_len = decoder.read_u8()?.map(|u| u as usize);
-    let salt_len_max = rdata_length
-        .map(|u| u as usize)
-        .checked_sub(decoder.index() - start_idx)
-        .map_err(|_| "invalid rdata for salt_len_max")?;
-    let salt_len = salt_len
-        .verify_unwrap(|salt_len| {
-            *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/)
-        })
-        .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
-    let salt: Vec<u8> =
-        decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
-
-    // read the hashed_owner_name
-    let hash_len = decoder.read_u8()?.map(|u| u as usize);
-    let hash_len_max = rdata_length
-        .map(|u| u as usize)
-        .checked_sub(decoder.index() - start_idx)
-        .map_err(|_| "invalid rdata for hash_len_max")?;
-    let hash_len = hash_len
-        .verify_unwrap(|hash_len| {
-            *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/)
-        })
-        .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
-    let next_hashed_owner_name: Vec<u8> =
-        decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
-
-    // read the bitmap
-    let bit_map_len = rdata_length
-        .map(|u| u as usize)
-        .checked_sub(decoder.index() - start_idx)
-        .map_err(|_| "invalid rdata length in NSEC3")?;
-    let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
-
-    Ok(NSEC3::new(
-        hash_algorithm,
-        opt_out,
-        iterations,
-        salt,
-        next_hashed_owner_name,
-        record_types,
-    ))
+        Ok(())
+    }
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC3) -> ProtoResult<()> {
-    encoder.emit(rdata.hash_algorithm().into())?;
-    encoder.emit(rdata.flags())?;
-    encoder.emit_u16(rdata.iterations())?;
-    encoder.emit(rdata.salt().len() as u8)?;
-    encoder.emit_vec(rdata.salt())?;
-    encoder.emit(rdata.next_hashed_owner_name().len() as u8)?;
-    encoder.emit_vec(rdata.next_hashed_owner_name())?;
-    encode_type_bit_maps(encoder, rdata.type_bit_maps())?;
+impl<'r> RecordDataDecodable<'r> for NSEC3 {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        assert_eq!(record_type, RecordType::NSEC3);
 
-    Ok(())
+        let start_idx = decoder.index();
+
+        let hash_algorithm = Nsec3HashAlgorithm::from_u8(
+            decoder.read_u8()?.unverified(/*Algorithm verified as safe*/),
+        )?;
+        let flags: u8 = decoder
+            .read_u8()?
+            .verify_unwrap(|flags| flags & 0b1111_1110 == 0)
+            .map_err(|flags| ProtoError::from(ProtoErrorKind::UnrecognizedNsec3Flags(flags)))?;
+
+        let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
+        let iterations: u16 = decoder.read_u16()?.unverified(/*valid as any u16*/);
+
+        // read the salt
+        let salt_len = decoder.read_u8()?.map(|u| u as usize);
+        let salt_len_max = length
+            .map(|u| u as usize)
+            .checked_sub(decoder.index() - start_idx)
+            .map_err(|_| "invalid rdata for salt_len_max")?;
+        let salt_len = salt_len
+            .verify_unwrap(|salt_len| {
+                *salt_len <= salt_len_max.unverified(/*safe in comparison usage*/)
+            })
+            .map_err(|_| ProtoError::from("salt_len exceeds buffer length"))?;
+        let salt: Vec<u8> =
+            decoder.read_vec(salt_len)?.unverified(/*salt is any valid array of bytes*/);
+
+        // read the hashed_owner_name
+        let hash_len = decoder.read_u8()?.map(|u| u as usize);
+        let hash_len_max = length
+            .map(|u| u as usize)
+            .checked_sub(decoder.index() - start_idx)
+            .map_err(|_| "invalid rdata for hash_len_max")?;
+        let hash_len = hash_len
+            .verify_unwrap(|hash_len| {
+                *hash_len <= hash_len_max.unverified(/*safe in comparison usage*/)
+            })
+            .map_err(|_| ProtoError::from("hash_len exceeds buffer length"))?;
+        let next_hashed_owner_name: Vec<u8> =
+            decoder.read_vec(hash_len)?.unverified(/*will fail in usage if invalid*/);
+
+        // read the bitmap
+        let bit_map_len = length
+            .map(|u| u as usize)
+            .checked_sub(decoder.index() - start_idx)
+            .map_err(|_| "invalid rdata length in NSEC3")?;
+        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+
+        Ok(Self::new(
+            hash_algorithm,
+            opt_out,
+            iterations,
+            salt,
+            next_hashed_owner_name,
+            record_types,
+        ))
+    }
+}
+
+impl RecordData for NSEC3 {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::NSEC3(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::NSEC3(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::NSEC3
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::DNSSEC(DNSSECRData::NSEC3(self))
+    }
 }
 
 /// [RFC 5155](https://tools.ietf.org/html/rfc5155#section-3.3), NSEC3, March 2008
@@ -411,14 +440,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            NSEC3::read_data(&mut decoder, RecordType::NSEC3, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 
@@ -457,14 +487,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
+        assert!(rdata_with_dups.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            NSEC3::read_data(&mut decoder, RecordType::NSEC3, restrict).expect("Decoding error");
         assert_eq!(rdata_wo, read_rdata);
     }
 }
