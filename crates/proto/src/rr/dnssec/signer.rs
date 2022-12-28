@@ -592,12 +592,12 @@ mod tests {
     use openssl::bn::BigNum;
     use openssl::pkey::Private;
     use openssl::rsa::Rsa;
-    use trust_dns_proto::rr::rdata::NS;
 
     use crate::op::{Message, Query};
     use crate::rr::dnssec::rdata::key::KeyUsage;
     use crate::rr::dnssec::rdata::{DNSSECRData, SIG};
     use crate::rr::dnssec::*;
+    use crate::rr::rdata::NS;
     use crate::rr::{DNSClass, Name, Record, RecordType};
 
     use super::*;
@@ -798,11 +798,11 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
     #[cfg(test)]
     mod tests {
         use openssl::rsa::Rsa;
-        use trust_dns_proto::rr::rdata::{CNAME, NS};
 
         use crate::rr::dnssec::rdata::{DNSSECRData, SIG};
         use crate::rr::dnssec::tbs::*;
         use crate::rr::dnssec::*;
+        use crate::rr::rdata::{CNAME, NS};
         use crate::rr::*;
 
         #[test]

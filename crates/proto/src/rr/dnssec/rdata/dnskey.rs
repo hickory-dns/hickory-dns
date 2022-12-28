@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2016 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! public key record data for signing zone records
 
@@ -24,10 +15,12 @@ use serde::{Deserialize, Serialize};
 use crate::error::*;
 use crate::rr::dnssec::{Algorithm, Digest, DigestType};
 use crate::rr::record_data::RData;
-use crate::rr::Name;
+use crate::rr::{Name, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::{
     BinDecodable, BinDecoder, BinEncodable, BinEncoder, Restrict, RestrictedMath,
 };
+
+use super::DNSSECRData;
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -247,7 +240,7 @@ impl DNSKEY {
             encoder.set_canonical_names(true);
             if let Err(e) = name
                 .emit(&mut encoder)
-                .and_then(|_| emit(&mut encoder, self))
+                .and_then(|_| self.emit(&mut encoder))
             {
                 tracing::warn!("error serializing dnskey: {e}");
                 return Err(format!("error serializing dnskey: {e}").into());
@@ -322,7 +315,7 @@ impl DNSKEY {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
             let mut e = BinEncoder::new(&mut bytes);
-            self::emit(&mut e, self)?;
+            self.emit(&mut e)?;
         }
         Ok(Self::calculate_key_tag_internal(&bytes))
     }
@@ -346,62 +339,93 @@ impl From<DNSKEY> for RData {
     }
 }
 
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<DNSKEY> {
-    let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
+impl BinEncodable for DNSKEY {
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.emit_u16(self.flags())?;
+        encoder.emit(3)?; // always 3 for now
+        self.algorithm().emit(encoder)?;
+        encoder.emit_vec(self.public_key())?;
 
-    //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
-    //    creation of the DNSKEY RR and MUST be ignored upon receipt.
-    let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
-    let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
-    let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
-    let _protocol: u8 = decoder
-        .read_u8()?
-        .verify_unwrap(|protocol| {
-            // RFC 4034                DNSSEC Resource Records               March 2005
-            //
-            // 2.1.2.  The Protocol Field
-            //
-            //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
-            //    treated as invalid during signature verification if it is found to be
-            //    some value other than 3.
-            //
-            // protocol is defined to only be '3' right now
+        Ok(())
+    }
+}
 
-            *protocol == 3
-        })
-        .map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
+impl<'r> RecordDataDecodable<'r> for DNSKEY {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        assert_eq!(record_type, RecordType::DNSKEY);
+        let flags: u16 = decoder.read_u16()?.unverified(/*used as a bitfield, this is safe*/);
 
-    let algorithm: Algorithm = Algorithm::read(decoder)?;
+        //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
+        //    creation of the DNSKEY RR and MUST be ignored upon receipt.
+        let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
+        let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
+        let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
+        let _protocol: u8 = decoder
+            .read_u8()?
+            .verify_unwrap(|protocol| {
+                // RFC 4034                DNSSEC Resource Records               March 2005
+                //
+                // 2.1.2.  The Protocol Field
+                //
+                //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
+                //    treated as invalid during signature verification if it is found to be
+                //    some value other than 3.
+                //
+                // protocol is defined to only be '3' right now
 
-    // the public key is the left-over bytes minus 4 for the first fields
-    //   this sub is safe, as the first 4 fields must have been in the rdata, otherwise there would have been
-    //   an earlier return.
-    let key_len = rdata_length
+                *protocol == 3
+            })
+            .map_err(|protocol| ProtoError::from(ProtoErrorKind::DnsKeyProtocolNot3(protocol)))?;
+
+        let algorithm: Algorithm = Algorithm::read(decoder)?;
+
+        // the public key is the left-over bytes minus 4 for the first fields
+        //   this sub is safe, as the first 4 fields must have been in the rdata, otherwise there would have been
+        //   an earlier return.
+        let key_len = length
         .map(|u| u as usize)
         .checked_sub(4)
         .map_err(|_| ProtoError::from("invalid rdata length in DNSKEY"))?
         .unverified(/*used only as length safely*/);
-    let public_key: Vec<u8> =
-        decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
+        let public_key: Vec<u8> =
+            decoder.read_vec(key_len)?.unverified(/*the byte array will fail in usage if invalid*/);
 
-    Ok(DNSKEY::new(
-        zone_key,
-        secure_entry_point,
-        revoke,
-        algorithm,
-        public_key,
-    ))
+        Ok(Self::new(
+            zone_key,
+            secure_entry_point,
+            revoke,
+            algorithm,
+            public_key,
+        ))
+    }
 }
 
-/// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &DNSKEY) -> ProtoResult<()> {
-    encoder.emit_u16(rdata.flags())?;
-    encoder.emit(3)?; // always 3 for now
-    rdata.algorithm().emit(encoder)?;
-    encoder.emit_vec(rdata.public_key())?;
+impl RecordData for DNSKEY {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::DNSKEY(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
 
-    Ok(())
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::DNSKEY(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::DNSKEY
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::DNSSEC(DNSSECRData::DNSKEY(self))
+    }
 }
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.2)
@@ -476,13 +500,17 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
-        let read_rdata = read(&mut decoder, Restrict::new(bytes.len() as u16));
+        let read_rdata = DNSKEY::read_data(
+            &mut decoder,
+            RecordType::DNSKEY,
+            Restrict::new(bytes.len() as u16),
+        );
         let read_rdata = read_rdata.expect("error decoding");
 
         assert_eq!(rdata, read_rdata);

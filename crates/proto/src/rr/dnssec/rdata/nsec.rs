@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2022 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! NSEC record types
 use std::fmt;
@@ -22,8 +13,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::*;
 use crate::rr::type_bit_map::{decode_type_bit_maps, encode_type_bit_maps};
-use crate::rr::{Name, RecordType};
+use crate::rr::{Name, RData, RecordData, RecordDataDecodable, RecordType};
 use crate::serialize::binary::*;
+
+use super::DNSSECRData;
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4), DNSSEC Resource Records, March 2005
 ///
@@ -133,36 +126,69 @@ impl NSEC {
     }
 }
 
-/// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder<'_>, rdata_length: Restrict<u16>) -> ProtoResult<NSEC> {
-    let start_idx = decoder.index();
-
-    let next_domain_name = Name::read(decoder)?;
-
-    let bit_map_len = rdata_length
-        .map(|u| u as usize)
-        .checked_sub(decoder.index() - start_idx)
-        .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
-    let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
-
-    Ok(NSEC::new(next_domain_name, record_types))
+impl BinEncodable for NSEC {
+    /// [RFC 6840](https://tools.ietf.org/html/rfc6840#section-6)
+    ///
+    /// ```text
+    /// 5.1.  Errors in Canonical Form Type Code List
+    ///
+    ///   When canonicalizing DNS names (for both ordering and signing), DNS
+    ///   names in the RDATA section of NSEC resource records are not converted
+    ///   to lowercase.  DNS names in the RDATA section of RRSIG resource
+    ///   records are converted to lowercase.
+    /// ```
+    fn emit(&self, encoder: &mut BinEncoder<'_>) -> ProtoResult<()> {
+        encoder.with_canonical_names(|encoder| {
+            self.next_domain_name().emit(encoder)?;
+            encode_type_bit_maps(encoder, self.type_bit_maps())
+        })
+    }
 }
 
-/// [RFC 6840](https://tools.ietf.org/html/rfc6840#section-6)
-///
-/// ```text
-/// 5.1.  Errors in Canonical Form Type Code List
-///
-///   When canonicalizing DNS names (for both ordering and signing), DNS
-///   names in the RDATA section of NSEC resource records are not converted
-///   to lowercase.  DNS names in the RDATA section of RRSIG resource
-///   records are converted to lowercase.
-/// ```
-pub fn emit(encoder: &mut BinEncoder<'_>, rdata: &NSEC) -> ProtoResult<()> {
-    encoder.with_canonical_names(|encoder| {
-        rdata.next_domain_name().emit(encoder)?;
-        encode_type_bit_maps(encoder, rdata.type_bit_maps())
-    })
+impl<'r> RecordDataDecodable<'r> for NSEC {
+    fn read_data(
+        decoder: &mut BinDecoder<'r>,
+        record_type: RecordType,
+        length: Restrict<u16>,
+    ) -> ProtoResult<Self> {
+        assert_eq!(record_type, RecordType::NSEC);
+
+        let start_idx = decoder.index();
+
+        let next_domain_name = Name::read(decoder)?;
+
+        let bit_map_len = length
+            .map(|u| u as usize)
+            .checked_sub(decoder.index() - start_idx)
+            .map_err(|_| ProtoError::from("invalid rdata length in NSEC"))?;
+        let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
+
+        Ok(Self::new(next_domain_name, record_types))
+    }
+}
+
+impl RecordData for NSEC {
+    fn try_from_rdata(data: RData) -> Result<Self, RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::NSEC(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn try_borrow(data: &RData) -> Result<&Self, &RData> {
+        match data {
+            RData::DNSSEC(DNSSECRData::NSEC(csync)) => Ok(csync),
+            _ => Err(data),
+        }
+    }
+
+    fn record_type(&self) -> RecordType {
+        RecordType::NSEC
+    }
+
+    fn into_rdata(self) -> RData {
+        RData::DNSSEC(DNSSECRData::NSEC(self))
+    }
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-4.2), DNSSEC Resource Records, March 2005
@@ -233,14 +259,15 @@ mod tests {
 
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder<'_> = BinEncoder::new(&mut bytes);
-        assert!(emit(&mut encoder, &rdata).is_ok());
+        assert!(rdata.emit(&mut encoder).is_ok());
         let bytes = encoder.into_bytes();
 
         println!("bytes: {bytes:?}");
 
         let mut decoder: BinDecoder<'_> = BinDecoder::new(bytes);
         let restrict = Restrict::new(bytes.len() as u16);
-        let read_rdata = read(&mut decoder, restrict).expect("Decoding error");
+        let read_rdata =
+            NSEC::read_data(&mut decoder, RecordType::NSEC, restrict).expect("Decoding error");
         assert_eq!(rdata, read_rdata);
     }
 }

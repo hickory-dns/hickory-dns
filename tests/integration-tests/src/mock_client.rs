@@ -16,7 +16,7 @@ use futures::stream::{once, Stream};
 use futures::{future, AsyncRead, AsyncWrite, Future};
 
 use trust_dns_client::op::{Message, Query};
-use trust_dns_client::rr::rdata::CNAME;
+use trust_dns_client::rr::rdata::{CNAME, SOA};
 use trust_dns_client::rr::{Name, RData, Record};
 use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::tcp::DnsTcpStream;
