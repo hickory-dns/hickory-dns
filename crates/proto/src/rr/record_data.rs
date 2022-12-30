@@ -19,8 +19,8 @@ use enum_as_inner::EnumAsInner;
 use tracing::{trace, warn};
 
 use super::rdata::{
-    ANAME, CAA, CNAME, CSYNC, HINFO, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA, SRV, SSHFP,
-    SVCB, TLSA, TXT,
+    ANAME, CAA, CNAME, CSYNC, HINFO, HTTPS, MX, NAPTR, NS, NULL, OPENPGPKEY, OPT, PTR, SOA, SRV,
+    SSHFP, SVCB, TLSA, TXT,
 };
 use super::record_type::RecordType;
 use super::{RecordData, RecordDataDecodable};
@@ -232,7 +232,7 @@ pub enum RData {
     ///
     ///    Name TTL IN HTTPS SvcPriority TargetName SvcParams
     /// ```
-    HTTPS(SVCB),
+    HTTPS(HTTPS),
 
     /// ```text
     /// 3.3.9. MX RDATA format
@@ -827,7 +827,7 @@ impl BinEncodable for RData {
             Self::PTR(ref ptr) => ptr.emit(encoder),
             Self::CSYNC(ref csync) => csync.emit(encoder),
             Self::HINFO(ref hinfo) => hinfo.emit(encoder),
-            Self::HTTPS(ref svcb) => svcb.emit(encoder),
+            Self::HTTPS(ref https) => https.emit(encoder),
             Self::ZERO => Ok(()),
             Self::MX(ref mx) => mx.emit(encoder),
             Self::NAPTR(ref naptr) => encoder.with_canonical_names(|encoder| naptr.emit(encoder)),
@@ -891,7 +891,7 @@ impl<'r> RecordDataDecodable<'r> for RData {
             }
             RecordType::HTTPS => {
                 trace!("reading HTTPS");
-                SVCB::read_data(decoder, record_type, length).map(Self::HTTPS)
+                HTTPS::read_data(decoder, record_type, length).map(Self::HTTPS)
             }
             RecordType::ZERO => {
                 trace!("reading EMPTY");
@@ -1014,7 +1014,7 @@ impl fmt::Display for RData {
             Self::PTR(ref ptr) => w(f, ptr),
             Self::CSYNC(ref csync) => w(f, csync),
             Self::HINFO(ref hinfo) => w(f, hinfo),
-            Self::HTTPS(ref svcb) => w(f, svcb),
+            Self::HTTPS(ref https) => w(f, https),
             Self::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
             Self::MX(ref mx) => w(f, mx),

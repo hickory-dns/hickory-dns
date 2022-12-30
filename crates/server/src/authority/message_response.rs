@@ -251,6 +251,8 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
+    use trust_dns_client::rr::RecordType;
+
     use crate::proto::op::{Header, Message};
     use crate::proto::rr::{DNSClass, Name, RData, Record};
     use crate::proto::serialize::binary::BinEncoder;
@@ -265,6 +267,7 @@ mod tests {
             encoder.set_max_size(512);
 
             let answer = Record::new()
+                .set_record_type(RecordType::A)
                 .set_name(Name::from_str("www.example.com.").unwrap())
                 .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
                 .set_dns_class(DNSClass::NONE)
@@ -301,6 +304,7 @@ mod tests {
             encoder.set_max_size(512);
 
             let answer = Record::new()
+                .set_record_type(RecordType::A)
                 .set_name(Name::from_str("www.example.com.").unwrap())
                 .set_data(Some(RData::A(Ipv4Addr::new(93, 184, 216, 34))))
                 .set_dns_class(DNSClass::NONE)

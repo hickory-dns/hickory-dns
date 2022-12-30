@@ -55,6 +55,7 @@ pub trait RecordData: Clone + Sized + PartialEq + Eq + fmt::Display + BinEncodab
     fn try_from_rdata(data: RData) -> Result<Self, RData>;
 
     /// Attempts to borrow this RecordData from the RData type, if it is not the correct type the original is returned
+    /// FIXME: make this return Option instead of Result
     fn try_borrow(data: &RData) -> Result<&Self, &RData>;
 
     /// Get the associated RecordType for the RData

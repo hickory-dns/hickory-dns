@@ -562,14 +562,14 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
             self.rrsigs
                 .by_ref()
                 .filter(|record| {
-                    if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = record.data() {
+                    if let Some(RData::DNSSEC(DNSSECRData::RRSIG(ref rrsig))) = record.data() {
                         supported_algorithms.has(rrsig.algorithm())
                     } else {
                         false
                     }
                 })
                 .max_by_key(|record| {
-                    if let Some(RData::DNSSEC(DNSSECRData::SIG(ref rrsig))) = record.data() {
+                    if let Some(RData::DNSSEC(DNSSECRData::RRSIG(ref rrsig))) = record.data() {
                         rrsig.algorithm()
                     } else {
                         #[allow(deprecated)]
@@ -870,11 +870,11 @@ mod test {
     #[allow(clippy::blocks_in_if_conditions)]
     fn test_get_filter() {
         use crate::rr::dnssec::rdata::DNSSECRData;
-        use crate::rr::dnssec::rdata::SIG;
+        use crate::rr::dnssec::rdata::RRSIG;
         use crate::rr::dnssec::{Algorithm, SupportedAlgorithms};
 
         let name = Name::root();
-        let rsasha256 = SIG::new(
+        let rsasha256 = RRSIG::new(
             RecordType::A,
             Algorithm::RSASHA256,
             0,
@@ -885,7 +885,7 @@ mod test {
             Name::root(),
             vec![],
         );
-        let ecp256 = SIG::new(
+        let ecp256 = RRSIG::new(
             RecordType::A,
             Algorithm::ECDSAP256SHA256,
             0,
@@ -896,7 +896,7 @@ mod test {
             Name::root(),
             vec![],
         );
-        let ecp384 = SIG::new(
+        let ecp384 = RRSIG::new(
             RecordType::A,
             Algorithm::ECDSAP384SHA384,
             0,
@@ -907,7 +907,7 @@ mod test {
             Name::root(),
             vec![],
         );
-        let ed25519 = SIG::new(
+        let ed25519 = RRSIG::new(
             RecordType::A,
             Algorithm::ED25519,
             0,
@@ -924,28 +924,28 @@ mod test {
             .set_ttl(3600)
             .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::DNSSEC(DNSSECRData::SIG(rsasha256))))
+            .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(rsasha256))))
             .clone();
         let rrsig_ecp256 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
             .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::DNSSEC(DNSSECRData::SIG(ecp256))))
+            .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(ecp256))))
             .clone();
         let rrsig_ecp384 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
             .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::DNSSEC(DNSSECRData::SIG(ecp384))))
+            .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(ecp384))))
             .clone();
         let rrsig_ed25519 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
             .set_rr_type(RecordType::RRSIG)
             .set_dns_class(DNSClass::IN)
-            .set_data(Some(RData::DNSSEC(DNSSECRData::SIG(ed25519))))
+            .set_data(Some(RData::DNSSEC(DNSSECRData::RRSIG(ed25519))))
             .clone();
 
         let a = Record::new()
@@ -965,7 +965,7 @@ mod test {
         assert!(rrset
             .records_with_rrsigs(SupportedAlgorithms::all(),)
             .any(
-                |r| if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = r.data() {
+                |r| if let Some(RData::DNSSEC(DNSSECRData::RRSIG(ref sig))) = r.data() {
                     sig.algorithm() == Algorithm::ED25519
                 } else {
                     false
@@ -975,7 +975,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
         assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
-            if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = r.data() {
+            if let Some(RData::DNSSEC(DNSSECRData::RRSIG(ref sig))) = r.data() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
             } else {
                 false
@@ -985,7 +985,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ED25519);
         assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
-            if let Some(RData::DNSSEC(DNSSECRData::SIG(ref sig))) = r.data() {
+            if let Some(RData::DNSSEC(DNSSECRData::RRSIG(ref sig))) = r.data() {
                 sig.algorithm() == Algorithm::ED25519
             } else {
                 false
